@@ -162,8 +162,8 @@ export function TemplateStep({
               params.set(
                 "returnTo",
                 normalizedCampaignId
-                  ? `/campaigns/new?campaign=${encodeURIComponent(normalizedCampaignId)}&step=2`
-                  : "/campaigns/new?step=2"
+                  ? `/campaigns/new?campaign=${encodeURIComponent(normalizedCampaignId)}&step=1`
+                  : "/campaigns/new?step=1"
               );
               if (clean) params.set("template", clean);
               if (templateName) params.set("templateName", templateName);
@@ -178,8 +178,8 @@ export function TemplateStep({
             onEditTemplate={(templateId, templateName) => {
               const params = new URLSearchParams();
               const returnTo = normalizedCampaignId
-                ? `/campaigns/new?campaign=${encodeURIComponent(normalizedCampaignId)}&step=2`
-                : "/campaigns/new?step=2";
+                ? `/campaigns/new?campaign=${encodeURIComponent(normalizedCampaignId)}&step=1`
+                : "/campaigns/new?step=1";
               params.set("returnTo", returnTo);
               params.set("template", templateId);
               if (templateName) params.set("templateName", templateName);
@@ -241,8 +241,8 @@ export function TemplateStep({
             onCreateEditor={(opts) => {
               const params = new URLSearchParams();
               const returnTo = normalizedCampaignId
-                ? `/campaigns/new?campaign=${encodeURIComponent(normalizedCampaignId)}&step=2`
-                : "/campaigns/new?step=2";
+                ? `/campaigns/new?campaign=${encodeURIComponent(normalizedCampaignId)}&step=1`
+                : "/campaigns/new?step=1";
               params.set("returnTo", returnTo);
 
               const subject = form.getValues("emailSubject");

@@ -3,6 +3,7 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import { withApiErrorFields } from "./lib/launch-errors";
 import type { Campaign } from "./types/campaign";
 
 export interface ListCampaignsParams {
@@ -254,9 +255,22 @@ const request = async <T>(
       : isJsonObject(data)
         ? data.message
         : (err.message ?? "Campaigns request failed");
-    throw new Error(
-      status ? `[HTTP ${status}] ${String(message)}` : String(message),
-      { cause: e }
+    // Carry the structured fields through. Flattening to a string lost the
+    // error code, so callers could not tell SENDER_NOT_VERIFIED (actionable —
+    // send them to domain verification) from any other launch failure.
+    throw withApiErrorFields(
+      new Error(
+        status ? `[HTTP ${status}] ${String(message)}` : String(message),
+        { cause: e }
+      ),
+      {
+        code: isJsonObject(nestedError)
+          ? typeof nestedError.code === "string"
+            ? nestedError.code
+            : undefined
+          : undefined,
+        details: isJsonObject(nestedError) ? nestedError.details : undefined,
+      }
     );
   }
 };

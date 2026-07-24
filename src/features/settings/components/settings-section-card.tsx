@@ -27,6 +27,8 @@ interface SettingsSectionCardProps {
   badge?: ReactNode;
   collapsedPreview?: ReactNode;
   defaultOpen?: boolean;
+  /** DOM id on the card, so a deep link can scroll to this section. */
+  id?: string;
   onOpenChange?: (open: boolean) => void;
   className?: string;
   contentClassName?: string;
@@ -40,6 +42,7 @@ export default function SettingsSectionCard({
   badge,
   collapsedPreview,
   defaultOpen = false,
+  id,
   onOpenChange,
   className,
   contentClassName,
@@ -53,6 +56,7 @@ export default function SettingsSectionCard({
   return (
     <Collapsible open={open} onOpenChange={handleOpenChange}>
       <Card
+        id={id}
         className={cn(
           "overflow-hidden rounded-3xl border-border/60 bg-card/70 shadow-sm",
           className

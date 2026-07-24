@@ -287,6 +287,9 @@ function EmailPreviewFrame({ html }: { html: string }) {
     <iframe
       title="Email HTML preview"
       srcDoc={html}
+      // Empty sandbox: the rendered template gets no scripts, no same-origin
+      // access, and no way to reach the parent page or session.
+      sandbox=""
       className="w-full bg-white"
       style={{ border: "none", height: PREVIEW_FRAME_HEIGHT }}
     />
@@ -1415,24 +1418,16 @@ export function CreateCampaignPage() {
   };
 
   const handleNext = async () => {
-    let fieldsToValidate: (keyof CampaignFormData)[] = [];
-
-    // Define which fields to validate for each step. Push campaigns have no
-    // sender identity, so only the subject (push title) applies on step 2.
-    switch (currentStep) {
-      case 1:
-        fieldsToValidate = ["selectedAudiences"];
-        break;
-      case 2:
-        fieldsToValidate =
-          form.getValues("channel") === "in-app-push"
-            ? ["emailSubject"]
-            : ["emailSubject", "senderName", "senderEmail"];
-        break;
-      case 3:
-        fieldsToValidate = [];
-        break;
-    }
+    // Step 1 is the template step, so Continue validates the message fields
+    // rendered there (push campaigns have no sender identity, so only the
+    // subject/title applies). Audience lives on step 2 and is validated by the
+    // form schema at submit — it is not gated here.
+    const fieldsToValidate: (keyof CampaignFormData)[] =
+      currentStep === 1
+        ? form.getValues("channel") === "in-app-push"
+          ? ["emailSubject"]
+          : ["emailSubject", "senderName", "senderEmail"]
+        : [];
 
     const isValid = await form.trigger(fieldsToValidate);
 
@@ -1544,8 +1539,12 @@ export function CreateCampaignPage() {
         await syncAudienceSettings(campaignId, audiencePayload);
       } catch (e) {
         if (!isRateLimitError(e)) throw e;
+        // The backend limits these to 3 requests / 10s. Wait past that window
+        // before the single retry — 2.5s landed inside it, so the retry could
+        // hit the same 429. (The service flattens the error to a string, so a
+        // server Retry-After header isn't available here to honor directly.)
         await new Promise((resolve) => {
-          window.setTimeout(resolve, 2_500);
+          window.setTimeout(resolve, 11_000);
         });
         await syncAudienceSettings(campaignId, audiencePayload);
       }
@@ -1751,7 +1750,14 @@ export function CreateCampaignPage() {
                         form={form}
                         campaignId={campaignId}
                         canLaunch={
-                          canLaunchCampaigns && !isBootstrappingCampaign
+                          canLaunchCampaigns &&
+                          !isBootstrappingCampaign &&
+                          // onSubmit flushes the audience from the form before
+                          // launching; block until hydration has loaded the
+                          // saved selection, or that flush would overwrite it
+                          // with an empty one.
+                          hasHydratedCampaign &&
+                          !isHydratingCampaign
                         }
                         onSchedule={() => setScheduleDialogOpen(true)}
                       />

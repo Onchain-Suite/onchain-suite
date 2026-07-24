@@ -213,7 +213,7 @@ export function ConfirmationPage({
                     What happens next?
                   </span>{" "}
                   We&apos;ll send your campaign at the scheduled time. You can
-                  manage or cancel this campaign from your dashboard.
+                  manage or cancel this campaign from the Campaigns page.
                 </>
               ) : (
                 <>
@@ -233,8 +233,8 @@ export function ConfirmationPage({
             className={`flex flex-col sm:flex-row gap-3 transition-all duration-700 delay-900 ${showDetails ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}
           >
             <Button asChild className="flex-1 group">
-              <Link href={PRIVATE_ROUTES.DASHBOARD}>
-                View Dashboard
+              <Link href={PRIVATE_ROUTES.CAMPAIGNS}>
+                View Campaigns
                 <ArrowRightIcon
                   aria-hidden="true"
                   className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1"

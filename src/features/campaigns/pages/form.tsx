@@ -72,10 +72,6 @@ import { useActiveTimezone } from "@/shared/hooks/client/use-timezones";
 // send-a-test control, so every send setting is chosen in one place with the
 // rendered email in view.
 const TOTAL_STEPS = 2;
-// Steps: 1 Audience → 2 Template & message → 3 Preview & send. Campaign
-// name/type are collected up front in the create-campaign sheet, and send
-// timing (now vs schedule) is chosen on the template step.
-const TOTAL_STEPS = 3;
 /**
  * Domain verification lives in the account tab's "Sender verification"
  * section, which is collapsed by default — `section=` expands and scrolls to
@@ -279,29 +275,20 @@ const asSendOption = (
 
 /**
  * srcDoc email preview that grows to the rendered email's height (about:srcdoc
- * iframes are same-origin, so the content document is measurable) — the page
- * scrolls naturally instead of trapping the email in a short inner scroller.
+ * Compact by design: a fixed-height window that scrolls internally, so a long
+ * template stays a small preview on the send step instead of a full-height
+ * render that dominates the page. The iframe is same-origin, so its own
+ * document provides the scrollbar.
  */
+const PREVIEW_FRAME_HEIGHT = 480;
+
 function EmailPreviewFrame({ html }: { html: string }) {
-  const frameRef = useRef<HTMLIFrameElement | null>(null);
-  const [height, setHeight] = useState(600);
-  const measure = useCallback(() => {
-    const doc = frameRef.current?.contentDocument;
-    if (!doc) return;
-    const next = Math.max(
-      doc.body?.scrollHeight ?? 0,
-      doc.documentElement?.scrollHeight ?? 0
-    );
-    if (next > 0) setHeight(Math.min(Math.max(next + 16, 420), 6000));
-  }, []);
   return (
     <iframe
-      ref={frameRef}
       title="Email HTML preview"
       srcDoc={html}
-      onLoad={measure}
       className="w-full bg-white"
-      style={{ border: "none", height }}
+      style={{ border: "none", height: PREVIEW_FRAME_HEIGHT }}
     />
   );
 }
@@ -772,19 +759,19 @@ function CampaignPreviewStep({
 
           <div className="mt-4 overflow-hidden rounded-xl border border-border">
             {!normalizedCampaignId ? (
-              <div className="flex min-h-[420px] items-center justify-center bg-card p-6 text-center text-sm text-muted-foreground">
+              <div className="flex h-[480px] items-center justify-center bg-card p-6 text-center text-sm text-muted-foreground">
                 Missing campaign id.
               </div>
             ) : isPush ? (
               pushPreviewQuery.isLoading ? (
                 <div
-                  className="flex min-h-[420px] animate-pulse flex-col items-center justify-center gap-3 bg-card p-6"
+                  className="flex h-[480px] animate-pulse flex-col items-center justify-center gap-3 bg-card p-6"
                   aria-hidden="true"
                 >
                   <div className="h-24 w-full max-w-sm rounded-xl bg-muted" />
                 </div>
               ) : pushPreview ? (
-                <div className="flex min-h-[420px] items-center justify-center bg-muted/30 p-6">
+                <div className="flex h-[480px] items-center justify-center bg-muted/30 p-6">
                   {/* Mock in-app notification card */}
                   <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-4 shadow-lg">
                     <div className="flex items-start gap-3">
@@ -813,7 +800,7 @@ function CampaignPreviewStep({
                   </div>
                 </div>
               ) : (
-                <div className="flex min-h-[420px] items-center justify-center bg-card p-6 text-center">
+                <div className="flex h-[480px] items-center justify-center bg-card p-6 text-center">
                   <div className="max-w-md space-y-2">
                     <div className="text-sm font-medium text-foreground">
                       No push content yet
@@ -827,7 +814,7 @@ function CampaignPreviewStep({
               )
             ) : previewQuery.isLoading ? (
               <div
-                className="flex min-h-[420px] animate-pulse flex-col gap-3 bg-card p-6"
+                className="flex h-[480px] animate-pulse flex-col gap-3 bg-card p-6"
                 aria-hidden="true"
               >
                 <div className="h-6 w-1/3 rounded-md bg-muted" />
@@ -837,7 +824,7 @@ function CampaignPreviewStep({
                 <div className="flex-1 rounded-md bg-muted" />
               </div>
             ) : previewQuery.isError ? (
-              <div className="flex min-h-[420px] items-center justify-center bg-card p-6 text-center">
+              <div className="flex h-[480px] items-center justify-center bg-card p-6 text-center">
                 <div className="max-w-md space-y-3">
                   <div className="text-sm font-medium text-foreground">
                     Preview unavailable
@@ -859,7 +846,7 @@ function CampaignPreviewStep({
               previewHtml.trim().length > 0 ? (
                 <EmailPreviewFrame html={previewHtml} />
               ) : (
-                <div className="flex min-h-[420px] items-center justify-center bg-card p-6 text-center">
+                <div className="flex h-[480px] items-center justify-center bg-card p-6 text-center">
                   <div className="max-w-md space-y-2">
                     <div className="text-sm font-medium text-foreground">
                       No HTML preview available
@@ -872,7 +859,7 @@ function CampaignPreviewStep({
                 </div>
               )
             ) : (
-              <pre className="max-h-[75vh] min-h-[420px] overflow-auto bg-muted p-4 text-sm text-foreground whitespace-pre-wrap">
+              <pre className="h-[480px] overflow-auto bg-muted p-4 text-sm text-foreground whitespace-pre-wrap">
                 {previewText.length > 0
                   ? previewText
                   : "No text preview available."}

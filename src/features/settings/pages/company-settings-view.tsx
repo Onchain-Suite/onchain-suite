@@ -1342,6 +1342,11 @@ export default function CompanySettingsView() {
   const domainBadgeLabel = useMemo(() => {
     if (domainSummary.total === 0) return "Not set up";
     if (domainSummary.allVerified) return "Verified";
+    // Surface both when a domain is pending AND another has failed — reporting
+    // only the pending count would hide domains that need attention.
+    if (domainSummary.pending > 0 && domainSummary.failed > 0) {
+      return `${domainSummary.pending} pending · ${domainSummary.failed} need attention`;
+    }
     if (domainSummary.pending > 0) return `${domainSummary.pending} pending`;
     if (domainSummary.failed > 0) {
       return `${domainSummary.failed} need attention`;

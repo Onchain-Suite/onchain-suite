@@ -66,11 +66,11 @@ import { senderIdentitiesService } from "@/features/settings/sender-identities.s
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 import { useActiveTimezone } from "@/shared/hooks/client/use-timezones";
 
-// Steps: 1 Template & message → 2 Audience, tracking, preview & send.
+// Steps: 1 Audience & tracking → 2 Template, message, preview & send.
 // Campaign name/type are collected up front in the create-campaign sheet.
-// Audience and tracking sit on the final step alongside the preview and a
-// send-a-test control, so every send setting is chosen in one place with the
-// rendered email in view.
+// The final step composes the email beside a compact preview, a send-a-test
+// control, and the send action, so the message and its dispatch live together
+// while the audience is chosen first.
 const TOTAL_STEPS = 2;
 /**
  * Domain verification lives in the account tab's "Sender verification"
@@ -1418,16 +1418,11 @@ export function CreateCampaignPage() {
   };
 
   const handleNext = async () => {
-    // Step 1 is the template step, so Continue validates the message fields
-    // rendered there (push campaigns have no sender identity, so only the
-    // subject/title applies). Audience lives on step 2 and is validated by the
-    // form schema at submit — it is not gated here.
+    // Step 1 is the audience step, so Continue validates the audience
+    // selection. The message fields live on step 2 and are validated by the
+    // form schema at submit.
     const fieldsToValidate: (keyof CampaignFormData)[] =
-      currentStep === 1
-        ? form.getValues("channel") === "in-app-push"
-          ? ["emailSubject"]
-          : ["emailSubject", "senderName", "senderEmail"]
-        : [];
+      currentStep === 1 ? ["selectedAudiences"] : [];
 
     const isValid = await form.trigger(fieldsToValidate);
 
@@ -1443,19 +1438,22 @@ export function CreateCampaignPage() {
 
     try {
       if (currentStep === 1) {
-        const data = form.getValues();
-        await campaignsService.updateContent(campaignId, {
-          subject: data.emailSubject,
-          previewText: data.previewText,
-          senderName: data.senderName ?? "",
-          senderEmail: data.senderEmail ?? "",
-          replyToEmail: data.useReplyTo ? data.replyToEmail : undefined,
-        });
-
-        if (data.selectedTemplate && data.selectedTemplate.length > 0) {
-          await campaignsService.setTemplate(campaignId, {
-            templateId: data.selectedTemplate,
+        // Persist the audience/tracking selection before advancing. The
+        // audience step's debounced autosync usually wrote it already (the
+        // change cache then makes this a no-op); this flush covers a change
+        // made just before Continue. A 429 (3 req/10s) is retried once after
+        // the window.
+        const audiencePayload = await buildAudienceSyncOptions(
+          form.getValues()
+        );
+        try {
+          await syncAudienceSettings(campaignId, audiencePayload);
+        } catch (e) {
+          if (!isRateLimitError(e)) throw e;
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, 11_000);
           });
+          await syncAudienceSettings(campaignId, audiencePayload);
         }
       }
     } catch (e) {
@@ -1529,24 +1527,20 @@ export function CreateCampaignPage() {
     try {
       const data = form.getValues();
 
-      // Audience and tracking now live on this same step, persisted by the
-      // audience step's debounced autosync. Flush the current selection
-      // before sending so a change made moments ago can't be left unsaved —
-      // the change cache makes this a no-op when the autosync already wrote
-      // it. A 429 (3 req/10s) is retried once after the window.
-      const audiencePayload = await buildAudienceSyncOptions(data);
-      try {
-        await syncAudienceSettings(campaignId, audiencePayload);
-      } catch (e) {
-        if (!isRateLimitError(e)) throw e;
-        // The backend limits these to 3 requests / 10s. Wait past that window
-        // before the single retry — 2.5s landed inside it, so the retry could
-        // hit the same 429. (The service flattens the error to a string, so a
-        // server Retry-After header isn't available here to honor directly.)
-        await new Promise((resolve) => {
-          window.setTimeout(resolve, 11_000);
+      // The message and template now live on this final step, so persist them
+      // before sending. Audience/tracking was saved on step 1 (Continue +
+      // the audience step's autosync), so it isn't re-sent here.
+      await campaignsService.updateContent(campaignId, {
+        subject: data.emailSubject,
+        previewText: data.previewText,
+        senderName: data.senderName ?? "",
+        senderEmail: data.senderEmail ?? "",
+        replyToEmail: data.useReplyTo ? data.replyToEmail : undefined,
+      });
+      if (data.selectedTemplate && data.selectedTemplate.length > 0) {
+        await campaignsService.setTemplate(campaignId, {
+          templateId: data.selectedTemplate,
         });
-        await syncAudienceSettings(campaignId, audiencePayload);
       }
 
       // In-app push campaigns bypass the email render/validate/launch
@@ -1718,33 +1712,35 @@ export function CreateCampaignPage() {
                     </div>
                   )}
                   {currentStep === 1 && (
-                    <TemplateStep
+                    <AudienceStep
                       form={form}
                       campaignId={campaignId}
-                      verifiedSenderIdentities={verifiedSenderIdentities}
-                      senderIdentitiesLoading={senderIdentitiesQuery.isLoading}
-                      canSendEmail={canSendEmail}
+                      canSync={
+                        Boolean(campaignId) &&
+                        hasHydratedCampaign &&
+                        !isHydratingCampaign &&
+                        !isBootstrappingCampaign
+                      }
+                      tags={audienceTagsQuery.data ?? []}
+                      segments={audienceSegmentsQuery.data ?? []}
+                      segmentsLoading={audienceSegmentsQuery.isLoading}
+                      segmentsError={
+                        audienceSegmentsQuery.error instanceof Error
+                          ? audienceSegmentsQuery.error.message
+                          : null
+                      }
                     />
                   )}
                   {currentStep === 2 && (
                     <>
-                      <AudienceStep
+                      <TemplateStep
                         form={form}
                         campaignId={campaignId}
-                        canSync={
-                          Boolean(campaignId) &&
-                          hasHydratedCampaign &&
-                          !isHydratingCampaign &&
-                          !isBootstrappingCampaign
+                        verifiedSenderIdentities={verifiedSenderIdentities}
+                        senderIdentitiesLoading={
+                          senderIdentitiesQuery.isLoading
                         }
-                        tags={audienceTagsQuery.data ?? []}
-                        segments={audienceSegmentsQuery.data ?? []}
-                        segmentsLoading={audienceSegmentsQuery.isLoading}
-                        segmentsError={
-                          audienceSegmentsQuery.error instanceof Error
-                            ? audienceSegmentsQuery.error.message
-                            : null
-                        }
+                        canSendEmail={canSendEmail}
                       />
                       <CampaignPreviewStep
                         form={form}
@@ -1752,10 +1748,9 @@ export function CreateCampaignPage() {
                         canLaunch={
                           canLaunchCampaigns &&
                           !isBootstrappingCampaign &&
-                          // onSubmit flushes the audience from the form before
-                          // launching; block until hydration has loaded the
-                          // saved selection, or that flush would overwrite it
-                          // with an empty one.
+                          // Launch saves content + template from the form;
+                          // block until hydration has loaded the saved state
+                          // so a launch can't persist an empty over it.
                           hasHydratedCampaign &&
                           !isHydratingCampaign
                         }
@@ -1785,7 +1780,15 @@ export function CreateCampaignPage() {
                       <Button
                         type="button"
                         onClick={handleNext}
-                        disabled={!campaignId || isBootstrappingCampaign}
+                        disabled={
+                          !campaignId ||
+                          isBootstrappingCampaign ||
+                          // Continue flushes the audience from the form; block
+                          // until hydration loaded the saved selection so the
+                          // flush can't overwrite it with an empty one.
+                          !hasHydratedCampaign ||
+                          isHydratingCampaign
+                        }
                         className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-5 md:px-8 transition-all duration-300 ease-in-out hover:shadow-lg"
                       >
                         Continue

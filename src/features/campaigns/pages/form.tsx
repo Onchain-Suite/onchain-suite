@@ -112,6 +112,30 @@ interface CurrentMemberAccess {
 const isLikelyEmail = (value: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
+/**
+ * Persist the final step's message + template so the saved campaign reflects
+ * the current edits. Shared by the launch flow and the send-a-test control —
+ * a test renders from saved content, so it must run before sendTest too, or
+ * the test would use stale content.
+ */
+const persistCampaignContent = async (
+  campaignId: string,
+  data: CampaignFormData
+): Promise<void> => {
+  await campaignsService.updateContent(campaignId, {
+    subject: data.emailSubject,
+    previewText: data.previewText,
+    senderName: data.senderName ?? "",
+    senderEmail: data.senderEmail ?? "",
+    replyToEmail: data.useReplyTo ? data.replyToEmail : undefined,
+  });
+  if (data.selectedTemplate && data.selectedTemplate.length > 0) {
+    await campaignsService.setTemplate(campaignId, {
+      templateId: data.selectedTemplate,
+    });
+  }
+};
+
 const unwrapData = (payload: unknown): unknown => {
   if (isJsonObject(payload) && "data" in payload) {
     return payload.data ?? payload;
@@ -316,6 +340,9 @@ function CampaignPreviewStep({
     if (!campaignId || !isLikelyEmail(to)) return;
     setIsSendingTest(true);
     try {
+      // A test renders from saved content, so persist the current message +
+      // template first — otherwise the test reflects a previous save.
+      await persistCampaignContent(campaignId, form.getValues());
       await campaignsService.sendTest(campaignId, { to });
       toast.success(`Test sent to ${to}.`);
     } catch (e) {
@@ -907,6 +934,12 @@ export function CreateCampaignPage() {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [isHydratingCampaign, setIsHydratingCampaign] = useState(false);
   const [hasHydratedCampaign, setHasHydratedCampaign] = useState(false);
+  // Hydration completing (Promise.allSettled) is not the same as it
+  // succeeding: a rejected getAudience/getContent still marks the campaign
+  // "hydrated" while the form holds empty defaults. Gate writes on these so a
+  // failed load can't be persisted back over the saved campaign.
+  const [audienceHydrationOk, setAudienceHydrationOk] = useState(false);
+  const [contentHydrationOk, setContentHydrationOk] = useState(false);
 
   const campaignIdRef = useRef<string | undefined>(campaignId);
   const currentStepRef = useRef<number>(currentStep);
@@ -1198,6 +1231,9 @@ export function CreateCampaignPage() {
       if (hasHydratedCampaign) return;
 
       if (!initialCampaignFromUrl) {
+        // Nothing to load — the form defaults are the source of truth.
+        setAudienceHydrationOk(true);
+        setContentHydrationOk(true);
         setHasHydratedCampaign(true);
         return;
       }
@@ -1212,6 +1248,14 @@ export function CreateCampaignPage() {
             campaignsService.getTracking(campaignId),
             campaignsService.getSchedule(campaignId),
           ]);
+
+        // Writes require the specific loads they'd overwrite to have
+        // succeeded, not merely settled.
+        setAudienceHydrationOk(
+          audienceRes.status === "fulfilled" &&
+            trackingRes.status === "fulfilled"
+        );
+        setContentHydrationOk(contentRes.status === "fulfilled");
 
         const nextValues: Partial<CampaignFormData> = {};
 
@@ -1495,11 +1539,26 @@ export function CreateCampaignPage() {
       addUtm("term", data.utmTerm);
       addUtm("content", data.utmContent);
     }
+    // Parse the per-campaign Smart Sending override the same way the audience
+    // step does (blank/out-of-range → omit), so a last-second edit persists
+    // through the Continue flush and not only via the debounced autosync.
+    const windowRaw = (data.smartSendingWindowHours ?? "").trim();
+    const windowParsed = Number(windowRaw);
+    const smartSendingWindowHours =
+      windowRaw.length > 0 &&
+      Number.isInteger(windowParsed) &&
+      windowParsed >= 1 &&
+      windowParsed <= 168
+        ? windowParsed
+        : undefined;
     return {
       audience: { segmentIds, profileIds: mergedProfileIds },
       tracking: {
         smartSending: Boolean(data.smartSending),
         trackingParameters: Boolean(data.trackingParameters),
+        ...(smartSendingWindowHours !== undefined
+          ? { smartSendingWindowHours }
+          : {}),
         ...(Object.keys(utm).length > 0 ? { utm } : {}),
       },
       skipEstimate: true,
@@ -1530,18 +1589,7 @@ export function CreateCampaignPage() {
       // The message and template now live on this final step, so persist them
       // before sending. Audience/tracking was saved on step 1 (Continue +
       // the audience step's autosync), so it isn't re-sent here.
-      await campaignsService.updateContent(campaignId, {
-        subject: data.emailSubject,
-        previewText: data.previewText,
-        senderName: data.senderName ?? "",
-        senderEmail: data.senderEmail ?? "",
-        replyToEmail: data.useReplyTo ? data.replyToEmail : undefined,
-      });
-      if (data.selectedTemplate && data.selectedTemplate.length > 0) {
-        await campaignsService.setTemplate(campaignId, {
-          templateId: data.selectedTemplate,
-        });
-      }
+      await persistCampaignContent(campaignId, data);
 
       // In-app push campaigns bypass the email render/validate/launch
       // pipeline: POST /campaigns/{id}/send-inapp fans out immediately to
@@ -1719,7 +1767,10 @@ export function CreateCampaignPage() {
                         Boolean(campaignId) &&
                         hasHydratedCampaign &&
                         !isHydratingCampaign &&
-                        !isBootstrappingCampaign
+                        !isBootstrappingCampaign &&
+                        // Don't autosync over an audience/tracking load that
+                        // failed and left the form at empty defaults.
+                        audienceHydrationOk
                       }
                       tags={audienceTagsQuery.data ?? []}
                       segments={audienceSegmentsQuery.data ?? []}
@@ -1749,10 +1800,10 @@ export function CreateCampaignPage() {
                           canLaunchCampaigns &&
                           !isBootstrappingCampaign &&
                           // Launch saves content + template from the form;
-                          // block until hydration has loaded the saved state
+                          // block until the saved content loaded successfully
                           // so a launch can't persist an empty over it.
-                          hasHydratedCampaign &&
-                          !isHydratingCampaign
+                          !isHydratingCampaign &&
+                          contentHydrationOk
                         }
                         onSchedule={() => setScheduleDialogOpen(true)}
                       />
@@ -1784,10 +1835,11 @@ export function CreateCampaignPage() {
                           !campaignId ||
                           isBootstrappingCampaign ||
                           // Continue flushes the audience from the form; block
-                          // until hydration loaded the saved selection so the
-                          // flush can't overwrite it with an empty one.
-                          !hasHydratedCampaign ||
-                          isHydratingCampaign
+                          // until the saved audience/tracking loaded
+                          // successfully so the flush can't overwrite it with
+                          // an empty one.
+                          isHydratingCampaign ||
+                          !audienceHydrationOk
                         }
                         className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-5 md:px-8 transition-all duration-300 ease-in-out hover:shadow-lg"
                       >

@@ -526,21 +526,21 @@ function CampaignPreviewStep({
   }, [isScheduled, timezone, values.scheduleDate, values.scheduleTime]);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 p-4 sm:p-6 md:p-8 lg:p-10">
-      <div className="space-y-2">
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground text-balance">
+    <div className="space-y-5 animate-in fade-in duration-500 border-t border-border/60 p-4 pt-6 sm:p-6 sm:pt-6">
+      <div className="space-y-0.5">
+        <h2 className="text-xl sm:text-2xl font-bold text-foreground text-balance">
           Preview campaign
         </h2>
-        <p className="text-base text-muted-foreground text-pretty">
+        <p className="text-sm text-muted-foreground text-pretty">
           {isPush
             ? "Here is the push notification your audience will receive. Review the details, then send it on its way."
             : "Here is the email your audience will receive. Review the details, then send it on its way."}
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
         <div className="space-y-4">
-          <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="rounded-2xl border border-border bg-card p-4">
             <div className="text-sm font-medium text-foreground">Summary</div>
             <div className="mt-3 space-y-2 text-sm text-muted-foreground">
               <div>
@@ -581,7 +581,7 @@ function CampaignPreviewStep({
           {/* Send a test to one address before committing to the audience.
               Email only — send-inapp has no test variant. */}
           {!isPush ? (
-            <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="rounded-2xl border border-border bg-card p-4">
               <label
                 htmlFor="campaign-test-recipient"
                 className="text-sm font-medium text-foreground"
@@ -631,7 +631,7 @@ function CampaignPreviewStep({
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="rounded-2xl border border-border bg-card p-4">
             {!canLaunch ? (
               <p className="mb-3 text-xs text-muted-foreground">
                 Your role cannot launch campaigns for this organization.

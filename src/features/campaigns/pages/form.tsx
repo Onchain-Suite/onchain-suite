@@ -66,12 +66,11 @@ import { senderIdentitiesService } from "@/features/settings/sender-identities.s
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 import { useActiveTimezone } from "@/shared/hooks/client/use-timezones";
 
-// Steps: 1 Audience & tracking → 2 Template, message, preview & send.
+// Steps: 1 Audience & tracking → 2 Template & message → 3 Preview & send.
 // Campaign name/type are collected up front in the create-campaign sheet.
-// The final step composes the email beside a compact preview, a send-a-test
-// control, and the send action, so the message and its dispatch live together
-// while the audience is chosen first.
-const TOTAL_STEPS = 2;
+// Preview has its own page so the rendered email gets room, alongside the
+// campaign details and a send-a-test control.
+const TOTAL_STEPS = 3;
 /**
  * Domain verification lives in the account tab's "Sender verification"
  * section, which is collapsed by default — `section=` expands and scrolls to
@@ -304,7 +303,7 @@ const asSendOption = (
  * render that dominates the page. The iframe is same-origin, so its own
  * document provides the scrollbar.
  */
-const PREVIEW_FRAME_HEIGHT = 480;
+const PREVIEW_FRAME_HEIGHT = 720;
 
 function EmailPreviewFrame({ html }: { html: string }) {
   return (
@@ -526,7 +525,7 @@ function CampaignPreviewStep({
   }, [isScheduled, timezone, values.scheduleDate, values.scheduleTime]);
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-500 border-t border-border/60 p-4 pt-6 sm:p-6 sm:pt-6">
+    <div className="space-y-5 animate-in fade-in duration-500 p-4 sm:p-6">
       <div className="space-y-0.5">
         <h2 className="text-xl sm:text-2xl font-bold text-foreground text-balance">
           Preview campaign
@@ -538,9 +537,9 @@ function CampaignPreviewStep({
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
         <div className="space-y-4">
-          <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="rounded-2xl border border-border bg-card p-5">
             <div className="text-sm font-medium text-foreground">Summary</div>
             <div className="mt-3 space-y-2 text-sm text-muted-foreground">
               <div>
@@ -581,7 +580,7 @@ function CampaignPreviewStep({
           {/* Send a test to one address before committing to the audience.
               Email only — send-inapp has no test variant. */}
           {!isPush ? (
-            <div className="rounded-2xl border border-border bg-card p-4">
+            <div className="rounded-2xl border border-border bg-card p-5">
               <label
                 htmlFor="campaign-test-recipient"
                 className="text-sm font-medium text-foreground"
@@ -631,7 +630,7 @@ function CampaignPreviewStep({
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="rounded-2xl border border-border bg-card p-5">
             {!canLaunch ? (
               <p className="mb-3 text-xs text-muted-foreground">
                 Your role cannot launch campaigns for this organization.
@@ -789,19 +788,19 @@ function CampaignPreviewStep({
 
           <div className="mt-4 overflow-hidden rounded-xl border border-border">
             {!normalizedCampaignId ? (
-              <div className="flex h-[480px] items-center justify-center bg-card p-6 text-center text-sm text-muted-foreground">
+              <div className="flex h-[720px] items-center justify-center bg-card p-6 text-center text-sm text-muted-foreground">
                 Missing campaign id.
               </div>
             ) : isPush ? (
               pushPreviewQuery.isLoading ? (
                 <div
-                  className="flex h-[480px] animate-pulse flex-col items-center justify-center gap-3 bg-card p-6"
+                  className="flex h-[720px] animate-pulse flex-col items-center justify-center gap-3 bg-card p-6"
                   aria-hidden="true"
                 >
                   <div className="h-24 w-full max-w-sm rounded-xl bg-muted" />
                 </div>
               ) : pushPreview ? (
-                <div className="flex h-[480px] items-center justify-center bg-muted/30 p-6">
+                <div className="flex h-[720px] items-center justify-center bg-muted/30 p-6">
                   {/* Mock in-app notification card */}
                   <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-4 shadow-lg">
                     <div className="flex items-start gap-3">
@@ -830,7 +829,7 @@ function CampaignPreviewStep({
                   </div>
                 </div>
               ) : (
-                <div className="flex h-[480px] items-center justify-center bg-card p-6 text-center">
+                <div className="flex h-[720px] items-center justify-center bg-card p-6 text-center">
                   <div className="max-w-md space-y-2">
                     <div className="text-sm font-medium text-foreground">
                       No push content yet
@@ -844,7 +843,7 @@ function CampaignPreviewStep({
               )
             ) : previewQuery.isLoading ? (
               <div
-                className="flex h-[480px] animate-pulse flex-col gap-3 bg-card p-6"
+                className="flex h-[720px] animate-pulse flex-col gap-3 bg-card p-6"
                 aria-hidden="true"
               >
                 <div className="h-6 w-1/3 rounded-md bg-muted" />
@@ -854,7 +853,7 @@ function CampaignPreviewStep({
                 <div className="flex-1 rounded-md bg-muted" />
               </div>
             ) : previewQuery.isError ? (
-              <div className="flex h-[480px] items-center justify-center bg-card p-6 text-center">
+              <div className="flex h-[720px] items-center justify-center bg-card p-6 text-center">
                 <div className="max-w-md space-y-3">
                   <div className="text-sm font-medium text-foreground">
                     Preview unavailable
@@ -874,9 +873,15 @@ function CampaignPreviewStep({
               </div>
             ) : tab === "html" ? (
               previewHtml.trim().length > 0 ? (
-                <EmailPreviewFrame html={previewHtml} />
+                // Frame the email on a backdrop at a typical email width so it
+                // reads as the message itself, not a full-bleed panel.
+                <div className="flex justify-center overflow-auto bg-muted/30 p-4 sm:p-6">
+                  <div className="w-full max-w-[680px] overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+                    <EmailPreviewFrame html={previewHtml} />
+                  </div>
+                </div>
               ) : (
-                <div className="flex h-[480px] items-center justify-center bg-card p-6 text-center">
+                <div className="flex h-[720px] items-center justify-center bg-card p-6 text-center">
                   <div className="max-w-md space-y-2">
                     <div className="text-sm font-medium text-foreground">
                       No HTML preview available
@@ -889,7 +894,7 @@ function CampaignPreviewStep({
                 </div>
               )
             ) : (
-              <pre className="h-[480px] overflow-auto bg-muted p-4 text-sm text-foreground whitespace-pre-wrap">
+              <pre className="h-[720px] overflow-auto bg-muted p-4 text-sm text-foreground whitespace-pre-wrap">
                 {previewText.length > 0
                   ? previewText
                   : "No text preview available."}
@@ -1462,11 +1467,17 @@ export function CreateCampaignPage() {
   };
 
   const handleNext = async () => {
-    // Step 1 is the audience step, so Continue validates the audience
-    // selection. The message fields live on step 2 and are validated by the
-    // form schema at submit.
+    // Step 1 validates the audience; step 2 validates the message fields
+    // rendered on the template step (push has no sender identity, so only the
+    // subject/title applies).
     const fieldsToValidate: (keyof CampaignFormData)[] =
-      currentStep === 1 ? ["selectedAudiences"] : [];
+      currentStep === 1
+        ? ["selectedAudiences"]
+        : currentStep === 2
+          ? form.getValues("channel") === "in-app-push"
+            ? ["emailSubject"]
+            : ["emailSubject", "senderName", "senderEmail"]
+          : [];
 
     const isValid = await form.trigger(fieldsToValidate);
 
@@ -1499,6 +1510,12 @@ export function CreateCampaignPage() {
           });
           await syncAudienceSettings(campaignId, audiencePayload);
         }
+      }
+
+      if (currentStep === 2) {
+        // Persist the message + template before moving to the preview so it
+        // renders the current edits.
+        await persistCampaignContent(campaignId, form.getValues());
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Failed to save step";
@@ -1783,31 +1800,29 @@ export function CreateCampaignPage() {
                     />
                   )}
                   {currentStep === 2 && (
-                    <>
-                      <TemplateStep
-                        form={form}
-                        campaignId={campaignId}
-                        verifiedSenderIdentities={verifiedSenderIdentities}
-                        senderIdentitiesLoading={
-                          senderIdentitiesQuery.isLoading
-                        }
-                        canSendEmail={canSendEmail}
-                      />
-                      <CampaignPreviewStep
-                        form={form}
-                        campaignId={campaignId}
-                        canLaunch={
-                          canLaunchCampaigns &&
-                          !isBootstrappingCampaign &&
-                          // Launch saves content + template from the form;
-                          // block until the saved content loaded successfully
-                          // so a launch can't persist an empty over it.
-                          !isHydratingCampaign &&
-                          contentHydrationOk
-                        }
-                        onSchedule={() => setScheduleDialogOpen(true)}
-                      />
-                    </>
+                    <TemplateStep
+                      form={form}
+                      campaignId={campaignId}
+                      verifiedSenderIdentities={verifiedSenderIdentities}
+                      senderIdentitiesLoading={senderIdentitiesQuery.isLoading}
+                      canSendEmail={canSendEmail}
+                    />
+                  )}
+                  {currentStep === 3 && (
+                    <CampaignPreviewStep
+                      form={form}
+                      campaignId={campaignId}
+                      canLaunch={
+                        canLaunchCampaigns &&
+                        !isBootstrappingCampaign &&
+                        // Launch saves content + template from the form; block
+                        // until the saved content loaded successfully so a
+                        // launch can't persist an empty over it.
+                        !isHydratingCampaign &&
+                        contentHydrationOk
+                      }
+                      onSchedule={() => setScheduleDialogOpen(true)}
+                    />
                   )}
 
                   {/* Navigation. The final step owns the send-timing actions
@@ -1827,19 +1842,20 @@ export function CreateCampaignPage() {
                       Back
                     </Button>
 
-                    {currentStep === 1 ? (
+                    {currentStep < TOTAL_STEPS ? (
                       <Button
                         type="button"
                         onClick={handleNext}
                         disabled={
                           !campaignId ||
                           isBootstrappingCampaign ||
-                          // Continue flushes the audience from the form; block
-                          // until the saved audience/tracking loaded
-                          // successfully so the flush can't overwrite it with
-                          // an empty one.
                           isHydratingCampaign ||
-                          !audienceHydrationOk
+                          // Continue persists from the form (audience on step
+                          // 1, content on step 2), so block until the load it
+                          // would overwrite succeeded.
+                          (currentStep === 1
+                            ? !audienceHydrationOk
+                            : !contentHydrationOk)
                         }
                         className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-5 md:px-8 transition-all duration-300 ease-in-out hover:shadow-lg"
                       >

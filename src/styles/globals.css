@@ -183,7 +183,9 @@
   --chart-3: var(--orange-500);
   --chart-4: var(--blue-300);
   --chart-5: var(--blue-200);
-  --sidebar: var(--bg-page);
+  /* Surface, not page: the sidebar renders as a floating panel, so it lifts off
+     the canvas the same way it already does in dark (§3 "Cards, panels"). */
+  --sidebar: var(--bg-surface);
   --sidebar-foreground: var(--text-primary);
   --sidebar-primary: var(--action-primary);
   --sidebar-primary-foreground: var(--text-on-brand);
@@ -501,6 +503,7 @@
      and the data-viz series. Usable as bg-/text-/border-{name}. */
   --color-selected: var(--bg-selected);
   --color-surface-hover: var(--surface-hover);
+  --color-surface-subtle: var(--surface-subtle);
   --color-sunken: var(--bg-sunken);
   --color-brand-subtle: var(--bg-brand-subtle);
   --color-line-strong: var(--border-strong);

@@ -47,7 +47,7 @@ export function SidebarSearch({ onClick }: { onClick?: () => void }) {
           <kbd
             className={cn(
               "pointer-events-none ml-auto flex h-5 min-w-10 items-center justify-center rounded px-1.5 font-mono text-[10px] font-medium select-none group-data-[collapsible=icon]:hidden",
-              shortcut && "border border-sidebar-border bg-sidebar"
+              shortcut && "border border-sidebar-border bg-surface-subtle"
             )}
             aria-hidden="true"
           >

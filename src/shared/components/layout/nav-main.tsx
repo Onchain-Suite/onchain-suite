@@ -21,11 +21,21 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 
-import { isBranchActive, isNavActive, type NavItem } from "./nav-utils";
+import { cn } from "@/lib/utils";
+
+import {
+  isBranchActive,
+  isNavActive,
+  type NavItem,
+  navTooltip,
+} from "./nav-utils";
 
 // Dims the glyph on idle rows; the active row inherits the accent color.
 const ROW =
   "[&>svg]:text-muted-foreground data-[active=true]:[&>svg]:text-sidebar-accent-foreground";
+
+/** Sections still in development read as reachable but not ready. */
+const WIP = "opacity-50 hover:opacity-80";
 
 export function NavMain({
   label,
@@ -59,9 +69,9 @@ function LinkRow({ item, pathname }: { item: NavItem; pathname: string }) {
     <SidebarMenuItem>
       <SidebarMenuButton
         asChild
-        tooltip={item.title}
+        tooltip={navTooltip(item)}
         isActive={isNavActive(pathname, item)}
-        className={ROW}
+        className={cn(ROW, item.wip && WIP)}
       >
         <Link href={item.url}>
           {item.icon ? <item.icon aria-hidden="true" /> : null}
@@ -96,9 +106,9 @@ function CollapsibleRow({
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton
-            tooltip={item.title}
+            tooltip={navTooltip(item)}
             isActive={isNavActive(pathname, item)}
-            className={ROW}
+            className={cn(ROW, item.wip && WIP)}
           >
             {item.icon ? <item.icon aria-hidden="true" /> : null}
             <span>{item.title}</span>

@@ -22,11 +22,14 @@ export function SidebarBrand({
   name,
   href = "/",
   mark,
+  markClassName,
 }: {
   name: string;
   href?: string;
   /** Custom brand mark; defaults to the first letter of `name` in a filled tile. */
   mark?: React.ReactNode;
+  /** Overrides the tile behind the mark — e.g. a neutral fill for a real logo. */
+  markClassName?: string;
 }) {
   return (
     <div className="flex items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
@@ -34,7 +37,12 @@ export function SidebarBrand({
         href={href}
         className="flex min-w-0 items-center gap-2 rounded-md outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring"
       >
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
+        <span
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground",
+            markClassName
+          )}
+        >
           {mark ?? name.charAt(0).toUpperCase()}
         </span>
         <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">

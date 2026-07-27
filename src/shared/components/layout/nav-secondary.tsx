@@ -11,7 +11,9 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-import { isNavActive, type NavItem } from "./nav-utils";
+import { cn } from "@/lib/utils";
+
+import { isNavActive, type NavItem, navTooltip } from "./nav-utils";
 
 /**
  * Utility links that sit below the primary nav (settings, invites, docs).
@@ -28,9 +30,12 @@ export function NavSecondary({ items }: { items: NavItem[] }) {
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
                 asChild
-                tooltip={item.title}
+                tooltip={navTooltip(item)}
                 isActive={isNavActive(pathname, item)}
-                className="[&>svg]:text-muted-foreground data-[active=true]:[&>svg]:text-sidebar-accent-foreground"
+                className={cn(
+                  "[&>svg]:text-muted-foreground data-[active=true]:[&>svg]:text-sidebar-accent-foreground",
+                  item.wip && "opacity-50 hover:opacity-80"
+                )}
               >
                 <Link href={item.url}>
                   {item.icon ? <item.icon aria-hidden="true" /> : null}

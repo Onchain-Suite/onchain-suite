@@ -1,73 +1,141 @@
-"use client"
+"use client";
 
-import { ChevronRight, type LucideIcon } from "lucide-react"
+import { ChevronRightIcon } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+} from "@/components/ui/collapsible";
 import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
+
+import { isBranchActive, isNavActive, type NavItem } from "./nav-utils";
+
+// Dims the glyph on idle rows; the active row inherits the accent color.
+const ROW =
+  "[&>svg]:text-muted-foreground data-[active=true]:[&>svg]:text-sidebar-accent-foreground";
 
 export function NavMain({
+  label,
   items,
 }: {
-  items: {
-    title: string
-    url: string
-    icon?: LucideIcon
-    isActive?: boolean
-    items?: {
-      title: string
-      url: string
-    }[]
-  }[]
+  label?: string;
+  items: NavItem[];
 }) {
+  // `usePathname` is null while Next resolves the route on first paint.
+  const pathname = usePathname() ?? "";
+
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
+      {label ? <SidebarGroupLabel>{label}</SidebarGroupLabel> : null}
       <SidebarMenu>
-        {items.map((item) => (
-          <Collapsible
-            key={item.title}
-            asChild
-            defaultOpen={item.isActive}
-            className="group/collapsible"
-          >
-            <SidebarMenuItem>
-              <CollapsibleTrigger asChild>
-                <SidebarMenuButton tooltip={item.title}>
-                  {item.icon && <item.icon />}
-                  <span>{item.title}</span>
-                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                </SidebarMenuButton>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarMenuSub>
-                  {item.items?.map((subItem) => (
-                    <SidebarMenuSubItem key={subItem.title}>
-                      <SidebarMenuSubButton asChild>
-                        <a href={subItem.url}>
-                          <span>{subItem.title}</span>
-                        </a>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                </SidebarMenuSub>
-              </CollapsibleContent>
-            </SidebarMenuItem>
-          </Collapsible>
-        ))}
+        {items.map((item) =>
+          item.items?.length ? (
+            <CollapsibleRow key={item.title} item={item} pathname={pathname} />
+          ) : (
+            <LinkRow key={item.title} item={item} pathname={pathname} />
+          )
+        )}
       </SidebarMenu>
     </SidebarGroup>
-  )
+  );
+}
+
+/** Leaf row — navigates directly, no disclosure. */
+function LinkRow({ item, pathname }: { item: NavItem; pathname: string }) {
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        tooltip={item.title}
+        isActive={isNavActive(pathname, item)}
+        className={ROW}
+      >
+        <Link href={item.url}>
+          {item.icon ? <item.icon aria-hidden="true" /> : null}
+          <span>{item.title}</span>
+        </Link>
+      </SidebarMenuButton>
+      {item.badge === "dot" ? <StatusDot /> : null}
+    </SidebarMenuItem>
+  );
+}
+
+/**
+ * Parent row with children. Opens by default when it owns the current route.
+ * On the collapsed rail the sub-menu and chevron are hidden and the row falls
+ * back to its tooltip, so the disclosure never fires invisibly.
+ */
+function CollapsibleRow({
+  item,
+  pathname,
+}: {
+  item: NavItem;
+  pathname: string;
+}) {
+  const branchActive = isBranchActive(pathname, item);
+
+  return (
+    <Collapsible
+      asChild
+      defaultOpen={branchActive}
+      className="group/collapsible"
+    >
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton
+            tooltip={item.title}
+            isActive={isNavActive(pathname, item)}
+            className={ROW}
+          >
+            {item.icon ? <item.icon aria-hidden="true" /> : null}
+            <span>{item.title}</span>
+            <ChevronRightIcon
+              aria-hidden="true"
+              className="ml-auto transition-transform duration-(--duration-base) group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden"
+            />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          {/* Hairline dropped: the reference indents children without a tree line. */}
+          <SidebarMenuSub className="border-none">
+            {item.items?.map((subItem) => (
+              <SidebarMenuSubItem key={subItem.title}>
+                <SidebarMenuSubButton
+                  asChild
+                  isActive={isNavActive(pathname, subItem)}
+                >
+                  <Link href={subItem.url}>
+                    <span>{subItem.title}</span>
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+}
+
+/** Trailing activity dot (e.g. Revenue). Hidden on the collapsed rail. */
+function StatusDot() {
+  return (
+    <SidebarMenuBadge>
+      <span className="size-2 rounded-full bg-(--status-success-border)" />
+      <span className="sr-only">Has updates</span>
+    </SidebarMenuBadge>
+  );
 }

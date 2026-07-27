@@ -1,176 +1,105 @@
 "use client";
 
 import {
-  AudioWaveform,
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
-  GalleryVerticalEnd,
-  Map,
-  PieChart,
-  Settings2,
-  SquareTerminal,
+  AudioWaveformIcon,
+  BookOpenIcon,
+  ChartColumnIcon,
+  CommandIcon,
+  CreditCardIcon,
+  LayoutGridIcon,
+  LifeBuoyIcon,
+  SettingsIcon,
+  TriangleIcon,
+  UsersIcon,
+  ZapIcon,
 } from "lucide-react";
-import * as React from "react";
+import type * as React from "react";
 
+import { useCommandPalette } from "@/components/common/command-palette";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarRail,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 
 import { NavMain } from "./nav-main";
-import { NavProjects } from "./nav-projects";
-import { NavUser } from "./nav-user";
+import { NavSecondary } from "./nav-secondary";
+import type { NavItem } from "./nav-utils";
+import { SidebarBrand } from "./sidebar-brand";
+import { SidebarEdgeToggle } from "./sidebar-edge-toggle";
+import { SidebarSearch } from "./sidebar-search";
 import { TeamSwitcher } from "./team-switcher";
 
-// This is sample data.
+// Sample data — swap `#` for real routes and the rows light up from the
+// pathname on their own (see `isNavActive`).
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   teams: [
-    {
-      name: "Acme Inc",
-      logo: GalleryVerticalEnd,
-      plan: "Enterprise",
-    },
-    {
-      name: "Acme Corp.",
-      logo: AudioWaveform,
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: Command,
-      plan: "Free",
-    },
+    { name: "Vercel", logo: TriangleIcon, plan: "Enterprise" },
+    { name: "Acme Corp.", logo: AudioWaveformIcon, plan: "Startup" },
+    { name: "Evil Corp.", logo: CommandIcon, plan: "Free" },
   ],
   navMain: [
+    { title: "Overview", url: "#", icon: LayoutGridIcon, isActive: true },
     {
-      title: "Playground",
+      title: "Customers",
       url: "#",
-      icon: SquareTerminal,
-      isActive: true,
+      icon: UsersIcon,
       items: [
-        {
-          title: "History",
-          url: "#",
-        },
-        {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
+        { title: "Segments", url: "#" },
+        { title: "Accounts", url: "#", isActive: true },
+        { title: "Health Scores", url: "#" },
       ],
     },
     {
-      title: "Models",
+      title: "Subscriptions",
       url: "#",
-      icon: Bot,
+      icon: CreditCardIcon,
       items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
+        { title: "Plans", url: "#" },
+        { title: "Invoices", url: "#" },
+        { title: "Renewals", url: "#" },
       ],
     },
     {
-      title: "Documentation",
+      title: "Revenue",
       url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
+      icon: ChartColumnIcon,
+      badge: "dot",
     },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
-    },
-  ],
+    { title: "Automation", url: "#", icon: ZapIcon },
+    { title: "Support", url: "#", icon: LifeBuoyIcon },
+  ] satisfies NavItem[],
+  navSecondary: [
+    { title: "Settings", url: "#", icon: SettingsIcon },
+    { title: "Invite Team", url: "#", icon: UsersIcon },
+    { title: "Documentation", url: "#", icon: BookOpenIcon },
+  ] satisfies NavItem[],
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const palette = useCommandPalette();
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+        <SidebarBrand name="ReUI" />
+        <SidebarSearch onClick={() => palette.open()} />
       </SidebarHeader>
+
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
+        <NavMain label="Platform" items={data.navMain} />
       </SidebarContent>
+
+      {/* Utility links, then the workspace switcher pinned to the bottom. */}
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavSecondary items={data.navSecondary} />
+        <SidebarSeparator className="mx-0" />
+        <TeamSwitcher teams={data.teams} />
       </SidebarFooter>
-      <SidebarRail />
+
+      <SidebarEdgeToggle />
     </Sidebar>
   );
 }

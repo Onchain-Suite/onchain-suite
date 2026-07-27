@@ -2,6 +2,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import {
+  Geist_Mono,
   Instrument_Sans,
   Inter,
   JetBrains_Mono,
@@ -13,9 +14,18 @@ import { StructuredData } from "@/onchain-suite-website/components";
 import { generateMetadata } from "@/onchain-suite-website/config";
 import { RootProviders } from "@/shared/providers";
 
+// App design system (DESIGN.md §4): Instrument Sans for UI/prose, Geist Mono
+// for data — metrics, wallet addresses, hashes, timestamps, code.
 const instrumentSans = Instrument_Sans({
   variable: "--font-instrument-sans",
   subsets: ["latin"],
+  display: "swap",
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 // Marketing landing — terminal design system (Inter / Outfit / JetBrains Mono)
@@ -47,15 +57,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // The font variables live on <html> so `:root` in globals.css can resolve
+  // them (--font-sans/--font-mono reference them; a custom property is
+  // substituted on the element that declares it, not on descendants).
   return (
-    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`scroll-smooth ${instrumentSans.variable} ${geistMono.variable} ${inter.variable} ${outfit.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <StructuredData />
       </head>
-      <body
-        className={`${instrumentSans.variable} ${inter.variable} ${outfit.variable} ${jetbrainsMono.variable} antialiased`}
-        suppressHydrationWarning
-      >
+      <body className="antialiased" suppressHydrationWarning>
         <RootProviders>{children}</RootProviders>
         <Analytics />
         <SpeedInsights />

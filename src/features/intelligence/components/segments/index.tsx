@@ -24,11 +24,15 @@ import {
   AlertDialogTrigger,
 } from "@/ui/alert-dialog";
 
+import { formatDateTime, formatRelativeTime } from "@/lib/date";
+import { isJsonObject } from "@/lib/utils";
+
 import {
   type IntelligenceSegment,
   intelligenceService,
 } from "../../intelligence.service";
 import { type Segment } from "../../types";
+import { isSyntheticWalletEmail } from "@/features/audience/utils";
 
 interface SegmentsTabProps {
   openEmailComposer: (recipient: unknown | null) => void;
@@ -84,6 +88,20 @@ const toUiSegment = (input: IntelligenceSegment): Segment => {
 const formatSegmentSize = (size: number | null | undefined): string =>
   size === null ? "Resolved on use" : `${(size ?? 0).toLocaleString()} members`;
 
+/** How many members we inspect when deriving the segment's email match. */
+const EMAIL_MATCH_SAMPLE = 200;
+
+/**
+ * A member counts as email-reachable only with a real address — wallet-only
+ * contacts carry a synthetic `…@wallet.onchainsuite.local` placeholder, which
+ * is not an email channel.
+ */
+const hasEmailChannel = (row: unknown): boolean => {
+  if (!isJsonObject(row)) return false;
+  const email = typeof row.email === "string" ? row.email.trim() : "";
+  return email.length > 0 && !isSyntheticWalletEmail(email);
+};
+
 export function SegmentsTab({ openEmailComposer }: SegmentsTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(
@@ -131,6 +149,61 @@ export function SegmentsTab({ openEmailComposer }: SegmentsTabProps) {
     () => segmentsQuery.data?.find((seg) => seg.id === selectedSegmentId),
     [segmentsQuery.data, selectedSegmentId]
   );
+
+  // There is no server-side email-match count (GET /intelligence/segments/
+  // {id}/profiles is the only member source), so derive it from the members
+  // themselves. Wallet-first segments legitimately have zero email channels.
+  const selectedProfilesQuery = useQuery({
+    queryKey: [
+      "intelligence",
+      "segments",
+      selectedSegmentId,
+      "profiles",
+      { page: 1, limit: EMAIL_MATCH_SAMPLE },
+    ],
+    queryFn: () =>
+      intelligenceService.getSegmentProfiles(selectedSegmentId ?? "", {
+        page: 1,
+        limit: EMAIL_MATCH_SAMPLE,
+      }),
+    enabled: Boolean(selectedSegmentId),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  });
+
+  const {
+    data: selectedProfilesData,
+    isPending: isProfilesPending,
+    isError: isProfilesError,
+  } = selectedProfilesQuery;
+
+  const emailMatch = useMemo(() => {
+    const items = Array.isArray(selectedProfilesData?.items)
+      ? selectedProfilesData.items
+      : [];
+    const count = items.reduce(
+      (n, row) => (hasEmailChannel(row) ? n + 1 : n),
+      0
+    );
+    const total =
+      typeof selectedProfilesData?.total === "number" &&
+      selectedProfilesData.total >= 0
+        ? selectedProfilesData.total
+        : items.length;
+    return {
+      count,
+      // Only a partial view when the segment has more members than we sampled.
+      isPartial: total > items.length,
+      isLoading: isProfilesPending,
+      isError: isProfilesError,
+    };
+  }, [selectedProfilesData, isProfilesPending, isProfilesError]);
+
+  // Only block sending on a confident zero: loaded cleanly, and no email
+  // channel anywhere in the segment.
+  const canSendEmail =
+    emailMatch.isLoading || emailMatch.isError || emailMatch.count > 0;
 
   const deleteMutation = useMutation({
     mutationFn: async (segmentId: string) => {
@@ -229,9 +302,14 @@ export function SegmentsTab({ openEmailComposer }: SegmentsTabProps) {
                       >
                         {segment.name}
                       </Link>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
+                      <p
+                        className="mt-0.5 text-xs text-muted-foreground"
+                        title={formatDateTime(segment.lastUpdated)}
+                      >
                         {formatSegmentSize(segment.size)}
-                        {segment.lastUpdated ? ` · ${segment.lastUpdated}` : ""}
+                        {formatRelativeTime(segment.lastUpdated)
+                          ? ` · updated ${formatRelativeTime(segment.lastUpdated)}`
+                          : ""}
                       </p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
@@ -371,8 +449,11 @@ export function SegmentsTab({ openEmailComposer }: SegmentsTabProps) {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-xs text-muted-foreground">
-                          {segment.lastUpdated ?? "—"}
+                        <span
+                          className="text-xs text-muted-foreground"
+                          title={formatDateTime(segment.lastUpdated)}
+                        >
+                          {formatDateTime(segment.lastUpdated) || "—"}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -445,18 +526,49 @@ export function SegmentsTab({ openEmailComposer }: SegmentsTabProps) {
               <div>
                 <p className="text-xs text-muted-foreground">Email Match</p>
                 <p className="text-xl font-semibold text-secondary-foreground">
-                  —
+                  {emailMatch.isLoading
+                    ? "—"
+                    : emailMatch.isError
+                      ? "—"
+                      : `${emailMatch.count.toLocaleString()}${
+                          emailMatch.isPartial ? "+" : ""
+                        }`}
                 </p>
               </div>
             </div>
             <div className="mt-4">
-              <button
-                onClick={() => openEmailComposer(null)}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:shadow-lg"
-              >
-                <PaperAirplaneIcon className="h-4 w-4" aria-hidden="true" />
-                Send Campaign
-              </button>
+              {canSendEmail ? (
+                <button
+                  onClick={() => openEmailComposer(null)}
+                  disabled={emailMatch.isLoading}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+                >
+                  <PaperAirplaneIcon className="h-4 w-4" aria-hidden="true" />
+                  {emailMatch.isLoading
+                    ? "Checking email match…"
+                    : "Send Campaign"}
+                </button>
+              ) : (
+                // Wallet-first: no email channel here, so an email campaign
+                // has nobody to send to. Point at the channel that does reach
+                // them instead of offering a send that would go nowhere.
+                <div className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-3 text-center">
+                  <p className="text-sm font-medium text-foreground">
+                    No email-reachable members
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    These wallets have no email channel yet — reach them with an
+                    in-app push from{" "}
+                    <Link
+                      href="/automations"
+                      className="font-medium text-primary hover:underline"
+                    >
+                      Automations
+                    </Link>
+                    .
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

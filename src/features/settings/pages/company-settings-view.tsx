@@ -12,6 +12,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -23,6 +24,7 @@ import { resolveBrandAssetUrl } from "@/lib/brand-assets";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import CompanyEditForm from "@/features/settings/components/account/company-edit-form";
+import { SmartSendingCard } from "@/features/settings/components/account/smart-sending-card";
 import InviteUser from "@/features/settings/components/invite-user";
 import LogoUpload from "@/features/settings/components/logo-upload";
 import SettingsSectionCard from "@/features/settings/components/settings-section-card";
@@ -749,9 +751,26 @@ const LogoTile = ({
   );
 };
 
+/** Deep-link id for the Sender verification section. */
+const SENDER_VERIFICATION_SECTION_ID = "sender-verification";
+
 export default function CompanySettingsView() {
   const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
+  // Deep link target, e.g. ?tab=account&section=sender-verification from the
+  // campaign launch error. The section is collapsed by default, so opening
+  // and scrolling to it is what makes that link useful.
+  const settingsSearchParams = useSearchParams();
+  const requestedSection = settingsSearchParams?.get("section") ?? null;
+  const senderVerificationRequested =
+    requestedSection === SENDER_VERIFICATION_SECTION_ID;
+
+  useEffect(() => {
+    if (!senderVerificationRequested) return;
+    const node = document.getElementById(SENDER_VERIFICATION_SECTION_ID);
+    if (!node) return;
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [senderVerificationRequested]);
   const [logoModal, setLogoModal] = useState<{
     open: boolean;
     type: LogoType;
@@ -1413,9 +1432,11 @@ export default function CompanySettingsView() {
         </SettingsSectionCard>
 
         <SettingsSectionCard
+          id={SENDER_VERIFICATION_SECTION_ID}
           title="Sender verification"
           description="Verify domains and set up sender infrastructure for branded organization sending."
           icon={<KeyIcon aria-hidden="true" className="h-5 w-5" />}
+          defaultOpen={senderVerificationRequested}
           badge={
             domainSummary.pending > 0
               ? `${domainSummary.pending} pending`
@@ -2033,6 +2054,8 @@ export default function CompanySettingsView() {
             )}
           </div>
         </SettingsSectionCard>
+
+        <SmartSendingCard />
       </motion.div>
 
       <LogoUpload

@@ -5,6 +5,11 @@ import {
 } from "@heroicons/react/24/outline";
 import type { ReactElement } from "react";
 
+// Date formatting is app-wide, not audience-specific — it lives in
+// @/lib/date. Imported for local use below and re-exported so existing
+// audience imports keep working.
+import { formatDateTime } from "@/lib/date";
+
 export type NormalizedTag = string;
 export type SocialHandles = {
   ens?: string;
@@ -260,61 +265,7 @@ export function prettifyKey(key: string): string {
     .join(" ");
 }
 
-const parseDate = (value: unknown): Date | null => {
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
-  }
-  if (typeof value !== "string" && typeof value !== "number") return null;
-  if (typeof value === "string" && value.trim().length === 0) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-/** Absolute, locale-formatted timestamp ("Jul 14, 2026, 3:12 PM"). */
-export function formatDateTime(value: unknown): string {
-  const date = parseDate(value);
-  if (!date) return "";
-  try {
-    return date.toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  } catch {
-    return date.toLocaleString();
-  }
-}
-
-const RELATIVE_UNITS: Array<{
-  unit: Intl.RelativeTimeFormatUnit;
-  seconds: number;
-}> = [
-  { unit: "year", seconds: 31_536_000 },
-  { unit: "month", seconds: 2_592_000 },
-  { unit: "week", seconds: 604_800 },
-  { unit: "day", seconds: 86_400 },
-  { unit: "hour", seconds: 3_600 },
-  { unit: "minute", seconds: 60 },
-];
-
-/** Relative timestamp ("3 hours ago", "last week") for recent events. */
-export function formatRelativeTime(value: unknown): string {
-  const date = parseDate(value);
-  if (!date) return "";
-  const deltaSeconds = (date.getTime() - Date.now()) / 1000;
-  const abs = Math.abs(deltaSeconds);
-  if (abs < 60) return "just now";
-  try {
-    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-    for (const { unit, seconds } of RELATIVE_UNITS) {
-      if (abs >= seconds) {
-        return rtf.format(Math.round(deltaSeconds / seconds), unit);
-      }
-    }
-    return "just now";
-  } catch {
-    return formatDateTime(value);
-  }
-}
+export { formatDate, formatDateTime, formatRelativeTime } from "@/lib/date";
 
 const ISO_DATE_LIKE = /^\d{4}-\d{2}-\d{2}(T|\s|$)/;
 const HEX_ADDRESS_LIKE = /^0x[a-fA-F0-9]{40,}$/;

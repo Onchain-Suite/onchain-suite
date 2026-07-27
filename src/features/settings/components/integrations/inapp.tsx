@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 
 import { authClient } from "@/lib/auth-client";
+import { formatDateTime } from "@/lib/date";
 import {
   getCookieValue,
   isJsonObject,
@@ -869,7 +870,9 @@ const InAppIntegration = () => {
                                   </div>
                                   <div className="mt-1 text-xs text-muted-foreground">
                                     {k.environment}
-                                    {k.createdAt ? ` • ${k.createdAt}` : ""}
+                                    {formatDateTime(k.createdAt)
+                                      ? ` • Created ${formatDateTime(k.createdAt)}`
+                                      : ""}
                                   </div>
                                 </div>
                                 <code className="break-all font-mono text-xs text-muted-foreground sm:shrink-0">

@@ -295,8 +295,34 @@ export function SegmentDetailPage() {
             Loading profiles…
           </div>
         ) : profiles.length === 0 ? (
-          <div className="flex items-center justify-center px-6 py-10 text-sm text-muted-foreground">
-            No profiles found for this segment.
+          // A wallet-list segment can hold wallets that aren't linked to a
+          // contact profile yet. "No profiles found" reads as an empty
+          // segment, so only say that when the segment really is empty.
+          <div className="flex flex-col items-center justify-center gap-1 px-6 py-10 text-center text-sm text-muted-foreground">
+            {size === null ? (
+              <>
+                <span className="font-medium text-foreground">
+                  This segment resolves on use.
+                </span>
+                <span>
+                  Its members are matched when the segment is applied to a
+                  campaign or automation.
+                </span>
+              </>
+            ) : size > 0 ? (
+              <>
+                <span className="font-medium text-foreground">
+                  {size.toLocaleString()} wallet{size === 1 ? "" : "s"} in this
+                  segment, not linked to contact profiles yet.
+                </span>
+                <span>
+                  They&apos;ll appear here once matched. You can still reach
+                  them with an in-app push.
+                </span>
+              </>
+            ) : (
+              <span>No profiles found for this segment.</span>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -226,12 +226,21 @@ const requireOrgId = (req: NextRequest): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
+/**
+ * Every better-auth session cookie name we may receive. Kept in step with
+ * `getSession()` in @/lib/auth-session, which accepts the same set — the
+ * secure/host prefixes and the snake/camel spelling vary by deployment, and
+ * matching a narrower set here would 401 a perfectly valid session.
+ */
+const SESSION_COOKIE_RE =
+  /(^|;\s*)(__Secure-|__Host-)?better-auth\.(session_token|sessionToken)=/;
+
 const hasAnyAuth = (req: NextRequest): boolean => {
   const auth = req.headers.get("authorization");
   if (extractBearer(auth)) return true;
   const cookie = req.headers.get("cookie") ?? "";
   if (extractTokenFromCookie(cookie)) return true;
-  return /(^|;\s*)(__Secure-)?better-auth\.session_token=/.test(cookie);
+  return SESSION_COOKIE_RE.test(cookie);
 };
 
 const randomJobId = () => {

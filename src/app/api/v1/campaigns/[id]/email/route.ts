@@ -70,30 +70,6 @@ const getAllowedCorsOrigins = () => {
   return allowed;
 };
 
-const DEBUG_SERVER_URL =
-  process.env.DEBUG_SERVER_URL ?? "http://127.0.0.1:7777/event";
-const DEBUG_SESSION_ID = process.env.DEBUG_SESSION_ID ?? "email-empty-preview";
-const reportEmailDebug = (
-  hypothesisId: "A" | "B" | "C" | "D" | "E",
-  location: string,
-  msg: string,
-  data: Record<string, unknown>
-) => {
-  fetch(DEBUG_SERVER_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      sessionId: DEBUG_SESSION_ID,
-      runId: "pre-fix",
-      hypothesisId,
-      location,
-      msg,
-      data,
-      ts: Date.now(),
-    }),
-  }).catch(() => undefined);
-};
-
 const getCorsHeaders = (req: NextRequest) => {
   const origin = req.headers.get("origin");
   if (!origin) return null;
@@ -143,6 +119,27 @@ const resolveToken = (req: NextRequest) => {
   );
 };
 
+/**
+ * Every better-auth session cookie name we may receive. Kept in step with
+ * `getSession()` in @/lib/auth-session, which accepts the same set — the
+ * secure/host prefixes vary by deployment.
+ */
+const SESSION_COOKIE_RE =
+  /(^|;\s*)(__Secure-|__Host-)?better-auth\.(session_token|sessionToken)=/;
+
+const hasSessionCookie = (req: NextRequest): boolean =>
+  SESSION_COOKIE_RE.test(req.headers.get("cookie") ?? "");
+
+/**
+ * This route serves two callers: the embedded editor, which authenticates
+ * with an editor-session token, and the host app itself, which calls it
+ * through apiClient carrying only the better-auth session cookie. Requiring a
+ * token rejected the host app's own saves with "Authentication failed", so
+ * accept either credential and let the backend remain the authority.
+ */
+const hasAnyAuth = (req: NextRequest): boolean =>
+  resolveToken(req) !== null || hasSessionCookie(req);
+
 const buildUpstreamHeaders = (req: NextRequest) => {
   const headers = new Headers(req.headers);
   headers.delete("host");
@@ -166,17 +163,12 @@ const buildUpstreamHeaders = (req: NextRequest) => {
     if (!headers.has("x-editor-token")) headers.set("x-editor-token", token);
 
     const existingCookie = headers.get("cookie") ?? "";
-    const hasSessionCookie =
-      /(^|;\s*)(__Secure-)?better-auth\.session_token=/.test(existingCookie) ||
-      /(^|;\s*)(__Host-)?better-auth\.session_token=/.test(existingCookie) ||
-      /(^|;\s*)(__Secure-)?better-auth\.sessionToken=/.test(existingCookie) ||
-      /(^|;\s*)(__Host-)?better-auth\.sessionToken=/.test(existingCookie);
     const hasOnchainTokenCookie = /(^|;\s*)onchain\.token=/.test(
       existingCookie
     );
 
     let nextCookie = existingCookie;
-    if (!hasSessionCookie) {
+    if (!SESSION_COOKIE_RE.test(existingCookie)) {
       nextCookie = `${nextCookie}${nextCookie ? "; " : ""}better-auth.session_token=${encodeURIComponent(token)}`;
     }
     if (!hasOnchainTokenCookie) {
@@ -245,8 +237,7 @@ export async function GET(
 ) {
   const { id } = await params;
   const cors = getCorsHeaders(req);
-  const token = resolveToken(req);
-  if (!token) {
+  if (!hasAnyAuth(req)) {
     const res = NextResponse.json(
       {
         success: false,
@@ -254,8 +245,8 @@ export async function GET(
           code: "UNAUTHORIZED",
           message: "Authentication failed",
           details: {
-            message: "Missing token on embedded request",
-            error: "Missing token",
+            message: "No editor token and no session cookie on this request",
+            error: "Missing credentials",
             statusCode: 401,
           },
         },
@@ -271,57 +262,11 @@ export async function GET(
     }
     return res;
   }
-  // #region debug-point C:campaign-email-get-request
-  reportEmailDebug(
-    "C",
-    "src/app/api/v1/campaigns/[id]/email/route.ts:260",
-    "[DEBUG] campaign email GET requested",
-    { campaignId: id, path: req.nextUrl.pathname }
-  );
-  // #endregion
   const upstream = await fetch(`${getBackendBaseUrl()}/campaigns/${id}/email`, {
     method: "GET",
     headers: buildUpstreamHeaders(req),
     cache: "no-store",
   });
-  {
-    const text = await upstream
-      .clone()
-      .text()
-      .catch(() => "");
-    const json: unknown = (() => {
-      try {
-        return text.length > 0 ? JSON.parse(text) : null;
-      } catch {
-        return null;
-      }
-    })();
-    const extracted = extractEmailContent(json);
-    // #region debug-point C:campaign-email-get-response
-    reportEmailDebug(
-      "C",
-      "src/app/api/v1/campaigns/[id]/email/route.ts:283",
-      "[DEBUG] campaign email GET response",
-      {
-        campaignId: id,
-        status: upstream.status,
-        textLength: text.length,
-        hasHtml:
-          typeof extracted.html === "string" && extracted.html.length > 0,
-        htmlLength:
-          typeof extracted.html === "string" ? extracted.html.length : 0,
-        hasText:
-          typeof extracted.textVersion === "string" &&
-          extracted.textVersion.length > 0,
-        textLengthValue:
-          typeof extracted.textVersion === "string"
-            ? extracted.textVersion.length
-            : 0,
-        hasJson: extracted.json !== undefined && extracted.json !== null,
-      }
-    );
-    // #endregion
-  }
 
   const headers = new Headers(upstream.headers);
   headers.delete("connection");
@@ -344,8 +289,7 @@ export async function PUT(
 ) {
   const { id } = await params;
   const cors = getCorsHeaders(req);
-  const token = resolveToken(req);
-  if (!token) {
+  if (!hasAnyAuth(req)) {
     const res = NextResponse.json(
       {
         success: false,
@@ -353,8 +297,8 @@ export async function PUT(
           code: "UNAUTHORIZED",
           message: "Authentication failed",
           details: {
-            message: "Missing token on embedded request",
-            error: "Missing token",
+            message: "No editor token and no session cookie on this request",
+            error: "Missing credentials",
             statusCode: 401,
           },
         },
@@ -374,37 +318,6 @@ export async function PUT(
   const bodyJson: unknown = await req.json().catch(() => null);
 
   const payload = toSavedPayload(bodyJson);
-  // #region debug-point A:campaign-email-put-normalized
-  reportEmailDebug(
-    "A",
-    "src/app/api/v1/campaigns/[id]/email/route.ts:349",
-    "[DEBUG] campaign email PUT normalized payload",
-    {
-      campaignId: id,
-      hasSubject:
-        typeof payload.subject === "string" && payload.subject.length > 0,
-      hasPreviewText:
-        typeof payload.previewText === "string" &&
-        payload.previewText.length > 0,
-      hasSenderName:
-        typeof payload.senderName === "string" && payload.senderName.length > 0,
-      hasSenderEmail:
-        typeof payload.senderEmail === "string" &&
-        payload.senderEmail.length > 0,
-      hasHtml: typeof payload.html === "string" && payload.html.length > 0,
-      htmlLength: typeof payload.html === "string" ? payload.html.length : 0,
-      hasText:
-        typeof payload.textVersion === "string" &&
-        payload.textVersion.length > 0,
-      textLength:
-        typeof payload.textVersion === "string"
-          ? payload.textVersion.length
-          : 0,
-      hasJson: payload.json !== undefined && payload.json !== null,
-      hasAssets: payload.assets !== undefined && payload.assets !== null,
-    }
-  );
-  // #endregion
   const upstream = await fetch(`${getBackendBaseUrl()}/campaigns/${id}/email`, {
     method: "PUT",
     headers: (() => {
@@ -416,25 +329,6 @@ export async function PUT(
     body: JSON.stringify(payload),
     cache: "no-store",
   });
-  {
-    const text = await upstream
-      .clone()
-      .text()
-      .catch(() => "");
-    // #region debug-point A:campaign-email-put-response
-    reportEmailDebug(
-      "A",
-      "src/app/api/v1/campaigns/[id]/email/route.ts:381",
-      "[DEBUG] campaign email PUT response",
-      {
-        campaignId: id,
-        status: upstream.status,
-        textLength: text.length,
-        bodyPreview: text.slice(0, 300),
-      }
-    );
-    // #endregion
-  }
 
   const headers = new Headers(upstream.headers);
   headers.delete("connection");

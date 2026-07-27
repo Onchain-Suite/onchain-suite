@@ -7,7 +7,8 @@ import {
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -18,8 +19,24 @@ import { QueryTab } from "./query";
 import { ReportsTab, type SavedQueryReport } from "./reports";
 import { SegmentsTab } from "./segments";
 
+/** Tab ids that `/intelligence?tab=` accepts, so deep links can't land nowhere. */
+const TAB_IDS = new Set(["chat", "sql", "segments", "reports"]);
+
 export default function IntelligencePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams?.get("tab") ?? null;
+  const searchParamsString = searchParams?.toString() ?? "";
+
   const [activeTab, setActiveTab] = useState("chat");
+
+  // Deep link support: /intelligence?tab=segments opens the Segments tab.
+  // Other surfaces (e.g. the campaign audience step) link straight here.
+  useEffect(() => {
+    if (typeof tabFromUrl !== "string") return;
+    if (!TAB_IDS.has(tabFromUrl)) return;
+    setActiveTab(tabFromUrl);
+  }, [tabFromUrl]);
   // A saved query the user opened from the Reports tab; seeds QueryTab on its
   // next mount (SQL runs re-open results by queryId, MCP runs pre-fill the
   // chat composer). Cleared when leaving the chat/SQL surfaces so a later
@@ -27,15 +44,27 @@ export default function IntelligencePage() {
   const [pendingSavedQuery, setPendingSavedQuery] =
     useState<SavedQueryReport | null>(null);
 
-  const handleTabChange = useCallback((tab: string) => {
-    setActiveTab(tab);
-    if (tab !== "chat" && tab !== "sql") setPendingSavedQuery(null);
-  }, []);
+  const handleTabChange = useCallback(
+    (tab: string) => {
+      setActiveTab(tab);
+      if (tab !== "chat" && tab !== "sql") setPendingSavedQuery(null);
+      // Keep the URL in step so the tab survives a reload and is shareable.
+      const next = new URLSearchParams(searchParamsString);
+      next.set("tab", tab);
+      router.replace(`/intelligence?${next.toString()}`, { scroll: false });
+    },
+    [router, searchParamsString]
+  );
 
-  const handleOpenSavedQuery = useCallback((item: SavedQueryReport) => {
-    setPendingSavedQuery(item);
-    setActiveTab(item.isMcp ? "chat" : "sql");
-  }, []);
+  const handleOpenSavedQuery = useCallback(
+    (item: SavedQueryReport) => {
+      setPendingSavedQuery(item);
+      // Route through handleTabChange so the URL tracks this jump too. The
+      // target is always chat/sql, so the pending query is not cleared.
+      handleTabChange(item.isMcp ? "chat" : "sql");
+    },
+    [handleTabChange]
+  );
 
   const segmentsMetricsQuery = useQuery({
     queryKey: ["intelligence", "segments", "metrics"],

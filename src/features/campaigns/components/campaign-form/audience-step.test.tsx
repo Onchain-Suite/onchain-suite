@@ -83,7 +83,7 @@ describe("AudienceStep links", () => {
     }
   });
 
-  it("links account settings to settings page with account tab", () => {
+  it("links Segments to the Intelligence tab that actually exists", () => {
     const client = new QueryClient();
     render(
       <QueryClientProvider client={client}>
@@ -91,11 +91,42 @@ describe("AudienceStep links", () => {
       </QueryClientProvider>
     );
 
+    // /intelligence/segments has no route — Segments is a tab on
+    // /intelligence — so the link must carry the ?tab= deep link.
+    const link = screen.getByRole("link", { name: /Intelligence.*Segments/i });
+    expect(link).toHaveAttribute("href", PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS);
+    expect(PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS).toContain("tab=segments");
+  });
+
+  it("points Smart Sending at the org settings page that now exists", () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <Wrapper />
+      </QueryClientProvider>
+    );
+
+    // GET/PUT /organization/settings/smart-sending shipped 2026-08-02, so the
+    // "account settings" link finally has a real destination.
     const link = screen.getByRole("link", { name: /account settings/i });
     expect(link).toHaveAttribute(
       "href",
       `${PRIVATE_ROUTES.SETTINGS}?tab=account`
     );
+  });
+
+  it("does not hardcode a suppression window when the org setting is unavailable", () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <Wrapper />
+      </QueryClientProvider>
+    );
+
+    // The window is read from the org setting; with no value resolved we say
+    // "suppression window" rather than inventing a number like the old copy.
+    expect(screen.queryByText(/10 hours/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/suppression window/i)).toBeInTheDocument();
   });
 
   it("explains recipients can be individual contacts, tags or segments", () => {

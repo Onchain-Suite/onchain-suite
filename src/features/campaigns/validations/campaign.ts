@@ -25,6 +25,14 @@ export const campaignFormSchema = z
       .array(z.string())
       .min(1, "Select at least one audience"),
     smartSending: z.boolean().default(true),
+    /**
+     * Optional per-campaign override of the Smart Sending suppression window
+     * (backend accepts an integer 1–168). Empty string = inherit the org
+     * setting, which is the common case. Kept as a plain optional string —
+     * a `.refine()` here measurably slows type inference across this schema,
+     * and the value is range-checked before it reaches the API anyway.
+     */
+    smartSendingWindowHours: z.string().optional(),
     trackingParameters: z.boolean().default(true),
     // UTM parameters appended to links when tracking is on.
     utmSource: z.string().optional(),

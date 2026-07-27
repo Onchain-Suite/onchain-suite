@@ -3,6 +3,7 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import { withApiErrorFields } from "./lib/launch-errors";
 import type { Campaign } from "./types/campaign";
 
 export interface ListCampaignsParams {
@@ -20,11 +21,17 @@ export interface CampaignCalendarItem {
   [key: string]: unknown;
 }
 
+/**
+ * Canonical body of `PUT /campaigns/{id}/audience` — `{ profileIds,
+ * segmentIds }`. Legacy `listIds` is accepted when reading a previously saved
+ * selection but is never sent; the backend ignores it.
+ */
 export interface CampaignAudienceSelection {
-  listIds: string[];
   segmentIds: string[];
   /** Explicit profile/contact ids — backend requires the key to be an array. */
   profileIds?: string[];
+  /** @deprecated Read-only fallback for audiences saved by older builds. */
+  listIds?: string[];
 }
 
 export interface CampaignAudienceEstimate {
@@ -120,6 +127,18 @@ export interface CampaignAnalyticsOverview {
 export interface CampaignTrackingSettings {
   smartSending: boolean;
   trackingParameters: boolean;
+  /**
+   * Optional per-campaign override of the Smart Sending suppression window
+   * (integer 1–168). Omitted → the org setting applies
+   * (`PUT /organization/settings/smart-sending`), then the platform 10h
+   * default. Same resolution at send time and in the recipient estimate.
+   */
+  smartSendingWindowHours?: number;
+  /**
+   * Campaign-authored UTM values. Since 2026-08-02 `trackingParameters: true`
+   * already applies product defaults (`utm_source=onchainsuite`,
+   * `utm_medium=email`, `utm_campaign=<id>`); anything here overrides them.
+   */
   utm?: Record<string, unknown>;
   [key: string]: unknown;
 }
@@ -236,9 +255,22 @@ const request = async <T>(
       : isJsonObject(data)
         ? data.message
         : (err.message ?? "Campaigns request failed");
-    throw new Error(
-      status ? `[HTTP ${status}] ${String(message)}` : String(message),
-      { cause: e }
+    // Carry the structured fields through. Flattening to a string lost the
+    // error code, so callers could not tell SENDER_NOT_VERIFIED (actionable —
+    // send them to domain verification) from any other launch failure.
+    throw withApiErrorFields(
+      new Error(
+        status ? `[HTTP ${status}] ${String(message)}` : String(message),
+        { cause: e }
+      ),
+      {
+        code: isJsonObject(nestedError)
+          ? typeof nestedError.code === "string"
+            ? nestedError.code
+            : undefined
+          : undefined,
+        details: isJsonObject(nestedError) ? nestedError.details : undefined,
+      }
     );
   }
 };
@@ -519,10 +551,10 @@ export const campaignsService = {
   },
 
   setAudience(id: string, body: CampaignAudienceSelection, orgId?: string) {
-    // The backend DTO requires `profileIds` to be present as an array (of
-    // strings) even when targeting only lists/segments.
+    // Canonical body is { profileIds, segmentIds } — both keys must be
+    // present as arrays. There is no `listIds` in the contract; sending one
+    // is ignored, which is how contact selections used to vanish.
     const payload = {
-      listIds: Array.isArray(body.listIds) ? body.listIds : [],
       segmentIds: Array.isArray(body.segmentIds) ? body.segmentIds : [],
       profileIds: Array.isArray(body.profileIds) ? body.profileIds : [],
     };

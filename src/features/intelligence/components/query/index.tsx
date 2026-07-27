@@ -2715,8 +2715,7 @@ export function QueryTab({
                     </h2>
                     <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
                       Trace token holders, compare wallets, analyze gas, or
-                      explain protocol activity. The agent streams its
-                      reasoning, then returns a clean, structured answer.
+                      explain protocol activity.
                     </p>
 
                     <div className="mt-6 grid w-full max-w-xl gap-2.5 sm:grid-cols-2">

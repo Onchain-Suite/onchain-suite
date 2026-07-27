@@ -37,6 +37,36 @@ const mocks = vi.hoisted(() => ({
   routerPush: vi.fn(),
 }));
 
+// The SQL results table is virtualized. jsdom gives the scroll container zero
+// height, so @tanstack/react-virtual computes an empty range and renders no
+// rows at all — every assertion about row content would fail for reasons that
+// have nothing to do with the component. Render the full set instead.
+vi.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: ({
+    count,
+    estimateSize,
+  }: {
+    count: number;
+    estimateSize?: () => number;
+  }) => {
+    const size = estimateSize?.() ?? 48;
+    const items = Array.from({ length: count }, (_, index) => ({
+      index,
+      key: index,
+      start: index * size,
+      end: (index + 1) * size,
+      size,
+      lane: 0,
+    }));
+    return {
+      getVirtualItems: () => items,
+      getTotalSize: () => count * size,
+      measureElement: () => undefined,
+      scrollToIndex: () => undefined,
+    };
+  },
+}));
+
 vi.mock("sonner", () => ({
   toast: mocks.toast,
 }));
@@ -440,7 +470,7 @@ describe("QueryTab", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows multichain MCP coverage in the default chat workspace", async () => {
+  it("opens the default chat workspace without eagerly loading MCP metadata", async () => {
     renderQueryTab({ activeSurface: "chat" });
 
     expect(await screen.findByLabelText("MCP chat input")).toBeInTheDocument();
@@ -448,8 +478,12 @@ describe("QueryTab", () => {
     expect(screen.queryByText(/Live agent activity/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Live tools/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Live resources/i)).not.toBeInTheDocument();
+    // The chain picker was removed — chat is fixed to DEFAULT_MCP_CHAINS — so
+    // neither the picker nor its coverage summary should render.
     expect(screen.queryByText(/Supported chains/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Ethereum, Base, Arbitrum +3")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Ethereum, Base, Arbitrum +3")
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText(
         /Find the most active wallets interacting across Ethereum, Base, and Solana this week/i
@@ -467,12 +501,6 @@ describe("QueryTab", () => {
     expect(
       mocks.intelligenceService.readGoldrushMcpResource
     ).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getAllByRole("button", { name: /^Solana$/i })[0]);
-
-    expect(screen.queryAllByText("Ethereum, Base, Arbitrum +3")).toHaveLength(
-      0
-    );
   });
 
   it("submits the current MCP prompt and falls back to durable MCP query when streaming times out", async () => {
@@ -520,8 +548,14 @@ describe("QueryTab", () => {
       );
     });
 
+    // Assert the request payload rather than the full call signature —
+    // queryGoldrushMcp takes (body, orgId?, options?), and the extra args
+    // (abort signal, timeout) are not what this test is about.
     await waitFor(() => {
-      expect(mocks.intelligenceService.queryGoldrushMcp).toHaveBeenCalledWith(
+      expect(mocks.intelligenceService.queryGoldrushMcp).toHaveBeenCalled();
+      expect(
+        mocks.intelligenceService.queryGoldrushMcp.mock.calls[0][0]
+      ).toEqual(
         expect.objectContaining({
           conversationId: undefined,
           message: "Find the top wallets on this token",
@@ -759,9 +793,10 @@ describe("QueryTab", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
 
     await waitFor(() => {
-      expect(
-        mocks.intelligenceService.queryGoldrushMcp
-      ).toHaveBeenLastCalledWith(
+      const { calls } = mocks.intelligenceService.queryGoldrushMcp.mock;
+      expect(calls.length).toBeGreaterThan(0);
+      // Payload only — the (body, orgId?, options?) tail is incidental here.
+      expect(calls[calls.length - 1][0]).toEqual(
         expect.objectContaining({
           conversationId: "conv_clarify",
           message: "Base",

@@ -4,45 +4,275 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Design System v2 (light): near-white page, white surfaces, slate
-     neutrals, Oxford-blue ink. Blue #1727E0 is the working color; orange
-     #FF6828 is reserved for focus rings and one highlight per view. */
-  --background: #fbfbfc;
-  --foreground: #010f31;
-  --card: #ffffff;
-  --card-foreground: #010f31;
-  --popover: #ffffff;
-  --popover-foreground: #010f31;
-  --primary: #1727e0;
-  --primary-foreground: #ffffff;
-  --secondary: #2f94ff;
-  --secondary-foreground: #010f31;
-  --muted: #f4f5f6;
-  --muted-foreground: #585d65;
-  --accent: #f0f7ff;
-  --accent-foreground: #1727e0;
-  --destructive: #e5484d;
+  /* ══════════════════════════════════════════════════════════════════════
+     Design System v2 — see DESIGN.md; reference implementation:
+     https://onchainsuite.aborodeolusegun.workers.dev/
+     Paper + electric-blue (light) / graphite (dark). Blue #1727E0 is the
+     action color; orange #FF6828 is focus only. Primitives are theme-
+     independent; the semantic tokens below resolve per theme (`.dark`
+     overrides the subset that changes — next-themes runs `attribute="class"`).
+     The shadcn aliases are kept and mapped onto these tokens so every
+     existing utility (bg-card, text-muted-foreground, …) keeps working.
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* ── Primitive ramps (DESIGN.md §2 — do not use directly) ────────────── */
+  --neutral-0: #ffffff;
+  --neutral-25: #fbfbfc;
+  --neutral-50: #f5f6f7;
+  --neutral-100: #ecedef;
+  --neutral-200: #dee0e3;
+  --neutral-300: #c4c7cc;
+  --neutral-400: #9da1a8;
+  --neutral-500: #767b83;
+  --neutral-600: #585d65;
+  --neutral-700: #42464d;
+  --neutral-800: #2c3035;
+  --neutral-900: #1c1f23;
+  --neutral-950: #121417;
+
+  --blue-25: #f0f4ff;
+  --blue-50: #e4eaff;
+  --blue-100: #c9d5ff;
+  --blue-200: #a3b4ff;
+  --blue-300: #7a8efb;
+  --blue-400: #5468f2;
+  --blue-500: #3344ea;
+  --blue-600: #1727e0;
+  --blue-700: #121fb4;
+  --blue-800: #0e188a;
+  --blue-900: #0a1160;
+  --blue-950: #060a3d;
+
+  --sky-50: #ebf5ff;
+  --sky-100: #d6ebff;
+  --sky-200: #add6ff;
+  --sky-300: #7fbeff;
+  --sky-400: #55a8ff;
+  --sky-500: #2f94ff;
+  --sky-600: #1d75d6;
+  --sky-700: #155aa8;
+  --sky-800: #0f427c;
+  --sky-900: #0a2c54;
+
+  --navy-600: #1b2b52;
+  --navy-700: #131f42;
+  --navy-800: #0c1735;
+  --navy-900: #061029;
+  --navy-950: #010f31;
+
+  --orange-50: #fff3ed;
+  --orange-100: #ffe4d6;
+  --orange-200: #ffc5a8;
+  --orange-300: #ffa275;
+  --orange-400: #ff8449;
+  --orange-500: #ff6828;
+  --orange-600: #e04e12;
+  --orange-700: #b53c0b;
+  --orange-800: #8a2d08;
+  --orange-900: #5f1f06;
+
+  --green-50: #e9f7f0;
+  --green-100: #cbeddd;
+  --green-500: #17a66b;
+  --green-600: #128355;
+  --green-700: #0e6743;
+
+  --red-50: #fdecec;
+  --red-100: #fad4d5;
+  --red-500: #e5484d;
+  --red-600: #c13539;
+  --red-700: #9b2a2e;
+
+  --yellow-50: #fdf6e7;
+  --yellow-100: #faeac4;
+  --yellow-500: #e8a317;
+  --yellow-600: #be8410;
+  --yellow-700: #94660c;
+
+  --alice: #f0f7ff;
+
+  /* ── Semantic — surfaces (light) ─────────────────────────────────────── */
+  --bg-page: var(--neutral-25);
+  --bg-surface: var(--neutral-0);
+  --bg-raised: var(--neutral-0);
+  --bg-sunken: var(--neutral-50);
+  --bg-brand: var(--blue-600);
+  --bg-brand-subtle: var(--blue-25);
+  --bg-selected: var(--blue-25);
+  --bg-overlay: rgba(18, 20, 23, 0.5);
+  --surface-hover: var(--neutral-50);
+  --surface-subtle: var(--neutral-100);
+  --surface-tint: var(--neutral-50);
+
+  /* ── Semantic — text (light) ─────────────────────────────────────────── */
+  --text-primary: var(--navy-950);
+  --text-secondary: var(--neutral-600);
+  --text-tertiary: var(--neutral-500);
+  --text-disabled: var(--neutral-400);
+  --text-inverse: #ffffff;
+  --text-on-brand: #ffffff;
+  --text-link: var(--blue-600);
+  --text-link-hover: var(--orange-600);
+
+  /* ── Semantic — borders & actions (light) ────────────────────────────── */
+  --border-subtle: var(--neutral-100);
+  --border-default: var(--neutral-200);
+  --border-strong: var(--neutral-400);
+  --border-focus: var(--orange-500);
+  --border-width-default: 1px;
+  --border-width-strong: 2px;
+
+  --action-primary: var(--blue-600);
+  --action-primary-hover: var(--blue-700);
+  --action-primary-active: var(--blue-800);
+  --action-destructive: var(--red-500);
+  --action-destructive-hover: var(--red-600);
+
+  --focus-ring: rgba(255, 104, 40, 0.28);
+  --tint-hover: rgba(18, 20, 23, 0.06);
+  --tint-pressed: rgba(18, 20, 23, 0.1);
+
+  /* ── Semantic — status triads (light) ────────────────────────────────── */
+  --status-success-bg: var(--green-50);
+  --status-success-border: var(--green-500);
+  --status-success-text: var(--green-700);
+  --status-info-bg: var(--sky-50);
+  --status-info-border: var(--sky-500);
+  --status-info-text: var(--sky-700);
+  --status-warning-bg: var(--orange-50);
+  --status-warning-border: var(--orange-500);
+  --status-warning-text: var(--orange-700);
+  --status-error-bg: var(--red-50);
+  --status-error-border: var(--red-500);
+  --status-error-text: var(--red-700);
+
+  /* ── Data-viz series (light) ─────────────────────────────────────────── */
+  --data-1: var(--sky-500);
+  --data-2: var(--blue-700);
+  --data-3: var(--orange-400);
+  --data-4: #17a66b;
+  --data-5: #8b7cf6;
+  --data-6: #e8a317;
+  --data-7: var(--sky-800);
+  --data-8: var(--neutral-400);
+  --chart-axis: var(--neutral-500);
+  --chart-grid: var(--neutral-200);
+
+  /* ── shadcn aliases — kept working, mapped onto the tokens above ──────── */
+  --background: var(--bg-page);
+  --foreground: var(--text-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-surface);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--action-primary);
+  --primary-foreground: var(--text-on-brand);
+  --secondary: var(--sky-500);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--neutral-50);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--alice);
+  --accent-foreground: var(--blue-600);
+  --destructive: var(--action-destructive);
   --destructive-foreground: #ffffff;
-  --border: #dee0e3;
-  --input: #dee0e3;
-  --ring: #ff6828;
-  --chart-1: #1727e0;
-  --chart-2: #2f94ff;
-  --chart-3: #ff6828;
-  --chart-4: #7a8efb;
-  --chart-5: #a3b4ff;
-  --sidebar: #fbfbfc;
-  --sidebar-foreground: #010f31;
-  --sidebar-primary: #1727e0;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f0f7ff;
-  --sidebar-accent-foreground: #1727e0;
-  --sidebar-border: #dee0e3;
-  --sidebar-ring: #ff6828;
-  --font-sans: "Instrument_Sans", sans-serif;
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--border-focus);
+  --chart-1: var(--blue-600);
+  --chart-2: var(--sky-500);
+  --chart-3: var(--orange-500);
+  --chart-4: var(--blue-300);
+  --chart-5: var(--blue-200);
+  /* Surface, not page: the sidebar renders as a floating panel, so it lifts off
+     the canvas the same way it already does in dark (§3 "Cards, panels"). */
+  --sidebar: var(--bg-surface);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--action-primary);
+  --sidebar-primary-foreground: var(--text-on-brand);
+  --sidebar-accent: var(--alice);
+  --sidebar-accent-foreground: var(--blue-600);
+  --sidebar-border: var(--border-default);
+  --sidebar-ring: var(--border-focus);
+
+  /* ── Type — families resolve through the next/font variables set in
+     app/layout.tsx, with the literal family + generic as fallbacks. ────── */
+  --font-sans: var(--font-instrument-sans, "Instrument Sans"), sans-serif;
   --font-serif: "Lora", serif;
-  --font-mono: "Fira Code", monospace;
+  --font-mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, "SF Mono",
+    Menlo, monospace;
+
+  /* Type scale — size / line / weight / tracking (DESIGN.md §4). Exposed as
+     `text-*` utilities in the @theme inline block below. */
+  --text-display-xl-size: 69px;
+  --text-display-xl-line: 74px;
+  --text-display-xl-weight: 700;
+  --text-display-xl-tracking: -1px;
+  --text-display-xl-fluid: clamp(40px, 5.5vw, 69px);
+  --text-display-l-size: 56px;
+  --text-display-l-line: 62px;
+  --text-display-l-weight: 700;
+  --text-display-l-tracking: -1px;
+  --text-display-m-size: 48px;
+  --text-display-m-line: 54px;
+  --text-display-m-weight: 600;
+  --text-display-m-tracking: -1px;
+  --text-heading-xl-size: 32px;
+  --text-heading-xl-line: 40px;
+  --text-heading-xl-weight: 600;
+  --text-heading-xl-tracking: -0.5px;
+  --text-heading-l-size: 24px;
+  --text-heading-l-line: 32px;
+  --text-heading-l-weight: 600;
+  --text-heading-l-tracking: -0.25px;
+  --text-heading-m-size: 20px;
+  --text-heading-m-line: 28px;
+  --text-heading-m-weight: 600;
+  --text-heading-s-size: 16px;
+  --text-heading-s-line: 24px;
+  --text-heading-s-weight: 600;
+  --text-body-l-size: 18px;
+  --text-body-l-line: 28px;
+  --text-body-m-size: 16px;
+  --text-body-m-line: 24px;
+  --text-body-s-size: 14px;
+  --text-body-s-line: 20px;
+  --text-label-m-size: 14px;
+  --text-label-m-line: 20px;
+  --text-label-m-weight: 500;
+  --text-label-s-size: 12px;
+  --text-label-s-line: 16px;
+  --text-label-s-weight: 500;
+  --text-label-s-tracking: 0.2px;
+  --text-numeric-l-size: 28px;
+  --text-numeric-l-line: 32px;
+  --text-numeric-l-weight: 600;
+  --text-numeric-m-size: 20px;
+  --text-numeric-m-line: 24px;
+  --text-numeric-m-weight: 600;
+  --text-code-m-size: 14px;
+  --text-code-m-line: 22px;
+  --text-code-s-size: 12px;
+  --text-code-s-line: 18px;
+  --text-caption-size: 12px;
+  --text-caption-line: 16px;
+
+  /* ── Radius — kept at the app's current scale (unchanged) ─────────────── */
   --radius: 0.625rem;
+
+  /* ── Spacing ─────────────────────────────────────────────────────────── */
+  --spacing: 0.25rem;
+  --space-card-padding: 24px;
+  --space-field-gap: 8px;
+  --space-section-app: 32px;
+
+  /* ── Elevation (navy-tinted, DESIGN.md §5) ───────────────────────────── */
+  --elevation-0: none;
+  --elevation-1: 0 1px 2px rgba(1, 15, 49, 0.07);
+  --elevation-2: 0 2px 8px rgba(1, 15, 49, 0.1);
+  --elevation-3: 0 8px 24px rgba(1, 15, 49, 0.14);
+  --elevation-4: 0 16px 48px rgba(1, 15, 49, 0.18);
+
+  /* Existing shadow scale (components depend on these names) */
   --shadow-x: 0rem;
   --shadow-y: 0.25rem;
   --shadow-blur: 0.5rem;
@@ -68,10 +298,52 @@
     0rem 0.25rem 0.5rem 0.125rem hsl(222.5 96% 9.8% / 0.1),
     0rem 8px 10px -0.875px hsl(222.5 96% 9.8% / 0.1);
   --shadow-2xl: 0rem 0.25rem 0.5rem 0.125rem hsl(222.5 96% 9.8% / 0.25);
-  --tracking-normal: normal;
-  --spacing: 0.25rem;
 
-  /* Brand Palette */
+  /* ── Motion, blur, gradients, opacity, z (DESIGN.md §6/§7) ───────────── */
+  --duration-instant: 0ms;
+  --duration-fast: 0.1s;
+  --duration-base: 0.18s;
+  --duration-slow: 0.28s;
+  --duration-deliberate: 0.4s;
+  --duration-expressive: 0.7s;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0.1, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --blur-glass: 16px;
+  --blur-overlay: 8px;
+  --gradient-core: linear-gradient(120deg, #2f94ff 0%, #1727e0 100%);
+  --gradient-dawn: linear-gradient(
+    120deg,
+    #f0f7ff 0%,
+    #2f94ff 50%,
+    #1727e0 100%
+  );
+  --gradient-depth: linear-gradient(
+    120deg,
+    #f0f7ff 0%,
+    #1727e0 55%,
+    #010f31 100%
+  );
+  --gradient-ember: linear-gradient(
+    120deg,
+    #ff6828 0%,
+    #1727e0 55%,
+    #010f31 100%
+  );
+  --opacity-disabled: 0.45;
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 100;
+  --z-overlay: 1000;
+  --z-modal: 1010;
+  --z-popover: 1020;
+  --z-toast: 1030;
+  --z-tooltip: 1040;
+  --z-spotlight: 1050;
+
+  --tracking-normal: normal;
+
+  /* Brand Palette (legacy references — still consumed by settings/layout) */
   --brand-oxford-blue: #010f31;
   --brand-alice-blue: #f0f7ff;
   --brand-blue: #1727e0;
@@ -81,44 +353,91 @@
 
 .dark {
   /* Design System v2 (dark): neutral graphite — never a blue background.
-     Blue lifts to 400 (#5468F2) and stays an accent; orange lifts to
-     #FF8449 for focus rings. */
-  --background: #101215;
-  --foreground: #fbfbfc;
-  --card: #17191d;
-  --card-foreground: #fbfbfc;
-  --popover: #17191d;
-  --popover-foreground: #fbfbfc;
-  --primary: #5468f2;
+     Overrides only the semantic subset that changes; the shadcn aliases below
+     re-resolve through those tokens. Blue lifts to 400 (#5468F2) and stays an
+     accent; orange lifts to #FF8449 for focus rings. Primitives, the type
+     scale, spacing, motion and z-index tokens are theme-independent and stay
+     inherited from :root. */
+
+  /* Surfaces */
+  --bg-page: #101215;
+  --bg-surface: #17191d;
+  --bg-raised: #1e2125;
+  --bg-sunken: #0b0d0f;
+  --bg-brand-subtle: #1b2130;
+  --bg-selected: #1c2333;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+  --surface-hover: #23262b;
+  --surface-subtle: #262a2f;
+  --surface-tint: #1a1d21;
+
+  /* Text */
+  --text-primary: #f4f5f6;
+  --text-secondary: var(--neutral-300);
+  --text-tertiary: var(--neutral-400);
+  --text-disabled: var(--neutral-600);
+  --text-inverse: #101215;
+  --text-link: var(--sky-400);
+  --text-link-hover: var(--orange-400);
+
+  /* Borders & actions */
+  --border-subtle: #212429;
+  --border-default: #2b2f35;
+  --border-strong: #3b4046;
+  --border-focus: var(--orange-400);
+  --action-primary: var(--blue-400);
+  --action-primary-hover: var(--blue-300);
+  --action-primary-active: var(--blue-200);
+  --focus-ring: rgba(255, 132, 73, 0.3);
+  --tint-hover: rgba(255, 255, 255, 0.07);
+  --tint-pressed: rgba(255, 255, 255, 0.12);
+
+  /* Status (translucent bg + lightened text) */
+  --status-success-bg: rgba(23, 166, 107, 0.15);
+  --status-success-text: #4ade9c;
+  --status-info-bg: rgba(47, 148, 255, 0.14);
+  --status-info-text: var(--sky-400);
+  --status-warning-bg: rgba(255, 104, 40, 0.16);
+  --status-warning-text: var(--orange-400);
+  --status-error-bg: rgba(229, 72, 77, 0.15);
+  --status-error-text: #f87a7e;
+  --chart-grid: #2b2f35;
+
+  /* shadcn aliases — dark. `--muted-foreground` intentionally stays at
+     neutral-400 (not --text-secondary) to preserve current dark contrast. */
+  --background: var(--bg-page);
+  --foreground: var(--text-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-surface);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--action-primary);
   --primary-foreground: #ffffff;
   --secondary: #2b2f35;
-  --secondary-foreground: #fbfbfc;
-  --muted: #17191d;
-  --muted-foreground: #9da1a8;
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--bg-surface);
+  --muted-foreground: var(--neutral-400);
   --accent: #2b2f35;
   --accent-foreground: #fbfbfc;
-  --destructive: #e5484d;
+  --destructive: var(--red-500);
   --destructive-foreground: #ffffff;
-  --border: #2b2f35;
-  --input: #2b2f35;
-  --ring: #ff8449;
-  --chart-1: #5468f2;
-  --chart-2: #2f94ff;
-  --chart-3: #ff8449;
-  --chart-4: #7a8efb;
-  --chart-5: #a3b4ff;
-  --sidebar: #17191d;
-  --sidebar-foreground: #fbfbfc;
-  --sidebar-primary: #5468f2;
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--border-focus);
+  --chart-1: var(--blue-400);
+  --chart-2: var(--sky-500);
+  --chart-3: var(--orange-400);
+  --chart-4: var(--blue-300);
+  --chart-5: var(--blue-200);
+  --sidebar: var(--bg-surface);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--action-primary);
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #2b2f35;
   --sidebar-accent-foreground: #fbfbfc;
-  --sidebar-border: #2b2f35;
-  --sidebar-ring: #ff8449;
-  --font-sans: "Instrument_Sans", sans-serif;
-  --font-serif: "Lora", serif;
-  --font-mono: "Fira Code", monospace;
-  --radius: 0.625rem;
+  --sidebar-border: var(--border-default);
+  --sidebar-ring: var(--border-focus);
+
   --shadow-x: 0rem;
   --shadow-y: 0.25rem;
   --shadow-blur: 0.5rem;
@@ -179,14 +498,108 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* Design System v2 — semantic utilities that fill the gaps the shadcn
+     aliases don't cover: selected/hover surfaces, strong border, status tones
+     and the data-viz series. Usable as bg-/text-/border-{name}. */
+  --color-selected: var(--bg-selected);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-sunken: var(--bg-sunken);
+  --color-brand-subtle: var(--bg-brand-subtle);
+  --color-line-strong: var(--border-strong);
+  --color-focus: var(--border-focus);
+  --color-success: var(--status-success-text);
+  --color-success-bg: var(--status-success-bg);
+  --color-info: var(--status-info-text);
+  --color-info-bg: var(--status-info-bg);
+  --color-warning: var(--status-warning-text);
+  --color-warning-bg: var(--status-warning-bg);
+  --color-error: var(--status-error-text);
+  --color-error-bg: var(--status-error-bg);
+  --color-data-1: var(--data-1);
+  --color-data-2: var(--data-2);
+  --color-data-3: var(--data-3);
+  --color-data-4: var(--data-4);
+  --color-data-5: var(--data-5);
+  --color-data-6: var(--data-6);
+  --color-data-7: var(--data-7);
+  --color-data-8: var(--data-8);
+  --color-chart-axis: var(--chart-axis);
+  --color-chart-grid: var(--chart-grid);
+
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
+
+  /* Type scale (DESIGN.md §4) → `text-heading-xl`, `text-body-s`,
+     `text-numeric-l`, `text-code-s`, `text-caption`, … Each utility carries
+     its line-height/weight/tracking. Numeric + code roles must be paired with
+     `font-mono`. NOTE: these are font-size utilities and are distinct from the
+     `--text-primary`/`--text-secondary` *color* tokens on :root, which are
+     consumed as `text-(--text-secondary)`. */
+  --text-display-xl: var(--text-display-xl-fluid);
+  --text-display-xl--line-height: var(--text-display-xl-line);
+  --text-display-xl--font-weight: var(--text-display-xl-weight);
+  --text-display-xl--letter-spacing: var(--text-display-xl-tracking);
+  --text-display-l: var(--text-display-l-size);
+  --text-display-l--line-height: var(--text-display-l-line);
+  --text-display-l--font-weight: var(--text-display-l-weight);
+  --text-display-l--letter-spacing: var(--text-display-l-tracking);
+  --text-display-m: var(--text-display-m-size);
+  --text-display-m--line-height: var(--text-display-m-line);
+  --text-display-m--font-weight: var(--text-display-m-weight);
+  --text-display-m--letter-spacing: var(--text-display-m-tracking);
+  --text-heading-xl: var(--text-heading-xl-size);
+  --text-heading-xl--line-height: var(--text-heading-xl-line);
+  --text-heading-xl--font-weight: var(--text-heading-xl-weight);
+  --text-heading-xl--letter-spacing: var(--text-heading-xl-tracking);
+  --text-heading-l: var(--text-heading-l-size);
+  --text-heading-l--line-height: var(--text-heading-l-line);
+  --text-heading-l--font-weight: var(--text-heading-l-weight);
+  --text-heading-l--letter-spacing: var(--text-heading-l-tracking);
+  --text-heading-m: var(--text-heading-m-size);
+  --text-heading-m--line-height: var(--text-heading-m-line);
+  --text-heading-m--font-weight: var(--text-heading-m-weight);
+  --text-heading-s: var(--text-heading-s-size);
+  --text-heading-s--line-height: var(--text-heading-s-line);
+  --text-heading-s--font-weight: var(--text-heading-s-weight);
+  --text-body-l: var(--text-body-l-size);
+  --text-body-l--line-height: var(--text-body-l-line);
+  --text-body-m: var(--text-body-m-size);
+  --text-body-m--line-height: var(--text-body-m-line);
+  --text-body-s: var(--text-body-s-size);
+  --text-body-s--line-height: var(--text-body-s-line);
+  --text-label-m: var(--text-label-m-size);
+  --text-label-m--line-height: var(--text-label-m-line);
+  --text-label-m--font-weight: var(--text-label-m-weight);
+  --text-label-s: var(--text-label-s-size);
+  --text-label-s--line-height: var(--text-label-s-line);
+  --text-label-s--font-weight: var(--text-label-s-weight);
+  --text-label-s--letter-spacing: var(--text-label-s-tracking);
+  --text-numeric-l: var(--text-numeric-l-size);
+  --text-numeric-l--line-height: var(--text-numeric-l-line);
+  --text-numeric-l--font-weight: var(--text-numeric-l-weight);
+  --text-numeric-m: var(--text-numeric-m-size);
+  --text-numeric-m--line-height: var(--text-numeric-m-line);
+  --text-numeric-m--font-weight: var(--text-numeric-m-weight);
+  --text-code-m: var(--text-code-m-size);
+  --text-code-m--line-height: var(--text-code-m-line);
+  --text-code-s: var(--text-code-s-size);
+  --text-code-s--line-height: var(--text-code-s-line);
+  --text-caption: var(--text-caption-size);
+  --text-caption--line-height: var(--text-caption-line);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-round: 9999px;
+
+  /* Elevation → `shadow-elevation-1` … `shadow-elevation-4`. */
+  --shadow-elevation-1: var(--elevation-1);
+  --shadow-elevation-2: var(--elevation-2);
+  --shadow-elevation-3: var(--elevation-3);
+  --shadow-elevation-4: var(--elevation-4);
 
   --shadow-2xs: var(--shadow-2xs);
   --shadow-xs: var(--shadow-xs);
@@ -196,6 +609,13 @@
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
+
+  /* Motion + effects → `ease-standard`, `backdrop-blur-glass`, … */
+  --ease-standard: var(--ease-standard);
+  --ease-emphasized: var(--ease-emphasized);
+  --ease-exit: var(--ease-exit);
+  --blur-glass: var(--blur-glass);
+  --blur-overlay: var(--blur-overlay);
 
   --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
   --tracking-tight: calc(var(--tracking-normal) - 0.025em);
@@ -473,7 +893,6 @@ body {
   --os-deep: #050a2e;
   --os-abyss: #02040f;
 }
-
 
 /* Removed the old terminal landing design system (.os-landing/.os-btn/.os-nav,
    bento/ticker/showcase styles). The marketing site now uses the v2 design

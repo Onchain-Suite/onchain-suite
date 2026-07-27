@@ -51,6 +51,7 @@ import { toast } from "sonner";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { formatDateTime, formatRelativeTime } from "@/lib/date";
 import { isJsonObject } from "@/lib/utils";
 
 import "reactflow/dist/style.css";
@@ -1824,17 +1825,21 @@ const CreateAutomationContent = () => {
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-              <span>
-                Last edited{" "}
-                {typeof (
-                  lastEditedQuery.data as { lastEditedAt?: unknown } | null
-                )?.lastEditedAt === "string"
-                  ? String(
-                      (lastEditedQuery.data as { lastEditedAt: string })
+              {(() => {
+                const raw =
+                  typeof (
+                    lastEditedQuery.data as { lastEditedAt?: unknown } | null
+                  )?.lastEditedAt === "string"
+                    ? (lastEditedQuery.data as { lastEditedAt: string })
                         .lastEditedAt
-                    )
-                  : automationData.createdAt}
-              </span>
+                    : automationData.createdAt;
+                const relative = formatRelativeTime(raw);
+                return (
+                  <span title={formatDateTime(raw)}>
+                    Last edited {relative || "—"}
+                  </span>
+                );
+              })()}
               <span className="text-border">/</span>
               <span>{builderNodeCount} nodes</span>
               <span className="text-border">/</span>
@@ -3145,8 +3150,12 @@ const CreateAutomationContent = () => {
                             <td className="px-6 py-4 text-right font-medium text-primary">
                               {entry.revenue > 0 ? `$${entry.revenue}` : "-"}
                             </td>
-                            <td className="px-6 py-4 text-right text-muted-foreground">
-                              {entry.timestamp}
+                            <td
+                              className="px-6 py-4 text-right text-muted-foreground"
+                              title={formatDateTime(entry.timestamp)}
+                            >
+                              {formatDateTime(entry.timestamp) ||
+                                entry.timestamp}
                             </td>
                           </tr>
                         ))

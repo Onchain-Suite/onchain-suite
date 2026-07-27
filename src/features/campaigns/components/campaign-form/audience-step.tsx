@@ -45,6 +45,7 @@ import {
   extractWalletFields,
   isSyntheticWalletEmail,
 } from "@/features/audience/utils";
+import { smartSendingService } from "@/features/settings/smart-sending.service";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 interface AudienceStepProps {
@@ -86,9 +87,12 @@ export function AudienceStep({
 }: AudienceStepProps) {
   const UTM_HELP_URL =
     "https://support.google.com/analytics/answer/1033863?hl=en";
+  // Segments live as a tab on /intelligence, not their own route.
+  const segmentsHref = PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS;
   const accountSettingsHref = `${PRIVATE_ROUTES.SETTINGS}?tab=account`;
   const selectedAudiences = form.watch("selectedAudiences");
   const smartSending = form.watch("smartSending");
+  const windowOverrideDraft = form.watch("smartSendingWindowHours");
   const trackingParameters = form.watch("trackingParameters");
   const utmSource = form.watch("utmSource");
   const utmMedium = form.watch("utmMedium");
@@ -151,6 +155,18 @@ export function AudienceStep({
     () => contactsQuery.data ?? [],
     [contactsQuery.data]
   );
+
+  // The suppression window is org-configurable, so read it rather than
+  // quoting a hardcoded number. `windowHours` always comes back concrete
+  // (org value, else platform default).
+  const smartSendingQuery = useQuery({
+    queryKey: ["organization", "settings", "smart-sending"],
+    queryFn: () => smartSendingService.getSettings(),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  });
+  const smartSendingWindow = smartSendingQuery.data?.windowHours ?? null;
 
   // Contacts double as count-1 "lists" for the local recipient estimate and
   // for resolving selected ids into profileIds at sync time.
@@ -235,18 +251,31 @@ export function AudienceStep({
   );
   const utmKey = useMemo(() => JSON.stringify(utmParams ?? null), [utmParams]);
 
+  // Blank / invalid → undefined, i.e. inherit the org window rather than
+  // sending a value the backend would reject.
+  const windowOverride = useMemo(() => {
+    const trimmed = (windowOverrideDraft ?? "").trim();
+    if (trimmed.length === 0) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isInteger(parsed) && parsed >= 1 && parsed <= 168
+      ? parsed
+      : undefined;
+  }, [windowOverrideDraft]);
+
   // Latest values read inside the effect without widening its deps.
   const syncInputsRef = useRef({
     selectedAudiences,
     segments,
     profileOptions,
     utmParams,
+    windowOverride,
   });
   syncInputsRef.current = {
     selectedAudiences,
     segments,
     profileOptions,
     utmParams,
+    windowOverride,
   };
 
   // Live autosync. The backend rate-limits these endpoints (3 requests/10s),
@@ -267,12 +296,10 @@ export function AudienceStep({
 
     const buildPayloads = async () => {
       const inputs = syncInputsRef.current;
-      const { listIds, segmentIds, profileIds, tagNames } =
-        partitionAudienceSelection(
-          inputs.selectedAudiences,
-          inputs.segments,
-          inputs.profileOptions
-        );
+      const { segmentIds, profileIds, tagNames } = partitionAudienceSelection(
+        inputs.selectedAudiences,
+        inputs.segments
+      );
       // Tag selections expand to the tagged contacts' profile ids — the
       // backend audience contract only knows profiles + segments.
       const tagProfileIds = await resolveTagsToProfileIds(tagNames);
@@ -280,10 +307,14 @@ export function AudienceStep({
         new Set([...profileIds, ...tagProfileIds])
       );
       return {
-        audience: { listIds, segmentIds, profileIds: mergedProfileIds },
+        audience: { segmentIds, profileIds: mergedProfileIds },
         tracking: {
           smartSending: Boolean(smartSending),
           trackingParameters: Boolean(trackingParameters),
+          // Omitted when blank so the org setting applies.
+          ...(inputs.windowOverride !== undefined
+            ? { smartSendingWindowHours: inputs.windowOverride }
+            : {}),
           ...(inputs.utmParams ? { utm: inputs.utmParams } : {}),
         },
       };
@@ -340,6 +371,7 @@ export function AudienceStep({
     segmentsKey,
     profileOptionsKey,
     smartSending,
+    windowOverride,
     trackingParameters,
     utmKey,
   ]);
@@ -413,17 +445,14 @@ export function AudienceStep({
               </FormControl>
               <FormDescription>
                 Pick individual contacts by email, or send to a tag or segment —
-                named groups of contacts created in Intelligence → Segments. No
-                tags ready? Just select the emails directly.{" "}
-                <a
-                  href={UTM_HELP_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                named groups of contacts created in{" "}
+                <Link
+                  href={segmentsHref}
                   className="text-primary hover:underline"
                 >
-                  Learn more about UTM
-                </a>
-                .
+                  Intelligence → Segments
+                </Link>
+                . No tags ready? Just select the emails directly.
               </FormDescription>
               {segmentsError ? (
                 <p className="text-sm text-amber-400">
@@ -465,10 +494,18 @@ export function AudienceStep({
                   </FormLabel>
                 </div>
                 <FormDescription>
-                  This campaign will not be sent to profiles who received a
+                  This campaign won&apos;t be sent to profiles who received a
                   message from you in the last{" "}
-                  <span className="font-medium text-foreground">10 hours</span>.
-                  Smart Sending (thresholds) can be updated in{" "}
+                  {smartSendingWindow !== null ? (
+                    <span className="font-medium text-foreground">
+                      {smartSendingWindow} hour
+                      {smartSendingWindow === 1 ? "" : "s"}
+                    </span>
+                  ) : (
+                    "suppression window"
+                  )}
+                  . Anyone excluded is already reflected in the estimated
+                  recipient count. Change the window in{" "}
                   <Link
                     href={accountSettingsHref}
                     className="text-primary hover:underline"
@@ -477,6 +514,52 @@ export function AudienceStep({
                   </Link>
                   .
                 </FormDescription>
+
+                {field.value ? (
+                  <FormField
+                    control={form.control}
+                    name="smartSendingWindowHours"
+                    render={({ field: overrideField }) => (
+                      <FormItem className="pt-3">
+                        <FormLabel className="text-xs font-medium text-muted-foreground">
+                          Override for this campaign (optional)
+                        </FormLabel>
+                        <div className="flex items-center gap-2">
+                          <FormControl>
+                            <Input
+                              {...overrideField}
+                              value={overrideField.value ?? ""}
+                              type="number"
+                              min={1}
+                              max={168}
+                              step={1}
+                              placeholder={
+                                smartSendingWindow !== null
+                                  ? String(smartSendingWindow)
+                                  : "10"
+                              }
+                              className="h-9 w-28 rounded-lg bg-card"
+                            />
+                          </FormControl>
+                          <span className="text-xs text-muted-foreground">
+                            hours — leave blank to use the org setting
+                          </span>
+                        </div>
+                        {/* The value is only sent when it's a valid 1–168
+                            integer, so say so rather than silently ignoring
+                            what was typed. */}
+                        {(overrideField.value ?? "").toString().trim().length >
+                          0 && windowOverride === undefined ? (
+                          <p className="text-xs text-amber-500">
+                            Enter a whole number between 1 and 168. Until then
+                            this campaign uses the org window.
+                          </p>
+                        ) : null}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : null}
               </div>
             </FormItem>
           )}
@@ -512,10 +595,18 @@ export function AudienceStep({
                   </FormLabel>
                 </div>
                 <FormDescription>
-                  Links in this campaign will include audience tracking
-                  information, called UTM parameters. This allows bounce
-                  tracking within third-party analytics tools such as Google
-                  Analytics.{" "}
+                  Tags links in this campaign with UTM parameters so tools like
+                  Google Analytics can attribute the traffic. Defaults to{" "}
+                  <span className="font-mono text-xs text-foreground">
+                    utm_source=onchainsuite
+                  </span>
+                  ,{" "}
+                  <span className="font-mono text-xs text-foreground">
+                    utm_medium=email
+                  </span>{" "}
+                  and the campaign id — fill any field below to override one.
+                  Links that already carry their own UTM values are left
+                  untouched, and unsubscribe links are never tagged.{" "}
                   <a
                     href={UTM_HELP_URL}
                     target="_blank"

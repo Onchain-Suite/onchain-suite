@@ -312,7 +312,7 @@ function ReportChartCard({
           OnchainSuite
         </span>
         <span className="text-[11px] text-muted-foreground">
-          Onchain intelligence · onchainsuite.io
+          Onchain intelligence · onchainsuite.com
         </span>
       </div>
     </div>

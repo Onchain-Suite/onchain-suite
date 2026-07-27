@@ -2,7 +2,7 @@
 
 import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -75,6 +75,26 @@ export function TemplateStep({
     [campaignId]
   );
 
+  /**
+   * The editor reads `?campaign=` and can render nothing without it — no id
+   * means a dead "Missing campaign id." page. Previously the param was set
+   * conditionally and we navigated anyway; refuse to leave instead, and say
+   * why, so the user isn't dropped somewhere with no way forward.
+   */
+  const openEditor = useCallback(
+    (params: URLSearchParams) => {
+      if (!normalizedCampaignId) {
+        toast.error(
+          "Add a campaign name first — the editor needs a saved campaign to attach the design to."
+        );
+        return;
+      }
+      params.set("campaign", normalizedCampaignId);
+      router.push(`/campaigns/editor?${params.toString()}`);
+    },
+    [normalizedCampaignId, router]
+  );
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 p-4 sm:p-6 md:p-8 lg:p-10">
       <div className="flex items-start gap-3">
@@ -139,9 +159,6 @@ export function TemplateStep({
                 }
               }
               const params = new URLSearchParams();
-              if (campaignId && campaignId.trim().length > 0) {
-                params.set("campaign", campaignId);
-              }
               params.set(
                 "returnTo",
                 normalizedCampaignId
@@ -156,17 +173,13 @@ export function TemplateStep({
               if (form.getValues("channel") === "in-app-push") {
                 params.set("channel", "in-app-push");
               }
-              router.push(`/campaigns/editor?${params.toString()}`);
+              openEditor(params);
             }}
             onEditTemplate={(templateId, templateName) => {
               const params = new URLSearchParams();
-              if (campaignId && campaignId.trim().length > 0) {
-                params.set("campaign", campaignId);
-              }
-              const returnTo =
-                campaignId && campaignId.trim().length > 0
-                  ? `/campaigns/new?campaign=${encodeURIComponent(campaignId)}&step=2`
-                  : "/campaigns/new?step=2";
+              const returnTo = normalizedCampaignId
+                ? `/campaigns/new?campaign=${encodeURIComponent(normalizedCampaignId)}&step=2`
+                : "/campaigns/new?step=2";
               params.set("returnTo", returnTo);
               params.set("template", templateId);
               if (templateName) params.set("templateName", templateName);
@@ -175,10 +188,16 @@ export function TemplateStep({
               if (form.getValues("channel") === "in-app-push") {
                 params.set("channel", "in-app-push");
               }
-              router.push(`/campaigns/editor?${params.toString()}`);
+              openEditor(params);
             }}
             onSelectTemplate={async (templateId) => {
-              if (!normalizedCampaignId) return;
+              if (!normalizedCampaignId) {
+                // Was a silent no-op: the click appeared to do nothing at all.
+                toast.error(
+                  "Add a campaign name first — the template needs a saved campaign to apply to."
+                );
+                return;
+              }
               const clean = templateId.trim();
               if (!clean) return;
               const seq = ++applyTemplateSeqRef.current;
@@ -221,13 +240,6 @@ export function TemplateStep({
             }}
             onCreateEditor={(opts) => {
               const params = new URLSearchParams();
-              const normalizedCampaignId =
-                campaignId && campaignId.trim().length > 0
-                  ? campaignId
-                  : undefined;
-              if (campaignId && campaignId.trim().length > 0) {
-                params.set("campaign", campaignId);
-              }
               const returnTo = normalizedCampaignId
                 ? `/campaigns/new?campaign=${encodeURIComponent(normalizedCampaignId)}&step=2`
                 : "/campaigns/new?step=2";
@@ -251,7 +263,7 @@ export function TemplateStep({
               if (form.getValues("channel") === "in-app-push") {
                 params.set("channel", "in-app-push");
               }
-              router.push(`/campaigns/editor?${params.toString()}`);
+              openEditor(params);
             }}
           />
         </div>

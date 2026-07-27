@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import { formatDateTime, formatRelativeTime } from "@/lib/date";
+
 import { type Draft } from "@/features/automation/types";
 
 interface DraftsListProps {
@@ -102,9 +104,12 @@ export const DraftsList = ({ drafts, onDelete }: DraftsListProps) => {
           </div>
 
           <div className="mt-auto flex items-center justify-between gap-2 pt-3 text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1.5">
+            <span
+              className="flex items-center gap-1.5"
+              title={formatDateTime(draft.lastEdited)}
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-              Saved {draft.lastEdited}
+              Saved {formatRelativeTime(draft.lastEdited) || "recently"}
             </span>
             <Link
               href={`/automations/${draft.id}`}

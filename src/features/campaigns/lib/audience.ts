@@ -14,16 +14,22 @@ export const TAG_SELECTION_PREFIX = "tag:";
 export const tagSelectionId = (tagName: string) =>
   `${TAG_SELECTION_PREFIX}${tagName}`;
 
+/**
+ * Split a wizard selection into the buckets `PUT /campaigns/{id}/audience`
+ * accepts. Its canonical body is `{ profileIds, segmentIds }` — there is no
+ * `listIds`, so anything binned there is silently dropped by the backend and
+ * the campaign launches with an empty audience.
+ *
+ * Therefore anything that isn't a `tag:` selection or a known segment id is
+ * treated as a profile id. The `profiles` argument is now only a hint used to
+ * confirm membership; callers that can't supply it (the wizard's Continue
+ * save) still produce a correct payload, which they previously did not.
+ */
 export const partitionAudienceSelection = (
   selectedIds: string[],
-  segments: Segment[],
-  // The campaign wizard's "lists" are individual contact profiles — the
-  // backend must receive their ids as `profileIds`, not `listIds`, or the
-  // campaign ends up with an empty audience.
-  profiles: List[] = []
+  segments: Segment[]
 ) => {
   const knownSegmentIds = new Set(segments.map((segment) => segment.id));
-  const knownProfileIds = new Set(profiles.map((profile) => profile.id));
 
   return selectedIds.reduce(
     (result, id) => {
@@ -32,15 +38,12 @@ export const partitionAudienceSelection = (
         if (tagName.length > 0) result.tagNames.push(tagName);
       } else if (knownSegmentIds.has(id)) {
         result.segmentIds.push(id);
-      } else if (knownProfileIds.has(id)) {
-        result.profileIds.push(id);
       } else {
-        result.listIds.push(id);
+        result.profileIds.push(id);
       }
       return result;
     },
     {
-      listIds: [] as string[],
       segmentIds: [] as string[],
       profileIds: [] as string[],
       tagNames: [] as string[],

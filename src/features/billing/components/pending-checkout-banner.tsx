@@ -14,6 +14,7 @@ import { Button } from "@/ui/button";
 import { billingService } from "../billing.service";
 import {
   clearPendingCheckout,
+  isPendingCheckoutStale,
   normalizeUpgradeStatus,
   PENDING_CHECKOUT_EVENT,
   type PendingCheckout,
@@ -48,13 +49,28 @@ export function PendingCheckoutBanner() {
     };
   }, []);
 
+  // Drives the stale cut-off without a reload. Ticks only while a checkout is
+  // genuinely unresolved, and stops as soon as it is.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!pending || outcome !== null) return;
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, [pending, outcome]);
+
+  // Bounded: past the TTL we stop polling instead of hammering the status
+  // endpoint every 7s forever on a checkout the user abandoned.
+  const isStale = pending ? isPendingCheckoutStale(pending, now) : false;
+
   const statusQuery = useQuery({
     queryKey: ["billing", "checkout-status", pending?.reference],
     queryFn: () =>
       billingService.getBlockradarUpgradeStatus(pending?.reference ?? ""),
-    enabled: Boolean(pending?.reference) && outcome === null,
-    // Poll until the webhook confirms the deposit.
-    refetchInterval: 7_000,
+    enabled: Boolean(pending?.reference) && outcome === null && !isStale,
+    // Poll until the webhook confirms the deposit, or the TTL runs out. The
+    // app tab is backgrounded while the user pays in the checkout tab, so
+    // background polling is required for the banner to self-resolve.
+    refetchInterval: isStale ? false : 7_000,
     refetchIntervalInBackground: true,
     retry: false,
   });
@@ -122,6 +138,35 @@ export function PendingCheckoutBanner() {
           <span className="text-muted-foreground">
             If you already paid, contact support with reference{" "}
             <span className="font-mono text-xs">{pending.reference}</span>.
+          </span>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 rounded-xl"
+          onClick={dismiss}
+        >
+          Dismiss
+        </Button>
+      </div>
+    );
+  }
+
+  // Waited past the TTL without a confirmation: stop the spinner, stop
+  // polling, and hand over the reference instead of implying it's still
+  // coming. If they never paid, "Hide" clears it for good.
+  if (isStale) {
+    return (
+      <div className="mx-4 mt-3 flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:mx-6 lg:mx-8">
+        <div className="text-sm text-foreground">
+          <span className="font-medium">
+            Still no confirmation for your {pending.plan || "plan"} payment.
+          </span>{" "}
+          <span className="text-muted-foreground">
+            If you completed it, contact support with reference{" "}
+            <span className="font-mono text-xs">{pending.reference}</span>.
+            Otherwise you can safely dismiss this and try again.
           </span>
         </div>
         <Button

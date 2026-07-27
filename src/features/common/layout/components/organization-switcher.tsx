@@ -568,15 +568,15 @@ export function OrganizationSwitcher() {
         variant="outline"
         role="combobox"
         aria-label="Loading organization"
-        className="h-10 w-[230px] justify-between rounded-xl border-border/70 bg-card/60 px-2.5"
+        className="h-10 w-10 justify-center rounded-xl border-border/70 bg-card/60 px-0 sm:w-50 sm:justify-between sm:px-2.5 lg:w-57.5"
         disabled
       >
         <div className="flex items-center gap-2 overflow-hidden">
           <Skeleton className="h-6 w-6 rounded-full shrink-0" />
-          <Skeleton className="h-4 w-24" />
+          <Skeleton className="hidden h-4 w-24 sm:block" />
         </div>
         <ChevronUpDownIcon
-          className="ml-2 h-4 w-4 shrink-0 opacity-40"
+          className="ml-2 hidden h-4 w-4 shrink-0 opacity-40 sm:block"
           aria-hidden="true"
         />
       </Button>
@@ -591,7 +591,8 @@ export function OrganizationSwitcher() {
           role="combobox"
           aria-label="Select organization"
           className={cn(
-            "h-10 w-[230px] justify-between rounded-xl border-border/70 bg-card/60 px-2.5",
+            "h-10 w-10 justify-center rounded-xl border-border/70 bg-card/60 px-0",
+            "sm:w-50 sm:justify-between sm:px-2.5 lg:w-57.5",
             "shadow-sm transition-all duration-200 hover:border-primary/50 hover:bg-card"
           )}
           disabled={isLoading}
@@ -608,7 +609,7 @@ export function OrganizationSwitcher() {
                 {activeOrg?.name?.substring(0, 2).toUpperCase() ?? "OR"}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0 text-left">
+            <div className="hidden min-w-0 text-left sm:block">
               <div className="truncate text-sm font-medium">
                 {activeOrg?.name ?? "Select Organization"}
               </div>
@@ -618,7 +619,7 @@ export function OrganizationSwitcher() {
             </div>
           </div>
           <ChevronUpDownIcon
-            className="ml-2 h-4 w-4 shrink-0 opacity-50"
+            className="ml-2 hidden h-4 w-4 shrink-0 opacity-50 sm:block"
             aria-hidden="true"
           />
         </Button>

@@ -10,14 +10,15 @@ import {
   Squares2X2Icon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
-import { useQuery } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 
+import type { NavItem } from "@/components/layout/nav-utils";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+
 import { authClient } from "@/lib/auth-client";
 import {
-  cn,
   getFullName,
   getSelectedOrganizationId,
   isJsonObject,
@@ -27,10 +28,9 @@ import {
 import { getBreadcrumbsForPath } from "./breadcrumbs";
 import { ComingSoonSection } from "./coming-soon-section";
 import { DashboardHeader } from "./dashboard-header";
-import { DashboardNavbar } from "./dashboard-navbar";
+import { DashboardSidebar } from "./dashboard-sidebar";
 import { OrganizationStatusBanner } from "./organization-status-banner";
 import { PendingCheckoutBanner } from "@/features/billing/components/pending-checkout-banner";
-import { notificationsService } from "@/features/notifications/notifications.service";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 import {
   getWipSection,
@@ -40,11 +40,40 @@ import {
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  /** Persisted rail state, read from the sidebar cookie on the server. */
+  defaultSidebarOpen?: boolean;
 }
 
-function DashboardLayoutInner({ children }: DashboardLayoutProps) {
-  const [isCollapsed, setIsCollapsed] = useState(true);
-  const [isLocked, setIsLocked] = useState(false);
+/** WIP sections stay in the nav but render faded and route to a coming-soon panel. */
+const withWipFlags = (items: NavItem[]): NavItem[] =>
+  items.map((item) => ({
+    ...item,
+    wip: !SHOW_WIP_SECTIONS && isWipHref(item.url),
+  }));
+
+// Resolved once at module scope — the routes and the WIP flag are both static.
+const NAV_MAIN: NavItem[] = withWipFlags([
+  { title: "Dashboard", url: PRIVATE_ROUTES.DASHBOARD, icon: Squares2X2Icon },
+  { title: "Campaigns", url: PRIVATE_ROUTES.CAMPAIGNS, icon: MegaphoneIcon },
+  { title: "Audience", url: PRIVATE_ROUTES.AUDIENCE, icon: UserGroupIcon },
+  { title: "Forms", url: PRIVATE_ROUTES.FORMS, icon: DocumentTextIcon },
+  { title: "Inbox", url: PRIVATE_ROUTES.INBOX, icon: EnvelopeIcon },
+  { title: "Automations", url: PRIVATE_ROUTES.AUTOMATIONS, icon: BoltIcon },
+  {
+    title: "Intelligence",
+    url: PRIVATE_ROUTES.INTELLIGENCE,
+    icon: CpuChipIcon,
+  },
+]);
+
+const NAV_SECONDARY: NavItem[] = withWipFlags([
+  { title: "Settings", url: PRIVATE_ROUTES.SETTINGS, icon: Cog6ToothIcon },
+]);
+
+function DashboardLayoutInner({
+  children,
+  defaultSidebarOpen = true,
+}: DashboardLayoutProps) {
   const pathname = usePathname();
   const { data: session } = authClient.useSession();
   const [isMounted, setIsMounted] = useState(false);
@@ -88,18 +117,6 @@ function DashboardLayoutInner({ children }: DashboardLayoutProps) {
   const hasActiveOrganization =
     isConfirmedBySession || (!!selectedOrgId && !isSwitchingOrg);
 
-  const notificationsQuery = useQuery({
-    queryKey: ["notifications", "list"],
-    queryFn: () => notificationsService.list({ page: 1, limit: 50 }),
-    enabled: hasActiveOrganization,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const unreadCount = notificationsQuery.isSuccess
-    ? notificationsQuery.data.filter((n) => !n.read).length
-    : 0;
-
   const breadcrumbs = useMemo(
     () => getBreadcrumbsForPath(pathname ?? "/"),
     [pathname]
@@ -124,78 +141,20 @@ function DashboardLayoutInner({ children }: DashboardLayoutProps) {
     ? (session?.user?.image ?? undefined)
     : undefined;
 
-  const navItems: { label: string; href: string; icon: React.ReactNode }[] = [
-    {
-      label: "Dashboard",
-      href: PRIVATE_ROUTES.DASHBOARD,
-      icon: <Squares2X2Icon className="h-4 w-4" aria-hidden="true" />,
-    },
-    {
-      label: "Campaigns",
-      href: PRIVATE_ROUTES.CAMPAIGNS,
-      icon: <MegaphoneIcon className="h-4 w-4" aria-hidden="true" />,
-    },
-    {
-      label: "Audience",
-      href: PRIVATE_ROUTES.AUDIENCE,
-      icon: <UserGroupIcon className="h-4 w-4" aria-hidden="true" />,
-    },
-    {
-      label: "Forms",
-      href: PRIVATE_ROUTES.FORMS,
-      icon: <DocumentTextIcon className="h-4 w-4" aria-hidden="true" />,
-    },
-    {
-      label: "Inbox",
-      href: PRIVATE_ROUTES.INBOX,
-      icon: <EnvelopeIcon className="h-4 w-4" aria-hidden="true" />,
-    },
-    {
-      label: "Automations",
-      href: PRIVATE_ROUTES.AUTOMATIONS,
-      icon: <BoltIcon className="h-4 w-4" aria-hidden="true" />,
-    },
-    {
-      label: "Intelligence",
-      href: PRIVATE_ROUTES.INTELLIGENCE,
-      icon: <CpuChipIcon className="h-4 w-4" aria-hidden="true" />,
-    },
-    {
-      label: "Settings",
-      href: PRIVATE_ROUTES.SETTINGS,
-      icon: <Cog6ToothIcon className="h-4 w-4" aria-hidden="true" />,
-    },
-    // WIP sections stay visible in production but faded, and their routes
-    // render a coming-soon panel (see below) until they ship in v1.
-  ].map((item) => ({
-    ...item,
-    wip: !SHOW_WIP_SECTIONS && isWipHref(item.href),
-  }));
-
   const wipSection = SHOW_WIP_SECTIONS ? null : getWipSection(pathname ?? "/");
 
   return (
-    <div className="relative min-h-screen">
-      <DashboardNavbar
-        isCollapsed={isCollapsed}
-        setCollapsed={setIsCollapsed}
-        navItems={navItems}
-        activePath={pathname ?? "/"}
-        unreadCount={unreadCount}
-        isLocked={isLocked}
-        onToggleLock={() => setIsLocked((l) => !l)}
+    <SidebarProvider defaultOpen={defaultSidebarOpen}>
+      <DashboardSidebar
+        navMain={NAV_MAIN}
+        navSecondary={NAV_SECONDARY}
+        hasActiveOrganization={hasActiveOrganization}
         userFullName={fullName}
         userId={userId}
         userImageUrl={imageUrl}
-        hasActiveOrganization={hasActiveOrganization}
       />
 
-      <div
-        className={cn(
-          "transition-all duration-300",
-          isCollapsed ? "lg:pl-20" : "lg:pl-64"
-        )}
-      >
+      <SidebarInset className="min-w-0">
         <DashboardHeader
           breadcrumbs={breadcrumbs}
           currentPage={
@@ -204,19 +163,13 @@ function DashboardLayoutInner({ children }: DashboardLayoutProps) {
               : undefined
           }
           hasActiveOrganization={hasActiveOrganization}
-          navItems={navItems}
         />
-      </div>
 
-      <div
-        className={cn(
-          "transition-all duration-300 pt-0",
-          isCollapsed ? "lg:pl-20" : "lg:pl-64"
-        )}
-      >
         {hasActiveOrganization ? <OrganizationStatusBanner /> : null}
         <PendingCheckoutBanner />
-        <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 md:p-6 lg:p-8">
+
+        {/* Not a <main> — SidebarInset already renders one. */}
+        <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 lg:p-8">
           {hasActiveOrganization ? (
             wipSection ? (
               <ComingSoonSection section={wipSection} />
@@ -245,9 +198,9 @@ function DashboardLayoutInner({ children }: DashboardLayoutProps) {
               </div>
             </div>
           )}
-        </main>
-      </div>
-    </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 

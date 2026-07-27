@@ -55,6 +55,7 @@ import {
   isRateLimitError,
   syncAudienceSettings,
 } from "@/features/campaigns/lib/audience-sync";
+import { parseSenderNotVerified } from "@/features/campaigns/lib/launch-errors";
 import type { List, Segment } from "@/features/campaigns/types";
 import {
   type IntelligenceSegment,
@@ -68,6 +69,12 @@ import { useActiveTimezone } from "@/shared/hooks/client/use-timezones";
 // name/type are collected up front in the create-campaign sheet, and send
 // timing (now vs schedule) is chosen on the template step.
 const TOTAL_STEPS = 3;
+/**
+ * Domain verification lives in the account tab's "Sender verification"
+ * section, which is collapsed by default — `section=` expands and scrolls to
+ * it so the link lands on the thing the user was told to do.
+ */
+const SENDER_VERIFICATION_HREF = `${PRIVATE_ROUTES.SETTINGS}?tab=account&section=sender-verification`;
 const campaignTypes = new Set<CampaignFormData["campaignType"]>([
   "email-blast",
   "smart-sending",
@@ -821,6 +828,7 @@ export function CreateCampaignPage() {
       channel: "email",
       selectedAudiences: [],
       smartSending: true,
+      smartSendingWindowHours: "",
       trackingParameters: true,
       utmSource: "onchain_suite",
       utmMedium: "email",
@@ -1161,15 +1169,24 @@ export function CreateCampaignPage() {
           const aObj: Record<string, unknown> = isJsonObject(audienceRes.value)
             ? audienceRes.value
             : {};
-          const { listIds: listIdsRaw, segmentIds: segmentIdsRaw } = aObj;
-          const listIds = Array.isArray(listIdsRaw)
-            ? listIdsRaw.map(String)
-            : [];
-          const segmentIds = Array.isArray(segmentIdsRaw)
-            ? segmentIdsRaw.map(String)
-            : [];
-          if (listIds.length || segmentIds.length) {
-            nextValues.selectedAudiences = [...listIds, ...segmentIds];
+          // GET /campaigns/{id}/audience returns { profileIds, segmentIds }.
+          // Reading only listIds meant a saved contact selection never
+          // hydrated, so reopening a campaign showed an empty audience — and
+          // the next Continue saved that emptiness back over it. listIds is
+          // kept purely as a fallback for anything persisted by older builds.
+          const {
+            profileIds: profileIdsRaw,
+            listIds: listIdsRaw,
+            segmentIds: segmentIdsRaw,
+          } = aObj;
+          const toIds = (value: unknown) =>
+            Array.isArray(value) ? value.map(String) : [];
+          const profileIds = [...toIds(profileIdsRaw), ...toIds(listIdsRaw)];
+          const segmentIds = toIds(segmentIdsRaw);
+          if (profileIds.length || segmentIds.length) {
+            nextValues.selectedAudiences = Array.from(
+              new Set([...profileIds, ...segmentIds])
+            );
           }
         }
 
@@ -1180,6 +1197,12 @@ export function CreateCampaignPage() {
           const { smartSending, trackingParameters, utm } = tObj;
           if (typeof smartSending === "boolean") {
             nextValues.smartSending = smartSending;
+          }
+          // GET /campaigns/{id}/tracking echoes the per-campaign override.
+          if (typeof tObj.smartSendingWindowHours === "number") {
+            nextValues.smartSendingWindowHours = String(
+              tObj.smartSendingWindowHours
+            );
           }
           if (typeof trackingParameters === "boolean") {
             nextValues.trackingParameters = trackingParameters;
@@ -1334,11 +1357,10 @@ export function CreateCampaignPage() {
     try {
       if (currentStep === 1) {
         const data = form.getValues();
-        const { listIds, segmentIds, profileIds, tagNames } =
-          partitionAudienceSelection(
-            data.selectedAudiences,
-            audienceSegmentsQuery.data ?? []
-          );
+        const { segmentIds, profileIds, tagNames } = partitionAudienceSelection(
+          data.selectedAudiences,
+          audienceSegmentsQuery.data ?? []
+        );
         const tagProfileIds = await resolveTagsToProfileIds(tagNames);
         const mergedProfileIds = Array.from(
           new Set([...profileIds, ...tagProfileIds])
@@ -1356,7 +1378,7 @@ export function CreateCampaignPage() {
           addUtm("content", data.utmContent);
         }
         const syncOptions = {
-          audience: { listIds, segmentIds, profileIds: mergedProfileIds },
+          audience: { segmentIds, profileIds: mergedProfileIds },
           tracking: {
             smartSending: Boolean(data.smartSending),
             trackingParameters: Boolean(data.trackingParameters),
@@ -1497,6 +1519,29 @@ export function CreateCampaignPage() {
       await campaignsService.launchCampaign(campaignId);
       setShowConfirmation(true);
     } catch (e) {
+      // An unverified sender domain is the one launch failure the user can
+      // fix themselves — point them at the verification flow rather than
+      // showing a raw backend string.
+      const senderIssue = parseSenderNotVerified(e);
+      if (senderIssue) {
+        const label = senderIssue.domain || senderIssue.sender;
+        toast.error(
+          label
+            ? `Verify ${label} before sending.`
+            : "Verify your sender domain before sending.",
+          {
+            description: senderIssue.sender
+              ? `${senderIssue.sender} isn't verified for this organization yet.`
+              : undefined,
+            action: {
+              label: "Verify domain",
+              onClick: () => router.push(SENDER_VERIFICATION_HREF),
+            },
+            duration: 10_000,
+          }
+        );
+        return;
+      }
       const message =
         e instanceof Error ? e.message : "Failed to launch campaign";
       toast.error(message);

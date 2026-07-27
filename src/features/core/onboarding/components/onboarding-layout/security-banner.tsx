@@ -1,4 +1,5 @@
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 
@@ -13,9 +14,14 @@ export function SecurityBanner({ onRemove }: { onRemove: () => void }) {
           <p className="text-sm">
             <span className="font-medium">Reminder:</span> Onchain Suite will
             never call, email, or text you for your password or 1-time passcode.{" "}
-            <button className="underline hover:no-underline">
+            <Link
+              href="/security"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:no-underline"
+            >
               Learn more about security
-            </button>
+            </Link>
           </p>
         </div>
         <Button

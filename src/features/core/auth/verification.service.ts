@@ -47,8 +47,11 @@ export class VerificationService {
     // NOTE: Since we don't have a direct DB client in this project,
     // we call the backend API which handles the actual database operations.
     // We'll try the custom verify-token endpoint first, then fallback to BetterAuth if needed.
-    const devDefault = "http://127.0.0.1:3333";
-    const prodDefault = "https://api.onchainsuite.com";
+    // NOTE: BACKEND_URL / NEXT_PUBLIC_BACKEND_URL already include the `/api/v1`
+    // suffix (see src/app/api/v1/auth/[...path]/route.ts). Defaults must match,
+    // and callers must NOT prepend `/api/v1` again or the path doubles up.
+    const devDefault = "http://127.0.0.1:3333/api/v1";
+    const prodDefault = "https://api.onchainsuite.com/api/v1";
     const pickNonEmpty = (...values: Array<string | undefined | null>) => {
       for (const value of values) {
         if (typeof value === "string" && value.trim().length > 0) return value;
@@ -67,9 +70,9 @@ export class VerificationService {
       process.env.BACKEND_URL,
       process.env.NEXT_PUBLIC_BACKEND_URL,
       process.env.NODE_ENV === "production" ? prodDefault : devDefault
-    );
+    ).replace(/\/$/, "");
 
-    const response = await fetch(`${backendUrl}/api/v1/auth/verify-token`, {
+    const response = await fetch(`${backendUrl}/auth/verify-token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -86,7 +89,7 @@ export class VerificationService {
       // If the custom endpoint doesn't exist (404), try the standard BetterAuth endpoint
       if (response.status === 404) {
         const baResponse = await fetch(
-          `${backendUrl}/api/v1/auth/verify-email?token=${token}`,
+          `${backendUrl}/auth/verify-email?token=${encodeURIComponent(token)}`,
           { method: "GET" }
         );
 

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
+import { authClient } from "@/lib/auth-client";
 import {
   cn,
   extractEmailContent,
@@ -159,6 +160,27 @@ export default function CampaignEditorPage() {
 
   const campaignId = (searchParams?.get("campaign") ?? "").trim();
   const returnTo = (searchParams?.get("returnTo") ?? "").trim();
+
+  /**
+   * The editor refuses to load templates without an orgId ("Missing orgId.
+   * Host app must provide orgId via HOST_CONFIG").
+   *
+   * The `onchain.selectedOrgId` cookie is written client-side by the org
+   * switcher with no expiry, so it's a session cookie: on a fresh browser
+   * session — or simply before the switcher has mounted and written it — the
+   * cookie is empty and we'd hand the editor a null orgId. Fall back to the
+   * session's active organization, which is authoritative and always present
+   * once authenticated.
+   */
+  const { data: authSession } = authClient.useSession();
+  const sessionOrgId =
+    typeof authSession?.session?.activeOrganizationId === "string"
+      ? authSession.session.activeOrganizationId.trim()
+      : "";
+  const resolvedOrgId = useMemo(
+    () => getSelectedOrganizationId() ?? (sessionOrgId || null),
+    [sessionOrgId]
+  );
   // In-app push campaigns author a pop-up notification in the builder's push
   // panel instead of an email — saves skip the email render pipeline.
   const isPushMode = (searchParams?.get("channel") ?? "") === "in-app-push";
@@ -354,7 +376,7 @@ export default function CampaignEditorPage() {
       typeof apiBaseUrlForEditor === "string"
         ? normalizeEnvString(apiBaseUrlForEditor)
         : null;
-    const orgId = getSelectedOrganizationId();
+    const orgId = resolvedOrgId;
     const token =
       editorSessionQuery.isSuccess && editorSessionToken
         ? String(editorSessionToken)
@@ -449,6 +471,9 @@ export default function CampaignEditorPage() {
     editorSessionEditorUrl,
     editorSessionToken,
     editorSessionQuery.isSuccess,
+    // Rebuild the src once the org resolves, so the editor never boots
+    // against a URL that omitted orgId.
+    resolvedOrgId,
   ]);
 
   useEffect(() => {
@@ -486,7 +511,7 @@ export default function CampaignEditorPage() {
       const hostOrigin =
         typeof window !== "undefined" ? window.location.origin : null;
       const postTargetOrigin = "*";
-      const orgId = getSelectedOrganizationId();
+      const orgId = resolvedOrgId;
 
       const hostConfig = {
         embedded: true,
@@ -526,6 +551,9 @@ export default function CampaignEditorPage() {
       campaignId,
       editorSessionQuery.isSuccess,
       editorSessionToken,
+      // Re-post HOST_CONFIG when the org resolves — otherwise a config sent
+      // before the session landed leaves the editor stuck on "Missing orgId".
+      resolvedOrgId,
     ]
   );
 

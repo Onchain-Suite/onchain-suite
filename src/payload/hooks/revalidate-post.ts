@@ -2,6 +2,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import type {
   CollectionAfterChangeHook,
   CollectionAfterDeleteHook,
+  Payload,
 } from "payload";
 
 import { POSTS_CACHE_TAG } from "@/payload/cache-tags";
@@ -17,22 +18,50 @@ import { POSTS_CACHE_TAG } from "@/payload/cache-tags";
  * same Next app, this needs no webhook, no shared secret and no network hop.
  */
 
-/** Skip revalidation for bulk/seed writes that would otherwise thrash the cache. */
+/** Explicit opt-out, for bulk writes that would otherwise thrash the cache. */
 function shouldSkip(context: { disableRevalidate?: unknown }): boolean {
   return context.disableRevalidate === true;
 }
 
-function revalidatePost(slug: unknown): void {
-  // Next 16 requires a cache-life profile alongside the tag. "max" is correct
-  // for CMS content: entries stay valid until an editor changes something, at
-  // which point this hook is exactly what expires them. Any time-based profile
-  // would add pointless re-renders on top of event-based invalidation.
-  revalidateTag(POSTS_CACHE_TAG, "max");
-  revalidatePath("/blog");
-
-  if (typeof slug === "string" && slug.length > 0) {
-    revalidatePath(`/blog/${slug}`);
+/**
+ * Revalidation must never be able to fail a write.
+ *
+ * `revalidateTag`/`revalidatePath` throw "Invariant: static generation store
+ * missing" when called outside a Next request or render context — which is
+ * exactly what happens when the Local API is driven from a seed script, a data
+ * migration, the `payload` CLI or a standalone cron job. Without this guard, an
+ * unrelated script creating a post would have its `create()` call throw *after*
+ * the row was already committed.
+ *
+ * Swallowing is correct rather than merely convenient: outside a Next server
+ * there is no cache in this process to invalidate, so there is nothing to
+ * recover. The write is the durable thing; the cache catches up on next request.
+ */
+function safely(action: () => void, payload: Payload | undefined): void {
+  try {
+    action();
+  } catch (error) {
+    payload?.logger.warn(
+      `Skipped blog cache revalidation (no Next.js request context): ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
   }
+}
+
+function revalidatePost(slug: unknown, payload?: Payload): void {
+  safely(() => {
+    // Next 16 requires a cache-life profile alongside the tag. "max" is correct
+    // for CMS content: entries stay valid until an editor changes something, at
+    // which point this hook is exactly what expires them. Any time-based profile
+    // would add pointless re-renders on top of event-based invalidation.
+    revalidateTag(POSTS_CACHE_TAG, "max");
+    revalidatePath("/blog");
+
+    if (typeof slug === "string" && slug.length > 0) {
+      revalidatePath(`/blog/${slug}`);
+    }
+  }, payload);
 }
 
 export const revalidatePostAfterChange: CollectionAfterChangeHook = ({
@@ -44,7 +73,7 @@ export const revalidatePostAfterChange: CollectionAfterChangeHook = ({
     return doc;
   }
 
-  revalidatePost(doc?.slug);
+  revalidatePost(doc?.slug, payload);
 
   // A rename leaves the old URL cached and serving stale content, so the
   // previous slug has to be purged too.
@@ -53,23 +82,21 @@ export const revalidatePostAfterChange: CollectionAfterChangeHook = ({
     previousDoc.slug.length > 0 &&
     previousDoc.slug !== doc?.slug
   ) {
-    revalidatePath(`/blog/${previousDoc.slug}`);
+    safely(() => revalidatePath(`/blog/${previousDoc.slug}`), payload);
   }
-
-  payload.logger.info(`Revalidated blog cache for post "${doc?.slug}"`);
 
   return doc;
 };
 
 export const revalidatePostAfterDelete: CollectionAfterDeleteHook = ({
   doc,
-  req: { context },
+  req: { payload, context },
 }) => {
   if (shouldSkip(context)) {
     return doc;
   }
 
-  revalidatePost(doc?.slug);
+  revalidatePost(doc?.slug, payload);
 
   return doc;
 };

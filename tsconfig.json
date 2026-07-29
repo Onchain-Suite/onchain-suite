@@ -19,6 +19,7 @@
       }
     ],
     "paths": {
+      "@payload-config": ["./payload.config.ts"],
       "@/onchain-suite-website/*": ["./src/features/website/onchain-suite/*"],
       "@/onchain-website/*": ["./src/features/website/onchain/*"],
       "@/r3tain-website/*": ["./src/features/website/r3tain/*"],

@@ -26,6 +26,7 @@ function BrandImage({ src, size = 22 }: LogoProps & { src: string }) {
       aria-hidden="true"
       width={size}
       height={size}
+      style={{ width: size, height: size }}
       className="inline-block shrink-0 rounded-[5px] object-contain"
     />
   );

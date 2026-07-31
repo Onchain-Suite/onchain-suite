@@ -5,7 +5,6 @@ import {
   CheckIcon,
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
-import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -13,50 +12,169 @@ import { useMemo, useState } from "react";
 import "./landing-v2.css";
 import { Counter, Reveal, Stagger, StaggerItem } from "./primitives";
 import { Heading, PageShell, SIGNUP } from "./shared";
-import {
-  type BillingPlan,
-  billingService,
-} from "@/features/billing/billing.service";
 
 /* Pay-as-you-go unit rates — the live billing meters' prices. */
-const PER_1K_MESSAGES = 1; // $1 per 1,000 messages (email + in-app)
-const PER_10K_ONCHAIN = 1; // $1 per 10,000 on-chain (GoldRush) credits
+const PER_10K_ONCHAIN = 2.5; // $2.50 per 10,000 on-chain (GoldRush) credits
 const PER_1K_AI = 5; // $5 per 1,000 AI credits
 
-function estimate(messages: number, onchain: number, ai: number) {
-  const raw =
-    (messages / 1000) * PER_1K_MESSAGES +
-    (onchain / 10000) * PER_10K_ONCHAIN +
-    (ai / 1000) * PER_1K_AI;
-  return Math.round(raw);
+/* Per-1,000 message rates, split by channel. Email and in-app are billed
+ * separately — set each channel's real rate here.
+ * TODO(pricing): confirm the email vs in-app rates with the team. Both default
+ * to the previous bundled $1/1k until the finalized numbers land. */
+const EMAIL_PER_1K = 1;
+const INAPP_PER_1K = 1;
+
+type MessageChannel = "email" | "inapp";
+
+interface ChannelRate {
+  id: MessageChannel;
+  label: string;
+  per1k: number;
+  hint: string;
+}
+
+const MESSAGE_CHANNELS: ChannelRate[] = [
+  {
+    id: "email",
+    label: "Email",
+    per1k: EMAIL_PER_1K,
+    hint: "emailable contacts via the identity bridge",
+  },
+  {
+    id: "inapp",
+    label: "In-app push",
+    per1k: INAPP_PER_1K,
+    hint: "every connected wallet, no extra identifier",
+  },
+];
+
+/** "email", "in-app push", or "email and in-app push" for inline copy. */
+const channelSummary = (channels: ChannelRate[]): string =>
+  channels.map((c) => c.label.toLowerCase()).join(" and ") || "message";
+
+/** Non-exclusive channel toggle (Email / In-app push). Teams often run both,
+ * so this is multi-select — at least one channel always stays on. Shared by the
+ * calculator and the plan grid so both read from one idiom. */
+function ChannelToggle({
+  value,
+  onChange,
+  label = "Channels",
+}: {
+  value: Set<MessageChannel>;
+  onChange: (next: Set<MessageChannel>) => void;
+  label?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[12px] t-muted2">{label}</span>
+      <div
+        className="inline-flex items-center gap-1 rounded-full border p-1"
+        style={{ borderColor: "var(--line)" }}
+        role="group"
+        aria-label="Message channels"
+      >
+        {MESSAGE_CHANNELS.map((c) => {
+          const on = value.has(c.id);
+          return (
+            <button
+              key={c.id}
+              type="button"
+              aria-pressed={on}
+              title={`$${c.per1k} per 1,000 · ${c.hint}`}
+              onClick={() => {
+                const next = new Set(value);
+                if (on) {
+                  if (next.size > 1) next.delete(c.id);
+                } else {
+                  next.add(c.id);
+                }
+                onChange(next);
+              }}
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150"
+              style={
+                on
+                  ? { background: "var(--acc)", color: "#fff" }
+                  : { color: "var(--muted)" }
+              }
+            >
+              <CheckIcon
+                className="h-3.5 w-3.5"
+                style={{ opacity: on ? 1 : 0.3 }}
+                aria-hidden="true"
+              />
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function Calculator() {
-  const [messages, setMessages] = useState(25000);
+  const [channels, setChannels] = useState<Set<MessageChannel>>(
+    () => new Set<MessageChannel>(["email", "inapp"])
+  );
+  const [emailMsgs, setEmailMsgs] = useState(25000);
+  const [inappMsgs, setInappMsgs] = useState(25000);
   const [onchain, setOnchain] = useState(100000);
   const [ai, setAi] = useState(1000);
-  const price = useMemo(
-    () => estimate(messages, onchain, ai),
-    [messages, onchain, ai]
-  );
+
+  const emailOn = channels.has("email");
+  const inappOn = channels.has("inapp");
+
+  const price = useMemo(() => {
+    let messageCost = 0;
+    if (emailOn) messageCost += (emailMsgs / 1000) * EMAIL_PER_1K;
+    if (inappOn) messageCost += (inappMsgs / 1000) * INAPP_PER_1K;
+    const raw =
+      messageCost +
+      (onchain / 10000) * PER_10K_ONCHAIN +
+      (ai / 1000) * PER_1K_AI;
+    return Math.round(raw);
+  }, [emailOn, inappOn, emailMsgs, inappMsgs, onchain, ai]);
 
   return (
     <Reveal delay={0.12}>
       <div className="card mx-auto mt-12 max-w-3xl overflow-hidden p-6 md:p-8">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <span className="mono text-[11px] uppercase tracking-[0.16em] t-muted2">
+              Estimate your bill
+            </span>
+            <p className="mt-1 text-[13px] t-muted">
+              Email and in-app push are billed separately — run one or both.
+            </p>
+          </div>
+          <ChannelToggle value={channels} onChange={setChannels} />
+        </div>
         <div className="grid gap-8 md:grid-cols-[1fr_auto]">
           <div className="space-y-7">
-            <Slider
-              label="Messages sent"
-              hint="Email + in-app push, $1 per 1,000"
-              min={0}
-              max={500000}
-              step={5000}
-              value={messages}
-              onChange={setMessages}
-            />
+            {emailOn ? (
+              <Slider
+                label="Emails sent"
+                hint={`$${EMAIL_PER_1K} per 1,000 · emailable contacts via the identity bridge`}
+                min={0}
+                max={500000}
+                step={5000}
+                value={emailMsgs}
+                onChange={setEmailMsgs}
+              />
+            ) : null}
+            {inappOn ? (
+              <Slider
+                label="In-app pushes sent"
+                hint={`$${INAPP_PER_1K} per 1,000 · every connected wallet, no extra identifier`}
+                min={0}
+                max={500000}
+                step={5000}
+                value={inappMsgs}
+                onChange={setInappMsgs}
+              />
+            ) : null}
             <Slider
               label="On-chain credits"
-              hint="Wallet reads & enrichment, $1 per 10,000"
+              hint="Wallet reads & enrichment, $2.50 per 10,000"
               min={0}
               max={2000000}
               step={20000}
@@ -90,7 +208,7 @@ function Calculator() {
               <span className="text-[14px] t-muted">/mo</span>
             </div>
             <span className="mt-1 text-[11px] t-muted2">
-              no base fee — usage only
+              no base fee, usage only
             </span>
           </div>
         </div>
@@ -100,7 +218,7 @@ function Calculator() {
         >
           Every workspace starts on pay-as-you-go: no monthly fee, prepaid usage
           from a top-up wallet, and nothing to cancel. When your volume settles,
-          a flat plan below usually works out cheaper — switch anytime.
+          a flat plan below usually works out cheaper, switch anytime.
         </p>
       </div>
     </Reveal>
@@ -151,232 +269,172 @@ function Slider({
   );
 }
 
-/* Fallback mirror of the live catalog: PAYG (signup default) · Launch $29 ·
- * Growth $199 · Pro $499. Shown when GET /billing/plans is unreachable. */
-const PROFILES = [
-  {
-    name: "Pay as you go",
-    price: "$0",
-    who: "Every new workspace starts here",
-    rows: [
-      { label: "messages", value: "$1 / 1k" },
-      { label: "on-chain · AI", value: "$1/10k · $5/1k" },
-    ],
-    cta: "Start free",
-    href: SIGNUP,
-    popular: false,
-  },
+/* Plan tiers. Email and in-app push are priced separately; a card's price is
+ * the sum of the selected channels' prices (choosing both is cumulative). Each
+ * tier is a full plan on either channel — the shared resources (contacts, AI,
+ * wallet-data, seats) are included once, never doubled. Numbers from the pricing
+ * docs (docs/pricing.md). */
+interface Tier {
+  name: string;
+  slug: string;
+  who: string;
+  emailPrice: number;
+  inappPrice: number;
+  emailMessages: string;
+  inappPushes: string;
+  contacts: string;
+  ai: string;
+  walletData: string;
+  seats: string;
+  popular?: boolean;
+}
+
+const TIERS: Tier[] = [
   {
     name: "Launch",
-    price: "$29",
+    slug: "launch",
     who: "A protocol getting started",
-    rows: [
-      { label: "billing", value: "flat monthly" },
-      { label: "overage", value: "PAYG rates" },
-    ],
-    cta: "Get started",
-    href: SIGNUP,
-    popular: false,
+    emailPrice: 29,
+    inappPrice: 39,
+    emailMessages: "15,000",
+    inappPushes: "50,000",
+    contacts: "5,000",
+    ai: "500",
+    walletData: "10,000",
+    seats: "2",
   },
   {
     name: "Growth",
-    price: "$199",
+    slug: "growth",
     who: "Scaling retention",
-    rows: [
-      { label: "billing", value: "flat monthly" },
-      { label: "overage", value: "PAYG rates" },
-    ],
-    cta: "Get started",
-    href: SIGNUP,
+    emailPrice: 199,
+    inappPrice: 149,
+    emailMessages: "100,000",
+    inappPushes: "250,000",
+    contacts: "100,000",
+    ai: "8,000",
+    walletData: "75,000",
+    seats: "5",
     popular: true,
   },
   {
     name: "Pro",
-    price: "$499",
+    slug: "pro",
     who: "Established & high-volume",
-    rows: [
-      { label: "billing", value: "flat monthly" },
-      { label: "overage", value: "PAYG rates" },
-    ],
-    cta: "Get started",
-    href: SIGNUP,
-    popular: false,
+    emailPrice: 499,
+    inappPrice: 449,
+    emailMessages: "250,000",
+    inappPushes: "1,000,000",
+    contacts: "250,000",
+    ai: "16,000",
+    walletData: "200,000",
+    seats: "15",
   },
 ];
 
-const planPriceLabel = (price: BillingPlan["price"]) => {
-  if (typeof price === "number") return `$${price.toLocaleString()}`;
-  if (typeof price === "string" && price.trim().length > 0) return price;
-  return "—";
+/** Card price = sum of the selected channels' prices (cumulative for both). */
+const tierPrice = (tier: Tier, channels: ChannelRate[]): number => {
+  const emailOn = channels.some((c) => c.id === "email");
+  const inappOn = channels.some((c) => c.id === "inapp");
+  return (emailOn ? tier.emailPrice : 0) + (inappOn ? tier.inappPrice : 0);
 };
 
-/** Live plan catalog cards (GET /billing/plans), same visual language as the
- * illustrative profiles they replace when the backend answers. */
-function CatalogPlans({ plans }: { plans: BillingPlan[] }) {
-  return (
-    <Stagger className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-      {/* PAYG is the signup default, not a catalog row — pin it first. */}
-      <StaggerItem key="payg">
-        <div className="card relative flex h-full flex-col p-5 transition-transform duration-200 hover:-translate-y-1">
-          <span className="text-[13px] font-semibold t-ink">Pay as you go</span>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span
-              className="font-semibold tracking-tight t-ink"
-              style={{ fontSize: "1.8rem" }}
-            >
-              $0
-            </span>
-            <span className="text-[13px] t-muted">/mo + usage</span>
-          </div>
-          <p className="mt-1 text-[12.5px] t-muted">
-            Every new workspace starts here — top up and pay only for what you
-            use.
-          </p>
-          <div
-            className="my-4 space-y-1.5 border-y py-3 text-[12.5px]"
-            style={{ borderColor: "var(--line-2)" }}
-          >
-            {[
-              "$1 per 1,000 messages",
-              "$1 per 10,000 on-chain credits",
-              "$5 per 1,000 AI credits",
-              "Up to 25k contacts · 2 seats",
-            ].map((feature) => (
-              <div key={feature} className="flex items-start gap-1.5">
-                <CheckIcon
-                  aria-hidden="true"
-                  className="mt-0.5 h-3.5 w-3.5 shrink-0"
-                  style={{ color: "var(--acc)" }}
-                />
-                <span className="t-muted">{feature}</span>
-              </div>
-            ))}
-          </div>
-          <Link href={SIGNUP} className="mt-auto btn btn-ghost w-full">
-            Start free
-          </Link>
-        </div>
-      </StaggerItem>
-      {plans.map((plan, idx) => {
-        const name = plan.name ?? `Plan ${idx + 1}`;
-        const popular = plan.slug === "pro" || idx === 2;
-        const isCustom =
-          typeof plan.price === "string" &&
-          plan.price.toLowerCase().includes("custom");
-        const features = Array.isArray(plan.features)
-          ? plan.features.filter((f): f is string => typeof f === "string")
-          : [];
-        return (
-          <StaggerItem key={name}>
-            <div
-              className="card relative flex h-full flex-col p-5 transition-transform duration-200 hover:-translate-y-1"
-              style={
-                popular
-                  ? {
-                      borderColor:
-                        "color-mix(in oklab, var(--acc) 45%, var(--line))",
-                      boxShadow: "var(--shadow-acc)",
-                    }
-                  : undefined
-              }
-            >
-              {popular ? (
-                <span
-                  className="mono absolute -top-2.5 left-5 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white"
-                  style={{ background: "var(--acc)" }}
-                >
-                  POPULAR
-                </span>
-              ) : null}
-              <span className="text-[13px] font-semibold t-ink">{name}</span>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span
-                  className="font-semibold tracking-tight t-ink"
-                  style={{ fontSize: "1.8rem" }}
-                >
-                  {planPriceLabel(plan.price)}
-                </span>
-                {!isCustom ? (
-                  <span className="text-[13px] t-muted">
-                    /{plan.interval ?? "mo"}
-                  </span>
-                ) : null}
-              </div>
-              {plan.description ? (
-                <p className="mt-1 text-[12.5px] t-muted">{plan.description}</p>
-              ) : null}
-              {features.length > 0 ? (
-                <div
-                  className="my-4 space-y-1.5 border-y py-3 text-[12.5px]"
-                  style={{ borderColor: "var(--line-2)" }}
-                >
-                  {features.slice(0, 4).map((feature) => (
-                    <div key={feature} className="flex items-start gap-1.5">
-                      <CheckIcon
-                        aria-hidden="true"
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0"
-                        style={{ color: "var(--acc)" }}
-                      />
-                      <span className="t-muted">{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="my-4 flex-1" />
-              )}
-              <Link
-                href={isCustom ? "mailto:info@onchainsuite.com" : SIGNUP}
-                className={`mt-auto btn ${popular ? "btn-primary" : "btn-ghost"} w-full`}
-              >
-                {isCustom ? "Talk to us" : "Get early access"}
-              </Link>
-            </div>
-          </StaggerItem>
-        );
-      })}
-    </Stagger>
-  );
-}
+/** Channel-aware allowances: a message line per selected channel, then the
+ * shared resources (listed once). */
+const tierFeatures = (tier: Tier, channels: ChannelRate[]): string[] => {
+  const emailOn = channels.some((c) => c.id === "email");
+  const inappOn = channels.some((c) => c.id === "inapp");
+  const features: string[] = [];
+  if (emailOn) features.push(`${tier.emailMessages} email sends/mo`);
+  if (inappOn) features.push(`${tier.inappPushes} in-app pushes/mo`);
+  features.push(`Up to ${tier.contacts} contacts`);
+  features.push(`${tier.ai} AI credits/mo`);
+  features.push(`${tier.walletData} on-chain credits/mo`);
+  features.push(`${tier.seats} team seats`);
+  return features;
+};
 
 function Profiles() {
-  // Live catalog prices when the API is reachable (it may require a session
-  // — anonymous visitors then keep the illustrative fallback below).
-  const plansQuery = useQuery({
-    queryKey: ["billing", "plans", "public-pricing"],
-    queryFn: () => billingService.getPlans(),
-    retry: false,
-    refetchOnWindowFocus: false,
-    staleTime: 10 * 60 * 1000,
-  });
-  const catalogPlans = plansQuery.data?.plans ?? [];
-  const hasCatalog = catalogPlans.length > 0;
+  const [channels, setChannels] = useState<Set<MessageChannel>>(
+    () => new Set<MessageChannel>(["email", "inapp"])
+  );
+  const enabledChannels = MESSAGE_CHANNELS.filter((c) => channels.has(c.id));
+  const both = channels.has("email") && channels.has("inapp");
 
   return (
     <section className="py-16">
       <div className="wrap">
         <Heading
-          eyebrow={hasCatalog ? "Plans" : "Reference profiles"}
+          eyebrow="Plans"
           title={
             <>
               Where teams typically <span className="grad">land.</span>
             </>
           }
-          sub={
-            hasCatalog
-              ? "Live prices from our plan catalog — pay in USDC via crypto checkout, upgrade or downgrade anytime."
-              : "Pay as you go is the default — the flat plans take over when your volume settles. Overage past any plan's allowance continues at the pay-as-you-go rates."
-          }
+          sub="Email and in-app push are priced separately — pick one or both. Choosing both simply adds the two prices. Pay in USDC via crypto checkout, upgrade or downgrade anytime."
         />
-        {hasCatalog ? (
-          <CatalogPlans plans={catalogPlans} />
-        ) : (
-          <Stagger className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {PROFILES.map((p) => (
-              <StaggerItem key={p.name}>
+        <div className="mt-8 flex justify-center">
+          <ChannelToggle
+            value={channels}
+            onChange={setChannels}
+            label="Pay for"
+          />
+        </div>
+        <Stagger className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {/* PAYG is the signup default — usage-based, per-unit. */}
+          <StaggerItem key="payg">
+            <div className="card relative flex h-full flex-col p-5 transition-transform duration-200 hover:-translate-y-1">
+              <span className="text-[13px] font-semibold t-ink">
+                Pay as you go
+              </span>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span
+                  className="font-semibold tracking-tight t-ink"
+                  style={{ fontSize: "1.8rem" }}
+                >
+                  $0
+                </span>
+                <span className="text-[13px] t-muted">/mo + usage</span>
+              </div>
+              <p className="mt-1 text-[12.5px] t-muted">
+                Every new workspace starts here, top up and pay only for what
+                you use.
+              </p>
+              <div
+                className="my-4 space-y-1.5 border-y py-3 text-[12.5px]"
+                style={{ borderColor: "var(--line-2)" }}
+              >
+                {[
+                  ...enabledChannels.map(
+                    (c) => `$${c.per1k} per 1,000 ${c.label} messages`
+                  ),
+                  "$2.50 per 10,000 on-chain credits",
+                  "$5 per 1,000 AI credits",
+                  "Up to 25k contacts · 2 seats",
+                ].map((feature) => (
+                  <div key={feature} className="flex items-start gap-1.5">
+                    <CheckIcon
+                      aria-hidden="true"
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                      style={{ color: "var(--acc)" }}
+                    />
+                    <span className="t-muted">{feature}</span>
+                  </div>
+                ))}
+              </div>
+              <Link href={SIGNUP} className="mt-auto btn btn-ghost w-full">
+                Start free
+              </Link>
+            </div>
+          </StaggerItem>
+          {TIERS.map((tier) => {
+            const price = tierPrice(tier, enabledChannels);
+            return (
+              <StaggerItem key={tier.slug}>
                 <div
                   className="card relative flex h-full flex-col p-5 transition-transform duration-200 hover:-translate-y-1"
                   style={
-                    p.popular
+                    tier.popular
                       ? {
                           borderColor:
                             "color-mix(in oklab, var(--acc) 45%, var(--line))",
@@ -385,7 +443,7 @@ function Profiles() {
                       : undefined
                   }
                 >
-                  {p.popular ? (
+                  {tier.popular ? (
                     <span
                       className="mono absolute -top-2.5 left-5 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide text-white"
                       style={{ background: "var(--acc)" }}
@@ -394,42 +452,52 @@ function Profiles() {
                     </span>
                   ) : null}
                   <span className="text-[13px] font-semibold t-ink">
-                    {p.name}
+                    {tier.name}
                   </span>
                   <div className="mt-2 flex items-baseline gap-1">
                     <span
                       className="font-semibold tracking-tight t-ink"
                       style={{ fontSize: "1.8rem" }}
                     >
-                      {p.price}
+                      ${price}
                     </span>
                     <span className="text-[13px] t-muted">/mo</span>
                   </div>
-                  <p className="mt-1 text-[12.5px] t-muted">{p.who}</p>
+                  {both ? (
+                    <p className="mt-0.5 text-[11.5px] t-muted2">
+                      ${tier.emailPrice} email + ${tier.inappPrice} in-app
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-[12.5px] t-muted">{tier.who}</p>
                   <div
                     className="my-4 space-y-1.5 border-y py-3 text-[12.5px]"
                     style={{ borderColor: "var(--line-2)" }}
                   >
-                    {p.rows.map((row) => (
-                      <div key={row.label} className="flex justify-between">
-                        <span className="t-muted">{row.label}</span>
-                        <span className="mono font-medium t-ink2">
-                          {row.value}
-                        </span>
+                    {tierFeatures(tier, enabledChannels).map((feature) => (
+                      <div key={feature} className="flex items-start gap-1.5">
+                        <CheckIcon
+                          aria-hidden="true"
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                          style={{ color: "var(--acc)" }}
+                        />
+                        <span className="t-muted">{feature}</span>
                       </div>
                     ))}
                   </div>
                   <Link
-                    href={p.href}
-                    className={`mt-auto btn ${p.popular ? "btn-primary" : "btn-ghost"} w-full`}
+                    href={SIGNUP}
+                    className={`mt-auto btn ${tier.popular ? "btn-primary" : "btn-ghost"} w-full`}
                   >
-                    {p.cta}
+                    Get early access
                   </Link>
                 </div>
               </StaggerItem>
-            ))}
-          </Stagger>
-        )}
+            );
+          })}
+        </Stagger>
+        <p className="mx-auto mt-6 max-w-2xl text-center text-[12.5px] t-muted2">
+          {`Showing ${channelSummary(enabledChannels)} pricing. Email and in-app push are billed separately — choosing both adds the two prices. Overage past any plan's allowance continues at the pay-as-you-go rate.`}
+        </p>
       </div>
     </section>
   );
@@ -483,7 +551,7 @@ function Included() {
 const PRICING_FAQ = [
   [
     "How does pricing work?",
-    "Every workspace starts on pay-as-you-go: no monthly fee, prepaid usage from a top-up wallet at $1 per 1,000 messages, $1 per 10,000 on-chain credits, and $5 per 1,000 AI credits. When your volume settles, flat plans (Launch $29, Growth $199, Pro $499) usually work out cheaper — and overage past a plan's allowance simply continues at the pay-as-you-go rates.",
+    "Every workspace starts on pay-as-you-go: no monthly fee, prepaid usage from a top-up wallet at $1 per 1,000 messages, $2.50 per 10,000 on-chain credits, and $5 per 1,000 AI credits. When your volume settles, flat plans (Launch $29, Growth $199, Pro $499) usually work out cheaper, and overage past a plan's allowance simply continues at the pay-as-you-go rates.",
   ],
   [
     "What is a tracked wallet?",
@@ -495,7 +563,7 @@ const PRICING_FAQ = [
   ],
   [
     "Is there a free plan?",
-    "There is no free tier — new workspaces start on pay-as-you-go with no monthly fee, so you only ever pay for usage. Signing up costs nothing, and a small protocol's first campaigns typically run a few dollars.",
+    "There is no free tier, new workspaces start on pay-as-you-go with no monthly fee, so you only ever pay for usage. Signing up costs nothing, and a small protocol's first campaigns typically run a few dollars.",
   ],
   [
     "Which channels are included, and is there SMS?",
@@ -503,7 +571,7 @@ const PRICING_FAQ = [
   ],
   [
     "What about larger protocols?",
-    "Pro covers most high-volume protocols, and pay-as-you-go rates apply past any plan's allowance, so nothing hard-stops. Ecosystems with bigger needs move to a custom agreement — talk to us for an exact quote from your usage.",
+    "Pro covers most high-volume protocols, and pay-as-you-go rates apply past any plan's allowance, so nothing hard-stops. Ecosystems with bigger needs move to a custom agreement, for an exact quote from your usage.",
   ],
 ];
 
@@ -641,7 +709,7 @@ export function PricingPage() {
                 <span className="grad">what you actually use.</span>
               </>
             }
-            sub="No monthly fee to start: $1 per 1,000 messages, $1 per 10,000 on-chain credits, $5 per 1,000 AI credits — prepaid from a top-up wallet. Flat plans take over when your volume settles."
+            sub="No monthly fee to start: $1 per 1,000 messages, $2.50 per 10,000 on-chain credits, $5 per 1,000 AI credits. All prepaid from a top-up wallet. Flat plans take over when your volume settles."
           />
           <Calculator />
         </div>

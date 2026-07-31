@@ -25,6 +25,7 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import CompanyEditForm from "@/features/settings/components/account/company-edit-form";
 import { SmartSendingCard } from "@/features/settings/components/account/smart-sending-card";
+import { DomainVerification } from "@/features/settings/components/domain-verification";
 import InviteUser from "@/features/settings/components/invite-user";
 import LogoUpload from "@/features/settings/components/logo-upload";
 import SettingsSectionCard from "@/features/settings/components/settings-section-card";
@@ -109,7 +110,7 @@ interface DomainDnsRow {
   ttl?: string;
   priority?: string;
   verified?: boolean;
-  /** Set for live Azure states that are neither pass nor fail. */
+  /** Set for live provider states that are neither pass nor fail. */
   verificationLabel?: string;
   status?: SenderStatus | "unknown";
   databaseField?: string;
@@ -524,7 +525,7 @@ const normalizeDomains = (
 /**
  * Collect DNS record entries from the `GET /domain/{id}/dns` response. The
  * records may arrive as a plain array, nested under records/verificationRecords,
- * or — Azure ACS style — as an object keyed by record purpose
+ * or as an object keyed by record purpose
  * (`{ Domain: {...}, DKIM: {...}, DKIM2: {...}, SPF: {...} }`).
  */
 const collectDnsEntries = (payload: unknown): Record<string, unknown>[] => {
@@ -558,7 +559,7 @@ const normalizeDomainDns = (payload: unknown): DomainDnsRow[] => {
         entry.recordValue
       );
       if (!type || !value) return null;
-      // `verification` is the live Azure state on every record
+      // `verification` is the live provider state on every record
       // (Verified|NotStarted|VerificationInProgress|VerificationFailed|Unknown)
       // — it wins over the legacy boolean-ish fields.
       const verificationState = pickString(entry.verification)?.toLowerCase();
@@ -787,7 +788,6 @@ export default function CompanySettingsView() {
   } | null>(null);
   const [addDomainOpen, setAddDomainOpen] = useState(false);
   const [addSenderOpen, setAddSenderOpen] = useState(false);
-  const [domainName, setDomainName] = useState("");
   const [senderEmail, setSenderEmail] = useState("");
   const [senderName, setSenderName] = useState("");
   const [domainDnsDialog, setDomainDnsDialog] = useState<{
@@ -885,7 +885,7 @@ export default function CompanySettingsView() {
       const sendReady = isJsonObject(root)
         ? pickBooleanLike(root.sendReady)
         : undefined;
-      // "Unknown" means the live Azure probe had no signal for that check —
+      // "Unknown" means the live provider probe had no signal for that check —
       // drop those so the summary can never contradict the per-record states
       // (which fall back to stored verification data).
       const verificationStates =
@@ -981,71 +981,6 @@ export default function CompanySettingsView() {
       }
       toast.error(
         error instanceof Error ? error.message : "Failed to add sender"
-      );
-    },
-  });
-
-  const addDomainMutation = useMutation({
-    mutationFn: async () => {
-      if (!orgHeaders) throw new Error("No active organization selected");
-      const cleanedDomain = domainName
-        .trim()
-        .toLowerCase()
-        .replace(/^https?:\/\//, "")
-        .replace(/^www\./, "")
-        .replace(/\/.*$/, "");
-      if (!cleanedDomain) throw new Error("Domain is required");
-      if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(cleanedDomain)) {
-        throw new Error("Enter a valid domain, e.g. yourprotocol.xyz");
-      }
-      return apiClient.post(
-        "/domain",
-        { domain: cleanedDomain },
-        { headers: orgHeaders }
-      );
-    },
-    onSuccess: async (response) => {
-      setAddDomainOpen(false);
-      setDomainName("");
-      await queryClient.invalidateQueries({
-        queryKey: ["project-settings", "domains", organizationId],
-      });
-      toast.success("Domain added");
-      // POST /domain now returns the full DNS record set (docs/backend.md
-      // 2026-07-23) — open the verify dialog immediately so the user can add
-      // records without hunting for the row.
-      const body = unwrapData(response?.data);
-      const created = isJsonObject(body) ? body : {};
-      const newDomainId = pickString(created.id, created.domainId);
-      const newDomainName = pickString(created.domain, created.name);
-      if (newDomainId) {
-        setDomainDnsDialog({
-          open: true,
-          domainId: newDomainId,
-          domain: newDomainName ?? "",
-        });
-      }
-    },
-    onError: async (error: unknown) => {
-      const { status, message } = apiErrorInfo(error);
-      if (status === 409) {
-        // Conflict: the domain is already registered. If it belongs to this
-        // org it's in the list (refresh it) — point the user at Recheck
-        // instead of leaving them with a bare status code.
-        setAddDomainOpen(false);
-        setDomainName("");
-        await queryClient.invalidateQueries({
-          queryKey: ["project-settings", "domains", organizationId],
-        });
-        toast.error(
-          message ??
-            "This domain is already registered. If it's yours, it's in the list below — use Recheck to re-run verification."
-        );
-        return;
-      }
-      toast.error(
-        message ??
-          (error instanceof Error ? error.message : "Failed to add domain")
       );
     },
   });
@@ -1180,7 +1115,7 @@ export default function CompanySettingsView() {
     },
   });
 
-  // DELETE /domain/{id} now also removes the domain from Azure ECS
+  // DELETE /domain/{id} now also removes the domain at the provider
   // (docs/backend.md 2026-07-29) — safe for pending AND verified domains, so
   // abandoned verification attempts can be fully cleaned up in-app.
   const deleteDomainMutation = useMutation({
@@ -1193,7 +1128,7 @@ export default function CompanySettingsView() {
       await queryClient.invalidateQueries({
         queryKey: ["project-settings", "domains", organizationId],
       });
-      toast.success("Domain deleted — Azure resources cleaned up too");
+      toast.success("Domain deleted — provider resources cleaned up too");
     },
     onError: (error: unknown) => {
       toast.error(
@@ -2272,7 +2207,7 @@ export default function CompanySettingsView() {
             </DialogTitle>
             <DialogDescription>
               {deleteDomainTarget
-                ? `${deleteDomainTarget.domain} will be removed from your workspace and from Azure Email Communication Services. Sender identities on this domain stop working. This cannot be undone.`
+                ? `${deleteDomainTarget.domain} will be removed from your workspace and from the email provider. Sender identities on this domain stop working. This cannot be undone.`
                 : ""}
             </DialogDescription>
           </DialogHeader>
@@ -2311,20 +2246,12 @@ export default function CompanySettingsView() {
               Add domain
             </DialogTitle>
             <DialogDescription>
-              Register the domain you want to send from, then publish the DNS
-              records shown for verification.
+              Register the domain you want to send from, publish the DNS records
+              shown, and it verifies automatically once they propagate.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="space-y-2">
-              <Label>Domain</Label>
-              <Input
-                value={domainName}
-                onChange={(e) => setDomainName(e.target.value)}
-                placeholder="company.com or emails.company.com"
-              />
-            </div>
-            <p className="rounded-xl border border-border/60 bg-muted/30 p-3 text-xs leading-5 text-muted-foreground">
+          <div className="py-2">
+            <p className="mb-4 rounded-xl border border-border/60 bg-muted/30 p-3 text-xs leading-5 text-muted-foreground">
               <span className="font-medium text-foreground">Recommended:</span>{" "}
               use a dedicated sending subdomain like{" "}
               <code className="rounded bg-muted px-1">emails.company.com</code>{" "}
@@ -2333,30 +2260,17 @@ export default function CompanySettingsView() {
               understands merged SPF records and coexists with your current
               provider&apos;s DKIM.
             </p>
+            <DomainVerification
+              onVerified={() => {
+                queryClient.invalidateQueries({
+                  queryKey: ["project-settings", "domains", organizationId],
+                });
+              }}
+            />
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setAddDomainOpen(false)}
-              disabled={addDomainMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => addDomainMutation.mutate()}
-              disabled={
-                addDomainMutation.isPending || domainName.trim().length === 0
-              }
-            >
-              {addDomainMutation.isPending ? (
-                <ArrowPathIcon
-                  aria-hidden="true"
-                  className="mr-2 h-4 w-4 animate-spin"
-                />
-              ) : (
-                <GlobeAltIcon aria-hidden="true" className="mr-2 h-4 w-4" />
-              )}
-              Add domain
+            <Button variant="outline" onClick={() => setAddDomainOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

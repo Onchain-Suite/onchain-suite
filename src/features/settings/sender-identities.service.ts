@@ -13,8 +13,7 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
  * settings, the campaign form, and the automation builder's send_email node.
  *
  * Send-time resolution (backend): explicit campaign/node sender → org default
- * identity → most-recently-verified identity → platform fallback
- * (DoNotReply@…azurecomm.net).
+ * identity → most-recently-verified identity → platform fallback address.
  */
 
 export type SenderIdentityStatus = "verified" | "pending" | "failed";
@@ -64,6 +63,50 @@ export interface DomainStatusResponse {
   status?: string;
   dkim?: unknown;
   spf?: unknown;
+  [key: string]: unknown;
+}
+
+/* ── Provider-agnostic domain authentication ────────────────────────────────
+ * The email/DNS provider is a backend concern. Provisioning returns one entry
+ * per configured provider so swapping or adding one never touches the UI. */
+
+// The only place the concrete provider is named: the backend's route segment
+// for domain validation (mirrors how GoldRush URLs carry the vendor name).
+// Change this one line if the backend renames or genericizes the route.
+const DOMAIN_PROVIDER_SEGMENT = "sendgrid";
+
+/** A DNS record to publish — copy-paste `host` → `value` (CNAME by default). */
+export interface ProviderDnsRecord {
+  host: string;
+  value: string;
+  type?: string;
+}
+
+/** `authenticating` → publish `records`; `skipped` → not in use, hide it;
+ * `error` → surface `reason`. */
+export type ProviderStatus = "authenticating" | "skipped" | "error";
+
+/** One provider's DNS-authentication result for a domain. */
+export interface DomainProvider {
+  provider: string;
+  status: ProviderStatus;
+  records?: ProviderDnsRecord[];
+  reason?: string;
+  [key: string]: unknown;
+}
+
+/** `POST /domain/{id}/provision` response. */
+export interface ProvisionDomainResponse {
+  id?: string;
+  domain?: string;
+  providers?: DomainProvider[];
+  [key: string]: unknown;
+}
+
+/** Domain-validation response — poll until `valid`. */
+export interface ValidateDomainResponse {
+  valid?: boolean;
+  records?: ProviderDnsRecord[];
   [key: string]: unknown;
 }
 
@@ -393,7 +436,7 @@ export const senderIdentitiesService = {
   },
 
   /**
-   * `POST /domain` — registers the domain and provisions it in Azure ACS.
+   * `POST /domain` — registers the domain and provisions it with the provider.
    * Check `status` on the response: `VERIFIED` → done (skip the DNS screen),
    * `PENDING_VERIFICATION` → show `getDomainDns` records then `verifyDomain`.
    */
@@ -414,8 +457,8 @@ export const senderIdentitiesService = {
   },
 
   /**
-   * `POST /domain/{id}/verify` — long-polls Azure until VERIFIED/FAILED, so
-   * it is explicitly bounded rather than left to hang.
+   * `POST /domain/{id}/verify` — long-polls the provider until VERIFIED/FAILED,
+   * so it is explicitly bounded rather than left to hang.
    */
   verifyDomain(domainId: string, orgId?: string) {
     return request<DomainStatusResponse>(
@@ -440,6 +483,44 @@ export const senderIdentitiesService = {
   recheckDomain(domainId: string, orgId?: string) {
     return request<DomainStatusResponse>(
       { method: "POST", url: `/domain/${domainId}/recheck` },
+      orgId
+    );
+  },
+
+  /* ── Provider-agnostic domain authentication ────────────────────────────── */
+
+  /** `POST /domain` — register a sending domain. Returns the domain + `id`. */
+  addSendingDomain(body: { domain: string; type?: string }, orgId?: string) {
+    return request<SenderDomainRecord>(
+      { method: "POST", url: "/domain", data: body },
+      orgId
+    );
+  },
+
+  /**
+   * `POST /domain/{id}/provision` — provision the domain with the configured
+   * email providers. Returns `providers[]`: `authenticating` → publish
+   * `records[]` as CNAMEs, `skipped` → hide, `error` → show `reason`.
+   */
+  provisionDomain(domainId: string, orgId?: string) {
+    return request<ProvisionDomainResponse>(
+      { method: "POST", url: `/domain/${domainId}/provision` },
+      orgId
+    );
+  },
+
+  /**
+   * Re-check the domain's DNS. Poll until `{ valid: true }`, after which the
+   * domain can send. The route segment below is the backend's provider
+   * namespace (the one place the concrete provider surfaces, like GoldRush's
+   * URLs) — nothing above the wire depends on it.
+   */
+  validateDomain(domainId: string, orgId?: string) {
+    return request<ValidateDomainResponse>(
+      {
+        method: "POST",
+        url: `/domain/${domainId}/${DOMAIN_PROVIDER_SEGMENT}/validate`,
+      },
       orgId
     );
   },

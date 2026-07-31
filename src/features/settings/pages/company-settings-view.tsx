@@ -501,25 +501,11 @@ const normalizeDomains = (
     })
     .filter((row): row is DomainRow => Boolean(row));
 
-  if (rows.length > 0) return rows;
-
-  return Array.from(domainMap.entries()).map(([domain, authState], index) => {
-    const status =
-      authState.status ??
-      (authState.dkim && authState.spf ? "verified" : "pending");
-    const resolvedAuth = resolveAuthBooleans({
-      dkim: authState.dkim,
-      spf: authState.spf,
-      status,
-    });
-    return {
-      id: `${domain}-${index}`,
-      domain,
-      dkim: resolvedAuth.dkim,
-      spf: resolvedAuth.spf,
-      status,
-    };
-  });
+  // `GET /domain` is the single source of truth for which domains exist. The
+  // auth rollup only ever *enriches* those rows (dkim/spf/status above) — it
+  // must never manufacture rows of its own, or a domain deleted from `/domain`
+  // resurrects here because its auth records outlive the delete.
+  return rows;
 };
 
 /**
@@ -1123,18 +1109,38 @@ export default function CompanySettingsView() {
       if (!orgHeaders) throw new Error("No active organization selected");
       await apiClient.delete(`/domain/${domainId}`, { headers: orgHeaders });
     },
-    onSuccess: async () => {
+    // Drop the row from the cache immediately so it disappears on click; the
+    // refetch in onSettled reconciles with the backend (and rolls back here on
+    // failure). Without this the domain lingers until the next fetch lands.
+    onMutate: async (domainId: string) => {
+      const domainsKey = ["project-settings", "domains", organizationId];
+      await queryClient.cancelQueries({ queryKey: domainsKey });
+      const previous = queryClient.getQueryData<DomainRow[]>(domainsKey);
+      queryClient.setQueryData<DomainRow[]>(domainsKey, (old) =>
+        (old ?? []).filter((row) => row.id !== domainId)
+      );
+      return { previous };
+    },
+    onSuccess: () => {
       setDeleteDomainTarget(null);
-      await queryClient.invalidateQueries({
-        queryKey: ["project-settings", "domains", organizationId],
-      });
       toast.success("Domain deleted — provider resources cleaned up too");
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, _domainId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          ["project-settings", "domains", organizationId],
+          context.previous
+        );
+      }
       toast.error(
         apiErrorInfo(error).message ??
           (error instanceof Error ? error.message : "Failed to delete domain")
       );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["project-settings", "domains", organizationId],
+      });
     },
   });
 

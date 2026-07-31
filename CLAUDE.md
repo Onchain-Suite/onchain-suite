@@ -261,3 +261,9 @@ frontend consumes and must not contradict them.
 - [ ] Heavy dep (chart/flow/editor/motion) dynamically imported?
 - [ ] Colors use semantic tokens (light + dark both work)?
 - [ ] `tsc --noEmit` clean; lint clean; profiled if perf-sensitive?
+
+## 14. Git & PR conventions
+
+- **Do not** append the `🤖 Generated with Claude Code` trailer (or any
+  tool-attribution footer) to PR descriptions or commit messages. Keep PR bodies
+  and commits clean and descriptive.

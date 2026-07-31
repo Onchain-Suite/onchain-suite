@@ -111,10 +111,13 @@ function ChannelToggle({
   );
 }
 
-function Calculator() {
-  const [channels, setChannels] = useState<Set<MessageChannel>>(
-    () => new Set<MessageChannel>(["email", "inapp"])
-  );
+function Calculator({
+  channels,
+  onChannelsChange,
+}: {
+  channels: Set<MessageChannel>;
+  onChannelsChange: (next: Set<MessageChannel>) => void;
+}) {
   const [emailMsgs, setEmailMsgs] = useState(25000);
   const [inappMsgs, setInappMsgs] = useState(25000);
   const [onchain, setOnchain] = useState(100000);
@@ -146,7 +149,7 @@ function Calculator() {
               Email and in-app push are billed separately — run one or both.
             </p>
           </div>
-          <ChannelToggle value={channels} onChange={setChannels} />
+          <ChannelToggle value={channels} onChange={onChannelsChange} />
         </div>
         <div className="grid gap-8 md:grid-cols-[1fr_auto]">
           <div className="space-y-7">
@@ -218,7 +221,7 @@ function Calculator() {
         >
           Every workspace starts on pay-as-you-go: no monthly fee, prepaid usage
           from a top-up wallet, and nothing to cancel. When your volume settles,
-          a flat plan below usually works out cheaper, switch anytime.
+          a flat plan below usually works out cheaper; switch anytime.
         </p>
       </div>
     </Reveal>
@@ -354,10 +357,13 @@ const tierFeatures = (tier: Tier, channels: ChannelRate[]): string[] => {
   return features;
 };
 
-function Profiles() {
-  const [channels, setChannels] = useState<Set<MessageChannel>>(
-    () => new Set<MessageChannel>(["email", "inapp"])
-  );
+function Profiles({
+  channels,
+  onChannelsChange,
+}: {
+  channels: Set<MessageChannel>;
+  onChannelsChange: (next: Set<MessageChannel>) => void;
+}) {
   const enabledChannels = MESSAGE_CHANNELS.filter((c) => channels.has(c.id));
   const both = channels.has("email") && channels.has("inapp");
 
@@ -376,7 +382,7 @@ function Profiles() {
         <div className="mt-8 flex justify-center">
           <ChannelToggle
             value={channels}
-            onChange={setChannels}
+            onChange={onChannelsChange}
             label="Pay for"
           />
         </div>
@@ -551,7 +557,7 @@ function Included() {
 const PRICING_FAQ = [
   [
     "How does pricing work?",
-    "Every workspace starts on pay-as-you-go: no monthly fee, prepaid usage from a top-up wallet at $1 per 1,000 messages, $2.50 per 10,000 on-chain credits, and $5 per 1,000 AI credits. When your volume settles, flat plans (Launch $29, Growth $199, Pro $499) usually work out cheaper, and overage past a plan's allowance simply continues at the pay-as-you-go rates.",
+    "Every workspace starts on pay-as-you-go: no monthly fee, prepaid usage from a top-up wallet at $1 per 1,000 messages (email or in-app), $2.50 per 10,000 on-chain credits, and $5 per 1,000 AI credits. When your volume settles, flat plans (email $29/$199/$499 and in-app $39/$149/$449, cumulative for both) usually work out cheaper, and overage past a plan's allowance simply continues at the pay-as-you-go rates.",
   ],
   [
     "What is a tracked wallet?",
@@ -563,7 +569,7 @@ const PRICING_FAQ = [
   ],
   [
     "Is there a free plan?",
-    "There is no free tier, new workspaces start on pay-as-you-go with no monthly fee, so you only ever pay for usage. Signing up costs nothing, and a small protocol's first campaigns typically run a few dollars.",
+    "There is no free tier. New workspaces start on pay-as-you-go with no monthly fee, so you only ever pay for usage. Signing up costs nothing, and a small protocol's first campaigns typically run a few dollars.",
   ],
   [
     "Which channels are included, and is there SMS?",
@@ -571,7 +577,7 @@ const PRICING_FAQ = [
   ],
   [
     "What about larger protocols?",
-    "Pro covers most high-volume protocols, and pay-as-you-go rates apply past any plan's allowance, so nothing hard-stops. Ecosystems with bigger needs move to a custom agreement, for an exact quote from your usage.",
+    "Pro covers most high-volume protocols, and pay-as-you-go rates apply past any plan's allowance, so nothing hard-stops. Ecosystems with bigger needs move to a custom agreement; contact us for a quote based on your usage.",
   ],
 ];
 
@@ -686,6 +692,9 @@ function PricingCta() {
 }
 
 export function PricingPage() {
+  const [channels, setChannels] = useState<Set<MessageChannel>>(
+    () => new Set<MessageChannel>(["email", "inapp"])
+  );
   return (
     <PageShell>
       <section className="relative overflow-hidden pb-6 pt-16 md:pt-20">
@@ -709,12 +718,12 @@ export function PricingPage() {
                 <span className="grad">what you actually use.</span>
               </>
             }
-            sub="No monthly fee to start: $1 per 1,000 messages, $2.50 per 10,000 on-chain credits, $5 per 1,000 AI credits. All prepaid from a top-up wallet. Flat plans take over when your volume settles."
+            sub="No monthly fee to start: $1 per 1,000 messages (email or in-app), $2.50 per 10,000 on-chain credits, $5 per 1,000 AI credits. All prepaid from a top-up wallet. Flat email and in-app plans take over when your volume settles."
           />
-          <Calculator />
+          <Calculator channels={channels} onChannelsChange={setChannels} />
         </div>
       </section>
-      <Profiles />
+      <Profiles channels={channels} onChannelsChange={setChannels} />
       <Included />
       <PricingFaq />
       <PricingCta />

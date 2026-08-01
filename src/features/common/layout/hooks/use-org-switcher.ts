@@ -154,6 +154,17 @@ export function useOrgSwitcher(): UseOrgSwitcher {
     [setVerifiedOrgId]
   );
 
+  // Drop the stored org entirely — used when the selected org isn't one we
+  // belong to and there's no valid org to fall back to, so the shell stops
+  // firing "not a member" requests and drops to the no-org/onboarding state.
+  const clearSelectedOrg = React.useCallback(() => {
+    if (typeof document !== "undefined") {
+      document.cookie = `${ORG_SELECTION_COOKIE}=; path=/; max-age=0; samesite=lax`;
+    }
+    setSelectedOrgCookie(null);
+    setVerifiedOrgId(null);
+  }, [setVerifiedOrgId]);
+
   const toOrganization = React.useCallback(
     (raw: unknown): Organization | null => {
       if (!isJsonObject(raw)) return null;
@@ -304,6 +315,18 @@ export function useOrgSwitcher(): UseOrgSwitcher {
               })
             );
             router.refresh();
+          } else if (cookieOrgId && cookieOrgId.trim().length > 0) {
+            // The stored org isn't one we belong to and there's nothing to fall
+            // back to — clear it so the shell drops to the no-org/onboarding
+            // state instead of firing "not a member" requests for it.
+            clearSelectedOrg();
+            setActiveOrgId(null);
+            window.dispatchEvent(
+              new CustomEvent("onchain:org-changed", {
+                detail: { orgId: null, previousOrgId: activeOrgId },
+              })
+            );
+            router.refresh();
           }
         }
       } catch (error) {
@@ -332,6 +355,7 @@ export function useOrgSwitcher(): UseOrgSwitcher {
     }
   }, [
     activeOrgId,
+    clearSelectedOrg,
     loadOrganizations,
     router,
     session?.session?.activeOrganizationId,

@@ -253,16 +253,25 @@ function NoOrganizationState() {
     <div className="mx-auto mt-8 flex min-h-[62vh] max-w-2xl items-center justify-center">
       <div className="w-full rounded-2xl border border-border bg-card p-10 text-center">
         <div className="mx-auto inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold tracking-wide text-primary">
-          No workspace yet
+          Set up your workspace
         </div>
         <h1 className="mt-5 text-2xl font-semibold text-foreground">
-          You&apos;re not part of an organization
+          Let&apos;s get your workspace ready
         </h1>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-          Ask a workspace owner to invite you, or finish onboarding to create
-          your own — your account menu at the bottom of the sidebar lists any
-          workspace you can access.
+          You&apos;re signed in but don&apos;t have a workspace yet. Run setup
+          to create one — index a contract, enrich wallets, and verify your
+          sending domain. Already invited to one? It appears in the account menu
+          at the bottom of the sidebar.
         </p>
+        <div className="mt-6">
+          <a
+            href="/onboarding?reason=missing_org"
+            className="inline-flex items-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Start setup
+          </a>
+        </div>
       </div>
     </div>
   );

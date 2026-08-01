@@ -2,7 +2,6 @@
 
 import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -11,10 +10,10 @@ import { cn } from "@/lib/utils";
 
 import { campaignsService } from "../campaigns.service";
 import { CampaignsAnalyticsOverview } from "../components/analytics-overview";
+import { CampaignDetailSheet } from "../components/campaign-detail-sheet";
 import { CreateCampaignSheet } from "../components/campaign-form/create-campaign-sheet";
 import { CampaignsReferenceTable } from "../components/campaigns-reference-table";
-import type { CampaignStatus } from "../types/campaign";
-import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
+import type { Campaign, CampaignStatus } from "../types/campaign";
 
 const CAMPAIGN_TYPE_LABEL: Record<string, string> = {
   "email-blast": "Email blast",
@@ -35,10 +34,10 @@ const dateBadge = (date: Date) => ({
 });
 
 export function CampaignsListsView() {
-  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<"all" | CampaignStatus>(
     "all"
   );
+  const [detailCampaign, setDetailCampaign] = useState<Campaign | null>(null);
 
   const campaignsQuery = useQuery({
     queryKey: ["campaigns", "list"],
@@ -100,9 +99,6 @@ export function CampaignsListsView() {
       .slice(0, 2);
   }, [campaigns]);
 
-  const openCampaign = (id: string) =>
-    router.push(`${PRIVATE_ROUTES.NEW_CAMPAIGN}?campaign=${id}`);
-
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -140,7 +136,7 @@ export function CampaignsListsView() {
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => openCampaign(c.id)}
+                  onClick={() => setDetailCampaign(c)}
                   className="flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
                 >
                   {badge ? (
@@ -218,7 +214,10 @@ export function CampaignsListsView() {
           Failed to load campaigns.
         </div>
       ) : filteredCampaigns.length > 0 ? (
-        <CampaignsReferenceTable data={filteredCampaigns} />
+        <CampaignsReferenceTable
+          data={filteredCampaigns}
+          onSelect={setDetailCampaign}
+        />
       ) : campaigns.length > 0 ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
           No campaigns match this filter.
@@ -239,6 +238,13 @@ export function CampaignsListsView() {
           </div>
         </div>
       )}
+
+      <CampaignDetailSheet
+        campaign={detailCampaign}
+        onOpenChange={(o) => {
+          if (!o) setDetailCampaign(null);
+        }}
+      />
     </div>
   );
 }

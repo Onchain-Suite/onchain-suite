@@ -5,12 +5,10 @@ import {
   DevicePhoneMobileIcon,
   EnvelopeIcon,
 } from "@heroicons/react/24/outline";
-import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
 import type { Campaign, CampaignStatus } from "../types/campaign";
-import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const STATUS_META: Record<
   CampaignStatus,
@@ -108,13 +106,14 @@ function ChannelIcon({ children }: { children: React.ReactNode }) {
  * (the list is capped at 200 server-side), so a plain table is fine here — no
  * virtualization needed.
  */
-export function CampaignsReferenceTable({ data }: { data: Campaign[] }) {
-  const router = useRouter();
-
-  const openCampaign = (id: string) => {
-    router.push(`${PRIVATE_ROUTES.NEW_CAMPAIGN}?campaign=${id}`);
-  };
-
+export function CampaignsReferenceTable({
+  data,
+  onSelect,
+}: {
+  data: Campaign[];
+  /** Row click — opens the campaign detail drawer. */
+  onSelect: (campaign: Campaign) => void;
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[720px] border-collapse text-sm">
@@ -136,7 +135,7 @@ export function CampaignsReferenceTable({ data }: { data: Campaign[] }) {
             return (
               <tr
                 key={campaign.id}
-                onClick={() => openCampaign(campaign.id)}
+                onClick={() => onSelect(campaign)}
                 className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/40"
               >
                 <td className="py-4 pr-4">

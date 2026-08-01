@@ -203,14 +203,18 @@ function ShellContent({
   wipSection: WipSection | null;
   children: React.ReactNode;
 }) {
-  const { hasResolved, organizations } = useOrgSwitcherContext();
+  const { hasResolved, organizations, isMounted } = useOrgSwitcherContext();
 
   if (hasActiveOrganization) {
     return wipSection ? <ComingSoonSection section={wipSection} /> : children;
   }
 
+  // `isMounted` guards the branch that reads client-only storage
+  // (hasResolved/organizations come from sessionStorage). Until it flips true —
+  // i.e. on the server and the first client render — both sides render the
+  // skeleton, so hydration matches; the real no-org state only appears after.
   const confirmedNoOrg =
-    hasResolved && organizations.length === 0 && !isSwitchingOrg;
+    isMounted && hasResolved && organizations.length === 0 && !isSwitchingOrg;
 
   return confirmedNoOrg ? <NoOrganizationState /> : <ShellSkeleton />;
 }

@@ -60,6 +60,7 @@ export function NavUserMenu({
     activeOrg,
     confirmedActiveOrgId,
     isLoading,
+    isMounted,
     switchOrg,
   } = useOrgSwitcherContext();
 
@@ -67,7 +68,9 @@ export function NavUserMenu({
   const initials = fullName ? getInitials(fullName) : "U";
   const avatarColor = userId ? getAvatarColor(userId) : undefined;
   const showImage = imageUrl && isValidImageUrl(imageUrl) && !imgError;
-  const orgName = showName ? activeOrg?.name : undefined;
+  // Org name comes from client-only storage — hold it until mount so the
+  // server and first client render agree (no hydration mismatch).
+  const orgName = showName && isMounted ? activeOrg?.name : undefined;
 
   return (
     <SidebarMenu className="group-data-[collapsible=icon]:items-center">

@@ -2,6 +2,7 @@
 
 import {
   ArrowRightOnRectangleIcon,
+  CheckIcon,
   ChevronUpDownIcon,
   Cog6ToothIcon,
   UserIcon,
@@ -13,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -27,13 +29,16 @@ import {
 
 import { signOut } from "@/lib/auth-client";
 import { getAvatarColor, getInitials, isValidImageUrl } from "@/lib/user-utils";
+import { cn } from "@/lib/utils";
 
+import { useOrgSwitcherContext } from "./org-switcher-context";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 /**
- * Account row pinned to the bottom of the sidebar. Carries over the avatar and
- * menu that used to sit in the old navbar's footer; collapses to just the
- * avatar on the icon rail.
+ * Account row pinned to the bottom of the sidebar. Shows the signed-in user
+ * with their active workspace as a subtitle, and folds workspace switching and
+ * account actions into a single menu (matching the reference shell, which
+ * merges the old header org-switcher into this block).
  */
 export function NavUserMenu({
   fullName,
@@ -50,21 +55,30 @@ export function NavUserMenu({
   const router = useRouter();
   const { isMobile } = useSidebar();
   const [imgError, setImgError] = useState(false);
+  const {
+    organizations,
+    activeOrg,
+    confirmedActiveOrgId,
+    isLoading,
+    switchOrg,
+  } = useOrgSwitcherContext();
 
   const displayName = fullName && fullName.length > 0 ? fullName : "User";
   const initials = fullName ? getInitials(fullName) : "U";
   const avatarColor = userId ? getAvatarColor(userId) : undefined;
   const showImage = imageUrl && isValidImageUrl(imageUrl) && !imgError;
+  const orgName = showName ? activeOrg?.name : undefined;
 
   return (
-    <SidebarMenu>
+    <SidebarMenu className="group-data-[collapsible=icon]:items-center">
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              aria-label="Open user menu"
-              className="gap-2 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              aria-label="Open account menu"
+              disabled={isLoading}
+              className="gap-2.5 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
             >
               <Avatar className="size-8 shrink-0 ring-1 ring-border">
                 {showImage ? (
@@ -83,18 +97,25 @@ export function NavUserMenu({
                 </AvatarFallback>
               </Avatar>
               {showName ? (
-                <span className="truncate text-sm font-medium">
-                  {displayName}
-                </span>
+                <div className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+                  <span className="truncate text-sm font-semibold">
+                    {displayName}
+                  </span>
+                  {orgName ? (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {isLoading ? "Switching…" : orgName}
+                    </span>
+                  ) : null}
+                </div>
               ) : null}
               <ChevronUpDownIcon
                 aria-hidden="true"
-                className="ml-auto size-4 text-muted-foreground"
+                className="ml-auto size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden"
               />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-60 rounded-lg"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
@@ -102,6 +123,47 @@ export function NavUserMenu({
             <DropdownMenuLabel className="font-normal">
               <p className="text-sm leading-none font-medium">{displayName}</p>
             </DropdownMenuLabel>
+
+            {organizations.length > 0 ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="px-2 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  Workspaces
+                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  {organizations.map((org) => (
+                    <DropdownMenuItem
+                      key={org.id}
+                      onSelect={() => switchOrg(org.id)}
+                      className="cursor-pointer"
+                    >
+                      <Avatar className="mr-2 size-6 ring-1 ring-border/50">
+                        {(org.logo ?? org.logoUrl) ? (
+                          <AvatarImage
+                            src={org.logo ?? org.logoUrl}
+                            alt={org.name}
+                          />
+                        ) : null}
+                        <AvatarFallback className="text-[10px]">
+                          {org.name.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="truncate">{org.name}</span>
+                      <CheckIcon
+                        aria-hidden="true"
+                        className={cn(
+                          "ml-auto size-4 text-primary",
+                          confirmedActiveOrgId === org.id
+                            ? "opacity-100"
+                            : "opacity-0"
+                        )}
+                      />
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </>
+            ) : null}
+
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() =>

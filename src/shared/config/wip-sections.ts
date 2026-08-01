@@ -39,6 +39,15 @@ export const WIP_SECTIONS: WipSection[] = [
       "A shared inbox for replies to your campaigns — read, assign, and answer conversations without leaving the suite.",
     percentComplete: 30,
   },
+  {
+    // Nav-level entry in the reference shell; the dedicated report surface is
+    // still in progress, so the route renders the coming-soon panel for now.
+    prefix: "/intelligence/analytics",
+    label: "Analytics",
+    description:
+      "Cross-channel performance reports — opens, clicks, on-chain conversion and cohort trends, charted over time.",
+    percentComplete: 40,
+  },
 ];
 
 /** The WIP section a href belongs to, or null. */

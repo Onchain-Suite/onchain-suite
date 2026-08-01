@@ -19,6 +19,8 @@ export interface Campaign {
   recipients?: number;
   openRate?: number;
   clickRate?: number;
+  /** Delivery channels the campaign uses, e.g. ["email", "inapp"]. */
+  channelsUsed?: string[];
   createdAt: Date;
   scheduledFor?: Date;
   sentAt?: Date;

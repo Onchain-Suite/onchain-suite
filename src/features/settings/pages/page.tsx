@@ -4,14 +4,15 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { cn } from "@/lib/utils";
+
 import BillingSettings from "../components/billing/billing";
 import IntegrationsSettings from "../components/integrations/integrations";
+import PrivacyIdentitySettings from "../components/privacy/privacy";
 import ProfileSettings from "../components/profile/profile";
 import RewardsSettings from "../components/rewards/rewards";
 import { tabs } from "../utils";
 import CompanySettingsView from "./company-settings-view";
-import { PageHeader } from "@/shared/components/page/page-header";
-import { PageTabs } from "@/shared/components/page/page-tabs";
 import { useMyOrgRole } from "@/shared/hooks/client/use-my-org-role";
 
 export default function SettingsPage() {
@@ -55,35 +56,57 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Settings"
-        description="Manage your account, billing, and integrations."
-      />
+    <div className="mx-auto w-full max-w-7xl space-y-6">
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+        Settings
+      </h1>
 
-      <PageTabs
-        tabs={visibleTabs}
-        value={activeTab}
-        onValueChange={selectTab}
-        layoutId="settings-tabs"
-      />
+      <div className="flex flex-col gap-8 lg:flex-row">
+        <nav aria-label="Settings sections" className="shrink-0 lg:w-56">
+          <ul className="flex flex-col gap-1">
+            {visibleTabs.map((tab) => {
+              const active = activeTab === tab.id;
+              return (
+                <li key={tab.id}>
+                  <button
+                    type="button"
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => selectTab(tab.id)}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none",
+                      active
+                        ? "bg-primary/10 font-medium text-primary"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                    )}
+                  >
+                    <tab.icon className="size-4 shrink-0" aria-hidden="true" />
+                    {tab.label}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="mx-auto w-full max-w-6xl"
-        >
-          {activeTab === "profile" && <ProfileSettings />}
-          {activeTab === "account" && <CompanySettingsView />}
-          {activeTab === "billing" && isOwner && <BillingSettings />}
-          {activeTab === "integrations" && <IntegrationsSettings />}
-          {activeTab === "rewards" && <RewardsSettings />}
-        </motion.div>
-      </AnimatePresence>
+        <div className="min-w-0 flex-1">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+            >
+              {activeTab === "profile" && <ProfileSettings />}
+              {activeTab === "account" && <CompanySettingsView />}
+              {activeTab === "privacy" && <PrivacyIdentitySettings />}
+              {activeTab === "billing" && isOwner && <BillingSettings />}
+              {activeTab === "integrations" && <IntegrationsSettings />}
+              {activeTab === "rewards" && <RewardsSettings />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 }

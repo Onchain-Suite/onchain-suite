@@ -2,11 +2,10 @@
 
 import {
   BellIcon,
-  ChatBubbleLeftIcon,
-  CheckIcon,
-  CubeIcon,
-  InformationCircleIcon,
-  XMarkIcon,
+  ChatBubbleLeftRightIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
@@ -16,10 +15,6 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -28,7 +23,17 @@ import { cn, isJsonObject } from "@/lib/utils";
 import type { Notification, NotificationType } from "@/types/notification";
 
 import { notificationsService } from "@/features/notifications/notifications.service";
-import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
+
+/** Uniform indigo icon-tiles, one glyph per notification type (see reference). */
+const NOTIFICATION_ICON: Record<
+  NotificationType,
+  React.ComponentType<React.SVGProps<SVGSVGElement>>
+> = {
+  info: SparklesIcon,
+  success: CheckCircleIcon,
+  warning: ExclamationTriangleIcon,
+  message: ChatBubbleLeftRightIcon,
+};
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -103,203 +108,97 @@ export function NotificationBell() {
     },
   });
 
-  const markAllReadMutation = useMutation({
-    mutationFn: () => notificationsService.markAllRead(),
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: notificationsQueryKey });
-      const prev = queryClient.getQueryData<unknown>(notificationsQueryKey);
-      queryClient.setQueryData<unknown>(
-        notificationsQueryKey,
-        (current: unknown) => {
-          const arr = getCachedNotificationsArray(current);
-          if (!arr) return current;
-          return arr.map((n) => (isJsonObject(n) ? { ...n, read: true } : n));
-        }
-      );
-      return { prev };
-    },
-    onError: (_err, _v, ctx) => {
-      if (ctx?.prev !== undefined) {
-        queryClient.setQueryData(notificationsQueryKey, ctx.prev);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
-    },
-  });
-
   const markAsRead = (id: string) => {
     if (notificationsQuery.isSuccess) {
       markReadMutation.mutate(id);
     }
   };
 
-  const markAllAsRead = () => {
-    if (notificationsQuery.isSuccess) {
-      markAllReadMutation.mutate();
-    }
-  };
-
-  const removeNotification = (id: string) => {
-    if (!notificationsQuery.isSuccess) return;
-    queryClient.setQueryData<unknown>(
-      notificationsQueryKey,
-      (current: unknown) => {
-        const arr = getCachedNotificationsArray(current);
-        if (!arr) return current;
-        return arr.filter((n) => {
-          if (!isJsonObject(n)) return true;
-          return String(n.id ?? "") !== id;
-        });
-      }
-    );
-  };
-
-  const getNotificationIcon = (type: NotificationType) => {
-    switch (type) {
-      case "info":
-        return (
-          <InformationCircleIcon
-            className="h-4 w-4 text-blue-500"
-            aria-hidden="true"
-          />
-        );
-      case "success":
-        return (
-          <CheckIcon className="h-4 w-4 text-green-500" aria-hidden="true" />
-        );
-      case "warning":
-        return (
-          <InformationCircleIcon
-            className="h-4 w-4 text-amber-500"
-            aria-hidden="true"
-          />
-        );
-      case "message":
-        return (
-          <ChatBubbleLeftIcon
-            className="h-4 w-4 text-indigo-500"
-            aria-hidden="true"
-          />
-        );
-      default:
-        return (
-          <InformationCircleIcon
-            className="h-4 w-4 text-blue-500"
-            aria-hidden="true"
-          />
-        );
-    }
-  };
-
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <BellIcon className="h-5 w-5" aria-hidden="true" />
+        <Button variant="ghost" size="icon" className="relative size-10">
+          <BellIcon className="size-6" aria-hidden="true" />
           {unreadCount > 0 && (
-            <span className="bg-primary text-primary-foreground absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-medium">
+            <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-md bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
+          <span className="sr-only">
+            Notifications{unreadCount > 0 ? ` (${unreadCount} unread)` : ""}
+          </span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Notifications</span>
-          {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground h-auto p-0 text-xs font-normal"
-              onClick={markAllAsRead}
-            >
-              Mark all as read
-            </Button>
-          )}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <div className="max-h-[300px] overflow-y-auto">
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className="w-88 overflow-hidden p-0"
+      >
+        <div className="border-b border-border px-4 py-3">
+          <p className="text-base font-semibold">Notifications</p>
+        </div>
+
+        <div className="max-h-96 overflow-y-auto">
           {notifications.length > 0 ? (
-            <DropdownMenuGroup>
-              {notifications.map((notification) => (
-                <DropdownMenuItem
-                  key={notification.id}
-                  className="flex flex-col items-start p-0"
-                >
-                  <div
-                    className={cn(
-                      "flex w-full cursor-default gap-2 p-2",
-                      !notification.read && "bg-muted/50"
-                    )}
-                  >
-                    <div className="bg-muted mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-                      {getNotificationIcon(notification.type)}
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">
+            <ul className="divide-y divide-border">
+              {notifications.map((notification) => {
+                const Icon =
+                  NOTIFICATION_ICON[notification.type] ?? SparklesIcon;
+                return (
+                  <li key={notification.id}>
+                    <button
+                      type="button"
+                      onClick={() => markAsRead(notification.id)}
+                      className={cn(
+                        "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60",
+                        !notification.read && "bg-primary/[0.04]"
+                      )}
+                    >
+                      <span
+                        className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+                        aria-hidden="true"
+                      >
+                        <Icon className="size-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm leading-snug text-foreground">
                           {notification.title}
-                        </p>
-                        <div className="flex items-center gap-1">
-                          {!notification.read && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => markAsRead(notification.id)}
-                            >
-                              <CheckIcon
-                                className="h-3 w-3"
-                                aria-hidden="true"
-                              />
-                              <span className="sr-only">Mark as read</span>
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => removeNotification(notification.id)}
-                          >
-                            <XMarkIcon className="h-3 w-3" aria-hidden="true" />
-                            <span className="sr-only">Remove</span>
-                          </Button>
-                        </div>
-                      </div>
-                      <p className="text-muted-foreground text-xs">
-                        {notification.description}
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {formatDistanceToNow(notification.time, {
-                          addSuffix: true,
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
+                        </span>
+                        {notification.description ? (
+                          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                            {notification.description}
+                          </span>
+                        ) : null}
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {formatDistanceToNow(notification.time, {
+                            addSuffix: true,
+                          })}
+                        </span>
+                      </span>
+                      {!notification.read ? (
+                        <span
+                          className="mt-1.5 size-2 shrink-0 rounded-full bg-primary"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           ) : (
-            <div className="flex flex-col items-center justify-center py-6 text-center">
-              <CubeIcon
-                className="text-muted-foreground/50 h-10 w-10"
+            <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
+              <BellIcon
+                className="size-9 text-muted-foreground/40"
                 aria-hidden="true"
               />
               <p className="mt-2 text-sm font-medium">No notifications</p>
-              <p className="text-muted-foreground text-xs">
+              <p className="text-xs text-muted-foreground">
                 You&apos;re all caught up!
               </p>
             </div>
           )}
         </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          asChild
-          className="cursor-pointer justify-center text-center text-sm font-medium"
-        >
-          <a href={PRIVATE_ROUTES.NOTIFICATIONS}>View all notifications</a>
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

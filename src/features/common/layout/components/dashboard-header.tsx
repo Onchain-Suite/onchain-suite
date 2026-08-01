@@ -7,8 +7,6 @@ import { useCommandPalette } from "@/components/common/command-palette";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
-import { OrganizationSwitcher } from "./organization-switcher";
-
 export const DashboardHeader = ({
   breadcrumbs,
   currentPage,
@@ -52,12 +50,9 @@ export const DashboardHeader = ({
       </div>
 
       <div className="flex min-w-0 items-center gap-2 px-1 sm:px-4 md:ml-auto">
-        <OrganizationSwitcher />
-        {/* The sidebar carries the search field; below md it's collapsed away. */}
+        {/* Search now lives in the header (the sidebar no longer carries it). */}
         {hasActiveOrganization ? (
-          <span className="md:hidden">
-            <SearchTrigger onClick={() => palette.open()} />
-          </span>
+          <SearchTrigger onClick={() => palette.open()} />
         ) : null}
         {hasActiveOrganization ? <NotificationBell /> : null}
         <ThemeModeToggle />

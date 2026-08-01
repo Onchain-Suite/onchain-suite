@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeftIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import type * as React from "react";
 
@@ -32,20 +32,20 @@ export function SidebarBrand({
   markClassName?: string;
 }) {
   return (
-    <div className="flex items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
+    <div className="flex items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-3 group-data-[collapsible=icon]:pt-3">
       <Link
         href={href}
         className="flex min-w-0 items-center gap-2 rounded-md outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring"
       >
         <span
           className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground",
+            "flex size-10 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-base font-semibold text-sidebar-primary-foreground group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:rounded-lg",
             markClassName
           )}
         >
           {mark ?? name.charAt(0).toUpperCase()}
         </span>
-        <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
+        <span className="truncate text-lg font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
           {name}
         </span>
       </Link>
@@ -72,7 +72,11 @@ function SidebarCollapseToggle({ className }: { className?: string }) {
             className
           )}
         >
-          <PanelLeftIcon className="size-4" aria-hidden="true" />
+          {state === "expanded" ? (
+            <ChevronLeftIcon className="size-4" aria-hidden="true" />
+          ) : (
+            <ChevronRightIcon className="size-4" aria-hidden="true" />
+          )}
         </button>
       </TooltipTrigger>
       <TooltipContent side="right">{label}</TooltipContent>

@@ -1,38 +1,20 @@
 "use client";
-import {
-  CheckIcon,
-  ChevronUpDownIcon,
-  PlusIcon,
-} from "@heroicons/react/24/outline";
+
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
-
 import { readBrandingData } from "@/hooks/client/use-get-logo";
 import { apiClient } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
 import {
-  cn,
   getCookieValue,
   isJsonObject,
   ORG_SELECTION_COOKIE,
 } from "@/lib/utils";
 
-interface Organization {
+export interface Organization {
   id: string;
   name: string;
   slug: string;
@@ -94,7 +76,27 @@ const persistOrganizations = (orgs: Organization[], expiresAt: number) => {
   }
 };
 
-export function OrganizationSwitcher() {
+export interface UseOrgSwitcher {
+  organizations: Organization[];
+  activeOrg: Organization | undefined;
+  activeOrgLogo: string | undefined;
+  confirmedActiveOrgId: string | null;
+  isLoading: boolean;
+  isMounted: boolean;
+  /** True once the org list has been fetched (or served from cache) at least
+   * once — lets callers tell "still resolving" apart from "confirmed no org". */
+  hasResolved: boolean;
+  session: ReturnType<typeof authClient.useSession>["data"];
+  switchOrg: (orgId: string, silent?: boolean) => Promise<void>;
+}
+
+/**
+ * Owns the organization list, active-org resolution, caching and switching.
+ * Extracted from the old header `OrganizationSwitcher` so the sidebar account
+ * block and any other consumer can drive workspace switching without
+ * duplicating the delicate cookie/session reconciliation logic.
+ */
+export function useOrgSwitcher(): UseOrgSwitcher {
   const { data: session } = authClient.useSession();
   const [organizations, setOrganizations] = React.useState<Organization[]>(
     () => getCachedOrganizations() ?? []
@@ -104,6 +106,9 @@ export function OrganizationSwitcher() {
   );
   const [isLoading, setIsLoading] = React.useState(false);
   const [isMounted, setIsMounted] = React.useState(false);
+  const [hasResolved, setHasResolved] = React.useState(
+    () => getCachedOrganizations() !== null
+  );
   const [selectedOrgCookie, setSelectedOrgCookie] = React.useState<
     string | null
   >(() => getCookieValue(ORG_SELECTION_COOKIE));
@@ -318,6 +323,7 @@ export function OrganizationSwitcher() {
         toast.error("Network error loading organizations");
       } finally {
         setIsLoading(false);
+        setHasResolved(true);
       }
     };
 
@@ -562,116 +568,15 @@ export function OrganizationSwitcher() {
     setVerifiedOrgId,
   ]);
 
-  if (!isMounted || !session) {
-    return (
-      <Button
-        variant="outline"
-        role="combobox"
-        aria-label="Loading organization"
-        className="h-10 w-10 justify-center rounded-xl border-border/70 bg-card/60 px-0 sm:w-50 sm:justify-between sm:px-2.5 lg:w-57.5"
-        disabled
-      >
-        <div className="flex items-center gap-2 overflow-hidden">
-          <Skeleton className="h-6 w-6 rounded-full shrink-0" />
-          <Skeleton className="hidden h-4 w-24 sm:block" />
-        </div>
-        <ChevronUpDownIcon
-          className="ml-2 hidden h-4 w-4 shrink-0 opacity-40 sm:block"
-          aria-hidden="true"
-        />
-      </Button>
-    );
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-label="Select organization"
-          className={cn(
-            "h-10 w-10 justify-center rounded-xl border-border/70 bg-card/60 px-0",
-            "sm:w-50 sm:justify-between sm:px-2.5 lg:w-57.5",
-            "shadow-sm transition-all duration-200 hover:border-primary/50 hover:bg-card"
-          )}
-          disabled={isLoading}
-        >
-          <div className="flex min-w-0 items-center gap-2 overflow-hidden">
-            <Avatar className="h-6 w-6 shrink-0 ring-1 ring-border/60">
-              {activeOrgLogo ? (
-                <AvatarImage
-                  src={activeOrgLogo}
-                  alt={activeOrg?.name ?? "Org"}
-                />
-              ) : null}
-              <AvatarFallback>
-                {activeOrg?.name?.substring(0, 2).toUpperCase() ?? "OR"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="hidden min-w-0 text-left sm:block">
-              <div className="truncate text-sm font-medium">
-                {activeOrg?.name ?? "Select Organization"}
-              </div>
-              <div className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
-                {isLoading ? "Switching..." : "Workspace"}
-              </div>
-            </div>
-          </div>
-          <ChevronUpDownIcon
-            className="ml-2 hidden h-4 w-4 shrink-0 opacity-50 sm:block"
-            aria-hidden="true"
-          />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        sideOffset={8}
-        className="w-[260px] rounded-xl border-border/70 p-1.5 shadow-xl"
-      >
-        <DropdownMenuLabel className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Organizations
-        </DropdownMenuLabel>
-        <DropdownMenuGroup>
-          {organizations.map((org) => (
-            <DropdownMenuItem
-              key={org.id}
-              onSelect={() => handleSwitchOrg(org.id)}
-              className="cursor-pointer rounded-lg px-2 py-2 text-sm"
-            >
-              <Avatar className="mr-2 h-6 w-6 ring-1 ring-border/50">
-                {(org.logo ?? org.logoUrl) ? (
-                  <AvatarImage src={org.logo ?? org.logoUrl} alt={org.name} />
-                ) : null}
-                <AvatarFallback>
-                  {org.name.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <div className="truncate font-medium">{org.name}</div>
-                <div className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
-                  {org.slug}
-                </div>
-              </div>
-              <CheckIcon
-                className={cn(
-                  "ml-auto h-4 w-4 text-primary",
-                  confirmedActiveOrgId === org.id ? "opacity-100" : "opacity-0"
-                )}
-                aria-hidden="true"
-              />
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          disabled
-          className="cursor-not-allowed rounded-lg px-2 py-2 opacity-50"
-        >
-          <PlusIcon className="mr-2 h-4 w-4" aria-hidden="true" />
-          Create Organization
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+  return {
+    organizations,
+    activeOrg,
+    activeOrgLogo,
+    confirmedActiveOrgId,
+    isLoading,
+    isMounted,
+    hasResolved,
+    session,
+    switchOrg: handleSwitchOrg,
+  };
 }

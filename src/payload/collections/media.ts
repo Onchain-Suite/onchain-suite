@@ -1,6 +1,6 @@
 import type { CollectionConfig } from "payload";
 
-import { isBlogManager, publicRead } from "@/payload/access";
+import { isCmsUser, isPublisher, publicRead } from "@/payload/access";
 
 /**
  * Uploads. Files are stored in Cloudinary via the adapter wired up in
@@ -20,9 +20,9 @@ export const Media: CollectionConfig = {
   access: {
     // Media is referenced by public blog posts, so it must be publicly readable.
     read: publicRead,
-    create: isBlogManager,
-    update: isBlogManager,
-    delete: isBlogManager,
+    create: isCmsUser,
+    update: isCmsUser,
+    delete: isPublisher,
   },
   upload: {
     mimeTypes: ["image/*"],

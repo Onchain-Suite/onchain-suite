@@ -1,6 +1,6 @@
 import type { CollectionConfig } from "payload";
 
-import { isBlogManager, isSuperAdmin } from "@/payload/access";
+import { isCmsUser, isSuperAdmin } from "@/payload/access";
 
 /**
  * CMS accounts — the logins for /admin.
@@ -15,11 +15,11 @@ import { isBlogManager, isSuperAdmin } from "@/payload/access";
  * upside is that the CMS keeps working when the backend does not, and that
  * nothing about /admin depends on the shape of a backend response.
  *
- * There is no editor role. The blog is for system administrators to publish
- * content the public reads, so every account here is an administrator:
+ * Three roles, narrowest first:
  *
- *   - `admin`       manages blog content (posts, categories, media)
- *   - `super_admin` additionally manages CMS accounts themselves
+ *   - `editor`      writes drafts and uploads media; cannot publish or delete
+ *   - `admin`       additionally publishes, unpublishes and deletes content
+ *   - `super_admin` additionally creates and deletes CMS accounts
  *
  * This repo has no middleware.ts, so nothing guards /admin at the edge — these
  * rules and Payload's auth are the boundary. src/app/robots.ts keeps both
@@ -34,16 +34,16 @@ export const Users: CollectionConfig = {
     group: "Admin",
   },
   access: {
-    // Any signed-in administrator can read the list — the author picker on
-    // posts needs it.
-    read: isBlogManager,
+    // Any signed-in CMS user can read the list — the author picker on posts
+    // needs it.
+    read: isCmsUser,
     // Only a super admin may add or remove CMS accounts. Granting blog access
     // is a different privilege from using it.
     create: isSuperAdmin,
     delete: isSuperAdmin,
     // A super admin may edit anyone; everyone else only their own profile
-    // (bio, avatar, handles). The role field itself is locked down separately
-    // below so this cannot be used to self-promote.
+    // (bio, avatar, handles). The role field is locked down separately below, so
+    // this cannot be used to self-promote.
     update: ({ req: { user }, id }) => {
       if (!user) {
         return false;
@@ -68,6 +68,7 @@ export const Users: CollectionConfig = {
       options: [
         { label: "Super Admin", value: "super_admin" },
         { label: "Admin", value: "admin" },
+        { label: "Editor", value: "editor" },
       ],
       access: {
         // Without this, the self-update rule above would let any admin promote
@@ -76,7 +77,7 @@ export const Users: CollectionConfig = {
       },
       admin: {
         description:
-          "Admins manage blog content. Super admins additionally manage CMS accounts.",
+          "Editors write drafts. Admins publish and delete. Super admins manage accounts.",
       },
     },
     {

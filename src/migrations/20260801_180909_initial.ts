@@ -4,7 +4,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
    CREATE TYPE "public"."enum_posts_status" AS ENUM('draft', 'published');
   CREATE TYPE "public"."enum__posts_v_version_status" AS ENUM('draft', 'published');
-  CREATE TYPE "public"."enum_users_role" AS ENUM('super_admin', 'admin');
+  CREATE TYPE "public"."enum_users_role" AS ENUM('super_admin', 'admin', 'editor');
   CREATE TABLE "posts_tags" (
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,

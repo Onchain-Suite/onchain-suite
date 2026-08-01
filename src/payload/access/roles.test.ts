@@ -4,58 +4,88 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  canManageBlog,
+  canAccessCms,
+  canPublish,
   isSuperAdminRole,
   normalizeRole,
 } from "@/payload/access/roles";
 
-describe("canManageBlog", () => {
-  it("allows both CMS roles", () => {
+const JUNK = [
+  null,
+  undefined,
+  "",
+  "   ",
+  0,
+  1,
+  true,
+  {},
+  [],
+  ["admin"],
+  { role: "admin" },
+];
+
+/** Roles that look like an approved one but must never be authorised. */
+const LOOKALIKES = [
+  "NOT_ADMIN",
+  "ADMIN_ASSISTANT",
+  "SUPER_ADMINISTRATOR",
+  "ADMINS",
+  "READONLY_ADMIN",
+  "superadmin",
+  "NOT_EDITOR",
+  "EDITOR_IN_CHIEF",
+  "EDITORS",
+];
+
+describe("canAccessCms", () => {
+  it("allows all three CMS roles", () => {
     // Stored values are lowercase; both spellings must work.
-    expect(canManageBlog("admin")).toBe(true);
-    expect(canManageBlog("super_admin")).toBe(true);
-    expect(canManageBlog("ADMIN")).toBe(true);
-    expect(canManageBlog("SUPER_ADMIN")).toBe(true);
+    for (const role of ["editor", "admin", "super_admin"]) {
+      expect(canAccessCms(role)).toBe(true);
+      expect(canAccessCms(role.toUpperCase())).toBe(true);
+    }
   });
 
-  it("denies absent or non-string roles rather than throwing", () => {
-    expect(canManageBlog(null)).toBe(false);
-    expect(canManageBlog(undefined)).toBe(false);
-    expect(canManageBlog("")).toBe(false);
-    expect(canManageBlog("   ")).toBe(false);
-    expect(canManageBlog(0)).toBe(false);
-    expect(canManageBlog(1)).toBe(false);
-    expect(canManageBlog(true)).toBe(false);
-    expect(canManageBlog({})).toBe(false);
-    expect(canManageBlog([])).toBe(false);
-    expect(canManageBlog(["admin"])).toBe(false);
+  it("denies roles that belong to the product, not the CMS", () => {
+    // The product has its own OWNER/ADMIN/EDITOR/VIEWER org roles and a
+    // USER/GUEST system enum. Only CMS roles grant CMS access.
+    expect(canAccessCms("viewer")).toBe(false);
+    expect(canAccessCms("owner")).toBe(false);
+    expect(canAccessCms("user")).toBe(false);
+    expect(canAccessCms("guest")).toBe(false);
   });
 
-  it("denies roles that no longer exist or never did", () => {
-    // `editor` was removed deliberately: the blog is admin-only. If it ever
-    // reappears in data, it must not grant access.
-    expect(canManageBlog("editor")).toBe(false);
-    expect(canManageBlog("viewer")).toBe(false);
-    expect(canManageBlog("user")).toBe(false);
-    expect(canManageBlog("guest")).toBe(false);
-    expect(canManageBlog("owner")).toBe(false);
+  it("fails closed on junk and lookalikes", () => {
+    for (const value of JUNK) {
+      expect(canAccessCms(value)).toBe(false);
+    }
+    for (const value of LOOKALIKES) {
+      expect(canAccessCms(value)).toBe(false);
+    }
+  });
+});
+
+describe("canPublish", () => {
+  it("allows admins and super admins", () => {
+    expect(canPublish("admin")).toBe(true);
+    expect(canPublish("ADMIN")).toBe(true);
+    expect(canPublish("super_admin")).toBe(true);
+    expect(canPublish("Super Admin")).toBe(true);
   });
 
-  it("tolerates casing and separator variants", () => {
-    expect(canManageBlog("Admin")).toBe(true);
-    expect(canManageBlog("super-admin")).toBe(true);
-    expect(canManageBlog("Super Admin")).toBe(true);
-    expect(canManageBlog("  admin  ")).toBe(true);
+  it("does NOT allow editors — this is the whole point of the role", () => {
+    expect(canPublish("editor")).toBe(false);
+    expect(canPublish("EDITOR")).toBe(false);
+    expect(canPublish("Editor")).toBe(false);
   });
 
-  it("does not authorise roles that merely contain an approved word", () => {
-    // Guards against a substring check sneaking in during a refactor.
-    expect(canManageBlog("NOT_ADMIN")).toBe(false);
-    expect(canManageBlog("ADMIN_ASSISTANT")).toBe(false);
-    expect(canManageBlog("SUPER_ADMINISTRATOR")).toBe(false);
-    expect(canManageBlog("ADMINS")).toBe(false);
-    expect(canManageBlog("READONLY_ADMIN")).toBe(false);
-    expect(canManageBlog("superadmin")).toBe(false);
+  it("fails closed on junk and lookalikes", () => {
+    for (const value of JUNK) {
+      expect(canPublish(value)).toBe(false);
+    }
+    for (const value of LOOKALIKES) {
+      expect(canPublish(value)).toBe(false);
+    }
   });
 });
 
@@ -63,26 +93,39 @@ describe("isSuperAdminRole", () => {
   it("is true only for super_admin", () => {
     expect(isSuperAdminRole("super_admin")).toBe(true);
     expect(isSuperAdminRole("SUPER_ADMIN")).toBe(true);
-    expect(isSuperAdminRole("Super Admin")).toBe(true);
+    expect(isSuperAdminRole("super-admin")).toBe(true);
   });
 
-  it("is false for a plain admin — managing accounts is a separate privilege", () => {
+  it("is false for admin and editor — managing accounts is separate", () => {
     expect(isSuperAdminRole("admin")).toBe(false);
-    expect(isSuperAdminRole("ADMIN")).toBe(false);
+    expect(isSuperAdminRole("editor")).toBe(false);
   });
 
-  it("fails closed on junk", () => {
-    expect(isSuperAdminRole(null)).toBe(false);
-    expect(isSuperAdminRole(undefined)).toBe(false);
-    expect(isSuperAdminRole("")).toBe(false);
-    expect(isSuperAdminRole("SUPER_ADMINISTRATOR")).toBe(false);
-    expect(isSuperAdminRole("superadmin")).toBe(false);
-    expect(isSuperAdminRole({ role: "super_admin" })).toBe(false);
+  it("fails closed on junk and lookalikes", () => {
+    for (const value of JUNK) {
+      expect(isSuperAdminRole(value)).toBe(false);
+    }
+    for (const value of LOOKALIKES) {
+      expect(isSuperAdminRole(value)).toBe(false);
+    }
+  });
+});
+
+describe("role hierarchy is consistent", () => {
+  it("every publisher can also access the CMS", () => {
+    for (const role of ["admin", "super_admin"]) {
+      expect(canPublish(role) && canAccessCms(role)).toBe(true);
+    }
   });
 
-  it("implies blog management", () => {
-    // A super admin must never be able to manage accounts but not content.
-    expect(canManageBlog("super_admin")).toBe(true);
+  it("a super admin can publish — never accounts-only", () => {
+    expect(canPublish("super_admin")).toBe(true);
+  });
+
+  it("an editor can access the CMS but not publish", () => {
+    expect(canAccessCms("editor")).toBe(true);
+    expect(canPublish("editor")).toBe(false);
+    expect(isSuperAdminRole("editor")).toBe(false);
   });
 });
 
@@ -91,7 +134,7 @@ describe("normalizeRole", () => {
     expect(normalizeRole("super admin")).toBe("SUPER_ADMIN");
     expect(normalizeRole("super-admin")).toBe("SUPER_ADMIN");
     expect(normalizeRole("Super_Admin")).toBe("SUPER_ADMIN");
-    expect(normalizeRole("admin")).toBe("ADMIN");
+    expect(normalizeRole("editor")).toBe("EDITOR");
   });
 
   it("returns null for anything not a usable string", () => {

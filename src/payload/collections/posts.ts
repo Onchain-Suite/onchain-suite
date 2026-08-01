@@ -8,9 +8,15 @@ import {
 } from "@payloadcms/richtext-lexical";
 import type { CollectionConfig } from "payload";
 
-import { isBlogManager, publishedOrManager } from "@/payload/access";
+import {
+  canEditPost,
+  isCmsUser,
+  isPublisher,
+  publishedOrCmsUser,
+} from "@/payload/access";
 import { blogBlocks } from "@/payload/blocks";
 import { slugField } from "@/payload/fields/slug";
+import { enforceDraftOnly } from "@/payload/hooks/enforce-draft-only";
 import {
   revalidatePostAfterChange,
   revalidatePostAfterDelete,
@@ -43,18 +49,22 @@ export const Posts: CollectionConfig = {
     maxPerDoc: 20,
   },
   /**
-   * Only the backend's ADMIN and SUPER_ADMIN roles may write. Anonymous visitors
-   * (and any lesser role) are narrowed to published documents by a query
-   * constraint rather than a boolean, so the filter runs in the database and a
-   * draft cannot leak through the Local API, REST or GraphQL.
+   * Editors write drafts; only admins publish, unpublish or delete. Anonymous
+   * visitors are narrowed to published documents by a query constraint rather
+   * than a boolean, so the filter runs in the database and a draft cannot leak
+   * through the Local API, REST or GraphQL.
    */
   access: {
-    read: publishedOrManager,
-    create: isBlogManager,
-    update: isBlogManager,
-    delete: isBlogManager,
+    read: publishedOrCmsUser,
+    // Editors may start a post; enforceDraftOnly pins it to draft.
+    create: isCmsUser,
+    // Editors are confined to documents that are not live (query constraint).
+    update: canEditPost,
+    delete: isPublisher,
   },
   hooks: {
+    // Runs before access-controlled writes land: keeps editors on drafts.
+    beforeChange: [enforceDraftOnly],
     afterChange: [revalidatePostAfterChange],
     afterDelete: [revalidatePostAfterDelete],
   },

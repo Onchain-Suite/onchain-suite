@@ -1,35 +1,63 @@
 import type { Access } from "payload";
 
-import { canManageBlog, isSuperAdminRole } from "@/payload/access/roles";
+import {
+  canAccessCms,
+  canPublish,
+  isSuperAdminRole,
+} from "@/payload/access/roles";
 
 const roleOf = (user: unknown): unknown =>
   (user as { role?: unknown } | null | undefined)?.role;
 
-/**
- * Signed-in CMS administrators — `admin` or `super_admin`.
- *
- * Every account in the users collection is an administrator by design (there is
- * no editor role), so in practice this is "is signed in". It is written as an
- * explicit role check anyway: it keeps the rule true if a lesser role is ever
- * added, and it is the behaviour the tests in roles.test.ts pin down.
- */
-export const isBlogManager: Access = ({ req: { user } }) =>
-  canManageBlog(roleOf(user));
+/** Any signed-in CMS user: editor, admin or super admin. */
+export const isCmsUser: Access = ({ req: { user } }) =>
+  canAccessCms(roleOf(user));
+
+/** Admins and super admins — may publish, unpublish and delete. */
+export const isPublisher: Access = ({ req: { user } }) =>
+  canPublish(roleOf(user));
 
 /** Super admins only — managing who has CMS access. */
 export const isSuperAdmin: Access = ({ req: { user } }) =>
   isSuperAdminRole(roleOf(user));
 
 /**
+ * Who may modify a post.
+ *
+ * Publishers may edit anything. Editors are restricted to documents that are not
+ * currently live, expressed as a **query constraint** rather than a boolean, so
+ * Postgres enforces it and it cannot be bypassed through the Local API, REST or
+ * GraphQL.
+ *
+ * This is the other half of "editors cannot publish". Blocking the publish action
+ * alone would not be enough: if an editor could edit an already-published post,
+ * their text would appear on the public site immediately, which is publishing by
+ * another name. Restricting them to non-live documents closes that.
+ *
+ * The consequence, which is intended but worth knowing: an editor cannot fix a
+ * typo on a post that is already live — an admin has to. See docs/blog.md.
+ */
+export const canEditPost: Access = ({ req: { user } }) => {
+  const role = roleOf(user);
+  if (canPublish(role)) {
+    return true;
+  }
+  if (!canAccessCms(role)) {
+    return false;
+  }
+  return { _status: { not_equals: "published" } };
+};
+
+/**
  * Content the public site reads.
  *
- * Administrators see everything (they need drafts in the admin panel). Everyone
- * else is narrowed to published documents by a *query constraint* rather than a
- * boolean, so the filter runs in the database and a draft cannot leak through
- * the Local API, REST or GraphQL.
+ * Any CMS user sees everything — editors need their drafts visible in the admin
+ * panel. Everyone else is narrowed to published documents by a query constraint,
+ * so the filter runs in the database and a draft cannot leak through the Local
+ * API, REST or GraphQL.
  */
-export const publishedOrManager: Access = ({ req: { user } }) => {
-  if (canManageBlog(roleOf(user))) {
+export const publishedOrCmsUser: Access = ({ req: { user } }) => {
+  if (canAccessCms(roleOf(user))) {
     return true;
   }
   return { _status: { equals: "published" } };

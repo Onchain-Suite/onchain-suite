@@ -2278,7 +2278,8 @@
       "schema": "public",
       "values": [
         "super_admin",
-        "admin"
+        "admin",
+        "editor"
       ]
     }
   },
@@ -2292,6 +2293,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "48b2f0ba-5c69-436a-bc9d-a79870a935d3",
+  "id": "f024a4a3-fef6-4328-975e-cae521edbecd",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }

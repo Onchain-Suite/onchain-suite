@@ -218,9 +218,9 @@ export interface User {
   id: number;
   name: string;
   /**
-   * Admins manage blog content. Super admins additionally manage CMS accounts.
+   * Editors write drafts. Admins publish and delete. Super admins manage accounts.
    */
-  role: 'super_admin' | 'admin';
+  role: 'super_admin' | 'admin' | 'editor';
   /**
    * Short author bio, shown on posts this user writes.
    */

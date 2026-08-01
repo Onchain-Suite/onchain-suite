@@ -1,6 +1,6 @@
 import type { CollectionConfig } from "payload";
 
-import { isBlogManager, publicRead } from "@/payload/access";
+import { isPublisher, publicRead } from "@/payload/access";
 import { slugField } from "@/payload/fields/slug";
 
 export const Categories: CollectionConfig = {
@@ -13,9 +13,9 @@ export const Categories: CollectionConfig = {
   access: {
     // Public: drives /blog/category/[slug] and the category chips on posts.
     read: publicRead,
-    create: isBlogManager,
-    update: isBlogManager,
-    delete: isBlogManager,
+    create: isPublisher,
+    update: isPublisher,
+    delete: isPublisher,
   },
   fields: [
     {

@@ -1,31 +1,39 @@
 /**
  * Who is allowed to manage blog content.
  *
- * The CMS does not own its own accounts. Authorisation comes from the product
- * backend's `UserRole` enum (`USER | ADMIN | SUPER_ADMIN | GUEST`), resolved
- * per-request by the auth strategy in src/payload/auth/backend-session-strategy.ts.
+ * Roles come from the `role` field on the CMS's own users collection
+ * (src/payload/collections/users.ts), which Payload authenticates. There is no
+ * editor role — every CMS account is an administrator:
  *
- * Everything here is deliberately pure so the authorisation boundary can be
- * tested without a database, a running backend or a Payload instance. See
- * roles.test.ts — this is the file that decides who can publish, so it is the
- * one place in the blog that must not be "probably right".
+ *   - `admin`       manages blog content
+ *   - `super_admin` additionally manages CMS accounts
+ *
+ * Everything here is pure so the authorisation boundary can be tested without a
+ * database or a Payload instance. See roles.test.ts — this is the file that
+ * decides who can publish, so it is the one place in the blog that must not be
+ * "probably right".
+ *
+ * Comparisons are case- and separator-insensitive rather than a bare `===`. The
+ * stored values are `admin` / `super_admin`, but this module is also handed role
+ * values from a `user` object typed as loosely as Payload types it, and a silent
+ * mismatch here would either lock out every admin or admit the wrong one.
  */
 
 /** Roles permitted to manage blog content. Nothing else may write. */
 export const BLOG_MANAGER_ROLES = ["ADMIN", "SUPER_ADMIN"] as const;
 
+/** The role permitted to manage CMS accounts. */
+export const SUPER_ADMIN_ROLE = "SUPER_ADMIN";
+
 export type BlogManagerRole = (typeof BLOG_MANAGER_ROLES)[number];
 
 /**
- * Normalises a role value to the backend's SCREAMING_SNAKE spelling.
- *
- * The frontend has never read this field before, so its exact casing and
- * separator are not pinned down by any existing type in this repo. Rather than
- * assume, accept the spellings a JSON API realistically emits — `SUPER_ADMIN`,
- * `super_admin`, `super-admin`, `superadmin` — and reject anything else.
+ * Normalises a role value to a canonical SCREAMING_SNAKE spelling, accepting the
+ * spellings this value realistically arrives in — `super_admin`, `Super Admin`,
+ * `super-admin`.
  *
  * Note this only normalises *shape*, never *authority*: an unrecognised value
- * returns null and null is never authorised.
+ * returns null, and null is never authorised.
  */
 export function normalizeRole(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -41,57 +49,10 @@ export function normalizeRole(value: unknown): string | null {
 }
 
 /**
- * Pulls the role out of a backend profile response.
- *
- * The backend's envelope varies by endpoint — `/user/profile` and
- * `/auth/get-session` nest the user differently, and src/lib/auth-session.ts
- * already has to cope with `data.user`, `user`, and bare-object shapes. This
- * checks the same candidate paths rather than betting on one.
- *
- * Returns null when nothing role-shaped is found, which callers must treat as
- * unauthorised.
- */
-export function extractRole(profile: unknown): string | null {
-  if (typeof profile !== "object" || profile === null) {
-    return null;
-  }
-
-  const root = profile as Record<string, unknown>;
-  const containers: Array<Record<string, unknown>> = [root];
-
-  for (const key of ["data", "user", "profile"]) {
-    const nested = root[key];
-    if (typeof nested === "object" && nested !== null) {
-      const nestedObj = nested as Record<string, unknown>;
-      containers.push(nestedObj);
-
-      // One more level: `{ data: { user: {...} } }` is the shape the
-      // get-session proxy returns.
-      for (const innerKey of ["user", "profile"]) {
-        const inner = nestedObj[innerKey];
-        if (typeof inner === "object" && inner !== null) {
-          containers.push(inner as Record<string, unknown>);
-        }
-      }
-    }
-  }
-
-  for (const container of containers) {
-    for (const field of ["role", "userRole", "user_role"]) {
-      const normalized = normalizeRole(container[field]);
-      if (normalized) {
-        return normalized;
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * The authorisation decision. Fails closed: anything that is not explicitly an
- * ADMIN or SUPER_ADMIN is denied, including null, undefined, unknown roles and
- * roles that merely contain an approved word (`NOT_ADMIN`, `ADMIN_ASSISTANT`).
+ * The authorisation decision for managing blog content. Fails closed: anything
+ * that is not explicitly `admin` or `super_admin` is denied, including null,
+ * undefined, unknown roles, and roles that merely *contain* an approved word
+ * (`NOT_ADMIN`, `ADMIN_ASSISTANT`).
  */
 export function canManageBlog(role: unknown): boolean {
   const normalized = normalizeRole(role);
@@ -100,4 +61,9 @@ export function canManageBlog(role: unknown): boolean {
   }
 
   return (BLOG_MANAGER_ROLES as readonly string[]).includes(normalized);
+}
+
+/** Whether a role may manage CMS accounts. Fails closed, same as above. */
+export function isSuperAdminRole(role: unknown): boolean {
+  return normalizeRole(role) === SUPER_ADMIN_ROLE;
 }

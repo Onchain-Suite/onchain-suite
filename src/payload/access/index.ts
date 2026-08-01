@@ -1,29 +1,35 @@
 import type { Access } from "payload";
 
-import { canManageBlog } from "@/payload/access/roles";
+import { canManageBlog, isSuperAdminRole } from "@/payload/access/roles";
+
+const roleOf = (user: unknown): unknown =>
+  (user as { role?: unknown } | null | undefined)?.role;
 
 /**
- * Blog management is restricted to the backend's ADMIN and SUPER_ADMIN roles.
+ * Signed-in CMS administrators — `admin` or `super_admin`.
  *
- * `req.user` is populated by the backend session strategy, which already refuses
- * to attach a user for any other role — so this is defence in depth rather than
- * the only gate. It matters because the Local API can be driven from server code
- * with a user attached, and because access rules are what Payload uses to decide
- * whether to render write controls in the admin UI at all.
+ * Every account in the users collection is an administrator by design (there is
+ * no editor role), so in practice this is "is signed in". It is written as an
+ * explicit role check anyway: it keeps the rule true if a lesser role is ever
+ * added, and it is the behaviour the tests in roles.test.ts pin down.
  */
 export const isBlogManager: Access = ({ req: { user } }) =>
-  canManageBlog((user as { role?: unknown } | null)?.role);
+  canManageBlog(roleOf(user));
+
+/** Super admins only — managing who has CMS access. */
+export const isSuperAdmin: Access = ({ req: { user } }) =>
+  isSuperAdminRole(roleOf(user));
 
 /**
  * Content the public site reads.
  *
- * Managers see everything (they need drafts in the admin panel). Everyone else
- * is narrowed to published documents by a *query constraint* rather than a
+ * Administrators see everything (they need drafts in the admin panel). Everyone
+ * else is narrowed to published documents by a *query constraint* rather than a
  * boolean, so the filter runs in the database and a draft cannot leak through
  * the Local API, REST or GraphQL.
  */
 export const publishedOrManager: Access = ({ req: { user } }) => {
-  if (canManageBlog((user as { role?: unknown } | null)?.role)) {
+  if (canManageBlog(roleOf(user))) {
     return true;
   }
   return { _status: { equals: "published" } };

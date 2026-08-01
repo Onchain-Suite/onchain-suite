@@ -1,86 +1,82 @@
 import type { CollectionConfig } from "payload";
 
-import { isBlogManager } from "@/payload/access";
-import { backendSessionStrategy } from "@/payload/auth/backend-session-strategy";
+import { isBlogManager, isSuperAdmin } from "@/payload/access";
 
 /**
- * Mirrors of product users who have signed into the CMS — not accounts.
+ * CMS accounts — the logins for /admin.
  *
- * There are no blog credentials. Payload's local (email + password) strategy is
- * disabled and replaced by backendSessionStrategy, which validates the caller's
- * existing OnchainSuite session against the product backend and admits only the
- * ADMIN and SUPER_ADMIN roles. An admin signs in once, in the app, and /admin
- * follows.
+ * Payload owns authentication and sessions here: its own email + password
+ * strategy, its own session cookie, its own user table. This is deliberately
+ * independent of the product's better-auth setup and the Render backend's
+ * sessions.
  *
- * Rows here are created automatically on first successful sign-in. They exist so
- * Payload can bind `req.user` to a document and so `posts.authors` has something
- * to relate to; `email`, `name` and `role` are refreshed from the backend, which
- * remains the source of truth. Editing them by hand would be overwritten, which
- * is why every write is closed off below.
+ * The tradeoff, stated plainly: administrator access lives in two places, so
+ * offboarding someone means removing them here as well as in the product. The
+ * upside is that the CMS keeps working when the backend does not, and that
+ * nothing about /admin depends on the shape of a backend response.
  *
- * This repo has no middleware.ts, so nothing guards /admin at the edge — the
- * strategy and these rules are the boundary. src/app/robots.ts keeps both /admin
- * and /cms-api out of search indexes.
+ * There is no editor role. The blog is for system administrators to publish
+ * content the public reads, so every account here is an administrator:
+ *
+ *   - `admin`       manages blog content (posts, categories, media)
+ *   - `super_admin` additionally manages CMS accounts themselves
+ *
+ * This repo has no middleware.ts, so nothing guards /admin at the edge — these
+ * rules and Payload's auth are the boundary. src/app/robots.ts keeps both
+ * /admin and /cms-api out of search indexes.
  */
 export const Users: CollectionConfig = {
   slug: "users",
-  auth: {
-    // No passwords in the blog database. This is the whole point: one login.
-    disableLocalStrategy: true,
-    strategies: [backendSessionStrategy],
-  },
+  auth: true,
   admin: {
     useAsTitle: "name",
     defaultColumns: ["name", "email", "role"],
     group: "Admin",
-    description:
-      "Read-only mirror of OnchainSuite admins who have opened the CMS. Grant or revoke access in the backend, not here.",
   },
   access: {
-    // Needed to populate the author picker on posts.
+    // Any signed-in administrator can read the list — the author picker on
+    // posts needs it.
     read: isBlogManager,
-    // Identity is owned by the backend. Allowing writes here would create rows
-    // the backend does not know about, or edits the next sign-in silently reverts.
-    create: () => false,
-    update: () => false,
-    delete: () => false,
+    // Only a super admin may add or remove CMS accounts. Granting blog access
+    // is a different privilege from using it.
+    create: isSuperAdmin,
+    delete: isSuperAdmin,
+    // A super admin may edit anyone; everyone else only their own profile
+    // (bio, avatar, handles). The role field itself is locked down separately
+    // below so this cannot be used to self-promote.
+    update: ({ req: { user }, id }) => {
+      if (!user) {
+        return false;
+      }
+      if (isSuperAdminUser(user)) {
+        return true;
+      }
+      return user.id === id;
+    },
   },
   fields: [
-    {
-      // The join key back to the product's user. Indexed because the auth
-      // strategy looks a user up by it on (nearly) every admin request.
-      name: "backendUserId",
-      type: "text",
-      required: true,
-      unique: true,
-      index: true,
-      admin: {
-        readOnly: true,
-        description: "The product backend's user id. Set automatically.",
-      },
-    },
-    {
-      name: "email",
-      type: "email",
-      required: true,
-      admin: { readOnly: true },
-    },
     {
       name: "name",
       type: "text",
       required: true,
-      admin: { readOnly: true },
     },
     {
-      // Mirrored from the backend's UserRole enum for visibility in the admin
-      // list. It is NOT the authorisation source — every request re-checks the
-      // live role via the strategy, so a role revoked in the backend takes
-      // effect within the session cache TTL rather than persisting here.
       name: "role",
-      type: "text",
+      type: "select",
+      required: true,
+      defaultValue: "admin",
+      options: [
+        { label: "Super Admin", value: "super_admin" },
+        { label: "Admin", value: "admin" },
+      ],
+      access: {
+        // Without this, the self-update rule above would let any admin promote
+        // themselves to super admin.
+        update: ({ req: { user } }) => isSuperAdminUser(user),
+      },
       admin: {
-        readOnly: true,
-        description: "Mirrored from the backend. Change it there.",
+        description:
+          "Admins manage blog content. Super admins additionally manage CMS accounts.",
       },
     },
     {
@@ -117,3 +113,9 @@ export const Users: CollectionConfig = {
     },
   ],
 };
+
+/** Local helper so the field-level rule and the collection rules agree. */
+function isSuperAdminUser(user: unknown): boolean {
+  const role = (user as { role?: unknown } | null | undefined)?.role;
+  return typeof role === "string" && role.toUpperCase() === "SUPER_ADMIN";
+}

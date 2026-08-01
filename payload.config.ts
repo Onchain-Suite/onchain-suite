@@ -37,11 +37,6 @@ export default buildConfig({
     meta: {
       titleSuffix: "· OnchainSuite CMS",
     },
-    components: {
-      // Explains that /admin uses the product login, since the form below it
-      // cannot work with the local strategy disabled.
-      beforeLogin: ["@/payload/components/before-login#BeforeLogin"],
-    },
   },
   collections: [Posts, Categories, Media, Users],
   editor: lexicalEditor(),

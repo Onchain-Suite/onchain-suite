@@ -114,6 +114,8 @@ interface DomainDnsRow {
   verificationLabel?: string;
   status?: SenderStatus | "unknown";
   databaseField?: string;
+  /** Which provider this record belongs to — SES rows are labeled `ses`. */
+  provider?: DomainProvider;
   conflict?: DomainDnsConflict;
   /** What's live in the user's DNS right now ([] = nothing published yet). */
   current?: string[];
@@ -634,9 +636,42 @@ const normalizeDomainDns = (payload: unknown): DomainDnsRow[] => {
           entry.kind,
           entry.field
         ),
+        provider: normalizeDnsProvider(entry.provider),
       } satisfies DomainDnsRow;
     })
     .filter((row): row is DomainDnsRow => row !== null);
+};
+
+/**
+ * A domain's sending purpose. Backend routes marketing (campaigns, bulk) over
+ * AWS SES and transactional (account mail — sign-in, receipts, invites) over
+ * Azure ACS, so the `records[]` checklist returned by `GET /domain/{id}/dns`
+ * is provider-scoped to whichever purpose is active. Marketing is the default.
+ */
+export type DomainPurpose = "transactional" | "marketing";
+
+/** Email provider a domain's DNS records are scoped to. */
+export type DomainProvider = "ses" | "acs";
+
+/**
+ * Product mapping between a sending purpose and its provider: marketing → AWS
+ * SES, transactional → Azure ACS. The DNS checklist is fetched and filtered by
+ * this, so the toggle drives which records render.
+ */
+const providerForPurpose = (purpose: DomainPurpose): DomainProvider =>
+  purpose === "marketing" ? "ses" : "acs";
+
+/**
+ * Resolve which provider a DNS record belongs to. SES rows are labeled
+ * `provider: "ses"`; ACS rows may carry no label, so `undefined` is treated as
+ * ACS by callers.
+ */
+const normalizeDnsProvider = (value: unknown): DomainProvider | undefined => {
+  const raw = pickString(value)?.toLowerCase();
+  if (!raw) return undefined;
+  if (raw.includes("ses") || raw.includes("aws")) return "ses";
+  if (raw.includes("acs") || raw.includes("azure")) return "acs";
+  return undefined;
 };
 
 /** Map a typed service member row into the table's {@link TeamRow} shape. */
@@ -781,6 +816,16 @@ export default function CompanySettingsView() {
     domainId: string | null;
     domain: string;
   }>({ open: false, domainId: null, domain: "" });
+  // The purpose the verify dialog is showing. Marketing (AWS SES) is the
+  // default; toggling to transactional (Azure ACS) refetches and re-filters the
+  // DNS checklist for that provider.
+  const [dnsPurpose, setDnsPurpose] = useState<DomainPurpose>("marketing");
+  const dnsDialogDomainId = domainDnsDialog.domainId;
+  useEffect(() => {
+    // Reset to the marketing default whenever the dialog targets a new domain
+    // so a prior domain's toggle never leaks into the next one.
+    setDnsPurpose("marketing");
+  }, [dnsDialogDomainId]);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -856,8 +901,16 @@ export default function CompanySettingsView() {
     },
   });
 
+  const dnsProvider = providerForPurpose(dnsPurpose);
   const domainDnsQuery = useQuery({
-    queryKey: ["project-settings", "domain-dns", domainDnsDialog.domainId],
+    // The provider is part of the key so switching purpose refetches the
+    // provider-scoped checklist rather than serving the other one from cache.
+    queryKey: [
+      "project-settings",
+      "domain-dns",
+      domainDnsDialog.domainId,
+      dnsProvider,
+    ],
     enabled: Boolean(
       domainDnsDialog.open && domainDnsDialog.domainId && orgHeaders
     ),
@@ -865,7 +918,12 @@ export default function CompanySettingsView() {
     queryFn: async () => {
       const dnsResponse = await apiClient.get(
         `/domain/${domainDnsDialog.domainId}/dns`,
-        { headers: orgHeaders }
+        {
+          headers: orgHeaders,
+          // SES records are only returned under the explicit provider preview;
+          // ACS is the backend default, so it needs no param.
+          params: dnsProvider === "ses" ? { provider: "ses" } : undefined,
+        }
       );
       const root = unwrapData(dnsResponse.data);
       const sendReady = isJsonObject(root)
@@ -1048,6 +1106,58 @@ export default function CompanySettingsView() {
     },
   });
 
+  // Persist the domain's sending purpose. The visible switch is instant (the
+  // toggle sets local `dnsPurpose`, which re-keys the provider-scoped DNS
+  // query); this just saves the choice and refreshes once it lands. On failure
+  // we roll the toggle back to what it was.
+  const setDomainPurposeMutation = useMutation({
+    mutationFn: async ({
+      domainId,
+      purpose,
+    }: {
+      domainId: string;
+      purpose: DomainPurpose;
+      /** The selection before this switch, for rollback on failure. */
+      previousPurpose: DomainPurpose;
+    }) => {
+      if (!orgHeaders) throw new Error("No active organization selected");
+      await apiClient.put(
+        `/domain/${domainId}/purpose`,
+        { purpose },
+        { headers: orgHeaders }
+      );
+    },
+    onSuccess: (_data, { purpose }) => {
+      toast.success(
+        purpose === "marketing"
+          ? "Domain set to marketing (AWS SES)"
+          : "Domain set to transactional (Azure ACS)"
+      );
+    },
+    onError: (error: unknown, { previousPurpose }) => {
+      // Revert the toggle so the UI matches the un-persisted server state.
+      setDnsPurpose(previousPurpose);
+      toast.error(
+        apiErrorInfo(error).message ??
+          (error instanceof Error
+            ? error.message
+            : "Failed to update domain purpose")
+      );
+    },
+    onSettled: (_data, _error, { domainId }) => {
+      // Pull fresh records for both providers and refresh the list in case the
+      // domain's status/provider changed with the switch.
+      return Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["project-settings", "domain-dns", domainId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["project-settings", "domains", organizationId],
+        }),
+      ]);
+    },
+  });
+
   const invalidateMembers = () =>
     queryClient.invalidateQueries({
       queryKey: ["project-settings", "members", organizationId],
@@ -1213,7 +1323,20 @@ export default function CompanySettingsView() {
 
   const branding = brandingQuery.data ?? defaultBrandingState;
   const domains = useMemo(() => domainQuery.data ?? [], [domainQuery.data]);
-  const domainDnsRecords = domainDnsQuery.data?.records ?? [];
+  // A `?provider=ses` response returns SES rows *additively* alongside ACS
+  // rows, so scope the checklist to the selected purpose's provider. ACS rows
+  // may carry no provider label (treated as ACS); if nothing is labeled at all,
+  // the response is already single-provider, so show everything.
+  const domainDnsRecords = useMemo(() => {
+    const all = domainDnsQuery.data?.records ?? [];
+    const anyLabeled = all.some((record) => record.provider !== undefined);
+    if (!anyLabeled) return all;
+    return all.filter((record) =>
+      dnsProvider === "ses"
+        ? record.provider === "ses"
+        : record.provider !== "ses"
+    );
+  }, [domainDnsQuery.data?.records, dnsProvider]);
   const domainDnsConflictCount = domainDnsRecords.filter(
     (record) => record.conflict && !record.conflict.informational
   ).length;
@@ -2298,6 +2421,61 @@ export default function CompanySettingsView() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground">
+                    Sending purpose
+                  </div>
+                  <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                    Marketing sends campaigns and bulk over AWS SES;
+                    transactional sends account mail (sign-in, receipts,
+                    invites) over Azure ACS. Each provider needs its own DNS
+                    records, shown below.
+                  </p>
+                </div>
+                <div
+                  role="group"
+                  aria-label="Sending purpose"
+                  className="inline-flex shrink-0 rounded-full border border-border/70 bg-muted/40 p-0.5"
+                >
+                  {(["marketing", "transactional"] as const).map((option) => {
+                    const active = dnsPurpose === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        aria-pressed={active}
+                        disabled={
+                          !domainDnsDialog.domainId ||
+                          !canManageSenderIdentities ||
+                          setDomainPurposeMutation.isPending
+                        }
+                        onClick={() => {
+                          if (!domainDnsDialog.domainId || active) return;
+                          const previousPurpose = dnsPurpose;
+                          // Flip the view instantly (re-keys the DNS query),
+                          // then persist; onError rolls this back.
+                          setDnsPurpose(option);
+                          setDomainPurposeMutation.mutate({
+                            domainId: domainDnsDialog.domainId,
+                            purpose: option,
+                            previousPurpose,
+                          });
+                        }}
+                        className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                          active
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
             {domainDnsQuery.isLoading ? (
               <div className="space-y-3">
                 <Skeleton className="h-12 w-full rounded-xl" />

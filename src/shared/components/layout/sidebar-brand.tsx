@@ -32,7 +32,7 @@ export function SidebarBrand({
   markClassName?: string;
 }) {
   return (
-    <div className="flex items-center gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-3 group-data-[collapsible=icon]:pt-3">
+    <div className="flex items-center gap-2 pt-3 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-3">
       <Link
         href={href}
         className="flex min-w-0 items-center gap-2 rounded-md outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring"

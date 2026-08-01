@@ -2,6 +2,7 @@
 
 import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -11,9 +12,9 @@ import { cn } from "@/lib/utils";
 import { campaignsService } from "../campaigns.service";
 import { CampaignsAnalyticsOverview } from "../components/analytics-overview";
 import { CampaignDetailSheet } from "../components/campaign-detail-sheet";
-import { CreateCampaignSheet } from "../components/campaign-form/create-campaign-sheet";
 import { CampaignsReferenceTable } from "../components/campaigns-reference-table";
 import type { Campaign, CampaignStatus } from "../types/campaign";
+import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const CAMPAIGN_TYPE_LABEL: Record<string, string> = {
   "email-blast": "Email blast",
@@ -110,12 +111,12 @@ export function CampaignsListsView() {
             Search, filter, and manage all of your campaigns from one place.
           </p>
         </div>
-        <CreateCampaignSheet>
-          <Button className="rounded-xl">
+        <Button asChild className="rounded-xl">
+          <Link href={PRIVATE_ROUTES.NEW_CAMPAIGN} prefetch>
             <PlusIcon className="mr-2 size-4" aria-hidden="true" />
             Create campaign
-          </Button>
-        </CreateCampaignSheet>
+          </Link>
+        </Button>
       </div>
 
       <CampaignsAnalyticsOverview />
@@ -238,12 +239,12 @@ export function CampaignsListsView() {
                 Retry
               </Button>
             ) : null}
-            <CreateCampaignSheet>
-              <Button className="rounded-xl">
+            <Button asChild className="rounded-xl">
+              <Link href={PRIVATE_ROUTES.NEW_CAMPAIGN} prefetch>
                 <PlusIcon className="mr-2 size-4" aria-hidden="true" />
                 Create campaign
-              </Button>
-            </CreateCampaignSheet>
+              </Link>
+            </Button>
           </div>
         </div>
       )}

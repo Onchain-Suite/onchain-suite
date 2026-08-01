@@ -83,8 +83,9 @@ export function DashboardSidebar({
       </SidebarHeader>
 
       {/* Collapsed stacks the logo + toggle, making that header taller; pad the
-          expanded nav down to match so the rows stay inline across the toggle. */}
-      <SidebarContent className="px-1 pb-2 pt-14 group-data-[collapsible=icon]:pt-2">
+          expanded nav down to match so the rows stay inline across the toggle.
+          (Brand now carries pt-3 in both states, so this is 3 less than before.) */}
+      <SidebarContent className="px-1 pb-2 pt-11 group-data-[collapsible=icon]:pt-2">
         <NavMain items={navMain} />
       </SidebarContent>
 

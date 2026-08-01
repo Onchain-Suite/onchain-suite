@@ -114,6 +114,8 @@ interface DomainDnsRow {
   verificationLabel?: string;
   status?: SenderStatus | "unknown";
   databaseField?: string;
+  /** Which provider this record belongs to — SES rows are labeled `ses`. */
+  provider?: DomainProvider;
   conflict?: DomainDnsConflict;
   /** What's live in the user's DNS right now ([] = nothing published yet). */
   current?: string[];
@@ -634,48 +636,41 @@ const normalizeDomainDns = (payload: unknown): DomainDnsRow[] => {
           entry.kind,
           entry.field
         ),
+        provider: normalizeDnsProvider(entry.provider),
       } satisfies DomainDnsRow;
     })
     .filter((row): row is DomainDnsRow => row !== null);
 };
 
 /**
- * A domain's sending purpose. Backend routes transactional (account mail —
- * sign-in, receipts, invites) and marketing (campaigns, bulk) domains to
- * different providers, so the `records[]` checklist returned by
- * `GET /domain/{id}/dns` is provider-scoped to whichever purpose is active.
+ * A domain's sending purpose. Backend routes marketing (campaigns, bulk) over
+ * AWS SES and transactional (account mail — sign-in, receipts, invites) over
+ * Azure ACS, so the `records[]` checklist returned by `GET /domain/{id}/dns`
+ * is provider-scoped to whichever purpose is active. Marketing is the default.
  */
 export type DomainPurpose = "transactional" | "marketing";
 
+/** Email provider a domain's DNS records are scoped to. */
+export type DomainProvider = "ses" | "acs";
+
 /**
- * Resolve the domain's active purpose from the `purpose` field on
- * `GET /domain/{id}/dns` (or a domain row). Returns `undefined` when the
- * backend hasn't reported one — the toggle then shows no active selection
- * rather than guessing.
+ * Product mapping between a sending purpose and its provider: marketing → AWS
+ * SES, transactional → Azure ACS. The DNS checklist is fetched and filtered by
+ * this, so the toggle drives which records render.
  */
-const normalizeDomainPurpose = (
-  ...values: unknown[]
-): DomainPurpose | undefined => {
-  for (const value of values) {
-    const raw = pickString(value)?.toLowerCase();
-    if (!raw) continue;
-    if (
-      raw.includes("market") ||
-      raw.includes("bulk") ||
-      raw.includes("promo") ||
-      raw.includes("campaign")
-    ) {
-      return "marketing";
-    }
-    if (
-      raw.includes("transact") ||
-      raw.includes("txn") ||
-      raw.includes("auth") ||
-      raw.includes("account")
-    ) {
-      return "transactional";
-    }
-  }
+const providerForPurpose = (purpose: DomainPurpose): DomainProvider =>
+  purpose === "marketing" ? "ses" : "acs";
+
+/**
+ * Resolve which provider a DNS record belongs to. SES rows are labeled
+ * `provider: "ses"`; ACS rows may carry no label, so `undefined` is treated as
+ * ACS by callers.
+ */
+const normalizeDnsProvider = (value: unknown): DomainProvider | undefined => {
+  const raw = pickString(value)?.toLowerCase();
+  if (!raw) return undefined;
+  if (raw.includes("ses") || raw.includes("aws")) return "ses";
+  if (raw.includes("acs") || raw.includes("azure")) return "acs";
   return undefined;
 };
 
@@ -821,6 +816,16 @@ export default function CompanySettingsView() {
     domainId: string | null;
     domain: string;
   }>({ open: false, domainId: null, domain: "" });
+  // The purpose the verify dialog is showing. Marketing (AWS SES) is the
+  // default; toggling to transactional (Azure ACS) refetches and re-filters the
+  // DNS checklist for that provider.
+  const [dnsPurpose, setDnsPurpose] = useState<DomainPurpose>("marketing");
+  const dnsDialogDomainId = domainDnsDialog.domainId;
+  useEffect(() => {
+    // Reset to the marketing default whenever the dialog targets a new domain
+    // so a prior domain's toggle never leaks into the next one.
+    setDnsPurpose("marketing");
+  }, [dnsDialogDomainId]);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -896,8 +901,16 @@ export default function CompanySettingsView() {
     },
   });
 
+  const dnsProvider = providerForPurpose(dnsPurpose);
   const domainDnsQuery = useQuery({
-    queryKey: ["project-settings", "domain-dns", domainDnsDialog.domainId],
+    // The provider is part of the key so switching purpose refetches the
+    // provider-scoped checklist rather than serving the other one from cache.
+    queryKey: [
+      "project-settings",
+      "domain-dns",
+      domainDnsDialog.domainId,
+      dnsProvider,
+    ],
     enabled: Boolean(
       domainDnsDialog.open && domainDnsDialog.domainId && orgHeaders
     ),
@@ -905,7 +918,12 @@ export default function CompanySettingsView() {
     queryFn: async () => {
       const dnsResponse = await apiClient.get(
         `/domain/${domainDnsDialog.domainId}/dns`,
-        { headers: orgHeaders }
+        {
+          headers: orgHeaders,
+          // SES records are only returned under the explicit provider preview;
+          // ACS is the backend default, so it needs no param.
+          params: dnsProvider === "ses" ? { provider: "ses" } : undefined,
+        }
       );
       const root = unwrapData(dnsResponse.data);
       const sendReady = isJsonObject(root)
@@ -931,17 +949,11 @@ export default function CompanySettingsView() {
               (f): f is string => typeof f === "string" && f.length > 0
             )
           : [];
-      // Provider routing is keyed off this — the records[] above are already
-      // scoped to it, so the toggle just re-reads what the backend returns.
-      const purpose = isJsonObject(root)
-        ? normalizeDomainPurpose(root.purpose, root.domainPurpose)
-        : undefined;
       return {
         records: normalizeDomainDns(dnsResponse.data),
         sendReady,
         verificationStates,
         fixes,
-        purpose,
       };
     },
   });
@@ -1094,10 +1106,10 @@ export default function CompanySettingsView() {
     },
   });
 
-  // Switch a domain between transactional and marketing sending. The backend
-  // re-scopes the DNS checklist to the new purpose's provider, so we optimistic-
-  // update the purpose for an instant toggle, then refetch to pull the freshly
-  // scoped records[] (rolling the purpose back on failure).
+  // Persist the domain's sending purpose. The visible switch is instant (the
+  // toggle sets local `dnsPurpose`, which re-keys the provider-scoped DNS
+  // query); this just saves the choice and refreshes once it lands. On failure
+  // we roll the toggle back to what it was.
   const setDomainPurposeMutation = useMutation({
     mutationFn: async ({
       domainId,
@@ -1105,6 +1117,8 @@ export default function CompanySettingsView() {
     }: {
       domainId: string;
       purpose: DomainPurpose;
+      /** The selection before this switch, for rollback on failure. */
+      previousPurpose: DomainPurpose;
     }) => {
       if (!orgHeaders) throw new Error("No active organization selected");
       await apiClient.put(
@@ -1113,21 +1127,16 @@ export default function CompanySettingsView() {
         { headers: orgHeaders }
       );
     },
-    onMutate: async ({ domainId, purpose }) => {
-      const dnsKey = ["project-settings", "domain-dns", domainId];
-      await queryClient.cancelQueries({ queryKey: dnsKey });
-      const previous = queryClient.getQueryData<{ purpose?: DomainPurpose }>(
-        dnsKey
+    onSuccess: (_data, { purpose }) => {
+      toast.success(
+        purpose === "marketing"
+          ? "Domain set to marketing (AWS SES)"
+          : "Domain set to transactional (Azure ACS)"
       );
-      queryClient.setQueryData(dnsKey, (old) =>
-        isJsonObject(old) ? { ...old, purpose } : old
-      );
-      return { previous, dnsKey };
     },
-    onError: (error: unknown, _vars, context) => {
-      if (context?.previous !== undefined) {
-        queryClient.setQueryData(context.dnsKey, context.previous);
-      }
+    onError: (error: unknown, { previousPurpose }) => {
+      // Revert the toggle so the UI matches the un-persisted server state.
+      setDnsPurpose(previousPurpose);
       toast.error(
         apiErrorInfo(error).message ??
           (error instanceof Error
@@ -1135,16 +1144,9 @@ export default function CompanySettingsView() {
             : "Failed to update domain purpose")
       );
     },
-    onSuccess: (_data, { purpose }) => {
-      toast.success(
-        purpose === "marketing"
-          ? "Domain set to marketing — check the updated DNS records"
-          : "Domain set to transactional — check the updated DNS records"
-      );
-    },
     onSettled: (_data, _error, { domainId }) => {
-      // Pull the provider-scoped records[] for the new purpose, and refresh the
-      // list in case the domain's status/provider changed with it.
+      // Pull fresh records for both providers and refresh the list in case the
+      // domain's status/provider changed with the switch.
       return Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["project-settings", "domain-dns", domainId],
@@ -1321,8 +1323,20 @@ export default function CompanySettingsView() {
 
   const branding = brandingQuery.data ?? defaultBrandingState;
   const domains = useMemo(() => domainQuery.data ?? [], [domainQuery.data]);
-  const domainDnsRecords = domainDnsQuery.data?.records ?? [];
-  const domainPurpose = domainDnsQuery.data?.purpose;
+  // A `?provider=ses` response returns SES rows *additively* alongside ACS
+  // rows, so scope the checklist to the selected purpose's provider. ACS rows
+  // may carry no provider label (treated as ACS); if nothing is labeled at all,
+  // the response is already single-provider, so show everything.
+  const domainDnsRecords = useMemo(() => {
+    const all = domainDnsQuery.data?.records ?? [];
+    const anyLabeled = all.some((record) => record.provider !== undefined);
+    if (!anyLabeled) return all;
+    return all.filter((record) =>
+      dnsProvider === "ses"
+        ? record.provider === "ses"
+        : record.provider !== "ses"
+    );
+  }, [domainDnsQuery.data?.records, dnsProvider]);
   const domainDnsConflictCount = domainDnsRecords.filter(
     (record) => record.conflict && !record.conflict.informational
   ).length;
@@ -2414,9 +2428,10 @@ export default function CompanySettingsView() {
                     Sending purpose
                   </div>
                   <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                    Transactional sends account mail (sign-in, receipts,
-                    invites); marketing sends campaigns and bulk. Switching
-                    reprovisions the DNS records shown below.
+                    Marketing sends campaigns and bulk over AWS SES;
+                    transactional sends account mail (sign-in, receipts,
+                    invites) over Azure ACS. Each provider needs its own DNS
+                    records, shown below.
                   </p>
                 </div>
                 <div
@@ -2424,8 +2439,8 @@ export default function CompanySettingsView() {
                   aria-label="Sending purpose"
                   className="inline-flex shrink-0 rounded-full border border-border/70 bg-muted/40 p-0.5"
                 >
-                  {(["transactional", "marketing"] as const).map((option) => {
-                    const active = domainPurpose === option;
+                  {(["marketing", "transactional"] as const).map((option) => {
+                    const active = dnsPurpose === option;
                     return (
                       <button
                         key={option}
@@ -2434,14 +2449,18 @@ export default function CompanySettingsView() {
                         disabled={
                           !domainDnsDialog.domainId ||
                           !canManageSenderIdentities ||
-                          domainDnsQuery.isLoading ||
                           setDomainPurposeMutation.isPending
                         }
                         onClick={() => {
                           if (!domainDnsDialog.domainId || active) return;
+                          const previousPurpose = dnsPurpose;
+                          // Flip the view instantly (re-keys the DNS query),
+                          // then persist; onError rolls this back.
+                          setDnsPurpose(option);
                           setDomainPurposeMutation.mutate({
                             domainId: domainDnsDialog.domainId,
                             purpose: option,
+                            previousPurpose,
                           });
                         }}
                         className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${

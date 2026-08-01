@@ -933,6 +933,8 @@ export function CreateCampaignPage() {
 
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  // Lifted from AudienceStep so the summary rail shows the estimate on every step.
+  const [wizEstimate, setWizEstimate] = useState<number | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [campaignId, setCampaignId] = useState<string | undefined>(
     initialCampaignFromUrl
@@ -1807,6 +1809,7 @@ export function CreateCampaignPage() {
                             ? audienceSegmentsQuery.error.message
                             : null
                         }
+                        onEstimateChange={setWizEstimate}
                       />
                     )}
                     {currentStep === 2 && (
@@ -1896,11 +1899,15 @@ export function CreateCampaignPage() {
                   </div>
                 </div>
                 <WizardSummary
-                  campaignName={wizSummary.campaignName}
+                  estimatedRecipients={wizEstimate}
+                  estimateLabel={
+                    wizIsPush ? "Estimated wallets" : "Estimated recipients"
+                  }
                   channel={wizSummary.channel}
                   sender={wizSummary.sender}
                   template={wizSummary.template}
                   delivery={wizSummary.delivery}
+                  smartSending={Boolean(form.watch("smartSending"))}
                 />
               </div>
             ) : (

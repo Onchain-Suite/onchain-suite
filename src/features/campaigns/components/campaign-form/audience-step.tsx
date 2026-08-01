@@ -58,6 +58,9 @@ interface AudienceStepProps {
   segments?: Segment[];
   segmentsLoading?: boolean;
   segmentsError?: string | null;
+  /** Lifts the live recipient estimate up so the wizard summary rail can show
+   * it on every step. */
+  onEstimateChange?: (value: number | null) => void;
 }
 
 const getEstimatedRecipientsValue = (estimate: CampaignAudienceEstimate) => {
@@ -84,6 +87,7 @@ export function AudienceStep({
   segments = [],
   segmentsLoading = false,
   segmentsError,
+  onEstimateChange,
 }: AudienceStepProps) {
   const UTM_HELP_URL =
     "https://support.google.com/analytics/answer/1033863?hl=en";
@@ -378,6 +382,10 @@ export function AudienceStep({
 
   const displayedEstimatedRecipients =
     estimatedRecipients ?? localEstimatedRecipients;
+
+  useEffect(() => {
+    onEstimateChange?.(displayedEstimatedRecipients);
+  }, [displayedEstimatedRecipients, onEstimateChange]);
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500 p-4 sm:p-6">

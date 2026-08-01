@@ -209,10 +209,6 @@ export function CampaignsListsView() {
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
           Loading campaigns...
         </div>
-      ) : campaignsQuery.isError ? (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-          Failed to load campaigns.
-        </div>
       ) : filteredCampaigns.length > 0 ? (
         <CampaignsReferenceTable
           data={filteredCampaigns}
@@ -223,12 +219,25 @@ export function CampaignsListsView() {
           No campaigns match this filter.
         </div>
       ) : (
+        // No campaigns to show — genuinely empty, or the request failed (data is
+        // empty either way). Show the actionable empty state, plus a Retry when
+        // it actually errored so a transient failure isn't a dead end.
         <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
           <p className="text-sm text-muted-foreground">
-            No campaigns yet — create your first to start reaching wallets by
-            email and in-app push.
+            {campaignsQuery.isError
+              ? "We couldn't load your campaigns just now — retry, or create a new one."
+              : "No campaigns yet — create your first to start reaching wallets by email and in-app push."}
           </p>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {campaignsQuery.isError ? (
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                onClick={() => campaignsQuery.refetch()}
+              >
+                Retry
+              </Button>
+            ) : null}
             <CreateCampaignSheet>
               <Button className="rounded-xl">
                 <PlusIcon className="mr-2 size-4" aria-hidden="true" />

@@ -639,6 +639,46 @@ const normalizeDomainDns = (payload: unknown): DomainDnsRow[] => {
     .filter((row): row is DomainDnsRow => row !== null);
 };
 
+/**
+ * A domain's sending purpose. Backend routes transactional (account mail —
+ * sign-in, receipts, invites) and marketing (campaigns, bulk) domains to
+ * different providers, so the `records[]` checklist returned by
+ * `GET /domain/{id}/dns` is provider-scoped to whichever purpose is active.
+ */
+export type DomainPurpose = "transactional" | "marketing";
+
+/**
+ * Resolve the domain's active purpose from the `purpose` field on
+ * `GET /domain/{id}/dns` (or a domain row). Returns `undefined` when the
+ * backend hasn't reported one — the toggle then shows no active selection
+ * rather than guessing.
+ */
+const normalizeDomainPurpose = (
+  ...values: unknown[]
+): DomainPurpose | undefined => {
+  for (const value of values) {
+    const raw = pickString(value)?.toLowerCase();
+    if (!raw) continue;
+    if (
+      raw.includes("market") ||
+      raw.includes("bulk") ||
+      raw.includes("promo") ||
+      raw.includes("campaign")
+    ) {
+      return "marketing";
+    }
+    if (
+      raw.includes("transact") ||
+      raw.includes("txn") ||
+      raw.includes("auth") ||
+      raw.includes("account")
+    ) {
+      return "transactional";
+    }
+  }
+  return undefined;
+};
+
 /** Map a typed service member row into the table's {@link TeamRow} shape. */
 const memberToTeamRow = (member: OrganizationMember): TeamRow => ({
   id: member.userId,
@@ -891,11 +931,17 @@ export default function CompanySettingsView() {
               (f): f is string => typeof f === "string" && f.length > 0
             )
           : [];
+      // Provider routing is keyed off this — the records[] above are already
+      // scoped to it, so the toggle just re-reads what the backend returns.
+      const purpose = isJsonObject(root)
+        ? normalizeDomainPurpose(root.purpose, root.domainPurpose)
+        : undefined;
       return {
         records: normalizeDomainDns(dnsResponse.data),
         sendReady,
         verificationStates,
         fixes,
+        purpose,
       };
     },
   });
@@ -1045,6 +1091,68 @@ export default function CompanySettingsView() {
         apiErrorInfo(error).message ??
           (error instanceof Error ? error.message : "Failed to recheck domain")
       );
+    },
+  });
+
+  // Switch a domain between transactional and marketing sending. The backend
+  // re-scopes the DNS checklist to the new purpose's provider, so we optimistic-
+  // update the purpose for an instant toggle, then refetch to pull the freshly
+  // scoped records[] (rolling the purpose back on failure).
+  const setDomainPurposeMutation = useMutation({
+    mutationFn: async ({
+      domainId,
+      purpose,
+    }: {
+      domainId: string;
+      purpose: DomainPurpose;
+    }) => {
+      if (!orgHeaders) throw new Error("No active organization selected");
+      await apiClient.put(
+        `/domain/${domainId}/purpose`,
+        { purpose },
+        { headers: orgHeaders }
+      );
+    },
+    onMutate: async ({ domainId, purpose }) => {
+      const dnsKey = ["project-settings", "domain-dns", domainId];
+      await queryClient.cancelQueries({ queryKey: dnsKey });
+      const previous = queryClient.getQueryData<{ purpose?: DomainPurpose }>(
+        dnsKey
+      );
+      queryClient.setQueryData(dnsKey, (old) =>
+        isJsonObject(old) ? { ...old, purpose } : old
+      );
+      return { previous, dnsKey };
+    },
+    onError: (error: unknown, _vars, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(context.dnsKey, context.previous);
+      }
+      toast.error(
+        apiErrorInfo(error).message ??
+          (error instanceof Error
+            ? error.message
+            : "Failed to update domain purpose")
+      );
+    },
+    onSuccess: (_data, { purpose }) => {
+      toast.success(
+        purpose === "marketing"
+          ? "Domain set to marketing — check the updated DNS records"
+          : "Domain set to transactional — check the updated DNS records"
+      );
+    },
+    onSettled: (_data, _error, { domainId }) => {
+      // Pull the provider-scoped records[] for the new purpose, and refresh the
+      // list in case the domain's status/provider changed with it.
+      return Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["project-settings", "domain-dns", domainId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["project-settings", "domains", organizationId],
+        }),
+      ]);
     },
   });
 
@@ -1214,6 +1322,7 @@ export default function CompanySettingsView() {
   const branding = brandingQuery.data ?? defaultBrandingState;
   const domains = useMemo(() => domainQuery.data ?? [], [domainQuery.data]);
   const domainDnsRecords = domainDnsQuery.data?.records ?? [];
+  const domainPurpose = domainDnsQuery.data?.purpose;
   const domainDnsConflictCount = domainDnsRecords.filter(
     (record) => record.conflict && !record.conflict.informational
   ).length;
@@ -2298,6 +2407,56 @@ export default function CompanySettingsView() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground">
+                    Sending purpose
+                  </div>
+                  <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                    Transactional sends account mail (sign-in, receipts,
+                    invites); marketing sends campaigns and bulk. Switching
+                    reprovisions the DNS records shown below.
+                  </p>
+                </div>
+                <div
+                  role="group"
+                  aria-label="Sending purpose"
+                  className="inline-flex shrink-0 rounded-full border border-border/70 bg-muted/40 p-0.5"
+                >
+                  {(["transactional", "marketing"] as const).map((option) => {
+                    const active = domainPurpose === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        aria-pressed={active}
+                        disabled={
+                          !domainDnsDialog.domainId ||
+                          !canManageSenderIdentities ||
+                          domainDnsQuery.isLoading ||
+                          setDomainPurposeMutation.isPending
+                        }
+                        onClick={() => {
+                          if (!domainDnsDialog.domainId || active) return;
+                          setDomainPurposeMutation.mutate({
+                            domainId: domainDnsDialog.domainId,
+                            purpose: option,
+                          });
+                        }}
+                        className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                          active
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
             {domainDnsQuery.isLoading ? (
               <div className="space-y-3">
                 <Skeleton className="h-12 w-full rounded-xl" />

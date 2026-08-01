@@ -43,13 +43,19 @@ export default buildConfig({
   secret: process.env.PAYLOAD_SECRET ?? "",
   db: postgresAdapter({
     pool: {
+      // The CMS owns its own dedicated database — DATABASE_URI must not point
+      // at the product database. The blog is editorial content with a different
+      // lifecycle, backup cadence and blast radius from product data, and
+      // Payload's migrations manage its schema exclusively: pointing this at a
+      // shared database would put `payload migrate` in charge of DDL next to
+      // tables it does not own.
+      //
+      // Because the database is dedicated, no `schemaName` is set and Payload
+      // uses `public`. That keeps the generated DDL unqualified, which is why
+      // migrations need no CREATE SCHEMA step and psql/Neon/GUI clients see the
+      // tables where they expect them.
       connectionString: process.env.DATABASE_URI ?? "",
     },
-    // Isolates every Payload table in its own Postgres schema. The separate
-    // Render backend owns `waitlist`/`campaigns`/`subscribers` in the public
-    // schema (see backend/schema.sql); this guarantees the two can share a
-    // database without ever colliding on a table name.
-    schemaName: "payload",
   }),
   // Enables the admin panel's crop and focal-point tools. No `imageSizes` are
   // configured on the media collection, so sharp never generates derivatives —

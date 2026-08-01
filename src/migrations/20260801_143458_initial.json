@@ -2,9 +2,9 @@
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "payload.posts_tags": {
+    "public.posts_tags": {
       "name": "posts_tags",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "_order": {
           "name": "_order",
@@ -68,7 +68,6 @@
           "name": "posts_tags_parent_id_fk",
           "tableFrom": "posts_tags",
           "tableTo": "posts",
-          "schemaTo": "payload",
           "columnsFrom": [
             "_parent_id"
           ],
@@ -85,9 +84,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload.posts": {
+    "public.posts": {
       "name": "posts",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -166,7 +165,7 @@
         "_status": {
           "name": "_status",
           "type": "enum_posts_status",
-          "typeSchema": "payload",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": false,
           "default": "'draft'"
@@ -284,7 +283,6 @@
           "name": "posts_cover_image_id_media_id_fk",
           "tableFrom": "posts",
           "tableTo": "media",
-          "schemaTo": "payload",
           "columnsFrom": [
             "cover_image_id"
           ],
@@ -298,7 +296,6 @@
           "name": "posts_meta_image_id_media_id_fk",
           "tableFrom": "posts",
           "tableTo": "media",
-          "schemaTo": "payload",
           "columnsFrom": [
             "meta_image_id"
           ],
@@ -315,9 +312,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload.posts_rels": {
+    "public.posts_rels": {
       "name": "posts_rels",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -438,7 +435,6 @@
           "name": "posts_rels_parent_fk",
           "tableFrom": "posts_rels",
           "tableTo": "posts",
-          "schemaTo": "payload",
           "columnsFrom": [
             "parent_id"
           ],
@@ -452,7 +448,6 @@
           "name": "posts_rels_users_fk",
           "tableFrom": "posts_rels",
           "tableTo": "users",
-          "schemaTo": "payload",
           "columnsFrom": [
             "users_id"
           ],
@@ -466,7 +461,6 @@
           "name": "posts_rels_categories_fk",
           "tableFrom": "posts_rels",
           "tableTo": "categories",
-          "schemaTo": "payload",
           "columnsFrom": [
             "categories_id"
           ],
@@ -483,9 +477,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload._posts_v_version_tags": {
+    "public._posts_v_version_tags": {
       "name": "_posts_v_version_tags",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "_order": {
           "name": "_order",
@@ -555,7 +549,6 @@
           "name": "_posts_v_version_tags_parent_id_fk",
           "tableFrom": "_posts_v_version_tags",
           "tableTo": "_posts_v",
-          "schemaTo": "payload",
           "columnsFrom": [
             "_parent_id"
           ],
@@ -572,9 +565,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload._posts_v": {
+    "public._posts_v": {
       "name": "_posts_v",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -657,7 +650,7 @@
         "version__status": {
           "name": "version__status",
           "type": "enum__posts_v_version_status",
-          "typeSchema": "payload",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": false,
           "default": "'draft'"
@@ -855,7 +848,6 @@
           "name": "_posts_v_parent_id_posts_id_fk",
           "tableFrom": "_posts_v",
           "tableTo": "posts",
-          "schemaTo": "payload",
           "columnsFrom": [
             "parent_id"
           ],
@@ -869,7 +861,6 @@
           "name": "_posts_v_version_cover_image_id_media_id_fk",
           "tableFrom": "_posts_v",
           "tableTo": "media",
-          "schemaTo": "payload",
           "columnsFrom": [
             "version_cover_image_id"
           ],
@@ -883,7 +874,6 @@
           "name": "_posts_v_version_meta_image_id_media_id_fk",
           "tableFrom": "_posts_v",
           "tableTo": "media",
-          "schemaTo": "payload",
           "columnsFrom": [
             "version_meta_image_id"
           ],
@@ -900,9 +890,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload._posts_v_rels": {
+    "public._posts_v_rels": {
       "name": "_posts_v_rels",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -1023,7 +1013,6 @@
           "name": "_posts_v_rels_parent_fk",
           "tableFrom": "_posts_v_rels",
           "tableTo": "_posts_v",
-          "schemaTo": "payload",
           "columnsFrom": [
             "parent_id"
           ],
@@ -1037,7 +1026,6 @@
           "name": "_posts_v_rels_users_fk",
           "tableFrom": "_posts_v_rels",
           "tableTo": "users",
-          "schemaTo": "payload",
           "columnsFrom": [
             "users_id"
           ],
@@ -1051,7 +1039,6 @@
           "name": "_posts_v_rels_categories_fk",
           "tableFrom": "_posts_v_rels",
           "tableTo": "categories",
-          "schemaTo": "payload",
           "columnsFrom": [
             "categories_id"
           ],
@@ -1068,9 +1055,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload.categories": {
+    "public.categories": {
       "name": "categories",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -1165,9 +1152,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload.media": {
+    "public.media": {
       "name": "media",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -1322,9 +1309,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload.users_sessions": {
+    "public.users_sessions": {
       "name": "users_sessions",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "_order": {
           "name": "_order",
@@ -1394,7 +1381,6 @@
           "name": "users_sessions_parent_id_fk",
           "tableFrom": "users_sessions",
           "tableTo": "users",
-          "schemaTo": "payload",
           "columnsFrom": [
             "_parent_id"
           ],
@@ -1411,9 +1397,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload.users": {
+    "public.users": {
       "name": "users",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -1430,7 +1416,7 @@
         "role": {
           "name": "role",
           "type": "enum_users_role",
-          "typeSchema": "payload",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
           "default": "'editor'"
@@ -1590,7 +1576,6 @@
           "name": "users_avatar_id_media_id_fk",
           "tableFrom": "users",
           "tableTo": "media",
-          "schemaTo": "payload",
           "columnsFrom": [
             "avatar_id"
           ],
@@ -1607,9 +1592,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload.payload_kv": {
+    "public.payload_kv": {
       "name": "payload_kv",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -1654,9 +1639,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload.payload_locked_documents": {
+    "public.payload_locked_documents": {
       "name": "payload_locked_documents",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -1739,9 +1724,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload.payload_locked_documents_rels": {
+    "public.payload_locked_documents_rels": {
       "name": "payload_locked_documents_rels",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -1904,7 +1889,6 @@
           "name": "payload_locked_documents_rels_parent_fk",
           "tableFrom": "payload_locked_documents_rels",
           "tableTo": "payload_locked_documents",
-          "schemaTo": "payload",
           "columnsFrom": [
             "parent_id"
           ],
@@ -1918,7 +1902,6 @@
           "name": "payload_locked_documents_rels_posts_fk",
           "tableFrom": "payload_locked_documents_rels",
           "tableTo": "posts",
-          "schemaTo": "payload",
           "columnsFrom": [
             "posts_id"
           ],
@@ -1932,7 +1915,6 @@
           "name": "payload_locked_documents_rels_categories_fk",
           "tableFrom": "payload_locked_documents_rels",
           "tableTo": "categories",
-          "schemaTo": "payload",
           "columnsFrom": [
             "categories_id"
           ],
@@ -1946,7 +1928,6 @@
           "name": "payload_locked_documents_rels_media_fk",
           "tableFrom": "payload_locked_documents_rels",
           "tableTo": "media",
-          "schemaTo": "payload",
           "columnsFrom": [
             "media_id"
           ],
@@ -1960,7 +1941,6 @@
           "name": "payload_locked_documents_rels_users_fk",
           "tableFrom": "payload_locked_documents_rels",
           "tableTo": "users",
-          "schemaTo": "payload",
           "columnsFrom": [
             "users_id"
           ],
@@ -1977,9 +1957,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload.payload_preferences": {
+    "public.payload_preferences": {
       "name": "payload_preferences",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -2068,9 +2048,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload.payload_preferences_rels": {
+    "public.payload_preferences_rels": {
       "name": "payload_preferences_rels",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -2170,7 +2150,6 @@
           "name": "payload_preferences_rels_parent_fk",
           "tableFrom": "payload_preferences_rels",
           "tableTo": "payload_preferences",
-          "schemaTo": "payload",
           "columnsFrom": [
             "parent_id"
           ],
@@ -2184,7 +2163,6 @@
           "name": "payload_preferences_rels_users_fk",
           "tableFrom": "payload_preferences_rels",
           "tableTo": "users",
-          "schemaTo": "payload",
           "columnsFrom": [
             "users_id"
           ],
@@ -2201,9 +2179,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "payload.payload_migrations": {
+    "public.payload_migrations": {
       "name": "payload_migrations",
-      "schema": "payload",
+      "schema": "",
       "columns": {
         "id": {
           "name": "id",
@@ -2279,34 +2257,32 @@
     }
   },
   "enums": {
-    "payload.enum_posts_status": {
+    "public.enum_posts_status": {
       "name": "enum_posts_status",
-      "schema": "payload",
+      "schema": "public",
       "values": [
         "draft",
         "published"
       ]
     },
-    "payload.enum__posts_v_version_status": {
+    "public.enum__posts_v_version_status": {
       "name": "enum__posts_v_version_status",
-      "schema": "payload",
+      "schema": "public",
       "values": [
         "draft",
         "published"
       ]
     },
-    "payload.enum_users_role": {
+    "public.enum_users_role": {
       "name": "enum_users_role",
-      "schema": "payload",
+      "schema": "public",
       "values": [
         "admin",
         "editor"
       ]
     }
   },
-  "schemas": {
-    "payload": "payload"
-  },
+  "schemas": {},
   "sequences": {},
   "roles": {},
   "policies": {},
@@ -2316,6 +2292,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "6a1ea6df-25c9-4219-9cb4-0f85462d6b6e",
+  "id": "fd57d7a1-39eb-4449-91a7-295630ee9b6a",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }

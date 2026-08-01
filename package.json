@@ -7,7 +7,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "payload migrate && next build",
+    "build": "next build",
+    "build:deploy": "payload migrate && next build",
     "start": "next start",
     "payload": "payload",
     "generate:types": "payload generate:types",

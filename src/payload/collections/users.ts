@@ -1,53 +1,86 @@
 import type { CollectionConfig } from "payload";
 
+import { isBlogManager } from "@/payload/access";
+import { backendSessionStrategy } from "@/payload/auth/backend-session-strategy";
+
 /**
- * Payload's own admin users — the accounts that log in at /admin.
+ * Mirrors of product users who have signed into the CMS — not accounts.
  *
- * Deliberately independent of the app's other two identity systems: the
- * client-only better-auth setup in src/lib/auth-client.ts and the external
- * Render backend's sessions. Content editing is a different trust boundary from
- * product access, and unifying them would mean giving the CMS a way to mint
- * product sessions.
+ * There are no blog credentials. Payload's local (email + password) strategy is
+ * disabled and replaced by backendSessionStrategy, which validates the caller's
+ * existing OnchainSuite session against the product backend and admits only the
+ * ADMIN and SUPER_ADMIN roles. An admin signs in once, in the app, and /admin
+ * follows.
+ *
+ * Rows here are created automatically on first successful sign-in. They exist so
+ * Payload can bind `req.user` to a document and so `posts.authors` has something
+ * to relate to; `email`, `name` and `role` are refreshed from the backend, which
+ * remains the source of truth. Editing them by hand would be overwritten, which
+ * is why every write is closed off below.
  *
  * This repo has no middleware.ts, so nothing guards /admin at the edge — the
- * access control here and Payload's own auth are the boundary. src/app/robots.ts
- * keeps both /admin and /cms-api out of search indexes.
+ * strategy and these rules are the boundary. src/app/robots.ts keeps both /admin
+ * and /cms-api out of search indexes.
  */
 export const Users: CollectionConfig = {
   slug: "users",
-  auth: true,
+  auth: {
+    // No passwords in the blog database. This is the whole point: one login.
+    disableLocalStrategy: true,
+    strategies: [backendSessionStrategy],
+  },
   admin: {
-    useAsTitle: "email",
+    useAsTitle: "name",
     defaultColumns: ["name", "email", "role"],
     group: "Admin",
+    description:
+      "Read-only mirror of OnchainSuite admins who have opened the CMS. Grant or revoke access in the backend, not here.",
   },
   access: {
-    // Any authenticated editor can read the user list (needed to populate the
-    // author relationship picker), but only admins can change membership.
-    read: ({ req: { user } }) => Boolean(user),
-    create: ({ req: { user } }) => user?.role === "admin",
-    update: ({ req: { user }, id }) =>
-      user?.role === "admin" || user?.id === id,
-    delete: ({ req: { user } }) => user?.role === "admin",
+    // Needed to populate the author picker on posts.
+    read: isBlogManager,
+    // Identity is owned by the backend. Allowing writes here would create rows
+    // the backend does not know about, or edits the next sign-in silently reverts.
+    create: () => false,
+    update: () => false,
+    delete: () => false,
   },
   fields: [
+    {
+      // The join key back to the product's user. Indexed because the auth
+      // strategy looks a user up by it on (nearly) every admin request.
+      name: "backendUserId",
+      type: "text",
+      required: true,
+      unique: true,
+      index: true,
+      admin: {
+        readOnly: true,
+        description: "The product backend's user id. Set automatically.",
+      },
+    },
+    {
+      name: "email",
+      type: "email",
+      required: true,
+      admin: { readOnly: true },
+    },
     {
       name: "name",
       type: "text",
       required: true,
+      admin: { readOnly: true },
     },
     {
+      // Mirrored from the backend's UserRole enum for visibility in the admin
+      // list. It is NOT the authorisation source — every request re-checks the
+      // live role via the strategy, so a role revoked in the backend takes
+      // effect within the session cache TTL rather than persisting here.
       name: "role",
-      type: "select",
-      required: true,
-      defaultValue: "editor",
-      options: [
-        { label: "Admin", value: "admin" },
-        { label: "Editor", value: "editor" },
-      ],
-      access: {
-        // Editors must not be able to promote themselves.
-        update: ({ req: { user } }) => user?.role === "admin",
+      type: "text",
+      admin: {
+        readOnly: true,
+        description: "Mirrored from the backend. Change it there.",
       },
     },
     {
@@ -68,9 +101,7 @@ export const Users: CollectionConfig = {
     {
       name: "walletAddress",
       type: "text",
-      admin: {
-        description: "Optional. Shown on the author byline.",
-      },
+      admin: { description: "Optional. Shown on the author byline." },
     },
     {
       name: "farcaster",
@@ -82,9 +113,7 @@ export const Users: CollectionConfig = {
     {
       name: "x",
       type: "text",
-      admin: {
-        description: "Optional X handle, without the leading @.",
-      },
+      admin: { description: "Optional X handle, without the leading @." },
     },
   ],
 };

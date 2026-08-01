@@ -8,6 +8,7 @@ import {
 } from "@payloadcms/richtext-lexical";
 import type { CollectionConfig } from "payload";
 
+import { isBlogManager, publishedOrManager } from "@/payload/access";
 import { blogBlocks } from "@/payload/blocks";
 import { slugField } from "@/payload/fields/slug";
 import {
@@ -41,21 +42,17 @@ export const Posts: CollectionConfig = {
     drafts: true,
     maxPerDoc: 20,
   },
+  /**
+   * Only the backend's ADMIN and SUPER_ADMIN roles may write. Anonymous visitors
+   * (and any lesser role) are narrowed to published documents by a query
+   * constraint rather than a boolean, so the filter runs in the database and a
+   * draft cannot leak through the Local API, REST or GraphQL.
+   */
   access: {
-    /**
-     * Anonymous visitors see published posts only. Returning a query constraint
-     * (rather than false) lets Payload filter at the database level, so a draft
-     * can never leak through the Local API, REST or GraphQL.
-     */
-    read: ({ req: { user } }) => {
-      if (user) {
-        return true;
-      }
-      return { _status: { equals: "published" } };
-    },
-    create: ({ req: { user } }) => Boolean(user),
-    update: ({ req: { user } }) => Boolean(user),
-    delete: ({ req: { user } }) => user?.role === "admin",
+    read: publishedOrManager,
+    create: isBlogManager,
+    update: isBlogManager,
+    delete: isBlogManager,
   },
   hooks: {
     afterChange: [revalidatePostAfterChange],

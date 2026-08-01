@@ -1309,94 +1309,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.users_sessions": {
-      "name": "users_sessions",
-      "schema": "",
-      "columns": {
-        "_order": {
-          "name": "_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "_parent_id": {
-          "name": "_parent_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "varchar",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp(3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp(3) with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "users_sessions_order_idx": {
-          "name": "users_sessions_order_idx",
-          "columns": [
-            {
-              "expression": "_order",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "users_sessions_parent_id_idx": {
-          "name": "users_sessions_parent_id_idx",
-          "columns": [
-            {
-              "expression": "_parent_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "users_sessions_parent_id_fk": {
-          "name": "users_sessions_parent_id_fk",
-          "tableFrom": "users_sessions",
-          "tableTo": "users",
-          "columnsFrom": [
-            "_parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.users": {
       "name": "users",
       "schema": "",
@@ -1407,6 +1319,18 @@
           "primaryKey": true,
           "notNull": true
         },
+        "backend_user_id": {
+          "name": "backend_user_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
         "name": {
           "name": "name",
           "type": "varchar",
@@ -1415,11 +1339,9 @@
         },
         "role": {
           "name": "role",
-          "type": "enum_users_role",
-          "typeSchema": "public",
+          "type": "varchar",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'editor'"
+          "notNull": false
         },
         "bio": {
           "name": "bio",
@@ -1464,52 +1386,24 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "email": {
-          "name": "email",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reset_password_token": {
-          "name": "reset_password_token",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reset_password_expiration": {
-          "name": "reset_password_expiration",
-          "type": "timestamp(3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "salt": {
-          "name": "salt",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "hash": {
-          "name": "hash",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "login_attempts": {
-          "name": "login_attempts",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "lock_until": {
-          "name": "lock_until",
-          "type": "timestamp(3) with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
+        "users_backend_user_id_idx": {
+          "name": "users_backend_user_id_idx",
+          "columns": [
+            {
+              "expression": "backend_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "users_avatar_idx": {
           "name": "users_avatar_idx",
           "columns": [
@@ -1551,21 +1445,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "users_email_idx": {
-          "name": "users_email_idx",
-          "columns": [
-            {
-              "expression": "email",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -2272,14 +2151,6 @@
         "draft",
         "published"
       ]
-    },
-    "public.enum_users_role": {
-      "name": "enum_users_role",
-      "schema": "public",
-      "values": [
-        "admin",
-        "editor"
-      ]
     }
   },
   "schemas": {},
@@ -2292,6 +2163,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "fd57d7a1-39eb-4449-91a7-295630ee9b6a",
+  "id": "adef1897-a6b3-44bd-bc92-f7b0723a2ac7",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }

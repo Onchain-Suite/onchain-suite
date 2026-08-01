@@ -211,13 +211,23 @@ export interface Media {
   focalY?: number | null;
 }
 /**
+ * Read-only mirror of OnchainSuite admins who have opened the CMS. Grant or revoke access in the backend, not here.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
   id: number;
+  /**
+   * The product backend's user id. Set automatically.
+   */
+  backendUserId: string;
+  email: string;
   name: string;
-  role: 'admin' | 'editor';
+  /**
+   * Mirrored from the backend. Change it there.
+   */
+  role?: string | null;
   /**
    * Short author bio, shown on posts this user writes.
    */
@@ -237,21 +247,6 @@ export interface User {
   x?: string | null;
   updatedAt: string;
   createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
   collection: 'users';
 }
 /**
@@ -421,6 +416,8 @@ export interface MediaSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  backendUserId?: T;
+  email?: T;
   name?: T;
   role?: T;
   bio?: T;
@@ -430,20 +427,6 @@ export interface UsersSelect<T extends boolean = true> {
   x?: T;
   updatedAt?: T;
   createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

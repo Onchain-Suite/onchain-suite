@@ -38,7 +38,14 @@ let organizationListRateLimitedUntil = 0;
  */
 const getCachedOrganizations = (): Organization[] | null => {
   const now = Date.now();
-  if (organizationListCache && organizationListCacheExpiresAt > now) {
+  // Never serve a cached EMPTY list — an empty result is far more likely stale
+  // (e.g. the user just created their first org via onboarding) than a real
+  // "belongs to nothing" state, so treat it as a miss and refetch.
+  if (
+    organizationListCache &&
+    organizationListCache.length > 0 &&
+    organizationListCacheExpiresAt > now
+  ) {
     return organizationListCache;
   }
   if (typeof window === "undefined") return null;
@@ -51,6 +58,7 @@ const getCachedOrganizations = (): Organization[] | null => {
     };
     if (
       !Array.isArray(parsed.orgs) ||
+      parsed.orgs.length === 0 ||
       typeof parsed.expiresAt !== "number" ||
       parsed.expiresAt <= now
     ) {

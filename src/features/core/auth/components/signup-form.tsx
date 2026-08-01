@@ -93,6 +93,7 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
       toast.success(
         "Account created successfully! Please check your email to verify your account."
       );
+      form.reset();
     } catch (error: unknown) {
       console.error("Sign up error:", error);
       const response = isJsonObject(error) ? error.response : undefined;

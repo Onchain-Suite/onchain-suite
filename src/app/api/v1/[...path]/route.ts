@@ -76,6 +76,8 @@ const getAllowedCorsOrigins = () => {
     "http://localhost:3000",
     "http://localhost:3001",
     "http://localhost:5173",
+    "http://localhost:6000",
+    "http://localhost:6001",
   ]);
 
   const extra = pickNonEmpty(process.env.NEXT_PUBLIC_EMAIL_EDITOR_ORIGIN);

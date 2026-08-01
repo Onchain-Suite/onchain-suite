@@ -47,6 +47,8 @@ import { AudienceStep } from "@/features/campaigns/components/campaign-form/audi
 import { ConfirmationPage } from "@/features/campaigns/components/campaign-form/campaign-confirmation";
 import { ScheduleSendDialog } from "@/features/campaigns/components/campaign-form/schedule-send-dialog";
 import { TemplateStep } from "@/features/campaigns/components/campaign-form/template-step";
+import { WizardStepRail } from "@/features/campaigns/components/campaign-form/wizard-step-rail";
+import { WizardSummary } from "@/features/campaigns/components/campaign-form/wizard-summary";
 import {
   partitionAudienceSelection,
   resolveTagsToProfileIds,
@@ -1717,180 +1719,202 @@ export function CreateCampaignPage() {
   const scheduleTime = form.watch("scheduleTime");
   const timezone = form.watch("timezone");
 
+  // Persistent right-column summary, kept in sync across steps.
+  const wizIsPush = form.watch("channel") === "in-app-push";
+  const wizTemplate = form.watch("selectedTemplate") ?? "";
+  const wizSummary = {
+    campaignName: form.watch("campaignName") ?? "",
+    channel: wizIsPush ? "In-app push" : "Email",
+    sender: wizIsPush
+      ? "In-app push"
+      : [form.watch("senderName"), form.watch("senderEmail")]
+          .map((value) => (value ?? "").trim())
+          .filter(Boolean)
+          .join(" · ") || "—",
+    template: wizTemplate.length > 0 ? wizTemplate : "—",
+    delivery: sendOption === "schedule" ? "Scheduled" : "Send immediately",
+  };
+
   return (
     <div className="min-h-screen bg-background font-sans -mt-[20px] z-2">
-      {/* Header with Progress */}
-      <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky">
-        <div className="container mx-auto px-4 py-2">
-          <div className="flex items-center justify-between mb-2">
-            <Link href={PRIVATE_ROUTES.CAMPAIGNS}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="rounded-xl transition-all duration-300"
-              >
-                <ArrowLeftIcon aria-hidden="true" className="mr-2 h-4 w-4" />
-                Back to campaigns
-              </Button>
-            </Link>
-            <div className="text-sm text-muted-foreground font-medium">
-              Step {currentStep} of {TOTAL_STEPS}
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-            <div
-              className="bg-primary h-full rounded-full transition-all duration-500 ease-in-out"
-              style={{ width: `${(currentStep / TOTAL_STEPS) * 100}%` }}
-            />
+      {/* Header */}
+      <div className="border-b border-border bg-card/50 backdrop-blur-sm">
+        <div className="container mx-auto flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8 max-w-[1600px]">
+          <Link href={PRIVATE_ROUTES.CAMPAIGNS}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-xl transition-all duration-300"
+            >
+              <ArrowLeftIcon aria-hidden="true" className="mr-2 h-4 w-4" />
+              Back to campaigns
+            </Button>
+          </Link>
+          <div className="text-sm font-medium text-muted-foreground">
+            Step {currentStep} of {TOTAL_STEPS}
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-4 sm:px-6 md:py-6 lg:px-10 max-w-[1440px]">
+      <div className="container mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
-            <div className="bg-card border border-border rounded-2xl shadow-xl transition-all duration-300">
-              {!showConfirmation ? (
-                <>
-                  {!campaignId && (
-                    <div className="border-b border-border p-6 md:p-8 lg:p-10">
-                      <div className="text-sm text-muted-foreground">
-                        {bootstrapError ?? "Creating campaign draft…"}
-                      </div>
-                      {bootstrapError && (
-                        <div className="mt-4">
-                          <Button
-                            type="button"
-                            onClick={() => {
-                              setBootstrapError(null);
-                              isBootstrappingInFlightRef.current = false;
-                            }}
-                            className="rounded-xl"
-                          >
-                            Retry
-                          </Button>
+            {!showConfirmation ? (
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,320px)] lg:gap-8">
+                <WizardStepRail currentStep={currentStep} />
+                <div className="min-w-0">
+                  <div className="rounded-2xl border border-border bg-card shadow-sm transition-all duration-300">
+                    {!campaignId && (
+                      <div className="border-b border-border p-6 md:p-8 lg:p-10">
+                        <div className="text-sm text-muted-foreground">
+                          {bootstrapError ?? "Creating campaign draft…"}
                         </div>
-                      )}
-                    </div>
-                  )}
-                  {currentStep === 1 && (
-                    <AudienceStep
-                      form={form}
-                      campaignId={campaignId}
-                      canSync={
-                        Boolean(campaignId) &&
-                        hasHydratedCampaign &&
-                        !isHydratingCampaign &&
-                        !isBootstrappingCampaign &&
-                        // Don't autosync over an audience/tracking load that
-                        // failed and left the form at empty defaults.
-                        audienceHydrationOk
-                      }
-                      tags={audienceTagsQuery.data ?? []}
-                      segments={audienceSegmentsQuery.data ?? []}
-                      segmentsLoading={audienceSegmentsQuery.isLoading}
-                      segmentsError={
-                        audienceSegmentsQuery.error instanceof Error
-                          ? audienceSegmentsQuery.error.message
-                          : null
-                      }
-                    />
-                  )}
-                  {currentStep === 2 && (
-                    <TemplateStep
-                      form={form}
-                      campaignId={campaignId}
-                      verifiedSenderIdentities={verifiedSenderIdentities}
-                      senderIdentitiesLoading={senderIdentitiesQuery.isLoading}
-                      canSendEmail={canSendEmail}
-                    />
-                  )}
-                  {currentStep === 3 && (
-                    <CampaignPreviewStep
-                      form={form}
-                      campaignId={campaignId}
-                      canLaunch={
-                        canLaunchCampaigns &&
-                        !isBootstrappingCampaign &&
-                        // Launch saves content + template from the form; block
-                        // until the saved content loaded successfully so a
-                        // launch can't persist an empty over it.
-                        !isHydratingCampaign &&
-                        contentHydrationOk
-                      }
-                      onSchedule={() => setScheduleDialogOpen(true)}
-                    />
-                  )}
-
-                  {/* Navigation. The final step owns the send-timing actions
-                      and the send button, so its footer only navigates back. */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6 md:p-8 lg:p-10 border-t border-border">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={handleBack}
-                      disabled={currentStep === 1 || isBootstrappingCampaign}
-                      className="rounded-xl transition-all duration-300 disabled:opacity-50"
-                    >
-                      <ArrowLeftIcon
-                        aria-hidden="true"
-                        className="mr-2 h-4 w-4"
+                        {bootstrapError && (
+                          <div className="mt-4">
+                            <Button
+                              type="button"
+                              onClick={() => {
+                                setBootstrapError(null);
+                                isBootstrappingInFlightRef.current = false;
+                              }}
+                              className="rounded-xl"
+                            >
+                              Retry
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {currentStep === 1 && (
+                      <AudienceStep
+                        form={form}
+                        campaignId={campaignId}
+                        canSync={
+                          Boolean(campaignId) &&
+                          hasHydratedCampaign &&
+                          !isHydratingCampaign &&
+                          !isBootstrappingCampaign &&
+                          // Don't autosync over an audience/tracking load that
+                          // failed and left the form at empty defaults.
+                          audienceHydrationOk
+                        }
+                        tags={audienceTagsQuery.data ?? []}
+                        segments={audienceSegmentsQuery.data ?? []}
+                        segmentsLoading={audienceSegmentsQuery.isLoading}
+                        segmentsError={
+                          audienceSegmentsQuery.error instanceof Error
+                            ? audienceSegmentsQuery.error.message
+                            : null
+                        }
                       />
-                      Back
-                    </Button>
+                    )}
+                    {currentStep === 2 && (
+                      <TemplateStep
+                        form={form}
+                        campaignId={campaignId}
+                        verifiedSenderIdentities={verifiedSenderIdentities}
+                        senderIdentitiesLoading={
+                          senderIdentitiesQuery.isLoading
+                        }
+                        canSendEmail={canSendEmail}
+                      />
+                    )}
+                    {currentStep === 3 && (
+                      <CampaignPreviewStep
+                        form={form}
+                        campaignId={campaignId}
+                        canLaunch={
+                          canLaunchCampaigns &&
+                          !isBootstrappingCampaign &&
+                          // Launch saves content + template from the form; block
+                          // until the saved content loaded successfully so a
+                          // launch can't persist an empty over it.
+                          !isHydratingCampaign &&
+                          contentHydrationOk
+                        }
+                        onSchedule={() => setScheduleDialogOpen(true)}
+                      />
+                    )}
 
-                    {currentStep < TOTAL_STEPS ? (
+                    {/* Navigation. The final step owns the send-timing actions
+                      and the send button, so its footer only navigates back. */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6 md:p-8 lg:p-10 border-t border-border">
                       <Button
                         type="button"
-                        onClick={handleNext}
-                        disabled={
-                          !campaignId ||
-                          isBootstrappingCampaign ||
-                          isHydratingCampaign ||
-                          // Continue persists from the form (audience on step
-                          // 1, content on step 2), so block until the load it
-                          // would overwrite succeeded.
-                          (currentStep === 1
-                            ? !audienceHydrationOk
-                            : !contentHydrationOk)
-                        }
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-5 md:px-8 transition-all duration-300 ease-in-out hover:shadow-lg"
+                        variant="ghost"
+                        onClick={handleBack}
+                        disabled={currentStep === 1 || isBootstrappingCampaign}
+                        className="rounded-xl transition-all duration-300 disabled:opacity-50"
                       >
-                        Continue
-                        <ArrowRightIcon
+                        <ArrowLeftIcon
                           aria-hidden="true"
-                          className="ml-2 h-4 w-4"
+                          className="mr-2 h-4 w-4"
                         />
+                        Back
                       </Button>
-                    ) : null}
-                  </div>
 
-                  <ScheduleSendDialog
-                    form={form}
-                    open={scheduleDialogOpen}
-                    onOpenChange={setScheduleDialogOpen}
-                    onConfirm={() => {
-                      // The dialog stores the date/time; sending now happens
-                      // on this same step, so only flip the send option — the
-                      // send button reads it and becomes "Schedule campaign".
-                      form.setValue("sendOption", "schedule", {
-                        shouldDirty: true,
-                      });
-                    }}
-                  />
-                </>
-              ) : (
-                <ConfirmationPage
-                  sendOption={sendOption}
-                  scheduleDate={scheduleDate}
-                  scheduleTime={scheduleTime}
-                  timezone={timezone}
+                      {currentStep < TOTAL_STEPS ? (
+                        <Button
+                          type="button"
+                          onClick={handleNext}
+                          disabled={
+                            !campaignId ||
+                            isBootstrappingCampaign ||
+                            isHydratingCampaign ||
+                            // Continue persists from the form (audience on step
+                            // 1, content on step 2), so block until the load it
+                            // would overwrite succeeded.
+                            (currentStep === 1
+                              ? !audienceHydrationOk
+                              : !contentHydrationOk)
+                          }
+                          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-5 md:px-8 transition-all duration-300 ease-in-out hover:shadow-lg"
+                        >
+                          Continue
+                          <ArrowRightIcon
+                            aria-hidden="true"
+                            className="ml-2 h-4 w-4"
+                          />
+                        </Button>
+                      ) : null}
+                    </div>
+
+                    <ScheduleSendDialog
+                      form={form}
+                      open={scheduleDialogOpen}
+                      onOpenChange={setScheduleDialogOpen}
+                      onConfirm={() => {
+                        // The dialog stores the date/time; sending now happens
+                        // on this same step, so only flip the send option — the
+                        // send button reads it and becomes "Schedule campaign".
+                        form.setValue("sendOption", "schedule", {
+                          shouldDirty: true,
+                        });
+                      }}
+                    />
+                  </div>
+                </div>
+                <WizardSummary
+                  campaignName={wizSummary.campaignName}
+                  channel={wizSummary.channel}
+                  sender={wizSummary.sender}
+                  template={wizSummary.template}
+                  delivery={wizSummary.delivery}
                 />
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="mx-auto max-w-3xl">
+                <div className="rounded-2xl border border-border bg-card shadow-sm transition-all duration-300">
+                  <ConfirmationPage
+                    sendOption={sendOption}
+                    scheduleDate={scheduleDate}
+                    scheduleTime={scheduleTime}
+                    timezone={timezone}
+                  />
+                </div>
+              </div>
+            )}
           </form>
         </Form>
       </div>

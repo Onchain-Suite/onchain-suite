@@ -57,11 +57,12 @@ export function TeamCard() {
 
   const inviteMutation = useMutation({
     mutationFn: async () => {
+      if (!organizationId) throw new Error("No organization selected");
       const email = draft.email.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         throw new Error("Enter a valid email address");
       }
-      return organizationMembersService.createInvite(organizationId!, {
+      return organizationMembersService.createInvite(organizationId, {
         email,
         role: draft.role,
       });
@@ -77,10 +78,14 @@ export function TeamCard() {
   });
 
   const roleMutation = useMutation({
-    mutationFn: (input: { userId: string; role: AssignableRole }) =>
-      organizationMembersService.updateMember(organizationId!, input.userId, {
-        role: input.role,
-      }),
+    mutationFn: (input: { userId: string; role: AssignableRole }) => {
+      if (!organizationId) throw new Error("No organization selected");
+      return organizationMembersService.updateMember(
+        organizationId,
+        input.userId,
+        { role: input.role }
+      );
+    },
     onSuccess: async () => {
       await invalidate();
       toast.success("Role updated");
@@ -90,8 +95,10 @@ export function TeamCard() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (userId: string) =>
-      organizationMembersService.removeMember(organizationId!, userId),
+    mutationFn: (userId: string) => {
+      if (!organizationId) throw new Error("No organization selected");
+      return organizationMembersService.removeMember(organizationId, userId);
+    },
     onSuccess: async () => {
       await invalidate();
       toast.success("Member removed");
@@ -101,8 +108,10 @@ export function TeamCard() {
   });
 
   const resendMutation = useMutation({
-    mutationFn: (inviteId: string) =>
-      organizationMembersService.resendInvite(organizationId!, inviteId),
+    mutationFn: (inviteId: string) => {
+      if (!organizationId) throw new Error("No organization selected");
+      return organizationMembersService.resendInvite(organizationId, inviteId);
+    },
     onSuccess: () => toast.success("Invite resent"),
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Failed to resend invite"),

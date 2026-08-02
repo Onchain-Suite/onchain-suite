@@ -2,7 +2,6 @@
 
 import {
   ArrowRightOnRectangleIcon,
-  CheckIcon,
   ChevronUpDownIcon,
   Cog6ToothIcon,
   UserIcon,
@@ -14,7 +13,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -29,7 +27,6 @@ import {
 
 import { signOut } from "@/lib/auth-client";
 import { getAvatarColor, getInitials, isValidImageUrl } from "@/lib/user-utils";
-import { cn } from "@/lib/utils";
 
 import { useOrgSwitcherContext } from "./org-switcher-context";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
@@ -55,14 +52,7 @@ export function NavUserMenu({
   const router = useRouter();
   const { isMobile } = useSidebar();
   const [imgError, setImgError] = useState(false);
-  const {
-    organizations,
-    activeOrg,
-    confirmedActiveOrgId,
-    isLoading,
-    isMounted,
-    switchOrg,
-  } = useOrgSwitcherContext();
+  const { activeOrg, isLoading, isMounted } = useOrgSwitcherContext();
 
   const displayName = fullName && fullName.length > 0 ? fullName : "User";
   const initials = fullName ? getInitials(fullName) : "U";
@@ -126,46 +116,6 @@ export function NavUserMenu({
             <DropdownMenuLabel className="font-normal">
               <p className="text-sm leading-none font-medium">{displayName}</p>
             </DropdownMenuLabel>
-
-            {organizations.length > 0 ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="px-2 py-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Workspaces
-                </DropdownMenuLabel>
-                <DropdownMenuGroup>
-                  {organizations.map((org) => (
-                    <DropdownMenuItem
-                      key={org.id}
-                      onSelect={() => switchOrg(org.id)}
-                      className="cursor-pointer"
-                    >
-                      <Avatar className="mr-2 size-6 ring-1 ring-border/50">
-                        {(org.logo ?? org.logoUrl) ? (
-                          <AvatarImage
-                            src={org.logo ?? org.logoUrl}
-                            alt={org.name}
-                          />
-                        ) : null}
-                        <AvatarFallback className="text-[10px]">
-                          {org.name.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="truncate">{org.name}</span>
-                      <CheckIcon
-                        aria-hidden="true"
-                        className={cn(
-                          "ml-auto size-4 text-primary",
-                          confirmedActiveOrgId === org.id
-                            ? "opacity-100"
-                            : "opacity-0"
-                        )}
-                      />
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuGroup>
-              </>
-            ) : null}
 
             <DropdownMenuSeparator />
             <DropdownMenuItem

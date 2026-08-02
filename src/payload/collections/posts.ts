@@ -17,6 +17,7 @@ import {
 import { blogBlocks } from "@/payload/blocks";
 import { slugField } from "@/payload/fields/slug";
 import { enforceDraftOnly } from "@/payload/hooks/enforce-draft-only";
+import { organizePostMedia } from "@/payload/hooks/organize-post-media";
 import {
   revalidatePostAfterChange,
   revalidatePostAfterDelete,
@@ -65,7 +66,10 @@ export const Posts: CollectionConfig = {
   hooks: {
     // Runs before access-controlled writes land: keeps editors on drafts.
     beforeChange: [enforceDraftOnly],
-    afterChange: [revalidatePostAfterChange],
+    // Order matters: filing media rewrites Cloudinary public ids, and therefore
+    // image URLs, so it has to finish before the page is revalidated — otherwise
+    // the freshly cached HTML would carry the pre-move URLs.
+    afterChange: [organizePostMedia, revalidatePostAfterChange],
     afterDelete: [revalidatePostAfterDelete],
   },
   fields: [

@@ -87,6 +87,19 @@ export default buildConfig({
           // Cloudinary is the only copy; nothing is written to local disk,
           // which serverless deploys would lose on every cold start anyway.
           disableLocalStorage: true,
+          // Make media `url` values point straight at Cloudinary instead of at
+          // /cms-api/media/file/<filename>.
+          //
+          // Two reasons. Performance: without this every blog image is a 302
+          // through our own server before reaching the CDN — a hop and a
+          // serverless invocation per image. Correctness: it makes the plugin
+          // derive the URL from `cloudinaryPublicId` on every read, so when an
+          // asset is filed into a post's folder its URL follows automatically
+          // rather than going stale.
+          //
+          // Safe because these assets are already public: media.read is
+          // `publicRead`, since blog images are served to anonymous visitors.
+          disablePayloadAccessControl: true,
         },
       },
     }),

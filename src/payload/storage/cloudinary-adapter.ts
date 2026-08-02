@@ -7,6 +7,12 @@ import type {
 } from "@payloadcms/plugin-cloud-storage/types";
 import { v2 as cloudinary } from "cloudinary";
 
+import { configureCloudinary } from "@/payload/storage/cloudinary-client";
+import {
+  folderFor,
+  UNASSIGNED_SEGMENT,
+} from "@/payload/storage/cloudinary-folders";
+
 /**
  * Cloudinary storage adapter for Payload's first-party
  * `@payloadcms/plugin-cloud-storage`.
@@ -22,8 +28,15 @@ import { v2 as cloudinary } from "cloudinary";
  * media lands on the same host as the rest of the site's imagery.
  */
 
-/** Folder all Payload-managed blog assets live under, inside the Cloudinary account. */
-const CLOUDINARY_FOLDER = "onchainsuite/blog";
+/**
+ * New uploads land in a holding folder, not directly in the blog root.
+ *
+ * The destination folder is a property of the *post*, and a post is not known at
+ * upload time — the upload drawer creates the media document on its own, usually
+ * before the post is saved. Assets are filed into `blog/<post-slug>/` when a post
+ * referencing them is saved; see src/payload/hooks/organize-post-media.ts.
+ */
+const UPLOAD_FOLDER = folderFor(UNASSIGNED_SEGMENT);
 
 type CloudinaryResourceType = "image" | "video" | "raw";
 
@@ -39,32 +52,17 @@ type CloudinaryDocumentData = {
   cloudinaryResourceType?: unknown;
 };
 
-let configured = false;
-
 /**
- * Configure the SDK lazily and exactly once. Doing this at module scope would
- * throw during `next build` on machines without Cloudinary credentials, which
- * would break builds that never touch an upload.
+ * Last-resort public id for a document that has none stored.
+ *
+ * Only correct for an asset still sitting in the holding folder: once a post
+ * claims it the folder changes, and nothing about the filename reveals that. The
+ * stored `cloudinaryPublicId` is always authoritative — this exists so a
+ * half-written document degrades to a wrong URL rather than a crash.
  */
-function configureCloudinary(): void {
-  if (configured) {
-    return;
-  }
-
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-    secure: true,
-  });
-
-  configured = true;
-}
-
-/** Cloudinary public IDs carry no file extension for image/video resources. */
-function publicIdFromFilename(filename: string): string {
+function fallbackPublicId(filename: string): string {
   const withoutExtension = filename.replace(/\.[^./]+$/, "");
-  return `${CLOUDINARY_FOLDER}/${withoutExtension}`;
+  return `${UPLOAD_FOLDER}/${withoutExtension}`;
 }
 
 function readString(value: unknown): string | undefined {
@@ -79,7 +77,7 @@ function readString(value: unknown): string | undefined {
 function resolvePublicId(data: unknown, filename: string): string {
   return (
     readString((data as CloudinaryDocumentData | null)?.cloudinaryPublicId) ??
-    publicIdFromFilename(filename)
+    fallbackPublicId(filename)
   );
 }
 
@@ -98,7 +96,7 @@ const handleUpload: HandleUpload = async ({ data, file }) => {
     (resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
-          folder: CLOUDINARY_FOLDER,
+          folder: UPLOAD_FOLDER,
           // `auto` lets Cloudinary route images, video and raw files correctly.
           resource_type: "auto",
           // Payload already guarantees a unique filename per document, so
@@ -149,15 +147,49 @@ const generateURL: GenerateURL = ({ data, filename }) =>
   });
 
 /**
- * Redirect rather than proxy. Streaming bytes through our own server would add
- * a hop, burn serverless execution time and defeat Cloudinary's CDN edge
- * caching for no benefit — these assets are public by design.
+ * Serves `/cms-api/media/file/<filename>` by redirecting to Cloudinary.
+ *
+ * With `disablePayloadAccessControl` enabled in payload.config.ts, media `url`
+ * values point straight at Cloudinary, so this route is no longer on the hot
+ * path — it only answers direct hits on the Payload file URL.
+ *
+ * The public id is looked up from the document rather than derived from the
+ * filename. Deriving it only ever worked while every asset sat in one flat
+ * folder: assets are now filed per post, and a filename says nothing about which
+ * folder claimed it.
+ *
+ * Redirect rather than proxy — streaming bytes through our own server would add
+ * a hop, burn serverless execution time and defeat Cloudinary's CDN edge caching
+ * for no benefit. These assets are public by design.
  */
-const staticHandler: StaticHandler = (_req, { params }) => {
+const staticHandler: StaticHandler = async (req, { params }) => {
   configureCloudinary();
 
+  let publicId = fallbackPublicId(params.filename);
+  let resourceType: CloudinaryResourceType = "image";
+
+  try {
+    const found = await req.payload.find({
+      collection: params.collection as "media",
+      depth: 0,
+      limit: 1,
+      overrideAccess: true,
+      pagination: false,
+      where: { filename: { equals: params.filename } },
+    });
+
+    const [doc] = found.docs;
+    if (doc) {
+      publicId = resolvePublicId(doc, params.filename);
+      resourceType = resolveResourceType(doc);
+    }
+  } catch {
+    // Fall through to the filename-derived id. A redirect that might 404 is
+    // still better than a 500 on an image request.
+  }
+
   return Response.redirect(
-    cloudinary.url(publicIdFromFilename(params.filename), { secure: true }),
+    cloudinary.url(publicId, { resource_type: resourceType, secure: true }),
     302
   );
 };

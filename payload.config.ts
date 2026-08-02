@@ -37,6 +37,13 @@ export default buildConfig({
     meta: {
       titleSuffix: "· OnchainSuite CMS",
     },
+    components: {
+      // Adds a show/hide toggle to Payload's password inputs, which are built
+      // into its auth views and cannot be customised through collection config.
+      providers: [
+        "@/payload/components/password-visibility-provider#PasswordVisibilityProvider",
+      ],
+    },
   },
   collections: [Posts, Categories, Media, Users],
   editor: lexicalEditor(),

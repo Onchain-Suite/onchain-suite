@@ -26,7 +26,6 @@ import {
   addEdge,
   Background,
   type Connection,
-  ConnectionLineType,
   Controls,
   type Edge,
   MarkerType,
@@ -60,6 +59,11 @@ import {
   type OnchainCatalogDefinition,
 } from "../../automation.service";
 import { Confetti } from "../confetti";
+import {
+  AddableEdge,
+  EdgeInsertContext,
+  type EdgeInsertTarget,
+} from "./addable-edge";
 import { AutoGrowTextarea } from "./auto-grow-textarea";
 import {
   BranchNode,
@@ -150,6 +154,11 @@ const nodeTypes = {
   segment_entered: TriggerNode,
   email_opened: TriggerNode,
   health_threshold: TriggerNode,
+};
+
+/** Custom edge with an inline "+" to insert a step between two nodes. */
+const edgeTypes = {
+  addable: AddableEdge,
 };
 
 /**
@@ -632,6 +641,8 @@ const CreateAutomationContent = () => {
     y: number;
     sourceNode?: string;
   }>({ show: false, x: 0, y: 0 });
+  // The edge whose "+" was clicked, and where to float the insert palette.
+  const [insertMenu, setInsertMenu] = useState<EdgeInsertTarget | null>(null);
   const [jsonFieldDrafts, setJsonFieldDrafts] = useState<
     Record<string, string>
   >({});
@@ -654,7 +665,12 @@ const CreateAutomationContent = () => {
         ? (payload as Record<string, unknown>)
         : null;
       const nextNodes = pickArray(record?.nodes) as Node[];
-      const nextEdges = pickArray(record?.edges) as Edge[];
+      // Force every loaded edge to the "addable" renderer so the inline "+"
+      // insert affordance shows on flows loaded from a template or the backend.
+      const nextEdges = (pickArray(record?.edges) as Edge[]).map((edge) => ({
+        ...edge,
+        type: "addable",
+      }));
       setNodes(nextNodes);
       setEdges(nextEdges);
       if (record) {
@@ -1743,7 +1759,7 @@ const CreateAutomationContent = () => {
         addEdge(
           {
             ...params,
-            type: ConnectionLineType.SmoothStep,
+            type: "addable",
             animated: true,
             style: { stroke: edgeColor, strokeWidth: 2.5 },
             markerEnd: {
@@ -1904,6 +1920,49 @@ const CreateAutomationContent = () => {
       };
       loadSchema().catch(() => undefined);
     }
+  };
+
+  // Insert an action node that splits the clicked edge (source → new → target).
+  const insertNodeOnEdge = (
+    target: EdgeInsertTarget,
+    type: string,
+    label: string
+  ) => {
+    const { rendererType, data } = resolveNodeShape(type, label);
+    const newId = `${type}-${Date.now()}`;
+    const srcNode = nodes.find((n) => n.id === target.source);
+    const tgtNode = nodes.find((n) => n.id === target.target);
+    const position =
+      srcNode && tgtNode
+        ? {
+            x: (srcNode.position.x + tgtNode.position.x) / 2,
+            y: (srcNode.position.y + tgtNode.position.y) / 2,
+          }
+        : autoLayoutNodes(nodes, {
+            id: newId,
+            type: rendererType,
+            position: { x: 0, y: 0 },
+            data,
+          });
+    const newNode: Node = { id: newId, type: rendererType, position, data };
+    const color = EDGE_COLORS.default;
+    const mkEdge = (source: string, dest: string): Edge => ({
+      id: `e-${source}-${dest}-${newId}`,
+      source,
+      target: dest,
+      type: "addable",
+      animated: true,
+      style: { stroke: color, strokeWidth: 2.5 },
+      markerEnd: { type: MarkerType.ArrowClosed, color },
+    });
+    setNodes((nds) => nds.concat(newNode));
+    setEdges((eds) => [
+      ...eds.filter((e) => e.id !== target.edgeId),
+      mkEdge(target.source, newId),
+      mkEdge(newId, target.target),
+    ]);
+    setSelectedNode(newId);
+    setInsertMenu(null);
   };
 
   const statusToggleMutation = useMutation({
@@ -2222,41 +2281,44 @@ const CreateAutomationContent = () => {
                 )}
               </button>
 
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                nodeTypes={nodeTypes}
-                onNodeClick={handleNodeClick}
-                onPaneClick={handlePaneClick}
-                onDragOver={onDragOver}
-                onDrop={onDrop}
-                defaultEdgeOptions={{
-                  type: ConnectionLineType.SmoothStep,
-                  animated: true,
-                  style: { stroke: EDGE_COLORS.default, strokeWidth: 2.5 },
-                }}
-                connectionLineStyle={{
-                  stroke: EDGE_COLORS.default,
-                  strokeWidth: 2.5,
-                }}
-                snapToGrid
-                snapGrid={[24, 24]}
-                fitView
-              >
-                <Background
-                  color="rgba(120,130,160,0.18)"
-                  gap={24}
-                  size={1.2}
-                />
-                <Controls className="overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-sm [&_button]:border-border [&_button]:bg-card [&_button]:text-foreground [&_button:hover]:bg-muted" />
-                <MiniMap
-                  className="rounded-lg border border-border bg-card"
-                  maskColor="rgba(120,130,160,0.18)"
-                />
-              </ReactFlow>
+              <EdgeInsertContext.Provider value={setInsertMenu}>
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  onConnect={onConnect}
+                  nodeTypes={nodeTypes}
+                  onNodeClick={handleNodeClick}
+                  onPaneClick={handlePaneClick}
+                  onDragOver={onDragOver}
+                  onDrop={onDrop}
+                  edgeTypes={edgeTypes}
+                  defaultEdgeOptions={{
+                    type: "addable",
+                    animated: true,
+                    style: { stroke: EDGE_COLORS.default, strokeWidth: 2.5 },
+                  }}
+                  connectionLineStyle={{
+                    stroke: EDGE_COLORS.default,
+                    strokeWidth: 2.5,
+                  }}
+                  snapToGrid
+                  snapGrid={[24, 24]}
+                  fitView
+                >
+                  <Background
+                    color="rgba(120,130,160,0.18)"
+                    gap={24}
+                    size={1.2}
+                  />
+                  <Controls className="overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-sm [&_button]:border-border [&_button]:bg-card [&_button]:text-foreground [&_button:hover]:bg-muted" />
+                  <MiniMap
+                    className="rounded-lg border border-border bg-card"
+                    maskColor="rgba(120,130,160,0.18)"
+                  />
+                </ReactFlow>
+              </EdgeInsertContext.Provider>
 
               {!isNew && builderQuery.isLoading ? (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/50 px-6 backdrop-blur-[2px]">
@@ -2342,6 +2404,45 @@ const CreateAutomationContent = () => {
                   </div>
                 </div>
               )}
+
+              {/* Inline "+" insert palette, opened from an addable edge. */}
+              {insertMenu ? (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    aria-hidden="true"
+                    onClick={() => setInsertMenu(null)}
+                  />
+                  <div
+                    className="fixed z-40 w-64 rounded-2xl border border-border bg-card p-2 shadow-2xl"
+                    style={{
+                      left: `min(${insertMenu.x}px, calc(100vw - 17rem))`,
+                      top: `min(${insertMenu.y}px, calc(100vh - 20rem))`,
+                    }}
+                  >
+                    <p className="mb-2 px-2 pt-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                      Add step
+                    </p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {actionCatalog.map((node) => (
+                        <button
+                          key={node.type}
+                          type="button"
+                          onClick={() =>
+                            insertNodeOnEdge(insertMenu, node.type, node.label)
+                          }
+                          className="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                        >
+                          <span className="text-muted-foreground [&_svg]:h-5 [&_svg]:w-5">
+                            {node.icon}
+                          </span>
+                          <span className="line-clamp-1">{node.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : null}
             </div>
 
             {/* Properties Panel */}

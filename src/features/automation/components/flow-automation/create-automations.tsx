@@ -180,6 +180,26 @@ const NON_ONCHAIN_TRIGGER_TYPES = new Set([
 ]);
 
 /**
+ * Trigger `type`s that fire from on-chain activity — used to split the left
+ * palette into "On-chain triggers" vs "Off-chain triggers" (everything else in
+ * the trigger catalog, e.g. form_submitted / joined_list / segment_entered).
+ */
+const ON_CHAIN_TRIGGER_TYPES = new Set([
+  "onchain",
+  "trigger",
+  "onchain_event",
+  "holder_acquired",
+  "governance_activity",
+  "swap_completed",
+  "liquidity_added",
+  "borrow_opened",
+  "exchange_outflow",
+  "capital_withdrawn",
+  "liquidation_detected",
+  "approval_intent",
+]);
+
+/**
  * All canonical trigger `type`s (used to recognize a trigger node whether it was
  * created via drag — renderer key "trigger" — or loaded from a template, where
  * `node.type` is the canonical type like "holder_acquired").
@@ -407,6 +427,11 @@ const NODE_ACCENTS = {
     hover: "hover:border-sky-500/50",
     dot: "bg-sky-500",
   },
+  orange: {
+    tile: "border-orange-500/20 bg-orange-500/10 text-orange-600 dark:text-orange-400",
+    hover: "hover:border-orange-500/50",
+    dot: "bg-orange-500",
+  },
   indigo: {
     tile: "border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
     hover: "hover:border-indigo-500/50",
@@ -485,6 +510,97 @@ function NodeLibrarySection({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** A labeled on/off switch used in the flow-settings panel. */
+function FlowToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-sm text-foreground">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+          checked ? "bg-primary" : "bg-muted"
+        }`}
+      >
+        <span
+          aria-hidden="true"
+          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
+            checked ? "left-[18px]" : "left-0.5"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Right-panel flow-level settings, shown when no node is selected. Re-entry +
+ * the three guardrails are org-wide sending caps; local state until the builder
+ * settings contract lands.
+ */
+function FlowSettingsPanel() {
+  const [reentry, setReentry] = useState("never");
+  const [exitOnGoal, setExitOnGoal] = useState(true);
+  const [quietHours, setQuietHours] = useState(true);
+  const [frequencyCap, setFrequencyCap] = useState(true);
+  return (
+    <div className="hidden w-[344px] shrink-0 overflow-y-auto border-l border-border bg-card/60 p-6 md:block">
+      <h3 className="font-semibold tracking-tight text-foreground">
+        Flow settings
+      </h3>
+      <div className="mt-6 space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <label htmlFor="flow-reentry" className="text-sm text-foreground">
+            Re-entry
+          </label>
+          <select
+            id="flow-reentry"
+            value={reentry}
+            onChange={(e) => setReentry(e.target.value)}
+            className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
+          >
+            <option value="never">Never</option>
+            <option value="daily">Once per day</option>
+            <option value="weekly">Once per week</option>
+            <option value="always">Always</option>
+          </select>
+        </div>
+        <FlowToggle
+          label="Exit on goal"
+          checked={exitOnGoal}
+          onChange={setExitOnGoal}
+        />
+        <FlowToggle
+          label="Respect quiet hours"
+          checked={quietHours}
+          onChange={setQuietHours}
+        />
+        <FlowToggle
+          label="Max 1 message / 10h"
+          checked={frequencyCap}
+          onChange={setFrequencyCap}
+        />
+      </div>
+      <p className="mt-6 text-xs leading-5 text-muted-foreground">
+        These caps apply across all automations, so a wallet in three flows
+        still hears from you at most once per window. Select a node to configure
+        it.
+      </p>
     </div>
   );
 }
@@ -664,6 +780,16 @@ const CreateAutomationContent = () => {
   const filteredTriggerCatalog = useMemo(
     () => triggerCatalog.filter(matchesNodeSearch),
     [triggerCatalog, matchesNodeSearch]
+  );
+  const filteredOnchainTriggers = useMemo(
+    () =>
+      filteredTriggerCatalog.filter((t) => ON_CHAIN_TRIGGER_TYPES.has(t.type)),
+    [filteredTriggerCatalog]
+  );
+  const filteredOffchainTriggers = useMemo(
+    () =>
+      filteredTriggerCatalog.filter((t) => !ON_CHAIN_TRIGGER_TYPES.has(t.type)),
+    [filteredTriggerCatalog]
   );
   const filteredActionCatalog = useMemo(
     () => actionCatalog.filter(matchesNodeSearch),
@@ -1819,10 +1945,25 @@ const CreateAutomationContent = () => {
                 }
                 className="min-w-0 max-w-[60vw] rounded-md bg-transparent px-1 text-sm font-semibold tracking-tight text-foreground transition-colors hover:bg-muted/50 focus:bg-muted/50 focus:outline-none sm:max-w-none"
               />
-              <span className="flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-primary">
-                <CheckCircleIcon aria-hidden="true" className="h-3 w-3" />
-                {draftSaveMutation.isPending ? "Autosaving" : "Builder Ready"}
-              </span>
+              {draftSaveMutation.isPending ? (
+                <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Autosaving
+                </span>
+              ) : builderErrorCount > 0 ? (
+                <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5 rounded-full bg-amber-500"
+                  />
+                  {builderErrorCount}{" "}
+                  {builderErrorCount === 1 ? "step needs" : "steps need"} setup
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+                  <CheckCircleIcon aria-hidden="true" className="h-3 w-3" />
+                  Ready
+                </span>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
               {(() => {
@@ -1985,9 +2126,14 @@ const CreateAutomationContent = () => {
 
                   <div className="scrollbar-sleek flex-1 space-y-6 overflow-y-auto px-4 pb-5">
                     <NodeLibrarySection
-                      title="Triggers"
-                      accent="sky"
-                      nodes={filteredTriggerCatalog}
+                      title="On-chain triggers"
+                      accent="orange"
+                      nodes={filteredOnchainTriggers}
+                    />
+                    <NodeLibrarySection
+                      title="Off-chain triggers"
+                      accent="orange"
+                      nodes={filteredOffchainTriggers}
                     />
                     <NodeLibrarySection
                       title="Actions"
@@ -2865,6 +3011,7 @@ const CreateAutomationContent = () => {
                   </motion.div>
                 )}
             </AnimatePresence>
+            {!selectedNode ? <FlowSettingsPanel /> : null}
           </>
         ) : (
           /* Stats Tab Content */

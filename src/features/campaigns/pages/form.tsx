@@ -1789,11 +1789,15 @@ export function CreateCampaignPage() {
     const at = email.indexOf("@");
     const host = at >= 0 ? email.slice(at + 1).trim() : "";
     if (host.length > 0) return host;
-    const slug = (activeOrg?.slug ?? "").trim().toLowerCase();
-    if (slug.length > 0)
-      return slug.includes(".") ? slug : `${slug}.onchainsuite.com`;
+    // The org's own simple-name domain (e.g. "vault77.com"), never our
+    // platform host.
+    const slug = (activeOrg?.slug ?? activeOrg?.name ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9.-]/g, "");
+    if (slug.length > 0) return slug.includes(".") ? slug : `${slug}.com`;
     return "your-dapp.com";
-  }, [verifiedSenderIdentities, activeOrg?.slug]);
+  }, [verifiedSenderIdentities, activeOrg?.slug, activeOrg?.name]);
   const pushBrandMark = useMemo(() => {
     const name = (activeOrg?.name ?? "").trim();
     const initials = name

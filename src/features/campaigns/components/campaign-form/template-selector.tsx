@@ -10,7 +10,6 @@ import {
   PaperClipIcon,
   PencilIcon,
   PlusIcon,
-  SparklesIcon,
   Squares2X2Icon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
@@ -481,9 +480,29 @@ export function TemplateSelector({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-foreground">Templates</h2>
+    <div className="space-y-4">
+      {/* Templates heading + Library/Saved tabs share one row so the tabs sit
+          up top, inline with the Subject line on the left. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-base font-semibold text-foreground">Templates</h2>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as TabMode)}>
+            <TabsList className="bg-muted rounded-xl p-1 w-fit">
+              <TabsTrigger
+                value="library"
+                className="rounded-lg data-[state=active]:bg-background"
+              >
+                Email Library
+              </TabsTrigger>
+              <TabsTrigger
+                value="saved"
+                className="rounded-lg data-[state=active]:bg-background"
+              >
+                Email Saved
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
         <Button
           type="button"
           size="sm"
@@ -500,27 +519,6 @@ export function TemplateSelector({
           Create
         </Button>
       </div>
-
-      <Tabs
-        value={tab}
-        onValueChange={(v) => setTab(v as TabMode)}
-        className="w-full"
-      >
-        <TabsList className="bg-muted rounded-xl p-1 w-fit">
-          <TabsTrigger
-            value="library"
-            className="rounded-lg data-[state=active]:bg-background"
-          >
-            Email Library
-          </TabsTrigger>
-          <TabsTrigger
-            value="saved"
-            className="rounded-lg data-[state=active]:bg-background"
-          >
-            Email Saved
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative w-full flex-1">
@@ -607,25 +605,6 @@ export function TemplateSelector({
           />
         ) : tab === "library" ? (
           <div className="space-y-5">
-            <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6">
-              <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
-              <div className="relative flex items-start gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-sm">
-                  <SparklesIcon aria-hidden="true" className="h-5 w-5" />
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold text-foreground">
-                    World-class starter templates
-                  </h3>
-                  <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                    {LIBRARY_EMAIL_TEMPLATES.length} production-ready, on-brand
-                    emails built for onchain protocols — each with dynamic
-                    variables baked in. Preview any design below to get started.
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
               {LIBRARY_EMAIL_TEMPLATES.map((tpl) => (
                 <div

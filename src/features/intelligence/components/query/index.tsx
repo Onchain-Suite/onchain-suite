@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowDownTrayIcon,
   ArrowPathIcon,
   ArrowUturnLeftIcon,
   BoltIcon,
@@ -18,6 +19,7 @@ import {
   SparklesIcon,
   Square3Stack3DIcon,
   StopIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -1736,6 +1738,25 @@ export function QueryTab({
     const targetQuery = () => {
       if (forQueryId) setQueryId(forQueryId);
     };
+    const exportCsv = async () => {
+      if (!forQueryId) return;
+      try {
+        const { blob, filename } =
+          await intelligenceService.downloadQueryCsv(forQueryId);
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename || "intelligence-results.csv";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to export CSV"
+        );
+      }
+    };
     return (
       <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
         <div className="mb-3">
@@ -1747,7 +1768,42 @@ export function QueryTab({
             or campaign.
           </div>
         </div>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              targetQuery();
+              openNameDialog("segment");
+            }}
+            disabled={createSegmentMutation.isPending}
+            className="justify-start rounded-xl"
+          >
+            <UserGroupIcon aria-hidden="true" className="mr-2 h-4 w-4" />
+            Save as segment
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              targetQuery();
+              openNameDialog("campaign");
+            }}
+            disabled={createCampaignMutation.isPending}
+            className="justify-start rounded-xl"
+          >
+            <MegaphoneIcon aria-hidden="true" className="mr-2 h-4 w-4" />
+            Create campaign
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={exportCsv}
+            disabled={!forQueryId}
+            className="justify-start rounded-xl"
+          >
+            <ArrowDownTrayIcon aria-hidden="true" className="mr-2 h-4 w-4" />
+            Export CSV
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -1759,29 +1815,6 @@ export function QueryTab({
             className="justify-start rounded-xl"
           >
             Add to reports
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              targetQuery();
-              openNameDialog("segment");
-            }}
-            disabled={createSegmentMutation.isPending}
-            className="justify-start rounded-xl"
-          >
-            Create segment
-          </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              targetQuery();
-              openNameDialog("campaign");
-            }}
-            disabled={createCampaignMutation.isPending}
-            className="justify-start rounded-xl"
-          >
-            Launch campaign
           </Button>
         </div>
       </div>

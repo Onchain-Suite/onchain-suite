@@ -11,8 +11,12 @@ import {
   ClipboardDocumentIcon,
   ClockIcon,
   CodeBracketIcon,
+  EnvelopeOpenIcon,
+  LinkIcon,
+  MegaphoneIcon,
   PlayIcon,
   SparklesIcon,
+  Square3Stack3DIcon,
   StopIcon,
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -2714,46 +2718,63 @@ export function QueryTab({
                       Ask anything about onchain activity
                     </h2>
                     <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                      Trace token holders, compare wallets, analyze gas, or
-                      explain protocol activity.
+                      Trace token holders, compare wallets, analyze gas — or
+                      cross-chain behaviour with email, push and campaign
+                      engagement, in plain English.
                     </p>
 
                     <div className="mt-6 grid w-full max-w-xl gap-2.5 sm:grid-cols-2">
                       {[
                         {
                           title: "Top holders by token",
+                          kind: "on-chain" as const,
+                          icon: LinkIcon,
                           prompt:
                             "Show me the top 10 holders for this token contract.",
                         },
                         {
                           title: "Wallet balances across chains",
+                          kind: "on-chain" as const,
+                          icon: Square3Stack3DIcon,
                           prompt:
                             "Compare this wallet's balances across EVM and Solana.",
                         },
                         {
-                          title: "Recent transactions by wallet",
+                          title: "Wallets that opened but never clicked",
+                          kind: "off-chain" as const,
+                          icon: EnvelopeOpenIcon,
                           prompt:
-                            "List the most recent transactions for this wallet.",
+                            "Which wallets opened our last email but never clicked?",
                         },
                         {
-                          title: "Current gas snapshots",
+                          title: "Best-converting campaign by segment",
+                          kind: "off-chain" as const,
+                          icon: MegaphoneIcon,
                           prompt:
-                            "What are the current gas prices across major chains?",
+                            "Which campaign converted best, broken down by segment?",
                         },
-                      ].map((chip) => (
-                        <button
-                          key={chip.title}
-                          type="button"
-                          onClick={() => submitChatPrompt(chip.prompt)}
-                          className="group flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3 text-left text-sm text-foreground transition-colors hover:border-primary/30 hover:bg-primary/[0.06]"
-                        >
-                          <span>{chip.title}</span>
-                          <ChevronUpIcon
-                            className="h-4 w-4 rotate-45 text-muted-foreground transition-colors group-hover:text-primary"
-                            aria-hidden="true"
-                          />
-                        </button>
-                      ))}
+                      ].map((chip) => {
+                        const Icon = chip.icon;
+                        return (
+                          <button
+                            key={chip.title}
+                            type="button"
+                            onClick={() => submitChatPrompt(chip.prompt)}
+                            className="group flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3 text-left text-sm text-foreground transition-colors hover:border-primary/30 hover:bg-primary/[0.06]"
+                          >
+                            <span className="flex min-w-0 items-center gap-2.5">
+                              <Icon
+                                aria-hidden="true"
+                                className="h-4 w-4 shrink-0 text-muted-foreground"
+                              />
+                              <span className="min-w-0">{chip.title}</span>
+                            </span>
+                            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                              {chip.kind}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
 
                     <div className="mt-6 w-full max-w-xl overflow-hidden rounded-xl border border-border bg-card px-3 py-2">

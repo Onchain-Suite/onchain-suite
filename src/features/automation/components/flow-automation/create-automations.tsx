@@ -1906,6 +1906,21 @@ const CreateAutomationContent = () => {
     }
   };
 
+  const statusToggleMutation = useMutation({
+    mutationFn: async (nextStatus: "active" | "paused") => {
+      if (isNew || !automationId) {
+        throw new Error("Save the automation before activating it.");
+      }
+      return automationService.updateAutomationStatus(automationId, {
+        status: nextStatus,
+      });
+    },
+    onSuccess: (_res, nextStatus) => {
+      setAutomationData((prev) => ({ ...prev, status: nextStatus }));
+      queryClient.invalidateQueries({ queryKey: ["automations"] });
+    },
+  });
+
   const builderNodeCount = nodes.length;
   const builderConnectionCount = edges.length;
   const builderErrorCount = pickArray(
@@ -2052,6 +2067,41 @@ const CreateAutomationContent = () => {
             </button>
           ) : null}
 
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              {automationData.status === "active" ? "Active" : "Off"}
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={automationData.status === "active"}
+              aria-label={
+                automationData.status === "active"
+                  ? "Deactivate automation"
+                  : "Activate automation"
+              }
+              disabled={isNew || statusToggleMutation.isPending}
+              onClick={() =>
+                statusToggleMutation.mutate(
+                  automationData.status === "active" ? "paused" : "active"
+                )
+              }
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                automationData.status === "active"
+                  ? "bg-emerald-500"
+                  : "bg-muted"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                  automationData.status === "active"
+                    ? "left-[22px]"
+                    : "left-0.5"
+                }`}
+              />
+            </button>
+          </div>
           <button
             className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             onClick={() => {
@@ -2081,7 +2131,7 @@ const CreateAutomationContent = () => {
             ) : (
               <ArrowDownTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
             )}
-            Save Changes
+            Save draft
           </button>
         </div>
       </header>
@@ -2273,18 +2323,20 @@ const CreateAutomationContent = () => {
                     top: showNodeSelector.y,
                   }}
                 >
-                  <p className="mb-2 px-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                    Add Action
+                  <p className="mb-2 px-2 pt-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                    Add step
                   </p>
-                  <div className="space-y-1">
+                  <div className="grid grid-cols-2 gap-1">
                     {actionCatalog.map((node) => (
                       <button
                         key={node.type}
                         onClick={() => addNode(node.type, node.label)}
-                        className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted"
+                        className="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center text-xs font-medium text-foreground transition-colors hover:bg-muted"
                       >
-                        <div className="scale-75">{node.icon}</div>
-                        <span>{node.label}</span>
+                        <span className="text-muted-foreground [&_svg]:h-5 [&_svg]:w-5">
+                          {node.icon}
+                        </span>
+                        <span className="line-clamp-1">{node.label}</span>
                       </button>
                     ))}
                   </div>

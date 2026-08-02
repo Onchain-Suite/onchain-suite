@@ -11,6 +11,7 @@ import { getSelectedOrganizationId } from "@/lib/utils";
 
 import { fadeInUp } from "../../utils";
 import { SettingsCard, SettingsStepper } from "../settings-card";
+import { DeveloperApiCard } from "./developer-api";
 import InAppIntegration from "./inapp";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -159,6 +160,8 @@ export default function IntegrationsSettings() {
           </Button>
         </div>
       </SettingsCard>
+
+      <DeveloperApiCard />
 
       <Dialog open={manageKeysOpen} onOpenChange={setManageKeysOpen}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">

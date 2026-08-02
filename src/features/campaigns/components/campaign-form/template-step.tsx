@@ -105,7 +105,9 @@ export function TemplateStep({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      {/* Forms are compact; the template gallery needs the room to render
+          fitted thumbnails, so it gets the larger share. */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.75fr)]">
         <div>
           <EmailMessageForm
             form={form}

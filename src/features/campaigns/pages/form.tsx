@@ -1898,7 +1898,10 @@ export function CreateCampaignPage() {
           <form onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
             {!showConfirmation ? (
               <div className="grid gap-6 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,320px)] lg:gap-8">
-                <WizardStepRail currentStep={currentStep} />
+                <WizardStepRail
+                  currentStep={currentStep}
+                  onStepClick={setCurrentStep}
+                />
                 <div className="min-w-0">
                   <div className="rounded-2xl border border-border bg-card shadow-sm transition-all duration-300">
                     {!campaignId && (

@@ -481,7 +481,7 @@ export function TemplateSelector({
   };
 
   return (
-    <div className="space-y-6 p-5 sm:p-6">
+    <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary ring-1 ring-primary/20">
@@ -651,7 +651,7 @@ export function TemplateSelector({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {LIBRARY_EMAIL_TEMPLATES.map((tpl) => (
                 <div
                   key={tpl.id}
@@ -731,7 +731,7 @@ export function TemplateSelector({
           className={cn(
             "transition-all duration-300",
             viewMode === "grid"
-              ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+              ? "grid grid-cols-1 gap-4 sm:grid-cols-2"
               : "flex flex-col gap-1.5"
           )}
         >

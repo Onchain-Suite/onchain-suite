@@ -32,11 +32,15 @@ export interface DnsConflict {
   actions: DnsConflictAction[];
 }
 
+export type DomainPurpose = "transactional" | "marketing";
+
 export interface DomainDnsData {
   records: DnsRecordRow[];
   sendReady?: boolean;
   verificationStates: { check: string; state: string }[];
   fixes: string[];
+  /** Saved purpose — transactional → ACS, marketing → SES. */
+  purpose?: DomainPurpose;
 }
 
 const unwrap = (payload: unknown): unknown =>
@@ -184,5 +188,22 @@ export function parseDomainDns(payload: unknown): DomainDnsData {
         )
       : [];
 
-  return { records, sendReady, verificationStates, fixes };
+  // Saved purpose (or derive it from the routed provider: ses→marketing,
+  // acs→transactional) so the UI can pre-select the toggle.
+  const purposeRaw = isJsonObject(root)
+    ? str(root.purpose)?.toLowerCase()
+    : undefined;
+  const providerRaw = isJsonObject(root)
+    ? str(root.provider)?.toLowerCase()
+    : undefined;
+  const purpose: DomainPurpose | undefined =
+    purposeRaw === "transactional" || purposeRaw === "marketing"
+      ? purposeRaw
+      : providerRaw === "ses"
+        ? "marketing"
+        : providerRaw === "acs"
+          ? "transactional"
+          : undefined;
+
+  return { records, sendReady, verificationStates, fixes, purpose };
 }

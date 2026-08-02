@@ -11,7 +11,7 @@ import { apiClient } from "@/lib/api-client";
 import { cn, isJsonObject } from "@/lib/utils";
 
 import { SettingsCard, SettingsStepper, StatusPill } from "../settings-card";
-import { parseDomainDns } from "./domain-dns";
+import { type DomainPurpose, parseDomainDns } from "./domain-dns";
 import { useAccountOrg } from "./use-account-org";
 import {
   type SenderDomainRecord,
@@ -144,6 +144,28 @@ export function SenderVerificationCard() {
       ),
   });
 
+  // Marketing routes through SES, transactional through ACS — the backend
+  // re-scopes the DNS checklist to the chosen provider (PUT /domain/{id}/purpose).
+  const purposeMutation = useMutation({
+    mutationFn: (input: { domainId: string; purpose: DomainPurpose }) =>
+      apiClient.put(
+        `/domain/${input.domainId}/purpose`,
+        { purpose: input.purpose },
+        { headers: orgHeaders }
+      ),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["account", "domain-dns"] }),
+        queryClient.invalidateQueries({ queryKey: domainsKey(organizationId) }),
+      ]);
+      toast.success("Sending purpose updated — DNS records re-scoped");
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update purpose"
+      ),
+  });
+
   return (
     <SettingsCard
       title="Sender verification"
@@ -230,6 +252,10 @@ export function SenderVerificationCard() {
                       data={dnsQuery.data}
                       onRecheck={() => recheckMutation.mutate(domain.id)}
                       rechecking={recheckMutation.isPending}
+                      onSetPurpose={(purpose) =>
+                        purposeMutation.mutate({ domainId: domain.id, purpose })
+                      }
+                      purposeSaving={purposeMutation.isPending}
                     />
                   </div>
                 ) : null}
@@ -247,11 +273,15 @@ function DomainDnsPanel({
   data,
   onRecheck,
   rechecking,
+  onSetPurpose,
+  purposeSaving,
 }: {
   loading: boolean;
   data: ReturnType<typeof parseDomainDns> | undefined;
   onRecheck: () => void;
   rechecking: boolean;
+  onSetPurpose: (purpose: DomainPurpose) => void;
+  purposeSaving: boolean;
 }) {
   if (loading || !data) {
     return (
@@ -268,6 +298,44 @@ function DomainDnsPanel({
 
   return (
     <div className="space-y-4">
+      {/* What's this domain for? — picks the provider (SES vs ACS) and, with it,
+          the exact DNS records to publish. */}
+      <div>
+        <div className="text-sm font-medium text-foreground">
+          What&apos;s this domain for?
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Transactional email routes through Azure ACS; marketing through Amazon
+          SES. This decides which DNS records you publish below.
+        </p>
+        <div className="mt-2 inline-flex rounded-lg border border-border/70 bg-background/60 p-1">
+          {(
+            [
+              { key: "transactional" as const, label: "Transactional · ACS" },
+              { key: "marketing" as const, label: "Marketing · SES" },
+            ] satisfies { key: DomainPurpose; label: string }[]
+          ).map((opt) => {
+            const active = data.purpose === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                disabled={purposeSaving || active}
+                onClick={() => onSetPurpose(opt.key)}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm transition-colors disabled:cursor-default",
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {data.sendReady !== undefined || data.verificationStates.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill tone={data.sendReady ? "success" : "pending"}>

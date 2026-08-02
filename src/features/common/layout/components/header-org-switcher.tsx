@@ -60,12 +60,12 @@ export function HeaderOrgSwitcher() {
               {initialsOf(name)}
             </AvatarFallback>
           </Avatar>
-          <span className="hidden min-w-0 truncate font-medium text-foreground sm:block">
+          <span className="hidden min-w-0 flex-1 truncate text-left font-medium text-foreground sm:block">
             {isLoading ? "Switching…" : name}
           </span>
           <ChevronDownIcon
             aria-hidden="true"
-            className="size-4 shrink-0 text-muted-foreground"
+            className="size-4 shrink-0 text-muted-foreground sm:ml-1"
           />
         </button>
       </DropdownMenuTrigger>

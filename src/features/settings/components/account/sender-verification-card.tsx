@@ -191,7 +191,7 @@ export function SenderVerificationCard() {
             id="sending-domain"
             value={domainInput}
             onChange={(e) => setDomainInput(e.target.value)}
-            placeholder="mail.vault77.com"
+            placeholder="mail.yourdomain.com"
           />
         </div>
         <Button

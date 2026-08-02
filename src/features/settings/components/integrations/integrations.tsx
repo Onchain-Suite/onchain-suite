@@ -58,7 +58,7 @@ export default function IntegrationsSettings() {
   const generateSnippet = () => {
     const origin = normalizeOrigin(dappOrigin);
     if (!origin) {
-      toast.error("Enter the domain your dApp runs on, e.g. app.vault77.com");
+      toast.error("Enter the domain your dApp runs on, e.g. app.yourdapp.com");
       return;
     }
     setSnippet(
@@ -106,7 +106,7 @@ export default function IntegrationsSettings() {
               setDappOrigin(e.target.value);
               setSnippet(null);
             }}
-            placeholder="app.vault77.com"
+            placeholder="app.yourdapp.com"
           />
           <p className="text-xs text-muted-foreground">
             The domain your dApp runs on. The SDK is rejected anywhere else, so
@@ -142,7 +142,7 @@ export default function IntegrationsSettings() {
             id="bundle-id"
             value={bundleId}
             onChange={(e) => setBundleId(e.target.value)}
-            placeholder="com.vault77.app"
+            placeholder="com.yourcompany.app"
           />
           <p className="text-xs text-muted-foreground">
             Must match the app you ship to the App Store and Play Store — the OS

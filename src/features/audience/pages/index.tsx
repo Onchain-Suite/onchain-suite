@@ -5,9 +5,11 @@ import {
   ArrowUpTrayIcon,
   AtSymbolIcon,
   CheckIcon,
+  ChevronRightIcon,
   ClipboardDocumentIcon,
   DevicePhoneMobileIcon,
   EnvelopeIcon,
+  PlusIcon,
   ShieldCheckIcon,
   SignalIcon,
   Squares2X2Icon,
@@ -22,12 +24,14 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
-import { cn } from "@/lib/utils";
+import { cn, isJsonObject } from "@/lib/utils";
 
-import type { AudienceProfile } from "../audience.service";
+import type { AudienceProfile, AudienceSegment } from "../audience.service";
 import { audienceService } from "../audience.service";
 import { ApplyTagsPopover } from "../components/apply-tags-popover";
 import {
@@ -131,6 +135,31 @@ function ReachTile({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Read a list's display metadata. `type`/`source`/`reachableVia` aren't in the
+ * segments API yet (see docs/audience-backend-needs.md §2), so this reads them
+ * when present and falls back to sensible defaults.
+ */
+function listMeta(seg: AudienceSegment): {
+  type: "growing" | "static";
+  source: string;
+  reachable: string[];
+} {
+  const type: "growing" | "static" =
+    seg.type === "static" ? "static" : "growing";
+  const sourceObj = isJsonObject(seg.source) ? seg.source : null;
+  const source =
+    typeof seg.source === "string" && seg.source.trim().length > 0
+      ? seg.source
+      : sourceObj && typeof sourceObj.label === "string"
+        ? sourceObj.label
+        : "Manual";
+  const reachable = Array.isArray(seg.reachableVia)
+    ? seg.reachableVia.filter((r): r is string => typeof r === "string")
+    : ["email"];
+  return { type, source, reachable };
+}
+
 export function AudiencePages() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -140,6 +169,11 @@ export function AudiencePages() {
   >("contacts");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Inline "New list" form (no modal, per convention).
+  const [creatingList, setCreatingList] = useState(false);
+  const [listName, setListName] = useState("");
+  const [listType, setListType] = useState<"growing" | "static">("growing");
   const [composeOpen, setComposeOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -269,6 +303,17 @@ export function AudiencePages() {
     },
   });
 
+  const createListMutation = useMutation({
+    mutationFn: (input: { name: string; type: "growing" | "static" }) =>
+      audienceService.createSegment(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audience", "segments"] });
+      setCreatingList(false);
+      setListName("");
+      setListType("growing");
+    },
+  });
+
   const toggleOne = (id: string) =>
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -362,39 +407,47 @@ export function AudiencePages() {
         ))}
       </section>
 
-      <div
-        role="tablist"
-        aria-label="Audience segments"
-        className="flex flex-wrap items-center gap-2"
-      >
-        {tabs.map((tab) => {
-          const active = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "rounded-lg border px-3 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none",
-                active
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {tab.label}
-              <span
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div
+          role="tablist"
+          aria-label="Audience segments"
+          className="flex flex-wrap items-center gap-2"
+        >
+          {tabs.map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveTab(tab.key)}
                 className={cn(
-                  "ml-1.5 tabular-nums",
-                  active ? "text-primary" : "text-muted-foreground/70"
+                  "rounded-lg border px-3 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none",
+                  active
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border bg-card text-muted-foreground hover:text-foreground"
                 )}
               >
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
+                {tab.label}
+                <span
+                  className={cn(
+                    "ml-1.5 tabular-nums",
+                    active ? "text-primary" : "text-muted-foreground/70"
+                  )}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {activeTab === "lists" && !creatingList ? (
+          <Button size="sm" onClick={() => setCreatingList(true)}>
+            <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
+            New list
+          </Button>
+        ) : null}
       </div>
 
       {activeTab === "contacts" ? (
@@ -662,28 +715,178 @@ export function AudiencePages() {
           ) : null}
         </div>
       ) : activeTab === "lists" ? (
-        <div className="space-y-3">
-          {segments.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-              No lists yet — save a segment to reuse it across campaigns.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {segments.map((seg) => (
-                <div
-                  key={seg.id}
-                  className="rounded-xl border border-border bg-card p-4"
-                >
-                  <p className="font-medium text-foreground">{seg.name}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {typeof seg.count === "number"
-                      ? `${seg.count.toLocaleString()} contacts`
-                      : "Segment"}
-                  </p>
+        <div className="space-y-4">
+          {/* Inline New-list form — no modal. */}
+          {creatingList ? (
+            <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+              <p className="text-sm font-semibold text-foreground">New list</p>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="new-list-name"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Name
+                  </label>
+                  <Input
+                    id="new-list-name"
+                    autoFocus
+                    value={listName}
+                    onChange={(e) => setListName(e.target.value)}
+                    placeholder="e.g. Newsletter subscribers"
+                    className="h-10 rounded-lg"
+                  />
                 </div>
-              ))}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="new-list-type"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    Type
+                  </label>
+                  <select
+                    id="new-list-type"
+                    value={listType}
+                    onChange={(e) =>
+                      setListType(e.target.value as "growing" | "static")
+                    }
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  >
+                    <option value="growing">Growing</option>
+                    <option value="static">Static</option>
+                  </select>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Growing lists keep gaining members from forms and rules. Static
+                lists are a fixed set.
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={createListMutation.isPending}
+                  onClick={() => {
+                    setCreatingList(false);
+                    setListName("");
+                    setListType("growing");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={createListMutation.isPending}
+                  onClick={() => {
+                    const name = listName.trim();
+                    if (name.length === 0) {
+                      toast.error("Name your list.");
+                      return;
+                    }
+                    createListMutation.mutate({ name, type: listType });
+                  }}
+                >
+                  {createListMutation.isPending ? "Creating…" : "Create list"}
+                </Button>
+              </div>
             </div>
-          )}
+          ) : null}
+
+          {segments.length === 0 && !creatingList ? (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
+              No lists yet — create one, or save a segment to reuse it across
+              campaigns.
+            </div>
+          ) : segments.length > 0 ? (
+            <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <th className="px-5 py-3 font-medium">List</th>
+                    <th className="px-4 py-3 font-medium">Source</th>
+                    <th className="px-4 py-3 font-medium">Type</th>
+                    <th className="px-4 py-3 font-medium">Reachable via</th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      Contacts
+                    </th>
+                    <th className="px-4 py-3 font-medium">Updated</th>
+                    <th className="w-8 py-3" aria-hidden="true" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {segments.map((seg) => {
+                    const meta = listMeta(seg);
+                    return (
+                      <tr
+                        key={seg.id}
+                        className="border-b border-border last:border-0"
+                      >
+                        <td className="px-5 py-4 font-medium text-foreground">
+                          {seg.name}
+                        </td>
+                        <td className="px-4 py-4 text-muted-foreground">
+                          {meta.source}
+                        </td>
+                        <td className="px-4 py-4">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium",
+                              meta.type === "growing"
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                : "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "size-1.5 rounded-full",
+                                meta.type === "growing"
+                                  ? "bg-emerald-500"
+                                  : "bg-muted-foreground"
+                              )}
+                            />
+                            {meta.type === "growing" ? "Growing" : "Static"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className="flex items-center gap-1.5 text-muted-foreground">
+                            {meta.reachable.includes("email") ? (
+                              <EnvelopeIcon
+                                className="size-4"
+                                aria-hidden="true"
+                              />
+                            ) : null}
+                            {meta.reachable.includes("push") ? (
+                              <DevicePhoneMobileIcon
+                                className="size-4"
+                                aria-hidden="true"
+                              />
+                            ) : null}
+                            {meta.reachable.length === 0 ? "—" : null}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-right tabular-nums text-foreground">
+                          {typeof seg.count === "number"
+                            ? seg.count.toLocaleString()
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
+                          {seg.updatedAt
+                            ? formatRelativeTime(seg.updatedAt)
+                            : "—"}
+                        </td>
+                        <td className="py-4 pr-3 text-right">
+                          <ChevronRightIcon
+                            className="size-4 text-muted-foreground"
+                            aria-hidden="true"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
       ) : activeTab === "tags" ? (
         <div className="space-y-3">

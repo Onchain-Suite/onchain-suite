@@ -205,9 +205,9 @@ export function TemplateSelector({
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [tab, setTab] = useState<TabMode>("library");
   const [sortMode, setSortMode] = useState<SortMode>("used");
-  const [channelFilter, setChannelFilter] = useState<ChannelFilter>(
-    channel === "in-app-push" ? "inapp" : "email"
-  );
+  // Templates follow the campaign's channel — no manual override UI.
+  const channelFilter: ChannelFilter =
+    channel === "in-app-push" ? "inapp" : "email";
   const [templateSearch, setTemplateSearch] = useState("");
   const [recents, setRecents] = useState<Record<string, number>>({});
   const [htmlCache, setHtmlCache] = useState<Record<string, string>>({});
@@ -482,36 +482,23 @@ export function TemplateSelector({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary ring-1 ring-primary/20">
-            <Squares2X2Icon aria-hidden="true" className="h-4 w-4" />
-          </span>
-          <div>
-            <h2 className="text-lg font-semibold leading-tight text-foreground">
-              Templates
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Pick a design or craft your own
-            </p>
-          </div>
-        </div>
-        <div className="flex w-full items-center gap-2 sm:w-auto sm:justify-end">
-          <Button
-            type="button"
-            onClick={() => {
-              const suggested = String(
-                form.getValues("emailSubject") ?? ""
-              ).trim();
-              setCreateName(suggested);
-              setCreateOpen(true);
-            }}
-            className="rounded-xl bg-primary text-primary-foreground shadow-sm transition-all duration-300 hover:bg-primary/90"
-          >
-            <PlusIcon aria-hidden="true" className="h-4 w-4" />
-            Create
-          </Button>
-        </div>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold text-foreground">Templates</h2>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            const suggested = String(
+              form.getValues("emailSubject") ?? ""
+            ).trim();
+            setCreateName(suggested);
+            setCreateOpen(true);
+          }}
+          className="rounded-xl bg-primary text-primary-foreground shadow-sm transition-all duration-300 hover:bg-primary/90"
+        >
+          <PlusIcon aria-hidden="true" className="h-4 w-4" />
+          Create
+        </Button>
       </div>
 
       <Tabs
@@ -576,18 +563,6 @@ export function TemplateSelector({
             </Button>
           </div>
           <Select
-            value={channelFilter}
-            onValueChange={(v) => setChannelFilter(v as ChannelFilter)}
-          >
-            <SelectTrigger className="h-10 w-[150px] rounded-xl border-border bg-background">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="email">Email templates</SelectItem>
-              <SelectItem value="inapp">Push templates</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select
             value={sortMode}
             onValueChange={(v) => setSortMode(v as SortMode)}
           >
@@ -651,7 +626,7 @@ export function TemplateSelector({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
               {LIBRARY_EMAIL_TEMPLATES.map((tpl) => (
                 <div
                   key={tpl.id}
@@ -666,7 +641,7 @@ export function TemplateSelector({
                       {tpl.category}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 border-t border-border px-4 py-3">
+                  <div className="flex items-center gap-2 border-t border-border px-3 py-2">
                     <div className="min-w-0 flex-1">
                       <h3 className="truncate text-sm font-semibold text-foreground">
                         {tpl.name}
@@ -731,7 +706,7 @@ export function TemplateSelector({
           className={cn(
             "transition-all duration-300",
             viewMode === "grid"
-              ? "grid grid-cols-1 gap-4 sm:grid-cols-2"
+              ? "grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3"
               : "flex flex-col gap-1.5"
           )}
         >
@@ -946,7 +921,7 @@ export function TemplateSelector({
                     </div>
                   ) : null}
                 </div>
-                <div className="flex items-center gap-2 border-t border-border px-4 py-3">
+                <div className="flex items-center gap-2 border-t border-border px-3 py-2">
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate text-sm font-semibold text-foreground">
                       {temp.title}

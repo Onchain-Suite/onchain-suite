@@ -6,21 +6,24 @@
 export function WizardSummary({
   estimatedRecipients,
   estimateLabel = "Estimated recipients",
-  channel,
-  sender,
-  template,
-  delivery,
-  smartSending,
+  channel = "",
+  sender = "",
+  template = "",
+  delivery = "",
+  smartSending = false,
+  rows: rowsOverride,
 }: {
   estimatedRecipients?: number | null;
   estimateLabel?: string;
-  channel: string;
-  sender: string;
-  template: string;
-  delivery: string;
-  smartSending: boolean;
+  channel?: string;
+  sender?: string;
+  template?: string;
+  delivery?: string;
+  smartSending?: boolean;
+  /** Fully overrides the config rows (e.g. in-app push shows different ones). */
+  rows?: { label: string; value: string }[];
 }) {
-  const rows: { label: string; value: string }[] = [
+  const rows: { label: string; value: string }[] = rowsOverride ?? [
     { label: "Channel", value: channel },
     { label: "Sender", value: sender },
     { label: "Template", value: template },

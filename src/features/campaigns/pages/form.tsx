@@ -4,6 +4,7 @@ import {
   ArrowLeftIcon,
   ArrowPathIcon,
   ArrowRightIcon,
+  BeakerIcon,
   CheckIcon,
   ClockIcon,
   ExclamationTriangleIcon,
@@ -48,7 +49,11 @@ import {
 import { campaignsService } from "@/features/campaigns/campaigns.service";
 import { AudienceStep } from "@/features/campaigns/components/campaign-form/audience-step";
 import { ConfirmationPage } from "@/features/campaigns/components/campaign-form/campaign-confirmation";
-import { ScheduleSendDialog } from "@/features/campaigns/components/campaign-form/schedule-send-dialog";
+import {
+  InAppMessageStep,
+  InAppPreview,
+} from "@/features/campaigns/components/campaign-form/in-app-message-step";
+import { InlineSchedule } from "@/features/campaigns/components/campaign-form/inline-schedule";
 import { TemplateStep } from "@/features/campaigns/components/campaign-form/template-step";
 import { WizardStepRail } from "@/features/campaigns/components/campaign-form/wizard-step-rail";
 import { WizardSummary } from "@/features/campaigns/components/campaign-form/wizard-summary";
@@ -126,6 +131,17 @@ const persistCampaignContent = async (
   campaignId: string,
   data: CampaignFormData
 ): Promise<void> => {
+  // In-app push carries its own composer — persist the notification (the only
+  // fields the backend stores today) instead of the email content/template.
+  if (data.channel === "in-app-push") {
+    await campaignsService.setPushContent(campaignId, {
+      title: (data.emailSubject ?? "").trim(),
+      body: (data.pushBody ?? "").trim(),
+      ctaLabel: (data.pushCtaLabel ?? "").trim() || undefined,
+      ctaUrl: (data.pushCtaUrl ?? "").trim() || undefined,
+    });
+    return;
+  }
   await campaignsService.updateContent(campaignId, {
     subject: data.emailSubject,
     previewText: data.previewText,
@@ -301,26 +317,64 @@ const asSendOption = (
     : undefined;
 };
 
-/**
- * srcDoc email preview that grows to the rendered email's height (about:srcdoc
- * Compact by design: a fixed-height window that scrolls internally, so a long
- * template stays a small preview on the send step instead of a full-height
- * render that dominates the page. The iframe is same-origin, so its own
- * document provides the scrollbar.
- */
-const PREVIEW_FRAME_HEIGHT = 720;
-
 function EmailPreviewFrame({ html }: { html: string }) {
+  // Emails are authored at a fixed 600px design width. Instead of letting that
+  // 600px table overflow a narrower preview column, render at 600px and scale
+  // the whole frame down to the container width so it ALWAYS fits. The rendered
+  // height is measured from the content (same-origin, scripts still blocked) so
+  // the frame hugs the email with no letterboxing.
+  const BASE_WIDTH = 600;
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [scale, setScale] = useState(1);
+  const [contentHeight, setContentHeight] = useState(BASE_WIDTH);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.clientWidth;
+      // Cap at 1 so we never upscale (blurry) — only shrink to fit.
+      if (w > 0) setScale(Math.min(1, w / BASE_WIDTH));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const measure = () => {
+    try {
+      const h = iframeRef.current?.contentDocument?.body?.scrollHeight;
+      if (h && h > 0) setContentHeight(h);
+    } catch {
+      // Shouldn't happen for srcDoc; keep the fallback height.
+    }
+  };
+
   return (
-    <iframe
-      title="Email HTML preview"
-      srcDoc={html}
-      // Empty sandbox: the rendered template gets no scripts, no same-origin
-      // access, and no way to reach the parent page or session.
-      sandbox=""
-      className="w-full bg-white"
-      style={{ border: "none", height: PREVIEW_FRAME_HEIGHT }}
-    />
+    <div
+      ref={wrapRef}
+      className="w-full overflow-hidden bg-white"
+      style={{ height: Math.round(contentHeight * scale) }}
+    >
+      <iframe
+        ref={iframeRef}
+        title="Email HTML preview"
+        srcDoc={html}
+        onLoad={measure}
+        // allow-same-origin (no allow-scripts) lets us read the rendered height
+        // to size the frame; scripts in the template still can't run.
+        sandbox="allow-same-origin"
+        style={{
+          width: BASE_WIDTH,
+          height: contentHeight,
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+          border: "none",
+        }}
+      />
+    </div>
   );
 }
 
@@ -336,17 +390,17 @@ function ReviewRow({
   onEdit?: () => void;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 p-4">
-      <div className="flex min-w-0 items-start gap-3">
+    <div className="flex items-start justify-between gap-3 px-4 py-2.5">
+      <div className="flex min-w-0 items-start gap-2.5">
         <span
           aria-hidden="true"
-          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+          className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
         >
-          <CheckIcon className="h-3 w-3" />
+          <CheckIcon className="h-2.5 w-2.5" />
         </span>
         <div className="min-w-0">
           <div className="text-sm font-medium text-foreground">{label}</div>
-          <div className="truncate text-sm text-muted-foreground">{value}</div>
+          <div className="truncate text-xs text-muted-foreground">{value}</div>
         </div>
       </div>
       {onEdit ? (
@@ -366,19 +420,23 @@ function CampaignPreviewStep({
   form,
   campaignId,
   canLaunch,
-  onSchedule,
   onEditStep,
+  estimatedRecipients,
+  appDomain,
 }: {
   form: UseFormReturn<CampaignFormData>;
   campaignId?: string;
   canLaunch: boolean;
-  /** Opens the schedule dialog; omitted for channels that can't schedule. */
-  onSchedule?: () => void;
   /** Jumps the wizard back to an earlier step from the review checklist. */
   onEditStep?: (step: number) => void;
+  /** Live recipient estimate from the audience step, for the "N recipients" copy. */
+  estimatedRecipients?: number | null;
+  /** Org verified domain, shown in the in-app notification preview. */
+  appDomain?: string;
 }) {
   const [testRecipient, setTestRecipient] = useState("");
   const [isSendingTest, setIsSendingTest] = useState(false);
+  const [showTestField, setShowTestField] = useState(false);
 
   const handleSendTest = async () => {
     const to = testRecipient.trim();
@@ -398,7 +456,6 @@ function CampaignPreviewStep({
       setIsSendingTest(false);
     }
   };
-  const [tab, setTab] = useState<"html" | "text">("html");
 
   const normalizedCampaignId = useMemo(() => {
     return campaignId && campaignId.trim().length > 0 ? campaignId.trim() : "";
@@ -499,37 +556,7 @@ function CampaignPreviewStep({
     retry: false,
   });
 
-  // Push campaigns have no rendered email — preview the saved push variant
-  // instead (GET /campaigns/{id}/editor/content returns `push`).
-  const pushPreviewQuery = useQuery({
-    queryKey: [
-      "campaigns",
-      "push-preview",
-      normalizedCampaignId,
-      selectedTemplateId,
-    ],
-    queryFn: () => campaignsService.getEditorContent(normalizedCampaignId),
-    enabled: normalizedCampaignId.length > 0 && isPush,
-    retry: false,
-  });
-
-  const pushPreview = useMemo(() => {
-    const raw = pushPreviewQuery.data as unknown;
-    const obj = isJsonObject(raw) ? raw : {};
-    const push = isJsonObject(obj.push) ? obj.push : null;
-    if (!push) return null;
-    const title = typeof push.title === "string" ? push.title : "";
-    const body = typeof push.body === "string" ? push.body : "";
-    if (title.trim().length === 0 && body.trim().length === 0) return null;
-    return {
-      title,
-      body,
-      ctaLabel: typeof push.ctaLabel === "string" ? push.ctaLabel : "",
-    };
-  }, [pushPreviewQuery.data]);
-
   const previewHtml = previewQuery.data?.html ?? "";
-  const previewText = previewQuery.data?.text ?? "";
   const previewMissingFields = previewQuery.data?.missingFields ?? [];
   const previewErrorMessage =
     previewQuery.error instanceof Error
@@ -538,6 +565,27 @@ function CampaignPreviewStep({
 
   const values = form.watch();
   const isScheduled = values.sendOption === "schedule";
+
+  // Prefer the live recipient estimate over the raw count of selected sources —
+  // "3 recipients" reads better than "1 audience source".
+  const est = estimatedRecipients ?? null;
+  const recipientLabel =
+    est !== null
+      ? `${est.toLocaleString()} ${
+          isPush
+            ? est === 1
+              ? "wallet"
+              : "wallets"
+            : est === 1
+              ? "recipient"
+              : "recipients"
+        }`
+      : isPush
+        ? "Wallet-reachable contacts"
+        : "Your selected audience";
+  const audienceSummary = `${recipientLabel}${
+    values.smartSending ? " · smart sending" : ""
+  }`;
   const timezone =
     typeof values.timezone === "string" && values.timezone.length > 0
       ? values.timezone
@@ -589,9 +637,7 @@ function CampaignPreviewStep({
             <div className="mt-3 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
               <ReviewRow
                 label="Audience"
-                value={`${values.selectedAudiences?.length ?? 0} source${
-                  (values.selectedAudiences?.length ?? 0) === 1 ? "" : "s"
-                }${isPush ? " · wallet-reachable" : ""}`}
+                value={audienceSummary}
                 onEdit={onEditStep ? () => onEditStep(1) : undefined}
               />
               <ReviewRow
@@ -610,11 +656,7 @@ function CampaignPreviewStep({
                   onEdit={onEditStep ? () => onEditStep(2) : undefined}
                 />
               ) : null}
-              <ReviewRow
-                label="Delivery"
-                value={scheduleLabel}
-                onEdit={!isPush && onSchedule ? () => onSchedule() : undefined}
-              />
+              <ReviewRow label="Delivery" value={scheduleLabel} />
               <ReviewRow
                 label="Tracking"
                 value={
@@ -672,13 +714,16 @@ function CampaignPreviewStep({
                 </span>
               </button>
 
-              {!isPush && onSchedule ? (
+              {!isPush ? (
                 <button
                   type="button"
-                  onClick={onSchedule}
-                  disabled={!normalizedCampaignId}
+                  onClick={() =>
+                    form.setValue("sendOption", "schedule", {
+                      shouldDirty: true,
+                    })
+                  }
                   className={cn(
-                    "flex items-start gap-3 rounded-2xl border p-4 text-left transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60",
+                    "flex items-start gap-3 rounded-2xl border p-4 text-left transition-all duration-200",
                     isScheduled
                       ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                       : "border-border bg-card hover:border-primary/40"
@@ -712,6 +757,7 @@ function CampaignPreviewStep({
                 </div>
               )}
             </div>
+            {!isPush && isScheduled ? <InlineSchedule form={form} /> : null}
           </div>
 
           {!isPush && previewMissingFields.length > 0 ? (
@@ -747,66 +793,71 @@ function CampaignPreviewStep({
           ) : null}
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center justify-between gap-3">
             <div className="text-sm font-medium text-foreground">
               {isPush ? "Notification preview" : "Inbox preview"}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {!isPush ? (
-                <>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={tab === "html" ? "default" : "outline"}
-                    className="rounded-xl"
-                    onClick={() => setTab("html")}
-                  >
-                    HTML
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={tab === "text" ? "default" : "outline"}
-                    className="rounded-xl"
-                    onClick={() => setTab("text")}
-                  >
-                    Plain text
-                  </Button>
-                </>
-              ) : null}
+            {/* Send a test reveals an inline field on click. */}
+            {!isPush ? (
+              <button
+                type="button"
+                onClick={() => setShowTestField((v) => !v)}
+                aria-expanded={showTestField}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                  showTestField
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-foreground hover:bg-muted"
+                )}
+              >
+                <BeakerIcon aria-hidden="true" className="h-4 w-4" />
+                Send a test
+              </button>
+            ) : null}
+          </div>
+
+          {/* Inline test field, revealed by the Send a test button. */}
+          {!isPush && showTestField ? (
+            <div className="mt-3 flex gap-2 rounded-xl border border-border bg-muted/30 p-2">
+              <Input
+                id="campaign-test-recipient"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                autoFocus
+                placeholder="you@example.com"
+                value={testRecipient}
+                onChange={(e) => setTestRecipient(e.target.value)}
+                disabled={!normalizedCampaignId || isSendingTest}
+                className="h-9 flex-1 rounded-lg"
+              />
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                className="rounded-xl"
+                className="h-9 shrink-0 rounded-lg"
                 disabled={
                   !normalizedCampaignId ||
-                  (isPush
-                    ? pushPreviewQuery.isFetching
-                    : previewQuery.isFetching)
+                  isSendingTest ||
+                  !isLikelyEmail(testRecipient)
                 }
-                onClick={() =>
-                  isPush ? pushPreviewQuery.refetch() : previewQuery.refetch()
-                }
+                onClick={handleSendTest}
               >
-                <ArrowPathIcon
-                  aria-hidden="true"
-                  className={cn(
-                    "h-4 w-4",
-                    (isPush
-                      ? pushPreviewQuery.isFetching
-                      : previewQuery.isFetching) && "animate-spin"
-                  )}
-                />
-                Refresh
+                {isSendingTest ? (
+                  <ArrowPathIcon
+                    aria-hidden="true"
+                    className="h-4 w-4 animate-spin"
+                  />
+                ) : (
+                  "Send test"
+                )}
               </Button>
             </div>
-          </div>
+          ) : null}
 
           {/* Envelope header — mirrors what lands in the inbox. */}
           {!isPush ? (
-            <dl className="mt-4 space-y-1 rounded-xl border border-border bg-muted/30 p-3 text-xs">
+            <dl className="mt-3 space-y-1 rounded-xl border border-border bg-muted/30 p-3 text-xs">
               <div className="flex gap-2">
                 <dt className="w-14 shrink-0 text-muted-foreground">From</dt>
                 <dd className="min-w-0 truncate text-foreground">
@@ -819,9 +870,7 @@ function CampaignPreviewStep({
               <div className="flex gap-2">
                 <dt className="w-14 shrink-0 text-muted-foreground">To</dt>
                 <dd className="min-w-0 truncate text-foreground">
-                  {`${values.selectedAudiences?.length ?? 0} audience source${
-                    (values.selectedAudiences?.length ?? 0) === 1 ? "" : "s"
-                  }`}
+                  {recipientLabel}
                 </dd>
               </div>
               <div className="flex gap-2">
@@ -833,102 +882,23 @@ function CampaignPreviewStep({
             </dl>
           ) : null}
 
-          {/* Send a test to one address before committing to the audience.
-              Email only — send-inapp has no test variant. */}
-          {!isPush ? (
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <Input
-                id="campaign-test-recipient"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                placeholder="Send a test to you@example.com"
-                value={testRecipient}
-                onChange={(e) => setTestRecipient(e.target.value)}
-                disabled={!normalizedCampaignId || isSendingTest}
-                className="h-10 rounded-xl sm:flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 shrink-0 rounded-xl"
-                disabled={
-                  !normalizedCampaignId ||
-                  isSendingTest ||
-                  !isLikelyEmail(testRecipient)
-                }
-                onClick={handleSendTest}
-              >
-                {isSendingTest ? (
-                  <>
-                    <ArrowPathIcon
-                      aria-hidden="true"
-                      className="mr-2 h-4 w-4 animate-spin"
-                    />
-                    Sending…
-                  </>
-                ) : (
-                  "Send test"
-                )}
-              </Button>
-            </div>
-          ) : null}
-
           <div className="mt-4 overflow-hidden rounded-xl border border-border">
             {!normalizedCampaignId ? (
               <div className="flex h-[720px] items-center justify-center bg-card p-6 text-center text-sm text-muted-foreground">
                 Missing campaign id.
               </div>
             ) : isPush ? (
-              pushPreviewQuery.isLoading ? (
-                <div
-                  className="flex h-[720px] animate-pulse flex-col items-center justify-center gap-3 bg-card p-6"
-                  aria-hidden="true"
-                >
-                  <div className="h-24 w-full max-w-sm rounded-xl bg-muted" />
-                </div>
-              ) : pushPreview ? (
-                <div className="flex h-[720px] items-center justify-center bg-muted/30 p-6">
-                  {/* Mock in-app notification card */}
-                  <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-4 shadow-lg">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
-                        <PaperAirplaneIcon
-                          aria-hidden="true"
-                          className="h-5 w-5"
-                        />
-                      </span>
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="text-sm font-semibold text-foreground">
-                          {pushPreview.title || "(no title)"}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {pushPreview.body || "(no body)"}
-                        </p>
-                        {pushPreview.ctaLabel ? (
-                          <div className="pt-2">
-                            <span className="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
-                              {pushPreview.ctaLabel}
-                            </span>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex h-[720px] items-center justify-center bg-card p-6 text-center">
-                  <div className="max-w-md space-y-2">
-                    <div className="text-sm font-medium text-foreground">
-                      No push content yet
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Select a push template on the previous step (or author
-                      push content in the editor), then refresh.
-                    </div>
-                  </div>
-                </div>
-              )
+              <div className="bg-muted/20 p-3">
+                <InAppPreview
+                  placement={values.pushPlacement ?? "modal"}
+                  title={values.emailSubject ?? ""}
+                  body={values.pushBody ?? ""}
+                  ctaLabel={values.pushCtaLabel ?? ""}
+                  accent={values.pushAccent ?? "#4f46e5"}
+                  dismissible={values.pushDismissible ?? true}
+                  domain={appDomain}
+                />
+              </div>
             ) : previewQuery.isLoading ? (
               <div
                 className="flex h-[720px] animate-pulse flex-col gap-3 bg-card p-6"
@@ -959,34 +929,26 @@ function CampaignPreviewStep({
                   </Button>
                 </div>
               </div>
-            ) : tab === "html" ? (
-              previewHtml.trim().length > 0 ? (
-                // Frame the email on a backdrop at a typical email width so it
-                // reads as the message itself, not a full-bleed panel.
-                <div className="flex justify-center overflow-auto bg-muted/30 p-4 sm:p-6">
-                  <div className="w-full max-w-[680px] overflow-hidden rounded-xl border border-border bg-white shadow-sm">
-                    <EmailPreviewFrame html={previewHtml} />
-                  </div>
+            ) : previewHtml.trim().length > 0 ? (
+              // The email fills the preview column so it reads as the message
+              // itself; scroll within the framed area for tall templates.
+              <div className="overflow-auto bg-muted/20 p-3">
+                <div className="mx-auto w-full overflow-hidden rounded-xl border border-border shadow-sm">
+                  <EmailPreviewFrame html={previewHtml} />
                 </div>
-              ) : (
-                <div className="flex h-[720px] items-center justify-center bg-card p-6 text-center">
-                  <div className="max-w-md space-y-2">
-                    <div className="text-sm font-medium text-foreground">
-                      No HTML preview available
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Select a template (or save content in the editor), then
-                      refresh the preview.
-                    </div>
-                  </div>
-                </div>
-              )
+              </div>
             ) : (
-              <pre className="h-[720px] overflow-auto bg-muted p-4 text-sm text-foreground whitespace-pre-wrap">
-                {previewText.length > 0
-                  ? previewText
-                  : "No text preview available."}
-              </pre>
+              <div className="flex h-[720px] items-center justify-center bg-card p-6 text-center">
+                <div className="max-w-md space-y-2">
+                  <div className="text-sm font-medium text-foreground">
+                    No preview available yet
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Pick a template on the Message step (or design one in the
+                    editor) to see it here.
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -1022,7 +984,6 @@ export function CreateCampaignPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   // Lifted from AudienceStep so the summary rail shows the estimate on every step.
   const [wizEstimate, setWizEstimate] = useState<number | null>(null);
-  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [campaignId, setCampaignId] = useState<string | undefined>(
     initialCampaignFromUrl
   );
@@ -1810,6 +1771,18 @@ export function CreateCampaignPage() {
 
   // Persistent right-column summary, kept in sync across steps.
   const wizIsPush = form.watch("channel") === "in-app-push";
+
+  // The org's verified domain (from its default sender identity) — shown in
+  // the in-app preview's mock browser instead of a hardcoded host.
+  const pushAppDomain = useMemo(() => {
+    const def =
+      verifiedSenderIdentities.find((i) => i.isDefault) ??
+      verifiedSenderIdentities[0];
+    const email = def?.email ?? "";
+    const at = email.indexOf("@");
+    const host = at >= 0 ? email.slice(at + 1).trim() : "";
+    return host.length > 0 ? host : "your-dapp.com";
+  }, [verifiedSenderIdentities]);
   const wizTemplate = form.watch("selectedTemplate") ?? "";
   const wizSummary = {
     campaignName: form.watch("campaignName") ?? "",
@@ -1823,6 +1796,33 @@ export function CreateCampaignPage() {
     template: wizTemplate.length > 0 ? wizTemplate : "—",
     delivery: sendOption === "schedule" ? "Scheduled" : "Send immediately",
   };
+
+  // In-app push surfaces different config than email (opens/expires vs
+  // sender/template) — override the summary rows for it.
+  const wizPushRows = wizIsPush
+    ? [
+        { label: "Channel", value: "In-app push" },
+        {
+          label: "Opens",
+          value: (form.watch("pushCtaUrl") ?? "").trim() || "—",
+        },
+        {
+          label: "Delivery",
+          value:
+            form.watch("pushDelivery") === "only-now"
+              ? "Immediately"
+              : "On next connect",
+        },
+        {
+          label: "Expires",
+          value: `${form.watch("pushExpiresDays") ?? "14"} days`,
+        },
+        {
+          label: "Smart sending",
+          value: form.watch("smartSending") ? "On" : "Off",
+        },
+      ]
+    : undefined;
 
   return (
     <div className="min-h-screen bg-background font-sans -mt-[20px] z-2">
@@ -1949,17 +1949,23 @@ export function CreateCampaignPage() {
                         onEstimateChange={setWizEstimate}
                       />
                     )}
-                    {currentStep === 2 && (
-                      <TemplateStep
-                        form={form}
-                        campaignId={campaignId}
-                        verifiedSenderIdentities={verifiedSenderIdentities}
-                        senderIdentitiesLoading={
-                          senderIdentitiesQuery.isLoading
-                        }
-                        canSendEmail={canSendEmail}
-                      />
-                    )}
+                    {currentStep === 2 &&
+                      (wizIsPush ? (
+                        <InAppMessageStep
+                          form={form}
+                          appDomain={pushAppDomain}
+                        />
+                      ) : (
+                        <TemplateStep
+                          form={form}
+                          campaignId={campaignId}
+                          verifiedSenderIdentities={verifiedSenderIdentities}
+                          senderIdentitiesLoading={
+                            senderIdentitiesQuery.isLoading
+                          }
+                          canSendEmail={canSendEmail}
+                        />
+                      ))}
                     {currentStep === 3 && (
                       <CampaignPreviewStep
                         form={form}
@@ -1973,14 +1979,15 @@ export function CreateCampaignPage() {
                           !isHydratingCampaign &&
                           contentHydrationOk
                         }
-                        onSchedule={() => setScheduleDialogOpen(true)}
                         onEditStep={setCurrentStep}
+                        estimatedRecipients={wizEstimate}
+                        appDomain={pushAppDomain}
                       />
                     )}
 
                     {/* Navigation. The final step owns the send-timing actions
                       and the send button, so its footer only navigates back. */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6 md:p-8 lg:p-10 border-t border-border">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-4 sm:px-6">
                       <Button
                         type="button"
                         variant="ghost"
@@ -2010,7 +2017,7 @@ export function CreateCampaignPage() {
                               ? !audienceHydrationOk
                               : !contentHydrationOk)
                           }
-                          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-5 md:px-8 transition-all duration-300 ease-in-out hover:shadow-lg"
+                          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-6 transition-all duration-300 ease-in-out hover:shadow-lg"
                         >
                           Continue
                           <ArrowRightIcon
@@ -2046,7 +2053,7 @@ export function CreateCampaignPage() {
                             <Button
                               type="submit"
                               disabled={!campaignId || !canSend || submitting}
-                              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-5 md:px-8 transition-all duration-300 ease-in-out hover:shadow-lg"
+                              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-6 transition-all duration-300 ease-in-out hover:shadow-lg"
                             >
                               {submitting ? (
                                 <>
@@ -2079,20 +2086,6 @@ export function CreateCampaignPage() {
                         })()
                       )}
                     </div>
-
-                    <ScheduleSendDialog
-                      form={form}
-                      open={scheduleDialogOpen}
-                      onOpenChange={setScheduleDialogOpen}
-                      onConfirm={() => {
-                        // The dialog stores the date/time; sending now happens
-                        // on this same step, so only flip the send option — the
-                        // send button reads it and becomes "Schedule campaign".
-                        form.setValue("sendOption", "schedule", {
-                          shouldDirty: true,
-                        });
-                      }}
-                    />
                   </div>
                 </div>
                 <WizardSummary
@@ -2100,6 +2093,7 @@ export function CreateCampaignPage() {
                   estimateLabel={
                     wizIsPush ? "Estimated wallets" : "Estimated recipients"
                   }
+                  rows={wizPushRows}
                   channel={wizSummary.channel}
                   sender={wizSummary.sender}
                   template={wizSummary.template}

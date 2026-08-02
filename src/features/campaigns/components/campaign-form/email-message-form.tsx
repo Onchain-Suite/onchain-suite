@@ -1,8 +1,5 @@
 "use client";
-import {
-  EnvelopeIcon,
-  ExclamationTriangleIcon,
-} from "@heroicons/react/24/outline";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import type { UseFormReturn } from "react-hook-form";
 
@@ -61,33 +58,19 @@ export function EmailMessageForm({
   };
 
   return (
-    <div className="space-y-6 p-6 md:p-8">
-      <div className="flex items-center gap-3 border-b border-border pb-5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary ring-1 ring-primary/20">
-          <EnvelopeIcon aria-hidden="true" className="h-4 w-4" />
-        </span>
-        <div>
-          <h3 className="text-lg leading-tight font-semibold text-foreground">
-            Email message
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            Sender, subject, and preview details
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-6">
       <FormField
         control={form.control}
         name="emailSubject"
         render={({ field }) => (
           <FormItem>
-            <FormLabel className="flex items-center gap-1 text-sm font-medium">
-              Subject line
-              <span className="text-destructive">*</span>
-            </FormLabel>
+            <FormLabel className="text-sm font-medium">Subject line</FormLabel>
             <FormControl>
               <SubjectLineInput value={field.value} onChange={field.onChange} />
             </FormControl>
+            <FormDescription>
+              Keep it under 60 characters so it doesn&apos;t truncate on mobile.
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}

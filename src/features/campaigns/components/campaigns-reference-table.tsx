@@ -210,9 +210,6 @@ export function CampaignsReferenceTable({
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onSelect(campaign)}>
-                        Open
-                      </DropdownMenuItem>
                       <DropdownMenuItem
                         variant="destructive"
                         onClick={() => onDelete(campaign)}

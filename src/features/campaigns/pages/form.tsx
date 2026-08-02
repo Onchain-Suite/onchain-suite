@@ -68,6 +68,7 @@ import {
 } from "@/features/campaigns/lib/audience-sync";
 import { parseSenderNotVerified } from "@/features/campaigns/lib/launch-errors";
 import type { List, Segment } from "@/features/campaigns/types";
+import { useOrgSwitcherContext } from "@/features/common/layout/components/org-switcher-context";
 import {
   type IntelligenceSegment,
   intelligenceService,
@@ -423,6 +424,7 @@ function CampaignPreviewStep({
   onEditStep,
   estimatedRecipients,
   appDomain,
+  brandMark,
 }: {
   form: UseFormReturn<CampaignFormData>;
   campaignId?: string;
@@ -433,6 +435,8 @@ function CampaignPreviewStep({
   estimatedRecipients?: number | null;
   /** Org verified domain, shown in the in-app notification preview. */
   appDomain?: string;
+  /** Org initials for the in-app notification badge. */
+  brandMark?: string;
 }) {
   const [testRecipient, setTestRecipient] = useState("");
   const [isSendingTest, setIsSendingTest] = useState(false);
@@ -897,6 +901,7 @@ function CampaignPreviewStep({
                   accent={values.pushAccent ?? "#4f46e5"}
                   dismissible={values.pushDismissible ?? true}
                   domain={appDomain}
+                  brandMark={brandMark}
                 />
               </div>
             ) : previewQuery.isLoading ? (
@@ -1772,8 +1777,10 @@ export function CreateCampaignPage() {
   // Persistent right-column summary, kept in sync across steps.
   const wizIsPush = form.watch("channel") === "in-app-push";
 
-  // The org's verified domain (from its default sender identity) — shown in
-  // the in-app preview's mock browser instead of a hardcoded host.
+  // Org identity for the in-app preview: verified sending domain first, else a
+  // slug-derived org domain — never a generic placeholder. The badge uses the
+  // org's initials instead of a hardcoded mark.
+  const { activeOrg } = useOrgSwitcherContext();
   const pushAppDomain = useMemo(() => {
     const def =
       verifiedSenderIdentities.find((i) => i.isDefault) ??
@@ -1781,8 +1788,23 @@ export function CreateCampaignPage() {
     const email = def?.email ?? "";
     const at = email.indexOf("@");
     const host = at >= 0 ? email.slice(at + 1).trim() : "";
-    return host.length > 0 ? host : "your-dapp.com";
-  }, [verifiedSenderIdentities]);
+    if (host.length > 0) return host;
+    const slug = (activeOrg?.slug ?? "").trim().toLowerCase();
+    if (slug.length > 0)
+      return slug.includes(".") ? slug : `${slug}.onchainsuite.com`;
+    return "your-dapp.com";
+  }, [verifiedSenderIdentities, activeOrg?.slug]);
+  const pushBrandMark = useMemo(() => {
+    const name = (activeOrg?.name ?? "").trim();
+    const initials = name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase();
+    return initials || "APP";
+  }, [activeOrg?.name]);
   const wizTemplate = form.watch("selectedTemplate") ?? "";
   const wizSummary = {
     campaignName: form.watch("campaignName") ?? "",
@@ -1897,7 +1919,7 @@ export function CreateCampaignPage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
             {!showConfirmation ? (
-              <div className="grid gap-6 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,320px)] lg:gap-8">
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,320px)] lg:items-start lg:gap-8">
                 <WizardStepRail
                   currentStep={currentStep}
                   onStepClick={setCurrentStep}
@@ -1954,6 +1976,7 @@ export function CreateCampaignPage() {
                         <InAppMessageStep
                           form={form}
                           appDomain={pushAppDomain}
+                          brandMark={pushBrandMark}
                         />
                       ) : (
                         <TemplateStep
@@ -1982,6 +2005,7 @@ export function CreateCampaignPage() {
                         onEditStep={setCurrentStep}
                         estimatedRecipients={wizEstimate}
                         appDomain={pushAppDomain}
+                        brandMark={pushBrandMark}
                       />
                     )}
 

@@ -1,10 +1,18 @@
 "use client";
 
 import {
-  ChevronRightIcon,
   DevicePhoneMobileIcon,
+  EllipsisVerticalIcon,
   EnvelopeIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/ui/dropdown-menu";
 
 import { cn } from "@/lib/utils";
 
@@ -109,10 +117,13 @@ function ChannelIcon({ children }: { children: React.ReactNode }) {
 export function CampaignsReferenceTable({
   data,
   onSelect,
+  onDelete,
 }: {
   data: Campaign[];
   /** Row click — opens the campaign detail drawer. */
   onSelect: (campaign: Campaign) => void;
+  /** Row menu — asks the list to confirm + delete the campaign. */
+  onDelete: (campaign: Campaign) => void;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -181,11 +192,36 @@ export function CampaignsReferenceTable({
                 <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
                   {formatWhen(campaign)}
                 </td>
-                <td className="py-4 pl-2 text-right">
-                  <ChevronRightIcon
-                    className="size-4 text-muted-foreground"
-                    aria-hidden="true"
-                  />
+                <td
+                  className="py-4 pl-2 text-right"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`Actions for ${campaign.name}`}
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <EllipsisVerticalIcon
+                          className="size-4"
+                          aria-hidden="true"
+                        />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onSelect(campaign)}>
+                        Open
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => onDelete(campaign)}
+                      >
+                        <TrashIcon className="size-4" aria-hidden="true" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </td>
               </tr>
             );

@@ -106,12 +106,14 @@ function NotificationCard({
   ctaLabel,
   accent,
   dismissible,
+  brandMark,
 }: {
   title: string;
   body: string;
   ctaLabel: string;
   accent: string;
   dismissible: boolean;
+  brandMark: string;
 }) {
   return (
     <div className="w-full rounded-xl border border-border bg-card p-4 shadow-lg">
@@ -120,7 +122,7 @@ function NotificationCard({
           className="flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-bold text-white"
           style={{ backgroundColor: accent }}
         >
-          V77
+          {brandMark}
         </span>
         {dismissible ? (
           <XMarkIcon
@@ -189,6 +191,7 @@ export function InAppPreview({
   accent,
   dismissible = true,
   domain = "your-dapp.com",
+  brandMark = "APP",
 }: {
   placement: PushPlacement;
   title: string;
@@ -198,6 +201,8 @@ export function InAppPreview({
   dismissible?: boolean;
   /** The org's verified domain shown in the mock browser chrome. */
   domain?: string;
+  /** Short brand mark (org initials) shown on the notification badge. */
+  brandMark?: string;
 }) {
   const card = (
     <NotificationCard
@@ -206,6 +211,7 @@ export function InAppPreview({
       ctaLabel={ctaLabel}
       accent={accent}
       dismissible={dismissible}
+      brandMark={brandMark}
     />
   );
 
@@ -218,7 +224,7 @@ export function InAppPreview({
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
               style={{ backgroundColor: accent }}
             >
-              V77
+              {brandMark}
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline justify-between gap-2">
@@ -279,6 +285,8 @@ export interface InAppMessageStepProps {
   form: UseFormReturn<CampaignFormData>;
   /** The org's verified domain, shown in the preview's mock browser chrome. */
   appDomain?: string;
+  /** Short brand mark (org initials) for the notification badge. */
+  brandMark?: string;
 }
 
 /**
@@ -290,6 +298,7 @@ export interface InAppMessageStepProps {
 export function InAppMessageStep({
   form,
   appDomain = "your-dapp.com",
+  brandMark = "APP",
 }: InAppMessageStepProps) {
   const placement = (form.watch("pushPlacement") ?? "modal") as PushPlacement;
   const title = form.watch("emailSubject") ?? "";
@@ -364,7 +373,7 @@ export function InAppMessageStep({
               <Input
                 value={title}
                 onChange={(e) => set("emailSubject", e.target.value)}
-                placeholder="Season 2 packs are live"
+                placeholder="Your notification title"
                 maxLength={placement === "mobile-push" ? 48 : 80}
                 className="h-10 rounded-xl pr-12"
               />
@@ -385,7 +394,7 @@ export function InAppMessageStep({
             <Textarea
               value={body}
               onChange={(e) => set("pushBody", e.target.value)}
-              placeholder="Collect Packs, earn Hammers, and take your shot at cracking the vault."
+              placeholder="Write your message…"
               rows={3}
               className="rounded-xl"
             />
@@ -397,7 +406,7 @@ export function InAppMessageStep({
               <Input
                 value={ctaUrl}
                 onChange={(e) => set("pushCtaUrl", e.target.value)}
-                placeholder="https://vault77.com/season-2"
+                placeholder="https://yourapp.com/page"
                 className="h-10 rounded-xl font-mono text-sm"
               />
               <p className="mt-1 text-xs text-muted-foreground">
@@ -413,7 +422,7 @@ export function InAppMessageStep({
                   <Input
                     value={ctaLabel}
                     onChange={(e) => set("pushCtaLabel", e.target.value)}
-                    placeholder="Open Vault77"
+                    placeholder="Open app"
                     className="h-10 rounded-xl"
                   />
                 </div>
@@ -422,7 +431,7 @@ export function InAppMessageStep({
                   <Input
                     value={ctaUrl}
                     onChange={(e) => set("pushCtaUrl", e.target.value)}
-                    placeholder="https://vault77.com/season-2"
+                    placeholder="https://yourapp.com/page"
                     className="h-10 rounded-xl font-mono text-sm"
                   />
                 </div>
@@ -631,6 +640,7 @@ export function InAppMessageStep({
             accent={accent}
             dismissible={dismissible}
             domain={appDomain}
+            brandMark={brandMark}
           />
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
             {previewBlurb(placement, frequency)}

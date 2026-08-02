@@ -1,13 +1,22 @@
 "use client";
 
 import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/ui/dialog";
 
-import { cn } from "@/lib/utils";
+import { cn, getSelectedOrganizationId } from "@/lib/utils";
 
 import { campaignsService } from "../campaigns.service";
 import { CampaignsAnalyticsOverview } from "../components/analytics-overview";
@@ -39,12 +48,29 @@ export function CampaignsListsView() {
     "all"
   );
   const [detailCampaign, setDetailCampaign] = useState<Campaign | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
+  const queryClient = useQueryClient();
 
   const campaignsQuery = useQuery({
     queryKey: ["campaigns", "list"],
     queryFn: () => campaignsService.listCampaigns({ page: 1, limit: 200 }),
     retry: false,
     refetchOnWindowFocus: false,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      campaignsService.deleteCampaign(
+        id,
+        getSelectedOrganizationId() ?? undefined
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["campaigns", "list"] });
+      toast.success("Campaign deleted");
+      setDeleteTarget(null);
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Couldn't delete campaign"),
   });
 
   const campaigns = useMemo(
@@ -214,6 +240,7 @@ export function CampaignsListsView() {
         <CampaignsReferenceTable
           data={filteredCampaigns}
           onSelect={setDetailCampaign}
+          onDelete={setDeleteTarget}
         />
       ) : campaigns.length > 0 ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
@@ -255,6 +282,46 @@ export function CampaignsListsView() {
           if (!o) setDetailCampaign(null);
         }}
       />
+
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(o) => {
+          if (!o && !deleteMutation.isPending) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete campaign</DialogTitle>
+            <DialogDescription>
+              Delete{" "}
+              <span className="font-medium text-foreground">
+                {deleteTarget?.name ?? "this campaign"}
+              </span>
+              ? This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleteMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="rounded-xl"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
+              }}
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete campaign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

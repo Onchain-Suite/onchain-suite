@@ -5,12 +5,26 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import InviteUser from "../invite-user";
-import { SettingsCard, StatusPill } from "../settings-card";
+import { apiClient } from "@/lib/api-client";
+
+import { SettingsCard } from "../settings-card";
 import { useAccountOrg } from "./use-account-org";
-import { organizationMembersService } from "@/features/settings/organization-members.service";
+import {
+  type AssignableRole,
+  organizationMembersService,
+} from "@/features/settings/organization-members.service";
 import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+
+const ROLES: AssignableRole[] = ["ADMIN", "EDITOR", "VIEWER"];
 
 const membersKey = (orgId: string | null) =>
   ["account", "members", orgId] as const;
@@ -18,7 +32,11 @@ const membersKey = (orgId: string | null) =>
 export function TeamCard() {
   const { organizationId } = useAccountOrg();
   const queryClient = useQueryClient();
-  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [draft, setDraft] = useState<{ email: string; role: AssignableRole }>({
+    email: "",
+    role: "EDITOR",
+  });
 
   const membersQuery = useQuery({
     queryKey: membersKey(organizationId),
@@ -37,6 +55,40 @@ export function TeamCard() {
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: membersKey(organizationId) });
 
+  const inviteMutation = useMutation({
+    mutationFn: async () => {
+      const email = draft.email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error("Enter a valid email address");
+      }
+      return organizationMembersService.createInvite(organizationId!, {
+        email,
+        role: draft.role,
+      });
+    },
+    onSuccess: async () => {
+      await invalidate();
+      setInviting(false);
+      setDraft({ email: "", role: "EDITOR" });
+      toast.success("Invite sent");
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Failed to send invite"),
+  });
+
+  const roleMutation = useMutation({
+    mutationFn: (input: { userId: string; role: AssignableRole }) =>
+      organizationMembersService.updateMember(organizationId!, input.userId, {
+        role: input.role,
+      }),
+    onSuccess: async () => {
+      await invalidate();
+      toast.success("Role updated");
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Failed to update role"),
+  });
+
   const removeMutation = useMutation({
     mutationFn: (userId: string) =>
       organizationMembersService.removeMember(organizationId!, userId),
@@ -48,12 +100,25 @@ export function TeamCard() {
       toast.error(e instanceof Error ? e.message : "Failed to remove member"),
   });
 
-  const cancelInviteMutation = useMutation({
+  const resendMutation = useMutation({
     mutationFn: (inviteId: string) =>
       organizationMembersService.resendInvite(organizationId!, inviteId),
     onSuccess: () => toast.success("Invite resent"),
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Failed to resend invite"),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (inviteId: string) =>
+      apiClient.delete(`/organizations/${organizationId}/invites/${inviteId}`, {
+        headers: { "x-org-id": organizationId ?? "" },
+      }),
+    onSuccess: async () => {
+      await invalidate();
+      toast.success("Invite cancelled");
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Failed to cancel invite"),
   });
 
   const members = membersQuery.data?.members ?? [];
@@ -66,16 +131,65 @@ export function TeamCard() {
       title="Team"
       description="Access and member roles"
       action={
-        <Button
-          size="sm"
-          onClick={() => setInviteOpen(true)}
-          disabled={!organizationId}
-        >
-          <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-          Invite member
-        </Button>
+        !inviting ? (
+          <Button
+            size="sm"
+            onClick={() => setInviting(true)}
+            disabled={!organizationId}
+          >
+            <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
+            Invite member
+          </Button>
+        ) : null
       }
     >
+      {inviting ? (
+        <form
+          className="mb-4 grid gap-3 rounded-xl border border-border/60 bg-background/40 p-4 sm:grid-cols-[1fr_auto]"
+          onSubmit={(e) => {
+            e.preventDefault();
+            inviteMutation.mutate();
+          }}
+        >
+          <Input
+            type="email"
+            value={draft.email}
+            onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))}
+            placeholder="teammate@company.com"
+          />
+          <Select
+            value={draft.role}
+            onValueChange={(v) =>
+              setDraft((d) => ({ ...d, role: v as AssignableRole }))
+            }
+          >
+            <SelectTrigger className="sm:w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ROLES.map((role) => (
+                <SelectItem key={role} value={role}>
+                  {role.charAt(0) + role.slice(1).toLowerCase()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex gap-2 sm:col-span-2">
+            <Button type="submit" size="sm" disabled={inviteMutation.isPending}>
+              {inviteMutation.isPending ? "Sending…" : "Send invite"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setInviting(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      ) : null}
+
       {membersQuery.isLoading ? (
         <div className="space-y-3">
           {["a", "b"].map((k) => (
@@ -112,17 +226,42 @@ export function TeamCard() {
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <StatusPill tone="neutral">{member.roleLabel}</StatusPill>
-                {member.role !== "OWNER" ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeMutation.mutate(member.userId)}
-                    disabled={removeMutation.isPending}
-                  >
-                    Remove
-                  </Button>
-                ) : null}
+                {member.role === "OWNER" ? (
+                  <span className="rounded-full border border-border/70 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                    Owner
+                  </span>
+                ) : (
+                  <>
+                    <Select
+                      value={member.role}
+                      onValueChange={(v) =>
+                        roleMutation.mutate({
+                          userId: member.userId,
+                          role: v as AssignableRole,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-28 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLES.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {role.charAt(0) + role.slice(1).toLowerCase()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeMutation.mutate(member.userId)}
+                      disabled={removeMutation.isPending}
+                    >
+                      Remove
+                    </Button>
+                  </>
+                )}
               </div>
             </li>
           ))}
@@ -140,31 +279,32 @@ export function TeamCard() {
                     {invite.email}
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
-                    Pending invite
+                    Pending · {invite.roleLabel}
                   </div>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <StatusPill tone="pending">{invite.roleLabel}</StatusPill>
+              <div className="flex shrink-0 items-center gap-1">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => cancelInviteMutation.mutate(invite.id)}
-                  disabled={cancelInviteMutation.isPending}
+                  onClick={() => resendMutation.mutate(invite.id)}
+                  disabled={resendMutation.isPending}
                 >
                   Resend
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => cancelMutation.mutate(invite.id)}
+                  disabled={cancelMutation.isPending}
+                >
+                  Cancel
                 </Button>
               </div>
             </li>
           ))}
         </ul>
       )}
-
-      <InviteUser
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
-        onSuccess={invalidate}
-      />
     </SettingsCard>
   );
 }

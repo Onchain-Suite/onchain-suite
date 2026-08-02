@@ -6,23 +6,15 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { SettingsCard } from "../settings-card";
-import { ContractAddressList } from "./contract-address-list";
 import { projectSettingsKey, supportedChainsKey } from "./project-card";
 import { useAccountOrg } from "./use-account-org";
 import {
+  type ProjectSettingsAddressRow,
   type ProjectSettingsFormData,
   projectSettingsService,
 } from "@/features/settings/project-settings.service";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -34,7 +26,7 @@ import {
 export function ContractsCard() {
   const { organizationId } = useAccountOrg();
   const queryClient = useQueryClient();
-  const [addOpen, setAddOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ chain: "", address: "", label: "" });
 
   const settingsQuery = useQuery({
@@ -56,44 +48,62 @@ export function ContractsCard() {
 
   const settings = settingsQuery.data;
   const chains = useMemo(() => chainsQuery.data ?? [], [chainsQuery.data]);
+  const chainLabel = useMemo(() => {
+    const map = new Map(chains.map((c) => [c.slug, c.label]));
+    return (slug?: string) => (slug ? (map.get(slug) ?? slug) : "");
+  }, [chains]);
   const contracts = useMemo(
     () => (settings?.contractAddresses ?? []).filter((c) => c.address),
     [settings?.contractAddresses]
   );
 
+  const saveContracts = (next: ProjectSettingsAddressRow[]) => {
+    if (!settings) throw new Error("Project settings not loaded yet");
+    const base: ProjectSettingsFormData = {
+      ...settings,
+      contractAddresses: next,
+    };
+    return projectSettingsService.saveProjectSettings(
+      base,
+      organizationId ?? undefined
+    );
+  };
+
   const addMutation = useMutation({
     mutationFn: async () => {
       const address = draft.address.trim();
-      if (!settings) throw new Error("Project settings not loaded yet");
       if (!draft.chain) throw new Error("Select a chain");
       if (!address) throw new Error("Enter a contract address");
-      const base: ProjectSettingsFormData = {
-        ...settings,
-        contractAddresses: [
-          ...(settings.contractAddresses ?? []),
-          {
-            chain: draft.chain,
-            address,
-            label: draft.label.trim() || undefined,
-          },
-        ],
-      };
-      return projectSettingsService.saveProjectSettings(
-        base,
-        organizationId ?? undefined
-      );
+      return saveContracts([
+        ...(settings?.contractAddresses ?? []),
+        { chain: draft.chain, address, label: draft.label.trim() || undefined },
+      ]);
     },
     onSuccess: (saved) => {
       queryClient.setQueryData(projectSettingsKey(organizationId), saved);
-      setAddOpen(false);
+      setAdding(false);
       setDraft({ chain: "", address: "", label: "" });
       toast.success("Contract added");
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown) =>
       toast.error(
         error instanceof Error ? error.message : "Failed to add contract"
-      );
+      ),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (address: string) =>
+      saveContracts(
+        (settings?.contractAddresses ?? []).filter((c) => c.address !== address)
+      ),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(projectSettingsKey(organizationId), saved);
+      toast.success("Contract removed");
     },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : "Failed to remove contract"
+      ),
   });
 
   return (
@@ -101,17 +111,71 @@ export function ContractsCard() {
       title="Contracts"
       description="Indexed into the on-chain intelligence pipeline"
       action={
-        <Button
-          size="sm"
-          onClick={() => setAddOpen(true)}
-          disabled={!organizationId}
-        >
-          <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-          Add contract
-        </Button>
+        !adding ? (
+          <Button
+            size="sm"
+            onClick={() => setAdding(true)}
+            disabled={!organizationId}
+          >
+            <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
+            Add contract
+          </Button>
+        ) : null
       }
     >
-      {contracts.length === 0 ? (
+      {adding ? (
+        <form
+          className="mb-4 grid gap-3 rounded-xl border border-border/60 bg-background/40 p-4 sm:grid-cols-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            addMutation.mutate();
+          }}
+        >
+          <Select
+            value={draft.chain}
+            onValueChange={(v) => setDraft((d) => ({ ...d, chain: v }))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a chain" />
+            </SelectTrigger>
+            <SelectContent>
+              {chains.map((chain) => (
+                <SelectItem key={chain.slug} value={chain.slug}>
+                  {chain.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            value={draft.label}
+            onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))}
+            placeholder="Label (optional)"
+          />
+          <Input
+            className="sm:col-span-2"
+            value={draft.address}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, address: e.target.value }))
+            }
+            placeholder="0x…"
+          />
+          <div className="flex gap-2 sm:col-span-2">
+            <Button type="submit" size="sm" disabled={addMutation.isPending}>
+              {addMutation.isPending ? "Adding…" : "Add contract"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setAdding(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      ) : null}
+
+      {contracts.length === 0 && !adding ? (
         <div className="rounded-xl border border-dashed border-border/70 bg-background/40 px-6 py-10 text-center">
           <p className="text-sm font-semibold text-foreground">
             No contracts yet
@@ -120,74 +184,42 @@ export function ContractsCard() {
             Add contract addresses to start indexing holders and activity.
           </p>
         </div>
-      ) : (
-        <ContractAddressList contracts={contracts} chains={chains} />
-      )}
-
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add contract</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Chain</Label>
-              <Select
-                value={draft.chain}
-                onValueChange={(v) => setDraft((d) => ({ ...d, chain: v }))}
+      ) : contracts.length > 0 ? (
+        <ul className="divide-y divide-border/50">
+          {contracts.map((contract) => (
+            <li
+              key={`${contract.chain}-${contract.address}`}
+              className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  {contract.chain ? (
+                    <span className="rounded-full border border-border/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      {chainLabel(contract.chain)}
+                    </span>
+                  ) : null}
+                  {contract.label ? (
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {contract.label}
+                    </span>
+                  ) : null}
+                </div>
+                <code className="mt-0.5 block truncate font-mono text-xs text-muted-foreground">
+                  {contract.address}
+                </code>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeMutation.mutate(contract.address)}
+                disabled={removeMutation.isPending}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a chain" />
-                </SelectTrigger>
-                <SelectContent>
-                  {chains.map((chain) => (
-                    <SelectItem key={chain.slug} value={chain.slug}>
-                      {chain.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contract-address">Contract address</Label>
-              <Input
-                id="contract-address"
-                value={draft.address}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, address: e.target.value }))
-                }
-                placeholder="0x…"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contract-label">Label (optional)</Label>
-              <Input
-                id="contract-label"
-                value={draft.label}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, label: e.target.value }))
-                }
-                placeholder="Governance token"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => setAddOpen(false)}
-              disabled={addMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => addMutation.mutate()}
-              disabled={addMutation.isPending}
-            >
-              {addMutation.isPending ? "Adding…" : "Add contract"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </SettingsCard>
   );
 }

@@ -12,18 +12,11 @@ import {
   projectSettingsService,
 } from "@/features/settings/project-settings.service";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
-/** Shared query key so Project + Contracts cards read one cached fetch. */
+/** Shared query keys so Project + Contracts read one cached fetch. */
 export const projectSettingsKey = (orgId: string | null) =>
   ["account", "project-settings", orgId] as const;
 export const supportedChainsKey = (orgId: string | null) =>
@@ -32,7 +25,7 @@ export const supportedChainsKey = (orgId: string | null) =>
 export function ProjectCard() {
   const { organizationId } = useAccountOrg();
   const queryClient = useQueryClient();
-  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const settingsQuery = useQuery({
     queryKey: projectSettingsKey(organizationId),
@@ -78,8 +71,6 @@ export function ProjectCard() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!settings) throw new Error("Project settings not loaded yet");
-      // Preserve everything else on the settings object — the PUT rewrites
-      // primaryChains + contractAddresses wholesale, so we must send them back.
       const base: ProjectSettingsFormData = {
         ...settings,
         name: form.name.trim(),
@@ -94,14 +85,13 @@ export function ProjectCard() {
     },
     onSuccess: (saved) => {
       queryClient.setQueryData(projectSettingsKey(organizationId), saved);
-      setEditOpen(false);
+      setEditing(false);
       toast.success("Project settings saved");
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown) =>
       toast.error(
         error instanceof Error ? error.message : "Failed to save settings"
-      );
-    },
+      ),
   });
 
   const toggleChain = (slug: string) =>
@@ -112,6 +102,17 @@ export function ProjectCard() {
         : [...f.primaryChains, slug],
     }));
 
+  const cancel = () => {
+    if (settings)
+      setForm({
+        name: settings.name ?? "",
+        tokenTicker: settings.tokenTicker ?? "",
+        email: settings.email ?? "",
+        primaryChains: settings.primaryChains ?? [],
+      });
+    setEditing(false);
+  };
+
   const dash = <span className="text-muted-foreground">—</span>;
 
   return (
@@ -119,15 +120,17 @@ export function ProjectCard() {
       title="Project"
       description="Protocol identity, chains, and billing details"
       action={
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setEditOpen(true)}
-          disabled={!organizationId || settingsQuery.isLoading}
-        >
-          <PencilSquareIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-          Edit
-        </Button>
+        !editing ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEditing(true)}
+            disabled={!organizationId || settingsQuery.isLoading}
+          >
+            <PencilSquareIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
+            Edit
+          </Button>
+        ) : null
       }
     >
       {settingsQuery.isLoading ? (
@@ -139,38 +142,9 @@ export function ProjectCard() {
             </div>
           ))}
         </div>
-      ) : (
-        <DefinitionGrid
-          items={[
-            {
-              label: "Project / protocol name",
-              value: settings?.name ?? dash,
-            },
-            {
-              label: "Token ticker",
-              value: settings?.tokenTicker ?? dash,
-            },
-            {
-              label: "Primary chains",
-              value:
-                settings?.primaryChains && settings.primaryChains.length > 0
-                  ? settings.primaryChains.map(chainLabel).join(", ")
-                  : dash,
-            },
-            {
-              label: "Billing email",
-              value: settings?.email ?? dash,
-            },
-          ]}
-        />
-      )}
-
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Edit project</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
+      ) : editing ? (
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="project-name">Project / protocol name</Label>
               <Input
@@ -179,81 +153,82 @@ export function ProjectCard() {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, name: e.target.value }))
                 }
-                placeholder="Acme Protocol"
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="project-ticker">Token ticker</Label>
-                <Input
-                  id="project-ticker"
-                  value={form.tokenTicker}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, tokenTicker: e.target.value }))
-                  }
-                  placeholder="ACME"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-email">Billing email</Label>
-                <Input
-                  id="project-email"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, email: e.target.value }))
-                  }
-                  placeholder="billing@acme.xyz"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="project-ticker">Token ticker</Label>
+              <Input
+                id="project-ticker"
+                value={form.tokenTicker}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, tokenTicker: e.target.value }))
+                }
+              />
             </div>
             <div className="space-y-2">
-              <Label>Primary chains</Label>
-              {chains.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No chains available.
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {chains.map((chain) => {
-                    const active = form.primaryChains.includes(chain.slug);
-                    return (
-                      <button
-                        key={chain.slug}
-                        type="button"
-                        onClick={() => toggleChain(chain.slug)}
-                        aria-pressed={active}
-                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                          active
-                            ? "border-primary/40 bg-primary/10 text-primary"
-                            : "border-border text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {chain.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              <Label htmlFor="project-email">Billing email</Label>
+              <Input
+                id="project-email"
+                type="email"
+                value={form.email}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, email: e.target.value }))
+                }
+              />
             </div>
           </div>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => setEditOpen(false)}
-              disabled={saveMutation.isPending}
-            >
+          <div className="space-y-2">
+            <Label>Primary chains</Label>
+            <div className="flex flex-wrap gap-2">
+              {chains.map((chain) => {
+                const active = form.primaryChains.includes(chain.slug);
+                return (
+                  <button
+                    key={chain.slug}
+                    type="button"
+                    onClick={() => toggleChain(chain.slug)}
+                    aria-pressed={active}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      active
+                        ? "border-primary/40 bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {chain.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={cancel}>
               Cancel
             </Button>
             <Button
+              size="sm"
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending}
             >
               {saveMutation.isPending ? "Saving…" : "Save changes"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      ) : (
+        <DefinitionGrid
+          items={[
+            { label: "Project / protocol name", value: settings?.name ?? dash },
+            { label: "Token ticker", value: settings?.tokenTicker ?? dash },
+            {
+              label: "Primary chains",
+              value:
+                settings?.primaryChains && settings.primaryChains.length > 0
+                  ? settings.primaryChains.map(chainLabel).join(", ")
+                  : dash,
+            },
+            { label: "Billing email", value: settings?.email ?? dash },
+          ]}
+        />
+      )}
     </SettingsCard>
   );
 }

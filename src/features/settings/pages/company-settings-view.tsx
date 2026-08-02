@@ -5,8 +5,8 @@ import { useEffect } from "react";
 
 import { BrandingCard } from "../components/account/branding-card";
 import { ContractsCard } from "../components/account/contracts-card";
-import { DemoDataCard } from "../components/account/demo-data-card";
 import { ProjectCard } from "../components/account/project-card";
+import { SenderIdentitiesCard } from "../components/account/sender-identities-card";
 import { SenderVerificationCard } from "../components/account/sender-verification-card";
 import { TeamCard } from "../components/account/team-card";
 
@@ -15,8 +15,8 @@ const SENDER_VERIFICATION_SECTION_ID = "sender-verification";
 
 /**
  * Account settings — protocol identity, indexed contracts, branding, sender
- * verification, demo data, and team. Reference-match flat cards; each card owns
- * its own real-API queries/mutations via {@link useAccountOrg}.
+ * verification + addresses, and team. Reference-match flat cards; each card
+ * owns its own real-API queries/mutations via {@link useAccountOrg}.
  */
 export default function CompanySettingsView() {
   const searchParams = useSearchParams();
@@ -36,7 +36,7 @@ export default function CompanySettingsView() {
       <div id={SENDER_VERIFICATION_SECTION_ID} className="scroll-mt-6">
         <SenderVerificationCard />
       </div>
-      <DemoDataCard />
+      <SenderIdentitiesCard />
       <TeamCard />
     </div>
   );

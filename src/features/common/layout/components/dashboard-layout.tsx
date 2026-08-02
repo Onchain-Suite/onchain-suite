@@ -148,7 +148,13 @@ function DashboardLayoutInner({
 
   return (
     <OrgSwitcherProvider>
-      <SidebarProvider defaultOpen={defaultSidebarOpen}>
+      {/* Bound the shell to the viewport so the content area (not the window)
+          is the scroll container — otherwise `position: sticky` inside pages
+          never engages (it would anchor to a non-scrolling ancestor). */}
+      <SidebarProvider
+        defaultOpen={defaultSidebarOpen}
+        className="h-svh overflow-hidden"
+      >
         <DashboardSidebar
           navMain={NAV_MAIN}
           userFullName={fullName}

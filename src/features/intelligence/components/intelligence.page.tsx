@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 import { intelligenceService } from "../intelligence.service";
 import { QueryTab } from "./query";
-import { SegmentsTab } from "./segments";
+import { SegmentsView } from "./segments/segments-view";
 
 /** Tab ids that `/intelligence?tab=` accepts, so deep links can't land nowhere. */
 const TAB_IDS = new Set(["chat", "segments", "sql"]);
@@ -193,11 +193,7 @@ export default function IntelligencePage() {
         ) : null}
 
         <TabsContent value="segments" className="space-y-4">
-          <SegmentsTab
-            openEmailComposer={openEmailComposer}
-            savedSegments={[]}
-            onDeleteSegment={() => {}}
-          />
+          <SegmentsView />
         </TabsContent>
       </Tabs>
     </div>

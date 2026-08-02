@@ -16,6 +16,7 @@ import {
 } from "@/payload/access";
 import { blogBlocks } from "@/payload/blocks";
 import { slugField } from "@/payload/fields/slug";
+import { cleanupPostMedia } from "@/payload/hooks/cleanup-post-media";
 import { enforceDraftOnly } from "@/payload/hooks/enforce-draft-only";
 import { organizePostMedia } from "@/payload/hooks/organize-post-media";
 import {
@@ -70,7 +71,9 @@ export const Posts: CollectionConfig = {
     // image URLs, so it has to finish before the page is revalidated — otherwise
     // the freshly cached HTML would carry the pre-move URLs.
     afterChange: [organizePostMedia, revalidatePostAfterChange],
-    afterDelete: [revalidatePostAfterDelete],
+    // Cleanup first: it deletes media documents, and revalidation should run
+    // once the page's assets are in their final state.
+    afterDelete: [cleanupPostMedia, revalidatePostAfterDelete],
   },
   fields: [
     {

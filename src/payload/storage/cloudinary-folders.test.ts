@@ -9,6 +9,7 @@ import {
   folderFor,
   folderOf,
   postFolderSegment,
+  prefixedBasename,
   sanitizeFolderSegment,
   segmentOf,
   shouldMove,
@@ -99,9 +100,19 @@ describe("path helpers", () => {
     expect(segmentOf("hero")).toBeNull();
   });
 
-  it("builds the destination while keeping the file's own name", () => {
+  it("builds the destination, prefixing the name with the post", () => {
     expect(targetPublicId(unassigned("hero"), "my-post")).toBe(
-      `${CLOUDINARY_ROOT}/my-post/hero`
+      `${CLOUDINARY_ROOT}/my-post/my-post-hero`
+    );
+  });
+
+  it("does not prefix a name that already carries the post", () => {
+    // Re-saving a post must not yield my-post-my-post-hero.
+    expect(
+      prefixedBasename(`${CLOUDINARY_ROOT}/my-post/my-post-hero`, "my-post")
+    ).toBe("my-post-hero");
+    expect(prefixedBasename(unassigned("hero"), "my-post")).toBe(
+      "my-post-hero"
     );
   });
 
@@ -120,11 +131,15 @@ describe("shouldMove", () => {
     expect(shouldMove(`${CLOUDINARY_ROOT}/hero`, "my-post")).toBe(true);
   });
 
-  it("does nothing when the asset is already in the right folder", () => {
+  it("does nothing once the asset is at its destination", () => {
     // Without this, every save of every post would issue a rename.
-    expect(shouldMove(`${CLOUDINARY_ROOT}/my-post/hero`, "my-post")).toBe(
-      false
-    );
+    expect(
+      shouldMove(`${CLOUDINARY_ROOT}/my-post/my-post-hero`, "my-post")
+    ).toBe(false);
+  });
+
+  it("renames an asset already in the folder but not yet name-prefixed", () => {
+    expect(shouldMove(`${CLOUDINARY_ROOT}/my-post/hero`, "my-post")).toBe(true);
   });
 
   it("leaves an asset that another post already claimed", () => {
@@ -133,6 +148,9 @@ describe("shouldMove", () => {
     expect(shouldMove(`${CLOUDINARY_ROOT}/other-post/hero`, "my-post")).toBe(
       false
     );
+    expect(
+      shouldMove(`${CLOUDINARY_ROOT}/other-post/other-post-hero`, "my-post")
+    ).toBe(false);
   });
 
   it("never touches assets outside the blog root", () => {

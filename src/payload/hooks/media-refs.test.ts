@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { collectMediaIds } from "@/payload/hooks/organize-post-media";
+import { collectMediaIds } from "@/payload/hooks/media-refs";
 
 /** A Lexical upload node as the editor serialises it. */
 const uploadNode = (value: unknown) => ({

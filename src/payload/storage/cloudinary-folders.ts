@@ -34,6 +34,12 @@ const FALLBACK_SEGMENT = "untitled";
 const MAX_SEGMENT_LENGTH = 80;
 
 /**
+ * Cap on the file's own name after prefixing. Cloudinary allows far more; this
+ * just stops a long slug plus a long filename from compounding.
+ */
+const MAX_PUBLIC_ID_BASENAME = 150;
+
+/**
  * Reduces a slug to something safe and readable as a single Cloudinary folder
  * segment. Notably strips `/`, which would otherwise silently create nested
  * folders and break the "one folder per post" invariant.
@@ -106,9 +112,30 @@ export function segmentOf(publicId: string): string | null {
   return folder.slice(prefix.length);
 }
 
-/** Where a public id would live if moved into `segment`. */
+/**
+ * The file's own name, prefixed with the post it belongs to.
+ *
+ * The folder already says which post owns an asset, but the name is what shows up
+ * in Cloudinary's search, in the media library's flat views and in the delivery
+ * URL — so `my-post-hero.png` is findable where a bare `hero.png` is not.
+ *
+ * Idempotent: an already-prefixed name is left alone, so re-saving a post does
+ * not produce `my-post-my-post-hero`.
+ */
+export function prefixedBasename(publicId: string, segment: string): string {
+  const basename = basenameOf(publicId);
+  if (basename === segment || basename.startsWith(`${segment}-`)) {
+    return basename;
+  }
+  return `${segment}-${basename}`.slice(0, MAX_PUBLIC_ID_BASENAME);
+}
+
+/**
+ * Where a public id should end up for a given post: that post's folder, with a
+ * name that identifies the post.
+ */
 export function targetPublicId(publicId: string, segment: string): string {
-  return `${folderFor(segment)}/${basenameOf(publicId)}`;
+  return `${folderFor(segment)}/${prefixedBasename(publicId, segment)}`;
 }
 
 /**
@@ -118,10 +145,12 @@ export function targetPublicId(publicId: string, segment: string): string {
  *
  * - Not under our root -> never touch it. It belongs to something else in the
  *   Cloudinary account (the product's own branding uploads live there too).
- * - Already in the target folder -> nothing to do. Without this check every post
+ * - Already at its destination -> nothing to do. Without this check every post
  *   save would issue a pointless rename.
  * - In `_unassigned`, or loose in the blog root -> move it. This is the normal
  *   path for a freshly uploaded image.
+ * - In the right folder but not yet name-prefixed -> rename it. This is what
+ *   brings assets filed before prefixing existed up to date.
  * - Already inside a *different* post's folder -> leave it. The same image can be
  *   referenced by two posts, and one folder cannot hold it twice; whichever post
  *   claimed it first keeps it. Moving it on every save of either post would mean
@@ -133,8 +162,10 @@ export function shouldMove(publicId: string, segment: string): boolean {
   if (current === null) {
     return false;
   }
-  if (current === segment) {
+  if (publicId === targetPublicId(publicId, segment)) {
     return false;
   }
-  return current === UNASSIGNED_SEGMENT || current === "";
+  return (
+    current === UNASSIGNED_SEGMENT || current === "" || current === segment
+  );
 }

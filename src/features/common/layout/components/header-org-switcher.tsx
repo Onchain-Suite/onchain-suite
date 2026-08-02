@@ -39,7 +39,7 @@ export function HeaderOrgSwitcher() {
   // Hold a skeleton until org state resolves from client storage — avoids a
   // hydration mismatch and the empty/"no workspace" flash on first paint.
   if (!isMounted || (!hasResolved && organizations.length === 0)) {
-    return <Skeleton className="h-9 w-9 rounded-lg sm:w-40" />;
+    return <Skeleton className="h-9 w-9 rounded-lg sm:w-44" />;
   }
 
   const name = activeOrg?.name ?? "Select workspace";
@@ -50,7 +50,7 @@ export function HeaderOrgSwitcher() {
         <button
           type="button"
           aria-label="Switch workspace"
-          className="flex h-9 max-w-[220px] items-center gap-2 rounded-lg border border-border bg-background px-2 text-sm transition-colors hover:bg-muted data-[state=open]:bg-muted sm:px-2.5"
+          className="flex h-9 w-auto items-center gap-2 rounded-lg border border-border bg-background px-2 text-sm transition-colors hover:bg-muted data-[state=open]:bg-muted sm:w-44 sm:px-2.5"
         >
           <Avatar className="size-6 shrink-0 rounded-md ring-1 ring-border/60">
             {activeOrgLogo ? (
@@ -69,7 +69,10 @@ export function HeaderOrgSwitcher() {
           />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-56 rounded-lg">
+      <DropdownMenuContent
+        align="end"
+        className="w-(--radix-dropdown-menu-trigger-width) min-w-44 rounded-lg"
+      >
         <DropdownMenuLabel className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Workspaces
         </DropdownMenuLabel>

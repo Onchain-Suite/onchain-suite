@@ -904,7 +904,7 @@ const handleAudienceImportExport = async (
 
       try {
         const maxItems = 5000;
-        const limit = 500;
+        const limit = 200;
         let page = 1;
         const all: unknown[] = [];
         while (all.length < maxItems) {

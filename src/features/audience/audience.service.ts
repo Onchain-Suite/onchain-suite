@@ -330,11 +330,22 @@ export const audienceService = {
   },
 
   listProfiles(params?: ListProfilesParams, orgId?: string) {
+    const normalizedParams: ListProfilesParams = {
+      page: params?.page,
+      ...params,
+      limit:
+        typeof params?.limit === "number" && params.limit > 0
+          ? Math.min(params.limit, 200)
+          : 200,
+    };
     return request<
       | { items?: AudienceProfile[]; data?: AudienceProfile[]; meta?: unknown }
       | { data?: AudienceProfile[]; meta?: unknown }
       | AudienceProfile[]
-    >({ method: "GET", url: "/audience/profiles", params }, orgId);
+    >(
+      { method: "GET", url: "/audience/profiles", params: normalizedParams },
+      orgId
+    );
   },
 
   listSegments(params?: { q?: string; limit?: number }, orgId?: string) {

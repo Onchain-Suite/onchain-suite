@@ -47,6 +47,7 @@ import {
 } from "@/features/audience/utils";
 import { smartSendingService } from "@/features/settings/smart-sending.service";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
+import { getSelectedOrganizationId } from "@/lib/utils";
 
 interface AudienceStepProps {
   form: UseFormReturn<CampaignFormData>;
@@ -112,13 +113,41 @@ export function AudienceStep({
   } | null>(null);
   const tagExpansionAbortRef = useRef<AbortController | null>(null);
   const syncSequenceRef = useRef(0);
+  const organizationId = getSelectedOrganizationId();
+
+  const isRateLimitedError = (error: unknown) => {
+    const err = error as { cause?: unknown; message?: unknown };
+    const candidate = (err?.cause ?? err) as {
+      response?: { status?: unknown };
+      status?: unknown;
+      message?: unknown;
+    };
+    const status =
+      typeof candidate.response?.status === "number"
+        ? candidate.response.status
+        : typeof candidate.status === "number"
+          ? candidate.status
+          : null;
+    if (status === 429) return true;
+    const msg =
+      typeof err?.message === "string"
+        ? err.message
+        : typeof candidate.message === "string"
+          ? candidate.message
+          : "";
+    return msg.includes("429") || msg.toLowerCase().includes("rate limit");
+  };
 
   // Individual contacts (with a real email) selectable directly — so a
   // campaign can be sent to specific people even with no tags/segments ready.
   const contactsQuery = useQuery({
-    queryKey: ["audience", "profiles", "campaign-contacts"],
-    queryFn: async () => {
-      const res = await audienceService.listProfiles({ page: 1, limit: 100 });
+    queryKey: ["audience", "profiles", "campaign-contacts", organizationId],
+    queryFn: async ({ signal }) => {
+      const res = await audienceService.listProfiles(
+        { page: 1, limit: 200 },
+        undefined,
+        { signal }
+      );
       const envelope = res as {
         items?: AudienceProfile[];
         data?: AudienceProfile[];
@@ -154,9 +183,10 @@ export function AudienceStep({
         })
         .filter((c): c is ContactOption => c !== null);
     },
-    retry: false,
-    refetchOnWindowFocus: false,
-    staleTime: 30_000,
+    retry: (failureCount, error) => isRateLimitedError(error) && failureCount < 3,
+    retryDelay: () => 2000 + Math.floor(Math.random() * 3000),
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
   const contacts = useMemo(
     () => contactsQuery.data ?? [],

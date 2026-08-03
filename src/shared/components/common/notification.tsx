@@ -10,7 +10,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -23,17 +23,65 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import { authClient } from "@/lib/auth-client";
 import { cn, isJsonObject } from "@/lib/utils";
 
 import type { Notification, NotificationType } from "@/types/notification";
 
+import { audienceService } from "@/features/audience/audience.service";
+import {
+  loadTrackedImportJobs,
+  removeTrackedImportJob,
+  updateImportHistoryEntry,
+  updateTrackedImportJob,
+} from "@/features/audience/imports/import-job-storage";
+import {
+  loadLocalNotifications,
+  markAllLocalNotificationsRead,
+  markLocalNotificationRead,
+  removeLocalNotification,
+  upsertLocalNotification,
+} from "@/features/notifications/local-notifications";
 import { notificationsService } from "@/features/notifications/notifications.service";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
+import { buildEmailPayload, emailService } from "@/shared/emails/email.service";
+
+const notificationsQueryKey = ["notifications", "list"] as const;
+const localNotificationsQueryKey = ["notifications", "local"] as const;
+const importsMonitorQueryKey = ["audience", "imports", "monitor"] as const;
+
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const isRateLimitedError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const err = error as { cause?: unknown; message?: unknown };
+  const candidate = (err.cause ?? err) as {
+    response?: { status?: unknown };
+    status?: unknown;
+    message?: unknown;
+  };
+  const status =
+    typeof candidate.response?.status === "number"
+      ? candidate.response.status
+      : typeof candidate.status === "number"
+        ? candidate.status
+        : null;
+  if (status === 429) return true;
+  const msg =
+    typeof err.message === "string"
+      ? err.message
+      : typeof candidate.message === "string"
+        ? candidate.message
+        : "";
+  return msg.includes("429") || msg.toLowerCase().includes("rate limit");
+};
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
-  const notificationsQueryKey = ["notifications", "list"] as const;
   const getCachedNotificationsArray = (
     current: unknown
   ): unknown[] | undefined => {
@@ -50,6 +98,274 @@ export function NotificationBell() {
     retry: false,
     refetchOnWindowFocus: false,
   });
+
+  const localNotificationsQuery = useQuery({
+    queryKey: localNotificationsQueryKey,
+    queryFn: () => loadLocalNotifications(),
+    retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = () => {
+      queryClient.invalidateQueries({ queryKey: localNotificationsQueryKey });
+      queryClient.invalidateQueries({ queryKey: importsMonitorQueryKey });
+    };
+    window.addEventListener("onchain.importJobs", handler);
+    window.addEventListener("onchain.localNotifications", handler);
+    return () => {
+      window.removeEventListener("onchain.importJobs", handler);
+      window.removeEventListener("onchain.localNotifications", handler);
+    };
+  }, [queryClient]);
+
+  const { data: session } = authClient.useSession();
+  const sessionEmailRaw =
+    isJsonObject(session?.user) && typeof session.user.email === "string"
+      ? String(session.user.email)
+      : "";
+  const sessionEmail =
+    sessionEmailRaw.trim().length > 0 ? sessionEmailRaw.trim() : null;
+
+  const importsMonitorQuery = useQuery({
+    queryKey: importsMonitorQueryKey,
+    queryFn: async () => {
+      const jobs = loadTrackedImportJobs();
+      const updates: Array<{ jobId: string; payload: unknown }> = [];
+      for (const job of jobs) {
+        try {
+          const payload = await audienceService.getImportJob(job.jobId);
+          updateTrackedImportJob(job.jobId, {
+            lastRateLimitedAt: undefined,
+            lastErrorMessage: undefined,
+          });
+          updates.push({ jobId: job.jobId, payload });
+        } catch (error) {
+          if (isRateLimitedError(error)) {
+            updateTrackedImportJob(job.jobId, {
+              lastRateLimitedAt: new Date().toISOString(),
+              lastErrorMessage:
+                error instanceof Error ? error.message : "Rate limited",
+            });
+            await wait(2000 + Math.floor(Math.random() * 3000));
+          } else {
+            updateTrackedImportJob(job.jobId, {
+              lastErrorMessage:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to fetch status",
+            });
+          }
+          updates.push({ jobId: job.jobId, payload: null });
+        }
+      }
+      return updates;
+    },
+    enabled: typeof window !== "undefined",
+    retry: false,
+    refetchInterval: () => {
+      const jobs = loadTrackedImportJobs();
+      if (jobs.length === 0) return false;
+      const now = Date.now();
+      const sawRateLimit = jobs.some((job) => {
+        const raw =
+          typeof job.lastRateLimitedAt === "string"
+            ? job.lastRateLimitedAt
+            : "";
+        const ts = raw ? new Date(raw).getTime() : Number.NaN;
+        return Number.isFinite(ts) && now - ts < 60_000;
+      });
+      const base = 4000 + jobs.length * 1000;
+      return (
+        base + (sawRateLimit ? 6000 : 0) + Math.floor(Math.random() * 2000)
+      );
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 0,
+  });
+  const { data: importsMonitorData } = importsMonitorQuery;
+
+  useEffect(() => {
+    if (!Array.isArray(importsMonitorData) || importsMonitorData.length === 0)
+      return;
+
+    const run = async () => {
+      const trackedJobs = loadTrackedImportJobs();
+      for (const entry of importsMonitorData) {
+        const { payload, jobId: rawJobId } = entry;
+        const jobId = String(rawJobId ?? "");
+        if (!jobId) continue;
+
+        const obj = isJsonObject(payload)
+          ? (payload as Record<string, unknown>)
+          : {};
+        const state = String(obj.state ?? "");
+        const processedRows =
+          typeof obj.processedRows === "number" ? obj.processedRows : undefined;
+        const totalRows =
+          typeof obj.totalRows === "number" ? obj.totalRows : undefined;
+        const createdCount =
+          typeof obj.createdCount === "number" ? obj.createdCount : undefined;
+        const updatedCount =
+          typeof obj.updatedCount === "number" ? obj.updatedCount : undefined;
+        const errorCount =
+          typeof obj.errorCount === "number" ? obj.errorCount : undefined;
+
+        const jobPatch: Parameters<typeof updateTrackedImportJob>[1] = {
+          ...(state ? { state } : {}),
+          ...(typeof processedRows === "number" ? { processedRows } : {}),
+          ...(typeof totalRows === "number" ? { totalRows } : {}),
+          ...(typeof createdCount === "number" ? { createdCount } : {}),
+          ...(typeof updatedCount === "number" ? { updatedCount } : {}),
+          ...(typeof errorCount === "number" ? { errorCount } : {}),
+        };
+        if (Object.keys(jobPatch).length > 0) {
+          updateTrackedImportJob(jobId, jobPatch);
+          updateImportHistoryEntry(jobId, {
+            ...(state ? { status: state } : {}),
+            ...(typeof processedRows === "number" ? { processedRows } : {}),
+            ...(typeof totalRows === "number" ? { totalRows } : {}),
+            ...(typeof createdCount === "number" ? { createdCount } : {}),
+            ...(typeof updatedCount === "number" ? { updatedCount } : {}),
+            ...(typeof errorCount === "number" ? { errorCount } : {}),
+          });
+        }
+
+        const tracked = trackedJobs.find((x) => String(x.jobId) === jobId);
+        const isTerminal =
+          state === "completed" || state === "failed" || state === "cancelled";
+        if (!tracked || !isTerminal) continue;
+
+        const alreadyNotified =
+          typeof tracked.notifiedAt === "string" &&
+          tracked.notifiedAt.length > 0;
+        if (!alreadyNotified) {
+          const isOk = state === "completed" && (errorCount ?? 0) === 0;
+          const type: NotificationType = isOk
+            ? "success"
+            : state === "completed"
+              ? "warning"
+              : "warning";
+          const title =
+            state === "completed"
+              ? "Audience import finished"
+              : "Audience import failed";
+          const parts: string[] = [];
+          if (typeof processedRows === "number") {
+            if (typeof totalRows === "number" && totalRows > 0) {
+              parts.push(
+                `${processedRows.toLocaleString()} / ${totalRows.toLocaleString()} processed`
+              );
+            } else {
+              parts.push(`${processedRows.toLocaleString()} processed`);
+            }
+          }
+          if (typeof createdCount === "number") {
+            parts.push(`${createdCount.toLocaleString()} created`);
+          }
+          if (typeof updatedCount === "number") {
+            parts.push(`${updatedCount.toLocaleString()} updated`);
+          }
+          if (typeof errorCount === "number" && errorCount > 0) {
+            parts.push(`${errorCount.toLocaleString()} errors`);
+          }
+
+          upsertLocalNotification({
+            id: `local:audience-import:${jobId}`,
+            title,
+            description: parts.join(" · "),
+            time: new Date(),
+            read: false,
+            type,
+          });
+          queryClient.setQueryData(
+            localNotificationsQueryKey,
+            loadLocalNotifications()
+          );
+          queryClient.invalidateQueries({ queryKey: ["audience", "tags"] });
+          queryClient.invalidateQueries({ queryKey: ["audience", "profiles"] });
+          updateTrackedImportJob(jobId, {
+            notifiedAt: new Date().toISOString(),
+          });
+        }
+
+        const alreadyEmailed =
+          typeof tracked.emailSentAt === "string" &&
+          tracked.emailSentAt.length > 0;
+        if (!alreadyEmailed && state === "completed") {
+          const summaryLines = [
+            "Audience import finished.",
+            tracked.fileName ? `File: ${tracked.fileName}` : null,
+            typeof processedRows === "number"
+              ? typeof totalRows === "number" && totalRows > 0
+                ? `Processed: ${processedRows.toLocaleString()} / ${totalRows.toLocaleString()}`
+                : `Processed: ${processedRows.toLocaleString()}`
+              : null,
+            typeof createdCount === "number"
+              ? `Created: ${createdCount.toLocaleString()}`
+              : null,
+            typeof updatedCount === "number"
+              ? `Updated: ${updatedCount.toLocaleString()}`
+              : null,
+            typeof errorCount === "number"
+              ? `Errors: ${errorCount.toLocaleString()}`
+              : null,
+            `Job ID: ${jobId}`,
+          ].filter((x): x is string => typeof x === "string" && x.length > 0);
+
+          const { html, text } = buildEmailPayload(summaryLines.join("\n"));
+          const notifyEmails = Array.isArray(tracked.notifyEmails)
+            ? tracked.notifyEmails
+            : [];
+          const toList = Array.from(
+            new Set(
+              ["onchainsuite2gmail.com", sessionEmail, ...notifyEmails]
+                .filter(
+                  (x): x is string =>
+                    typeof x === "string" && x.trim().length > 0
+                )
+                .map((x) => x.trim().toLowerCase())
+            )
+          );
+
+          for (const to of toList) {
+            try {
+              await emailService.send({
+                to,
+                subject: "Onchain Suite: Audience import finished",
+                html,
+                text,
+                tags: ["audience-import"],
+              });
+            } catch {
+              upsertLocalNotification({
+                id: `local:audience-import-email:${jobId}:${to}`,
+                title: "Import finished (email failed)",
+                description: `Failed to send import summary to ${to}`,
+                time: new Date(),
+                read: false,
+                type: "warning",
+              });
+              queryClient.setQueryData(
+                localNotificationsQueryKey,
+                loadLocalNotifications()
+              );
+            }
+          }
+
+          updateTrackedImportJob(jobId, {
+            emailSentAt: new Date().toISOString(),
+          });
+        }
+
+        removeTrackedImportJob(jobId);
+      }
+    };
+
+    run().catch(() => undefined);
+  }, [importsMonitorData, queryClient, sessionEmail]);
 
   const notifications: Notification[] = notificationsQuery.isSuccess
     ? notificationsQuery.data.map((n) => {
@@ -71,7 +387,12 @@ export function NotificationBell() {
       })
     : [];
 
-  const unreadCount = notifications.filter(
+  const localNotifications = localNotificationsQuery.data ?? [];
+  const mergedNotifications = [...localNotifications, ...notifications].sort(
+    (a, b) => b.time.getTime() - a.time.getTime()
+  );
+
+  const unreadCount = mergedNotifications.filter(
     (notification) => !notification.read
   ).length;
 
@@ -129,18 +450,39 @@ export function NotificationBell() {
   });
 
   const markAsRead = (id: string) => {
+    if (id.startsWith("local:")) {
+      markLocalNotificationRead(id);
+      queryClient.setQueryData(
+        localNotificationsQueryKey,
+        loadLocalNotifications()
+      );
+      return;
+    }
     if (notificationsQuery.isSuccess) {
       markReadMutation.mutate(id);
     }
   };
 
   const markAllAsRead = () => {
+    markAllLocalNotificationsRead();
+    queryClient.setQueryData(
+      localNotificationsQueryKey,
+      loadLocalNotifications()
+    );
     if (notificationsQuery.isSuccess) {
       markAllReadMutation.mutate();
     }
   };
 
   const removeNotification = (id: string) => {
+    if (id.startsWith("local:")) {
+      removeLocalNotification(id);
+      queryClient.setQueryData(
+        localNotificationsQueryKey,
+        loadLocalNotifications()
+      );
+      return;
+    }
     if (!notificationsQuery.isSuccess) return;
     queryClient.setQueryData<unknown>(
       notificationsQueryKey,
@@ -220,9 +562,9 @@ export function NotificationBell() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <div className="max-h-[300px] overflow-y-auto">
-          {notifications.length > 0 ? (
+          {mergedNotifications.length > 0 ? (
             <DropdownMenuGroup>
-              {notifications.map((notification) => (
+              {mergedNotifications.map((notification) => (
                 <DropdownMenuItem
                   key={notification.id}
                   className="flex flex-col items-start p-0"

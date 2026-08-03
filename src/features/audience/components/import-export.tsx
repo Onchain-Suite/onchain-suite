@@ -38,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/ui/input";
 
 import {
   type AudienceExportJobStatus,
@@ -46,6 +47,7 @@ import {
   type AudienceImportPreset,
   audienceService,
 } from "@/features/audience/audience.service";
+import { upsertTrackedImportJob } from "@/features/audience/imports/import-job-storage";
 import { PageHeader } from "@/shared/components/page/page-header";
 
 const fieldOptions = [
@@ -123,6 +125,50 @@ const safeJsonParse = (raw: string): unknown => {
 };
 
 const toIsoNow = () => new Date().toISOString();
+
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const isRateLimitedError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const err = error as { cause?: unknown; message?: unknown };
+  const candidate = (err.cause ?? err) as {
+    response?: { status?: unknown };
+    status?: unknown;
+    message?: unknown;
+  };
+  const status =
+    typeof candidate.response?.status === "number"
+      ? candidate.response.status
+      : typeof candidate.status === "number"
+        ? candidate.status
+        : null;
+  if (status === 429) return true;
+  const msg =
+    typeof err.message === "string"
+      ? err.message
+      : typeof candidate.message === "string"
+        ? candidate.message
+        : "";
+  return msg.includes("429") || msg.toLowerCase().includes("rate limit");
+};
+
+const parseNotifyEmails = (raw: string): string[] => {
+  const parts = raw
+    .split(/[,\n]/g)
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+  const out: string[] = [];
+  for (const v of parts) {
+    const lower = v.toLowerCase();
+    const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lower);
+    if (!looksLikeEmail) continue;
+    if (!out.includes(lower)) out.push(lower);
+  }
+  return out.slice(0, 5);
+};
 
 const toHumanBytes = (bytes: number) => {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -399,6 +445,7 @@ export default function ImportExportPage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [csvColumns, setCsvColumns] = useState<CSVColumn[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [notifyEmailsRaw, setNotifyEmailsRaw] = useState("");
   const [importResult, setImportResult] = useState<{
     success: number;
     failed: number;
@@ -551,9 +598,9 @@ export default function ImportExportPage() {
       toast.error("Only CSV and JSON files are supported");
       return;
     }
-    const maxBytes = 25 * 1024 * 1024;
+    const maxBytes = 100 * 1024 * 1024;
     if (file.size > maxBytes) {
-      toast.error("File too large (max 25MB)");
+      toast.error("File too large (max 100MB)");
       return;
     }
 
@@ -657,24 +704,34 @@ export default function ImportExportPage() {
         }
       }
 
-      const res = await audienceService.createImportJob({
-        file: uploadedFile,
-        format,
-        mapping: format === "csv" ? mapping : undefined,
-        // Backend auto-maps this platform's CSV headers; the explicit
-        // mapping entries above still override the preset.
-        platform: importPlatform || undefined,
-        query: {
-          mode: "upsert",
-          onConflict: "update",
-          dedupeKey: "email",
-          maxErrors: 10000,
-        },
-      });
+      let res: unknown;
+      let attempts = 0;
+      for (;;) {
+        try {
+          res = await audienceService.createImportJob({
+            file: uploadedFile,
+            format,
+            mapping: format === "csv" ? mapping : undefined,
+            platform: importPlatform || undefined,
+            query: {
+              mode: "upsert",
+              onConflict: "update",
+              dedupeKey: "email",
+              maxErrors: 10000,
+            },
+          });
+          break;
+        } catch (error) {
+          if (!isRateLimitedError(error) || attempts >= 3) throw error;
+          attempts += 1;
+          await wait(2000 + Math.floor(Math.random() * 3000));
+        }
+      }
 
+      const jobIdCandidate = (res as { jobId?: unknown }).jobId;
       const jobId =
-        typeof res.jobId === "string" && res.jobId.length > 0
-          ? res.jobId
+        typeof jobIdCandidate === "string" && jobIdCandidate.length > 0
+          ? jobIdCandidate
           : typeof (res as unknown as { id?: unknown }).id === "string"
             ? String((res as unknown as { id?: unknown }).id)
             : typeof (res as unknown as { jobId?: unknown }).jobId === "string"
@@ -690,6 +747,14 @@ export default function ImportExportPage() {
     },
     onSuccess: ({ jobId }) => {
       setImportJobId(jobId);
+      const notifyEmails = parseNotifyEmails(notifyEmailsRaw);
+      upsertTrackedImportJob({
+        jobId,
+        fileName: uploadedFile?.name,
+        createdAt: toIsoNow(),
+        state: "queued",
+        notifyEmails: notifyEmails.length > 0 ? notifyEmails : undefined,
+      });
       if (uploadedFile && selectedImportFormat) {
         const entry: ImportHistoryItem = {
           jobId,
@@ -720,7 +785,13 @@ export default function ImportExportPage() {
       return audienceService.getImportJob(importJobId);
     },
     enabled: Boolean(importJobId),
+    retry: (failureCount, error) =>
+      isRateLimitedError(error) && failureCount < 3,
+    retryDelay: () => 2000 + Math.floor(Math.random() * 3000),
     refetchInterval: (q) => {
+      if (isRateLimitedError(q.state.error)) {
+        return 8000 + Math.floor(Math.random() * 4000);
+      }
       const data = q.state.data as AudienceImportJobStatus | null | undefined;
       const state = String(data?.state ?? "");
       if (!data) return 2000 + Math.floor(Math.random() * 3000);
@@ -1518,19 +1589,32 @@ export default function ImportExportPage() {
             )}
 
             <div className="mt-8 flex flex-col gap-4 border-t border-(--color-border) pt-6 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-(--color-text-muted)">
-                {selectedImportFormat === "csv"
-                  ? mappedCount > 0
-                    ? `Ready to import ${mappedCount} fields${
-                        importPlatform && selectedPreset
-                          ? ` (${selectedPreset.label} preset fills the rest)`
-                          : ""
-                      }`
-                    : importPlatform && selectedPreset
-                      ? `Ready to import with the ${selectedPreset.label} preset`
-                      : "Map at least one column to continue"
-                  : "Ready to import"}
-              </p>
+              <div className="space-y-3">
+                <p className="text-sm text-(--color-text-muted)">
+                  {selectedImportFormat === "csv"
+                    ? mappedCount > 0
+                      ? `Ready to import ${mappedCount} fields${
+                          importPlatform && selectedPreset
+                            ? ` (${selectedPreset.label} preset fills the rest)`
+                            : ""
+                        }`
+                      : importPlatform && selectedPreset
+                        ? `Ready to import with the ${selectedPreset.label} preset`
+                        : "Map at least one column to continue"
+                    : "Ready to import"}
+                </p>
+                <div className="max-w-md space-y-1">
+                  <p className="text-xs text-(--color-text-muted)">
+                    Completion email recipients (optional)
+                  </p>
+                  <Input
+                    value={notifyEmailsRaw}
+                    onChange={(e) => setNotifyEmailsRaw(e.target.value)}
+                    placeholder="user@company.com, ops@onchainsuite.com"
+                    className="h-9 rounded-lg border-(--color-border) bg-(--color-background) text-sm"
+                  />
+                </div>
+              </div>
               <div className="flex gap-3">
                 <button
                   onClick={resetImport}

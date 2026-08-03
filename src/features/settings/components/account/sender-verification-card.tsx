@@ -158,7 +158,7 @@ export function SenderVerificationCard() {
         queryClient.invalidateQueries({ queryKey: ["account", "domain-dns"] }),
         queryClient.invalidateQueries({ queryKey: domainsKey(organizationId) }),
       ]);
-      toast.success("Sending purpose updated — DNS records re-scoped");
+      toast.success("Sending purpose updated. DNS records re-scoped");
     },
     onError: (error: unknown) =>
       toast.error(
@@ -299,20 +299,21 @@ function DomainDnsPanel({
   return (
     <div className="space-y-4">
       {/* What's this domain for? — picks the provider (SES vs ACS) and, with it,
-          the exact DNS records to publish. */}
+      the exact DNS records to publish. */}
       <div>
         <div className="text-sm font-medium text-foreground">
           What&apos;s this domain for?
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Transactional email routes through Azure ACS; marketing through Amazon
-          SES. This decides which DNS records you publish below.
+          Marketing sends campaigns and bulk; transactional sends account mail
+          (sign-in, receipts, invites). Each purpose needs its own DNS records,
+          shown below.
         </p>
         <div className="mt-2 inline-flex rounded-lg border border-border/70 bg-background/60 p-1">
           {(
             [
-              { key: "transactional" as const, label: "Transactional · ACS" },
-              { key: "marketing" as const, label: "Marketing · SES" },
+              { key: "transactional" as const, label: "Transactional" },
+              { key: "marketing" as const, label: "Marketing" },
             ] satisfies { key: DomainPurpose; label: string }[]
           ).map((opt) => {
             const active = data.purpose === opt.key;
@@ -363,7 +364,7 @@ function DomainDnsPanel({
       {conflictCount > 0 ? (
         <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
           {conflictCount} existing record{conflictCount === 1 ? "" : "s"}{" "}
-          conflict{conflictCount === 1 ? "s" : ""} with verification — apply the
+          conflict{conflictCount === 1 ? "s" : ""} with verification, apply the
           fixes below.
         </p>
       ) : null}

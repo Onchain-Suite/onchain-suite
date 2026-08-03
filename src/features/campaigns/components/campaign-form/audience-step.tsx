@@ -22,6 +22,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
+import { getSelectedOrganizationId } from "@/lib/utils";
+
 import { type CampaignAudienceEstimate } from "../../campaigns.service";
 import {
   getEstimatedRecipientsFromSelection,
@@ -47,7 +49,6 @@ import {
 } from "@/features/audience/utils";
 import { smartSendingService } from "@/features/settings/smart-sending.service";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
-import { getSelectedOrganizationId } from "@/lib/utils";
 
 interface AudienceStepProps {
   form: UseFormReturn<CampaignFormData>;
@@ -183,7 +184,8 @@ export function AudienceStep({
         })
         .filter((c): c is ContactOption => c !== null);
     },
-    retry: (failureCount, error) => isRateLimitedError(error) && failureCount < 3,
+    retry: (failureCount, error) =>
+      isRateLimitedError(error) && failureCount < 3,
     retryDelay: () => 2000 + Math.floor(Math.random() * 3000),
     refetchOnWindowFocus: true,
     staleTime: 0,

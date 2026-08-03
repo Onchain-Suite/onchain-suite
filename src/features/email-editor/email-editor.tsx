@@ -3,6 +3,7 @@
 import {
   ArrowLeftIcon,
   ArrowsUpDownIcon,
+  ArrowUpTrayIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   CodeBracketIcon,
@@ -14,21 +15,34 @@ import {
   ShieldCheckIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
-import { useMemo, useState } from "react";
+import axios from "axios";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
-import { cn } from "@/lib/utils";
+import { authClient } from "@/lib/auth-client";
+import { cn, getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import {
   createBlock,
   type EmailBlock,
   type EmailBlockType,
   type EmailDocument,
+  type EmailFooter,
   MERGE_TAGS,
+  parseHtmlToDocument,
   renderDocumentToHtml,
   renderDocumentToText,
 } from "./blocks";
@@ -41,6 +55,22 @@ const PALETTE: { type: EmailBlockType; label: string; glyph?: string }[] = [
   { type: "divider", label: "Divider" },
   { type: "spacer", label: "Spacer" },
 ];
+
+/** Sentinel selection id for the always-on compliance footer. */
+const FOOTER_ID = "__footer__";
+
+/** Extract the hosted asset URL from the upload endpoint's response. */
+function pickUploadedUrl(payload: unknown): string | null {
+  const root = isJsonObject(payload) ? payload : {};
+  const data = isJsonObject(root.data) ? root.data : root;
+  const candidate =
+    (typeof data.url === "string" && data.url) ||
+    (typeof data.src === "string" && data.src) ||
+    (typeof data.location === "string" && data.location) ||
+    (typeof root.url === "string" && root.url) ||
+    null;
+  return candidate && candidate.length > 0 ? candidate : null;
+}
 
 function PaletteIcon({
   type,
@@ -83,16 +113,24 @@ export function EmailEditor({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<"blocks" | "inspect">("blocks");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importHtml, setImportHtml] = useState("");
+  const [uploading, setUploading] = useState(false);
 
-  const selected = doc.blocks.find((b) => b.id === selectedId) ?? null;
+  const { data: session } = authClient.useSession();
 
-  // Very light compliance heuristic: an unsubscribe affordance must exist.
-  const compliant = useMemo(() => {
-    const blob = JSON.stringify(doc.blocks).toLowerCase();
-    return blob.includes("unsubscribe");
-  }, [doc]);
+  const footerSelected = selectedId === FOOTER_ID;
+  const selected = footerSelected
+    ? null
+    : (doc.blocks.find((b) => b.id === selectedId) ?? null);
+
+  // Real compliance: the footer carries the physical address + unsubscribe +
+  // manage-preferences links (CAN-SPAM), so "compliant" tracks it being on.
+  const compliant = doc.footer?.enabled ?? false;
 
   const setBlocks = (blocks: EmailBlock[]) => setDoc((d) => ({ ...d, blocks }));
+  const patchFooter = (patch: Partial<EmailFooter>) =>
+    setDoc((d) => ({ ...d, footer: { ...d.footer, ...patch } }));
 
   const addBlock = (type: EmailBlockType) => {
     const block = createBlock(type);
@@ -131,10 +169,63 @@ export function EmailEditor({
     patchBlock(selected.id, { content: value } as Partial<EmailBlock>);
   };
 
+  const uploadImage = async (id: string, file: File) => {
+    const activeOrgId =
+      getSelectedOrganizationId() ?? session?.session?.activeOrganizationId;
+    const formData = new FormData();
+    formData.append("file", file);
+    setUploading(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (activeOrgId) headers["x-org-id"] = activeOrgId;
+      const res = await axios.post("/api/upload/email-image", formData, {
+        headers,
+      });
+      const url = pickUploadedUrl(res.data);
+      if (!url) throw new Error("Upload succeeded but no URL was returned.");
+      patchBlock(id, { src: url } as Partial<EmailBlock>);
+      toast.success("Image uploaded");
+    } catch (e) {
+      const msg =
+        axios.isAxiosError(e) && isJsonObject(e.response?.data)
+          ? String(e.response?.data.error ?? e.message)
+          : e instanceof Error
+            ? e.message
+            : "Upload failed";
+      toast.error(msg);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const applyImport = () => {
+    const trimmed = importHtml.trim();
+    if (!trimmed) {
+      toast.error("Paste some HTML to import.");
+      return;
+    }
+    const next = parseHtmlToDocument(trimmed);
+    if (next.blocks.length === 0) {
+      toast.error("No content found in that HTML.");
+      return;
+    }
+    // Keep the existing footer config; import only replaces the body blocks.
+    setDoc((d) => ({ ...next, footer: d.footer }));
+    setSelectedId(null);
+    setImportOpen(false);
+    setImportHtml("");
+    toast.success(`Imported ${next.blocks.length} blocks`);
+  };
+
   const handleSave = async () => {
     const html = renderDocumentToHtml(doc, accent);
     const text = renderDocumentToText(doc);
     await onSave({ doc, html, text });
+  };
+
+  const selectFooter = () => {
+    setSelectedId(FOOTER_ID);
+    setTab("inspect");
   };
 
   return (
@@ -199,9 +290,7 @@ export function EmailEditor({
             variant="outline"
             size="sm"
             className="rounded-lg"
-            onClick={() =>
-              toast.info("HTML import lands with the from-scratch editor.")
-            }
+            onClick={() => setImportOpen(true)}
           >
             <CodeBracketIcon className="size-4" aria-hidden="true" />
             Import HTML
@@ -271,13 +360,28 @@ export function EmailEditor({
                   block.
                 </p>
               </div>
+            ) : footerSelected ? (
+              <FooterInspector
+                footer={doc.footer}
+                onPatch={patchFooter}
+                onInsertReasonTag={(token) =>
+                  patchFooter({
+                    optInReason:
+                      `${doc.footer.optInReason} {{ ${token} }}`.trim(),
+                  })
+                }
+              />
             ) : (
               <Inspector
                 block={selected}
+                uploading={uploading}
                 onPatch={(patch) =>
                   selected ? patchBlock(selected.id, patch) : undefined
                 }
                 onInsertTag={insertMergeTag}
+                onUpload={(file) =>
+                  selected ? uploadImage(selected.id, file) : undefined
+                }
                 onRemove={() =>
                   selected ? removeBlock(selected.id) : undefined
                 }
@@ -290,35 +394,79 @@ export function EmailEditor({
         <main className="min-h-0 flex-1 overflow-y-auto bg-muted/30 p-6">
           <div
             className={cn(
-              "mx-auto w-full rounded-2xl bg-white p-6 shadow-sm transition-[max-width]",
+              "mx-auto w-full overflow-hidden rounded-2xl bg-white shadow-sm transition-[max-width]",
               device === "desktop" ? "max-w-[640px]" : "max-w-[380px]"
             )}
           >
-            {doc.blocks.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-400">
-                Empty email — add a block from the left.
-              </div>
-            ) : (
-              doc.blocks.map((block, i) => (
-                <BlockRow
-                  key={block.id}
-                  block={block}
-                  accent={accent}
-                  selected={selectedId === block.id}
-                  isFirst={i === 0}
-                  isLast={i === doc.blocks.length - 1}
-                  onSelect={() => {
-                    setSelectedId(block.id);
-                    setTab("inspect");
-                  }}
-                  onMove={(dir) => moveBlock(block.id, dir)}
-                  onRemove={() => removeBlock(block.id)}
-                />
-              ))
-            )}
+            <div className="p-6">
+              {doc.blocks.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-400">
+                  Empty email — add a block from the left.
+                </div>
+              ) : (
+                doc.blocks.map((block, i) => (
+                  <BlockRow
+                    key={block.id}
+                    block={block}
+                    accent={accent}
+                    selected={selectedId === block.id}
+                    isFirst={i === 0}
+                    isLast={i === doc.blocks.length - 1}
+                    onSelect={() => {
+                      setSelectedId(block.id);
+                      setTab("inspect");
+                    }}
+                    onMove={(dir) => moveBlock(block.id, dir)}
+                    onRemove={() => removeBlock(block.id)}
+                  />
+                ))
+              )}
+            </div>
+
+            {/* Compliance footer preview (always rendered into the email) */}
+            {doc.footer?.enabled ? (
+              <FooterPreview
+                footer={doc.footer}
+                selected={footerSelected}
+                onSelect={selectFooter}
+              />
+            ) : null}
           </div>
         </main>
       </div>
+
+      {/* Import HTML dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import HTML</DialogTitle>
+            <DialogDescription>
+              Paste an existing email&apos;s HTML. We&apos;ll convert headings,
+              text, images, buttons and dividers into editable blocks. The
+              compliance footer is kept.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={importHtml}
+            onChange={(e) => setImportHtml(e.target.value)}
+            rows={10}
+            placeholder="<h1>…</h1> <p>…</p>"
+            className="rounded-lg font-mono text-xs"
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setImportOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={applyImport}>
+              Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -444,17 +592,127 @@ function BlockView({ block, accent }: { block: EmailBlock; accent: string }) {
   }
 }
 
+/** Muted preview of the compliance footer at the bottom of the canvas. */
+function FooterPreview({
+  footer,
+  selected,
+  onSelect,
+}: {
+  footer: EmailFooter;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onSelect();
+      }}
+      className={cn(
+        "cursor-pointer border-t border-gray-200 bg-gray-50 px-6 py-5 text-xs leading-relaxed text-gray-400 outline-none transition-shadow",
+        selected ? "ring-2 ring-inset ring-primary" : "hover:bg-gray-100"
+      )}
+    >
+      <p className="whitespace-pre-wrap">{footer.optInReason}</p>
+      <p>
+        <span className="text-gray-500">{"{{ sender_name }}"}</span> ·{" "}
+        <span className="text-gray-500">{"{{ postal_address }}"}</span>
+      </p>
+      <p>
+        <span className="underline">Unsubscribe</span> ·{" "}
+        <span className="underline">Manage preferences</span>
+      </p>
+    </div>
+  );
+}
+
+function FooterInspector({
+  footer,
+  onPatch,
+  onInsertReasonTag,
+}: {
+  footer: EmailFooter;
+  onPatch: (patch: Partial<EmailFooter>) => void;
+  onInsertReasonTag: (token: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Compliance footer
+      </p>
+
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">Show footer</p>
+          <p className="text-xs text-muted-foreground">
+            Required for CAN-SPAM (address + unsubscribe).
+          </p>
+        </div>
+        <Switch
+          checked={footer.enabled}
+          onCheckedChange={(v) => onPatch({ enabled: v })}
+        />
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-foreground">
+          Opt-in reason
+        </label>
+        <Textarea
+          value={footer.optInReason}
+          onChange={(e) => onPatch({ optInReason: e.target.value })}
+          rows={3}
+          className="rounded-lg"
+        />
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Insert a merge tag
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {MERGE_TAGS.filter((t) =>
+            ["sender_name", "campaign_name", "sender_email"].includes(t.token)
+          ).map((tag) => (
+            <button
+              key={tag.token}
+              type="button"
+              onClick={() => onInsertReasonTag(tag.token)}
+              className="rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-muted/40"
+            >
+              {tag.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        The physical address, unsubscribe and manage-preferences links resolve
+        from your org settings per recipient at send time.
+      </p>
+    </div>
+  );
+}
+
 function Inspector({
   block,
+  uploading,
   onPatch,
   onInsertTag,
+  onUpload,
   onRemove,
 }: {
   block: EmailBlock | null;
+  uploading: boolean;
   onPatch: (patch: Partial<EmailBlock>) => void;
   onInsertTag: (token: string) => void;
+  onUpload: (file: File) => void;
   onRemove: () => void;
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   if (!block) {
     return (
       <p className="text-sm leading-relaxed text-muted-foreground">
@@ -544,7 +802,34 @@ function Inspector({
         <>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Image URL
+              Image
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onUpload(file);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full rounded-lg"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
+              {uploading ? "Uploading…" : "Upload image"}
+            </Button>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
+              …or image URL
             </label>
             <Input
               value={block.src}

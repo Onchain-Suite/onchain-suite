@@ -3,40 +3,40 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 
 /**
- * Mirrors CampaignsListsView: header (title + view-mode pill + create button)
- * → analytics overview strip (5 compact stat cards, same h-20 rounded-2xl
- * shape as the client-side skeleton in analytics-overview.tsx) → search +
- * filter toolbar → campaigns table.
+ * Mirrors CampaignsListsView: header (title + Create) → 4 analytics stat cards
+ * → status filter chips → campaigns table. (The old view-mode pill and
+ * search/filter toolbar were removed in the reference rebuild.)
  */
 export default function CampaignsLoading() {
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <Skeleton className="h-8 w-44" />
-          <Skeleton className="mt-1 h-4 w-80 max-w-full" />
+    <div className="mx-auto w-full max-w-7xl space-y-6" aria-hidden="true">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-4 w-80 max-w-full" />
         </div>
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-8 w-64 rounded-full" />
-          <Skeleton className="h-8 w-40 rounded-xl" />
-        </div>
+        <Skeleton className="h-10 w-40 rounded-xl" />
       </div>
 
-      {/* Analytics overview strip */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        {Array.from({ length: 5 }, (_, i) => i).map((i) => (
-          <Skeleton key={`stat-${i}`} className="h-20 rounded-2xl" />
+      {/* Analytics overview — four stat cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => i).map((i) => (
+          <div
+            key={`stat-${i}`}
+            className="space-y-3 rounded-2xl border border-border bg-card p-4"
+          >
+            <Skeleton className="h-10 w-10 rounded-xl" />
+            <Skeleton className="h-7 w-24" />
+            <Skeleton className="h-4 w-28" />
+          </div>
         ))}
       </div>
 
-      {/* Search + filters toolbar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <Skeleton className="h-10 w-full rounded-lg sm:w-64" />
-        <div className="flex flex-wrap items-center gap-2">
-          <Skeleton className="h-10 w-28 rounded-lg" />
-          <Skeleton className="h-10 w-32 rounded-lg" />
-          <Skeleton className="h-10 w-28 rounded-lg" />
-        </div>
+      {/* Status filter chips */}
+      <div className="flex flex-wrap items-center gap-2">
+        {Array.from({ length: 5 }, (_, i) => i).map((i) => (
+          <Skeleton key={`chip-${i}`} className="h-8 w-20 rounded-lg" />
+        ))}
       </div>
 
       <TableSkeleton rows={6} />

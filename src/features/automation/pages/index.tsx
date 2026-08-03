@@ -1,5 +1,5 @@
-import { AutomationList } from "../components/automation-list";
+import { AutomationsListView } from "./list";
 
 export function AutomationsPage() {
-  return <AutomationList />;
+  return <AutomationsListView />;
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef } from "react";
 import type { UseFormReturn } from "react-hook-form";
@@ -96,23 +95,20 @@ export function TemplateStep({
   );
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-500 p-4 sm:p-6">
-      <div className="flex items-start gap-2.5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary ring-1 ring-primary/20">
-          <EnvelopeIcon className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div className="space-y-0.5">
-          <h2 className="text-xl sm:text-2xl font-bold text-foreground text-balance">
-            Message & Template
-          </h2>
-          <p className="text-sm text-muted-foreground text-pretty">
-            Craft your email and pick the template your audience will receive
-          </p>
-        </div>
+    <div className="space-y-6 p-4 sm:p-6">
+      <div>
+        <h2 className="text-xl font-semibold text-foreground">
+          What are you sending?
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Write the email and pick a template.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1.9fr)]">
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      {/* Forms are compact; the template gallery needs the room to render
+          fitted thumbnails, so it gets the larger share. */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.75fr)]">
+        <div>
           <EmailMessageForm
             form={form}
             verifiedSenderIdentities={verifiedSenderIdentities}
@@ -120,7 +116,7 @@ export function TemplateStep({
           />
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div>
           <TemplateSelector
             form={form}
             channel={

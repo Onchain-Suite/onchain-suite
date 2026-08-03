@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { useMemo } from "react";
 
 import { CommandBar } from "../components/command-bar";
-import { GetStartedSection } from "@/features/dashboard/components/get-started";
+import {
+  GetStartedSection,
+  useOrganizationId,
+  useTaskCompletion,
+} from "../components/get-started";
+import { MetricsDashboard } from "../components/metrics-dashboard";
 
 interface UserData {
   projectName: string;
@@ -21,78 +25,60 @@ interface MainDashboardProps {
   userData: UserData;
 }
 
+function getGreeting(tz?: string) {
+  let hour = new Date().getHours();
+  try {
+    if (tz) {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hour: "numeric",
+        hour12: false,
+      }).formatToParts(new Date());
+      const hourPart = parts.find((p) => p.type === "hour");
+      if (hourPart) {
+        hour = parseInt(hourPart.value, 10);
+      }
+    }
+  } catch {
+    hour = new Date().getHours();
+  }
+  if (hour < 12) return "morning";
+  if (hour < 18) return "afternoon";
+  return "evening";
+}
+
 export function MainDashboard({ userData }: MainDashboardProps) {
-  const [_setupComplete, setSetupComplete] = useState(false);
-  const [_showWalkthrough, setShowWalkthrough] = useState(false);
-  const [_walkthroughComplete, setWalkthroughComplete] = useState(false);
-  const [_showSetup, setShowSetup] = useState(false);
+  const greeting = getGreeting(userData.timezone);
+  const name = userData.fullName ?? "there";
 
-  const getGreeting = (tz?: string) => {
-    let hour = new Date().getHours();
-    try {
-      if (tz) {
-        const parts = new Intl.DateTimeFormat("en-US", {
-          timeZone: tz,
-          hour: "numeric",
-          hour12: false,
-        }).formatToParts(new Date());
-        const hourPart = parts.find((p) => p.type === "hour");
-        if (hourPart) {
-          hour = parseInt(hourPart.value, 10);
-        }
-      }
-    } catch {
-      hour = new Date().getHours();
-    }
-    if (hour < 12) return "morning";
-    if (hour < 18) return "afternoon";
-    return "evening";
-  };
-
-  useEffect(() => {
-    const setupCompleted = localStorage.getItem("setup_complete");
-    const walkthroughCompleted = localStorage.getItem("walkthrough_complete");
-
-    if (setupCompleted === "true") {
-      setSetupComplete(true);
-      if (walkthroughCompleted !== "true") {
-        setShowWalkthrough(true);
-      } else {
-        setWalkthroughComplete(true);
-      }
-    } else {
-      setShowSetup(true);
-    }
-
-    if (userData.isNewUser && walkthroughCompleted === "true") {
-      toast.info(
-        `Suite Live—Your ${userData.userType} Engine is Purring!,
-        Welcome to OnchainSuite. Your retention platform is ready.`
-      );
-    }
-  }, [userData.isNewUser, userData.userType]);
+  // New / not-yet-onboarded workspaces see the setup checklist (task cards);
+  // once every step is done the dashboard flips to the live metrics view. The
+  // checklist reuses existing service reads, so React Query dedupes them.
+  const { organizationId } = useOrganizationId();
+  const { completionById, isLoading } = useTaskCompletion(organizationId);
+  const onboardingComplete = useMemo(() => {
+    const values = Object.values(completionById);
+    return values.length > 0 && values.every(Boolean);
+  }, [completionById]);
 
   return (
-    <div className="min-h-screen rounded-2xl bg-background">
-      <div className="space-y-6">
-        <div className="mx-auto max-w-6xl rounded-2xl border border-border bg-card px-4 py-8 text-center md:px-6">
-          <div className="text-2xl font-semibold">
-            {`Good ${getGreeting(userData.timezone)}, ${userData.fullName ?? "there"}!`}
-          </div>
-          <div className="my-2 text-sm text-muted-foreground">
-            Time to focus on what matters most
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="mx-auto max-w-6xl px-3 py-6 md:px-6 md:py-8">
-          {/* Command Bar */}
-          <CommandBar />
-
-          {/* Get Started Section */}
-          <GetStartedSection />
-        </div>
+    <div className="mx-auto max-w-7xl space-y-6">
+      <div className="rounded-2xl border border-border bg-card px-6 py-7">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          {`Good ${greeting}, ${name}.`}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Here is what moved across your workspace today.
+        </p>
       </div>
+
+      <CommandBar />
+
+      {isLoading || !onboardingComplete ? (
+        <GetStartedSection />
+      ) : (
+        <MetricsDashboard />
+      )}
     </div>
   );
 }

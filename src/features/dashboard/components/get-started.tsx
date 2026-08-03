@@ -177,7 +177,7 @@ const hasVerifiedDomain = (
  * selection cookie first (kept in sync via the `onchain:org-changed` event),
  * then the session's active organization. `undefined` means "not synced yet".
  */
-function useOrganizationId() {
+export function useOrganizationId() {
   const { data: session } = authClient.useSession();
   const [selectedOrgId, setSelectedOrgId] = useState<string | null | undefined>(
     undefined
@@ -207,7 +207,7 @@ function useOrganizationId() {
 }
 
 /** Per-task completion booleans derived from existing service reads. */
-function useTaskCompletion(organizationId: string | null) {
+export function useTaskCompletion(organizationId: string | null) {
   const orgId = organizationId ?? undefined;
   const enabled = Boolean(organizationId);
 

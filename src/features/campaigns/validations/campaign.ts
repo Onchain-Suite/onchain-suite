@@ -58,6 +58,35 @@ export const campaignFormSchema = z
       .optional()
       .or(z.literal("")),
 
+    // Step 2 (in-app push): notification composer. The backend persists only
+    // title (= emailSubject) / body / cta under `channelsContent.inapp`; the
+    // placement, trigger, and display/delivery settings below are frontend-only
+    // until the in-app settings API ships.
+    pushPlacement: z
+      .enum(["modal", "banner", "slide-in", "inline", "mobile-push"])
+      .default("modal"),
+    pushBody: z.string().optional(),
+    pushCtaLabel: z.string().optional(),
+    pushCtaUrl: z.string().optional(),
+    pushTrigger: z
+      .enum(["wallet-connect", "page-view", "manual"])
+      .default("wallet-connect"),
+    pushFrequency: z
+      .enum([
+        "once-per-wallet",
+        "once-per-session",
+        "every-time",
+        "until-dismissed",
+      ])
+      .default("once-per-wallet"),
+    pushAccent: z.string().default("#4f46e5"),
+    pushDismissible: z.boolean().default(true),
+    pushDelivery: z
+      .enum(["wait-for-connect", "only-now"])
+      .default("wait-for-connect"),
+    pushExpiresDays: z.string().default("14"),
+    pushMaxPerSession: z.string().default("1"),
+
     // Send timing (chosen on the template step: send now or schedule)
     sendOption: z.enum(["now", "schedule"]),
     scheduleDate: z.date().optional(),

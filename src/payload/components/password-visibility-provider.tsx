@@ -20,7 +20,10 @@ import { useEffect } from "react";
  * of this reaches the public blog bundle.
  */
 
-/** Marks an input we manage. Survives the input being toggled to type=text. */
+/**
+ * Marks an input we manage, and carries the key its reveal state is stored under.
+ * Survives the input being toggled to type=text.
+ */
 const FIELD_ATTR = "data-ocs-pw-field";
 
 /** Marks our button, so we can tell whether one is currently attached. */
@@ -69,7 +72,32 @@ export function PasswordVisibilityProvider({
   children?: React.ReactNode;
 }) {
   useEffect(() => {
+    /**
+     * Whether each field is currently revealed.
+     *
+     * This has to be ours, not the DOM's. React owns `type` on these inputs and
+     * re-asserts `type="password"` from its virtual DOM on every re-render — so
+     * on every keystroke. Reading the live attribute would therefore lose the
+     * user's choice the moment they type; instead the desired state is kept here
+     * and re-applied whenever React overwrites it.
+     *
+     * Keyed by the field's stable id/name rather than the element, so the state
+     * also survives Payload replacing the input outright.
+     */
+    const revealed = new Map<string, boolean>();
+
+    const keyFor = (input: HTMLInputElement) =>
+      (input.getAttribute(FIELD_ATTR) ?? input.id) ||
+      input.name ||
+      "unnamed-password-field";
+
     const setState = (button: HTMLButtonElement, visible: boolean) => {
+      // Bail when nothing changes. `apply` runs on every DOM mutation, and
+      // rewriting innerHTML unconditionally is itself a childList mutation — that
+      // fed the observer back into apply and span forever.
+      if (button.getAttribute("aria-pressed") === String(visible)) {
+        return;
+      }
       button.innerHTML = visible ? EYE_OFF : EYE;
       button.setAttribute("aria-pressed", String(visible));
       button.setAttribute(
@@ -77,6 +105,25 @@ export function PasswordVisibilityProvider({
         visible ? "Hide password" : "Show password"
       );
       button.title = visible ? "Hide password" : "Show password";
+    };
+
+    /**
+     * Force the input and its button to match our stored state.
+     *
+     * Idempotent, and cheap enough to run on every keystroke and every DOM
+     * mutation. Writing `type` only when it differs keeps this from bouncing
+     * against the attribute observer.
+     */
+    const apply = (input: HTMLInputElement) => {
+      const isRevealed = revealed.get(keyFor(input)) ?? false;
+      const wanted = isRevealed ? "text" : "password";
+      if (input.type !== wanted) {
+        input.type = wanted;
+      }
+      const button = attachedToggle(input);
+      if (button) {
+        setState(button, isRevealed);
+      }
     };
 
     const attach = (input: HTMLInputElement) => {
@@ -88,7 +135,13 @@ export function PasswordVisibilityProvider({
         return;
       }
 
-      input.setAttribute(FIELD_ATTR, "");
+      // Stamp the key up front so state survives a later remount.
+      if (!input.getAttribute(FIELD_ATTR)) {
+        input.setAttribute(
+          FIELD_ATTR,
+          input.id || input.name || "unnamed-password-field"
+        );
+      }
 
       const button = document.createElement("button");
       button.setAttribute(TOGGLE_ATTR, "");
@@ -112,12 +165,10 @@ export function PasswordVisibilityProvider({
         zIndex: "1",
       });
 
-      setState(button, input.type === "text");
-
       button.addEventListener("click", () => {
-        const visible = input.type === "text";
-        input.type = visible ? "password" : "text";
-        setState(button, !visible);
+        const key = keyFor(input);
+        revealed.set(key, !(revealed.get(key) ?? false));
+        apply(input);
         input.focus();
       });
 
@@ -125,6 +176,11 @@ export function PasswordVisibilityProvider({
       input.style.paddingInlineEnd = "2.75rem";
       input.insertAdjacentElement("afterend", button);
       position(button, input);
+      apply(input);
+
+      // Typing is exactly when React re-asserts the attribute, so re-apply
+      // immediately rather than waiting for the observer to notice.
+      input.addEventListener("input", () => apply(input));
     };
 
     const scan = () => {
@@ -134,7 +190,11 @@ export function PasswordVisibilityProvider({
         .querySelectorAll<HTMLInputElement>(
           `input[type="password"], input[${FIELD_ATTR}]`
         )
-        .forEach(attach);
+        .forEach((input) => {
+          attach(input);
+          // React may have reset `type` since the last pass.
+          apply(input);
+        });
     };
 
     const resync = () => {
@@ -153,7 +213,15 @@ export function PasswordVisibilityProvider({
     // Payload re-renders and client-navigates between admin views, so password
     // inputs appear — and our buttons disappear — after mount.
     const observer = new MutationObserver(() => scan());
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      // `type` matters as much as childList: React rewrites it on re-render, and
+      // an attribute change does not surface in a childList-only observer, which
+      // is why a revealed field silently re-masked itself while typing.
+      attributeFilter: ["type"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
     window.addEventListener("resize", resync);
 
     return () => {

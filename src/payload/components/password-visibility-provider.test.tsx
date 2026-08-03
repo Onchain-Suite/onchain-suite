@@ -259,3 +259,67 @@ describe("Payload's real auth-view markup", () => {
     );
   });
 });
+
+describe("survives React re-asserting the type attribute", () => {
+  it("stays revealed when React resets type while typing", async () => {
+    // The reported bug: reveal, type one character, and the field silently
+    // re-masked while the button still claimed "Hide password". React owns `type`
+    // on these inputs and rewrites it from its vdom on every keystroke.
+    const input = mountPayloadField();
+    render(<PasswordVisibilityProvider />);
+    await waitFor(() => expect(toggleFor(input)).not.toBeNull());
+
+    requireToggle(input).click();
+    expect(input.type).toBe("text");
+
+    // Exactly what React does on re-render, then the keystroke event.
+    input.type = "password";
+    input.value = "a";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(input.type).toBe("text");
+    expect(requireToggle(input).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("self-heals from an attribute reset with no input event at all", async () => {
+    const input = mountPayloadField();
+    render(<PasswordVisibilityProvider />);
+    await waitFor(() => expect(toggleFor(input)).not.toBeNull());
+    requireToggle(input).click();
+
+    input.type = "password";
+
+    // The observer watches the type attribute, so this recovers unprompted.
+    await waitFor(() => expect(input.type).toBe("text"));
+  });
+
+  it("stays masked when hidden, even if something sets type=text", async () => {
+    // The inverse must hold too, or a stray render could expose a password.
+    const input = mountPayloadField();
+    render(<PasswordVisibilityProvider />);
+    await waitFor(() => expect(toggleFor(input)).not.toBeNull());
+
+    input.type = "text";
+    await waitFor(() => expect(input.type).toBe("password"));
+    expect(requireToggle(input).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("keeps each field's state separate under churn", async () => {
+    const a = mountPayloadField("one");
+    const b = mountPayloadField("two");
+    render(<PasswordVisibilityProvider />);
+    await waitFor(() => {
+      expect(toggleFor(a)).not.toBeNull();
+      expect(toggleFor(b)).not.toBeNull();
+    });
+
+    requireToggle(a).click();
+    a.type = "password";
+    b.type = "text";
+    a.dispatchEvent(new Event("input", { bubbles: true }));
+    b.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(a.type).toBe("text");
+    expect(b.type).toBe("password");
+  });
+});

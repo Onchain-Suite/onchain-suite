@@ -87,7 +87,9 @@ export default function UpgradePlanDialog({
   trigger,
 }: UpgradePlanDialogProps) {
   const [open, setOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"crypto" | "card">("crypto");
+  const [paymentMethod, setPaymentMethod] = useState<"crypto" | "card">(
+    "crypto"
+  );
   const queryClient = useQueryClient();
 
   const plansQuery = useQuery({

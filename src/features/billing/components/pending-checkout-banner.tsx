@@ -226,8 +226,8 @@ export function PendingCheckoutBanner() {
         />
         <span>
           <span className="font-medium">
-            Waiting for your {pending.plan || "plan"} payment via {providerLabel}
-            …
+            Waiting for your {pending.plan || "plan"} payment via{" "}
+            {providerLabel}…
           </span>{" "}
           <span className="text-muted-foreground">
             We&apos;ll unlock everything as soon as the payment confirms —

@@ -70,6 +70,63 @@ const extractProfileIds = (payload: unknown): string[] => {
     .filter((id) => id.length > 0);
 };
 
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const isRateLimitedError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const err = error as { cause?: unknown; message?: unknown };
+  const candidate = (err.cause ?? err) as {
+    response?: { status?: unknown };
+    status?: unknown;
+    message?: unknown;
+  };
+  const status =
+    typeof candidate.response?.status === "number"
+      ? candidate.response.status
+      : typeof candidate.status === "number"
+        ? candidate.status
+        : null;
+  if (status === 429) return true;
+  const msg =
+    typeof err.message === "string"
+      ? err.message
+      : typeof candidate.message === "string"
+        ? candidate.message
+        : "";
+  return msg.includes("429") || msg.toLowerCase().includes("rate limit");
+};
+
+const listTagProfileIds = async (tag: string) => {
+  const limit = 200;
+  const ids: string[] = [];
+  let page = 1;
+
+  for (;;) {
+    let payload: unknown = null;
+    let attempts = 0;
+    for (;;) {
+      try {
+        payload = await audienceService.listProfiles({ tag, page, limit });
+        break;
+      } catch (error) {
+        if (!isRateLimitedError(error) || attempts >= 3) throw error;
+        attempts += 1;
+        await wait(2000 + Math.floor(Math.random() * 3000));
+      }
+    }
+    const pageIds = extractProfileIds(payload);
+    if (pageIds.length === 0) break;
+    ids.push(...pageIds);
+    if (pageIds.length < limit) break;
+    page += 1;
+  }
+
+  return ids;
+};
+
 /**
  * Expand selected tag names into the tagged contacts' profile ids
  * (GET /audience/profiles?tag=). Failures per tag resolve to an empty set
@@ -79,15 +136,16 @@ export async function resolveTagsToProfileIds(
   tagNames: string[]
 ): Promise<string[]> {
   if (tagNames.length === 0) return [];
-  const results = await Promise.all(
-    tagNames.map((tag) =>
-      audienceService
-        .listProfiles({ tag, page: 1, limit: 200 })
-        .then(extractProfileIds)
-        .catch(() => [] as string[])
-    )
-  );
-  return Array.from(new Set(results.flat()));
+  const seen = new Set<string>();
+  for (const tag of tagNames) {
+    try {
+      const ids = await listTagProfileIds(tag);
+      for (const id of ids) seen.add(id);
+    } catch (_e) {
+      String(_e);
+    }
+  }
+  return Array.from(seen);
 }
 
 export const getEstimatedRecipientsFromSelection = (

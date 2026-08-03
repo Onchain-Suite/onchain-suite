@@ -87,6 +87,7 @@ export default function UpgradePlanDialog({
   trigger,
 }: UpgradePlanDialogProps) {
   const [open, setOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"crypto" | "card">("crypto");
   const queryClient = useQueryClient();
 
   const plansQuery = useQuery({
@@ -97,12 +98,13 @@ export default function UpgradePlanDialog({
     staleTime: 10 * 60 * 1000,
   });
 
-  // Crypto-only for now: every plan goes straight to the Blockradar mainnet
-  // checkout (limits unlock via webhook). Card (Stripe) stays unwired until
-  // production keys exist — the service supports it when that day comes.
   const upgradeMutation = useMutation({
     mutationFn: async (plan: string) => {
-      const checkout = await startPlanCheckout(plan);
+      const checkout = await startPlanCheckout(
+        plan,
+        undefined,
+        paymentMethod === "card" ? { paymentMethod: "card" } : undefined
+      );
       if (!checkout?.paymentUrl) {
         throw new Error("Checkout did not return a payment link. Try again.");
       }
@@ -151,10 +153,39 @@ export default function UpgradePlanDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <p className="text-xs text-muted-foreground">
-          Pay in USDC via crypto checkout — your plan and limits unlock
-          automatically once the payment confirms on-chain.
-        </p>
+        <div className="space-y-2">
+          <div className="inline-flex w-fit rounded-lg border border-border/70 bg-background/60 p-1 text-xs">
+            <button
+              type="button"
+              disabled={upgradeMutation.isPending || paymentMethod === "crypto"}
+              onClick={() => setPaymentMethod("crypto")}
+              className={`rounded-md px-3 py-1.5 transition-colors disabled:cursor-default ${
+                paymentMethod === "crypto"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Crypto · Blockradar
+            </button>
+            <button
+              type="button"
+              disabled={upgradeMutation.isPending || paymentMethod === "card"}
+              onClick={() => setPaymentMethod("card")}
+              className={`rounded-md px-3 py-1.5 transition-colors disabled:cursor-default ${
+                paymentMethod === "card"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Card · Stripe
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {paymentMethod === "card"
+              ? "Pay by card via Stripe checkout — your plan unlocks automatically once payment confirms."
+              : "Pay in USDC via crypto checkout — your plan and limits unlock automatically once the payment confirms on-chain."}
+          </p>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
           {plans.map((plan, idx) => {

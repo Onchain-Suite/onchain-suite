@@ -59,13 +59,13 @@ function mockPayload({
   return { deleted, payload };
 }
 
-const run = (doc: unknown, payload: unknown) =>
+const run = (doc: unknown, payload: unknown, req: object = {}) =>
   (
     cleanupPostMedia as unknown as (args: {
       doc: unknown;
       req: { payload: unknown };
     }) => Promise<unknown>
-  )({ doc, req: { payload } });
+  )({ doc, req: { payload, ...req } });
 
 describe("cleanupPostMedia", () => {
   it("deletes media no surviving post references", async () => {
@@ -108,6 +108,20 @@ describe("cleanupPostMedia", () => {
     await run(post(1, 10), payload);
     expect(payload.find).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: { not_equals: 1 } } })
+    );
+  });
+
+  it("threads req through every query so it joins the delete transaction", async () => {
+    // Without this the hook opens its own connection and deadlocks against the
+    // locks the in-flight post delete still holds on `posts`. Found by running
+    // it against a real database; a mock alone cannot surface it.
+    const { payload } = mockPayload();
+    await run(post(1, 10), payload);
+    expect(payload.find).toHaveBeenCalledWith(
+      expect.objectContaining({ req: expect.objectContaining({ payload }) })
+    );
+    expect(payload.delete).toHaveBeenCalledWith(
+      expect.objectContaining({ req: expect.objectContaining({ payload }) })
     );
   });
 

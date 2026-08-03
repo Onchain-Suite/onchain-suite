@@ -48,6 +48,9 @@ export const organizePostMedia: CollectionAfterChangeHook = async ({
             id,
             depth: 0,
             overrideAccess: true,
+            // Same transaction as the save that triggered this, so the read
+            // cannot block on locks the save still holds.
+            req,
           });
 
           const publicId = media?.cloudinaryPublicId;
@@ -77,6 +80,7 @@ export const organizePostMedia: CollectionAfterChangeHook = async ({
             data: { cloudinaryPublicId: moved },
             depth: 0,
             overrideAccess: true,
+            req,
           });
         } catch (error) {
           payload.logger.warn(

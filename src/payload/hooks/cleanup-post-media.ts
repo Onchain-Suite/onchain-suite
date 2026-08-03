@@ -1,4 +1,4 @@
-import type { CollectionAfterDeleteHook, Payload } from "payload";
+import type { CollectionAfterDeleteHook, PayloadRequest } from "payload";
 
 import { collectMediaIds, describeError } from "@/payload/hooks/media-refs";
 
@@ -38,9 +38,10 @@ const MAX_SCAN_PAGES = 25;
  * nothing, because an incomplete reference set would look exactly like "unused".
  */
 async function collectSurvivingMediaIds(
-  payload: Payload,
+  req: PayloadRequest,
   deletedPostId: unknown
 ): Promise<Set<number | string> | null> {
+  const { payload } = req;
   const referenced = new Set<number | string>();
 
   for (let page = 1; page <= MAX_SCAN_PAGES; page++) {
@@ -53,6 +54,10 @@ async function collectSurvivingMediaIds(
       limit: SCAN_PAGE_SIZE,
       overrideAccess: true,
       page,
+      // Joining the caller's transaction is not optional: an afterDelete hook
+      // runs while the delete transaction still holds locks on `posts`, so a
+      // query on its own connection waits on those locks and deadlocks.
+      req,
       where: { id: { not_equals: deletedPostId } },
     });
 
@@ -87,7 +92,7 @@ export const cleanupPostMedia: CollectionAfterDeleteHook = async ({
       return doc;
     }
 
-    const surviving = await collectSurvivingMediaIds(payload, doc?.id);
+    const surviving = await collectSurvivingMediaIds(req, doc?.id);
     if (surviving === null) {
       return doc;
     }
@@ -106,6 +111,7 @@ export const cleanupPostMedia: CollectionAfterDeleteHook = async ({
             collection: "media",
             id,
             overrideAccess: true,
+            req,
           });
         } catch (error) {
           payload.logger.warn(

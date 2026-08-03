@@ -26,6 +26,7 @@ import {
   addEdge,
   Background,
   type Connection,
+  ConnectionLineType,
   Controls,
   type Edge,
   MarkerType,
@@ -59,11 +60,6 @@ import {
   type OnchainCatalogDefinition,
 } from "../../automation.service";
 import { Confetti } from "../confetti";
-import {
-  AddableEdge,
-  EdgeInsertContext,
-  type EdgeInsertTarget,
-} from "./addable-edge";
 import { AutoGrowTextarea } from "./auto-grow-textarea";
 import {
   BranchNode,
@@ -156,35 +152,6 @@ const nodeTypes = {
   health_threshold: TriggerNode,
 };
 
-/** Custom edge with an inline "+" to insert a step between two nodes. */
-const edgeTypes = {
-  addable: AddableEdge,
-};
-
-/** Human title for the config panel, keyed by the node's renderer/canonical type. */
-const NODE_PANEL_LABELS: Record<string, string> = {
-  trigger: "Trigger",
-  email: "Send email",
-  send_email: "Send email",
-  inapp: "Send in-app push",
-  send_inapp: "Send in-app push",
-  wait: "Wait",
-  branch: "Branch",
-  tag: "Add tag",
-  add_tag: "Add tag",
-  webhook: "Webhook",
-  dispatch: "Dispatch campaign",
-  dispatch_campaign: "Dispatch campaign",
-};
-
-const nodePanelLabel = (type?: string) => {
-  if (!type) return "Step";
-  return (
-    NODE_PANEL_LABELS[type] ??
-    type.replace(/[_-]+/g, " ").replace(/^\w/, (c) => c.toUpperCase())
-  );
-};
-
 /**
  * Maps an action catalog `type` (from GET /automations/builder/actions) to the
  * ReactFlow node renderer key above. Anything not listed falls through to its
@@ -210,26 +177,6 @@ const NON_ONCHAIN_TRIGGER_TYPES = new Set([
   "segment_entered",
   "email_opened",
   "health_threshold",
-]);
-
-/**
- * Trigger `type`s that fire from on-chain activity — used to split the left
- * palette into "On-chain triggers" vs "Off-chain triggers" (everything else in
- * the trigger catalog, e.g. form_submitted / joined_list / segment_entered).
- */
-const ON_CHAIN_TRIGGER_TYPES = new Set([
-  "onchain",
-  "trigger",
-  "onchain_event",
-  "holder_acquired",
-  "governance_activity",
-  "swap_completed",
-  "liquidity_added",
-  "borrow_opened",
-  "exchange_outflow",
-  "capital_withdrawn",
-  "liquidation_detected",
-  "approval_intent",
 ]);
 
 /**
@@ -460,11 +407,6 @@ const NODE_ACCENTS = {
     hover: "hover:border-sky-500/50",
     dot: "bg-sky-500",
   },
-  orange: {
-    tile: "border-orange-500/20 bg-orange-500/10 text-orange-600 dark:text-orange-400",
-    hover: "hover:border-orange-500/50",
-    dot: "bg-orange-500",
-  },
   indigo: {
     tile: "border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
     hover: "hover:border-indigo-500/50",
@@ -547,97 +489,6 @@ function NodeLibrarySection({
   );
 }
 
-/** A labeled on/off switch used in the flow-settings panel. */
-function FlowToggle({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm text-foreground">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        onClick={() => onChange(!checked)}
-        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-          checked ? "bg-primary" : "bg-muted"
-        }`}
-      >
-        <span
-          aria-hidden="true"
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
-            checked ? "left-[18px]" : "left-0.5"
-          }`}
-        />
-      </button>
-    </div>
-  );
-}
-
-/**
- * Right-panel flow-level settings, shown when no node is selected. Re-entry +
- * the three guardrails are org-wide sending caps; local state until the builder
- * settings contract lands.
- */
-function FlowSettingsPanel() {
-  const [reentry, setReentry] = useState("never");
-  const [exitOnGoal, setExitOnGoal] = useState(true);
-  const [quietHours, setQuietHours] = useState(true);
-  const [frequencyCap, setFrequencyCap] = useState(true);
-  return (
-    <div className="hidden w-[344px] shrink-0 overflow-y-auto border-l border-border bg-card/60 p-6 md:block">
-      <h3 className="font-semibold tracking-tight text-foreground">
-        Flow settings
-      </h3>
-      <div className="mt-6 space-y-5">
-        <div className="flex items-center justify-between gap-3">
-          <label htmlFor="flow-reentry" className="text-sm text-foreground">
-            Re-entry
-          </label>
-          <select
-            id="flow-reentry"
-            value={reentry}
-            onChange={(e) => setReentry(e.target.value)}
-            className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
-          >
-            <option value="never">Never</option>
-            <option value="daily">Once per day</option>
-            <option value="weekly">Once per week</option>
-            <option value="always">Always</option>
-          </select>
-        </div>
-        <FlowToggle
-          label="Exit on goal"
-          checked={exitOnGoal}
-          onChange={setExitOnGoal}
-        />
-        <FlowToggle
-          label="Respect quiet hours"
-          checked={quietHours}
-          onChange={setQuietHours}
-        />
-        <FlowToggle
-          label="Max 1 message / 10h"
-          checked={frequencyCap}
-          onChange={setFrequencyCap}
-        />
-      </div>
-      <p className="mt-6 text-xs leading-5 text-muted-foreground">
-        These caps apply across all automations, so a wallet in three flows
-        still hears from you at most once per window. Select a node to configure
-        it.
-      </p>
-    </div>
-  );
-}
-
 const CreateAutomationContent = () => {
   const params = useParams();
   const automationId = params?.id as string;
@@ -665,8 +516,6 @@ const CreateAutomationContent = () => {
     y: number;
     sourceNode?: string;
   }>({ show: false, x: 0, y: 0 });
-  // The edge whose "+" was clicked, and where to float the insert palette.
-  const [insertMenu, setInsertMenu] = useState<EdgeInsertTarget | null>(null);
   const [jsonFieldDrafts, setJsonFieldDrafts] = useState<
     Record<string, string>
   >({});
@@ -689,12 +538,7 @@ const CreateAutomationContent = () => {
         ? (payload as Record<string, unknown>)
         : null;
       const nextNodes = pickArray(record?.nodes) as Node[];
-      // Force every loaded edge to the "addable" renderer so the inline "+"
-      // insert affordance shows on flows loaded from a template or the backend.
-      const nextEdges = (pickArray(record?.edges) as Edge[]).map((edge) => ({
-        ...edge,
-        type: "addable",
-      }));
+      const nextEdges = pickArray(record?.edges) as Edge[];
       setNodes(nextNodes);
       setEdges(nextEdges);
       if (record) {
@@ -820,16 +664,6 @@ const CreateAutomationContent = () => {
   const filteredTriggerCatalog = useMemo(
     () => triggerCatalog.filter(matchesNodeSearch),
     [triggerCatalog, matchesNodeSearch]
-  );
-  const filteredOnchainTriggers = useMemo(
-    () =>
-      filteredTriggerCatalog.filter((t) => ON_CHAIN_TRIGGER_TYPES.has(t.type)),
-    [filteredTriggerCatalog]
-  );
-  const filteredOffchainTriggers = useMemo(
-    () =>
-      filteredTriggerCatalog.filter((t) => !ON_CHAIN_TRIGGER_TYPES.has(t.type)),
-    [filteredTriggerCatalog]
   );
   const filteredActionCatalog = useMemo(
     () => actionCatalog.filter(matchesNodeSearch),
@@ -1783,7 +1617,7 @@ const CreateAutomationContent = () => {
         addEdge(
           {
             ...params,
-            type: "addable",
+            type: ConnectionLineType.SmoothStep,
             animated: true,
             style: { stroke: edgeColor, strokeWidth: 2.5 },
             markerEnd: {
@@ -1946,64 +1780,6 @@ const CreateAutomationContent = () => {
     }
   };
 
-  // Insert an action node that splits the clicked edge (source → new → target).
-  const insertNodeOnEdge = (
-    target: EdgeInsertTarget,
-    type: string,
-    label: string
-  ) => {
-    const { rendererType, data } = resolveNodeShape(type, label);
-    const newId = `${type}-${Date.now()}`;
-    const srcNode = nodes.find((n) => n.id === target.source);
-    const tgtNode = nodes.find((n) => n.id === target.target);
-    const position =
-      srcNode && tgtNode
-        ? {
-            x: (srcNode.position.x + tgtNode.position.x) / 2,
-            y: (srcNode.position.y + tgtNode.position.y) / 2,
-          }
-        : autoLayoutNodes(nodes, {
-            id: newId,
-            type: rendererType,
-            position: { x: 0, y: 0 },
-            data,
-          });
-    const newNode: Node = { id: newId, type: rendererType, position, data };
-    const color = EDGE_COLORS.default;
-    const mkEdge = (source: string, dest: string): Edge => ({
-      id: `e-${source}-${dest}-${newId}`,
-      source,
-      target: dest,
-      type: "addable",
-      animated: true,
-      style: { stroke: color, strokeWidth: 2.5 },
-      markerEnd: { type: MarkerType.ArrowClosed, color },
-    });
-    setNodes((nds) => nds.concat(newNode));
-    setEdges((eds) => [
-      ...eds.filter((e) => e.id !== target.edgeId),
-      mkEdge(target.source, newId),
-      mkEdge(newId, target.target),
-    ]);
-    setSelectedNode(newId);
-    setInsertMenu(null);
-  };
-
-  const statusToggleMutation = useMutation({
-    mutationFn: async (nextStatus: "active" | "paused") => {
-      if (isNew || !automationId) {
-        throw new Error("Save the automation before activating it.");
-      }
-      return automationService.updateAutomationStatus(automationId, {
-        status: nextStatus,
-      });
-    },
-    onSuccess: (_res, nextStatus) => {
-      setAutomationData((prev) => ({ ...prev, status: nextStatus }));
-      queryClient.invalidateQueries({ queryKey: ["automations"] });
-    },
-  });
-
   const builderNodeCount = nodes.length;
   const builderConnectionCount = edges.length;
   const builderErrorCount = pickArray(
@@ -2043,25 +1819,10 @@ const CreateAutomationContent = () => {
                 }
                 className="min-w-0 max-w-[60vw] rounded-md bg-transparent px-1 text-sm font-semibold tracking-tight text-foreground transition-colors hover:bg-muted/50 focus:bg-muted/50 focus:outline-none sm:max-w-none"
               />
-              {draftSaveMutation.isPending ? (
-                <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                  Autosaving
-                </span>
-              ) : builderErrorCount > 0 ? (
-                <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
-                  <span
-                    aria-hidden="true"
-                    className="h-1.5 w-1.5 rounded-full bg-amber-500"
-                  />
-                  {builderErrorCount}{" "}
-                  {builderErrorCount === 1 ? "step needs" : "steps need"} setup
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
-                  <CheckCircleIcon aria-hidden="true" className="h-3 w-3" />
-                  Ready
-                </span>
-              )}
+              <span className="flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-primary">
+                <CheckCircleIcon aria-hidden="true" className="h-3 w-3" />
+                {draftSaveMutation.isPending ? "Autosaving" : "Builder Ready"}
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
               {(() => {
@@ -2150,41 +1911,6 @@ const CreateAutomationContent = () => {
             </button>
           ) : null}
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              {automationData.status === "active" ? "Active" : "Off"}
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={automationData.status === "active"}
-              aria-label={
-                automationData.status === "active"
-                  ? "Deactivate automation"
-                  : "Activate automation"
-              }
-              disabled={isNew || statusToggleMutation.isPending}
-              onClick={() =>
-                statusToggleMutation.mutate(
-                  automationData.status === "active" ? "paused" : "active"
-                )
-              }
-              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                automationData.status === "active"
-                  ? "bg-emerald-500"
-                  : "bg-muted"
-              }`}
-            >
-              <span
-                aria-hidden="true"
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
-                  automationData.status === "active"
-                    ? "left-[22px]"
-                    : "left-0.5"
-                }`}
-              />
-            </button>
-          </div>
           <button
             className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             onClick={() => {
@@ -2214,7 +1940,7 @@ const CreateAutomationContent = () => {
             ) : (
               <ArrowDownTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
             )}
-            Save draft
+            Save Changes
           </button>
         </div>
       </header>
@@ -2259,14 +1985,9 @@ const CreateAutomationContent = () => {
 
                   <div className="scrollbar-sleek flex-1 space-y-6 overflow-y-auto px-4 pb-5">
                     <NodeLibrarySection
-                      title="On-chain triggers"
-                      accent="orange"
-                      nodes={filteredOnchainTriggers}
-                    />
-                    <NodeLibrarySection
-                      title="Off-chain triggers"
-                      accent="orange"
-                      nodes={filteredOffchainTriggers}
+                      title="Triggers"
+                      accent="sky"
+                      nodes={filteredTriggerCatalog}
                     />
                     <NodeLibrarySection
                       title="Actions"
@@ -2305,44 +2026,41 @@ const CreateAutomationContent = () => {
                 )}
               </button>
 
-              <EdgeInsertContext.Provider value={setInsertMenu}>
-                <ReactFlow
-                  nodes={nodes}
-                  edges={edges}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  onConnect={onConnect}
-                  nodeTypes={nodeTypes}
-                  onNodeClick={handleNodeClick}
-                  onPaneClick={handlePaneClick}
-                  onDragOver={onDragOver}
-                  onDrop={onDrop}
-                  edgeTypes={edgeTypes}
-                  defaultEdgeOptions={{
-                    type: "addable",
-                    animated: true,
-                    style: { stroke: EDGE_COLORS.default, strokeWidth: 2.5 },
-                  }}
-                  connectionLineStyle={{
-                    stroke: EDGE_COLORS.default,
-                    strokeWidth: 2.5,
-                  }}
-                  snapToGrid
-                  snapGrid={[24, 24]}
-                  fitView
-                >
-                  <Background
-                    color="rgba(120,130,160,0.18)"
-                    gap={24}
-                    size={1.2}
-                  />
-                  <Controls className="overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-sm [&_button]:border-border [&_button]:bg-card [&_button]:text-foreground [&_button:hover]:bg-muted" />
-                  <MiniMap
-                    className="rounded-lg border border-border bg-card"
-                    maskColor="rgba(120,130,160,0.18)"
-                  />
-                </ReactFlow>
-              </EdgeInsertContext.Provider>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                nodeTypes={nodeTypes}
+                onNodeClick={handleNodeClick}
+                onPaneClick={handlePaneClick}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+                defaultEdgeOptions={{
+                  type: ConnectionLineType.SmoothStep,
+                  animated: true,
+                  style: { stroke: EDGE_COLORS.default, strokeWidth: 2.5 },
+                }}
+                connectionLineStyle={{
+                  stroke: EDGE_COLORS.default,
+                  strokeWidth: 2.5,
+                }}
+                snapToGrid
+                snapGrid={[24, 24]}
+                fitView
+              >
+                <Background
+                  color="rgba(120,130,160,0.18)"
+                  gap={24}
+                  size={1.2}
+                />
+                <Controls className="overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-sm [&_button]:border-border [&_button]:bg-card [&_button]:text-foreground [&_button:hover]:bg-muted" />
+                <MiniMap
+                  className="rounded-lg border border-border bg-card"
+                  maskColor="rgba(120,130,160,0.18)"
+                />
+              </ReactFlow>
 
               {!isNew && builderQuery.isLoading ? (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/50 px-6 backdrop-blur-[2px]">
@@ -2409,64 +2127,23 @@ const CreateAutomationContent = () => {
                     top: showNodeSelector.y,
                   }}
                 >
-                  <p className="mb-2 px-2 pt-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                    Add step
+                  <p className="mb-2 px-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    Add Action
                   </p>
-                  <div className="grid grid-cols-2 gap-1">
+                  <div className="space-y-1">
                     {actionCatalog.map((node) => (
                       <button
                         key={node.type}
                         onClick={() => addNode(node.type, node.label)}
-                        className="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                        className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted"
                       >
-                        <span className="text-muted-foreground [&_svg]:h-5 [&_svg]:w-5">
-                          {node.icon}
-                        </span>
-                        <span className="line-clamp-1">{node.label}</span>
+                        <div className="scale-75">{node.icon}</div>
+                        <span>{node.label}</span>
                       </button>
                     ))}
                   </div>
                 </div>
               )}
-
-              {/* Inline "+" insert palette, opened from an addable edge. */}
-              {insertMenu ? (
-                <>
-                  <div
-                    className="fixed inset-0 z-30"
-                    aria-hidden="true"
-                    onClick={() => setInsertMenu(null)}
-                  />
-                  <div
-                    className="fixed z-40 w-64 rounded-2xl border border-border bg-card p-2 shadow-2xl"
-                    style={{
-                      left: `min(${insertMenu.x}px, calc(100vw - 17rem))`,
-                      top: `min(${insertMenu.y}px, calc(100vh - 20rem))`,
-                    }}
-                  >
-                    <p className="mb-2 px-2 pt-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                      Add step
-                    </p>
-                    <div className="grid grid-cols-2 gap-1">
-                      {actionCatalog.map((node) => (
-                        <button
-                          key={node.type}
-                          type="button"
-                          onClick={() =>
-                            insertNodeOnEdge(insertMenu, node.type, node.label)
-                          }
-                          className="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center text-xs font-medium text-foreground transition-colors hover:bg-muted"
-                        >
-                          <span className="text-muted-foreground [&_svg]:h-5 [&_svg]:w-5">
-                            {node.icon}
-                          </span>
-                          <span className="line-clamp-1">{node.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : null}
             </div>
 
             {/* Properties Panel */}
@@ -2489,10 +2166,10 @@ const CreateAutomationContent = () => {
                         </span>
                         <div>
                           <h3 className="font-semibold leading-tight tracking-tight text-foreground">
-                            {nodePanelLabel(selectedNodeDetails?.type)}
+                            Properties
                           </h3>
-                          <p className="text-[11px] text-muted-foreground">
-                            Step settings
+                          <p className="text-[11px] capitalize text-muted-foreground">
+                            {selectedNodeDetails?.type ?? "node"} settings
                           </p>
                         </div>
                       </div>
@@ -2652,7 +2329,7 @@ const CreateAutomationContent = () => {
                           ) : null}
                           <div className="space-y-2">
                             <label className={PROPERTY_LABEL_CLASS}>
-                              Send as
+                              Sender
                             </label>
                             <PropertySelect
                               placeholder={
@@ -3178,17 +2855,16 @@ const CreateAutomationContent = () => {
                             );
                             setSelectedNode(null);
                           }}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/15"
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-400/10 py-2.5 text-sm font-medium text-red-100 transition-colors hover:bg-red-400/15"
                         >
                           <TrashIcon aria-hidden="true" className="h-4 w-4" />
-                          Remove step
+                          Delete Node
                         </button>
                       </div>
                     </div>
                   </motion.div>
                 )}
             </AnimatePresence>
-            {!selectedNode ? <FlowSettingsPanel /> : null}
           </>
         ) : (
           /* Stats Tab Content */

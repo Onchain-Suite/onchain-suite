@@ -1,44 +1,34 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { TableSkeleton } from "@/shared/components/page/page-skeleton";
+import {
+  PageHeaderSkeleton,
+  TableSkeleton,
+} from "@/shared/components/page/page-skeleton";
 
 /**
- * Mirrors AudiencePages: header (+ actions) → 4 stat cards →
- * Contacts/Lists/Tags/Suppressed tabs → wallet-first profiles table.
+ * Mirrors AudiencePages: header (+ Cerebra / Add Profile actions) → search +
+ * filter toolbar → profiles table. Matches the client-side loading branch so
+ * the route → page skeleton swap is seamless.
  */
 export default function AudienceLoading() {
   return (
-    <div className="space-y-6" aria-hidden="true">
+    <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="h-4 w-72 max-w-full" />
-        </div>
+        <PageHeaderSkeleton />
         <div className="flex shrink-0 items-center gap-2">
           <Skeleton className="h-9 w-28 rounded-lg" />
           <Skeleton className="h-9 w-32 rounded-lg" />
         </div>
       </div>
 
-      {/* Four stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, i) => i).map((i) => (
-          <div
-            key={`stat-${i}`}
-            className="space-y-3 rounded-2xl border border-border bg-card p-4"
-          >
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-7 w-20" />
-            <Skeleton className="h-3 w-28" />
-          </div>
-        ))}
-      </div>
-
-      {/* Contacts / Lists / Tags / Suppressed tabs */}
-      <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-card p-1">
-        {Array.from({ length: 4 }, (_, i) => i).map((i) => (
-          <Skeleton key={`tab-${i}`} className="h-9 w-24 rounded-lg" />
-        ))}
+      {/* Search + filters toolbar */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <Skeleton className="h-10 w-full rounded-lg sm:w-64" />
+        <div className="flex flex-wrap items-center gap-2">
+          <Skeleton className="h-10 w-32 rounded-lg" />
+          <Skeleton className="h-10 w-36 rounded-lg" />
+          <Skeleton className="h-10 w-28 rounded-lg" />
+        </div>
       </div>
 
       <TableSkeleton rows={8} />

@@ -1,20 +1,15 @@
-"use client";
-
-import { ArrowUpRightIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
+import { ChartBarIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
+import { useState } from "react";
 
 import { isJsonObject } from "@/lib/utils";
 
+import { fadeInUp, staggerContainer } from "../../utils";
 import { PaygWalletCard } from "./payg-wallet-card";
 import UpgradePlanDialog from "./upgrade-plan-dialog";
 import { billingService } from "@/features/billing/billing.service";
-import {
-  SettingsCard,
-  StatTile,
-  StatusPill,
-  UsageMeter,
-} from "@/features/settings/components/settings-card";
-import { Button } from "@/shared/components/ui/button";
+import SettingsSectionCard from "@/features/settings/components/settings-section-card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 const pickString = (...values: unknown[]) => {
@@ -35,6 +30,13 @@ const pickNumber = (...values: unknown[]) => {
     }
   }
   return 0;
+};
+
+const formatDate = (value: unknown) => {
+  if (typeof value !== "string" || value.trim().length === 0) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString();
 };
 
 /** Catalog slugs → display names (docs/backend.md 2026-07-25 lineup). */
@@ -59,13 +61,8 @@ const displayPlanName = (raw: string): string => {
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 };
 
-interface UsageRow {
-  key: string;
-  used: number;
-  limit: number | null;
-}
-
 const PlanUsage = () => {
+  const [isOpen, setIsOpen] = useState(false);
   const overviewQuery = useQuery({
     queryKey: ["billing", "overview"],
     queryFn: () => billingService.getOverview(),
@@ -80,6 +77,7 @@ const PlanUsage = () => {
   const usageQuery = useQuery({
     queryKey: ["billing", "usage", "month"],
     queryFn: () => billingService.getUsage({ period: "month" }),
+    enabled: isOpen,
     retry: false,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
@@ -89,18 +87,25 @@ const PlanUsage = () => {
   });
 
   // Exact-plan fallback: GET /billing sometimes omits the plan name — the
-  // dedicated GET /billing/plan endpoint is authoritative, so query it whenever
-  // the overview can't name the plan (fixes "Unknown plan").
-  const overviewObj = isJsonObject(overviewQuery.data)
-    ? overviewQuery.data
-    : undefined;
-  const overviewPlanObj = isJsonObject(overviewObj?.plan)
-    ? overviewObj.plan
-    : undefined;
+  // dedicated GET /billing/plan endpoint is authoritative, so query it
+  // whenever the overview can't name the plan (fixes "Unknown plan").
   const overviewHasPlanName = Boolean(
     pickString(
-      typeof overviewObj?.plan === "string" ? overviewObj.plan : undefined,
-      overviewPlanObj?.name
+      typeof overviewQuery.data === "object" &&
+        overviewQuery.data !== null &&
+        "plan" in overviewQuery.data &&
+        typeof (overviewQuery.data as Record<string, unknown>).plan === "string"
+        ? (overviewQuery.data as Record<string, unknown>).plan
+        : undefined,
+      isJsonObject(overviewQuery.data) &&
+        isJsonObject((overviewQuery.data as Record<string, unknown>).plan)
+        ? (
+            (overviewQuery.data as Record<string, unknown>).plan as Record<
+              string,
+              unknown
+            >
+          ).name
+        : undefined
     )
   );
   const planQuery = useQuery({
@@ -118,18 +123,21 @@ const PlanUsage = () => {
   const isFreeFallback =
     overviewQuery.isError &&
     overviewErrorMessage.includes("billing is not available");
-
-  const overview = overviewObj ?? {};
-  const planObject = overviewPlanObj;
+  const overviewData: unknown = overviewQuery.data;
+  const overview = isJsonObject(overviewData) ? overviewData : {};
+  const planObject = isJsonObject(overview.plan) ? overview.plan : undefined;
   const usageSummary = isJsonObject(overview.usage)
     ? overview.usage
     : undefined;
-  const planRoot = isJsonObject(planQuery.data) ? planQuery.data : {};
+  const paymentMethod = isJsonObject(overview.paymentMethod)
+    ? overview.paymentMethod
+    : undefined;
+  const planData: unknown = planQuery.data;
+  const planRoot = isJsonObject(planData) ? planData : {};
   const planRootPlan = isJsonObject(planRoot.plan) ? planRoot.plan : undefined;
   const planRootCurrent = isJsonObject(planRoot.currentPlan)
     ? planRoot.currentPlan
     : undefined;
-
   const rawPlanName = pickString(
     typeof overview.plan === "string" ? overview.plan : undefined,
     planObject?.name,
@@ -149,203 +157,264 @@ const PlanUsage = () => {
       : planQuery.isLoading || !overviewQuery.isFetched
         ? "…"
         : "Pay as you go";
-
   const billingStatus = pickString(overview.status, planObject?.status);
   const billingCycle = pickString(overview.billingCycle, planObject?.interval);
-  const rawPrice = pickString(
-    typeof overview.price === "string" ? overview.price : undefined,
-    typeof planObject?.price === "string" ? planObject.price : undefined,
-    typeof planObject?.price === "number"
-      ? String(planObject.price)
-      : undefined,
-    typeof planRootPlan?.price === "string" ? planRootPlan.price : undefined,
-    typeof planRootCurrent?.price === "string"
-      ? planRootCurrent.price
-      : undefined
-  );
-  const intervalLabel =
-    billingCycle.toLowerCase().startsWith("year") ||
-    billingCycle.toLowerCase() === "annual"
-      ? "yr"
-      : "mo";
-  const priceLabel = rawPrice
-    ? rawPrice.startsWith("$")
-      ? rawPrice
-      : `$${rawPrice} / ${intervalLabel}`
-    : null;
-  const billingCycleLabel = billingCycle
-    ? billingCycle.charAt(0).toUpperCase() + billingCycle.slice(1)
-    : null;
-  const statusTone: "success" | "danger" | "pending" = billingStatus
-    .toLowerCase()
-    .includes("active")
-    ? "success"
-    : billingStatus.toLowerCase().includes("past") ||
-        billingStatus.toLowerCase().includes("cancel")
-      ? "danger"
-      : "pending";
-
-  const usageRoot = isJsonObject(usageQuery.data) ? usageQuery.data : {};
+  const nextBillingDate = formatDate(overview.nextBillingDate);
+  const usageData: unknown = usageQuery.data;
+  const usageRoot = isJsonObject(usageData) ? usageData : {};
   const usageItemsRaw = Array.isArray(usageRoot.items)
     ? usageRoot.items
     : undefined;
-  const usageItems: UsageRow[] = (
-    Array.isArray(usageItemsRaw)
-      ? usageItemsRaw.map((item) => {
-          const obj: Record<string, unknown> = isJsonObject(item) ? item : {};
-          return {
-            key: pickString(obj.key, obj.label) || "Usage",
-            used: pickNumber(obj.used),
-            limit: obj.limit !== undefined ? pickNumber(obj.limit) : null,
-          } satisfies UsageRow;
-        })
-      : [
-          {
-            key: "Emails sent",
-            used: pickNumber(usageRoot.emailsSent, usageSummary?.emailsSent),
-            limit: pickNumber(
-              isJsonObject(usageRoot.limits)
-                ? usageRoot.limits.emailsSent
-                : undefined,
-              isJsonObject(usageSummary?.limits)
-                ? usageSummary.limits.emailsSent
-                : undefined
-            ),
-          },
-          {
-            key: "Contacts",
-            used: pickNumber(usageRoot.contacts, usageSummary?.contacts),
-            limit: pickNumber(
-              isJsonObject(usageRoot.limits)
-                ? usageRoot.limits.contacts
-                : undefined,
-              isJsonObject(usageSummary?.limits)
-                ? usageSummary.limits.contacts
-                : undefined
-            ),
-          },
-          {
-            key: "On-chain sends",
-            used: pickNumber(
-              usageRoot.onChainSends,
-              usageSummary?.onChainSends
-            ),
-            limit: pickNumber(
-              isJsonObject(usageRoot.limits)
-                ? usageRoot.limits.onChainSends
-                : undefined,
-              isJsonObject(usageSummary?.limits)
-                ? usageSummary.limits.onChainSends
-                : undefined
-            ),
-          },
-        ]
-  ).filter(
-    (item) => item.used > 0 || (item.limit ?? 0) > 0 || item.limit === -1
-  );
-
-  const usageLoading = overviewQuery.isLoading || usageQuery.isLoading;
+  const usageItems = Array.isArray(usageItemsRaw)
+    ? usageItemsRaw
+    : [
+        {
+          key: "Emails sent",
+          used: pickNumber(usageRoot.emailsSent, usageSummary?.emailsSent),
+          limit: pickNumber(
+            isJsonObject(usageRoot.limits)
+              ? usageRoot.limits.emailsSent
+              : undefined,
+            isJsonObject(usageSummary?.limits)
+              ? usageSummary.limits.emailsSent
+              : undefined
+          ),
+        },
+        {
+          key: "Contacts",
+          used: pickNumber(usageRoot.contacts, usageSummary?.contacts),
+          limit: pickNumber(
+            isJsonObject(usageRoot.limits)
+              ? usageRoot.limits.contacts
+              : undefined,
+            isJsonObject(usageSummary?.limits)
+              ? usageSummary.limits.contacts
+              : undefined
+          ),
+        },
+        {
+          key: "On-chain sends",
+          used: pickNumber(usageRoot.onChainSends, usageSummary?.onChainSends),
+          limit: pickNumber(
+            isJsonObject(usageRoot.limits)
+              ? usageRoot.limits.onChainSends
+              : undefined,
+            isJsonObject(usageSummary?.limits)
+              ? usageSummary.limits.onChainSends
+              : undefined
+          ),
+        },
+        {
+          key: "Tracked wallets",
+          used: pickNumber(
+            isJsonObject(usageRoot.meters) &&
+              isJsonObject(usageRoot.meters.trackedWallets)
+              ? usageRoot.meters.trackedWallets.used
+              : undefined
+          ),
+          limit: pickNumber(
+            isJsonObject(usageRoot.meters) &&
+              isJsonObject(usageRoot.meters.trackedWallets)
+              ? usageRoot.meters.trackedWallets.limit
+              : undefined
+          ),
+        },
+        // limit === -1 is the backend's unlimited convention — keep those.
+      ].filter(
+        (item) => item.used > 0 || (item.limit ?? 0) > 0 || item.limit === -1
+      );
+  const paymentMethodLabel = paymentMethod
+    ? [
+        pickString(paymentMethod.brand),
+        pickString(paymentMethod.last4)
+          ? `ending in ${pickString(paymentMethod.last4)}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : null;
+  const hasBillingDetails =
+    billingStatus !== "" ||
+    nextBillingDate !== null ||
+    paymentMethodLabel !== null;
 
   return (
-    <SettingsCard
-      title="Plan & usage"
-      description="Current plan, what's left this cycle, and what happens beyond it"
-      action={
-        <UpgradePlanDialog
-          currentPlan={planName}
-          trigger={
-            <Button variant="outline" size="sm">
-              <ArrowUpRightIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-              Change plan
-            </Button>
-          }
-        />
-      }
+    <motion.section
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
     >
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Plan">{planName}</StatTile>
-        <StatTile label="Price">{priceLabel ?? "—"}</StatTile>
-        <StatTile label="Billing">{billingCycleLabel ?? "—"}</StatTile>
-        <StatTile label="Status">
-          {billingStatus ? (
-            <StatusPill tone={statusTone}>
-              {billingStatus.charAt(0).toUpperCase() + billingStatus.slice(1)}
-            </StatusPill>
-          ) : (
-            "—"
-          )}
-        </StatTile>
-      </div>
-
-      {usageLoading ? (
-        <div className="mt-6 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
-          {["a", "b", "c"].map((k) => (
-            <div key={k} className="space-y-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-1.5 w-full rounded-full" />
+      <SettingsSectionCard
+        title="Plan & usage"
+        description="Review your current billing plan and monthly usage."
+        icon={<ChartBarIcon className="h-5 w-5" aria-hidden="true" />}
+        badge={`Current plan: ${planName}`}
+        onOpenChange={setIsOpen}
+        collapsedPreview={
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                Status
+              </p>
+              <p className="mt-1 text-sm font-medium text-foreground">
+                {billingStatus || "Not available"}
+              </p>
             </div>
-          ))}
-        </div>
-      ) : isFreeFallback ? (
-        <div className="mt-6 rounded-xl border border-dashed border-border/60 bg-background/40 p-6 text-center text-sm text-muted-foreground">
-          You&apos;re on the Free plan. Upgrade to unlock usage tracking.
-        </div>
-      ) : overviewQuery.isError || usageQuery.isError ? (
-        <div className="mt-6 rounded-xl border border-dashed border-border/60 bg-background/40 p-6 text-center text-sm text-muted-foreground">
-          Failed to load billing usage.
-        </div>
-      ) : usageItems.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-dashed border-border/60 bg-background/40 p-6 text-center text-sm text-muted-foreground">
-          No usage metrics for this billing period yet.
-        </div>
-      ) : (
-        <div className="mt-6 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
-          {usageItems.map((item) =>
-            item.limit === -1 || item.limit === null ? (
-              <div key={item.key} className="min-w-0">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-sm text-muted-foreground">
-                    {item.key}
-                  </span>
-                  <span className="shrink-0 text-sm tabular-nums text-foreground">
-                    <span className="font-semibold">
-                      {item.used.toLocaleString()}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {item.limit === -1 ? " / Unlimited" : ""}
-                    </span>
-                  </span>
-                </div>
-                <div className="mt-2 h-1.5 w-full rounded-full bg-muted" />
+            <div>
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                Billing cycle
+              </p>
+              <p className="mt-1 text-sm text-foreground">
+                {billingCycle || "Not available"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                Next billing
+              </p>
+              <p className="mt-1 text-sm text-foreground">
+                {nextBillingDate ?? "Not scheduled"}
+              </p>
+            </div>
+          </div>
+        }
+      >
+        <motion.div variants={fadeInUp} className="space-y-6">
+          <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-background/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-sm font-medium text-foreground">
+                Plan optimization
               </div>
-            ) : (
-              <UsageMeter
-                key={item.key}
-                label={item.key}
-                used={item.used}
-                limit={item.limit}
-              />
-            )
+              <div className="mt-1 space-y-2 text-sm text-muted-foreground">
+                <p>
+                  You&apos;re currently on the{" "}
+                  <span className="font-medium text-primary">{planName}</span>{" "}
+                  plan.
+                </p>
+                {hasBillingDetails && (
+                  <div className="space-y-1">
+                    {billingStatus ? <p>Status: {billingStatus}</p> : null}
+                    {nextBillingDate ? (
+                      <p>Next billing date: {nextBillingDate}</p>
+                    ) : null}
+                    {paymentMethodLabel ? (
+                      <p>Payment method: {paymentMethodLabel}</p>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <UpgradePlanDialog currentPlan={planName} />
+            </div>
+          </div>
+
+          <PaygWalletCard planName={planName} />
+
+          {overviewQuery.isLoading || (isOpen && usageQuery.isLoading) ? (
+            <div className="grid gap-6 sm:grid-cols-3 lg:gap-8">
+              {["emails", "contacts", "onchain"].map((key) => (
+                <div
+                  key={key}
+                  className="flex flex-col items-center rounded-2xl border border-border/60 bg-card p-6 lg:p-8"
+                >
+                  <Skeleton className="h-28 w-28 rounded-full lg:h-32 lg:w-32" />
+                  <div className="mt-4 flex flex-col items-center gap-2">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : isFreeFallback ? (
+            <div className="rounded-2xl border border-dashed border-border/60 bg-card p-8 text-center text-sm text-muted-foreground">
+              You’re on the Free plan. Upgrade to unlock billing features and
+              usage tracking.
+            </div>
+          ) : overviewQuery.isError || (isOpen && usageQuery.isError) ? (
+            <div className="py-8 text-center text-muted-foreground">
+              Failed to load billing usage.
+            </div>
+          ) : !isOpen ? (
+            <div className="rounded-2xl border border-dashed border-border/60 bg-card p-8 text-center text-sm text-muted-foreground">
+              Expand this section to load live usage metrics.
+            </div>
+          ) : usageItems.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border/60 bg-card p-8 text-center text-sm text-muted-foreground">
+              No usage metrics are available for this billing period yet.
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+              {usageItems.slice(0, 4).map((quota, idx: number) => {
+                const quotaObj = isJsonObject(quota) ? quota : {};
+                const used = Number(quotaObj.used ?? 0);
+                const limit =
+                  quotaObj.limit !== undefined ? Number(quotaObj.limit) : null;
+                const unlimited = limit === -1;
+                const percent =
+                  !unlimited && limit && limit > 0
+                    ? Math.min(100, Math.round((used / limit) * 100))
+                    : 0;
+                const label = String(quotaObj.key ?? "Usage");
+                const colorClass = idx === 2 ? "text-chart-2" : "text-primary";
+                return (
+                  <motion.div
+                    key={label}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className="flex flex-col items-center rounded-2xl border border-border/60 bg-card p-6 lg:p-8"
+                  >
+                    <div className="relative h-28 w-28 lg:h-32 lg:w-32">
+                      <svg
+                        className="h-full w-full -rotate-90"
+                        viewBox="0 0 36 36"
+                      >
+                        <path
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none"
+                          stroke="currentColor"
+                          className="text-muted-foreground/20"
+                          strokeWidth="2"
+                        />
+                        <motion.path
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none"
+                          stroke="currentColor"
+                          className={colorClass}
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeDasharray={`${percent}, 100`}
+                          initial={{ pathLength: 0 }}
+                          animate={{ pathLength: 1 }}
+                          transition={{ duration: 1, ease: "easeOut" }}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                        <span className="text-2xl font-semibold text-foreground">
+                          {unlimited ? "∞" : `${percent}%`}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-4 text-center">
+                      <div className="font-medium text-foreground">{label}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {used.toLocaleString()}
+                        {unlimited
+                          ? " / Unlimited"
+                          : limit && limit > 0
+                            ? ` / ${limit.toLocaleString()}`
+                            : ""}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
           )}
-        </div>
-      )}
-
-      <div className="mt-6 flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-6 text-muted-foreground">
-        <ShieldCheckIcon
-          aria-hidden="true"
-          className="mt-0.5 h-4 w-4 shrink-0 text-primary"
-        />
-        <p>
-          Running out never cuts you off. Past the allowance — or past expiry —
-          usage bills from your prepaid wallet at the rates below. Renewal
-          reminders go out 4, 2, 1 days before expiry.
-        </p>
-      </div>
-
-      <div className="mt-6">
-        <PaygWalletCard planName={planName} />
-      </div>
-    </SettingsCard>
+        </motion.div>
+      </SettingsSectionCard>
+    </motion.section>
   );
 };
 

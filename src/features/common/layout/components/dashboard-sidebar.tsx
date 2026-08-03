@@ -2,15 +2,19 @@
 
 import { useEffect } from "react";
 
+import { useCommandPalette } from "@/components/common/command-palette";
 import { NavMain } from "@/components/layout/nav-main";
+import { NavSecondary } from "@/components/layout/nav-secondary";
 import type { NavItem } from "@/components/layout/nav-utils";
 import { SidebarBrand } from "@/components/layout/sidebar-brand";
 import { SidebarEdgeToggle } from "@/components/layout/sidebar-edge-toggle";
+import { SidebarSearch } from "@/components/layout/sidebar-search";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 
 import { useGetLogo } from "@/hooks/client";
@@ -22,6 +26,8 @@ import { defaultLogos } from "@/shared/hooks/client/use-get-logo";
 
 interface DashboardSidebarProps {
   navMain: NavItem[];
+  navSecondary: NavItem[];
+  hasActiveOrganization: boolean;
   userFullName?: string;
   userId?: string;
   userImageUrl?: string;
@@ -29,10 +35,13 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({
   navMain,
+  navSecondary,
+  hasActiveOrganization,
   userFullName,
   userId,
   userImageUrl,
 }: DashboardSidebarProps) {
+  const palette = useCommandPalette();
   const { lightIcon, darkIcon, favicon, isCustom } = useGetLogo();
 
   // Org branding owns the tab icon; carried over from the old navbar so
@@ -49,7 +58,7 @@ export function DashboardSidebar({
   }, [favicon]);
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" variant="floating">
       <SidebarHeader>
         <SidebarBrand
           name="OnchainSuite"
@@ -64,7 +73,7 @@ export function DashboardSidebar({
               <BrandLogo
                 src={lightIcon}
                 fallbackSrc={defaultLogos.lightIcon}
-                size={24}
+                size={18}
                 alt=""
                 className="dark:hidden"
                 unoptimized={isCustom}
@@ -72,7 +81,7 @@ export function DashboardSidebar({
               <BrandLogo
                 src={darkIcon}
                 fallbackSrc={defaultLogos.darkIcon}
-                size={24}
+                size={18}
                 alt=""
                 className="hidden dark:block"
                 unoptimized={isCustom}
@@ -80,21 +89,23 @@ export function DashboardSidebar({
             </>
           }
         />
+        {hasActiveOrganization ? (
+          <SidebarSearch onClick={() => palette.open()} />
+        ) : null}
       </SidebarHeader>
 
-      {/* Collapsed stacks the logo + toggle, making that header taller; pad the
-          expanded nav down to match so the rows stay inline across the toggle.
-          (Brand now carries pt-3 in both states, so this is 3 less than before.) */}
-      <SidebarContent className="px-1 pb-2 pt-11 group-data-[collapsible=icon]:pt-2">
-        <NavMain items={navMain} />
+      <SidebarContent>
+        <NavMain label="Platform" items={navMain} />
       </SidebarContent>
 
       <SidebarFooter>
+        <NavSecondary items={navSecondary} />
+        <SidebarSeparator className="mx-0" />
         <NavUserMenu
           fullName={userFullName}
           userId={userId}
           imageUrl={userImageUrl}
-          showName={Boolean(userFullName)}
+          showName={hasActiveOrganization}
         />
       </SidebarFooter>
 

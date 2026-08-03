@@ -3,7 +3,6 @@ import {
   CodeBracketIcon,
   CreditCardIcon,
   GiftIcon,
-  ShieldCheckIcon,
   UserIcon,
 } from "@heroicons/react/24/outline";
 
@@ -35,7 +34,6 @@ export const modalSlideUp = {
 export const tabs = [
   { id: "profile", label: "Profile", icon: UserIcon },
   { id: "account", label: "Account", icon: BuildingOffice2Icon },
-  { id: "privacy", label: "Privacy & Identity", icon: ShieldCheckIcon },
   { id: "billing", label: "Billing", icon: CreditCardIcon },
   { id: "integrations", label: "Integrations", icon: CodeBracketIcon },
   { id: "rewards", label: "Rewards", icon: GiftIcon },

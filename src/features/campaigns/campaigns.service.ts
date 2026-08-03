@@ -490,9 +490,6 @@ const toCampaign = (raw: unknown): Campaign => {
     recipients: toRecipientCount(obj, status),
     openRate: obj.openRate !== undefined ? Number(obj.openRate) : undefined,
     clickRate: obj.clickRate !== undefined ? Number(obj.clickRate) : undefined,
-    channelsUsed: Array.isArray(obj.channelsUsed)
-      ? obj.channelsUsed.map(String)
-      : undefined,
     createdAt,
     scheduledFor,
     sentAt,

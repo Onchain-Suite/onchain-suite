@@ -183,7 +183,7 @@ const makeEdge = (
     source,
     target,
     ...(sourceHandle ? { sourceHandle } : {}),
-    type: "addable",
+    type: "smoothstep",
     animated: true,
     style: { stroke: color, strokeWidth: 2.5 },
     markerEnd: { type: "arrowclosed", color },

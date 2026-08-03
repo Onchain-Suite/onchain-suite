@@ -664,6 +664,12 @@ export default function ImportExportPage() {
         // Backend auto-maps this platform's CSV headers; the explicit
         // mapping entries above still override the preset.
         platform: importPlatform || undefined,
+        query: {
+          mode: "upsert",
+          onConflict: "update",
+          dedupeKey: "email",
+          maxErrors: 10000,
+        },
       });
 
       const jobId =

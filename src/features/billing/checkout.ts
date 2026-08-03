@@ -281,7 +281,7 @@ export async function startPlanCheckout(
   const mode = typeof res.mode === "string" ? res.mode : undefined;
   const paymentMethod =
     options?.paymentMethod ??
-    (mode && mode.toLowerCase().includes("stripe") ? "card" : "crypto");
+    (mode?.toLowerCase().includes("stripe") === true ? "card" : "crypto");
 
   writePendingCheckout({
     reference,

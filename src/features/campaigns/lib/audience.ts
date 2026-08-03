@@ -105,7 +105,7 @@ const listTagProfileIds = async (tag: string) => {
   let page = 1;
 
   for (;;) {
-    let payload: unknown = null;
+    let payload!: unknown;
     let attempts = 0;
     for (;;) {
       try {

@@ -329,7 +329,11 @@ export const audienceService = {
     );
   },
 
-  listProfiles(params?: ListProfilesParams, orgId?: string) {
+  listProfiles(
+    params?: ListProfilesParams,
+    orgId?: string,
+    options?: { signal?: AbortSignal }
+  ) {
     const normalizedParams: ListProfilesParams = {
       page: params?.page,
       ...params,
@@ -343,7 +347,12 @@ export const audienceService = {
       | { data?: AudienceProfile[]; meta?: unknown }
       | AudienceProfile[]
     >(
-      { method: "GET", url: "/audience/profiles", params: normalizedParams },
+      {
+        method: "GET",
+        url: "/audience/profiles",
+        params: normalizedParams,
+        signal: options?.signal,
+      },
       orgId
     );
   },

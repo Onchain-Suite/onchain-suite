@@ -717,8 +717,9 @@ export default function ImportExportPage() {
     refetchInterval: (q) => {
       const data = q.state.data as AudienceImportJobStatus | null | undefined;
       const state = String(data?.state ?? "");
-      if (!data) return 1500;
-      if (state === "queued" || state === "processing") return 1500;
+      if (!data) return 2000 + Math.floor(Math.random() * 3000);
+      if (state === "queued" || state === "processing")
+        return 2000 + Math.floor(Math.random() * 3000);
       return false;
     },
   });
@@ -1618,7 +1619,10 @@ export default function ImportExportPage() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {typeof importStatus?.processedRows === "number"
-                      ? `${importStatus.processedRows.toLocaleString()} processed`
+                      ? typeof importStatus?.totalRows === "number" &&
+                        importStatus.totalRows > 0
+                        ? `${importStatus.processedRows.toLocaleString()} / ${importStatus.totalRows.toLocaleString()} processed`
+                        : `${importStatus.processedRows.toLocaleString()} processed`
                       : "Preparing…"}
                     {typeof importStatus?.createdCount === "number"
                       ? ` · ${importStatus.createdCount.toLocaleString()} created`
@@ -1632,6 +1636,48 @@ export default function ImportExportPage() {
                       : ""}
                   </p>
                 </div>
+
+                {Array.isArray(importStatus?.errorSample) &&
+                importStatus.errorSample.length > 0 ? (
+                  <div className="rounded-xl border border-border bg-muted/30 p-3">
+                    <div className="text-xs font-medium text-foreground">
+                      Sample errors
+                    </div>
+                    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                      {importStatus.errorSample
+                        .slice(0, 3)
+                        .map((entry, idx) => {
+                          const line =
+                            typeof entry.rowNumber === "number"
+                              ? `Row ${entry.rowNumber}`
+                              : "Row";
+                          const msg =
+                            typeof entry.message === "string" &&
+                            entry.message.trim().length > 0
+                              ? entry.message.trim()
+                              : typeof entry.code === "string" &&
+                                  entry.code.trim().length > 0
+                                ? entry.code.trim()
+                                : "Invalid row";
+                          return (
+                            <div
+                              key={`${entry.rowNumber ?? idx}-${
+                                entry.code ?? ""
+                              }`}
+                              className="flex flex-wrap gap-2"
+                            >
+                              <span className="font-mono text-[11px] text-foreground/80">
+                                {line}
+                              </span>
+                              <span className="min-w-0 flex-1 break-words">
+                                {msg}
+                              </span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="mt-2 flex justify-end gap-2">
                   {importStatus && (importStatus.errorCount ?? 0) > 0 ? (

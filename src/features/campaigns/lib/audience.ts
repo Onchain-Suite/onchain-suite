@@ -75,6 +75,12 @@ const wait = (ms: number) =>
     setTimeout(resolve, ms);
   });
 
+const throwIfAborted = (signal?: AbortSignal) => {
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
+};
+
 const isRateLimitedError = (error: unknown) => {
   if (!error || typeof error !== "object") return false;
   const err = error as { cause?: unknown; message?: unknown };
@@ -99,7 +105,13 @@ const isRateLimitedError = (error: unknown) => {
   return msg.includes("429") || msg.toLowerCase().includes("rate limit");
 };
 
-const listTagProfileIds = async (tag: string) => {
+const listTagProfileIds = async (
+  tag: string,
+  options?: {
+    signal?: AbortSignal;
+    onProgress?: (value: { tag: string; page: number }) => void;
+  }
+) => {
   const limit = 200;
   const ids: string[] = [];
   let page = 1;
@@ -108,8 +120,13 @@ const listTagProfileIds = async (tag: string) => {
     let payload!: unknown;
     let attempts = 0;
     for (;;) {
+      throwIfAborted(options?.signal);
       try {
-        payload = await audienceService.listProfiles({ tag, page, limit });
+        payload = await audienceService.listProfiles(
+          { tag, page, limit },
+          undefined,
+          { signal: options?.signal }
+        );
         break;
       } catch (error) {
         if (!isRateLimitedError(error) || attempts >= 3) throw error;
@@ -117,6 +134,7 @@ const listTagProfileIds = async (tag: string) => {
         await wait(2000 + Math.floor(Math.random() * 3000));
       }
     }
+    options?.onProgress?.({ tag, page });
     const pageIds = extractProfileIds(payload);
     if (pageIds.length === 0) break;
     ids.push(...pageIds);
@@ -133,13 +151,34 @@ const listTagProfileIds = async (tag: string) => {
  * rather than failing the whole save.
  */
 export async function resolveTagsToProfileIds(
-  tagNames: string[]
+  tagNames: string[],
+  options?: {
+    signal?: AbortSignal;
+    onProgress?: (value: {
+      current: number;
+      total: number;
+      tag: string;
+      page: number;
+    }) => void;
+  }
 ): Promise<string[]> {
   if (tagNames.length === 0) return [];
   const seen = new Set<string>();
-  for (const tag of tagNames) {
+  for (let i = 0; i < tagNames.length; i += 1) {
+    const tag = tagNames[i] ?? "";
+    if (!tag) continue;
     try {
-      const ids = await listTagProfileIds(tag);
+      const ids = await listTagProfileIds(tag, {
+        signal: options?.signal,
+        onProgress: ({ page }) => {
+          options?.onProgress?.({
+            current: i + 1,
+            total: tagNames.length,
+            tag,
+            page,
+          });
+        },
+      });
       for (const id of ids) seen.add(id);
     } catch (_e) {
       String(_e);

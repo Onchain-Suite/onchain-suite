@@ -104,6 +104,13 @@ export function AudienceStep({
   );
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [tagExpansion, setTagExpansion] = useState<{
+    current: number;
+    total: number;
+    tag: string;
+    page: number;
+  } | null>(null);
+  const tagExpansionAbortRef = useRef<AbortController | null>(null);
   const syncSequenceRef = useRef(0);
 
   // Individual contacts (with a real email) selectable directly — so a
@@ -291,6 +298,11 @@ export function AudienceStep({
     syncSequenceRef.current = currentSequence;
     setIsSyncing(true);
     setSyncError(null);
+    setTagExpansion(null);
+
+    tagExpansionAbortRef.current?.abort();
+    const tagAbort = new AbortController();
+    tagExpansionAbortRef.current = tagAbort;
 
     let retryTimeout: number | undefined;
 
@@ -302,7 +314,14 @@ export function AudienceStep({
       );
       // Tag selections expand to the tagged contacts' profile ids — the
       // backend audience contract only knows profiles + segments.
-      const tagProfileIds = await resolveTagsToProfileIds(tagNames);
+      const tagProfileIds = await resolveTagsToProfileIds(tagNames, {
+        signal: tagAbort.signal,
+        onProgress: (progress) => {
+          if (syncSequenceRef.current !== currentSequence) return;
+          setTagExpansion(progress);
+        },
+      });
+      setTagExpansion(null);
       const mergedProfileIds = Array.from(
         new Set([...profileIds, ...tagProfileIds])
       );
@@ -321,7 +340,18 @@ export function AudienceStep({
     };
 
     const run = async (attempt: number) => {
-      const payloads = await buildPayloads();
+      let payloads;
+      try {
+        payloads = await buildPayloads();
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          if (syncSequenceRef.current !== currentSequence) return;
+          setIsSyncing(false);
+          setTagExpansion(null);
+          return;
+        }
+        throw error;
+      }
       if (syncSequenceRef.current !== currentSequence) return;
       const isFirstRun = !hasSeededSyncRef.current;
       if (isFirstRun) {
@@ -340,6 +370,11 @@ export function AudienceStep({
         setIsSyncing(false);
       } catch (error) {
         if (syncSequenceRef.current !== currentSequence) return;
+        if (error instanceof DOMException && error.name === "AbortError") {
+          setIsSyncing(false);
+          setTagExpansion(null);
+          return;
+        }
         if (isRateLimitError(error) && attempt === 0) {
           // The budget resets every 10s — retry once after the window.
           retryTimeout = window.setTimeout(() => {
@@ -363,6 +398,8 @@ export function AudienceStep({
     return () => {
       window.clearTimeout(timeout);
       if (retryTimeout !== undefined) window.clearTimeout(retryTimeout);
+      tagAbort.abort();
+      setTagExpansion(null);
     };
   }, [
     campaignId,
@@ -463,6 +500,24 @@ export function AudienceStep({
                 <p className="text-sm text-amber-400">
                   Failed to sync audience settings: {syncError}
                 </p>
+              ) : null}
+              {tagExpansion ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm text-muted-foreground">
+                  <span>
+                    Expanding tag {tagExpansion.current}/{tagExpansion.total}:{" "}
+                    <span className="font-mono text-xs text-foreground/80">
+                      {tagExpansion.tag}
+                    </span>{" "}
+                    (page {tagExpansion.page})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => tagExpansionAbortRef.current?.abort()}
+                    className="rounded-lg border border-border bg-card px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                  >
+                    Cancel
+                  </button>
+                </div>
               ) : null}
               <FormMessage />
             </FormItem>

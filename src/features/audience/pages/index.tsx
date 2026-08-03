@@ -200,7 +200,7 @@ export function AudiencePages(): ReactElement {
   >("all");
   const [tagFilter, setTagFilter] = useState<string>("all");
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 200;
   const normalizedQuery = debouncedSearchQuery.trim();
   const sortParam =
     sortField === "lastAction"
@@ -209,7 +209,29 @@ export function AudiencePages(): ReactElement {
         ? "healthScore"
         : "name";
 
-  // Debounce user-driven search (~350ms) so we don't fetch on every keystroke.
+  const isRateLimitError = (error: unknown) => {
+    const err = error as { cause?: unknown; message?: unknown };
+    const candidate = (err?.cause ?? err) as {
+      response?: { status?: unknown };
+      status?: unknown;
+      message?: unknown;
+    };
+    const status =
+      typeof candidate.response?.status === "number"
+        ? candidate.response.status
+        : typeof candidate.status === "number"
+          ? candidate.status
+          : null;
+    if (status === 429) return true;
+    const msg =
+      typeof err?.message === "string"
+        ? err.message
+        : typeof candidate.message === "string"
+          ? candidate.message
+          : "";
+    return msg.includes("429") || msg.toLowerCase().includes("rate limit");
+  };
+
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
@@ -267,18 +289,22 @@ export function AudiencePages(): ReactElement {
         include: "wallets,attributes,tags,health,lastAction",
       },
     ],
-    queryFn: async () => {
-      const res = await audienceService.listProfiles({
-        page: currentPage,
-        limit: itemsPerPage,
-        q: normalizedQuery.length > 0 ? normalizedQuery : undefined,
-        status: profileScopeFilter !== "all" ? profileScopeFilter : undefined,
-        engagement: engagementFilter !== "all" ? engagementFilter : undefined,
-        tag: tagFilter !== "all" ? tagFilter : undefined,
-        sort: sortParam,
-        direction: sortDirection,
-        include: "wallets,attributes,tags,health,lastAction",
-      });
+    queryFn: async ({ signal }) => {
+      const res = await audienceService.listProfiles(
+        {
+          page: currentPage,
+          limit: itemsPerPage,
+          q: normalizedQuery.length > 0 ? normalizedQuery : undefined,
+          status: profileScopeFilter !== "all" ? profileScopeFilter : undefined,
+          engagement: engagementFilter !== "all" ? engagementFilter : undefined,
+          tag: tagFilter !== "all" ? tagFilter : undefined,
+          sort: sortParam,
+          direction: sortDirection,
+          include: "wallets,attributes,tags,health,lastAction",
+        },
+        undefined,
+        { signal }
+      );
       if (Array.isArray(res)) return { items: res, meta: null };
       if (isJsonObject(res)) {
         const obj = res as Record<string, unknown>;
@@ -302,7 +328,8 @@ export function AudiencePages(): ReactElement {
       return { items: [], meta: null };
     },
     placeholderData: keepPreviousData,
-    retry: false,
+    retry: (failureCount, error) => isRateLimitError(error) && failureCount < 3,
+    retryDelay: () => 2000 + Math.floor(Math.random() * 3000),
     refetchOnWindowFocus: false,
   });
 
@@ -820,9 +847,29 @@ export function AudiencePages(): ReactElement {
               transition={{ duration: 0.18 }}
               className="rounded-2xl border border-border bg-card px-6 py-16 text-center"
             >
-              <div className="text-sm text-muted-foreground">
-                Failed to load audience.
-              </div>
+              {isRateLimitError(profilesQuery.error) ? (
+                <div className="space-y-3">
+                  <div className="text-sm font-medium text-foreground">
+                    Too many requests.
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    The audience list is being rate-limited. Wait a few seconds
+                    then retry.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => profilesQuery.refetch()}
+                    disabled={profilesQuery.isFetching}
+                    className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  Failed to load audience.
+                </div>
+              )}
             </motion.div>
           ) : (
             <motion.div
@@ -1528,7 +1575,9 @@ export function AudiencePages(): ReactElement {
                           onClick={() =>
                             setCurrentPage((p) => Math.max(1, p - 1))
                           }
-                          disabled={currentPage === 1}
+                          disabled={
+                            currentPage === 1 || profilesQuery.isFetching
+                          }
                           aria-label="Previous page"
                           className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed sm:h-9 sm:w-9"
                         >
@@ -1555,6 +1604,7 @@ export function AudiencePages(): ReactElement {
                                 <button
                                   key={pageNum}
                                   onClick={() => setCurrentPage(pageNum)}
+                                  disabled={profilesQuery.isFetching}
                                   className={`h-8 w-8 rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
                                 >
                                   {pageNum}
@@ -1567,7 +1617,10 @@ export function AudiencePages(): ReactElement {
                           onClick={() =>
                             setCurrentPage((p) => Math.min(totalPages, p + 1))
                           }
-                          disabled={currentPage === totalPages}
+                          disabled={
+                            currentPage === totalPages ||
+                            profilesQuery.isFetching
+                          }
                           aria-label="Next page"
                           className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed sm:h-9 sm:w-9"
                         >

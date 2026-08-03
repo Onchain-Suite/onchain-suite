@@ -15,20 +15,43 @@ export const tagSelectionId = (tagName: string) =>
   `${TAG_SELECTION_PREFIX}${tagName}`;
 
 /**
+ * Sentinel selection id for "send to every contact in the audience". It rides
+ * the same `selectedAudiences` array as real ids (so it satisfies the wizard's
+ * min-1 audience validation and flows through the existing autosync/Continue
+ * paths), but is translated into the backend's `{ all: true }` audience flag —
+ * never sent as a profile id. It is mutually exclusive with any other
+ * selection (see the selector's exclusivity logic).
+ */
+export const ALL_CONTACTS_SELECTION_ID = "all:contacts";
+
+export const isAllContactsSelected = (selectedIds: string[]) =>
+  selectedIds.includes(ALL_CONTACTS_SELECTION_ID);
+
+/**
  * Split a wizard selection into the buckets `PUT /campaigns/{id}/audience`
- * accepts. Its canonical body is `{ profileIds, segmentIds }` — there is no
- * `listIds`, so anything binned there is silently dropped by the backend and
- * the campaign launches with an empty audience.
+ * accepts. Its canonical body is `{ profileIds, segmentIds }` (plus the
+ * `all` flag) — there is no `listIds`, so anything binned there is silently
+ * dropped by the backend and the campaign launches with an empty audience.
  *
- * Therefore anything that isn't a `tag:` selection or a known segment id is
- * treated as a profile id. The `profiles` argument is now only a hint used to
- * confirm membership; callers that can't supply it (the wizard's Continue
- * save) still produce a correct payload, which they previously did not.
+ * The `all:contacts` sentinel short-circuits everything: it maps to
+ * `{ all: true }` with no profile/segment/tag ids. Otherwise anything that
+ * isn't a `tag:` selection or a known segment id is treated as a profile id.
+ * The `segments` argument is a membership hint; callers that can't supply it
+ * (the wizard's Continue save) still produce a correct payload.
  */
 export const partitionAudienceSelection = (
   selectedIds: string[],
   segments: Segment[]
 ) => {
+  if (isAllContactsSelected(selectedIds)) {
+    return {
+      all: true,
+      segmentIds: [] as string[],
+      profileIds: [] as string[],
+      tagNames: [] as string[],
+    };
+  }
+
   const knownSegmentIds = new Set(segments.map((segment) => segment.id));
 
   return selectedIds.reduce(
@@ -44,6 +67,7 @@ export const partitionAudienceSelection = (
       return result;
     },
     {
+      all: false,
       segmentIds: [] as string[],
       profileIds: [] as string[],
       tagNames: [] as string[],

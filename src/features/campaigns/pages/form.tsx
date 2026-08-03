@@ -50,6 +50,7 @@ import { TemplateStep } from "@/features/campaigns/components/campaign-form/temp
 import { WizardStepRail } from "@/features/campaigns/components/campaign-form/wizard-step-rail";
 import { WizardSummary } from "@/features/campaigns/components/campaign-form/wizard-summary";
 import {
+  ALL_CONTACTS_SELECTION_ID,
   partitionAudienceSelection,
   resolveTagsToProfileIds,
   tagSelectionId,
@@ -1323,18 +1324,24 @@ export function CreateCampaignPage() {
           // the next Continue saved that emptiness back over it. listIds is
           // kept purely as a fallback for anything persisted by older builds.
           const {
+            all: allRaw,
             profileIds: profileIdsRaw,
             listIds: listIdsRaw,
             segmentIds: segmentIdsRaw,
           } = aObj;
-          const toIds = (value: unknown) =>
-            Array.isArray(value) ? value.map(String) : [];
-          const profileIds = [...toIds(profileIdsRaw), ...toIds(listIdsRaw)];
-          const segmentIds = toIds(segmentIdsRaw);
-          if (profileIds.length || segmentIds.length) {
-            nextValues.selectedAudiences = Array.from(
-              new Set([...profileIds, ...segmentIds])
-            );
+          if (allRaw === true) {
+            // Saved as "send to everyone" — restore the sentinel selection.
+            nextValues.selectedAudiences = [ALL_CONTACTS_SELECTION_ID];
+          } else {
+            const toIds = (value: unknown) =>
+              Array.isArray(value) ? value.map(String) : [];
+            const profileIds = [...toIds(profileIdsRaw), ...toIds(listIdsRaw)];
+            const segmentIds = toIds(segmentIdsRaw);
+            if (profileIds.length || segmentIds.length) {
+              nextValues.selectedAudiences = Array.from(
+                new Set([...profileIds, ...segmentIds])
+              );
+            }
           }
         }
 
@@ -1540,10 +1547,11 @@ export function CreateCampaignPage() {
    * await, so this is async.
    */
   const buildAudienceSyncOptions = async (data: CampaignFormData) => {
-    const { segmentIds, profileIds, tagNames } = partitionAudienceSelection(
-      data.selectedAudiences,
-      audienceSegmentsQuery.data ?? []
-    );
+    const { all, segmentIds, profileIds, tagNames } =
+      partitionAudienceSelection(
+        data.selectedAudiences,
+        audienceSegmentsQuery.data ?? []
+      );
     const tagProfileIds = await resolveTagsToProfileIds(tagNames);
     const mergedProfileIds = Array.from(
       new Set([...profileIds, ...tagProfileIds])
@@ -1573,7 +1581,11 @@ export function CreateCampaignPage() {
         ? windowParsed
         : undefined;
     return {
-      audience: { segmentIds, profileIds: mergedProfileIds },
+      audience: {
+        segmentIds,
+        profileIds: mergedProfileIds,
+        ...(all ? { all: true } : {}),
+      },
       tracking: {
         smartSending: Boolean(data.smartSending),
         trackingParameters: Boolean(data.trackingParameters),

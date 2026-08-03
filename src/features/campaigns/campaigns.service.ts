@@ -30,6 +30,12 @@ export interface CampaignAudienceSelection {
   segmentIds: string[];
   /** Explicit profile/contact ids — backend requires the key to be an array. */
   profileIds?: string[];
+  /**
+   * Target every contact in the org, regardless of list/segment. When true the
+   * backend ignores `profileIds`/`segmentIds` and resolves the full audience.
+   * Sent (and echoed back by GET) only when set.
+   */
+  all?: boolean;
   /** @deprecated Read-only fallback for audiences saved by older builds. */
   listIds?: string[];
 }
@@ -553,11 +559,18 @@ export const campaignsService = {
   setAudience(id: string, body: CampaignAudienceSelection, orgId?: string) {
     // Canonical body is { profileIds, segmentIds } — both keys must be
     // present as arrays. There is no `listIds` in the contract; sending one
-    // is ignored, which is how contact selections used to vanish.
-    const payload = {
+    // is ignored, which is how contact selections used to vanish. `all: true`
+    // (send to every contact) is sent only when set, alongside the empty id
+    // arrays the contract still requires.
+    const payload: {
+      segmentIds: string[];
+      profileIds: string[];
+      all?: boolean;
+    } = {
       segmentIds: Array.isArray(body.segmentIds) ? body.segmentIds : [],
       profileIds: Array.isArray(body.profileIds) ? body.profileIds : [],
     };
+    if (body.all) payload.all = true;
     return request<{ success?: boolean }>(
       { method: "PUT", url: `/campaigns/${id}/audience`, data: payload },
       orgId

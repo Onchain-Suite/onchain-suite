@@ -26,7 +26,9 @@ import { getSelectedOrganizationId } from "@/lib/utils";
 
 import { type CampaignAudienceEstimate } from "../../campaigns.service";
 import {
+  ALL_CONTACTS_SELECTION_ID,
   getEstimatedRecipientsFromSelection,
+  isAllContactsSelected,
   partitionAudienceSelection,
   resolveTagsToProfileIds,
 } from "../../lib/audience";
@@ -237,10 +239,12 @@ export function AudienceStep({
       ),
     [profileOptions, tags, segments, selectedAudiences]
   );
+  const isAllContacts = isAllContactsSelected(selectedAudiences);
   const unresolvedSelectionCount = useMemo(
     () =>
       selectedAudiences.filter(
         (selectedId) =>
+          selectedId !== ALL_CONTACTS_SELECTION_ID &&
           !profileOptions.some((p) => p.id === selectedId) &&
           !tags.some((tag) => tag.id === selectedId) &&
           !selectedSegmentIds.has(selectedId)
@@ -340,12 +344,11 @@ export function AudienceStep({
 
     const buildPayloads = async () => {
       const inputs = syncInputsRef.current;
-      const { segmentIds, profileIds, tagNames } = partitionAudienceSelection(
-        inputs.selectedAudiences,
-        inputs.segments
-      );
+      const { all, segmentIds, profileIds, tagNames } =
+        partitionAudienceSelection(inputs.selectedAudiences, inputs.segments);
       // Tag selections expand to the tagged contacts' profile ids — the
-      // backend audience contract only knows profiles + segments.
+      // backend audience contract only knows profiles + segments. ("All
+      // contacts" short-circuits to an empty tag list, so this is a no-op.)
       const tagProfileIds = await resolveTagsToProfileIds(tagNames, {
         signal: tagAbort.signal,
         onProgress: (progress) => {
@@ -358,7 +361,11 @@ export function AudienceStep({
         new Set([...profileIds, ...tagProfileIds])
       );
       return {
-        audience: { segmentIds, profileIds: mergedProfileIds },
+        audience: {
+          segmentIds,
+          profileIds: mergedProfileIds,
+          ...(all ? { all: true } : {}),
+        },
         tracking: {
           smartSending: Boolean(smartSending),
           trackingParameters: Boolean(trackingParameters),
@@ -445,8 +452,18 @@ export function AudienceStep({
     utmKey,
   ]);
 
-  const displayedEstimatedRecipients =
-    estimatedRecipients ?? localEstimatedRecipients;
+  // For "all contacts" the count is only knowable from the server estimate, so
+  // don't fall back to the local (always-0) tally — show a placeholder until it
+  // lands, then the real number.
+  const displayedEstimatedRecipients = isAllContacts
+    ? estimatedRecipients
+    : (estimatedRecipients ?? localEstimatedRecipients);
+
+  // Safety net for the all-contacts flag: if the estimate has resolved and it's
+  // 0 (e.g. the backend hasn't enabled all-contacts targeting, or the audience
+  // really is empty), warn rather than let a send silently reach no one.
+  const allContactsResolvedEmpty =
+    isAllContacts && !isSyncing && estimatedRecipients === 0;
 
   return (
     <div className="space-y-5 animate-in fade-in duration-500 p-4 sm:p-6">
@@ -483,7 +500,7 @@ export function AudienceStep({
               }`}
             >
               <span className="text-sm font-semibold tabular-nums">
-                {displayedEstimatedRecipients}
+                {displayedEstimatedRecipients ?? "…"}
               </span>
             </div>
             <div className="flex items-center gap-1">
@@ -513,8 +530,12 @@ export function AudienceStep({
                 />
               </FormControl>
               <FormDescription>
-                Pick individual contacts by email, or send to a tag or segment —
-                named groups of contacts created in{" "}
+                Send to{" "}
+                <span className="font-medium text-foreground">
+                  all contacts
+                </span>
+                , pick individual contacts by email, or target a tag or segment
+                — named groups of contacts created in{" "}
                 <Link
                   href={segmentsHref}
                   className="text-primary hover:underline"
@@ -523,6 +544,29 @@ export function AudienceStep({
                 </Link>
                 . No tags ready? Just select the emails directly.
               </FormDescription>
+              {isAllContacts ? (
+                allContactsResolvedEmpty ? (
+                  <p className="text-sm text-amber-500">
+                    All-contacts targeting resolved to 0 recipients. Your
+                    audience may be empty, or all-contacts sending isn&apos;t
+                    enabled for this workspace yet — this campaign won&apos;t
+                    reach anyone until that&apos;s resolved.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    This campaign targets{" "}
+                    <span className="font-medium text-foreground">
+                      every contact in your audience
+                    </span>
+                    {estimatedRecipients !== null
+                      ? ` (${estimatedRecipients.toLocaleString()} recipient${
+                          estimatedRecipients === 1 ? "" : "s"
+                        })`
+                      : ""}
+                    . Smart Sending exclusions below still apply.
+                  </p>
+                )
+              ) : null}
               {segmentsError ? (
                 <p className="text-sm text-amber-400">
                   Failed to load saved segments: {segmentsError}

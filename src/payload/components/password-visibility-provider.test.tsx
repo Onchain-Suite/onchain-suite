@@ -1,5 +1,5 @@
-import { render, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { cleanup, render, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { PasswordVisibilityProvider } from "@/payload/components/password-visibility-provider";
 
@@ -30,6 +30,14 @@ function requireToggle(input: HTMLInputElement): HTMLButtonElement {
   }
   return button;
 }
+
+// The shared setup registers RTL cleanup inside a promise, so it is not reliably
+// active. Unmounting explicitly matters here: a leaked provider keeps a live
+// MutationObserver that goes on enhancing DOM in later tests.
+afterEach(() => {
+  cleanup();
+  document.body.innerHTML = "";
+});
 
 describe("PasswordVisibilityProvider", () => {
   beforeEach(() => {
@@ -147,5 +155,107 @@ describe("PasswordVisibilityProvider", () => {
       </PasswordVisibilityProvider>
     );
     expect(getByText("admin content")).toBeTruthy();
+  });
+});
+
+describe("resilience to React re-renders", () => {
+  it("re-adds the toggle if React removes it", async () => {
+    // Payload's auth forms re-render and drop DOM they do not own. The marker
+    // stays on the input, so a marker-only guard would refuse to re-enhance and
+    // the toggle would be gone for good.
+    const input = mountPayloadField();
+    render(<PasswordVisibilityProvider />);
+    await waitFor(() => expect(toggleFor(input)).not.toBeNull());
+
+    requireToggle(input).remove();
+    expect(toggleFor(input)).toBeNull();
+
+    // Provoke the observer the way a re-render would.
+    document.body.appendChild(document.createElement("div"));
+
+    await waitFor(() => expect(toggleFor(input)).not.toBeNull());
+  });
+});
+
+describe("Payload's real auth-view markup", () => {
+  /**
+   * The login form nests deeper than create-first-user:
+   *   .field-type.password > .field-type__wrap > div > input
+   * Positioning must not depend on that depth.
+   */
+  function mountLoginField() {
+    const field = document.createElement("div");
+    field.className = "field-type password";
+    const wrap = document.createElement("div");
+    wrap.className = "field-type__wrap";
+    const inner = document.createElement("div");
+    const input = document.createElement("input");
+    input.type = "password";
+    input.id = "field-password";
+    input.setAttribute("aria-label", "Password");
+    inner.appendChild(input);
+    wrap.appendChild(inner);
+    field.appendChild(wrap);
+    document.body.appendChild(field);
+    return input;
+  }
+
+  it("attaches to the login form's deeper markup", async () => {
+    const input = mountLoginField();
+    render(<PasswordVisibilityProvider />);
+
+    await waitFor(() => expect(toggleFor(input)).not.toBeNull());
+    const button = requireToggle(input);
+    expect(button.type).toBe("button");
+    // Positioned against the input's own parent, whatever the depth above it.
+    expect(input.parentElement?.style.position).toBe("relative");
+    expect(button.style.position).toBe("absolute");
+  });
+
+  it("toggles on the login form", async () => {
+    const input = mountLoginField();
+    render(<PasswordVisibilityProvider />);
+    await waitFor(() => expect(toggleFor(input)).not.toBeNull());
+
+    requireToggle(input).click();
+    expect(input.type).toBe("text");
+    requireToggle(input).click();
+    expect(input.type).toBe("password");
+  });
+
+  it("re-attaches even when the input is currently revealed", async () => {
+    // A revealed input is type=text, so a selector looking only for
+    // input[type=password] would never find it again.
+    const input = mountLoginField();
+    render(<PasswordVisibilityProvider />);
+    await waitFor(() => expect(toggleFor(input)).not.toBeNull());
+
+    requireToggle(input).click();
+    expect(input.type).toBe("text");
+
+    requireToggle(input).remove();
+    document.body.appendChild(document.createElement("div"));
+
+    await waitFor(() => expect(toggleFor(input)).not.toBeNull());
+    // Re-attached in the state the input is actually in.
+    expect(requireToggle(input).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("still shows exactly one toggle per field after churn", async () => {
+    const a = mountLoginField();
+    const b = mountPayloadField("second");
+    render(<PasswordVisibilityProvider />);
+    await waitFor(() => {
+      expect(toggleFor(a)).not.toBeNull();
+      expect(toggleFor(b)).not.toBeNull();
+    });
+
+    for (let i = 0; i < 5; i++) {
+      document.body.appendChild(document.createElement("div"));
+    }
+
+    await waitFor(() =>
+      expect(document.querySelectorAll("[data-ocs-pw-toggle]").length).toBe(2)
+    );
   });
 });

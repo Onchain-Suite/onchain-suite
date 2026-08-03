@@ -1046,7 +1046,8 @@ export function CreateCampaignPage() {
   });
 
   const audienceSegmentsQuery = useQuery({
-    queryKey: ["intelligence", "segments", "campaign-form"],
+    queryKey: ["intelligence", "segments", "campaign-form", organizationId],
+    enabled: Boolean(organizationId),
     queryFn: async () => {
       const response = await intelligenceService.listSegments({ limit: 100 });
       const items = normalizeIntelligenceSegments(response);
@@ -1055,15 +1056,16 @@ export function CreateCampaignPage() {
         .filter((item): item is Segment => !!item);
     },
     retry: false,
-    refetchOnWindowFocus: false,
-    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   // Audience tags are offered in the picker as `tag:<name>` selections and
   // expanded to profileIds at save time (the backend audience contract only
   // knows profiles + segments).
   const audienceTagsQuery = useQuery({
-    queryKey: ["audience", "tags", "campaign-form"],
+    queryKey: ["audience", "tags", "campaign-form", organizationId],
+    enabled: Boolean(organizationId),
     queryFn: async () => {
       const res = await audienceService.listTags();
       const rows: unknown[] = Array.isArray(res)
@@ -1089,8 +1091,8 @@ export function CreateCampaignPage() {
         }));
     },
     retry: false,
-    refetchOnWindowFocus: false,
-    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const verifiedSenderIdentities = useMemo(

@@ -26,7 +26,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { ChainLogo } from "@/components/common/chain-logo";
 import { Button } from "@/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/dialog";
 import { Input } from "@/ui/input";
@@ -43,12 +42,10 @@ import {
   intelligenceService,
 } from "../../intelligence.service";
 import { McpTypingIndicator } from "./mcp-typing-indicator";
+import { ResultCard } from "./result-card";
 import { SqlBlockchainLoader } from "./sql-blockchain-loader";
 import { SqlResultsTable } from "./sql-results-table";
-import {
-  dropFormattedSiblingColumns,
-  preferFormattedCell,
-} from "@/features/intelligence/utils";
+import { dropFormattedSiblingColumns } from "@/features/intelligence/utils";
 
 const DEFAULT_SQL_QUERY = "";
 
@@ -94,31 +91,6 @@ const toExecutableSql = (sql: string): string => {
 const asRecord = (row: unknown): Record<string, unknown> =>
   isJsonObject(row) ? (row as Record<string, unknown>) : { value: row };
 
-const asNumber = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const normalized = value.replace(/[$,%\s,]/g, "");
-    const parsed = Number(normalized);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return null;
-};
-
-// ISO 8601 date-times (e.g. 2026-07-12T05:55:31.554Z) as returned by the API.
-const ISO_TIMESTAMP_RE =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
-
-const asDisplayText = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "number") return value.toLocaleString();
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "string" && ISO_TIMESTAMP_RE.test(value)) {
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleString();
-  }
-  return String(value);
-};
-
 const prettifyColumnLabel = (value: string) =>
   value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 
@@ -152,58 +124,6 @@ const hashString = (value: string) => {
     hash = (hash * 33) ^ value.charCodeAt(i);
   }
   return (hash >>> 0).toString(36);
-};
-
-const asKeyText = (value: unknown) => {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-  }
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? String(value) : undefined;
-  }
-  if (typeof value === "boolean") {
-    return value ? "true" : "false";
-  }
-  return undefined;
-};
-
-const createStructuredRowKey = (
-  row: StructuredResultRow,
-  preferredColumns: Array<string | null | undefined>,
-  scope: string
-) => {
-  const preferred = preferredColumns
-    .filter((column): column is string => typeof column === "string")
-    .map((column) => column.trim())
-    .filter((column) => column.length > 0);
-  const preferredValue = preferred
-    .map((column) => asKeyText(row[column]))
-    .find(Boolean);
-  const idValue = pickFirstText(
-    row.id,
-    row.uuid,
-    row.request_id,
-    row.requestId,
-    row.tx_hash,
-    row.transaction_hash,
-    row.hash,
-    row.address,
-    row.wallet_address,
-    row.wallet,
-    row.owner,
-    row.from_address,
-    row.to_address,
-    row.contract_address,
-    row.symbol,
-    row.name
-  );
-  const seed = [scope, idValue, preferredValue].filter(Boolean).join("|");
-  const fallbackSeed =
-    seed.length > 0
-      ? seed
-      : [scope, JSON.stringify(row)].filter(Boolean).join("|");
-  return `${scope}-${hashString(fallbackSeed)}`;
 };
 
 const createStableLineKeys = (lines: string[], scope: string) => {
@@ -770,54 +690,6 @@ const truncateMiddle = (value: string, start = 8, end = 6) =>
     ? value
     : `${value.slice(0, start)}...${value.slice(-end)}`;
 
-const asIdentifierText = (value: unknown) => {
-  const text = asDisplayText(value);
-  const normalized = text.trim();
-  if (/^(0x[a-fA-F0-9]{8,}|[1-9A-HJ-NP-Za-km-z]{24,})$/.test(normalized)) {
-    return truncateMiddle(normalized);
-  }
-  if (normalized.length > 24 && !normalized.includes(" ")) {
-    return truncateMiddle(normalized);
-  }
-  return text;
-};
-
-const formatCompactNumber = (value: unknown) => {
-  const numericValue = asNumber(value);
-  if (numericValue === null) return asDisplayText(value);
-  return new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: numericValue >= 100 ? 0 : 2,
-  }).format(numericValue);
-};
-
-const formatUsdValue = (value: unknown) => {
-  const numericValue = asNumber(value);
-  if (numericValue === null) return asDisplayText(value);
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: numericValue >= 100 ? 0 : 2,
-  }).format(numericValue);
-};
-
-const formatPercentValue = (value: unknown) => {
-  const numericValue = asNumber(value);
-  if (numericValue === null) return asDisplayText(value);
-  const normalized =
-    numericValue > 0 && numericValue <= 1 ? numericValue * 100 : numericValue;
-  return `${normalized.toFixed(normalized >= 10 ? 1 : 2)}%`;
-};
-
-const formatTimestamp = (value: unknown) => {
-  if (typeof value !== "string" && typeof value !== "number") {
-    return asDisplayText(value);
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return asDisplayText(value);
-  return date.toLocaleString();
-};
-
 type SuggestionSector =
   | "general"
   | "defi"
@@ -1003,17 +875,6 @@ export function QueryTab({
     () => protocols.find((protocol) => protocol.id === selectedProtocolId),
     [protocols, selectedProtocolId]
   );
-  const chainCoverageLabel = useMemo(() => {
-    if (selectedChains.length === 0) return "Auto / multichain";
-    const families = new Set(
-      selectedChains.map((chain) =>
-        chain.includes("solana") ? "Solana" : "EVM"
-      )
-    );
-    if (families.size === 2) return "EVM + Solana";
-    return families.has("Solana") ? "Solana" : "EVM";
-  }, [selectedChains]);
-
   const trackSuggestionInteraction = useCallback(
     async (payload: {
       selected?: boolean;
@@ -1820,167 +1681,10 @@ export function QueryTab({
       </div>
     );
   };
-  const renderStructuredRowsTable = (
-    structuredRows: StructuredResultRow[],
-    preferredColumns?: string[]
-  ) => {
-    const allColumns = columnsFromRows(structuredRows);
-    const selectedColumns =
-      preferredColumns && preferredColumns.length > 0
-        ? preferredColumns.filter((column) => allColumns.includes(column))
-        : allColumns;
-    const visibleColumns = selectedColumns.slice(0, 5);
-
-    return (
-      <div className="overflow-hidden rounded-2xl border border-border/60 bg-background/60">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-border/60 text-sm">
-            <thead className="bg-muted/30">
-              <tr>
-                {visibleColumns.map((column) => (
-                  <th
-                    key={column}
-                    className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
-                  >
-                    {prettifyColumnLabel(column)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40">
-              {structuredRows.slice(0, 8).map((row) => {
-                const rowKey = createStructuredRowKey(
-                  row,
-                  visibleColumns,
-                  "structured-row"
-                );
-                return (
-                  <tr key={rowKey} className="bg-background/30">
-                    {visibleColumns.map((column) => (
-                      <td
-                        key={`${rowKey}-${column}`}
-                        className="px-4 py-3 align-top text-foreground/92"
-                      >
-                        {column.toLowerCase().includes("hash") ||
-                        column.toLowerCase().includes("address")
-                          ? asIdentifierText(row[column])
-                          : asDisplayText(preferFormattedCell(row, column))}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
   const renderStructuredResult = (
     structuredResult: IntelligenceGoldrushMcpStructuredResult
   ) => {
     const structuredRows = normalizeStructuredRows(structuredResult.rows);
-    const holderColumn = findPreferredColumn(structuredRows, [
-      "holder",
-      "wallet_address",
-      "wallet",
-      "address",
-      "owner",
-      "name",
-      "label",
-    ]);
-    const amountColumn = findPreferredColumn(structuredRows, [
-      "balance",
-      "amount",
-      "quantity",
-      "tokens",
-      "value",
-    ]);
-    const shareColumn = findPreferredColumn(structuredRows, [
-      "share",
-      "percent",
-      "percentage",
-      "ownership",
-      "pct",
-    ]);
-    const assetColumn = findPreferredColumn(structuredRows, [
-      "symbol",
-      "asset",
-      "token",
-      "currency",
-      "name",
-    ]);
-    const usdValueColumn = findPreferredColumn(structuredRows, [
-      "value_usd",
-      "usd_value",
-      "quote",
-      "value",
-      "price_usd",
-    ]);
-    const chainColumn = findPreferredColumn(structuredRows, [
-      "chain",
-      "network",
-    ]);
-    const hashColumn = findPreferredColumn(structuredRows, [
-      "tx_hash",
-      "transaction_hash",
-      "hash",
-      "signature",
-    ]);
-    const fromColumn = findPreferredColumn(structuredRows, [
-      "from_address",
-      "from",
-      "sender",
-    ]);
-    const toColumn = findPreferredColumn(structuredRows, [
-      "to_address",
-      "to",
-      "recipient",
-    ]);
-    const timeColumn = findPreferredColumn(structuredRows, [
-      "block_signed_at",
-      "timestamp",
-      "time",
-      "date",
-    ]);
-    const transactionValueColumn = findPreferredColumn(structuredRows, [
-      "value_usd",
-      "usd_value",
-      "amount",
-      "value",
-      "gas_spent",
-    ]);
-    const transactionTypeColumn = findPreferredColumn(structuredRows, [
-      "method",
-      "action",
-      "type",
-      "event",
-    ]);
-    const baseFeeColumn = findPreferredColumn(structuredRows, [
-      "base_fee",
-      "base_fee_gwei",
-      "basefee",
-      "basefee_gwei",
-    ]);
-    const standardFeeColumn = findPreferredColumn(structuredRows, [
-      "standard",
-      "average",
-      "propose",
-      "proposed",
-    ]);
-    const fastFeeColumn = findPreferredColumn(structuredRows, [
-      "fast",
-      "rapid",
-      "instant",
-      "priority",
-    ]);
-    const slowFeeColumn = findPreferredColumn(structuredRows, [
-      "slow",
-      "safe_low",
-      "safelow",
-      "low",
-    ]);
-
     if (meaningfulStructuredRows(structuredRows).length === 0) {
       return (
         <div className="rounded-2xl border border-dashed border-border/60 bg-background/40 px-4 py-8 text-sm text-muted-foreground">
@@ -1988,380 +1692,45 @@ export function QueryTab({
         </div>
       );
     }
-
-    switch (structuredResult.kind) {
-      case "token_holders": {
-        const shareValues = structuredRows
-          .map((row) => (shareColumn ? asNumber(row[shareColumn]) : null))
-          .filter((value): value is number => value !== null);
-        const maxShare = Math.max(...shareValues, 0);
-
-        return (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-            <div className="overflow-hidden rounded-2xl border border-primary/15 bg-card">
-              <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
-                <div>
-                  <div className="text-sm font-medium text-foreground">
-                    Ranked holders
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Top holders ranked by balance
-                  </div>
-                </div>
-                <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
-                  Top {structuredRows.length}
-                </span>
-              </div>
-              <div className="divide-y divide-white/6">
-                {structuredRows.slice(0, 8).map((row, index) => {
-                  const shareValue =
-                    shareColumn !== null ? asNumber(row[shareColumn]) : null;
-                  const normalizedShare =
-                    shareValue === null
-                      ? 0
-                      : shareValue > 0 && shareValue <= 1
-                        ? shareValue * 100
-                        : shareValue;
-                  const width =
-                    normalizedShare > 0 && maxShare > 0
-                      ? Math.max(10, (normalizedShare / maxShare) * 100)
-                      : 0;
-                  const rowKey = createStructuredRowKey(
-                    row,
-                    [holderColumn, amountColumn, shareColumn, chainColumn],
-                    "holder"
-                  );
-
-                  return (
-                    <div
-                      key={rowKey}
-                      className="grid gap-3 px-5 py-4 md:grid-cols-[auto_minmax(0,1fr)_auto]"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-white/8 text-xs font-semibold text-foreground">
-                        {index + 1}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-foreground">
-                          {holderColumn
-                            ? asIdentifierText(row[holderColumn])
-                            : `Holder ${index + 1}`}
-                        </div>
-                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/60">
-                          <div
-                            className="h-full rounded-full bg-[linear-gradient(90deg,rgba(87,115,255,0.95),rgba(88,211,255,0.9))]"
-                            style={{ width: `${width}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div className="text-left md:text-right">
-                        <div className="text-sm font-medium text-foreground">
-                          {amountColumn
-                            ? formatCompactNumber(row[amountColumn])
-                            : "—"}
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {shareColumn
-                            ? formatPercentValue(row[shareColumn])
-                            : "Share unavailable"}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                  Result profile
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  <div className="rounded-xl border border-border/50 bg-card/70 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                      Rows
-                    </div>
-                    <div className="mt-2 text-lg font-semibold text-foreground">
-                      {structuredRows.length.toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-border/50 bg-card/70 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                      Coverage
-                    </div>
-                    <div className="mt-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      {chainColumn && structuredRows[0] ? (
-                        <>
-                          <ChainLogo
-                            chain={asDisplayText(
-                              structuredRows[0][chainColumn]
-                            )}
-                          />
-                          {asDisplayText(structuredRows[0][chainColumn])}
-                        </>
-                      ) : (
-                        chainCoverageLabel
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      }
-      case "wallet_balances":
-      case "multichain_balances":
-      case "historical_wallet_balances":
-      case "native_token_balance":
-      case "bitcoin_hd_wallet_balances":
-      case "bitcoin_non_hd_wallet_balances":
-      case "portfolio_value": {
-        // Collapse dust: hide zero-balance rows behind a single summary line
-        // instead of rendering empty cards and table rows.
-        const isZeroBalanceRow = (row: StructuredResultRow) => {
-          const amount = amountColumn ? asNumber(row[amountColumn]) : null;
-          const usd = usdValueColumn ? asNumber(row[usdValueColumn]) : null;
-          return (amount ?? 0) === 0 && (usd ?? 0) === 0;
-        };
-        const heldRows = structuredRows.filter((row) => !isZeroBalanceRow(row));
-        const displayRows = heldRows.length > 0 ? heldRows : structuredRows;
-        const hiddenCount = structuredRows.length - displayRows.length;
-        return (
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {displayRows.slice(0, 6).map((row, index) => {
-                const rowKey = createStructuredRowKey(
-                  row,
-                  [assetColumn, chainColumn, amountColumn, usdValueColumn],
-                  "balance"
-                );
-                return (
-                  <div
-                    key={rowKey}
-                    className="rounded-2xl border border-border/60 bg-card p-4 shadow-[0_20px_60px_-40px_rgba(70,120,255,0.42)]"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-medium text-foreground">
-                          {assetColumn
-                            ? asDisplayText(row[assetColumn])
-                            : `Asset ${index + 1}`}
-                        </div>
-                        <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                          {chainColumn ? (
-                            <>
-                              <ChainLogo
-                                chain={asDisplayText(row[chainColumn])}
-                                size={12}
-                              />
-                              {asDisplayText(row[chainColumn])}
-                            </>
-                          ) : (
-                            chainCoverageLabel
-                          )}
-                        </div>
-                      </div>
-                      <span className="rounded-full border border-border bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                        Balance
-                      </span>
-                    </div>
-                    <div className="mt-5 text-2xl font-semibold tracking-tight text-foreground">
-                      {amountColumn ? asDisplayText(row[amountColumn]) : "—"}
-                    </div>
-                    <div className="mt-2 text-sm text-primary">
-                      {usdValueColumn
-                        ? formatUsdValue(row[usdValueColumn])
-                        : "Value unavailable"}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {renderStructuredRowsTable(displayRows, [
-              assetColumn ?? "",
-              amountColumn ?? "",
-              usdValueColumn ?? "",
-              chainColumn ?? "",
-            ])}
-            {hiddenCount > 0 ? (
-              <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-2.5 text-xs text-muted-foreground">
-                {hiddenCount} zero-balance token{hiddenCount === 1 ? "" : "s"}{" "}
-                hidden
-              </div>
-            ) : null}
-          </div>
-        );
-      }
-      case "transactions":
-      case "transaction":
-      case "transaction_summary":
-      case "multichain_transactions":
-      case "block_transactions":
-      case "bitcoin_transactions":
-      case "erc20_token_transfers":
-      case "log_events_by_address":
-      case "log_events_by_topic": {
-        return (
-          <div className="space-y-3">
-            {structuredRows.slice(0, 6).map((row, index) => {
-              const rowKey = createStructuredRowKey(
-                row,
-                [
-                  hashColumn,
-                  timeColumn,
-                  fromColumn,
-                  toColumn,
-                  transactionTypeColumn,
-                ],
-                "transaction"
-              );
-              return (
-                <div
-                  key={rowKey}
-                  className="rounded-2xl border border-border/60 bg-card p-4 shadow-[0_18px_60px_-42px_rgba(58,171,255,0.35)]"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
-                        {transactionTypeColumn
-                          ? asDisplayText(row[transactionTypeColumn])
-                          : "Transaction"}
-                      </span>
-                      {chainColumn ? (
-                        <span className="flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 text-[11px] text-muted-foreground">
-                          <ChainLogo
-                            chain={asDisplayText(row[chainColumn])}
-                            size={12}
-                          />
-                          {asDisplayText(row[chainColumn])}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {timeColumn
-                        ? formatTimestamp(row[timeColumn])
-                        : `Event ${index + 1}`}
-                    </div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <div className="font-mono text-sm text-foreground">
-                      {hashColumn
-                        ? asIdentifierText(row[hashColumn])
-                        : `Tx ${index + 1}`}
-                    </div>
-                    <div className="text-sm text-primary">
-                      {transactionValueColumn
-                        ? formatUsdValue(row[transactionValueColumn])
-                        : "Value unavailable"}
-                    </div>
-                  </div>
-                  {(fromColumn ?? toColumn) && (
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      <div className="rounded-xl border border-border/50 bg-card/60 p-3">
-                        <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                          From
-                        </div>
-                        <div className="mt-2 text-sm text-foreground">
-                          {fromColumn ? asIdentifierText(row[fromColumn]) : "—"}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-border/50 bg-card/60 p-3">
-                        <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                          To
-                        </div>
-                        <div className="mt-2 text-sm text-foreground">
-                          {toColumn ? asIdentifierText(row[toColumn]) : "—"}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        );
-      }
-      case "gas_prices": {
-        return (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {structuredRows.slice(0, 6).map((row, index) => {
-              const rowKey = createStructuredRowKey(
-                row,
-                [
-                  chainColumn,
-                  slowFeeColumn,
-                  standardFeeColumn,
-                  fastFeeColumn,
-                  baseFeeColumn,
-                ],
-                "gas"
-              );
-              return (
-                <div
-                  key={rowKey}
-                  className="rounded-2xl border border-border/60 bg-card p-4 shadow-[0_20px_60px_-42px_rgba(130,96,255,0.44)]"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-medium text-foreground">
-                      {chainColumn
-                        ? asDisplayText(row[chainColumn])
-                        : `Network ${index + 1}`}
-                    </div>
-                    <span className="rounded-full border border-border bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                      Fees
-                    </span>
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-border/50 bg-card/60 p-3">
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                        Slow
-                      </div>
-                      <div className="mt-2 text-lg font-semibold text-foreground">
-                        {slowFeeColumn
-                          ? asDisplayText(row[slowFeeColumn])
-                          : "—"}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-border/50 bg-card/60 p-3">
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                        Standard
-                      </div>
-                      <div className="mt-2 text-lg font-semibold text-foreground">
-                        {standardFeeColumn
-                          ? asDisplayText(row[standardFeeColumn])
-                          : "—"}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-border/50 bg-card/60 p-3">
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                        Fast
-                      </div>
-                      <div className="mt-2 text-lg font-semibold text-foreground">
-                        {fastFeeColumn
-                          ? asDisplayText(row[fastFeeColumn])
-                          : "—"}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-border/50 bg-card/60 p-3">
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                        Base fee
-                      </div>
-                      <div className="mt-2 text-lg font-semibold text-foreground">
-                        {baseFeeColumn
-                          ? asDisplayText(row[baseFeeColumn])
-                          : "—"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      }
-      default:
-        return renderStructuredRowsTable(structuredRows);
-    }
+    // Reference result card derives its table columns and the chart's
+    // label/value axes from the rows; pass the best-guess label/value keys so
+    // holder-style results chart sensibly, and the raw SQL when the tool
+    // surfaced one.
+    const labelKey = findPreferredColumn(structuredRows, [
+      "holder",
+      "wallet_address",
+      "wallet",
+      "address",
+      "owner",
+      "name",
+      "label",
+      "symbol",
+      "asset",
+      "token",
+    ]);
+    const valueKey = findPreferredColumn(structuredRows, [
+      "balance",
+      "amount",
+      "value_usd",
+      "usd_value",
+      "value",
+      "quantity",
+      "tokens",
+      "gas_spent",
+    ]);
+    const metaSql =
+      isJsonObject(structuredResult.meta) &&
+      typeof structuredResult.meta.sql === "string"
+        ? structuredResult.meta.sql
+        : undefined;
+    return (
+      <ResultCard
+        rows={structuredRows}
+        labelKey={labelKey ?? undefined}
+        valueKey={valueKey ?? undefined}
+        sql={metaSql}
+      />
+    );
   };
 
   useEffect(() => {

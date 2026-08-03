@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 
 /**
- * Alias kept so both /thank-you and /payment/thank-you work as the
- * Blockradar payment-link redirect target. Query params (e.g. ?reference=)
- * are forwarded.
+ * Alias kept so both /thank-you and /payment/thank-you work as a checkout
+ * redirect target. Query params (e.g. ?reference=) are forwarded.
  */
 export default async function ThankYouAliasPage({
   searchParams,

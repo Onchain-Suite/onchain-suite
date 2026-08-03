@@ -15,8 +15,9 @@ export const metadata: Metadata = {
 };
 
 /**
- * Blockradar redirect target (/billing/success?ref=…&status=…). Polls the
- * upgrade reference until the deposit webhook confirms the payment.
+ * Checkout return target (/billing/success?ref=…&status=…) — Stripe's
+ * `success_url` on the card path and the Blockradar redirect on the crypto one.
+ * Polls the upgrade reference until the provider webhook confirms the payment.
  */
 export default function BillingSuccessPage() {
   return (

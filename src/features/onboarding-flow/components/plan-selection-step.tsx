@@ -245,8 +245,8 @@ export function PlanSelectionStep({
       }
       if (isPaidPlan) {
         try {
-          // Blockradar crypto checkout — the pending reference is stored
-          // locally, so after paying the user lands back in the app and the
+          // Stripe card checkout — the pending reference is stored locally, so
+          // after paying the user lands back in the app and the
           // PendingCheckoutBanner confirms the upgrade and unlocks features.
           const selected = paidPlans.find((p) => p.name === selectedPlan);
           const checkout = await startPlanCheckout(
@@ -385,7 +385,7 @@ export function PlanSelectionStep({
         </Button>
         <p className="text-center text-xs text-muted-foreground">
           {isPaidPlan
-            ? "You'll be taken to a secure checkout after setup."
+            ? "You'll be taken to our secure Stripe checkout after setup."
             : "No credit card required. Upgrade anytime."}
         </p>
       </div>

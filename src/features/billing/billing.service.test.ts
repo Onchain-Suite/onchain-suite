@@ -123,4 +123,86 @@ describe("billingService", () => {
     expect(cfg.method).toBe("PUT");
     expect(cfg.url).toBe("/billing/payment-methods/default");
   });
+
+  it("defaults PAYG credit top-ups to the card (Stripe) checkout", async () => {
+    const requestSpy = vi.spyOn(apiClient, "request").mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          mode: "stripe_checkout",
+          paymentUrl: "https://checkout.stripe.com/c/pay/cs_test_1",
+          reference: "ref-topup",
+        },
+      },
+    } as unknown as ApiClientResponse);
+
+    await billingService.checkoutCredits(
+      { organizationId: "org-123", amountUsd: 25 },
+      { orgId: "org-123" }
+    );
+
+    const cfg = requestSpy.mock.calls[0]?.[0] as unknown as {
+      url?: string;
+      data?: Record<string, unknown>;
+    };
+    expect(cfg.url).toBe("/billing/checkout/credits");
+    expect(cfg.data?.paymentMethod).toBe("card");
+  });
+
+  it("still allows an explicit crypto top-up", async () => {
+    const requestSpy = vi.spyOn(apiClient, "request").mockResolvedValueOnce({
+      status: 200,
+      data: { data: { mode: "static_link", paymentUrl: "https://pay/x" } },
+    } as unknown as ApiClientResponse);
+
+    await billingService.checkoutCredits(
+      { organizationId: "org-123", amountUsd: 25, paymentMethod: "crypto" },
+      { orgId: "org-123" }
+    );
+
+    const cfg = requestSpy.mock.calls[0]?.[0] as unknown as {
+      data?: Record<string, unknown>;
+    };
+    expect(cfg.data?.paymentMethod).toBe("crypto");
+  });
+
+  it("polls checkout status on the provider-agnostic upgrade endpoint", async () => {
+    const requestSpy = vi.spyOn(apiClient, "request").mockResolvedValueOnce({
+      status: 200,
+      data: { data: { status: "success" } },
+    } as unknown as ApiClientResponse);
+
+    await billingService.getCheckoutStatus("ref-abc", { orgId: "org-123" });
+
+    const cfg = requestSpy.mock.calls[0]?.[0] as unknown as {
+      method?: string;
+      url?: string;
+    };
+    expect(cfg.method).toBe("GET");
+    expect(cfg.url).toBe("/billing/upgrade/blockradar/ref-abc");
+  });
+
+  it("surfaces the backend error code from error.details, not just the message", async () => {
+    // Shape emitted by AllExceptionsFilter: the status-derived code sits at
+    // error.code, while the exception's own payload is preserved in details.
+    vi.spyOn(apiClient, "request").mockRejectedValueOnce(
+      mockAxiosError(400, {
+        error: {
+          code: "BAD_REQUEST",
+          message: "Card checkout is not configured",
+          details: {
+            code: "FIAT_CHECKOUT_UNAVAILABLE",
+            message: "Card checkout is not configured",
+          },
+        },
+      })
+    );
+
+    await expect(
+      billingService.checkoutPlan(
+        { plan: "growth", organizationId: "org-123", paymentMethod: "card" },
+        { orgId: "org-123" }
+      )
+    ).rejects.toMatchObject({ code: "FIAT_CHECKOUT_UNAVAILABLE" });
+  });
 });

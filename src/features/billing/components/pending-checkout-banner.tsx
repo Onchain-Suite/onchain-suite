@@ -22,10 +22,10 @@ import {
 } from "../checkout";
 
 /**
- * Shown after the user returns from a Blockradar checkout: polls the pending
- * upgrade reference until the deposit webhook lands, then refreshes billing
- * state so plan-gated features unlock without a manual reload. Renders
- * nothing when no checkout is pending.
+ * Shown after the user returns from a hosted checkout (Stripe card by default,
+ * Blockradar crypto when chosen): polls the pending upgrade reference until the
+ * provider webhook lands, then refreshes billing state so plan-gated features
+ * unlock without a manual reload. Renders nothing when no checkout is pending.
  */
 export function PendingCheckoutBanner() {
   const queryClient = useQueryClient();
@@ -64,10 +64,9 @@ export function PendingCheckoutBanner() {
 
   const statusQuery = useQuery({
     queryKey: ["billing", "checkout-status", pending?.reference],
-    queryFn: () =>
-      billingService.getBlockradarUpgradeStatus(pending?.reference ?? ""),
+    queryFn: () => billingService.getCheckoutStatus(pending?.reference ?? ""),
     enabled: Boolean(pending?.reference) && outcome === null && !isStale,
-    // Poll until the webhook confirms the deposit, or the TTL runs out. The
+    // Poll until the webhook confirms the payment, or the TTL runs out. The
     // app tab is backgrounded while the user pays in the checkout tab, so
     // background polling is required for the banner to self-resolve.
     refetchInterval: isStale ? false : 7_000,
@@ -195,7 +194,7 @@ export function PendingCheckoutBanner() {
           </span>{" "}
           <span className="text-muted-foreground">
             We&apos;ll unlock everything as soon as the payment confirms —
-            usually within a couple of minutes.
+            usually within a few seconds.
           </span>
         </span>
       </div>

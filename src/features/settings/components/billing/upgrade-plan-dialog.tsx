@@ -97,9 +97,10 @@ export default function UpgradePlanDialog({
     staleTime: 10 * 60 * 1000,
   });
 
-  // Crypto-only for now: every plan goes straight to the Blockradar mainnet
-  // checkout (limits unlock via webhook). Card (Stripe) stays unwired until
-  // production keys exist — the service supports it when that day comes.
+  // Card checkout: every plan goes to the Stripe-hosted Checkout Session and
+  // the plan's limits unlock when the `checkout.session.*` webhook lands.
+  // startPlanCheckout defaults to card; crypto stays available on the same
+  // endpoint via `{ paymentMethod: "crypto" }`.
   const upgradeMutation = useMutation({
     mutationFn: async (plan: string) => {
       const checkout = await startPlanCheckout(plan);
@@ -152,8 +153,8 @@ export default function UpgradePlanDialog({
         </DialogHeader>
 
         <p className="text-xs text-muted-foreground">
-          Pay in USDC via crypto checkout — your plan and limits unlock
-          automatically once the payment confirms on-chain.
+          Pay by card on our secure Stripe checkout — your plan and limits
+          unlock automatically once the payment confirms.
         </p>
 
         <div className="grid gap-4 sm:grid-cols-3">

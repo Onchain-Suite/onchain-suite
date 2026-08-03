@@ -31,13 +31,14 @@ const FAILED_URL_STATUSES = new Set([
 ]);
 
 /**
- * Landing page for the hosted Blockradar payment link
- * (pay.blockradar.co/onchainsuite-payment-link). When we know the upgrade
- * reference — from a `?reference=` query param or the locally stored pending
- * checkout — the page polls until the deposit webhook confirms and unlocks
- * the plan. Without a reference (or without a session) it degrades to a
- * static "payment received" confirmation, since activation happens
- * server-side via the webhook either way.
+ * Return target for a hosted checkout — Stripe's `success_url`
+ * (`/billing/success?ref=…`) by default, and the Blockradar payment link's
+ * redirect on the crypto path. When we know the upgrade reference — from a
+ * `?ref=`/`?reference=` query param or the locally stored pending checkout —
+ * the page polls until the provider webhook confirms and unlocks the plan.
+ * Without a reference (or without a session) it degrades to a static "payment
+ * received" confirmation, since activation happens server-side via the webhook
+ * either way.
  */
 export function PaymentThankYou() {
   const searchParams = useSearchParams();
@@ -58,7 +59,7 @@ export function PaymentThankYou() {
     return fromUrl.length > 0 ? fromUrl : (pending?.reference ?? "");
   }, [searchParams, pending?.reference]);
 
-  // Blockradar's redirect may carry ?status= — treat explicit failure values
+  // The provider redirect may carry ?status= — treat explicit failure values
   // as a failed checkout, but keep polling: a late webhook can still confirm.
   const failedFromUrl = FAILED_URL_STATUSES.has(
     (searchParams?.get("status") ?? "").trim().toLowerCase()
@@ -68,7 +69,7 @@ export function PaymentThankYou() {
 
   const statusQuery = useQuery({
     queryKey: ["billing", "checkout-status", reference],
-    queryFn: () => billingService.getBlockradarUpgradeStatus(reference),
+    queryFn: () => billingService.getCheckoutStatus(reference),
     enabled: reference.length > 0 && !confirmed,
     refetchInterval: 7_000,
     refetchIntervalInBackground: true,
@@ -116,7 +117,7 @@ export function PaymentThankYou() {
             ? `Your ${planName || "new"} plan is active and every feature is unlocked. Welcome aboard.`
             : state === "failed"
               ? "The checkout was cancelled or didn't go through. No worries — you can restart the upgrade anytime from Settings → Billing."
-              : "We're confirming your payment on-chain. Your plan activates automatically — this usually takes a couple of minutes."}
+              : "We're confirming your payment. Your plan activates automatically — this usually takes just a few seconds."}
         </p>
 
         <div className="mt-6 rounded-2xl border border-border bg-card px-5 py-4 text-left">

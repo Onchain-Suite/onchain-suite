@@ -174,8 +174,8 @@ export function PaygWalletCard({ planName }: { planName: string }) {
               Top up usage wallet
             </DialogTitle>
             <DialogDescription>
-              Pay with crypto via checkout — the balance credits automatically
-              once the payment confirms.
+              Pay by card on our secure Stripe checkout — the balance credits
+              automatically once the payment confirms.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

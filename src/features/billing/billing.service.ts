@@ -185,26 +185,44 @@ export interface BillingUpgradeResponse {
  */
 export type PlanCheckoutSlug = "launch" | "growth" | "pro";
 
+/** Checkout provider selector accepted by the two checkout endpoints. */
+export type PaymentCheckoutMethod = "card" | "crypto";
+
+/**
+ * Card (Stripe) is the product's payment path. Crypto (Blockradar) stays
+ * reachable by passing `paymentMethod: "crypto"` explicitly — the backend
+ * supports both on the same endpoints and settles either against the same
+ * `reference`.
+ */
+export const DEFAULT_PAYMENT_METHOD: PaymentCheckoutMethod = "card";
+
 export interface PlanCheckoutRequest {
   /** Known catalog slugs, or any backend-provided slug string. */
   plan: PlanCheckoutSlug | (string & {});
   organizationId: string;
   billingCycle?: "monthly" | "annual";
   /**
-   * "crypto" (Blockradar, default) or "card" (Stripe-hosted checkout —
-   * docs/backend.md 2026-07-28). Card returns `mode: "stripe_checkout"`;
-   * 400 FIAT_CHECKOUT_UNAVAILABLE when Stripe isn't configured.
+   * "card" (Stripe-hosted Checkout — the default this app sends) or "crypto"
+   * (Blockradar deposit, the backend's own default when omitted). Card returns
+   * `mode: "stripe_checkout"`; 400 FIAT_CHECKOUT_UNAVAILABLE when Stripe has
+   * no secret key configured in that environment.
+   *
+   * The backend validates this with `IsIn(['crypto','card'])` behind a
+   * `whitelist: true` ValidationPipe — an unknown value is rejected, and an
+   * undeclared field is silently stripped.
    */
-  paymentMethod?: "crypto" | "card";
+  paymentMethod?: PaymentCheckoutMethod;
 }
 
 /**
- * Response of POST /billing/checkout/plan — Blockradar crypto checkout.
- * `mode: "static_link"` means paymentUrl is the hosted static payment link
- * (pre-filled amount); the webhook matches the echoed reference either way.
+ * Response of POST /billing/checkout/plan. Both providers return the payment
+ * page under the same `paymentUrl` field and echo the `reference` the webhook
+ * settles against — `mode` is what distinguishes them:
+ * - `"stripe_checkout"` — Stripe-hosted Checkout Session (card).
+ * - `"static_link"` — Blockradar hosted static payment link (pre-filled amount).
  */
 export interface PlanCheckoutResponse {
-  mode?: "static_link" | string;
+  mode?: "stripe_checkout" | "static_link" | string;
   paymentUrl?: string;
   reference?: string;
   plan?: string;
@@ -293,6 +311,48 @@ export interface BillingServiceOptions {
 }
 
 const BILLING_TAG = "onchain:billing-api";
+
+/**
+ * Billing failure that preserves the backend's machine-readable error code
+ * alongside the human message, so callers can branch on the cause (e.g.
+ * FIAT_CHECKOUT_UNAVAILABLE → offer crypto) instead of string-matching a
+ * message that is written for humans and may be reworded at any time.
+ */
+export class BillingError extends Error {
+  readonly code?: string;
+
+  constructor(message: string, code?: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "BillingError";
+    this.code = code;
+  }
+}
+
+/**
+ * Pull the app-level error code out of the backend's error envelope.
+ *
+ * AllExceptionsFilter emits `{ error: { code, message, details } }` where
+ * `code` is derived from the HTTP *status* (e.g. "BAD_REQUEST") and the
+ * exception's own payload is preserved verbatim under `details`. So a
+ * `BadRequestException({ code: 'FIAT_CHECKOUT_UNAVAILABLE', … })` surfaces its
+ * code at `error.details.code` — check that first, then the shallower spots
+ * for other shapes.
+ */
+const extractBillingErrorCode = (error: unknown): string | undefined => {
+  const data = (error as AxiosError<unknown>)?.response?.data;
+  if (!isJsonObject(data)) return undefined;
+
+  const envelope = isJsonObject(data.error) ? data.error : undefined;
+  const details =
+    envelope && isJsonObject(envelope.details) ? envelope.details : undefined;
+
+  for (const candidate of [details?.code, envelope?.code, data.code]) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+  return undefined;
+};
 
 const pickOrgId = (options?: BillingServiceOptions): string | null => {
   return options?.orgId ?? getSelectedOrganizationId() ?? null;
@@ -439,7 +499,11 @@ const billingRequest = async <T>(
         status: e?.response?.status ?? null,
         ms: Date.now() - startedAt,
       });
-      throw new Error(toFriendlyMessage(error), { cause: error });
+      throw new BillingError(
+        toFriendlyMessage(error),
+        extractBillingErrorCode(error),
+        { cause: error }
+      );
     }
   });
 };
@@ -531,10 +595,13 @@ export const billingService = {
   },
 
   /**
-   * Start a Blockradar crypto checkout for an org plan
-   * (POST /billing/checkout/plan → { paymentUrl, reference, plan, cycle,
-   * amount }). This is the primary payment path — fiat checkout is disabled
-   * in production unless BILLING_FIAT_ENABLED is set server-side.
+   * Start a checkout for an org plan (POST /billing/checkout/plan →
+   * { mode, paymentUrl, reference, plan, cycle, amount }). Send
+   * `paymentMethod: "card"` for Stripe-hosted Checkout — the app's default
+   * path, see {@link DEFAULT_PAYMENT_METHOD} — or `"crypto"` for a Blockradar
+   * deposit. Either way the returned `reference` is what
+   * {@link billingService.getCheckoutStatus} polls and the provider webhook
+   * settles against.
    */
   checkoutPlan(body: PlanCheckoutRequest, options?: BillingServiceOptions) {
     return billingRequest<PlanCheckoutResponse>(
@@ -574,15 +641,28 @@ export const billingService = {
   },
 
   /**
-   * `POST /billing/checkout/credits` — Blockradar checkout that tops up the
-   * PAYG wallet on webhook confirmation ($10–$1000).
+   * `POST /billing/checkout/credits` — checkout that tops up the PAYG wallet
+   * on webhook confirmation ($10–$1000). Same provider selector as
+   * {@link billingService.checkoutPlan}; defaults to card here so top-ups use
+   * the same payment path as plan purchases.
    */
   checkoutCredits(
-    body: { organizationId: string; amountUsd: number },
+    body: {
+      organizationId: string;
+      amountUsd: number;
+      paymentMethod?: PaymentCheckoutMethod;
+    },
     options?: BillingServiceOptions
   ) {
     return billingRequest<PlanCheckoutResponse>(
-      { method: "POST", url: "/billing/checkout/credits", data: body },
+      {
+        method: "POST",
+        url: "/billing/checkout/credits",
+        data: {
+          ...body,
+          paymentMethod: body.paymentMethod ?? DEFAULT_PAYMENT_METHOD,
+        },
+      },
       options
     );
   },
@@ -601,12 +681,17 @@ export const billingService = {
   },
 
   /**
-   * Check status of a specific Blockradar upgrade reference.
+   * Poll the outcome of a checkout reference, whichever provider issued it.
+   *
+   * The URL keeps its historical `/blockradar/` segment, but the handler is
+   * provider-agnostic: it looks the `reference` up in the shared pendingUpgrade
+   * record that BOTH the Stripe and Blockradar paths create, so a
+   * `mode: "stripe_checkout"` reference resolves here exactly the same way.
+   * It also reconciles on poll (a missed webhook self-heals when the payer
+   * checks their status) and lazily flips an abandoned checkout to `expired`,
+   * so this always terminates rather than pending forever.
    */
-  getBlockradarUpgradeStatus(
-    reference: string,
-    options?: BillingServiceOptions
-  ) {
+  getCheckoutStatus(reference: string, options?: BillingServiceOptions) {
     return billingRequest<BillingUpgradeResponse>(
       { method: "GET", url: `/billing/upgrade/blockradar/${reference}` },
       options

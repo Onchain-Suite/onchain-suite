@@ -1,16 +1,28 @@
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
-import { billingService, type PlanCheckoutSlug } from "./billing.service";
+import {
+  BillingError,
+  billingService,
+  DEFAULT_PAYMENT_METHOD,
+  type PaymentCheckoutMethod,
+  type PlanCheckoutSlug,
+} from "./billing.service";
 
 /**
- * Blockradar crypto checkout flow (docs/backend.md):
- *   POST /billing/checkout/plan → { paymentUrl, reference } → user pays on
- *   the hosted Blockradar page → the deposit webhook upgrades the org plan →
- *   GET /billing/upgrade/blockradar/{reference} reports the outcome.
+ * Stripe card checkout flow:
+ *   POST /billing/checkout/plan { paymentMethod: "card" } →
+ *   { mode: "stripe_checkout", paymentUrl, reference } → user pays on the
+ *   Stripe-hosted Checkout page → the `checkout.session.*` webhook upgrades
+ *   the org plan → getCheckoutStatus(reference) reports the outcome.
  *
  * The pending reference is persisted locally so that when the user comes
  * back to the app after paying, we can poll the reference and confirm the
  * upgrade (see PendingCheckoutBanner).
+ *
+ * Crypto (Blockradar) remains available on the same endpoint via
+ * `paymentMethod: "crypto"`; it issues a deposit address / static payment link
+ * instead, and settles the same `reference` from its deposit webhook. Every
+ * function here is provider-neutral.
  */
 
 const PENDING_CHECKOUT_KEY = "onchain.billing.pendingCheckout.v1";
@@ -28,10 +40,11 @@ export interface PendingCheckout {
 export const PENDING_CHECKOUT_EVENT = "onchain:billing-checkout";
 
 /**
- * Crypto deposits normally confirm within a couple of minutes. Past this we
- * stop polling and surface a "taking longer than expected" state instead of
- * spinning forever: an abandoned checkout must not leave the banner hitting
- * the status endpoint every few seconds for the life of the session.
+ * Card payments confirm in seconds (crypto deposits take a couple of minutes),
+ * so this window is generous for both. Past it we stop polling and surface a
+ * "taking longer than expected" state instead of spinning forever: an
+ * abandoned checkout must not leave the banner hitting the status endpoint
+ * every few seconds for the life of the session.
  */
 export const PENDING_CHECKOUT_TTL_MS = 15 * 60 * 1000;
 
@@ -157,8 +170,13 @@ export const openCheckoutInNewTab = (paymentUrl: string): boolean => {
 export type CheckoutUpgradeStatus = "pending" | "completed" | "failed";
 
 /**
- * Normalize the status of GET /billing/upgrade/blockradar/{reference}. The
+ * Normalize the status reported by `billingService.getCheckoutStatus`. The
  * exact field name varies with response nesting, so scan the usual spots.
+ *
+ * The vocabulary is shared by both providers because both settle the same
+ * pendingUpgrade record: `success`/`paid` → completed;
+ * `failed`/`expired`/`cancelled`/`amount_mismatch` → failed; `pending` and
+ * `processing` stay pending.
  */
 export const normalizeUpgradeStatus = (
   payload: unknown
@@ -203,15 +221,16 @@ export interface StartPlanCheckoutResult {
 }
 
 /**
- * Start a plan checkout for a display plan name ("Growth", "Pro", …) — crypto
- * (Blockradar, default) or card (Stripe-hosted). Persists the pending
- * reference locally and returns the hosted payment URL to redirect to.
- * Every plan is payable; null only for an empty plan name.
+ * Start a plan checkout for a display plan name ("Growth", "Pro", …). Defaults
+ * to card (Stripe-hosted Checkout); pass `paymentMethod: "crypto"` for the
+ * Blockradar path. Persists the pending reference locally and returns the
+ * hosted payment URL to redirect to. Every plan is payable; null only for an
+ * empty plan name.
  */
 export async function startPlanCheckout(
   planName: string,
   organizationId?: string,
-  options?: { paymentMethod?: "crypto" | "card" }
+  options?: { paymentMethod?: PaymentCheckoutMethod }
 ): Promise<StartPlanCheckoutResult | null> {
   const slug = planCheckoutSlug(planName);
   if (!slug) return null;
@@ -219,30 +238,38 @@ export async function startPlanCheckout(
   const orgId = organizationId ?? getSelectedOrganizationId() ?? undefined;
   if (!orgId) throw new Error("No active organization selected.");
 
+  const paymentMethod = options?.paymentMethod ?? DEFAULT_PAYMENT_METHOD;
+
   let res;
   try {
     res = await billingService.checkoutPlan({
       plan: slug,
       organizationId: orgId,
       billingCycle: "monthly",
-      ...(options?.paymentMethod === "card"
-        ? { paymentMethod: "card" as const }
-        : {}),
+      paymentMethod,
     });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Couldn't start checkout.";
-    if (message.includes("FIAT_CHECKOUT_UNAVAILABLE")) {
-      throw new Error(
-        "Card payments aren't available yet — switch to crypto checkout.",
+    // Branch on the backend's error CODE, not its prose: the message is
+    // human-facing copy that gets reworded, and the code is what actually
+    // identifies "this environment has no Stripe secret key".
+    if (
+      error instanceof BillingError &&
+      error.code === "FIAT_CHECKOUT_UNAVAILABLE"
+    ) {
+      throw new BillingError(
+        "Card payments aren't set up for this environment yet. Contact support, or pay with crypto instead.",
+        error.code,
         { cause: error }
       );
     }
-    // "Failed to create payment link" here means the backend couldn't mint
-    // the payment link — usually missing operator setup (API key, master
-    // wallet, webhook) in this environment, not a user problem.
-    throw new Error(
+    // Anything else here means the provider couldn't mint a checkout session —
+    // usually missing operator setup (Stripe key / webhook secret, or on the
+    // crypto path the Blockradar API key + master wallet), not a user problem.
+    throw new BillingError(
       `${message} If this keeps happening, checkout isn't configured for this environment yet — contact support or try again later.`,
+      error instanceof BillingError ? error.code : undefined,
       { cause: error }
     );
   }

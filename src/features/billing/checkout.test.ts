@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { BillingError, billingService } from "./billing.service";
 import {
   isPendingCheckoutStale,
   openCheckoutInNewTab,
   PENDING_CHECKOUT_TTL_MS,
   readPendingCheckout,
+  startPlanCheckout,
   writePendingCheckout,
 } from "./checkout";
 
@@ -114,5 +116,82 @@ describe("pending checkout lifetime", () => {
     expect(readPendingCheckout()).toBeNull();
     // and it is gone from storage, not just filtered on read
     expect(readPendingCheckout()).toBeNull();
+  });
+});
+
+describe("startPlanCheckout payment method", () => {
+  const STRIPE_URL = "https://checkout.stripe.com/c/pay/cs_test_1";
+
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  const mockCheckout = () =>
+    vi.spyOn(billingService, "checkoutPlan").mockResolvedValue({
+      mode: "stripe_checkout",
+      paymentUrl: STRIPE_URL,
+      reference: "ref-card",
+      amount: 199,
+    });
+
+  it("sends the card (Stripe) method by default", async () => {
+    const spy = mockCheckout();
+
+    const res = await startPlanCheckout("Growth", "org-123");
+
+    expect(res).toMatchObject({
+      paymentUrl: STRIPE_URL,
+      mode: "stripe_checkout",
+    });
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ plan: "growth", paymentMethod: "card" })
+    );
+  });
+
+  it("persists the pending reference so the banner can confirm the card payment", async () => {
+    mockCheckout();
+
+    await startPlanCheckout("Growth", "org-123");
+
+    expect(readPendingCheckout()).toMatchObject({
+      reference: "ref-card",
+      plan: "Growth",
+    });
+  });
+
+  it("still routes to crypto when explicitly asked", async () => {
+    const spy = vi.spyOn(billingService, "checkoutPlan").mockResolvedValue({
+      mode: "static_link",
+      paymentUrl: "https://pay.blockradar.co/x",
+      reference: "ref-crypto",
+    });
+
+    await startPlanCheckout("Growth", "org-123", { paymentMethod: "crypto" });
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentMethod: "crypto" })
+    );
+  });
+
+  it("explains an unconfigured Stripe environment by error CODE, not message prose", async () => {
+    vi.spyOn(billingService, "checkoutPlan").mockRejectedValue(
+      new BillingError(
+        // Deliberately NOT containing the code — the old implementation
+        // string-matched the message here and so never took this branch.
+        "Card checkout is not configured — use the crypto checkout instead",
+        "FIAT_CHECKOUT_UNAVAILABLE"
+      )
+    );
+
+    await expect(startPlanCheckout("Growth", "org-123")).rejects.toThrow(
+      /Card payments aren't set up for this environment yet/
+    );
+  });
+
+  it("returns null for an empty plan name without calling the API", async () => {
+    const spy = mockCheckout();
+
+    expect(await startPlanCheckout("   ", "org-123")).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
   });
 });

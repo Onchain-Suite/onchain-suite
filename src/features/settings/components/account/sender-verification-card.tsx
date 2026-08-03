@@ -50,6 +50,18 @@ interface DomainRow {
 const domainsKey = (orgId: string | null) =>
   ["account", "domains", orgId] as const;
 
+const domainStatusFromDns = (
+  dns: ReturnType<typeof parseDomainDns>
+): DomainStatus => {
+  if (dns.sendReady) return "verified";
+  const hasFailedState = dns.verificationStates.some(
+    (s) => s.state.toLowerCase() === "verificationfailed"
+  );
+  const hasFailedRecord = dns.records.some((r) => r.verified === false);
+  if (hasFailedState || hasFailedRecord) return "failed";
+  return "pending";
+};
+
 export function SenderVerificationCard() {
   const { organizationId, orgHeaders } = useAccountOrg();
   const queryClient = useQueryClient();
@@ -58,24 +70,36 @@ export function SenderVerificationCard() {
 
   const domainsQuery = useQuery({
     queryKey: domainsKey(organizationId),
-    enabled: Boolean(organizationId),
+    enabled: Boolean(organizationId && orgHeaders),
     retry: false,
     queryFn: async () => {
       const rows = await senderIdentitiesService.listDomains(
         organizationId ?? undefined
       );
-      return rows
-        .map((row: SenderDomainRecord): DomainRow | null => {
+
+      const domains = await Promise.all(
+        rows.map(async (row: SenderDomainRecord): Promise<DomainRow | null> => {
           const domain =
             typeof row.domain === "string" ? row.domain : undefined;
           if (!domain) return null;
-          return {
-            id: typeof row.id === "string" ? row.id : domain,
-            domain,
-            status: normalizeStatus(row.status),
-          };
+          const id = typeof row.id === "string" ? row.id : domain;
+
+          let status = normalizeStatus(row.status);
+          try {
+            const dnsRes = await apiClient.get(`/domain/${id}/dns`, {
+              headers: orgHeaders,
+            });
+            const dns = parseDomainDns(dnsRes.data);
+            status = domainStatusFromDns(dns);
+          } catch (_e) {
+            String(_e);
+          }
+
+          return { id, domain, status };
         })
-        .filter((r): r is DomainRow => r !== null);
+      );
+
+      return domains.filter((r): r is DomainRow => r !== null);
     },
   });
 
@@ -125,9 +149,9 @@ export function SenderVerificationCard() {
       ),
   });
 
-  const recheckMutation = useMutation({
+  const verifyMutation = useMutation({
     mutationFn: (domainId: string) =>
-      senderIdentitiesService.recheckDomain(
+      senderIdentitiesService.verifyDomain(
         domainId,
         organizationId ?? undefined
       ),
@@ -136,11 +160,11 @@ export function SenderVerificationCard() {
         queryClient.invalidateQueries({ queryKey: domainsKey(organizationId) }),
         queryClient.invalidateQueries({ queryKey: ["account", "domain-dns"] }),
       ]);
-      toast.success("Recheck started");
+      toast.success("Verification refreshed");
     },
     onError: (error: unknown) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to recheck domain"
+        error instanceof Error ? error.message : "Failed to verify domain"
       ),
   });
 
@@ -250,8 +274,8 @@ export function SenderVerificationCard() {
                     <DomainDnsPanel
                       loading={dnsQuery.isLoading}
                       data={dnsQuery.data}
-                      onRecheck={() => recheckMutation.mutate(domain.id)}
-                      rechecking={recheckMutation.isPending}
+                      onRecheck={() => verifyMutation.mutate(domain.id)}
+                      rechecking={verifyMutation.isPending}
                       onSetPurpose={(purpose) =>
                         purposeMutation.mutate({ domainId: domain.id, purpose })
                       }
@@ -508,7 +532,7 @@ function DomainDnsPanel({
           aria-hidden="true"
           className={cn("mr-1.5 h-4 w-4", rechecking && "animate-spin")}
         />
-        Recheck domain
+        Verify domain
       </Button>
     </div>
   );

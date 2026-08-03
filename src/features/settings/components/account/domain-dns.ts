@@ -73,20 +73,57 @@ const boolish = (...values: unknown[]) => {
   return undefined;
 };
 
-/** Records may be an array, nested under records/dns, or an object keyed by purpose. */
-function collectEntries(payload: unknown): Record<string, unknown>[] {
+function collectEntries(
+  payload: unknown,
+  purpose?: DomainPurpose
+): Record<string, unknown>[] {
   const root = unwrap(payload);
-  const nested = isJsonObject(root)
-    ? (root.records ?? root.verificationRecords ?? root.dns ?? root)
-    : root;
+  const rootObj = isJsonObject(root) ? root : null;
+  const purposeNode =
+    rootObj && purpose && isJsonObject(rootObj[purpose])
+      ? rootObj[purpose]
+      : null;
+
+  const nested =
+    purposeNode ??
+    (rootObj
+      ? (rootObj.records ?? rootObj.verificationRecords ?? rootObj.dns)
+      : null) ??
+    root;
+
   if (Array.isArray(nested)) return nested.filter(isJsonObject);
+
   if (isJsonObject(nested)) {
-    return Object.entries(nested)
-      .filter((pair): pair is [string, Record<string, unknown>] =>
-        isJsonObject(pair[1])
-      )
-      .map(([purpose, record]) => ({ purpose, ...record }));
+    const arr =
+      Array.isArray(nested.records) ||
+      Array.isArray(nested.verificationRecords) ||
+      Array.isArray(nested.dns)
+        ? (nested.records ?? nested.verificationRecords ?? nested.dns)
+        : null;
+    if (Array.isArray(arr)) return arr.filter(isJsonObject);
+
+    return Object.entries(nested).flatMap(([key, value]) => {
+      if (purpose && key !== purpose) return [];
+
+      if (Array.isArray(value)) {
+        return value
+          .filter(isJsonObject)
+          .map((rec) => ({ purpose: key, ...rec }));
+      }
+
+      if (!isJsonObject(value)) return [];
+
+      const inner = value.records ?? value.verificationRecords ?? value.dns;
+      if (Array.isArray(inner)) {
+        return inner
+          .filter(isJsonObject)
+          .map((rec) => ({ purpose: key, ...rec }));
+      }
+
+      return [{ purpose: key, ...value }];
+    });
   }
+
   return [];
 }
 
@@ -119,7 +156,24 @@ function parseConflict(raw: unknown): DnsConflict | undefined {
 export function parseDomainDns(payload: unknown): DomainDnsData {
   const root = unwrap(payload);
 
-  const records = collectEntries(payload)
+  const purposeRaw = isJsonObject(root)
+    ? str(root.purpose)?.toLowerCase()
+    : undefined;
+  const providerRaw = isJsonObject(root)
+    ? str(root.provider)?.toLowerCase()
+    : undefined;
+  const purpose: DomainPurpose | undefined =
+    purposeRaw === "transactional" || purposeRaw === "marketing"
+      ? purposeRaw
+      : providerRaw === "ses"
+        ? "marketing"
+        : providerRaw === "acs"
+          ? "transactional"
+          : undefined;
+
+  const purposeNode = isJsonObject(root) && purpose ? root[purpose] : undefined;
+
+  const records = collectEntries(payload, purpose)
     .map((entry, index): DnsRecordRow | null => {
       const host =
         str(entry.host, entry.hostname, entry.name, entry.recordName) ?? "@";
@@ -169,7 +223,12 @@ export function parseDomainDns(payload: unknown): DomainDnsData {
     })
     .filter((r): r is DnsRecordRow => r !== null);
 
-  const sendReady = isJsonObject(root) ? boolish(root.sendReady) : undefined;
+  const sendReady =
+    isJsonObject(root) && "sendReady" in root
+      ? boolish(root.sendReady)
+      : isJsonObject(purposeNode)
+        ? boolish(purposeNode.sendReady)
+        : undefined;
 
   const verificationStates =
     isJsonObject(root) && isJsonObject(root.verificationStates)
@@ -179,31 +238,25 @@ export function parseDomainDns(payload: unknown): DomainDnsData {
               typeof p[1] === "string" && p[1].toLowerCase() !== "unknown"
           )
           .map(([check, state]) => ({ check, state }))
-      : [];
+      : isJsonObject(purposeNode) && isJsonObject(purposeNode.verificationStates)
+        ? Object.entries(purposeNode.verificationStates)
+            .filter(
+              (p): p is [string, string] =>
+                typeof p[1] === "string" && p[1].toLowerCase() !== "unknown"
+            )
+            .map(([check, state]) => ({ check, state }))
+        : [];
 
   const fixes =
     isJsonObject(root) && Array.isArray(root.fixes)
       ? root.fixes.filter(
           (f): f is string => typeof f === "string" && f.length > 0
         )
-      : [];
-
-  // Saved purpose (or derive it from the routed provider: ses→marketing,
-  // acs→transactional) so the UI can pre-select the toggle.
-  const purposeRaw = isJsonObject(root)
-    ? str(root.purpose)?.toLowerCase()
-    : undefined;
-  const providerRaw = isJsonObject(root)
-    ? str(root.provider)?.toLowerCase()
-    : undefined;
-  const purpose: DomainPurpose | undefined =
-    purposeRaw === "transactional" || purposeRaw === "marketing"
-      ? purposeRaw
-      : providerRaw === "ses"
-        ? "marketing"
-        : providerRaw === "acs"
-          ? "transactional"
-          : undefined;
+      : isJsonObject(purposeNode) && Array.isArray(purposeNode.fixes)
+        ? purposeNode.fixes.filter(
+            (f): f is string => typeof f === "string" && f.length > 0
+          )
+        : [];
 
   return { records, sendReady, verificationStates, fixes, purpose };
 }

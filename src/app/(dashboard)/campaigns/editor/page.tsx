@@ -20,6 +20,12 @@ import { EmailEditor } from "@/features/email-editor/email-editor";
 
 export const dynamic = "force-dynamic";
 
+/** True when a parsed document has at least one block under the root. */
+function docHasContent(doc: EmailDocument): boolean {
+  const root = doc.blocks[doc.root];
+  return root?.type === "EmailLayout" && root.data.childrenIds.length > 0;
+}
+
 /** URL-safe base64 → UTF-8 string (mirrors the wizard's encoder). */
 function decodeBase64Url(value: string): string {
   try {
@@ -53,7 +59,7 @@ function EditorScreen() {
       if (decoded) {
         try {
           const parsed = parseDocument(JSON.parse(decoded));
-          if (parsed && parsed.blocks.length > 0) return parsed;
+          if (parsed && docHasContent(parsed)) return parsed;
         } catch {
           // Not our block format (e.g. a legacy EmailLayout doc) — start fresh.
         }
@@ -81,7 +87,7 @@ function EditorScreen() {
     if (campaignId.length > 0 && !isPush && contentQuery.isLoading) return null;
     if (contentQuery.data) {
       const parsed = parseDocument(extractEmailContent(contentQuery.data).json);
-      if (parsed && parsed.blocks.length > 0) return parsed;
+      if (parsed && docHasContent(parsed)) return parsed;
     }
     return initialDoc;
   }, [

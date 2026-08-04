@@ -290,17 +290,25 @@ export function SenderVerificationCard() {
 }
 
 // Map each send provider to its sending purpose + a friendly name. ACS carries
-// transactional mail, SES marketing; SendGrid is the shared default today.
+// transactional mail, SES marketing. SendGrid is intentionally not shown.
 const PROVIDER_META: Record<string, { purpose: string; name: string }> = {
   acs: { purpose: "Transactional", name: "Azure ACS" },
   ses: { purpose: "Marketing", name: "Amazon SES" },
-  sendgrid: { purpose: "Email", name: "SendGrid" },
 };
 const providerMeta = (provider: string) =>
   PROVIDER_META[provider.toLowerCase()] ?? {
     purpose: "",
     name: provider || "Provider",
   };
+
+// SendGrid is never surfaced; SES (marketing) leads as the default provider.
+const HIDDEN_PROVIDERS = new Set(["sendgrid"]);
+const providerOrder = (provider: string) => {
+  const p = provider.toLowerCase();
+  if (p === "ses") return 0;
+  if (p === "acs") return 1;
+  return 2;
+};
 
 /**
  * All configured providers' DNS records together (from POST /domain/{id}/provision)
@@ -317,7 +325,11 @@ function AllProviderDnsRecords({
   if (loading) {
     return <Skeleton className="mb-5 h-24 w-full rounded-lg" />;
   }
-  if (!data || data.providers.length === 0) return null;
+  // Drop SendGrid entirely and lead with SES (the default DNS provider).
+  const shown = (data?.providers ?? [])
+    .filter((p) => !HIDDEN_PROVIDERS.has(p.provider.toLowerCase()))
+    .sort((a, b) => providerOrder(a.provider) - providerOrder(b.provider));
+  if (shown.length === 0) return null;
 
   return (
     <div className="mb-5 space-y-3">
@@ -330,7 +342,7 @@ function AllProviderDnsRecords({
           transactional and marketing sending.
         </p>
       </div>
-      {data.providers.map((prov) => {
+      {shown.map((prov) => {
         const meta = providerMeta(prov.provider);
         const unavailable =
           prov.status === "skipped" || prov.status === "error";

@@ -2,65 +2,125 @@
 
 import {
   ArrowLeftIcon,
-  ArrowsUpDownIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   CodeBracketIcon,
   ComputerDesktopIcon,
-  CursorArrowRaysIcon,
   DevicePhoneMobileIcon,
-  MinusIcon,
-  PhotoIcon,
   ShieldCheckIcon,
-  TrashIcon,
 } from "@heroicons/react/24/outline";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
 import { cn } from "@/lib/utils";
 
 import {
-  createBlock,
-  type EmailBlock,
-  type EmailBlockType,
+  BLOCK_BUTTONS,
+  type BlockNode,
+  childListsOf,
+  createNode,
   type EmailDocument,
-  MERGE_TAGS,
+  type EmailLayoutNode,
+  type InsertableType,
+  newBlockId,
+  parseHtmlToDocument,
   renderDocumentToHtml,
   renderDocumentToText,
 } from "./blocks";
+import { EmailCanvas, type InsertLocation } from "./canvas";
+import { Field } from "./inspect-inputs";
+import { InspectPanel, StylesPanel } from "./inspect-panels";
+import { TemplatesTab } from "./templates-tab";
 
-const PALETTE: { type: EmailBlockType; label: string; glyph?: string }[] = [
-  { type: "heading", label: "Heading", glyph: "H1" },
-  { type: "text", label: "Text", glyph: "T" },
-  { type: "button", label: "Button" },
-  { type: "image", label: "Image" },
-  { type: "divider", label: "Divider" },
-  { type: "spacer", label: "Spacer" },
-];
+type Tab = "blocks" | "templates" | "styles" | "inspect";
 
-function PaletteIcon({
-  type,
-  glyph,
-}: {
-  type: EmailBlockType;
-  glyph?: string;
-}) {
-  if (glyph)
-    return <span className="text-sm font-bold text-foreground">{glyph}</span>;
-  const cls = "h-5 w-5 text-muted-foreground";
-  if (type === "button") return <CursorArrowRaysIcon className={cls} />;
-  if (type === "image") return <PhotoIcon className={cls} />;
-  if (type === "divider") return <MinusIcon className={cls} />;
-  return <ArrowsUpDownIcon className={cls} />;
+/* ------------------------------------------------------- document mutations */
+
+/** Find the child list (and position) that contains `id`. */
+function locate(
+  doc: EmailDocument,
+  id: string
+): { parentId: string; columnIndex?: number; index: number } | null {
+  for (const [parentId, node] of Object.entries(doc.blocks)) {
+    const lists = childListsOf(node);
+    for (let li = 0; li < lists.length; li += 1) {
+      const index = lists[li].indexOf(id);
+      if (index !== -1) {
+        const columnIndex = node.type === "ColumnsContainer" ? li : undefined;
+        return { parentId, columnIndex, index };
+      }
+    }
+  }
+  return null;
 }
+
+/** Immutably set a container's child list. */
+function withChildList(
+  doc: EmailDocument,
+  loc: InsertLocation,
+  updater: (ids: string[]) => string[]
+): EmailDocument {
+  const node = doc.blocks[loc.parentId];
+  if (!node) return doc;
+  const blocks = { ...doc.blocks };
+  if (node.type === "EmailLayout") {
+    blocks[loc.parentId] = {
+      ...node,
+      data: { ...node.data, childrenIds: updater(node.data.childrenIds) },
+    };
+  } else if (node.type === "Container") {
+    blocks[loc.parentId] = {
+      ...node,
+      data: {
+        ...node.data,
+        props: {
+          ...node.data.props,
+          childrenIds: updater(node.data.props.childrenIds),
+        },
+      },
+    };
+  } else if (node.type === "ColumnsContainer") {
+    const ci = loc.columnIndex ?? 0;
+    const columns = node.data.props.columns.map((c, i) =>
+      i === ci ? { childrenIds: updater(c.childrenIds) } : c
+    );
+    blocks[loc.parentId] = {
+      ...node,
+      data: { ...node.data, props: { ...node.data.props, columns } },
+    };
+  }
+  return { ...doc, blocks };
+}
+
+/** Collect a node's descendant ids (for deletion). */
+function descendantIds(doc: EmailDocument, id: string): string[] {
+  const out: string[] = [];
+  const node = doc.blocks[id];
+  if (!node) return out;
+  for (const list of childListsOf(node)) {
+    for (const cid of list) {
+      out.push(cid, ...descendantIds(doc, cid));
+    }
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------- editor */
 
 export interface EmailEditorProps {
   initialDoc: EmailDocument;
   title: string;
+  /** Kept for API compatibility; per-block colors now drive buttons. */
   accent?: string;
   onBack: () => void;
   onSave: (payload: {
@@ -74,72 +134,134 @@ export interface EmailEditorProps {
 export function EmailEditor({
   initialDoc,
   title,
-  accent = "#4f46e5",
   onBack,
   onSave,
   saving = false,
 }: EmailEditorProps) {
   const [doc, setDoc] = useState<EmailDocument>(initialDoc);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"blocks" | "inspect">("blocks");
+  const [tab, setTab] = useState<Tab>("blocks");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importHtml, setImportHtml] = useState("");
 
-  const selected = doc.blocks.find((b) => b.id === selectedId) ?? null;
+  const root = doc.blocks[doc.root] as EmailLayoutNode | undefined;
+  const selectedNode = selectedId ? doc.blocks[selectedId] : null;
+  const compliant = doc.footer?.enabled ?? false;
 
-  // Very light compliance heuristic: an unsubscribe affordance must exist.
-  const compliant = useMemo(() => {
-    const blob = JSON.stringify(doc.blocks).toLowerCase();
-    return blob.includes("unsubscribe");
-  }, [doc]);
+  const selectBlock = (id: string) => {
+    setSelectedId(id);
+    setTab(id === doc.root ? "styles" : "inspect");
+  };
 
-  const setBlocks = (blocks: EmailBlock[]) => setDoc((d) => ({ ...d, blocks }));
-
-  const addBlock = (type: EmailBlockType) => {
-    const block = createBlock(type);
-    setBlocks([...doc.blocks, block]);
-    setSelectedId(block.id);
+  const insertBlock = (
+    loc: InsertLocation,
+    index: number,
+    type: InsertableType
+  ) => {
+    const node = createNode(type);
+    const id = newBlockId();
+    const next = withChildList(
+      { ...doc, blocks: { ...doc.blocks, [id]: node } },
+      loc,
+      (ids) => [...ids.slice(0, index), id, ...ids.slice(index)]
+    );
+    setDoc(next);
+    setSelectedId(id);
     setTab("inspect");
   };
 
-  const patchBlock = (id: string, patch: Partial<EmailBlock>) =>
-    setBlocks(
-      doc.blocks.map((b) =>
-        b.id === id ? ({ ...b, ...patch } as EmailBlock) : b
-      )
+  const appendToRoot = (type: InsertableType) =>
+    insertBlock(
+      { parentId: doc.root },
+      root?.data.childrenIds.length ?? 0,
+      type
     );
 
-  const removeBlock = (id: string) => {
-    setBlocks(doc.blocks.filter((b) => b.id !== id));
-    if (selectedId === id) setSelectedId(null);
-  };
+  const updateNode = (id: string, node: BlockNode) =>
+    setDoc((d) => ({ ...d, blocks: { ...d.blocks, [id]: node } }));
 
   const moveBlock = (id: string, dir: -1 | 1) => {
-    const i = doc.blocks.findIndex((b) => b.id === id);
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= doc.blocks.length) return;
-    const next = [...doc.blocks];
-    [next[i], next[j]] = [next[j], next[i]];
-    setBlocks(next);
+    const loc = locate(doc, id);
+    if (!loc) return;
+    const next = withChildList(
+      doc,
+      { parentId: loc.parentId, columnIndex: loc.columnIndex },
+      (ids) => {
+        const j = loc.index + dir;
+        if (j < 0 || j >= ids.length) return ids;
+        const arr = [...ids];
+        [arr[loc.index], arr[j]] = [arr[j], arr[loc.index]];
+        return arr;
+      }
+    );
+    setDoc(next);
   };
 
-  const insertMergeTag = (token: string) => {
-    if (!selected || (selected.type !== "heading" && selected.type !== "text"))
+  const removeBlock = (id: string) => {
+    const loc = locate(doc, id);
+    if (!loc) return;
+    const toDelete = new Set([id, ...descendantIds(doc, id)]);
+    let next = withChildList(
+      doc,
+      { parentId: loc.parentId, columnIndex: loc.columnIndex },
+      (ids) => ids.filter((x) => x !== id)
+    );
+    const blocks = { ...next.blocks };
+    for (const d of toDelete) delete blocks[d];
+    next = { ...next, blocks };
+    setDoc(next);
+    if (selectedId && toDelete.has(selectedId)) setSelectedId(null);
+  };
+
+  const loadDocument = (next: EmailDocument) => {
+    setDoc(next);
+    setSelectedId(null);
+    setTab("blocks");
+  };
+
+  const applyImport = () => {
+    const trimmed = importHtml.trim();
+    if (!trimmed) {
+      toast.error("Paste some HTML to import.");
       return;
-    const value = `${selected.content}${
-      selected.content.endsWith(" ") || selected.content.length === 0 ? "" : " "
-    }{{ ${token} }}`;
-    patchBlock(selected.id, { content: value } as Partial<EmailBlock>);
+    }
+    const next = parseHtmlToDocument(trimmed);
+    setDoc((d) => ({ ...next, footer: d.footer }));
+    setSelectedId(null);
+    setImportOpen(false);
+    setImportHtml("");
+    setTab("blocks");
+    toast.success("HTML imported");
   };
 
   const handleSave = async () => {
-    const html = renderDocumentToHtml(doc, accent);
-    const text = renderDocumentToText(doc);
-    await onSave({ doc, html, text });
+    await onSave({
+      doc,
+      html: renderDocumentToHtml(doc),
+      text: renderDocumentToText(doc),
+    });
   };
+
+  const canvasWidth = device === "desktop" ? "max-w-[600px]" : "max-w-[360px]";
+  const backdrop = root?.data.backdropColor ?? "#F5F5F5";
+
+  const handlers = useMemo(
+    () => ({
+      doc,
+      selectedId,
+      onSelect: selectBlock,
+      onInsert: insertBlock,
+      onMove: moveBlock,
+      onRemove: removeBlock,
+    }),
+    // selectBlock/insert/move/remove are stable enough for this editor scope
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [doc, selectedId]
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      {/* Header */}
       <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
         <div className="flex min-w-0 items-center gap-3">
           <button
@@ -150,9 +272,7 @@ export function EmailEditor({
             <ArrowLeftIcon className="size-4" aria-hidden="true" />
             Back to campaign
           </button>
-          <span className="text-border" aria-hidden="true">
-            |
-          </span>
+          <span className="text-border">|</span>
           <span className="truncate text-sm font-semibold text-foreground">
             {title || "Untitled email"}
           </span>
@@ -199,9 +319,7 @@ export function EmailEditor({
             variant="outline"
             size="sm"
             className="rounded-lg"
-            onClick={() =>
-              toast.info("HTML import lands with the from-scratch editor.")
-            }
+            onClick={() => setImportOpen(true)}
           >
             <CodeBracketIcon className="size-4" aria-hidden="true" />
             Import HTML
@@ -220,11 +338,13 @@ export function EmailEditor({
 
       <div className="flex min-h-0 flex-1">
         {/* Left panel */}
-        <aside className="flex w-72 shrink-0 flex-col border-r border-border">
+        <aside className="flex w-80 shrink-0 flex-col border-r border-border">
           <div className="flex gap-4 border-b border-border px-4">
             {(
               [
                 { key: "blocks", label: "Blocks" },
+                { key: "templates", label: "Templates" },
+                { key: "styles", label: "Styles" },
                 { key: "inspect", label: "Inspect" },
               ] as const
             ).map(({ key, label }) => (
@@ -245,359 +365,175 @@ export function EmailEditor({
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            {tab === "blocks" ? (
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Add a block
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {PALETTE.map((item) => (
-                    <button
-                      key={item.type}
-                      type="button"
-                      onClick={() => addBlock(item.type)}
-                      className="flex h-20 flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-card text-center transition-colors hover:border-primary/40 hover:bg-muted/40"
-                    >
-                      <PaletteIcon type={item.type} glyph={item.glyph} />
-                      <span className="text-xs font-medium text-foreground">
-                        {item.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-                  Click a block to append it, then use Inspect to edit its
-                  content. Reorder or delete from the toolbar on the selected
-                  block.
-                </p>
+            {tab === "blocks" ? <BlocksTab onAdd={appendToRoot} /> : null}
+
+            {tab === "templates" ? (
+              <TemplatesTab currentDoc={doc} onLoad={loadDocument} />
+            ) : null}
+
+            {tab === "styles" ? (
+              <div className="space-y-5">
+                {root ? (
+                  <StylesPanel
+                    layout={root}
+                    onChange={(next) => updateNode(doc.root, next)}
+                  />
+                ) : null}
+                <FooterControls doc={doc} setDoc={setDoc} />
               </div>
-            ) : (
-              <Inspector
-                block={selected}
-                onPatch={(patch) =>
-                  selected ? patchBlock(selected.id, patch) : undefined
-                }
-                onInsertTag={insertMergeTag}
-                onRemove={() =>
-                  selected ? removeBlock(selected.id) : undefined
-                }
-              />
-            )}
+            ) : null}
+
+            {tab === "inspect" ? (
+              selectedNode && selectedId && selectedId !== doc.root ? (
+                <InspectPanel
+                  node={selectedNode}
+                  onChange={(next) => updateNode(selectedId, next)}
+                />
+              ) : root ? (
+                <StylesPanel
+                  layout={root}
+                  onChange={(next) => updateNode(doc.root, next)}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Select a block in the canvas to edit it.
+                </p>
+              )
+            ) : null}
           </div>
         </aside>
 
-        {/* Preview / canvas */}
-        <main className="min-h-0 flex-1 overflow-y-auto bg-muted/30 p-6">
-          <div
-            className={cn(
-              "mx-auto w-full rounded-2xl bg-white p-6 shadow-sm transition-[max-width]",
-              device === "desktop" ? "max-w-[640px]" : "max-w-[380px]"
-            )}
-          >
-            {doc.blocks.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-400">
-                Empty email — add a block from the left.
+        {/* Canvas */}
+        <main
+          className="min-h-0 flex-1 overflow-y-auto p-6"
+          style={{ backgroundColor: backdrop }}
+        >
+          <div className={cn("mx-auto w-full", canvasWidth)}>
+            <EmailCanvas {...handlers} />
+            {doc.footer?.enabled ? (
+              <div className="mt-2 rounded-lg bg-black/[0.03] px-6 py-4 text-xs leading-relaxed text-gray-400">
+                <p className="whitespace-pre-wrap">{doc.footer.optInReason}</p>
+                <p>
+                  {"{{ sender_name }}"} · {"{{ postal_address }}"}
+                </p>
+                <p>
+                  <span className="underline">Unsubscribe</span> ·{" "}
+                  <span className="underline">Manage preferences</span>
+                </p>
               </div>
-            ) : (
-              doc.blocks.map((block, i) => (
-                <BlockRow
-                  key={block.id}
-                  block={block}
-                  accent={accent}
-                  selected={selectedId === block.id}
-                  isFirst={i === 0}
-                  isLast={i === doc.blocks.length - 1}
-                  onSelect={() => {
-                    setSelectedId(block.id);
-                    setTab("inspect");
-                  }}
-                  onMove={(dir) => moveBlock(block.id, dir)}
-                  onRemove={() => removeBlock(block.id)}
-                />
-              ))
-            )}
+            ) : null}
           </div>
         </main>
       </div>
-    </div>
-  );
-}
 
-function BlockRow({
-  block,
-  accent,
-  selected,
-  isFirst,
-  isLast,
-  onSelect,
-  onMove,
-  onRemove,
-}: {
-  block: EmailBlock;
-  accent: string;
-  selected: boolean;
-  isFirst: boolean;
-  isLast: boolean;
-  onSelect: () => void;
-  onMove: (dir: -1 | 1) => void;
-  onRemove: () => void;
-}) {
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") onSelect();
-      }}
-      className={cn(
-        "group relative cursor-pointer rounded-md p-1 outline-none transition-shadow",
-        selected ? "ring-2 ring-primary" : "hover:ring-1 hover:ring-primary/30"
-      )}
-    >
-      {selected ? (
-        <div className="absolute -top-3 right-1 z-10 flex items-center gap-0.5 rounded-md border border-border bg-background p-0.5 shadow-sm">
-          <button
-            type="button"
-            disabled={isFirst}
-            onClick={(e) => {
-              e.stopPropagation();
-              onMove(-1);
-            }}
-            className="rounded p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
-            aria-label="Move up"
-          >
-            <ChevronUpIcon className="size-4" />
-          </button>
-          <button
-            type="button"
-            disabled={isLast}
-            onClick={(e) => {
-              e.stopPropagation();
-              onMove(1);
-            }}
-            className="rounded p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
-            aria-label="Move down"
-          >
-            <ChevronDownIcon className="size-4" />
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove();
-            }}
-            className="rounded p-1 text-destructive hover:bg-destructive/10"
-            aria-label="Delete block"
-          >
-            <TrashIcon className="size-4" />
-          </button>
-        </div>
-      ) : null}
-      <BlockView block={block} accent={accent} />
-    </div>
-  );
-}
-
-/** Read-only visual render of a block inside the preview canvas. */
-function BlockView({ block, accent }: { block: EmailBlock; accent: string }) {
-  switch (block.type) {
-    case "heading":
-      return (
-        <div className="whitespace-pre-wrap text-2xl font-bold leading-tight text-gray-900">
-          {block.content || "Heading"}
-        </div>
-      );
-    case "text":
-      return (
-        <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-gray-700">
-          {block.content || "Text"}
-        </p>
-      );
-    case "button":
-      return (
-        <span
-          className="my-1 inline-block rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
-          style={{ backgroundColor: accent }}
-        >
-          {block.content || "Button"}
-        </span>
-      );
-    case "image":
-      return block.src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={block.src}
-          alt={block.alt}
-          className="my-1 block h-auto w-full rounded"
-        />
-      ) : (
-        <div className="my-1 flex items-center justify-center rounded-lg bg-gray-100 py-10 text-xs text-gray-400">
-          <PhotoIcon className="mr-2 size-5" aria-hidden="true" />
-          Image
-        </div>
-      );
-    case "divider":
-      return <hr className="my-3 border-gray-200" />;
-    case "spacer":
-      return <div style={{ height: block.size }} aria-hidden="true" />;
-  }
-}
-
-function Inspector({
-  block,
-  onPatch,
-  onInsertTag,
-  onRemove,
-}: {
-  block: EmailBlock | null;
-  onPatch: (patch: Partial<EmailBlock>) => void;
-  onInsertTag: (token: string) => void;
-  onRemove: () => void;
-}) {
-  if (!block) {
-    return (
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Select a block in the preview to edit its content, insert a merge tag,
-        or remove it.
-      </p>
-    );
-  }
-
-  const isTextual = block.type === "heading" || block.type === "text";
-
-  return (
-    <div className="space-y-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {block.type} block
-      </p>
-
-      {isTextual ? (
-        <>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Content
-            </label>
-            <Textarea
-              value={block.content}
-              onChange={(e) =>
-                onPatch({ content: e.target.value } as Partial<EmailBlock>)
-              }
-              rows={block.type === "heading" ? 2 : 5}
-              className="rounded-lg"
-            />
-          </div>
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Insert a merge tag
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {MERGE_TAGS.map((tag) => (
-                <button
-                  key={tag.token}
-                  type="button"
-                  onClick={() => onInsertTag(tag.token)}
-                  className="rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-muted/40"
-                >
-                  {tag.label}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Tags resolve per recipient at send time.
-            </p>
-          </div>
-        </>
-      ) : null}
-
-      {block.type === "button" ? (
-        <>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Label
-            </label>
-            <Input
-              value={block.content}
-              onChange={(e) =>
-                onPatch({ content: e.target.value } as Partial<EmailBlock>)
-              }
-              className="h-9 rounded-lg"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Link
-            </label>
-            <Input
-              value={block.url}
-              onChange={(e) =>
-                onPatch({ url: e.target.value } as Partial<EmailBlock>)
-              }
-              placeholder="https://"
-              className="h-9 rounded-lg font-mono text-sm"
-            />
-          </div>
-        </>
-      ) : null}
-
-      {block.type === "image" ? (
-        <>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Image URL
-            </label>
-            <Input
-              value={block.src}
-              onChange={(e) =>
-                onPatch({ src: e.target.value } as Partial<EmailBlock>)
-              }
-              placeholder="https://…/image.png"
-              className="h-9 rounded-lg font-mono text-sm"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Alt text
-            </label>
-            <Input
-              value={block.alt}
-              onChange={(e) =>
-                onPatch({ alt: e.target.value } as Partial<EmailBlock>)
-              }
-              className="h-9 rounded-lg"
-            />
-          </div>
-        </>
-      ) : null}
-
-      {block.type === "spacer" ? (
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-foreground">
-            Height (px)
-          </label>
-          <Input
-            type="number"
-            min={0}
-            max={120}
-            value={block.size}
-            onChange={(e) =>
-              onPatch({
-                size: Number(e.target.value) || 0,
-              } as Partial<EmailBlock>)
-            }
-            className="h-9 w-28 rounded-lg"
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import HTML</DialogTitle>
+            <DialogDescription>
+              Paste an existing email&apos;s HTML — headings, text, images,
+              buttons and dividers become editable blocks. The compliance footer
+              is kept.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={importHtml}
+            onChange={(e) => setImportHtml(e.target.value)}
+            rows={10}
+            placeholder="<h1>…</h1> <p>…</p>"
+            className="rounded-lg font-mono text-xs"
           />
-        </div>
-      ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setImportOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={applyImport}>
+              Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
-      <button
-        type="button"
-        onClick={onRemove}
-        className="flex items-center gap-1.5 text-sm font-medium text-destructive hover:underline"
-      >
-        <TrashIcon className="size-4" aria-hidden="true" />
-        Remove block
-      </button>
+function BlocksTab({ onAdd }: { onAdd: (type: InsertableType) => void }) {
+  const groups: { title: string; group: "block" | "layout" }[] = [
+    { title: "Blocks", group: "block" },
+    { title: "Layout", group: "layout" },
+  ];
+  return (
+    <div className="space-y-5">
+      {groups.map(({ title, group }) => (
+        <div key={group}>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {title}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {BLOCK_BUTTONS.filter((b) => b.group === group).map((b) => (
+              <button
+                key={b.type}
+                type="button"
+                onClick={() => onAdd(b.type)}
+                className="flex h-16 flex-col items-center justify-center gap-1 rounded-xl border border-border bg-card text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-muted/40"
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Click a block to add it to the end of your email, or use the + buttons
+        between blocks on the canvas.
+      </p>
+    </div>
+  );
+}
+
+function FooterControls({
+  doc,
+  setDoc,
+}: {
+  doc: EmailDocument;
+  setDoc: React.Dispatch<React.SetStateAction<EmailDocument>>;
+}) {
+  const { footer } = doc;
+  return (
+    <div className="space-y-3 border-t border-border pt-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-foreground">
+            Compliance footer
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Address + unsubscribe (CAN-SPAM).
+          </p>
+        </div>
+        <Switch
+          checked={footer.enabled}
+          onCheckedChange={(enabled) =>
+            setDoc((d) => ({ ...d, footer: { ...d.footer, enabled } }))
+          }
+        />
+      </div>
+      <Field label="Opt-in reason">
+        <Textarea
+          value={footer.optInReason}
+          onChange={(e) =>
+            setDoc((d) => ({
+              ...d,
+              footer: { ...d.footer, optInReason: e.target.value },
+            }))
+          }
+          rows={2}
+          className="rounded-lg"
+        />
+      </Field>
     </div>
   );
 }

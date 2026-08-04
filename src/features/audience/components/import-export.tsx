@@ -40,6 +40,8 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/ui/input";
 
+import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
+
 import {
   type AudienceExportJobStatus,
   type AudienceImportExportFormat,
@@ -153,6 +155,19 @@ const isRateLimitedError = (error: unknown) => {
         ? candidate.message
         : "";
   return msg.includes("429") || msg.toLowerCase().includes("rate limit");
+};
+
+const getDirectBackendBaseUrl = () => {
+  const raw = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").trim();
+  if (!raw) return null;
+  return raw.replace(/\/$/, "");
+};
+
+const unwrapBackendEnvelope = (payload: unknown): unknown => {
+  if (isJsonObject(payload) && "data" in payload) {
+    return payload.data ?? payload;
+  }
+  return payload;
 };
 
 const parseNotifyEmails = (raw: string): string[] => {
@@ -704,27 +719,94 @@ export default function ImportExportPage() {
         }
       }
 
-      let res: unknown;
-      let attempts = 0;
-      for (;;) {
-        try {
-          res = await audienceService.createImportJob({
-            file: uploadedFile,
-            format,
-            mapping: format === "csv" ? mapping : undefined,
-            platform: importPlatform || undefined,
-            query: {
-              mode: "upsert",
-              onConflict: "update",
-              dedupeKey: "email",
-              maxErrors: 10000,
+      const query = {
+        mode: "upsert",
+        onConflict: "update",
+        dedupeKey: "email",
+        maxErrors: 10000,
+      };
+
+      const orgId = getSelectedOrganizationId();
+      const directBase = getDirectBackendBaseUrl();
+
+      const uploadDirect = async (): Promise<unknown> => {
+        if (!directBase) throw new Error("Missing backend URL");
+        if (!orgId) throw new Error("Missing organization id");
+
+        const fd = new FormData();
+        fd.append("file", uploadedFile);
+        if (format === "csv" && Object.keys(mapping).length > 0) {
+          fd.append("mapping", JSON.stringify(mapping));
+        }
+
+        const params = new URLSearchParams();
+        params.set("format", format);
+        if (importPlatform) params.set("platform", importPlatform);
+        for (const [k, v] of Object.entries(query)) {
+          if (v === undefined) continue;
+          params.set(k, String(v));
+        }
+
+        let attempts = 0;
+        for (;;) {
+          const res = await fetch(`${directBase}/audience/imports?${params}`, {
+            method: "POST",
+            body: fd,
+            credentials: "include",
+            headers: {
+              "x-org-id": orgId,
             },
           });
-          break;
-        } catch (error) {
-          if (!isRateLimitedError(error) || attempts >= 3) throw error;
-          attempts += 1;
-          await wait(2000 + Math.floor(Math.random() * 3000));
+
+          if (res.ok) {
+            const json = await res.json().catch(() => null);
+            return unwrapBackendEnvelope(json);
+          }
+
+          if (res.status === 429 && attempts < 3) {
+            attempts += 1;
+            await wait(2000 + Math.floor(Math.random() * 3000));
+            continue;
+          }
+
+          const bodyText = await res.text().catch(() => "");
+          throw new Error(
+            `Import upload failed [HTTP ${res.status}]: ${
+              bodyText.trim().length > 0 ? bodyText : "Request failed"
+            }`
+          );
+        }
+      };
+
+      let res: unknown;
+      try {
+        res = await uploadDirect();
+      } catch (error) {
+        const shouldFallback =
+          !directBase ||
+          !orgId ||
+          error instanceof TypeError ||
+          (error instanceof Error &&
+            error.message.toLowerCase().includes("failed to fetch"));
+        if (!shouldFallback) throw error;
+
+        let attempts = 0;
+        for (;;) {
+          try {
+            res = await audienceService.createImportJob({
+              file: uploadedFile,
+              format,
+              mapping: format === "csv" ? mapping : undefined,
+              platform: importPlatform || undefined,
+              query,
+            });
+            break;
+          } catch (innerError) {
+            if (!isRateLimitedError(innerError) || attempts >= 3)
+              throw innerError;
+            attempts += 1;
+            await wait(2000 + Math.floor(Math.random() * 3000));
+          }
         }
       }
 

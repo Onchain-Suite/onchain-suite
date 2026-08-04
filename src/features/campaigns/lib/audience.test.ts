@@ -48,8 +48,10 @@ describe("partitionAudienceSelection", () => {
   it("never emits a bucket the audience endpoint would discard", () => {
     const result = partitionAudienceSelection(["profile_abc", "seg_1"], []);
 
-    // PUT /campaigns/{id}/audience accepts { profileIds, segmentIds } only.
+    // PUT /campaigns/{id}/audience accepts { all, profileIds, segmentIds,
+    // tagNames } — `all` was added with all-contacts targeting.
     expect(Object.keys(result).sort()).toEqual([
+      "all",
       "profileIds",
       "segmentIds",
       "tagNames",

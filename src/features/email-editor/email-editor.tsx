@@ -40,7 +40,7 @@ import {
 import { EmailCanvas, type InsertLocation } from "./canvas";
 import { Field } from "./inspect-inputs";
 import { InspectPanel, StylesPanel } from "./inspect-panels";
-import { EMAIL_TEMPLATES } from "./templates";
+import { TemplatesTab } from "./templates-tab";
 
 type Tab = "blocks" | "templates" | "styles" | "inspect";
 
@@ -214,11 +214,10 @@ export function EmailEditor({
     if (selectedId && toDelete.has(selectedId)) setSelectedId(null);
   };
 
-  const loadTemplate = (build: () => EmailDocument) => {
-    setDoc(build());
+  const loadDocument = (next: EmailDocument) => {
+    setDoc(next);
     setSelectedId(null);
     setTab("blocks");
-    toast.success("Template loaded");
   };
 
   const applyImport = () => {
@@ -369,23 +368,7 @@ export function EmailEditor({
             {tab === "blocks" ? <BlocksTab onAdd={appendToRoot} /> : null}
 
             {tab === "templates" ? (
-              <div className="space-y-2">
-                {EMAIL_TEMPLATES.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => loadTemplate(t.build)}
-                    className="w-full rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
-                  >
-                    <p className="text-sm font-medium text-foreground">
-                      {t.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t.description}
-                    </p>
-                  </button>
-                ))}
-              </div>
+              <TemplatesTab currentDoc={doc} onLoad={loadDocument} />
             ) : null}
 
             {tab === "styles" ? (

@@ -38,7 +38,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/ui/input";
 
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
@@ -49,7 +48,6 @@ import {
   type AudienceImportPreset,
   audienceService,
 } from "@/features/audience/audience.service";
-import { upsertTrackedImportJob } from "@/features/audience/imports/import-job-storage";
 import { PageHeader } from "@/shared/components/page/page-header";
 
 const fieldOptions = [
@@ -157,6 +155,9 @@ const isRateLimitedError = (error: unknown) => {
   return msg.includes("429") || msg.toLowerCase().includes("rate limit");
 };
 
+// Large imports (100k+ rows) exceed the Next.js/Vercel proxy body cap, so upload
+// straight to the backend when NEXT_PUBLIC_BACKEND_URL is set; fall back to the
+// proxied service call on a network/CORS error.
 const getDirectBackendBaseUrl = () => {
   const raw = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").trim();
   if (!raw) return null;
@@ -168,21 +169,6 @@ const unwrapBackendEnvelope = (payload: unknown): unknown => {
     return payload.data ?? payload;
   }
   return payload;
-};
-
-const parseNotifyEmails = (raw: string): string[] => {
-  const parts = raw
-    .split(/[,\n]/g)
-    .map((v) => v.trim())
-    .filter((v) => v.length > 0);
-  const out: string[] = [];
-  for (const v of parts) {
-    const lower = v.toLowerCase();
-    const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lower);
-    if (!looksLikeEmail) continue;
-    if (!out.includes(lower)) out.push(lower);
-  }
-  return out.slice(0, 5);
 };
 
 const toHumanBytes = (bytes: number) => {
@@ -460,7 +446,6 @@ export default function ImportExportPage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [csvColumns, setCsvColumns] = useState<CSVColumn[]>([]);
   const [isImporting, setIsImporting] = useState(false);
-  const [notifyEmailsRaw, setNotifyEmailsRaw] = useState("");
   const [importResult, setImportResult] = useState<{
     success: number;
     failed: number;
@@ -613,9 +598,9 @@ export default function ImportExportPage() {
       toast.error("Only CSV and JSON files are supported");
       return;
     }
-    const maxBytes = 100 * 1024 * 1024;
+    const maxBytes = 25 * 1024 * 1024;
     if (file.size > maxBytes) {
-      toast.error("File too large (max 100MB)");
+      toast.error("File too large (max 25MB)");
       return;
     }
 
@@ -829,14 +814,6 @@ export default function ImportExportPage() {
     },
     onSuccess: ({ jobId }) => {
       setImportJobId(jobId);
-      const notifyEmails = parseNotifyEmails(notifyEmailsRaw);
-      upsertTrackedImportJob({
-        jobId,
-        fileName: uploadedFile?.name,
-        createdAt: toIsoNow(),
-        state: "queued",
-        notifyEmails: notifyEmails.length > 0 ? notifyEmails : undefined,
-      });
       if (uploadedFile && selectedImportFormat) {
         const entry: ImportHistoryItem = {
           jobId,
@@ -867,18 +844,11 @@ export default function ImportExportPage() {
       return audienceService.getImportJob(importJobId);
     },
     enabled: Boolean(importJobId),
-    retry: (failureCount, error) =>
-      isRateLimitedError(error) && failureCount < 3,
-    retryDelay: () => 2000 + Math.floor(Math.random() * 3000),
     refetchInterval: (q) => {
-      if (isRateLimitedError(q.state.error)) {
-        return 8000 + Math.floor(Math.random() * 4000);
-      }
       const data = q.state.data as AudienceImportJobStatus | null | undefined;
       const state = String(data?.state ?? "");
-      if (!data) return 2000 + Math.floor(Math.random() * 3000);
-      if (state === "queued" || state === "processing")
-        return 2000 + Math.floor(Math.random() * 3000);
+      if (!data) return 1500;
+      if (state === "queued" || state === "processing") return 1500;
       return false;
     },
   });
@@ -1671,32 +1641,19 @@ export default function ImportExportPage() {
             )}
 
             <div className="mt-8 flex flex-col gap-4 border-t border-(--color-border) pt-6 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-3">
-                <p className="text-sm text-(--color-text-muted)">
-                  {selectedImportFormat === "csv"
-                    ? mappedCount > 0
-                      ? `Ready to import ${mappedCount} fields${
-                          importPlatform && selectedPreset
-                            ? ` (${selectedPreset.label} preset fills the rest)`
-                            : ""
-                        }`
-                      : importPlatform && selectedPreset
-                        ? `Ready to import with the ${selectedPreset.label} preset`
-                        : "Map at least one column to continue"
-                    : "Ready to import"}
-                </p>
-                <div className="max-w-md space-y-1">
-                  <p className="text-xs text-(--color-text-muted)">
-                    Completion email recipients (optional)
-                  </p>
-                  <Input
-                    value={notifyEmailsRaw}
-                    onChange={(e) => setNotifyEmailsRaw(e.target.value)}
-                    placeholder="user@company.com, ops@onchainsuite.com"
-                    className="h-9 rounded-lg border-(--color-border) bg-(--color-background) text-sm"
-                  />
-                </div>
-              </div>
+              <p className="text-sm text-(--color-text-muted)">
+                {selectedImportFormat === "csv"
+                  ? mappedCount > 0
+                    ? `Ready to import ${mappedCount} fields${
+                        importPlatform && selectedPreset
+                          ? ` (${selectedPreset.label} preset fills the rest)`
+                          : ""
+                      }`
+                    : importPlatform && selectedPreset
+                      ? `Ready to import with the ${selectedPreset.label} preset`
+                      : "Map at least one column to continue"
+                  : "Ready to import"}
+              </p>
               <div className="flex gap-3">
                 <button
                   onClick={resetImport}
@@ -1791,10 +1748,7 @@ export default function ImportExportPage() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {typeof importStatus?.processedRows === "number"
-                      ? typeof importStatus?.totalRows === "number" &&
-                        importStatus.totalRows > 0
-                        ? `${importStatus.processedRows.toLocaleString()} / ${importStatus.totalRows.toLocaleString()} processed`
-                        : `${importStatus.processedRows.toLocaleString()} processed`
+                      ? `${importStatus.processedRows.toLocaleString()} processed`
                       : "Preparing…"}
                     {typeof importStatus?.createdCount === "number"
                       ? ` · ${importStatus.createdCount.toLocaleString()} created`
@@ -1808,48 +1762,6 @@ export default function ImportExportPage() {
                       : ""}
                   </p>
                 </div>
-
-                {Array.isArray(importStatus?.errorSample) &&
-                importStatus.errorSample.length > 0 ? (
-                  <div className="rounded-xl border border-border bg-muted/30 p-3">
-                    <div className="text-xs font-medium text-foreground">
-                      Sample errors
-                    </div>
-                    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                      {importStatus.errorSample
-                        .slice(0, 3)
-                        .map((entry, idx) => {
-                          const line =
-                            typeof entry.rowNumber === "number"
-                              ? `Row ${entry.rowNumber}`
-                              : "Row";
-                          const msg =
-                            typeof entry.message === "string" &&
-                            entry.message.trim().length > 0
-                              ? entry.message.trim()
-                              : typeof entry.code === "string" &&
-                                  entry.code.trim().length > 0
-                                ? entry.code.trim()
-                                : "Invalid row";
-                          return (
-                            <div
-                              key={`${entry.rowNumber ?? idx}-${
-                                entry.code ?? ""
-                              }`}
-                              className="flex flex-wrap gap-2"
-                            >
-                              <span className="font-mono text-[11px] text-foreground/80">
-                                {line}
-                              </span>
-                              <span className="min-w-0 flex-1 break-words">
-                                {msg}
-                              </span>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                ) : null}
 
                 <div className="mt-2 flex justify-end gap-2">
                   {importStatus && (importStatus.errorCount ?? 0) > 0 ? (

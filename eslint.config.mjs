@@ -60,10 +60,11 @@ const eslintConfig = [
       "*.config.js",
       "*.config.mjs",
       // Agent scratch space, incl. git worktrees checked out under
-      // .claude/worktrees. Those are full copies of the repo that sit outside
-      // tsconfig's project, so linting them fails on every file and blocks
-      // the pre-push hook.
+      // .claude/worktrees or top-level .worktrees. Those are full copies of the
+      // repo that sit outside tsconfig's project, so linting them fails on every
+      // file and blocks the pre-push hook.
       ".claude/**",
+      ".worktrees/**",
       // Design-system reference bundle (standalone .jsx mockups + assets, not
       // app source). Outside tsconfig's project, so it fails the same way.
       "Onchain Suite Design System v2/**",

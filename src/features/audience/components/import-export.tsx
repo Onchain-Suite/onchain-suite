@@ -615,7 +615,9 @@ export default function ImportExportPage() {
     }
     const maxBytes = 100 * 1024 * 1024;
     if (file.size > maxBytes) {
-      toast.error("File too large (max 100MB)");
+      toast.error(
+        "That file is over 100MB. Split your contacts into a few smaller files (each under 100MB) and import them one at a time."
+      );
       return;
     }
 

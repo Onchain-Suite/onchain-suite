@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  CheckIcon,
+  ClipboardDocumentIcon,
   MegaphoneIcon,
   PlusIcon,
   ShieldCheckIcon,
@@ -10,7 +12,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { formatRelativeTime } from "@/lib/date";
@@ -33,13 +35,17 @@ interface SavedSegment {
   description?: string;
 }
 
+const truncateMiddle = (text: string, head = 6, tail = 4): string =>
+  text.length <= head + tail + 1
+    ? text
+    : `${text.slice(0, head)}…${text.slice(-tail)}`;
+
 const FIELDS: { value: string; label: string }[] = [
   { value: "wallet_balance", label: "Wallet balance" },
   { value: "last_active", label: "Last active" },
   { value: "transaction_count", label: "Transaction count" },
   { value: "email_opened", label: "Email opened" },
   { value: "token_held", label: "Token held" },
-  { value: "gas_spent", label: "Gas spent" },
 ];
 
 const OPERATORS: { value: string; label: string }[] = [
@@ -168,6 +174,57 @@ export function SegmentsView() {
         err instanceof Error ? err.message : "Failed to save segment"
       ),
   });
+
+  // Live preview: debounce the draft rules and ask the backend how many wallets
+  // match. Guarded — if the preview endpoint isn't available the query rejects
+  // and we fall back to the honest "computed on save" copy (no fabricated data).
+  const [previewPayload, setPreviewPayload] = useState<{
+    operator: "AND" | "OR";
+    conditions: { field: string; operator: string; value: string }[];
+  } | null>(null);
+
+  useEffect(() => {
+    const complete = rules.filter((r) => r.value.trim().length > 0);
+    if (complete.length === 0) {
+      setPreviewPayload(null);
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      setPreviewPayload({
+        operator: match,
+        conditions: complete.map((r) => ({
+          field: r.field,
+          operator: r.operator,
+          value: r.value.trim(),
+        })),
+      });
+    }, 400);
+    return () => window.clearTimeout(handle);
+  }, [rules, match]);
+
+  const previewQuery = useQuery({
+    queryKey: ["intelligence", "segments", "preview", previewPayload],
+    queryFn: ({ signal }) =>
+      intelligenceService.previewSegment({ rules: previewPayload }, undefined, {
+        signal,
+      }),
+    enabled: previewPayload !== null,
+    retry: false,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const previewCount = previewQuery.data?.matchCount ?? null;
+  const sampleWallets = previewQuery.data?.sampleWallets ?? [];
+  const [copiedWallet, setCopiedWallet] = useState<string | null>(null);
+  const copyWallet = async (address: string) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedWallet(address);
+      window.setTimeout(() => setCopiedWallet(null), 1500);
+    } catch {
+      /* clipboard unavailable — no-op */
+    }
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -347,15 +404,63 @@ export function SegmentsView() {
             Live preview
           </h3>
           <div className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
-            {savedSegments.length > 0 ? "—" : "—"}
+            {previewCount !== null
+              ? previewCount.toLocaleString()
+              : previewQuery.isFetching
+                ? "…"
+                : "—"}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Matching wallets are computed when you save. Refine your rules
-            {rules.length > 0
-              ? ` (${rules.length} rule${rules.length === 1 ? "" : "s"}, match ${match === "AND" ? "all" : "any"})`
-              : ""}
-            , then save to resolve the exact set.
+            {previewCount !== null ? (
+              "matching wallets · updates as you edit"
+            ) : (
+              <>
+                Matching wallets are computed when you save. Refine your rules
+                {rules.length > 0
+                  ? ` (${rules.length} rule${rules.length === 1 ? "" : "s"}, match ${match === "AND" ? "all" : "any"})`
+                  : ""}
+                , then save to resolve the exact set.
+              </>
+            )}
           </p>
+
+          {previewCount !== null && sampleWallets.length > 0 ? (
+            <ul className="mt-4 space-y-2">
+              {sampleWallets.map((w) => (
+                <li key={w.address} className="flex items-center gap-2 text-sm">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold uppercase text-primary">
+                    {(w.ens ?? w.address).slice(0, 2)}
+                  </span>
+                  {w.ens ? (
+                    <span className="shrink-0 truncate font-medium text-foreground">
+                      {w.ens}
+                    </span>
+                  ) : null}
+                  <span className="truncate font-mono text-xs text-muted-foreground">
+                    {truncateMiddle(w.address)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyWallet(w.address)}
+                    aria-label="Copy wallet address"
+                    className="ml-auto shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {copiedWallet === w.address ? (
+                      <CheckIcon
+                        className="h-3.5 w-3.5 text-emerald-500"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <ClipboardDocumentIcon
+                        className="h-3.5 w-3.5"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <button
             type="button"
             onClick={() =>

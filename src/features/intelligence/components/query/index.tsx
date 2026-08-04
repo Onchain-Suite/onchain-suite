@@ -40,9 +40,10 @@ import {
   type IntelligenceGoldrushMcpStructuredResultKind,
   intelligenceService,
 } from "../../intelligence.service";
-import { McpTypingIndicator } from "./mcp-typing-indicator";
+import { type ChartSeriesPoint, ChatResultCard } from "./chat-result-card";
 import { SqlBlockchainLoader } from "./sql-blockchain-loader";
 import { SqlResultsTable } from "./sql-results-table";
+import { ThinkingTimeline, ThoughtProcess } from "./thinking-timeline";
 import {
   dropFormattedSiblingColumns,
   preferFormattedCell,
@@ -741,6 +742,69 @@ const normalizeStructuredRows = (
   rows: IntelligenceGoldrushMcpStructuredResult["rows"]
 ) => rows.map(asRecord);
 
+// Column names we treat as the category (x/legend) and the numeric measure when
+// deriving a chart series from an arbitrary structured result.
+const CHART_LABEL_COLUMNS = [
+  "name",
+  "holder",
+  "label",
+  "wallet",
+  "address",
+  "token",
+  "symbol",
+  "segment",
+  "chain",
+  "campaign",
+];
+const CHART_VALUE_COLUMNS = [
+  "amount",
+  "count",
+  "value_usd",
+  "usd_value",
+  "value",
+  "total",
+  "balance",
+  "holders",
+  "share",
+  "volume",
+  "transactions",
+];
+
+/**
+ * Best-effort chart series from a structured result: pick a label column and a
+ * numeric value column, coerce values, and cap at the top 8 rows. Returns [] when
+ * no numeric measure is present so the Chart tab is simply hidden (never faked).
+ */
+const deriveChatChartSeries = (
+  structured: IntelligenceGoldrushMcpStructuredResult
+): ChartSeriesPoint[] => {
+  const rows = meaningfulStructuredRows(
+    normalizeStructuredRows(structured.rows)
+  );
+  if (rows.length === 0) return [];
+  const labelColumn =
+    findPreferredColumn(rows, CHART_LABEL_COLUMNS) ?? columnsFromRows(rows)[0];
+  const valueColumn = findPreferredColumn(rows, CHART_VALUE_COLUMNS);
+  if (!labelColumn || !valueColumn) return [];
+  const points: ChartSeriesPoint[] = [];
+  for (const row of rows) {
+    const rawValue = row[valueColumn];
+    const value =
+      typeof rawValue === "number"
+        ? rawValue
+        : Number(String(rawValue ?? "").replace(/[^0-9.-]/g, ""));
+    if (!Number.isFinite(value)) continue;
+    const rawLabel = row[labelColumn];
+    const label =
+      rawLabel === null || rawLabel === undefined
+        ? ""
+        : String(rawLabel).trim();
+    if (label.length === 0) continue;
+    points.push({ label, value });
+  }
+  return points.slice(0, 8);
+};
+
 const findPreferredColumn = (
   rows: StructuredResultRow[],
   preferred: string[]
@@ -1157,7 +1221,7 @@ export function QueryTab({
                   id: `${event.type ?? "event"}-${prev.length}-${Date.now()}`,
                   ...activityEntry,
                 },
-              ].slice(-4)
+              ].slice(-12)
             );
 
             const nextStep = toStreamStep(event);
@@ -1723,7 +1787,7 @@ export function QueryTab({
   const reasoningTimeline = useMemo(
     () =>
       streamActivity.length > 0
-        ? streamActivity.slice(-4)
+        ? streamActivity.slice(-12)
         : getFallbackReasoningActivity(
             streamFallbackUsed,
             lastSubmittedChatPrompt
@@ -1915,7 +1979,6 @@ export function QueryTab({
       "usd_value",
       "amount",
       "value",
-      "gas_spent",
     ]);
     const transactionTypeColumn = findPreferredColumn(structuredRows, [
       "method",
@@ -2545,9 +2608,23 @@ export function QueryTab({
                                       })()}
                                     </div>
 
-                                    {renderStructuredResult(
-                                      message.structuredResult
-                                    )}
+                                    <ChatResultCard
+                                      tableContent={renderStructuredResult(
+                                        message.structuredResult
+                                      )}
+                                      series={deriveChatChartSeries(
+                                        message.structuredResult
+                                      )}
+                                      sql={
+                                        typeof message.structuredResult.meta
+                                          ?.sql === "string"
+                                          ? message.structuredResult.meta.sql
+                                          : undefined
+                                      }
+                                      onOpenSqlWorkspace={() =>
+                                        setActiveTab("sql")
+                                      }
+                                    />
 
                                     {message.queryReady
                                       ? renderConversionActions(message.queryId)
@@ -2641,38 +2718,24 @@ export function QueryTab({
 
                                 {Array.isArray(message.toolSteps) &&
                                 message.toolSteps.length > 0 ? (
-                                  <div className="grid gap-3 md:grid-cols-2">
-                                    {message.toolSteps.map((step, index) => (
-                                      <div
-                                        key={
+                                  <ThoughtProcess
+                                    steps={message.toolSteps.map(
+                                      (step, index) => ({
+                                        id:
                                           step.title ??
                                           step.toolName ??
                                           step.description ??
-                                          "tool-step"
-                                        }
-                                        className="rounded-[22px] border border-border bg-muted/30 p-4"
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                                            {index + 1}
-                                          </div>
-                                          <div className="text-sm font-medium text-foreground">
-                                            {step.title ??
-                                              (step.toolName
-                                                ? prettifyColumnLabel(
-                                                    step.toolName
-                                                  )
-                                                : `Step ${index + 1}`)}
-                                          </div>
-                                        </div>
-                                        {step.description ? (
-                                          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                                            {step.description}
-                                          </p>
-                                        ) : null}
-                                      </div>
-                                    ))}
-                                  </div>
+                                          `tool-step-${index}`,
+                                        label:
+                                          step.title ??
+                                          (step.toolName
+                                            ? prettifyColumnLabel(step.toolName)
+                                            : `Step ${index + 1}`),
+                                        detail: step.description,
+                                        tone: "success" as const,
+                                      })
+                                    )}
+                                  />
                                 ) : null}
 
                                 <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
@@ -2703,8 +2766,8 @@ export function QueryTab({
                       )
                     )}
                     {mcpMutation.isPending ? (
-                      <McpTypingIndicator
-                        activity={reasoningTimeline}
+                      <ThinkingTimeline
+                        steps={reasoningTimeline}
                         recovering={streamFallbackUsed}
                       />
                     ) : null}

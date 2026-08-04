@@ -1,6 +1,7 @@
 "use client";
 
 import { DocumentTextIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/ui/button";
@@ -9,7 +10,6 @@ import { Skeleton } from "@/ui/skeleton";
 
 import { CreateFormDialog } from "../components/create-form-dialog";
 import { FormCard } from "../components/form-card";
-import { FormDetailSheet } from "../components/form-detail-sheet";
 import { FormStats } from "../components/form-stats";
 import { FormsTable } from "../components/forms-table";
 import {
@@ -17,36 +17,24 @@ import {
   FormsToolbar,
   type FormsViewMode,
 } from "../components/forms-toolbar";
-import type { CaptureForm, UpdateFormInput } from "../forms.service";
-import {
-  useConnectForm,
-  useCreateForm,
-  useDeleteForm,
-  useFormsList,
-  useUpdateForm,
-} from "../hooks/use-forms";
+import type { CaptureForm } from "../forms.service";
+import { useCreateForm, useFormsList } from "../hooks/use-forms";
 import { PageHeader } from "@/shared/components/page/page-header";
 
 /**
  * Email-to-Wallet capture forms.
- * Header + stats + toolbar over a grid/table of forms; a detail sheet hosts
- * overview metrics, a live preview, the embed snippet, and settings.
+ * Header + stats + toolbar over a grid/table of forms; opening a form routes to
+ * the full-page builder (Build / Submissions / Share).
  */
 export function FormsPage() {
+  const router = useRouter();
   const [createOpen, setCreateOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<FormsStatusFilter>("all");
   const [viewMode, setViewMode] = useState<FormsViewMode>("grid");
 
   const formsQuery = useFormsList();
   const forms = useMemo(() => formsQuery.data ?? [], [formsQuery.data]);
-
-  // Keep the sheet in sync with fresh query data (e.g. after an update).
-  const selectedForm = useMemo(
-    () => forms.find((f) => f.id === selectedId) ?? null,
-    [forms, selectedId]
-  );
 
   const filteredForms = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -62,25 +50,13 @@ export function FormsPage() {
 
   const createMutation = useCreateForm((form) => {
     setCreateOpen(false);
-    setSelectedId(form.id);
+    router.push(`/forms/${form.id}`);
   });
-  const updateMutation = useUpdateForm();
-  const connectMutation = useConnectForm();
-  const deleteMutation = useDeleteForm(() => setSelectedId(null));
 
-  const openForm = useCallback((form: CaptureForm) => {
-    setSelectedId(form.id);
-  }, []);
-
-  const handleUpdate = useCallback(
-    (id: string, input: UpdateFormInput) =>
-      updateMutation.mutate({ id, input }),
-    [updateMutation]
+  const openForm = useCallback(
+    (form: CaptureForm) => router.push(`/forms/${form.id}`),
+    [router]
   );
-
-  const handleSheetOpenChange = useCallback((open: boolean) => {
-    if (!open) setSelectedId(null);
-  }, []);
 
   const isFiltering = search.trim().length > 0 || status !== "all";
 
@@ -130,17 +106,6 @@ export function FormsPage() {
         onOpenChange={setCreateOpen}
         submitting={createMutation.isPending}
         onCreate={(input) => createMutation.mutate(input)}
-      />
-
-      <FormDetailSheet
-        form={selectedForm}
-        onOpenChange={handleSheetOpenChange}
-        onUpdate={handleUpdate}
-        updating={updateMutation.isPending}
-        onConnect={(id) => connectMutation.mutate(id)}
-        connecting={connectMutation.isPending}
-        onDelete={(id) => deleteMutation.mutate(id)}
-        deleting={deleteMutation.isPending}
       />
     </div>
   );

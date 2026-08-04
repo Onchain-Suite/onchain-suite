@@ -598,9 +598,11 @@ export default function ImportExportPage() {
       toast.error("Only CSV and JSON files are supported");
       return;
     }
-    const maxBytes = 25 * 1024 * 1024;
+    const maxBytes = 100 * 1024 * 1024;
     if (file.size > maxBytes) {
-      toast.error("File too large (max 25MB)");
+      toast.error(
+        "That file is over 100MB. Split your contacts into a few smaller files (each under 100MB) and import them one at a time."
+      );
       return;
     }
 
@@ -763,35 +765,57 @@ export default function ImportExportPage() {
         }
       };
 
-      let res: unknown;
-      try {
-        res = await uploadDirect();
-      } catch (error) {
-        const shouldFallback =
-          !directBase ||
-          !orgId ||
-          error instanceof TypeError ||
-          (error instanceof Error &&
-            error.message.toLowerCase().includes("failed to fetch"));
-        if (!shouldFallback) throw error;
+      // The same-origin API proxy injects the session server-side (from the
+      // onchain.token cookie), so it authenticates reliably — but it runs on a
+      // serverless function with a ~4.5MB request-body cap. The direct-to-
+      // backend upload has no size cap but relies on a cross-origin session
+      // cookie the browser won't send (→ 401). So: route small/medium files
+      // through the authenticated proxy, and only large files direct.
+      const PROXY_BODY_LIMIT = 4 * 1024 * 1024; // headroom under the ~4.5MB cap
 
+      const uploadViaProxy = async (): Promise<unknown> => {
         let attempts = 0;
         for (;;) {
           try {
-            res = await audienceService.createImportJob({
+            return await audienceService.createImportJob({
               file: uploadedFile,
               format,
               mapping: format === "csv" ? mapping : undefined,
               platform: importPlatform || undefined,
               query,
             });
-            break;
           } catch (innerError) {
             if (!isRateLimitedError(innerError) || attempts >= 3)
               throw innerError;
             attempts += 1;
             await wait(2000 + Math.floor(Math.random() * 3000));
           }
+        }
+      };
+
+      let res: unknown;
+      if (uploadedFile.size <= PROXY_BODY_LIMIT) {
+        res = await uploadViaProxy();
+      } else {
+        // Large file: must go direct (over the proxy's serverless body cap).
+        try {
+          res = await uploadDirect();
+        } catch (error) {
+          const authRejected =
+            error instanceof Error && /\[HTTP 40[13]\]/.test(error.message);
+          const networkFailed =
+            !directBase ||
+            !orgId ||
+            error instanceof TypeError ||
+            (error instanceof Error &&
+              error.message.toLowerCase().includes("failed to fetch"));
+          if (authRejected || networkFailed) {
+            throw new Error(
+              "This file is larger than the app can proxy (~4.5MB) and the direct upload to the backend was rejected. Split it into files under 4MB to import now, or enable credentialed CORS on the backend imports endpoint so large direct uploads authenticate.",
+              { cause: error }
+            );
+          }
+          throw error;
         }
       }
 
@@ -826,7 +850,9 @@ export default function ImportExportPage() {
           [entry, ...prev.filter((x) => x.jobId !== jobId)].slice(0, 50)
         );
       }
-      toast.success("Import started");
+      toast.success(
+        "Import started — you can keep using the platform. It runs in the background and we'll let you know when it's done."
+      );
     },
     onError: (e: unknown) => {
       const message = e instanceof Error ? e.message : "Import failed";
@@ -1052,6 +1078,11 @@ export default function ImportExportPage() {
       const failed = importStatus.errorCount ?? 0;
       setImportResult({ success, failed });
       setImportStep("complete");
+      toast.success(
+        failed > 0
+          ? `Import finished — ${success.toLocaleString()} contacts imported, ${failed.toLocaleString()} skipped.`
+          : `Import finished — ${success.toLocaleString()} contacts imported.`
+      );
       return;
     }
     if (state === "failed") {

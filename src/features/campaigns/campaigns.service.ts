@@ -458,6 +458,21 @@ const toAudienceLabels = (obj: Record<string, unknown>): string[] => {
     if (Array.isArray(value)) value.forEach(push);
   };
 
+  // "Send to everyone" campaigns carry no segment/list/tag names, so they'd
+  // otherwise show blank. When the row signals an all-audience target, show a
+  // single clear "All contacts" label instead. (Backend must expose one of
+  // these flags on the campaign list row — see docs/campaigns-data-and-suppression.md.)
+  const rec = isJsonObject(obj.recipients) ? obj.recipients : undefined;
+  const lower = (v: unknown) => (typeof v === "string" ? v.toLowerCase() : "");
+  const isAllAudience =
+    obj.all === true ||
+    obj.allContacts === true ||
+    obj.audienceAll === true ||
+    lower(obj.audienceType) === "all" ||
+    rec?.all === true ||
+    lower(rec?.type) === "all";
+  if (isAllAudience) return ["All contacts"];
+
   pushAll(obj.audience);
   pushAll(obj.tags);
   pushAll(obj.tagNames);

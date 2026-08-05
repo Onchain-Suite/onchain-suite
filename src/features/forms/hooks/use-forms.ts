@@ -11,6 +11,9 @@ import {
 } from "../forms.service";
 
 export const FORMS_KEY = ["forms", "list"] as const;
+export const formDetailKey = (id: string) => ["forms", "detail", id] as const;
+export const formSubmissionsKey = (id: string, page: number, limit: number) =>
+  ["forms", "submissions", id, { page, limit }] as const;
 
 /** Server state for capture forms — owned by React Query, inherits app caching defaults. */
 export function useFormsList() {
@@ -19,6 +22,29 @@ export function useFormsList() {
     queryFn: () => formsService.listForms(),
     retry: false,
     refetchOnWindowFocus: false,
+  });
+}
+
+/** A single form for the full-page builder. */
+export function useForm(id: string) {
+  return useQuery({
+    queryKey: formDetailKey(id),
+    queryFn: () => formsService.getForm(id),
+    enabled: id.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/** Paginated submissions for the Submissions tab. */
+export function useSubmissions(id: string, page: number, limit = 25) {
+  return useQuery({
+    queryKey: formSubmissionsKey(id, page, limit),
+    queryFn: () => formsService.listSubmissions(id, { page, limit }),
+    enabled: id.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -38,13 +64,19 @@ export function useCreateForm(onSuccess?: (form: CaptureForm) => void) {
   });
 }
 
-export function useUpdateForm(onSuccess?: (form: CaptureForm) => void) {
+export function useUpdateForm(
+  onSuccess?: (form: CaptureForm) => void,
+  opts?: { successToast?: string | null }
+) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateFormInput }) =>
       formsService.updateForm(id, input),
     onSuccess: (form) => {
-      toast.success("Form updated");
+      if (opts?.successToast !== null) {
+        toast.success(opts?.successToast ?? "Form updated");
+      }
+      queryClient.setQueryData(formDetailKey(form.id), form);
       queryClient
         .invalidateQueries({ queryKey: FORMS_KEY })
         .catch(() => undefined);

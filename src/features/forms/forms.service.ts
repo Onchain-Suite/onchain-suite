@@ -3,6 +3,27 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+/**
+ * Field kinds a capture form can collect. Wallet-first: `wallet` is the
+ * identity (Connect wallet), the rest are optional channel handles / inputs.
+ * `consent` renders the opt-in checkbox.
+ */
+export type CaptureFieldType =
+  "wallet" | "email" | "text" | "x" | "farcaster" | "consent";
+
+/** Presentation config for the hosted form (stored under `settings.display`). */
+export interface FormDisplaySettings {
+  brandName?: string;
+  headline?: string;
+  description?: string;
+  submitLabel?: string;
+  consentLabel?: string;
+  successMessage?: string;
+  accent?: string;
+  /** Show the "verified with a zero-knowledge proof" reassurance line. */
+  showZkNote?: boolean;
+}
+
 /** A capture form (Email-to-Wallet), as returned by the backend `present()`. */
 export interface CaptureForm {
   id: string;
@@ -27,8 +48,30 @@ export interface CaptureForm {
 export interface CaptureFieldSpec {
   key: string;
   label?: string;
-  type?: "email" | "text" | "wallet";
+  type?: CaptureFieldType;
   required?: boolean;
+}
+
+/** One captured submission (list view / Submissions tab). */
+export interface FormSubmission {
+  id: string;
+  formId: string;
+  /** Wallet-first: the primary identity for the submission. */
+  walletAddress: string | null;
+  /** Per-field captured values, keyed by field key (email, x, farcaster…). */
+  data: Record<string, unknown>;
+  /** Channels the wallet linked through this form. */
+  channels: string[];
+  /** Whether the wallet signature / ZK proof verified. */
+  verified: boolean;
+  createdAt: string;
+}
+
+export interface SubmissionsPage {
+  items: FormSubmission[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface CreateFormInput {
@@ -138,4 +181,79 @@ export const formsService = {
       orgId
     );
   },
+
+  /** Paginated submissions for the Submissions tab. */
+  listSubmissions(
+    id: string,
+    { page = 1, limit = 25 }: { page?: number; limit?: number } = {},
+    orgId?: string
+  ) {
+    return request<unknown>(
+      {
+        method: "GET",
+        url: `/forms/${id}/submissions`,
+        params: { page, limit },
+      },
+      orgId
+    ).then((payload): SubmissionsPage => {
+      const items = extractItems<FormSubmission>(payload);
+      const root = extractData<unknown>(payload);
+      const total =
+        isJsonObject(root) && typeof root.total === "number"
+          ? root.total
+          : items.length;
+      return { items, total, page, limit };
+    });
+  },
+
+  /** Export all submissions as CSV (server streams a file). */
+  submissionsCsvUrl(id: string) {
+    return `/api/v1/forms/${id}/submissions/export.csv`;
+  },
 };
+
+/** Sensible defaults for a form's hosted-page presentation. */
+export const DEFAULT_DISPLAY: Required<FormDisplaySettings> = {
+  brandName: "",
+  headline: "Join the waitlist",
+  description: "Connect your wallet and link an email to claim your spot.",
+  submitLabel: "Verify & join",
+  consentLabel:
+    "I agree to receive updates and consent to linking my wallet to my contact details. I can unsubscribe any time.",
+  successMessage: "You're in — watch your inbox for what's next.",
+  accent: "#f97316",
+  showZkNote: true,
+};
+
+/** Read display settings out of `form.settings.display`, filling defaults. */
+export function readDisplaySettings(
+  settings: Record<string, unknown> | undefined
+): Required<FormDisplaySettings> {
+  const display =
+    settings && isJsonObject(settings.display) ? settings.display : {};
+  const pickStr = (k: keyof FormDisplaySettings, fallback: string) =>
+    typeof display[k] === "string" && (display[k] as string).length > 0
+      ? (display[k] as string)
+      : fallback;
+  return {
+    brandName: pickStr("brandName", DEFAULT_DISPLAY.brandName),
+    headline: pickStr("headline", DEFAULT_DISPLAY.headline),
+    description: pickStr("description", DEFAULT_DISPLAY.description),
+    submitLabel: pickStr("submitLabel", DEFAULT_DISPLAY.submitLabel),
+    consentLabel: pickStr("consentLabel", DEFAULT_DISPLAY.consentLabel),
+    successMessage: pickStr("successMessage", DEFAULT_DISPLAY.successMessage),
+    accent: pickStr("accent", DEFAULT_DISPLAY.accent),
+    showZkNote:
+      typeof display.showZkNote === "boolean"
+        ? display.showZkNote
+        : DEFAULT_DISPLAY.showZkNote,
+  };
+}
+
+/** Merge edited display settings back into the opaque settings blob. */
+export function writeDisplaySettings(
+  settings: Record<string, unknown> | undefined,
+  display: FormDisplaySettings
+): Record<string, unknown> {
+  return { ...(settings ?? {}), display: { ...display } };
+}

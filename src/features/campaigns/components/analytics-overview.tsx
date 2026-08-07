@@ -63,17 +63,17 @@ export function CampaignsAnalyticsOverview() {
     {
       label: `Messages sent (${rangeDays}d)`,
       value: formatCount(overview.totals?.messagesSent),
-      hint: "Email + in-app push",
+      // hint: "Email + in-app push",  // hidden until engagement tracking lands
     },
     {
       label: "Open rate",
       value: formatPercentage(overview.email?.openRate),
-      hint: `${formatCount(overview.email?.uniqueOpens)} unique opens`,
+      // hint: `${formatCount(overview.email?.uniqueOpens)} unique opens`,
     },
     {
       label: "Click rate",
       value: formatPercentage(overview.email?.clickRate),
-      hint: `${formatCount(overview.email?.uniqueClicks)} unique clicks`,
+      // hint: `${formatCount(overview.email?.uniqueClicks)} unique clicks`,
     },
     {
       label: "Monthly allowance",
@@ -97,9 +97,11 @@ export function CampaignsAnalyticsOverview() {
           <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
             {card.value}
           </p>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {card.hint}
-          </p>
+          {card.hint ? (
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {card.hint}
+            </p>
+          ) : null}
         </div>
       ))}
     </div>

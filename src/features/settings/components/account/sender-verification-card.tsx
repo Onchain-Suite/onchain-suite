@@ -14,6 +14,7 @@ import { SettingsCard, SettingsStepper, StatusPill } from "../settings-card";
 import { type DomainPurpose, parseDomainDns } from "./domain-dns";
 import { useAccountOrg } from "./use-account-org";
 import {
+  type DomainProvisionResult,
   type SenderDomainRecord,
   senderIdentitiesService,
 } from "@/features/settings/sender-identities.service";
@@ -96,6 +97,22 @@ export function SenderVerificationCard() {
       });
       return parseDomainDns(res.data);
     },
+  });
+
+  // Both providers at once (transactional + marketing), so the customer can
+  // publish every DNS record — not just the routed provider's. Idempotent, so
+  // it's safe to run on expand; cached to avoid re-provisioning on focus.
+  const provisionQuery = useQuery({
+    queryKey: ["account", "domain-provision", expandedId],
+    enabled: Boolean(expandedId && orgHeaders),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    queryFn: () =>
+      senderIdentitiesService.provisionDomain(
+        expandedId as string,
+        organizationId ?? undefined
+      ),
   });
 
   const createMutation = useMutation({
@@ -247,6 +264,10 @@ export function SenderVerificationCard() {
 
                 {open ? (
                   <div className="border-t border-border/50 px-4 py-4">
+                    <AllProviderDnsRecords
+                      loading={provisionQuery.isLoading}
+                      data={provisionQuery.data}
+                    />
                     <DomainDnsPanel
                       loading={dnsQuery.isLoading}
                       data={dnsQuery.data}
@@ -265,6 +286,116 @@ export function SenderVerificationCard() {
         </div>
       ) : null}
     </SettingsCard>
+  );
+}
+
+// Map each send provider to its sending purpose + a friendly name. ACS carries
+// transactional mail, SES marketing. SendGrid is intentionally not shown.
+const PROVIDER_META: Record<string, { purpose: string; name: string }> = {
+  acs: { purpose: "Transactional", name: "Azure ACS" },
+  ses: { purpose: "Marketing", name: "Amazon SES" },
+};
+const providerMeta = (provider: string) =>
+  PROVIDER_META[provider.toLowerCase()] ?? {
+    purpose: "",
+    name: provider || "Provider",
+  };
+
+// SendGrid is never surfaced; SES (marketing) leads as the default provider.
+const HIDDEN_PROVIDERS = new Set(["sendgrid"]);
+const providerOrder = (provider: string) => {
+  const p = provider.toLowerCase();
+  if (p === "ses") return 0;
+  if (p === "acs") return 1;
+  return 2;
+};
+
+/**
+ * All configured providers' DNS records together (from POST /domain/{id}/provision)
+ * so the customer can publish both the transactional and marketing record sets,
+ * not just the routed provider's. Skipped/error providers show their reason.
+ */
+function AllProviderDnsRecords({
+  loading,
+  data,
+}: {
+  loading: boolean;
+  data: DomainProvisionResult | undefined;
+}) {
+  if (loading) {
+    return <Skeleton className="mb-5 h-24 w-full rounded-lg" />;
+  }
+  // Drop SendGrid entirely and lead with SES (the default DNS provider).
+  const shown = (data?.providers ?? [])
+    .filter((p) => !HIDDEN_PROVIDERS.has(p.provider.toLowerCase()))
+    .sort((a, b) => providerOrder(a.provider) - providerOrder(b.provider));
+  if (shown.length === 0) return null;
+
+  return (
+    <div className="mb-5 space-y-3">
+      <div>
+        <div className="text-sm font-medium text-foreground">
+          DNS records to publish
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Publish every record below to verify this domain for both
+          transactional and marketing sending.
+        </p>
+      </div>
+      {shown.map((prov) => {
+        const meta = providerMeta(prov.provider);
+        const unavailable =
+          prov.status === "skipped" || prov.status === "error";
+        return (
+          <div
+            key={prov.provider}
+            className="rounded-lg border border-border/60 bg-background/60 p-3"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-foreground">
+                {meta.purpose ? `${meta.purpose} · ${meta.name}` : meta.name}
+              </span>
+              {prov.status === "skipped" ? (
+                <StatusPill tone="pending">Not configured</StatusPill>
+              ) : prov.status === "error" ? (
+                <StatusPill tone="danger">Error</StatusPill>
+              ) : null}
+            </div>
+            {unavailable ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {prov.reason ??
+                  (prov.status === "skipped"
+                    ? "This provider isn't configured yet — no records to publish."
+                    : "Couldn't fetch records for this provider.")}
+              </p>
+            ) : prov.records.length === 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                No records returned yet.
+              </p>
+            ) : (
+              <div className="mt-2 space-y-3">
+                {prov.records.map((r) => (
+                  <div key={`${r.type}-${r.host}`} className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                        {r.type}
+                      </span>
+                      {r.valid === true ? (
+                        <StatusPill tone="success">Pass</StatusPill>
+                      ) : r.valid === false ? (
+                        <StatusPill tone="pending">Pending</StatusPill>
+                      ) : null}
+                    </div>
+                    <DnsField label="Host" value={r.host} />
+                    <DnsField label="Value" value={r.value} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

@@ -33,6 +33,7 @@ import { Textarea } from "@/ui/textarea";
 
 import { cn } from "@/lib/utils";
 
+import { FORMS_FARCASTER_ENABLED } from "../config";
 import {
   type CaptureFieldSpec,
   type CaptureFieldType,
@@ -465,7 +466,9 @@ function FieldsPanel({
           Add a field
         </p>
         <div className="grid grid-cols-2 gap-2">
-          {FIELD_PALETTE.map((item) => {
+          {FIELD_PALETTE.filter(
+            (f) => f.type !== "farcaster" || FORMS_FARCASTER_ENABLED
+          ).map((item) => {
             const disabled =
               (item.type === "wallet" && hasWallet) ||
               (item.type === "consent" && hasConsent);

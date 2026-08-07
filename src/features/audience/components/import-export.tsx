@@ -39,6 +39,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
+
 import {
   type AudienceExportJobStatus,
   type AudienceImportExportFormat,
@@ -123,6 +125,51 @@ const safeJsonParse = (raw: string): unknown => {
 };
 
 const toIsoNow = () => new Date().toISOString();
+
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const isRateLimitedError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const err = error as { cause?: unknown; message?: unknown };
+  const candidate = (err.cause ?? err) as {
+    response?: { status?: unknown };
+    status?: unknown;
+    message?: unknown;
+  };
+  const status =
+    typeof candidate.response?.status === "number"
+      ? candidate.response.status
+      : typeof candidate.status === "number"
+        ? candidate.status
+        : null;
+  if (status === 429) return true;
+  const msg =
+    typeof err.message === "string"
+      ? err.message
+      : typeof candidate.message === "string"
+        ? candidate.message
+        : "";
+  return msg.includes("429") || msg.toLowerCase().includes("rate limit");
+};
+
+// Large imports (100k+ rows) exceed the Next.js/Vercel proxy body cap, so upload
+// straight to the backend when NEXT_PUBLIC_BACKEND_URL is set; fall back to the
+// proxied service call on a network/CORS error.
+const getDirectBackendBaseUrl = () => {
+  const raw = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").trim();
+  if (!raw) return null;
+  return raw.replace(/\/$/, "");
+};
+
+const unwrapBackendEnvelope = (payload: unknown): unknown => {
+  if (isJsonObject(payload) && "data" in payload) {
+    return payload.data ?? payload;
+  }
+  return payload;
+};
 
 const toHumanBytes = (bytes: number) => {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -551,9 +598,11 @@ export default function ImportExportPage() {
       toast.error("Only CSV and JSON files are supported");
       return;
     }
-    const maxBytes = 25 * 1024 * 1024;
+    const maxBytes = 100 * 1024 * 1024;
     if (file.size > maxBytes) {
-      toast.error("File too large (max 25MB)");
+      toast.error(
+        "That file is over 100MB. Split your contacts into a few smaller files (each under 100MB) and import them one at a time."
+      );
       return;
     }
 
@@ -657,18 +706,123 @@ export default function ImportExportPage() {
         }
       }
 
-      const res = await audienceService.createImportJob({
-        file: uploadedFile,
-        format,
-        mapping: format === "csv" ? mapping : undefined,
-        // Backend auto-maps this platform's CSV headers; the explicit
-        // mapping entries above still override the preset.
-        platform: importPlatform || undefined,
-      });
+      const query = {
+        mode: "upsert",
+        onConflict: "update",
+        dedupeKey: "email",
+        maxErrors: 10000,
+      };
 
+      const orgId = getSelectedOrganizationId();
+      const directBase = getDirectBackendBaseUrl();
+
+      const uploadDirect = async (): Promise<unknown> => {
+        if (!directBase) throw new Error("Missing backend URL");
+        if (!orgId) throw new Error("Missing organization id");
+
+        const fd = new FormData();
+        fd.append("file", uploadedFile);
+        if (format === "csv" && Object.keys(mapping).length > 0) {
+          fd.append("mapping", JSON.stringify(mapping));
+        }
+
+        const params = new URLSearchParams();
+        params.set("format", format);
+        if (importPlatform) params.set("platform", importPlatform);
+        for (const [k, v] of Object.entries(query)) {
+          if (v === undefined) continue;
+          params.set(k, String(v));
+        }
+
+        let attempts = 0;
+        for (;;) {
+          const res = await fetch(`${directBase}/audience/imports?${params}`, {
+            method: "POST",
+            body: fd,
+            credentials: "include",
+            headers: {
+              "x-org-id": orgId,
+            },
+          });
+
+          if (res.ok) {
+            const json = await res.json().catch(() => null);
+            return unwrapBackendEnvelope(json);
+          }
+
+          if (res.status === 429 && attempts < 3) {
+            attempts += 1;
+            await wait(2000 + Math.floor(Math.random() * 3000));
+            continue;
+          }
+
+          const bodyText = await res.text().catch(() => "");
+          throw new Error(
+            `Import upload failed [HTTP ${res.status}]: ${
+              bodyText.trim().length > 0 ? bodyText : "Request failed"
+            }`
+          );
+        }
+      };
+
+      // The same-origin API proxy injects the session server-side (from the
+      // onchain.token cookie), so it authenticates reliably — but it runs on a
+      // serverless function with a ~4.5MB request-body cap. The direct-to-
+      // backend upload has no size cap but relies on a cross-origin session
+      // cookie the browser won't send (→ 401). So: route small/medium files
+      // through the authenticated proxy, and only large files direct.
+      const PROXY_BODY_LIMIT = 4 * 1024 * 1024; // headroom under the ~4.5MB cap
+
+      const uploadViaProxy = async (): Promise<unknown> => {
+        let attempts = 0;
+        for (;;) {
+          try {
+            return await audienceService.createImportJob({
+              file: uploadedFile,
+              format,
+              mapping: format === "csv" ? mapping : undefined,
+              platform: importPlatform || undefined,
+              query,
+            });
+          } catch (innerError) {
+            if (!isRateLimitedError(innerError) || attempts >= 3)
+              throw innerError;
+            attempts += 1;
+            await wait(2000 + Math.floor(Math.random() * 3000));
+          }
+        }
+      };
+
+      let res: unknown;
+      if (uploadedFile.size <= PROXY_BODY_LIMIT) {
+        res = await uploadViaProxy();
+      } else {
+        // Large file: must go direct (over the proxy's serverless body cap).
+        try {
+          res = await uploadDirect();
+        } catch (error) {
+          const authRejected =
+            error instanceof Error && /\[HTTP 40[13]\]/.test(error.message);
+          const networkFailed =
+            !directBase ||
+            !orgId ||
+            error instanceof TypeError ||
+            (error instanceof Error &&
+              error.message.toLowerCase().includes("failed to fetch"));
+          if (authRejected || networkFailed) {
+            throw new Error(
+              "This file is larger than the app can proxy (~4.5MB) and the direct upload to the backend was rejected. Split it into files under 4MB to import now, or enable credentialed CORS on the backend imports endpoint so large direct uploads authenticate.",
+              { cause: error }
+            );
+          }
+          throw error;
+        }
+      }
+
+      const jobIdCandidate = (res as { jobId?: unknown }).jobId;
       const jobId =
-        typeof res.jobId === "string" && res.jobId.length > 0
-          ? res.jobId
+        typeof jobIdCandidate === "string" && jobIdCandidate.length > 0
+          ? jobIdCandidate
           : typeof (res as unknown as { id?: unknown }).id === "string"
             ? String((res as unknown as { id?: unknown }).id)
             : typeof (res as unknown as { jobId?: unknown }).jobId === "string"
@@ -696,7 +850,9 @@ export default function ImportExportPage() {
           [entry, ...prev.filter((x) => x.jobId !== jobId)].slice(0, 50)
         );
       }
-      toast.success("Import started");
+      toast.success(
+        "Import started — you can keep using the platform. It runs in the background and we'll let you know when it's done."
+      );
     },
     onError: (e: unknown) => {
       const message = e instanceof Error ? e.message : "Import failed";
@@ -922,6 +1078,11 @@ export default function ImportExportPage() {
       const failed = importStatus.errorCount ?? 0;
       setImportResult({ success, failed });
       setImportStep("complete");
+      toast.success(
+        failed > 0
+          ? `Import finished — ${success.toLocaleString()} contacts imported, ${failed.toLocaleString()} skipped.`
+          : `Import finished — ${success.toLocaleString()} contacts imported.`
+      );
       return;
     }
     if (state === "failed") {

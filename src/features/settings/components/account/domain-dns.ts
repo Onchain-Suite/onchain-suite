@@ -196,14 +196,14 @@ export function parseDomainDns(payload: unknown): DomainDnsData {
   const providerRaw = isJsonObject(root)
     ? str(root.provider)?.toLowerCase()
     : undefined;
-  const purpose: DomainPurpose | undefined =
+  // Default to SES (marketing) when the backend hasn't pinned a purpose, so SES
+  // is the default DNS provider shown.
+  const purpose: DomainPurpose =
     purposeRaw === "transactional" || purposeRaw === "marketing"
       ? purposeRaw
-      : providerRaw === "ses"
-        ? "marketing"
-        : providerRaw === "acs"
-          ? "transactional"
-          : undefined;
+      : providerRaw === "acs"
+        ? "transactional"
+        : "marketing";
 
   return { records, sendReady, verificationStates, fixes, purpose };
 }

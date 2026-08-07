@@ -613,6 +613,14 @@ export const billingService = {
     );
   },
 
+  /** `POST /billing/upgrade/{reference}/cancel` — cancel a pending checkout. */
+  cancelUpgrade(reference: string, options?: BillingServiceOptions) {
+    return billingRequest<BillingUpgradeResponse>(
+      { method: "POST", url: `/billing/upgrade/${reference}/cancel` },
+      options
+    );
+  },
+
   /**
    * List invoices.
    */

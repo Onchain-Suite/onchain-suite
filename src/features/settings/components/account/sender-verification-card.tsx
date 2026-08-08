@@ -1,6 +1,11 @@
 "use client";
 
-import { ArrowPathIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowPathIcon,
+  CheckCircleIcon,
+  ChevronDownIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -11,7 +16,7 @@ import { apiClient } from "@/lib/api-client";
 import { cn, isJsonObject } from "@/lib/utils";
 
 import { SettingsCard, SettingsStepper, StatusPill } from "../settings-card";
-import { type DomainPurpose, parseDomainDns } from "./domain-dns";
+import { parseDomainDns } from "./domain-dns";
 import { useAccountOrg } from "./use-account-org";
 import {
   type DomainProvisionResult,
@@ -161,25 +166,24 @@ export function SenderVerificationCard() {
       ),
   });
 
-  // Marketing routes through SES, transactional through ACS — the backend
-  // re-scopes the DNS checklist to the chosen provider (PUT /domain/{id}/purpose).
-  const purposeMutation = useMutation({
-    mutationFn: (input: { domainId: string; purpose: DomainPurpose }) =>
-      apiClient.put(
-        `/domain/${input.domainId}/purpose`,
-        { purpose: input.purpose },
-        { headers: orgHeaders }
+  // Lets the user clear out a domain that's stuck pending/failed so it doesn't
+  // linger in the list forever.
+  const deleteMutation = useMutation({
+    mutationFn: (domainId: string) =>
+      senderIdentitiesService.deleteDomain(
+        domainId,
+        organizationId ?? undefined
       ),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["account", "domain-dns"] }),
-        queryClient.invalidateQueries({ queryKey: domainsKey(organizationId) }),
-      ]);
-      toast.success("Sending purpose updated — DNS records re-scoped");
+    onSuccess: async (_res, domainId) => {
+      if (expandedId === domainId) setExpandedId(null);
+      await queryClient.invalidateQueries({
+        queryKey: domainsKey(organizationId),
+      });
+      toast.success("Domain removed");
     },
     onError: (error: unknown) =>
       toast.error(
-        error instanceof Error ? error.message : "Failed to update purpose"
+        error instanceof Error ? error.message : "Failed to remove domain"
       ),
   });
 
@@ -228,56 +232,89 @@ export function SenderVerificationCard() {
                 key={domain.id}
                 className="rounded-xl border border-border/60 bg-background/40"
               >
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(open ? null : domain.id)}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-                >
-                  <span className="truncate font-mono text-sm text-foreground">
-                    {domain.domain}
-                  </span>
-                  <span className="flex shrink-0 items-center gap-2">
-                    <StatusPill
-                      tone={
-                        domain.status === "verified"
-                          ? "success"
+                <div className="flex items-center gap-1 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(open ? null : domain.id)}
+                    className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                  >
+                    <span className="truncate font-mono text-sm text-foreground">
+                      {domain.domain}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <StatusPill
+                        tone={
+                          domain.status === "verified"
+                            ? "success"
+                            : domain.status === "failed"
+                              ? "danger"
+                              : "pending"
+                        }
+                      >
+                        {domain.status === "verified"
+                          ? "Verified"
                           : domain.status === "failed"
-                            ? "danger"
-                            : "pending"
+                            ? "Failed"
+                            : "Pending"}
+                      </StatusPill>
+                      <ChevronDownIcon
+                        aria-hidden="true"
+                        className={cn(
+                          "h-4 w-4 text-muted-foreground transition-transform",
+                          open && "rotate-180"
+                        )}
+                      />
+                    </span>
+                  </button>
+                  {domain.status !== "verified" ? (
+                    <button
+                      type="button"
+                      onClick={() => deleteMutation.mutate(domain.id)}
+                      disabled={
+                        deleteMutation.isPending &&
+                        deleteMutation.variables === domain.id
                       }
+                      aria-label={`Remove ${domain.domain}`}
+                      title="Remove domain"
+                      className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
                     >
-                      {domain.status === "verified"
-                        ? "Verified"
-                        : domain.status === "failed"
-                          ? "Failed"
-                          : "Pending"}
-                    </StatusPill>
-                    <ChevronDownIcon
-                      aria-hidden="true"
-                      className={cn(
-                        "h-4 w-4 text-muted-foreground transition-transform",
-                        open && "rotate-180"
-                      )}
-                    />
-                  </span>
-                </button>
+                      <TrashIcon aria-hidden="true" className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
 
                 {open ? (
                   <div className="border-t border-border/50 px-4 py-4">
-                    <AllProviderDnsRecords
-                      loading={provisionQuery.isLoading}
-                      data={provisionQuery.data}
-                    />
-                    <DomainDnsPanel
-                      loading={dnsQuery.isLoading}
-                      data={dnsQuery.data}
-                      onRecheck={() => recheckMutation.mutate(domain.id)}
-                      rechecking={recheckMutation.isPending}
-                      onSetPurpose={(purpose) =>
-                        purposeMutation.mutate({ domainId: domain.id, purpose })
-                      }
-                      purposeSaving={purposeMutation.isPending}
-                    />
+                    {domain.status === "verified" ? (
+                      <div className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
+                        <CheckCircleIcon
+                          aria-hidden="true"
+                          className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                        />
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-medium text-foreground">
+                            Verified — sending is live
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            SES authentication passed for this domain. There are
+                            no DNS records left to publish.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <AllProviderDnsRecords
+                          loading={provisionQuery.isLoading}
+                          data={provisionQuery.data}
+                        />
+                        <DomainDnsPanel
+                          loading={dnsQuery.isLoading}
+                          data={dnsQuery.data}
+                          onRecheck={() => recheckMutation.mutate(domain.id)}
+                          rechecking={recheckMutation.isPending}
+                        />
+                      </>
+                    )}
                   </div>
                 ) : null}
               </div>
@@ -289,20 +326,17 @@ export function SenderVerificationCard() {
   );
 }
 
-// Map each send provider to its sending purpose + a friendly name. ACS carries
-// transactional mail, SES marketing. SendGrid is intentionally not shown.
-const PROVIDER_META: Record<string, { purpose: string; name: string }> = {
-  acs: { purpose: "Transactional", name: "Azure ACS" },
-  ses: { purpose: "Marketing", name: "Amazon SES" },
+// Friendly display name per send provider. SES leads; SendGrid/ACS are hidden.
+const PROVIDER_META: Record<string, string> = {
+  acs: "Azure ACS",
+  ses: "Amazon SES",
 };
-const providerMeta = (provider: string) =>
-  PROVIDER_META[provider.toLowerCase()] ?? {
-    purpose: "",
-    name: provider || "Provider",
-  };
+const providerName = (provider: string) =>
+  PROVIDER_META[provider.toLowerCase()] ?? provider ?? "Provider";
 
-// SendGrid is never surfaced; SES (marketing) leads as the default provider.
-const HIDDEN_PROVIDERS = new Set(["sendgrid"]);
+// SES is the only surfaced provider — transactional (ACS) and SendGrid records
+// are hidden, so customers publish exactly one set of DNS records.
+const HIDDEN_PROVIDERS = new Set(["sendgrid", "acs"]);
 const providerOrder = (provider: string) => {
   const p = provider.toLowerCase();
   if (p === "ses") return 0;
@@ -338,12 +372,10 @@ function AllProviderDnsRecords({
           DNS records to publish
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Publish every record below to verify this domain for both
-          transactional and marketing sending.
+          Publish every record below to verify your sending domain.
         </p>
       </div>
       {shown.map((prov) => {
-        const meta = providerMeta(prov.provider);
         const unavailable =
           prov.status === "skipped" || prov.status === "error";
         return (
@@ -353,7 +385,7 @@ function AllProviderDnsRecords({
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-foreground">
-                {meta.purpose ? `${meta.purpose} · ${meta.name}` : meta.name}
+                {providerName(prov.provider)}
               </span>
               {prov.status === "skipped" ? (
                 <StatusPill tone="pending">Not configured</StatusPill>
@@ -404,15 +436,11 @@ function DomainDnsPanel({
   data,
   onRecheck,
   rechecking,
-  onSetPurpose,
-  purposeSaving,
 }: {
   loading: boolean;
   data: ReturnType<typeof parseDomainDns> | undefined;
   onRecheck: () => void;
   rechecking: boolean;
-  onSetPurpose: (purpose: DomainPurpose) => void;
-  purposeSaving: boolean;
 }) {
   if (loading || !data) {
     return (
@@ -429,44 +457,6 @@ function DomainDnsPanel({
 
   return (
     <div className="space-y-4">
-      {/* What's this domain for? — picks the provider (SES vs ACS) and, with it,
-          the exact DNS records to publish. */}
-      <div>
-        <div className="text-sm font-medium text-foreground">
-          What&apos;s this domain for?
-        </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Transactional email routes through Azure ACS; marketing through Amazon
-          SES. This decides which DNS records you publish below.
-        </p>
-        <div className="mt-2 inline-flex rounded-lg border border-border/70 bg-background/60 p-1">
-          {(
-            [
-              { key: "transactional" as const, label: "Transactional · ACS" },
-              { key: "marketing" as const, label: "Marketing · SES" },
-            ] satisfies { key: DomainPurpose; label: string }[]
-          ).map((opt) => {
-            const active = data.purpose === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                disabled={purposeSaving || active}
-                onClick={() => onSetPurpose(opt.key)}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm transition-colors disabled:cursor-default",
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {data.sendReady !== undefined || data.verificationStates.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill tone={data.sendReady ? "success" : "pending"}>
@@ -494,7 +484,7 @@ function DomainDnsPanel({
       {conflictCount > 0 ? (
         <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
           {conflictCount} existing record{conflictCount === 1 ? "" : "s"}{" "}
-          conflict{conflictCount === 1 ? "s" : ""} with verification — apply the
+          conflict{conflictCount === 1 ? "s" : ""} with verification, apply the
           fixes below.
         </p>
       ) : null}

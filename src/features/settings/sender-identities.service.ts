@@ -423,6 +423,14 @@ export const senderIdentitiesService = {
     );
   },
 
+  /** `DELETE /domain/{id}` — removes a sender domain (e.g. a stuck pending one). */
+  deleteDomain(domainId: string, orgId?: string) {
+    return request<unknown>(
+      { method: "DELETE", url: `/domain/${domainId}` },
+      orgId
+    );
+  },
+
   /** `GET /domain/{id}/dns` — registrar-ready TXT/DKIM/SPF records. */
   async getDomainDns(domainId: string, orgId?: string) {
     const payload = await request<unknown>(

@@ -151,7 +151,7 @@ export default function IntelligencePage() {
     "relative gap-2 rounded-none border-b-2 border-transparent bg-transparent px-1 pb-2.5 text-sm font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground";
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">
           Intelligence

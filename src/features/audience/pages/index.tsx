@@ -34,6 +34,8 @@ import { cn, isJsonObject } from "@/lib/utils";
 import type { AudienceProfile, AudienceSegment } from "../audience.service";
 import { audienceService } from "../audience.service";
 import { ApplyTagsPopover } from "../components/apply-tags-popover";
+import { AudienceListDetail } from "../components/audience-list-detail";
+import { AudienceTagsTab } from "../components/audience-tags-tab";
 import {
   ComposeEmailDialog,
   type EmailRecipient,
@@ -174,6 +176,11 @@ export function AudiencePages() {
   const [creatingList, setCreatingList] = useState(false);
   const [listName, setListName] = useState("");
   const [listType, setListType] = useState<"growing" | "static">("growing");
+  const [creatingTag, setCreatingTag] = useState(false);
+  // A list selected from the Lists table opens its in-page detail.
+  const [selectedList, setSelectedList] = useState<AudienceSegment | null>(
+    null
+  );
   const [composeOpen, setComposeOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -267,9 +274,11 @@ export function AudiencePages() {
     [rows, selectedIds]
   );
 
-  // Reset selection when the tab changes.
+  // Reset selection + transient views when the tab changes.
   useEffect(() => {
     setSelectedIds([]);
+    setSelectedList(null);
+    setCreatingTag(false);
   }, [activeTab]);
 
   const deleteMutation = useMutation({
@@ -407,512 +416,531 @@ export function AudiencePages() {
         ))}
       </section>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div
-          role="tablist"
-          aria-label="Audience segments"
-          className="flex flex-wrap items-center gap-2"
-        >
-          {tabs.map((tab) => {
-            const active = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  "rounded-lg border px-3 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none",
-                  active
-                    ? "border-primary/40 bg-primary/10 text-primary"
-                    : "border-border bg-card text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {tab.label}
-                <span
-                  className={cn(
-                    "ml-1.5 tabular-nums",
-                    active ? "text-primary" : "text-muted-foreground/70"
-                  )}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        {activeTab === "lists" && !creatingList ? (
-          <Button size="sm" onClick={() => setCreatingList(true)}>
-            <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-            New list
-          </Button>
-        ) : null}
-      </div>
+      {selectedList ? (
+        <AudienceListDetail
+          segment={selectedList}
+          onBack={() => setSelectedList(null)}
+        />
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div
+              role="tablist"
+              aria-label="Audience segments"
+              className="flex flex-wrap items-center gap-2"
+            >
+              {tabs.map((tab) => {
+                const active = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none",
+                      active
+                        ? "border-primary/40 bg-primary/10 text-primary"
+                        : "border-border bg-card text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {tab.label}
+                    <span
+                      className={cn(
+                        "ml-1.5 tabular-nums",
+                        active ? "text-primary" : "text-muted-foreground/70"
+                      )}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {activeTab === "lists" && !creatingList ? (
+              <Button size="sm" onClick={() => setCreatingList(true)}>
+                <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
+                New list
+              </Button>
+            ) : activeTab === "tags" && !creatingTag ? (
+              <Button size="sm" onClick={() => setCreatingTag(true)}>
+                <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
+                New tag
+              </Button>
+            ) : null}
+          </div>
 
-      {activeTab === "contacts" ? (
-        <div className="space-y-3">
-          {selectedIds.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5">
-              <span className="text-sm font-medium">
-                {selectedIds.length} selected
-              </span>
-              <div className="ml-auto flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-lg"
-                  disabled={emailRecipients.length === 0}
-                  onClick={() => setComposeOpen(true)}
-                >
-                  <EnvelopeIcon className="mr-1.5 size-4" aria-hidden="true" />
-                  Compose
-                </Button>
-                <ApplyTagsPopover
-                  availableTags={availableTags}
-                  isApplying={applyTagsMutation.isPending}
-                  onApply={(tags) => applyTagsMutation.mutateAsync(tags)}
-                  trigger={
-                    <Button size="sm" variant="outline" className="rounded-lg">
-                      Tag
+          {activeTab === "contacts" ? (
+            <div className="space-y-3">
+              {selectedIds.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5">
+                  <span className="text-sm font-medium">
+                    {selectedIds.length} selected
+                  </span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-lg"
+                      disabled={emailRecipients.length === 0}
+                      onClick={() => setComposeOpen(true)}
+                    >
+                      <EnvelopeIcon
+                        className="mr-1.5 size-4"
+                        aria-hidden="true"
+                      />
+                      Compose
                     </Button>
-                  }
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-lg text-destructive hover:text-destructive"
-                  disabled={deleteMutation.isPending}
-                  onClick={() => deleteMutation.mutate(selectedIds)}
-                >
-                  <TrashIcon className="mr-1.5 size-4" aria-hidden="true" />
-                  Delete
-                </Button>
-              </div>
-            </div>
-          ) : null}
+                    <ApplyTagsPopover
+                      availableTags={availableTags}
+                      isApplying={applyTagsMutation.isPending}
+                      onApply={(tags) => applyTagsMutation.mutateAsync(tags)}
+                      trigger={
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-lg"
+                        >
+                          Tag
+                        </Button>
+                      }
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-lg text-destructive hover:text-destructive"
+                      disabled={deleteMutation.isPending}
+                      onClick={() => deleteMutation.mutate(selectedIds)}
+                    >
+                      <TrashIcon className="mr-1.5 size-4" aria-hidden="true" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
 
-          {profilesQuery.isLoading ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-              Loading contacts...
-            </div>
-          ) : profilesQuery.isError ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-              Failed to load contacts.
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-              No contacts yet — import a CSV or sync a contract to get started.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px] border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-xs tracking-wide text-muted-foreground uppercase">
-                    <th className="py-3 pr-4 font-medium">Contact</th>
-                    <th className="px-4 py-3 font-medium">Reachable via</th>
-                    <th className="px-4 py-3 font-medium">Email</th>
-                    <th className="px-4 py-3 font-medium">Tags</th>
-                    <th className="px-4 py-3 text-right font-medium">
-                      Lifetime
-                    </th>
-                    <th className="px-4 py-3 text-right font-medium">
-                      Last active
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => {
-                    const selected = selectedIds.includes(row.id);
-                    const lifetime = row.walletFull
-                      ? `${pseudoEth(row.walletFull).toFixed(1)} ETH`
-                      : "—";
-                    return (
-                      <tr
-                        key={row.id}
-                        className={cn(
-                          "group/row border-b border-border transition-colors last:border-0 hover:bg-muted/40",
-                          selected && "bg-primary/[0.04]"
-                        )}
-                      >
-                        <td className="py-3.5 pr-4">
-                          <div className="flex items-center gap-2.5">
-                            <input
-                              type="checkbox"
-                              checked={selected}
-                              onChange={() => toggleOne(row.id)}
-                              aria-label={`Select ${row.displayName}`}
-                              className={cn(
-                                "size-4 shrink-0 cursor-pointer rounded border-border accent-primary transition-opacity",
-                                selected
-                                  ? "opacity-100"
-                                  : "opacity-0 group-hover/row:opacity-100"
-                              )}
-                            />
-                            <button
-                              type="button"
-                              onClick={() =>
-                                router.push(
-                                  `${PRIVATE_ROUTES.AUDIENCE}/${encodeURIComponent(row.id)}`
-                                )
-                              }
-                              className="flex min-w-0 items-center gap-2 text-left"
-                            >
-                              {row.hasNamedIdentity ? (
-                                <>
-                                  <span className="font-medium text-foreground">
-                                    {row.displayName}
+              {profilesQuery.isLoading ? (
+                <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+                  Loading contacts...
+                </div>
+              ) : profilesQuery.isError ? (
+                <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+                  Failed to load contacts.
+                </div>
+              ) : rows.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
+                  No contacts yet — import a CSV or sync a contract to get
+                  started.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[860px] border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-xs tracking-wide text-muted-foreground uppercase">
+                        <th className="py-3 pr-4 font-medium">Contact</th>
+                        <th className="px-4 py-3 font-medium">Reachable via</th>
+                        <th className="px-4 py-3 font-medium">Email</th>
+                        <th className="px-4 py-3 font-medium">Tags</th>
+                        <th className="px-4 py-3 text-right font-medium">
+                          Lifetime
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium">
+                          Last active
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row) => {
+                        const selected = selectedIds.includes(row.id);
+                        const lifetime = row.walletFull
+                          ? `${pseudoEth(row.walletFull).toFixed(1)} ETH`
+                          : "—";
+                        return (
+                          <tr
+                            key={row.id}
+                            className={cn(
+                              "group/row border-b border-border transition-colors last:border-0 hover:bg-muted/40",
+                              selected && "bg-primary/[0.04]"
+                            )}
+                          >
+                            <td className="py-3.5 pr-4">
+                              <div className="flex items-center gap-2.5">
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => toggleOne(row.id)}
+                                  aria-label={`Select ${row.displayName}`}
+                                  className={cn(
+                                    "size-4 shrink-0 cursor-pointer rounded border-border accent-primary transition-opacity",
+                                    selected
+                                      ? "opacity-100"
+                                      : "opacity-0 group-hover/row:opacity-100"
+                                  )}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    router.push(
+                                      `${PRIVATE_ROUTES.AUDIENCE}/${encodeURIComponent(row.id)}`
+                                    )
+                                  }
+                                  className="flex min-w-0 items-center gap-2 text-left"
+                                >
+                                  {row.hasNamedIdentity ? (
+                                    <>
+                                      <span className="font-medium text-foreground">
+                                        {row.displayName}
+                                      </span>
+                                      <span className="font-mono text-xs text-muted-foreground">
+                                        {row.walletShort}
+                                      </span>
+                                    </>
+                                  ) : row.walletFull ? (
+                                    <span className="font-mono text-foreground">
+                                      {row.walletShort}
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                                      <EnvelopeIcon
+                                        className="size-4"
+                                        aria-hidden="true"
+                                      />
+                                      No wallet
+                                    </span>
+                                  )}
+                                </button>
+                                {row.walletFull ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => copyWallet(row)}
+                                    aria-label="Copy wallet address"
+                                    className="text-muted-foreground transition-colors hover:text-foreground"
+                                  >
+                                    {copiedId === row.id ? (
+                                      <CheckIcon className="size-3.5" />
+                                    ) : (
+                                      <ClipboardDocumentIcon className="size-3.5" />
+                                    )}
+                                  </button>
+                                ) : null}
+                                {row.walletFull && row.verified ? (
+                                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                                    ZK
                                   </span>
-                                  <span className="font-mono text-xs text-muted-foreground">
-                                    {row.walletShort}
+                                ) : !row.walletFull ? (
+                                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                    Email only
                                   </span>
-                                </>
-                              ) : row.walletFull ? (
-                                <span className="font-mono text-foreground">
-                                  {row.walletShort}
+                                ) : null}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <div className="flex items-center gap-1.5">
+                                {row.reach.email ? (
+                                  <ReachTile>
+                                    <EnvelopeIcon className="size-4" />
+                                  </ReachTile>
+                                ) : null}
+                                {row.reach.push ? (
+                                  <ReachTile>
+                                    <DevicePhoneMobileIcon className="size-4" />
+                                  </ReachTile>
+                                ) : null}
+                                {row.reach.farcaster ? (
+                                  <ReachTile>
+                                    <SignalIcon className="size-4" />
+                                  </ReachTile>
+                                ) : null}
+                                {row.reach.x ? (
+                                  <ReachTile>
+                                    <AtSymbolIcon className="size-4" />
+                                  </ReachTile>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {row.email ? (
+                                <span className="font-mono text-xs text-foreground">
+                                  {row.email}
+                                </span>
+                              ) : row.walletFull && row.verified ? (
+                                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                  <ShieldCheckIcon
+                                    className="size-4 text-primary"
+                                    aria-hidden="true"
+                                  />
+                                  ZK-protected
                                 </span>
                               ) : (
-                                <span className="flex items-center gap-1.5 text-muted-foreground">
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {row.tags.length > 0 ? (
+                                <div className="flex items-center gap-1.5">
+                                  {row.tags.slice(0, 2).map((tag) => (
+                                    <span
+                                      key={tag}
+                                      className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                  {row.tags.length > 2 ? (
+                                    <span className="text-xs text-muted-foreground">
+                                      +{row.tags.length - 2}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5 text-right tabular-nums text-foreground">
+                              {lifetime}
+                            </td>
+                            <td className="px-4 py-3.5 text-right whitespace-nowrap text-muted-foreground">
+                              {row.lastActive ?? "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {totalPages > 1 ? (
+                <div className="flex items-center justify-between pt-1 text-sm text-muted-foreground">
+                  <span>
+                    Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
+                    {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} of{" "}
+                    {totalItems.toLocaleString()}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-lg"
+                      disabled={currentPage <= 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-lg"
+                      disabled={currentPage >= totalPages}
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : activeTab === "lists" ? (
+            <div className="space-y-4">
+              {/* Inline New-list form — no modal. */}
+              {creatingList ? (
+                <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+                  <p className="text-sm font-semibold text-foreground">
+                    New list
+                  </p>
+                  <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="new-list-name"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Name
+                      </label>
+                      <Input
+                        id="new-list-name"
+                        autoFocus
+                        value={listName}
+                        onChange={(e) => setListName(e.target.value)}
+                        placeholder="e.g. Newsletter subscribers"
+                        className="h-10 rounded-lg"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="new-list-type"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        Type
+                      </label>
+                      <select
+                        id="new-list-type"
+                        value={listType}
+                        onChange={(e) =>
+                          setListType(e.target.value as "growing" | "static")
+                        }
+                        className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+                      >
+                        <option value="growing">Growing</option>
+                        <option value="static">Static</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Growing lists keep gaining members from forms and rules.
+                    Static lists are a fixed set.
+                  </p>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={createListMutation.isPending}
+                      onClick={() => {
+                        setCreatingList(false);
+                        setListName("");
+                        setListType("growing");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={createListMutation.isPending}
+                      onClick={() => {
+                        const name = listName.trim();
+                        if (name.length === 0) {
+                          toast.error("Name your list.");
+                          return;
+                        }
+                        createListMutation.mutate({ name, type: listType });
+                      }}
+                    >
+                      {createListMutation.isPending
+                        ? "Creating…"
+                        : "Create list"}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
+              {segments.length === 0 && !creatingList ? (
+                <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
+                  No lists yet — create one, or save a segment to reuse it
+                  across campaigns.
+                </div>
+              ) : segments.length > 0 ? (
+                <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+                  <table className="w-full min-w-[720px] text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <th className="px-5 py-3 font-medium">List</th>
+                        <th className="px-4 py-3 font-medium">Source</th>
+                        <th className="px-4 py-3 font-medium">Type</th>
+                        <th className="px-4 py-3 font-medium">Reachable via</th>
+                        <th className="px-4 py-3 text-right font-medium">
+                          Contacts
+                        </th>
+                        <th className="px-4 py-3 font-medium">Updated</th>
+                        <th className="w-8 py-3" aria-hidden="true" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {segments.map((seg) => {
+                        const meta = listMeta(seg);
+                        return (
+                          <tr
+                            key={seg.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setSelectedList(seg)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") setSelectedList(seg);
+                            }}
+                            className="cursor-pointer border-b border-border outline-none last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40"
+                          >
+                            <td className="px-5 py-4 font-medium text-foreground">
+                              {seg.name}
+                            </td>
+                            <td className="px-4 py-4 text-muted-foreground">
+                              {meta.source}
+                            </td>
+                            <td className="px-4 py-4">
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium",
+                                  meta.type === "growing"
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                    : "bg-muted text-muted-foreground"
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    "size-1.5 rounded-full",
+                                    meta.type === "growing"
+                                      ? "bg-emerald-500"
+                                      : "bg-muted-foreground"
+                                  )}
+                                />
+                                {meta.type === "growing" ? "Growing" : "Static"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className="flex items-center gap-1.5 text-muted-foreground">
+                                {meta.reachable.includes("email") ? (
                                   <EnvelopeIcon
                                     className="size-4"
                                     aria-hidden="true"
                                   />
-                                  No wallet
-                                </span>
-                              )}
-                            </button>
-                            {row.walletFull ? (
-                              <button
-                                type="button"
-                                onClick={() => copyWallet(row)}
-                                aria-label="Copy wallet address"
-                                className="text-muted-foreground transition-colors hover:text-foreground"
-                              >
-                                {copiedId === row.id ? (
-                                  <CheckIcon className="size-3.5" />
-                                ) : (
-                                  <ClipboardDocumentIcon className="size-3.5" />
-                                )}
-                              </button>
-                            ) : null}
-                            {row.walletFull && row.verified ? (
-                              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                                ZK
+                                ) : null}
+                                {meta.reachable.includes("push") ? (
+                                  <DevicePhoneMobileIcon
+                                    className="size-4"
+                                    aria-hidden="true"
+                                  />
+                                ) : null}
+                                {meta.reachable.length === 0 ? "—" : null}
                               </span>
-                            ) : !row.walletFull ? (
-                              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                Email only
-                              </span>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-1.5">
-                            {row.reach.email ? (
-                              <ReachTile>
-                                <EnvelopeIcon className="size-4" />
-                              </ReachTile>
-                            ) : null}
-                            {row.reach.push ? (
-                              <ReachTile>
-                                <DevicePhoneMobileIcon className="size-4" />
-                              </ReachTile>
-                            ) : null}
-                            {row.reach.farcaster ? (
-                              <ReachTile>
-                                <SignalIcon className="size-4" />
-                              </ReachTile>
-                            ) : null}
-                            {row.reach.x ? (
-                              <ReachTile>
-                                <AtSymbolIcon className="size-4" />
-                              </ReachTile>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          {row.email ? (
-                            <span className="font-mono text-xs text-foreground">
-                              {row.email}
-                            </span>
-                          ) : row.walletFull && row.verified ? (
-                            <span className="inline-flex items-center gap-1 text-muted-foreground">
-                              <ShieldCheckIcon
-                                className="size-4 text-primary"
+                            </td>
+                            <td className="px-4 py-4 text-right tabular-nums text-foreground">
+                              {typeof seg.count === "number"
+                                ? seg.count.toLocaleString()
+                                : "—"}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
+                              {seg.updatedAt
+                                ? formatRelativeTime(seg.updatedAt)
+                                : "—"}
+                            </td>
+                            <td className="py-4 pr-3 text-right">
+                              <ChevronRightIcon
+                                className="size-4 text-muted-foreground"
                                 aria-hidden="true"
                               />
-                              ZK-protected
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          {row.tags.length > 0 ? (
-                            <div className="flex items-center gap-1.5">
-                              {row.tags.slice(0, 2).map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                              {row.tags.length > 2 ? (
-                                <span className="text-xs text-muted-foreground">
-                                  +{row.tags.length - 2}
-                                </span>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5 text-right tabular-nums text-foreground">
-                          {lifetime}
-                        </td>
-                        <td className="px-4 py-3.5 text-right whitespace-nowrap text-muted-foreground">
-                          {row.lastActive ?? "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {totalPages > 1 ? (
-            <div className="flex items-center justify-between pt-1 text-sm text-muted-foreground">
-              <span>
-                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
-                {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} of{" "}
-                {totalItems.toLocaleString()}
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-lg"
-                  disabled={currentPage <= 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-lg"
-                  disabled={currentPage >= totalPages}
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(totalPages, p + 1))
-                  }
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      ) : activeTab === "lists" ? (
-        <div className="space-y-4">
-          {/* Inline New-list form — no modal. */}
-          {creatingList ? (
-            <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-              <p className="text-sm font-semibold text-foreground">New list</p>
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="new-list-name"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Name
-                  </label>
-                  <Input
-                    id="new-list-name"
-                    autoFocus
-                    value={listName}
-                    onChange={(e) => setListName(e.target.value)}
-                    placeholder="e.g. Newsletter subscribers"
-                    className="h-10 rounded-lg"
-                  />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="new-list-type"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Type
-                  </label>
-                  <select
-                    id="new-list-type"
-                    value={listType}
-                    onChange={(e) =>
-                      setListType(e.target.value as "growing" | "static")
-                    }
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
-                  >
-                    <option value="growing">Growing</option>
-                    <option value="static">Static</option>
-                  </select>
-                </div>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Growing lists keep gaining members from forms and rules. Static
-                lists are a fixed set.
-              </p>
-              <div className="mt-4 flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={createListMutation.isPending}
-                  onClick={() => {
-                    setCreatingList(false);
-                    setListName("");
-                    setListType("growing");
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={createListMutation.isPending}
-                  onClick={() => {
-                    const name = listName.trim();
-                    if (name.length === 0) {
-                      toast.error("Name your list.");
-                      return;
-                    }
-                    createListMutation.mutate({ name, type: listType });
-                  }}
-                >
-                  {createListMutation.isPending ? "Creating…" : "Create list"}
-                </Button>
-              </div>
+              ) : null}
             </div>
-          ) : null}
-
-          {segments.length === 0 && !creatingList ? (
-            <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-              No lists yet — create one, or save a segment to reuse it across
-              campaigns.
-            </div>
-          ) : segments.length > 0 ? (
-            <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-              <table className="w-full min-w-[720px] text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-5 py-3 font-medium">List</th>
-                    <th className="px-4 py-3 font-medium">Source</th>
-                    <th className="px-4 py-3 font-medium">Type</th>
-                    <th className="px-4 py-3 font-medium">Reachable via</th>
-                    <th className="px-4 py-3 text-right font-medium">
-                      Contacts
-                    </th>
-                    <th className="px-4 py-3 font-medium">Updated</th>
-                    <th className="w-8 py-3" aria-hidden="true" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {segments.map((seg) => {
-                    const meta = listMeta(seg);
-                    return (
-                      <tr
-                        key={seg.id}
-                        className="border-b border-border last:border-0"
-                      >
-                        <td className="px-5 py-4 font-medium text-foreground">
-                          {seg.name}
-                        </td>
-                        <td className="px-4 py-4 text-muted-foreground">
-                          {meta.source}
-                        </td>
-                        <td className="px-4 py-4">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium",
-                              meta.type === "growing"
-                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                : "bg-muted text-muted-foreground"
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "size-1.5 rounded-full",
-                                meta.type === "growing"
-                                  ? "bg-emerald-500"
-                                  : "bg-muted-foreground"
-                              )}
-                            />
-                            {meta.type === "growing" ? "Growing" : "Static"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4">
-                          <span className="flex items-center gap-1.5 text-muted-foreground">
-                            {meta.reachable.includes("email") ? (
-                              <EnvelopeIcon
-                                className="size-4"
-                                aria-hidden="true"
-                              />
-                            ) : null}
-                            {meta.reachable.includes("push") ? (
-                              <DevicePhoneMobileIcon
-                                className="size-4"
-                                aria-hidden="true"
-                              />
-                            ) : null}
-                            {meta.reachable.length === 0 ? "—" : null}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                          {typeof seg.count === "number"
-                            ? seg.count.toLocaleString()
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
-                          {seg.updatedAt
-                            ? formatRelativeTime(seg.updatedAt)
-                            : "—"}
-                        </td>
-                        <td className="py-4 pr-3 text-right">
-                          <ChevronRightIcon
-                            className="size-4 text-muted-foreground"
-                            aria-hidden="true"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-        </div>
-      ) : activeTab === "tags" ? (
-        <div className="space-y-3">
-          {availableTags.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-              No tags yet — select contacts and apply a tag to group them.
-            </div>
+          ) : activeTab === "tags" ? (
+            <AudienceTagsTab
+              tags={availableTags}
+              creating={creatingTag}
+              onCancelCreate={() => setCreatingTag(false)}
+            />
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {availableTags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground"
-                >
-                  {tag}
-                </span>
-              ))}
+            <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
+              {suppressed > 0
+                ? `${suppressed.toLocaleString()} contacts are unsubscribed or bounced. Suppression details land here once the API exposes them.`
+                : "No suppressed contacts — everyone's reachable."}
             </div>
           )}
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-          {suppressed > 0
-            ? `${suppressed.toLocaleString()} contacts are unsubscribed or bounced. Suppression details land here once the API exposes them.`
-            : "No suppressed contacts — everyone's reachable."}
-        </div>
+        </>
       )}
 
       <ComposeEmailDialog

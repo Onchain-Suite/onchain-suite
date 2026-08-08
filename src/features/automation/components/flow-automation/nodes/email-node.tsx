@@ -9,7 +9,13 @@ interface EmailNodeProps {
 }
 
 export const EmailNode = ({ data, selected }: EmailNodeProps) => {
-  const needsSetup = !data.template;
+  // The config panel writes `templateId` / `templateName` (not `template`), so
+  // key the setup state off those; keep `template` as a legacy fallback.
+  const templateLabel =
+    (typeof data.templateName === "string" && data.templateName) ||
+    (typeof data.template === "string" && data.template) ||
+    "";
+  const needsSetup = templateLabel.length === 0;
   return (
     <div
       className={`relative min-w-[216px] rounded-xl border bg-card p-3.5 shadow-sm transition-all ${
@@ -62,7 +68,7 @@ export const EmailNode = ({ data, selected }: EmailNodeProps) => {
         <div className="mt-2.5 space-y-2">
           <div className="rounded-xl border border-indigo-500/15 bg-indigo-500/5 px-3 py-2">
             <p className="text-xs font-medium text-foreground">
-              {data.template}
+              {templateLabel}
             </p>
             {data.subject && (
               <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">

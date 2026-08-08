@@ -1,6 +1,10 @@
 "use client";
 
-import { ArrowPathIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowPathIcon,
+  CheckCircleIcon,
+  ChevronDownIcon,
+} from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -11,7 +15,7 @@ import { apiClient } from "@/lib/api-client";
 import { cn, isJsonObject } from "@/lib/utils";
 
 import { SettingsCard, SettingsStepper, StatusPill } from "../settings-card";
-import { type DomainPurpose, parseDomainDns } from "./domain-dns";
+import { parseDomainDns } from "./domain-dns";
 import { useAccountOrg } from "./use-account-org";
 import {
   type DomainProvisionResult,
@@ -161,28 +165,6 @@ export function SenderVerificationCard() {
       ),
   });
 
-  // Marketing routes through SES, transactional through ACS — the backend
-  // re-scopes the DNS checklist to the chosen provider (PUT /domain/{id}/purpose).
-  const purposeMutation = useMutation({
-    mutationFn: (input: { domainId: string; purpose: DomainPurpose }) =>
-      apiClient.put(
-        `/domain/${input.domainId}/purpose`,
-        { purpose: input.purpose },
-        { headers: orgHeaders }
-      ),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["account", "domain-dns"] }),
-        queryClient.invalidateQueries({ queryKey: domainsKey(organizationId) }),
-      ]);
-      toast.success("Sending purpose updated — DNS records re-scoped");
-    },
-    onError: (error: unknown) =>
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update purpose"
-      ),
-  });
-
   return (
     <SettingsCard
       title="Sender verification"
@@ -264,20 +246,36 @@ export function SenderVerificationCard() {
 
                 {open ? (
                   <div className="border-t border-border/50 px-4 py-4">
-                    <AllProviderDnsRecords
-                      loading={provisionQuery.isLoading}
-                      data={provisionQuery.data}
-                    />
-                    <DomainDnsPanel
-                      loading={dnsQuery.isLoading}
-                      data={dnsQuery.data}
-                      onRecheck={() => recheckMutation.mutate(domain.id)}
-                      rechecking={recheckMutation.isPending}
-                      onSetPurpose={(purpose) =>
-                        purposeMutation.mutate({ domainId: domain.id, purpose })
-                      }
-                      purposeSaving={purposeMutation.isPending}
-                    />
+                    {domain.status === "verified" ? (
+                      <div className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
+                        <CheckCircleIcon
+                          aria-hidden="true"
+                          className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                        />
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-medium text-foreground">
+                            Verified — sending is live
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            SES authentication passed for this domain. There are
+                            no DNS records left to publish.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <AllProviderDnsRecords
+                          loading={provisionQuery.isLoading}
+                          data={provisionQuery.data}
+                        />
+                        <DomainDnsPanel
+                          loading={dnsQuery.isLoading}
+                          data={dnsQuery.data}
+                          onRecheck={() => recheckMutation.mutate(domain.id)}
+                          rechecking={recheckMutation.isPending}
+                        />
+                      </>
+                    )}
                   </div>
                 ) : null}
               </div>
@@ -301,8 +299,9 @@ const providerMeta = (provider: string) =>
     name: provider || "Provider",
   };
 
-// SendGrid is never surfaced; SES (marketing) leads as the default provider.
-const HIDDEN_PROVIDERS = new Set(["sendgrid"]);
+// SES is the only surfaced provider — transactional (ACS) and SendGrid records
+// are hidden, so customers publish exactly one set of DNS records.
+const HIDDEN_PROVIDERS = new Set(["sendgrid", "acs"]);
 const providerOrder = (provider: string) => {
   const p = provider.toLowerCase();
   if (p === "ses") return 0;
@@ -404,15 +403,11 @@ function DomainDnsPanel({
   data,
   onRecheck,
   rechecking,
-  onSetPurpose,
-  purposeSaving,
 }: {
   loading: boolean;
   data: ReturnType<typeof parseDomainDns> | undefined;
   onRecheck: () => void;
   rechecking: boolean;
-  onSetPurpose: (purpose: DomainPurpose) => void;
-  purposeSaving: boolean;
 }) {
   if (loading || !data) {
     return (
@@ -429,44 +424,6 @@ function DomainDnsPanel({
 
   return (
     <div className="space-y-4">
-      {/* What's this domain for? — picks the provider (SES vs ACS) and, with it,
-          the exact DNS records to publish. */}
-      <div>
-        <div className="text-sm font-medium text-foreground">
-          What&apos;s this domain for?
-        </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Transactional email routes through Azure ACS; marketing through Amazon
-          SES. This decides which DNS records you publish below.
-        </p>
-        <div className="mt-2 inline-flex rounded-lg border border-border/70 bg-background/60 p-1">
-          {(
-            [
-              { key: "transactional" as const, label: "Transactional · ACS" },
-              { key: "marketing" as const, label: "Marketing · SES" },
-            ] satisfies { key: DomainPurpose; label: string }[]
-          ).map((opt) => {
-            const active = data.purpose === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                disabled={purposeSaving || active}
-                onClick={() => onSetPurpose(opt.key)}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm transition-colors disabled:cursor-default",
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {data.sendReady !== undefined || data.verificationStates.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill tone={data.sendReady ? "success" : "pending"}>

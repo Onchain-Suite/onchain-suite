@@ -1,8 +1,10 @@
 "use client";
 
 import { ArrowLeftIcon, UsersIcon } from "@heroicons/react/24/outline";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+
+import { Button } from "@/components/ui/button";
 
 import type {
   AudienceSegment,
@@ -10,6 +12,8 @@ import type {
 } from "../audience.service";
 import { audienceService } from "../audience.service";
 import { MemberTable, toDetailMemberFromSegment } from "./member-table";
+
+const MEMBERS_PER_PAGE = 25;
 
 /**
  * In-page detail for a single list/segment (reached from the Lists table).
@@ -26,9 +30,16 @@ export function AudienceListDetail({
   segment: AudienceSegment;
   onBack: () => void;
 }) {
+  const [page, setPage] = useState(1);
+
   const detailQuery = useQuery({
-    queryKey: ["audience", "segment-members", segment.id],
-    queryFn: () => audienceService.getSegment(segment.id, { limit: 200 }),
+    queryKey: ["audience", "segment-members", segment.id, page],
+    queryFn: () =>
+      audienceService.getSegment(segment.id, {
+        page,
+        limit: MEMBERS_PER_PAGE,
+      }),
+    placeholderData: keepPreviousData,
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -39,11 +50,15 @@ export function AudienceListDetail({
     return list.map(toDetailMemberFromSegment);
   }, [detailQuery.data]);
 
+  const membersMeta = detailQuery.data?.members?.meta;
   const count =
     detailQuery.data?.count ??
+    membersMeta?.totalItems ??
     (typeof segment.count === "number" ? segment.count : members.length);
-  const emailReachable = members.filter((m) => m.emailReachable).length;
-
+  const totalPages = Math.max(
+    1,
+    membersMeta?.totalPages ?? Math.ceil(count / MEMBERS_PER_PAGE)
+  );
   return (
     <div className="space-y-5">
       <button
@@ -62,9 +77,6 @@ export function AudienceListDetail({
           </h2>
           <span className="text-sm text-muted-foreground">
             List · {count.toLocaleString()} contact{count === 1 ? "" : "s"}
-            {members.length > 0
-              ? ` · ${emailReachable.toLocaleString()} email-reachable`
-              : ""}
           </span>
         </div>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
@@ -79,7 +91,36 @@ export function AudienceListDetail({
           Loading members...
         </div>
       ) : members.length > 0 ? (
-        <MemberTable members={members} />
+        <>
+          <MemberTable members={members} />
+          {totalPages > 1 ? (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>
+                Page {page} of {totalPages}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : (
         <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
           <div className="mx-auto flex size-11 items-center justify-center rounded-xl bg-muted text-muted-foreground">

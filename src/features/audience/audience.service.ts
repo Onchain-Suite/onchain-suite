@@ -816,6 +816,18 @@ export const audienceService = {
     );
   },
 
+  /** `POST /audience/segments/{id}/members` — add contacts to a list. */
+  addSegmentMembers(segmentId: string, profileIds: string[], orgId?: string) {
+    return request<{ added?: number; skipped?: number; count?: number }>(
+      {
+        method: "POST",
+        url: `/audience/segments/${encodeURIComponent(segmentId)}/members`,
+        data: { profileIds },
+      },
+      orgId
+    );
+  },
+
   /** `GET /audience/suppressions` — the email suppression list. */
   listSuppressions(
     params?: { search?: string; page?: number; limit?: number },

@@ -12,7 +12,6 @@ import {
   EnvelopeIcon,
   PlusIcon,
   ShieldCheckIcon,
-  SignalIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import {
@@ -27,6 +26,13 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { cn, isJsonObject } from "@/lib/utils";
 
@@ -59,6 +65,16 @@ const IMPORT_EXPORT_HREF = `${PRIVATE_ROUTES.AUDIENCE}/import-export`;
 const num = (v: unknown) =>
   typeof v === "number" && Number.isFinite(v) ? v : undefined;
 
+/** The server materializes the suppression list as a system segment; keep it
+ *  out of the Lists tab (it belongs only in the Suppressed tab). */
+const isSuppressionSegment = (seg: AudienceSegment): boolean => {
+  const criteria = isJsonObject(seg.criteria) ? seg.criteria : null;
+  if (criteria && typeof criteria.system === "string") {
+    return criteria.system.toLowerCase() === "suppressed";
+  }
+  return seg.name.trim().toLowerCase() === "suppressed emails";
+};
+
 interface Row {
   id: string;
   displayName: string;
@@ -69,7 +85,7 @@ interface Row {
   verified: boolean;
   tags: string[];
   lastActive?: string;
-  reach: { email: boolean; push: boolean; farcaster: boolean; x: boolean };
+  reach: { email: boolean; push: boolean; x: boolean };
 }
 
 const toRow = (p: AudienceProfile): Row => {
@@ -109,11 +125,10 @@ const toRow = (p: AudienceProfile): Row => {
         : undefined,
     reach: {
       // ZK-protected (verified wallet) contacts are email-reachable even without
-      // a plaintext email. push/farcaster aren't modeled server-side yet -
-      // stubbed from signals we have so the column reads like the reference.
+      // a plaintext email. push isn't modeled server-side yet - stubbed from the
+      // signals we have so the column reads like the reference.
       email: Boolean(email) || (verified && Boolean(walletFull)),
       push: Boolean(walletFull),
-      farcaster: verified,
       x: Boolean(socials.twitter),
     },
   };
@@ -179,6 +194,8 @@ export function AudiencePages() {
   const [selectedProfile, setSelectedProfile] =
     useState<AudienceProfile | null>(null);
   const [slideOpen, setSlideOpen] = useState(false);
+  // Wallet-sync job id, set once POST /audience/sync accepts (202) and polled.
+  const [syncJobId, setSyncJobId] = useState<string | null>(null);
 
   const overviewQuery = useQuery({
     queryKey: ["audience", "overview"],
@@ -264,8 +281,20 @@ export function AudiencePages() {
     num(overview?.pushReachable) ?? Math.round(total * 0.67);
   const suppressed = num(overview?.suppressed) ?? Math.round(total * 0.06);
 
-  const availableTags = tagsQuery.data ?? [];
-  const segments = segmentsQuery.data ?? [];
+  // The suppression list is materialized server-side as a system segment + a
+  // `suppressed-email` tag. It lives in the Suppressed tab only - keep it out of
+  // the Lists and Tags tabs.
+  const availableTags = useMemo(
+    () =>
+      (tagsQuery.data ?? []).filter(
+        (t) => t.toLowerCase() !== "suppressed-email"
+      ),
+    [tagsQuery.data]
+  );
+  const segments = useMemo(
+    () => (segmentsQuery.data ?? []).filter((s) => !isSuppressionSegment(s)),
+    [segmentsQuery.data]
+  );
 
   const emailRecipients: EmailRecipient[] = useMemo(
     () =>
@@ -328,6 +357,55 @@ export function AudiencePages() {
     },
   });
 
+  // "Sync wallets": enqueue (202) then poll GET /audience/sync for progress.
+  const syncMutation = useMutation({
+    mutationFn: () => audienceService.syncWallets(),
+    onSuccess: (res) => {
+      const jobId = typeof res?.jobId === "string" ? res.jobId : null;
+      setSyncJobId(jobId);
+      toast.success("Wallet sync started - refreshing your audience.");
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Failed to start sync"),
+  });
+
+  const syncStatusQuery = useQuery({
+    queryKey: ["audience", "sync", syncJobId],
+    enabled: Boolean(syncJobId),
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: () => audienceService.getSyncStatus(syncJobId ?? undefined),
+    refetchInterval: (q) => {
+      const state = String(
+        (q.state.data as { state?: string } | undefined)?.state ?? ""
+      );
+      return state === "completed" || state === "failed" ? false : 1500;
+    },
+  });
+
+  const syncState = String(syncStatusQuery.data?.state ?? "");
+  const syncProgress = Math.max(
+    0,
+    Math.min(100, Math.round(num(syncStatusQuery.data?.progress) ?? 0))
+  );
+  const syncing =
+    Boolean(syncJobId) && syncState !== "completed" && syncState !== "failed";
+
+  // When the sync finishes, refresh the audience data and clear the job.
+  useEffect(() => {
+    if (!syncJobId) return;
+    if (syncState === "completed") {
+      queryClient.invalidateQueries({ queryKey: ["audience", "profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["audience", "overview"] });
+      queryClient.invalidateQueries({ queryKey: ["audience", "segments"] });
+      toast.success("Wallet sync complete.");
+      setSyncJobId(null);
+    } else if (syncState === "failed") {
+      toast.error("Wallet sync failed. Try again.");
+      setSyncJobId(null);
+    }
+  }, [syncJobId, syncState, queryClient]);
+
   // Apply tags to a single profile (from the slide-in panel).
   const slideTagMutation = useMutation({
     mutationFn: async (input: { profileId: string; tags: string[] }) => {
@@ -367,6 +445,18 @@ export function AudiencePages() {
     setSlideOpen(false);
     setComposeOpen(true);
   };
+
+  // Add a single contact to a list/segment from the slide-in panel.
+  const addToSegmentMutation = useMutation({
+    mutationFn: (input: { segmentId: string; profileId: string }) =>
+      audienceService.addSegmentMembers(input.segmentId, [input.profileId]),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audience", "segments"] });
+      toast.success("Added to list.");
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Failed to add to list"),
+  });
 
   const toggleOne = (id: string) =>
     setSelectedIds((prev) =>
@@ -435,11 +525,20 @@ export function AudiencePages() {
               Export
             </Link>
           </Button>
-          <Button asChild className="rounded-xl">
-            <Link href={IMPORT_EXPORT_HREF}>
-              <ArrowPathIcon className="mr-2 size-4" aria-hidden="true" />
-              Sync wallets
-            </Link>
+          <Button
+            className="rounded-xl"
+            disabled={syncMutation.isPending || syncing}
+            onClick={() => syncMutation.mutate()}
+          >
+            <ArrowPathIcon
+              className={cn("mr-2 size-4", syncing && "animate-spin")}
+              aria-hidden="true"
+            />
+            {syncing
+              ? syncProgress > 0
+                ? `Syncing ${syncProgress}%`
+                : "Syncing…"
+              : "Sync wallets"}
           </Button>
         </div>
       </div>
@@ -604,8 +703,14 @@ export function AudiencePages() {
                         return (
                           <tr
                             key={row.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => openContact(row.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") openContact(row.id);
+                            }}
                             className={cn(
-                              "group/row border-b border-border transition-colors last:border-0 hover:bg-muted/40",
+                              "group/row cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none",
                               selected && "bg-primary/[0.04]"
                             )}
                           >
@@ -615,6 +720,7 @@ export function AudiencePages() {
                                   type="checkbox"
                                   checked={selected}
                                   onChange={() => toggleOne(row.id)}
+                                  onClick={(e) => e.stopPropagation()}
                                   aria-label={`Select ${row.displayName}`}
                                   className={cn(
                                     "size-4 shrink-0 cursor-pointer rounded border-border accent-primary transition-opacity",
@@ -623,11 +729,7 @@ export function AudiencePages() {
                                       : "opacity-0 group-hover/row:opacity-100"
                                   )}
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() => openContact(row.id)}
-                                  className="flex min-w-0 items-center gap-2 text-left"
-                                >
+                                <span className="flex min-w-0 items-center gap-2 text-left">
                                   {row.hasNamedIdentity ? (
                                     <>
                                       <span className="font-medium text-foreground">
@@ -650,11 +752,14 @@ export function AudiencePages() {
                                       No wallet
                                     </span>
                                   )}
-                                </button>
+                                </span>
                                 {row.walletFull ? (
                                   <button
                                     type="button"
-                                    onClick={() => copyWallet(row)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      copyWallet(row);
+                                    }}
                                     aria-label="Copy wallet address"
                                     className="text-muted-foreground transition-colors hover:text-foreground"
                                   >
@@ -686,11 +791,6 @@ export function AudiencePages() {
                                 {row.reach.push ? (
                                   <ReachTile>
                                     <DevicePhoneMobileIcon className="size-4" />
-                                  </ReachTile>
-                                ) : null}
-                                {row.reach.farcaster ? (
-                                  <ReachTile>
-                                    <SignalIcon className="size-4" />
                                   </ReachTile>
                                 ) : null}
                                 {row.reach.x ? (
@@ -816,17 +916,27 @@ export function AudiencePages() {
                       >
                         Type
                       </label>
-                      <select
-                        id="new-list-type"
+                      <Select
                         value={listType}
-                        onChange={(e) =>
-                          setListType(e.target.value as "growing" | "static")
+                        onValueChange={(v) =>
+                          setListType(v as "growing" | "static")
                         }
-                        className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                       >
-                        <option value="growing">Growing</option>
-                        <option value="static">Static</option>
-                      </select>
+                        <SelectTrigger
+                          id="new-list-type"
+                          className="h-10 w-full rounded-lg"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="growing">
+                            Growing - keeps gaining members
+                          </SelectItem>
+                          <SelectItem value="static">
+                            Static - a fixed set
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
@@ -990,6 +1100,11 @@ export function AudiencePages() {
           slideTagMutation.mutateAsync({ profileId, tags })
         }
         onCompose={sendTestFromSlide}
+        segments={segments}
+        addingToSegment={addToSegmentMutation.isPending}
+        onAddToSegment={(segmentId, profileId) =>
+          addToSegmentMutation.mutate({ segmentId, profileId })
+        }
       />
 
       <ComposeEmailDialog

@@ -1,13 +1,16 @@
 "use client";
 
+import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 
+import type { AudienceProfile } from "../audience.service";
 import { audienceService } from "../audience.service";
+import { MemberTable, toDetailMemberFromProfile } from "./member-table";
 
 /** Pull a total-count out of a listProfiles response's meta, if present. */
 function totalFromMeta(res: unknown): number | null {
@@ -37,6 +40,31 @@ export function AudienceTagsTab({
 }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
+  // A tag selected from the table opens its in-page member detail.
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  const tagMembersQuery = useQuery({
+    queryKey: ["audience", "tag-members", selectedTag],
+    enabled: Boolean(selectedTag),
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: () =>
+      audienceService.listProfiles({
+        tag: selectedTag as string,
+        limit: 200,
+        include: "wallets,attributes,tags",
+      }),
+  });
+
+  const tagMembers = useMemo(() => {
+    const res = tagMembersQuery.data;
+    const obj = (Array.isArray(res) ? {} : res) as {
+      items?: AudienceProfile[];
+      data?: AudienceProfile[];
+    };
+    const items = Array.isArray(res) ? res : (obj.items ?? obj.data ?? []);
+    return items.map(toDetailMemberFromProfile);
+  }, [tagMembersQuery.data]);
 
   const countsQuery = useQuery({
     queryKey: ["audience", "tag-counts", tags],
@@ -73,6 +101,48 @@ export function AudienceTagsTab({
     onError: (e) =>
       toast.error(e instanceof Error ? e.message : "Couldn't create tag"),
   });
+
+  if (selectedTag) {
+    const emailReachable = tagMembers.filter((m) => m.emailReachable).length;
+    return (
+      <div className="space-y-5">
+        <button
+          type="button"
+          onClick={() => setSelectedTag(null)}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeftIcon className="size-4" aria-hidden="true" />
+          Back to tags
+        </button>
+        <div>
+          <h2 className="flex flex-wrap items-baseline gap-2 text-xl font-semibold tracking-tight text-foreground">
+            {selectedTag}
+            <span className="text-sm font-normal text-muted-foreground">
+              Tag · {tagMembers.length.toLocaleString()} contact
+              {tagMembers.length === 1 ? "" : "s"} ·{" "}
+              {emailReachable.toLocaleString()} email-reachable
+            </span>
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+            Every wallet with this tag. Addresses show only for imported
+            contacts - ZK-linked emails stay protected, so you can message them
+            without ever seeing who they are.
+          </p>
+        </div>
+        {tagMembersQuery.isLoading ? (
+          <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+            Loading contacts...
+          </div>
+        ) : tagMembers.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
+            No contacts carry this tag yet.
+          </div>
+        ) : (
+          <MemberTable members={tagMembers} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -149,7 +219,13 @@ export function AudienceTagsTab({
                 return (
                   <tr
                     key={tag}
-                    className="border-b border-border last:border-0"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedTag(tag)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") setSelectedTag(tag);
+                    }}
+                    className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
                   >
                     <td className="px-5 py-4 font-medium text-foreground">
                       {tag}

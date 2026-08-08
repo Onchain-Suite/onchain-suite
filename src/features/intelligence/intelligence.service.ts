@@ -666,7 +666,80 @@ const createAbortError = () => {
   return new Error("The SSE stream was aborted.");
 };
 
+/** A wallet returned by the live segment-preview endpoint. */
+export interface IntelligenceSegmentPreviewWallet {
+  address: string;
+  ens?: string | null;
+}
+
+/**
+ * Result of `POST /intelligence/segments/preview` — a live estimate of how many
+ * wallets a draft segment matches, plus a few examples. `matchCount` is null when
+ * the endpoint is unavailable so the UI can fall back to an honest "computed on
+ * save" state instead of showing a fabricated number.
+ */
+export interface IntelligenceSegmentPreview {
+  matchCount: number | null;
+  sampleWallets: IntelligenceSegmentPreviewWallet[];
+}
+
+const normalizeSegmentPreview = (
+  payload: unknown
+): IntelligenceSegmentPreview => {
+  const obj = isJsonObject(payload) ? payload : {};
+  const countRaw =
+    obj.matchCount ?? obj.count ?? obj.size ?? obj.matchingWallets ?? obj.total;
+  const matchCount =
+    typeof countRaw === "number" && Number.isFinite(countRaw) ? countRaw : null;
+  const listRaw =
+    obj.sampleWallets ?? obj.samples ?? obj.wallets ?? obj.preview ?? obj.items;
+  const sampleWallets: IntelligenceSegmentPreviewWallet[] = Array.isArray(
+    listRaw
+  )
+    ? listRaw
+        .map((entry): IntelligenceSegmentPreviewWallet | null => {
+          if (typeof entry === "string") return { address: entry };
+          if (!isJsonObject(entry)) return null;
+          const address = [
+            entry.address,
+            entry.wallet,
+            entry.walletAddress,
+            entry.id,
+          ].find((v) => typeof v === "string" && v.length > 0);
+          if (typeof address !== "string") return null;
+          const ens = [entry.ens, entry.name, entry.label].find(
+            (v) => typeof v === "string" && v.length > 0
+          );
+          return { address, ens: typeof ens === "string" ? ens : null };
+        })
+        .filter((w): w is IntelligenceSegmentPreviewWallet => w !== null)
+        .slice(0, 5)
+    : [];
+  return { matchCount, sampleWallets };
+};
+
 export const intelligenceService = {
+  /**
+   * Live estimate for a draft segment. Guarded: the backend endpoint may not
+   * exist yet, in which case the caller treats a rejection as "no live count".
+   */
+  async previewSegment(
+    body: { rules?: unknown },
+    orgId?: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<IntelligenceSegmentPreview> {
+    const payload = await request<unknown>(
+      {
+        method: "POST",
+        url: "/intelligence/segments/preview",
+        data: body,
+        signal: options?.signal,
+      },
+      orgId
+    );
+    return normalizeSegmentPreview(payload);
+  },
+
   runQuery(body: { query: string }, orgId?: string) {
     return request<IntelligenceQueryRunResponse>(
       { method: "POST", url: "/intelligence/query/run", data: body },

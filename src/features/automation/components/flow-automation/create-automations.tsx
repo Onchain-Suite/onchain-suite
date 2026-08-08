@@ -10,6 +10,7 @@ import {
   CurrencyDollarIcon,
   GlobeAltIcon,
   MagnifyingGlassIcon,
+  PencilSquareIcon,
   TrashIcon,
   UserGroupIcon,
   ViewfinderCircleIcon,
@@ -66,6 +67,7 @@ import {
 } from "./addable-edge";
 import { AutoGrowTextarea } from "./auto-grow-textarea";
 import {
+  AddToListNode,
   BranchNode,
   DispatchCampaignNode,
   EmailNode,
@@ -131,6 +133,7 @@ const nodeTypes = {
   email: EmailNode,
   inapp: InappNode,
   tag: TagNode,
+  list: AddToListNode,
   webhook: WebhookNode,
   dispatch: DispatchCampaignNode,
   placeholder: PlaceholderNode,
@@ -140,6 +143,7 @@ const nodeTypes = {
   send_email: EmailNode,
   send_inapp: InappNode,
   add_tag: TagNode,
+  add_to_list: AddToListNode,
   dispatch_campaign: DispatchCampaignNode,
   onchain_event: TriggerNode,
   holder_acquired: TriggerNode,
@@ -152,7 +156,13 @@ const nodeTypes = {
   liquidation_detected: TriggerNode,
   approval_intent: TriggerNode,
   segment_entered: TriggerNode,
+  segment_exited: TriggerNode,
+  list_joined: TriggerNode,
+  form_submitted: TriggerNode,
   email_opened: TriggerNode,
+  email_clicked: TriggerNode,
+  tag_added: TriggerNode,
+  campaign_completed: TriggerNode,
   health_threshold: TriggerNode,
 };
 
@@ -196,10 +206,43 @@ const ACTION_NODE_RENDERER: Record<string, string> = {
   send_inapp: "inapp",
   dispatch_campaign: "dispatch",
   add_tag: "tag",
+  add_to_list: "list",
   webhook: "webhook",
   wait: "wait",
   branch: "branch",
 };
+
+/**
+ * True when a node still needs configuration — mirrors the per-node orange
+ * "Needs setup" dot logic so the header badge can count unconfigured steps
+ * locally, before (or without) the backend validation pass.
+ */
+function nodeNeedsSetup(type: string | undefined, rawData: unknown): boolean {
+  const t = type ?? "";
+  const data = isJsonObject(rawData) ? rawData : {};
+  const str = (k: string): string =>
+    typeof data[k] === "string" ? (data[k] as string) : "";
+  if (TRIGGER_NODE_TYPES.has(t) || TRIGGER_NODE_TYPES.has(str("triggerType"))) {
+    return !str("contract") && !str("contractAddress") && !str("event");
+  }
+  const renderer = ACTION_NODE_RENDERER[t] ?? t;
+  switch (renderer) {
+    case "email":
+      return !str("templateId") && !str("templateName") && !str("template");
+    case "inapp":
+      return !str("title") && !str("body");
+    case "tag":
+      return !(Array.isArray(data.tags) && data.tags.length > 0) && !str("tag");
+    case "list":
+      return !str("listName") && !str("listId");
+    case "webhook":
+      return !str("url");
+    case "dispatch":
+      return !str("campaignId");
+    default:
+      return false;
+  }
+}
 
 /**
  * Trigger types that are NOT on-chain (so they don't get a contract/event
@@ -208,7 +251,13 @@ const ACTION_NODE_RENDERER: Record<string, string> = {
  */
 const NON_ONCHAIN_TRIGGER_TYPES = new Set([
   "segment_entered",
+  "segment_exited",
+  "list_joined",
+  "form_submitted",
   "email_opened",
+  "email_clicked",
+  "tag_added",
+  "campaign_completed",
   "health_threshold",
 ]);
 
@@ -250,9 +299,35 @@ const TRIGGER_NODE_TYPES = new Set([
   "liquidation_detected",
   "approval_intent",
   "segment_entered",
+  "segment_exited",
+  "list_joined",
+  "form_submitted",
   "email_opened",
+  "email_clicked",
+  "tag_added",
+  "campaign_completed",
   "health_threshold",
 ]);
+
+/** HTTP methods for the webhook action's Method field. */
+const WEBHOOK_METHODS: PropertySelectOption[] = [
+  { value: "POST", label: "POST" },
+  { value: "GET", label: "GET" },
+  { value: "PUT", label: "PUT" },
+  { value: "PATCH", label: "PATCH" },
+  { value: "DELETE", label: "DELETE" },
+];
+
+/** Chain scoping options for an on-chain trigger's Chain field. */
+const CHAIN_OPTIONS: PropertySelectOption[] = [
+  { value: "All Chains", label: "All chains" },
+  { value: "Ethereum", label: "Ethereum" },
+  { value: "Base", label: "Base" },
+  { value: "Optimism", label: "Optimism" },
+  { value: "Arbitrum", label: "Arbitrum" },
+  { value: "Polygon", label: "Polygon" },
+  { value: "Solana", label: "Solana" },
+];
 
 const asString = (v: unknown): string => (typeof v === "string" ? v : "");
 
@@ -492,7 +567,10 @@ function NodeLibrarySection({
           aria-hidden="true"
         />
         {title}
-        <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-muted-foreground">
+        <span aria-hidden="true" className="text-muted-foreground/60">
+          ·
+        </span>
+        <span className="tabular-nums text-muted-foreground/80">
           {nodes.length}
         </span>
       </h3>
@@ -671,6 +749,7 @@ const CreateAutomationContent = () => {
     Record<string, string>
   >({});
   const [nodeSearch, setNodeSearch] = useState("");
+  const [showTriggerPicker, setShowTriggerPicker] = useState(false);
 
   // On phones the node library renders as an overlay covering the canvas, so
   // start it closed there (post-mount to stay SSR/hydration safe). Desktop
@@ -1288,6 +1367,22 @@ const CreateAutomationContent = () => {
     asString(selectedNodeData.nodeType) === "branch" ||
     asString(selectedNodeData.actionType) === "branch" ||
     asString(selectedNodeData.type) === "branch";
+  // Normalize the selected node to its action renderer so each action type gets
+  // its own config block (send_inapp → "inapp", add_to_list → "list", …).
+  const selectedRenderer =
+    ACTION_NODE_RENDERER[asString(selectedNodeDetails?.type)] ??
+    asString(selectedNodeDetails?.type);
+  const selectedActionType =
+    ACTION_NODE_RENDERER[asString(selectedNodeData.actionType)] ??
+    asString(selectedNodeData.actionType);
+  const isSelectedRenderer = (key: string) =>
+    selectedRenderer === key || selectedActionType === key;
+  const selectedIsInapp = isSelectedRenderer("inapp");
+  const selectedIsWebhook = isSelectedRenderer("webhook");
+  const selectedIsDispatch = isSelectedRenderer("dispatch");
+  const selectedIsTag = isSelectedRenderer("tag");
+  const selectedIsList = isSelectedRenderer("list");
+  const selectedIsWait = isSelectedRenderer("wait");
   const selectedTemplate = useMemo(() => {
     const templateId = asString(selectedNodeData.templateId);
     return (
@@ -2011,6 +2106,13 @@ const CreateAutomationContent = () => {
       ? validateMutation.data.errors
       : undefined
   ).length;
+  // Count unconfigured steps locally (mirrors the orange node dots) so the
+  // header badge is meaningful before the backend validation pass runs.
+  const needsSetupCount = useMemo(
+    () => nodes.filter((n) => nodeNeedsSetup(n.type, n.data)).length,
+    [nodes]
+  );
+  const stepsNeedingSetup = Math.max(builderErrorCount, needsSetupCount);
 
   return (
     <motion.div
@@ -2047,14 +2149,14 @@ const CreateAutomationContent = () => {
                 <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   Autosaving
                 </span>
-              ) : builderErrorCount > 0 ? (
+              ) : stepsNeedingSetup > 0 ? (
                 <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
                   <span
                     aria-hidden="true"
                     className="h-1.5 w-1.5 rounded-full bg-amber-500"
                   />
-                  {builderErrorCount}{" "}
-                  {builderErrorCount === 1 ? "step needs" : "steps need"} setup
+                  {stepsNeedingSetup}{" "}
+                  {stepsNeedingSetup === 1 ? "step needs" : "steps need"} setup
                 </span>
               ) : (
                 <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
@@ -2265,7 +2367,7 @@ const CreateAutomationContent = () => {
                     />
                     <NodeLibrarySection
                       title="Off-chain triggers"
-                      accent="orange"
+                      accent="sky"
                       nodes={filteredOffchainTriggers}
                     />
                     <NodeLibrarySection
@@ -2374,17 +2476,10 @@ const CreateAutomationContent = () => {
                     <div className="mt-5 flex justify-center gap-3">
                       <button
                         type="button"
-                        onClick={() => {
-                          const [firstTrigger] = triggerCatalog;
-                          if (!firstTrigger) {
-                            setSidebarOpen(true);
-                            return;
-                          }
-                          addNode(firstTrigger.type, firstTrigger.label);
-                        }}
+                        onClick={() => setShowTriggerPicker(true)}
                         className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                       >
-                        Add first trigger
+                        Add trigger
                       </button>
                       <button
                         type="button"
@@ -2396,6 +2491,90 @@ const CreateAutomationContent = () => {
                     </div>
                   </div>
                 </div>
+              ) : null}
+
+              {/* "Add trigger" grid — choose the automation's entry trigger. */}
+              {showTriggerPicker ? (
+                <>
+                  <div
+                    className="absolute inset-0 z-30 bg-background/40 backdrop-blur-[1px]"
+                    aria-hidden="true"
+                    onClick={() => setShowTriggerPicker(false)}
+                  />
+                  <div
+                    role="dialog"
+                    aria-label="Add trigger"
+                    className="absolute left-1/2 top-1/2 z-40 w-[min(30rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-4 shadow-2xl"
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-foreground">
+                        Add a trigger
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowTriggerPicker(false)}
+                        aria-label="Close trigger picker"
+                        className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="scrollbar-sleek max-h-[60vh] space-y-4 overflow-y-auto">
+                      {(
+                        [
+                          {
+                            title: "On-chain triggers",
+                            items: triggerCatalog.filter((t) =>
+                              ON_CHAIN_TRIGGER_TYPES.has(t.type)
+                            ),
+                          },
+                          {
+                            title: "Off-chain triggers",
+                            items: triggerCatalog.filter(
+                              (t) => !ON_CHAIN_TRIGGER_TYPES.has(t.type)
+                            ),
+                          },
+                        ] as const
+                      ).map((group) =>
+                        group.items.length === 0 ? null : (
+                          <div key={group.title}>
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                              {group.title}
+                              <span className="ml-1 text-muted-foreground/70">
+                                · {group.items.length}
+                              </span>
+                            </p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {group.items.map((node) => (
+                                <button
+                                  key={node.type}
+                                  type="button"
+                                  onClick={() => {
+                                    addNode(node.type, node.label);
+                                    setShowTriggerPicker(false);
+                                  }}
+                                  className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-background p-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                                >
+                                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground [&_svg]:h-4 [&_svg]:w-4">
+                                    {node.icon}
+                                  </span>
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-xs font-semibold text-foreground">
+                                      {node.label}
+                                    </span>
+                                    <span className="line-clamp-2 text-[11px] leading-snug text-muted-foreground">
+                                      {node.description}
+                                    </span>
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                </>
               ) : null}
 
               {/* Node Selector for Placeholders */}
@@ -2575,6 +2754,23 @@ const CreateAutomationContent = () => {
                               }}
                             />
                           </div>
+                          <div className="space-y-2">
+                            <label className={PROPERTY_LABEL_CLASS}>
+                              Chain
+                            </label>
+                            <PropertySelect
+                              placeholder="All chains"
+                              value={asString(selectedNodeData.chain)}
+                              options={CHAIN_OPTIONS}
+                              onChange={(next) =>
+                                updateSelectedNodeData({ chain: next })
+                              }
+                            />
+                            <p className={PROPERTY_HINT_CLASS}>
+                              Restrict this trigger to one network, or leave on
+                              all chains.
+                            </p>
+                          </div>
                           {!isNew ? (
                             <div className="rounded-2xl border border-primary/15 bg-primary/5 p-3.5">
                               <div className="flex items-center justify-between gap-3">
@@ -2682,6 +2878,49 @@ const CreateAutomationContent = () => {
                               </p>
                             )}
                           </div>
+                          <div className="space-y-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!asString(selectedNodeData.templateId)) {
+                                  toast.error(
+                                    "Pick a template first, then open the builder to edit it."
+                                  );
+                                  return;
+                                }
+                                if (isNew) {
+                                  toast.error(
+                                    "Save the automation first — the builder attaches the design to a saved draft."
+                                  );
+                                  return;
+                                }
+                                const qs = new URLSearchParams({
+                                  campaign: automationId,
+                                  returnTo: `/automations/${automationId}`,
+                                  templateName: asString(
+                                    selectedNodeData.templateName
+                                  ),
+                                  subject: asString(selectedNodeData.subject),
+                                });
+                                window.open(
+                                  `/campaigns/editor?${qs.toString()}`,
+                                  "_blank",
+                                  "noopener,noreferrer"
+                                );
+                              }}
+                              className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+                            >
+                              <PencilSquareIcon
+                                aria-hidden="true"
+                                className="h-4 w-4"
+                              />
+                              Open email builder
+                            </button>
+                            <p className={PROPERTY_HINT_CLASS}>
+                              Edit the selected template&apos;s design in the
+                              visual editor.
+                            </p>
+                          </div>
                           <div className="rounded-2xl border border-border bg-card p-3">
                             <p className="mb-2 text-xs font-medium text-muted-foreground">
                               Preview
@@ -2701,6 +2940,183 @@ const CreateAutomationContent = () => {
                             </div>
                           </div>
                         </>
+                      )}
+
+                      {selectedIsInapp && (
+                        <>
+                          <div className="space-y-2">
+                            <label className={PROPERTY_LABEL_CLASS}>
+                              Title
+                            </label>
+                            <input
+                              type="text"
+                              className={PROPERTY_INPUT_CLASS}
+                              value={asString(selectedNodeData.title)}
+                              onChange={(e) =>
+                                updateSelectedNodeData({
+                                  title: e.target.value,
+                                })
+                              }
+                              placeholder="Notification title"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className={PROPERTY_LABEL_CLASS}>
+                              Message
+                            </label>
+                            <textarea
+                              className={`${PROPERTY_INPUT_CLASS} min-h-[80px]`}
+                              value={asString(selectedNodeData.body)}
+                              onChange={(e) =>
+                                updateSelectedNodeData({ body: e.target.value })
+                              }
+                              placeholder="What should the in-app push say?"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className={PROPERTY_LABEL_CLASS}>
+                              Link (optional)
+                            </label>
+                            <input
+                              type="text"
+                              className={PROPERTY_INPUT_CLASS}
+                              value={asString(selectedNodeData.url)}
+                              onChange={(e) =>
+                                updateSelectedNodeData({ url: e.target.value })
+                              }
+                              placeholder="/app/rewards"
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {selectedIsWebhook && (
+                        <>
+                          <div className="space-y-2">
+                            <label className={PROPERTY_LABEL_CLASS}>
+                              Endpoint URL
+                            </label>
+                            <input
+                              type="text"
+                              className={PROPERTY_INPUT_CLASS}
+                              value={asString(selectedNodeData.url)}
+                              onChange={(e) =>
+                                updateSelectedNodeData({ url: e.target.value })
+                              }
+                              placeholder="https://api.example.com/hook"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className={PROPERTY_LABEL_CLASS}>
+                              Method
+                            </label>
+                            <PropertySelect
+                              placeholder="POST"
+                              value={
+                                asString(selectedNodeData.method) || "POST"
+                              }
+                              options={WEBHOOK_METHODS}
+                              onChange={(next) =>
+                                updateSelectedNodeData({ method: next })
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {selectedIsDispatch && (
+                        <div className="space-y-2">
+                          <label className={PROPERTY_LABEL_CLASS}>
+                            Campaign ID
+                          </label>
+                          <input
+                            type="text"
+                            className={PROPERTY_INPUT_CLASS}
+                            value={asString(selectedNodeData.campaignId)}
+                            onChange={(e) =>
+                              updateSelectedNodeData({
+                                campaignId: e.target.value,
+                              })
+                            }
+                            placeholder="cmp_…"
+                          />
+                          <p className={PROPERTY_HINT_CLASS}>
+                            The campaign to dispatch when this step runs.
+                          </p>
+                        </div>
+                      )}
+
+                      {selectedIsTag && (
+                        <div className="space-y-2">
+                          <label className={PROPERTY_LABEL_CLASS}>Tags</label>
+                          <input
+                            type="text"
+                            className={PROPERTY_INPUT_CLASS}
+                            value={
+                              Array.isArray(selectedNodeData.tags)
+                                ? (selectedNodeData.tags as string[]).join(", ")
+                                : asString(selectedNodeData.tag)
+                            }
+                            onChange={(e) => {
+                              const tags = e.target.value
+                                .split(",")
+                                .map((t) => t.trim())
+                                .filter(Boolean);
+                              updateSelectedNodeData({
+                                tags,
+                                tag: tags[0] ?? "",
+                              });
+                            }}
+                            placeholder="vip, whale"
+                          />
+                          <p className={PROPERTY_HINT_CLASS}>
+                            Comma-separated tags to apply to the contact.
+                          </p>
+                        </div>
+                      )}
+
+                      {selectedIsList && (
+                        <div className="space-y-2">
+                          <label className={PROPERTY_LABEL_CLASS}>
+                            List name
+                          </label>
+                          <input
+                            type="text"
+                            className={PROPERTY_INPUT_CLASS}
+                            value={asString(selectedNodeData.listName)}
+                            onChange={(e) =>
+                              updateSelectedNodeData({
+                                listName: e.target.value,
+                              })
+                            }
+                            placeholder="Newsletter"
+                          />
+                          <p className={PROPERTY_HINT_CLASS}>
+                            The contact will be added to this list.
+                          </p>
+                        </div>
+                      )}
+
+                      {selectedIsWait && (
+                        <div className="space-y-2">
+                          <label className={PROPERTY_LABEL_CLASS}>
+                            Duration
+                          </label>
+                          <input
+                            type="text"
+                            className={PROPERTY_INPUT_CLASS}
+                            value={asString(selectedNodeData.duration)}
+                            onChange={(e) =>
+                              updateSelectedNodeData({
+                                duration: e.target.value,
+                              })
+                            }
+                            placeholder="e.g. 2 days"
+                          />
+                          <p className={PROPERTY_HINT_CLASS}>
+                            How long to wait before the next step.
+                          </p>
+                        </div>
                       )}
 
                       {selectedIsBranch && (
@@ -3163,8 +3579,20 @@ const CreateAutomationContent = () => {
                       </div>
 
                       {/* Actions */}
-                      <div className="border-t border-border pt-6">
+                      <div className="flex items-center gap-2 border-t border-border pt-6">
                         <button
+                          type="button"
+                          onClick={() => setSelectedNode(null)}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                        >
+                          <CheckCircleIcon
+                            aria-hidden="true"
+                            className="h-4 w-4"
+                          />
+                          Apply
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => {
                             setNodes((nds) =>
                               nds.filter((n) => n.id !== selectedNode)
@@ -3178,10 +3606,10 @@ const CreateAutomationContent = () => {
                             );
                             setSelectedNode(null);
                           }}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/15"
+                          className="flex items-center justify-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/15"
                         >
                           <TrashIcon aria-hidden="true" className="h-4 w-4" />
-                          Remove step
+                          Remove
                         </button>
                       </div>
                     </div>

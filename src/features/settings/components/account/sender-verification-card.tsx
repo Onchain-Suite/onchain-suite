@@ -4,6 +4,7 @@ import {
   ArrowPathIcon,
   CheckCircleIcon,
   ChevronDownIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -165,6 +166,27 @@ export function SenderVerificationCard() {
       ),
   });
 
+  // Lets the user clear out a domain that's stuck pending/failed so it doesn't
+  // linger in the list forever.
+  const deleteMutation = useMutation({
+    mutationFn: (domainId: string) =>
+      senderIdentitiesService.deleteDomain(
+        domainId,
+        organizationId ?? undefined
+      ),
+    onSuccess: async (_res, domainId) => {
+      if (expandedId === domainId) setExpandedId(null);
+      await queryClient.invalidateQueries({
+        queryKey: domainsKey(organizationId),
+      });
+      toast.success("Domain removed");
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : "Failed to remove domain"
+      ),
+  });
+
   return (
     <SettingsCard
       title="Sender verification"
@@ -210,39 +232,56 @@ export function SenderVerificationCard() {
                 key={domain.id}
                 className="rounded-xl border border-border/60 bg-background/40"
               >
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(open ? null : domain.id)}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-                >
-                  <span className="truncate font-mono text-sm text-foreground">
-                    {domain.domain}
-                  </span>
-                  <span className="flex shrink-0 items-center gap-2">
-                    <StatusPill
-                      tone={
-                        domain.status === "verified"
-                          ? "success"
+                <div className="flex items-center gap-1 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(open ? null : domain.id)}
+                    className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                  >
+                    <span className="truncate font-mono text-sm text-foreground">
+                      {domain.domain}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <StatusPill
+                        tone={
+                          domain.status === "verified"
+                            ? "success"
+                            : domain.status === "failed"
+                              ? "danger"
+                              : "pending"
+                        }
+                      >
+                        {domain.status === "verified"
+                          ? "Verified"
                           : domain.status === "failed"
-                            ? "danger"
-                            : "pending"
+                            ? "Failed"
+                            : "Pending"}
+                      </StatusPill>
+                      <ChevronDownIcon
+                        aria-hidden="true"
+                        className={cn(
+                          "h-4 w-4 text-muted-foreground transition-transform",
+                          open && "rotate-180"
+                        )}
+                      />
+                    </span>
+                  </button>
+                  {domain.status !== "verified" ? (
+                    <button
+                      type="button"
+                      onClick={() => deleteMutation.mutate(domain.id)}
+                      disabled={
+                        deleteMutation.isPending &&
+                        deleteMutation.variables === domain.id
                       }
+                      aria-label={`Remove ${domain.domain}`}
+                      title="Remove domain"
+                      className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
                     >
-                      {domain.status === "verified"
-                        ? "Verified"
-                        : domain.status === "failed"
-                          ? "Failed"
-                          : "Pending"}
-                    </StatusPill>
-                    <ChevronDownIcon
-                      aria-hidden="true"
-                      className={cn(
-                        "h-4 w-4 text-muted-foreground transition-transform",
-                        open && "rotate-180"
-                      )}
-                    />
-                  </span>
-                </button>
+                      <TrashIcon aria-hidden="true" className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
 
                 {open ? (
                   <div className="border-t border-border/50 px-4 py-4">
@@ -287,17 +326,13 @@ export function SenderVerificationCard() {
   );
 }
 
-// Map each send provider to its sending purpose + a friendly name. ACS carries
-// transactional mail, SES marketing. SendGrid is intentionally not shown.
-const PROVIDER_META: Record<string, { purpose: string; name: string }> = {
-  acs: { purpose: "Transactional", name: "Azure ACS" },
-  ses: { purpose: "Marketing", name: "Amazon SES" },
+// Friendly display name per send provider. SES leads; SendGrid/ACS are hidden.
+const PROVIDER_META: Record<string, string> = {
+  acs: "Azure ACS",
+  ses: "Amazon SES",
 };
-const providerMeta = (provider: string) =>
-  PROVIDER_META[provider.toLowerCase()] ?? {
-    purpose: "",
-    name: provider || "Provider",
-  };
+const providerName = (provider: string) =>
+  PROVIDER_META[provider.toLowerCase()] ?? provider ?? "Provider";
 
 // SES is the only surfaced provider — transactional (ACS) and SendGrid records
 // are hidden, so customers publish exactly one set of DNS records.
@@ -337,12 +372,10 @@ function AllProviderDnsRecords({
           DNS records to publish
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Publish every record below to verify this domain for both
-          transactional and marketing sending.
+          Publish every record below to verify your sending domain.
         </p>
       </div>
       {shown.map((prov) => {
-        const meta = providerMeta(prov.provider);
         const unavailable =
           prov.status === "skipped" || prov.status === "error";
         return (
@@ -352,7 +385,7 @@ function AllProviderDnsRecords({
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-foreground">
-                {meta.purpose ? `${meta.purpose} · ${meta.name}` : meta.name}
+                {providerName(prov.provider)}
               </span>
               {prov.status === "skipped" ? (
                 <StatusPill tone="pending">Not configured</StatusPill>
@@ -451,7 +484,7 @@ function DomainDnsPanel({
       {conflictCount > 0 ? (
         <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
           {conflictCount} existing record{conflictCount === 1 ? "" : "s"}{" "}
-          conflict{conflictCount === 1 ? "s" : ""} with verification — apply the
+          conflict{conflictCount === 1 ? "s" : ""} with verification, apply the
           fixes below.
         </p>
       ) : null}

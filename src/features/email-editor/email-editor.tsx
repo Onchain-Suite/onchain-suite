@@ -431,7 +431,7 @@ export function EmailEditor({
           <DialogHeader>
             <DialogTitle>Import HTML</DialogTitle>
             <DialogDescription>
-              Paste an existing email&apos;s HTML — headings, text, images,
+              Paste an existing email&apos;s HTML - headings, text, images,
               buttons and dividers become editable blocks. The compliance footer
               is kept.
             </DialogDescription>

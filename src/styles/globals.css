@@ -5,17 +5,17 @@
 
 :root {
   /* ══════════════════════════════════════════════════════════════════════
-     Design System v2 — see DESIGN.md; reference implementation:
+     Design System v2 - see DESIGN.md; reference implementation:
      https://onchainsuite.aborodeolusegun.workers.dev/
      Paper + electric-blue (light) / graphite (dark). Blue #1727E0 is the
      action color; orange #FF6828 is focus only. Primitives are theme-
      independent; the semantic tokens below resolve per theme (`.dark`
-     overrides the subset that changes — next-themes runs `attribute="class"`).
+     overrides the subset that changes - next-themes runs `attribute="class"`).
      The shadcn aliases are kept and mapped onto these tokens so every
      existing utility (bg-card, text-muted-foreground, …) keeps working.
      ══════════════════════════════════════════════════════════════════════ */
 
-  /* ── Primitive ramps (DESIGN.md §2 — do not use directly) ────────────── */
+  /* ── Primitive ramps (DESIGN.md §2 - do not use directly) ────────────── */
   --neutral-0: #ffffff;
   --neutral-25: #fbfbfc;
   --neutral-50: #f5f6f7;
@@ -91,7 +91,7 @@
 
   --alice: #f0f7ff;
 
-  /* ── Semantic — surfaces (light) ─────────────────────────────────────── */
+  /* ── Semantic - surfaces (light) ─────────────────────────────────────── */
   --bg-page: var(--neutral-25);
   --bg-surface: var(--neutral-0);
   --bg-raised: var(--neutral-0);
@@ -104,7 +104,7 @@
   --surface-subtle: var(--neutral-100);
   --surface-tint: var(--neutral-50);
 
-  /* ── Semantic — text (light) ─────────────────────────────────────────── */
+  /* ── Semantic - text (light) ─────────────────────────────────────────── */
   --text-primary: var(--navy-950);
   --text-secondary: var(--neutral-600);
   --text-tertiary: var(--neutral-500);
@@ -114,7 +114,7 @@
   --text-link: var(--blue-600);
   --text-link-hover: var(--orange-600);
 
-  /* ── Semantic — borders & actions (light) ────────────────────────────── */
+  /* ── Semantic - borders & actions (light) ────────────────────────────── */
   --border-subtle: var(--neutral-100);
   --border-default: var(--neutral-200);
   --border-strong: var(--neutral-400);
@@ -132,7 +132,7 @@
   --tint-hover: rgba(18, 20, 23, 0.06);
   --tint-pressed: rgba(18, 20, 23, 0.1);
 
-  /* ── Semantic — status triads (light) ────────────────────────────────── */
+  /* ── Semantic - status triads (light) ────────────────────────────────── */
   --status-success-bg: var(--green-50);
   --status-success-border: var(--green-500);
   --status-success-text: var(--green-700);
@@ -158,7 +158,7 @@
   --chart-axis: var(--neutral-500);
   --chart-grid: var(--neutral-200);
 
-  /* ── shadcn aliases — kept working, mapped onto the tokens above ──────── */
+  /* ── shadcn aliases - kept working, mapped onto the tokens above ──────── */
   --background: var(--bg-page);
   --foreground: var(--text-primary);
   --card: var(--bg-surface);
@@ -194,14 +194,14 @@
   --sidebar-border: var(--border-default);
   --sidebar-ring: var(--border-focus);
 
-  /* ── Type — families resolve through the next/font variables set in
+  /* ── Type - families resolve through the next/font variables set in
      app/layout.tsx, with the literal family + generic as fallbacks. ────── */
   --font-sans: var(--font-instrument-sans, "Instrument Sans"), sans-serif;
   --font-serif: "Lora", serif;
   --font-mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, "SF Mono",
     Menlo, monospace;
 
-  /* Type scale — size / line / weight / tracking (DESIGN.md §4). Exposed as
+  /* Type scale - size / line / weight / tracking (DESIGN.md §4). Exposed as
      `text-*` utilities in the @theme inline block below. */
   --text-display-xl-size: 69px;
   --text-display-xl-line: 74px;
@@ -256,7 +256,7 @@
   --text-caption-size: 12px;
   --text-caption-line: 16px;
 
-  /* ── Radius — kept at the app's current scale (unchanged) ─────────────── */
+  /* ── Radius - kept at the app's current scale (unchanged) ─────────────── */
   --radius: 0.625rem;
 
   /* ── Spacing ─────────────────────────────────────────────────────────── */
@@ -343,7 +343,7 @@
 
   --tracking-normal: normal;
 
-  /* Brand Palette (legacy references — still consumed by settings/layout) */
+  /* Brand Palette (legacy references - still consumed by settings/layout) */
   --brand-oxford-blue: #010f31;
   --brand-alice-blue: #f0f7ff;
   --brand-blue: #1727e0;
@@ -352,7 +352,7 @@
 }
 
 .dark {
-  /* Design System v2 (dark): neutral graphite — never a blue background.
+  /* Design System v2 (dark): neutral graphite - never a blue background.
      Overrides only the semantic subset that changes; the shadcn aliases below
      re-resolve through those tokens. Blue lifts to 400 (#5468F2) and stays an
      accent; orange lifts to #FF8449 for focus rings. Primitives, the type
@@ -403,7 +403,7 @@
   --status-error-text: #f87a7e;
   --chart-grid: #2b2f35;
 
-  /* shadcn aliases — dark. `--muted-foreground` intentionally stays at
+  /* shadcn aliases - dark. `--muted-foreground` intentionally stays at
      neutral-400 (not --text-secondary) to preserve current dark contrast. */
   --background: var(--bg-page);
   --foreground: var(--text-primary);
@@ -498,7 +498,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Design System v2 — semantic utilities that fill the gaps the shadcn
+  /* Design System v2 - semantic utilities that fill the gaps the shadcn
      aliases don't cover: selected/hover surfaces, strong border, status tones
      and the data-viz series. Usable as bg-/text-/border-{name}. */
   --color-selected: var(--bg-selected);
@@ -896,7 +896,7 @@ body {
 
 /* Removed the old terminal landing design system (.os-landing/.os-btn/.os-nav,
    bento/ticker/showcase styles). The marketing site now uses the v2 design
-   under `.ocs2`. Only the cursor-blink keyframe is retained — auth + 404 use it. */
+   under `.ocs2`. Only the cursor-blink keyframe is retained - auth + 404 use it. */
 @keyframes os-blink {
   50% {
     opacity: 0;
@@ -909,7 +909,7 @@ body {
    existing form components recolor + go square automatically.
    ───────────────────────────────────────────────────────────────────────── */
 /* ─────────────────────────────────────────────────────────────────────────
-   Auth (signin / signup / forgot / reset) — reskinned to the main app brand:
+   Auth (signin / signup / forgot / reset) - reskinned to the main app brand:
    light "paper" canvas + electric-blue primary, two-column with a branded
    showcase panel. `.os-auth` remaps the shadcn tokens so the shared form
    controls recolor + round automatically.

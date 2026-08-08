@@ -21,7 +21,7 @@ import SettingsSectionCard from "@/features/settings/components/settings-section
 import { Badge } from "@/shared/components/ui/badge";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
-// 2FA is disabled for now (product decision) — flip to true to restore the
+// 2FA is disabled for now (product decision) - flip to true to restore the
 // enable/manage UI. The backend flows (/auth/two-factor/*) stay untouched.
 const TWO_FACTOR_ENABLED = false;
 

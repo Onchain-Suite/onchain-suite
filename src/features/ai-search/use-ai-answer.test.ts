@@ -38,7 +38,7 @@ describe("useAiAnswer", () => {
       result.current.ask("what is my churn rate?");
     });
 
-    // No 60s wait — the closed stream surfaces an error right away.
+    // No 60s wait - the closed stream surfaces an error right away.
     await waitFor(() => {
       expect(result.current.error).toMatch(/ended unexpectedly/i);
     });

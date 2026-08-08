@@ -39,7 +39,7 @@ const mocks = vi.hoisted(() => ({
 
 // The SQL results table is virtualized. jsdom gives the scroll container zero
 // height, so @tanstack/react-virtual computes an empty range and renders no
-// rows at all — every assertion about row content would fail for reasons that
+// rows at all - every assertion about row content would fail for reasons that
 // have nothing to do with the component. Render the full set instead.
 vi.mock("@tanstack/react-virtual", () => ({
   useVirtualizer: ({
@@ -368,7 +368,7 @@ describe("QueryTab", () => {
     expect(setActiveTab).toHaveBeenCalledWith("reports");
   });
 
-  it("does not render the report view inline — reports live in the Reports tab", async () => {
+  it("does not render the report view inline - reports live in the Reports tab", async () => {
     renderQueryTab();
 
     fireEvent.change(screen.getByLabelText("SQL query editor"), {
@@ -478,7 +478,7 @@ describe("QueryTab", () => {
     expect(screen.queryByText(/Live agent activity/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Live tools/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Live resources/i)).not.toBeInTheDocument();
-    // The chain picker was removed — chat is fixed to DEFAULT_MCP_CHAINS — so
+    // The chain picker was removed - chat is fixed to DEFAULT_MCP_CHAINS - so
     // neither the picker nor its coverage summary should render.
     expect(screen.queryByText(/Supported chains/i)).not.toBeInTheDocument();
     expect(
@@ -548,7 +548,7 @@ describe("QueryTab", () => {
       );
     });
 
-    // Assert the request payload rather than the full call signature —
+    // Assert the request payload rather than the full call signature -
     // queryGoldrushMcp takes (body, orgId?, options?), and the extra args
     // (abort signal, timeout) are not what this test is about.
     await waitFor(() => {
@@ -795,7 +795,7 @@ describe("QueryTab", () => {
     await waitFor(() => {
       const { calls } = mocks.intelligenceService.queryGoldrushMcp.mock;
       expect(calls.length).toBeGreaterThan(0);
-      // Payload only — the (body, orgId?, options?) tail is incidental here.
+      // Payload only - the (body, orgId?, options?) tail is incidental here.
       expect(calls[calls.length - 1][0]).toEqual(
         expect.objectContaining({
           conversationId: "conv_clarify",

@@ -2,7 +2,6 @@
 
 import {
   ArrowLeftIcon,
-  ArrowPathIcon,
   CheckCircleIcon,
   CheckIcon,
   CloudArrowUpIcon,
@@ -20,12 +19,6 @@ import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Popover,
   PopoverContent,
@@ -463,7 +456,7 @@ export default function ImportExportPage() {
   const [importPlatform, setImportPlatform] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Presets discovery is effectively static — cache it for the session and
+  // Presets discovery is effectively static - cache it for the session and
   // degrade silently to the manual-only flow if it fails (no toast, no gate).
   const presetsQuery = useQuery({
     queryKey: ["audience", "imports", "presets"],
@@ -484,7 +477,7 @@ export default function ImportExportPage() {
   );
 
   // Headers the selected preset pre-maps (case-insensitive), when the
-  // discovery payload exposes the header map — used purely as a visual hint.
+  // discovery payload exposes the header map - used purely as a visual hint.
   const presetHeaderSet = useMemo(() => {
     const set = new Set<string>();
     for (const header of Object.keys(selectedPreset?.mapping ?? {})) {
@@ -766,7 +759,7 @@ export default function ImportExportPage() {
       };
 
       // The same-origin API proxy injects the session server-side (from the
-      // onchain.token cookie), so it authenticates reliably — but it runs on a
+      // onchain.token cookie), so it authenticates reliably - but it runs on a
       // serverless function with a ~4.5MB request-body cap. The direct-to-
       // backend upload has no size cap but relies on a cross-origin session
       // cookie the browser won't send (→ 401). So: route small/medium files
@@ -851,7 +844,13 @@ export default function ImportExportPage() {
         );
       }
       toast.success(
-        "Import started — you can keep using the platform. It runs in the background and we'll let you know when it's done."
+        "Import started, you can keep using the platform. It runs in the background and we'll let you know when it's done.",
+        {
+          action: {
+            label: "Cancel",
+            onClick: () => cancelImportMutation.mutate(),
+          },
+        }
       );
     },
     onError: (e: unknown) => {
@@ -1080,8 +1079,16 @@ export default function ImportExportPage() {
       setImportStep("complete");
       toast.success(
         failed > 0
-          ? `Import finished — ${success.toLocaleString()} contacts imported, ${failed.toLocaleString()} skipped.`
-          : `Import finished — ${success.toLocaleString()} contacts imported.`
+          ? `Import finished, ${success.toLocaleString()} contacts imported, ${failed.toLocaleString()} skipped.`
+          : `Import finished, ${success.toLocaleString()} contacts imported.`,
+        failed > 0
+          ? {
+              action: {
+                label: "Download errors",
+                onClick: () => downloadImportErrorsMutation.mutate(),
+              },
+            }
+          : undefined
       );
       return;
     }
@@ -1715,119 +1722,6 @@ export default function ImportExportPage() {
             </div>
           </div>
         )}
-
-        {(() => {
-          const state = String(importStatus?.state ?? "queued");
-          const isTerminal = ["completed", "failed", "cancelled"].includes(
-            state
-          );
-          const pct = Math.max(
-            0,
-            Math.min(
-              100,
-              Number(
-                importStatus?.progress ?? (state === "completed" ? 100 : 0)
-              )
-            )
-          );
-          return (
-            <Dialog
-              open={Boolean(importJobId)}
-              onOpenChange={(open) => {
-                if (!open && isTerminal) setImportJobId(null);
-              }}
-            >
-              <DialogContent
-                className="sm:max-w-md"
-                onInteractOutside={(e) => {
-                  if (!isTerminal) e.preventDefault();
-                }}
-              >
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    {isTerminal ? (
-                      <CheckCircleIcon
-                        aria-hidden="true"
-                        className={`h-5 w-5 ${
-                          state === "completed"
-                            ? "text-primary"
-                            : "text-amber-500"
-                        }`}
-                      />
-                    ) : (
-                      <ArrowPathIcon
-                        aria-hidden="true"
-                        className="h-5 w-5 animate-spin text-primary"
-                      />
-                    )}
-                    {state === "completed"
-                      ? "Import complete"
-                      : state === "failed"
-                        ? "Import failed"
-                        : state === "cancelled"
-                          ? "Import cancelled"
-                          : "Importing your audience…"}
-                  </DialogTitle>
-                </DialogHeader>
-
-                <div className="space-y-3">
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {typeof importStatus?.processedRows === "number"
-                      ? `${importStatus.processedRows.toLocaleString()} processed`
-                      : "Preparing…"}
-                    {typeof importStatus?.createdCount === "number"
-                      ? ` · ${importStatus.createdCount.toLocaleString()} created`
-                      : ""}
-                    {typeof importStatus?.updatedCount === "number"
-                      ? ` · ${importStatus.updatedCount.toLocaleString()} updated`
-                      : ""}
-                    {typeof importStatus?.errorCount === "number" &&
-                    importStatus.errorCount > 0
-                      ? ` · ${importStatus.errorCount.toLocaleString()} errors`
-                      : ""}
-                  </p>
-                </div>
-
-                <div className="mt-2 flex justify-end gap-2">
-                  {importStatus && (importStatus.errorCount ?? 0) > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => downloadImportErrorsMutation.mutate()}
-                      disabled={downloadImportErrorsMutation.isPending}
-                      className="rounded-xl border border-border px-3 py-2 text-xs font-medium hover:bg-muted disabled:opacity-50"
-                    >
-                      Download errors
-                    </button>
-                  ) : null}
-                  {isTerminal ? (
-                    <button
-                      type="button"
-                      onClick={() => setImportJobId(null)}
-                      className="rounded-xl bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-                    >
-                      Done
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => cancelImportMutation.mutate()}
-                      disabled={cancelImportMutation.isPending}
-                      className="rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted disabled:opacity-50"
-                    >
-                      Cancel import
-                    </button>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-          );
-        })()}
 
         {importStep === "complete" && importResult && (
           <div className="flex flex-col items-center justify-center py-20 text-center">

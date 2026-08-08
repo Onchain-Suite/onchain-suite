@@ -63,7 +63,7 @@ const STATUS_META: Record<
 const isPushChannel = (channel: string) =>
   channel === "inapp" || channel === "in-app-push" || channel === "push";
 
-/** Which channel glyphs to show — defaults to email when the API sends none. */
+/** Which channel glyphs to show - defaults to email when the API sends none. */
 const channelsFor = (campaign: Campaign) => {
   const used =
     campaign.channelsUsed && campaign.channelsUsed.length > 0
@@ -78,16 +78,16 @@ const channelsFor = (campaign: Campaign) => {
 const formatRate = (value?: number) =>
   typeof value === "number" && Number.isFinite(value)
     ? `${Math.round(value)}%`
-    : "—";
+    : "-";
 
 const formatCount = (value?: number) =>
   typeof value === "number" && Number.isFinite(value)
     ? value.toLocaleString()
-    : "—";
+    : "-";
 
 const formatWhen = (campaign: Campaign) => {
   const when = campaign.sentAt ?? campaign.scheduledFor ?? campaign.createdAt;
-  if (!(when instanceof Date) || Number.isNaN(when.getTime())) return "—";
+  if (!(when instanceof Date) || Number.isNaN(when.getTime())) return "-";
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
@@ -111,7 +111,7 @@ function ChannelIcon({ children }: { children: React.ReactNode }) {
  * Campaigns list table, matched to the reference exactly: name + channel
  * glyphs, status pill, recipient/open/click stats, and the send/schedule time,
  * with the whole row navigating to the campaign. Campaign counts stay small
- * (the list is capped at 200 server-side), so a plain table is fine here — no
+ * (the list is capped at 200 server-side), so a plain table is fine here - no
  * virtualization needed.
  */
 export function CampaignsReferenceTable({
@@ -120,9 +120,9 @@ export function CampaignsReferenceTable({
   onDelete,
 }: {
   data: Campaign[];
-  /** Row click — opens the campaign detail drawer. */
+  /** Row click - opens the campaign detail drawer. */
   onSelect: (campaign: Campaign) => void;
-  /** Row menu — asks the list to confirm + delete the campaign. */
+  /** Row menu - asks the list to confirm + delete the campaign. */
   onDelete: (campaign: Campaign) => void;
 }) {
   return (

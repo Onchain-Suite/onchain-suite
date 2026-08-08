@@ -8,9 +8,9 @@ import { formatPercentage } from "../utils";
 const formatCount = (value?: number | null) =>
   typeof value === "number" && Number.isFinite(value)
     ? value.toLocaleString()
-    : "—";
+    : "-";
 
-/** First day of next month, e.g. "Aug 1" — the monthly allowance reset point. */
+/** First day of next month, e.g. "Aug 1" - the monthly allowance reset point. */
 const nextResetLabel = () => {
   const now = new Date();
   const reset = new Date(now.getFullYear(), now.getMonth() + 1, 1);

@@ -1,9 +1,9 @@
 /**
  * Server-only helpers for the PUBLIC (unauthenticated) hosted-form endpoints.
- * (Imported only from route handlers / server components — never a client file.)
+ * (Imported only from route handlers / server components - never a client file.)
  * The hosted `/f/[token]` page and its submit/nonce proxies talk to the
- * backend's `/public/forms/*` surface — no org/session context, just the
- * form's public token — so these never forward auth cookies.
+ * backend's `/public/forms/*` surface - no org/session context, just the
+ * form's public token - so these never forward auth cookies.
  */
 
 const pickNonEmpty = (...values: Array<string | undefined | null>) => {

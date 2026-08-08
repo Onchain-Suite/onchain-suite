@@ -38,7 +38,7 @@ export function ComingSoonSection({ section }: { section: WipSection }) {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60 motion-reduce:animate-none" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
           </span>
-          In development — shipping in v1
+          In development - shipping in v1
         </span>
 
         <h1 className="mt-5 text-2xl font-semibold tracking-tight text-foreground">

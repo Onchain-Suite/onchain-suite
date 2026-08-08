@@ -85,7 +85,7 @@ import { useActiveTimezone } from "@/shared/hooks/client/use-timezones";
 const TOTAL_STEPS = 3;
 /**
  * Domain verification lives in the account tab's "Sender verification"
- * section, which is collapsed by default — `section=` expands and scrolls to
+ * section, which is collapsed by default - `section=` expands and scrolls to
  * it so the link lands on the thing the user was told to do.
  */
 const SENDER_VERIFICATION_HREF = `${PRIVATE_ROUTES.SETTINGS}?tab=account&section=sender-verification`;
@@ -125,7 +125,7 @@ const isLikelyEmail = (value: string): boolean =>
 
 /**
  * Persist the final step's message + template so the saved campaign reflects
- * the current edits. Shared by the launch flow and the send-a-test control —
+ * the current edits. Shared by the launch flow and the send-a-test control -
  * a test renders from saved content, so it must run before sendTest too, or
  * the test would use stale content.
  */
@@ -133,7 +133,7 @@ const persistCampaignContent = async (
   campaignId: string,
   data: CampaignFormData
 ): Promise<void> => {
-  // In-app push carries its own composer — persist the notification (the only
+  // In-app push carries its own composer - persist the notification (the only
   // fields the backend stores today) instead of the email content/template.
   if (data.channel === "in-app-push") {
     await campaignsService.setPushContent(campaignId, {
@@ -336,7 +336,7 @@ function EmailPreviewFrame({ html }: { html: string }) {
     if (!el) return;
     const update = () => {
       const w = el.clientWidth;
-      // Cap at 1 so we never upscale (blurry) — only shrink to fit.
+      // Cap at 1 so we never upscale (blurry) - only shrink to fit.
       if (w > 0) setScale(Math.min(1, w / BASE_WIDTH));
     };
     update();
@@ -449,7 +449,7 @@ function CampaignPreviewStep({
     setIsSendingTest(true);
     try {
       // A test renders from saved content, so persist the current message +
-      // template first — otherwise the test reflects a previous save.
+      // template first - otherwise the test reflects a previous save.
       await persistCampaignContent(campaignId, form.getValues());
       await campaignsService.sendTest(campaignId, { to });
       toast.success(`Test sent to ${to}.`);
@@ -546,7 +546,7 @@ function CampaignPreviewStep({
   const selectedTemplateId = form.watch("selectedTemplate") ?? "";
   const isPush = form.watch("channel") === "in-app-push";
 
-  // Auto-load the rendered email as soon as the step opens — no manual
+  // Auto-load the rendered email as soon as the step opens - no manual
   // "Generate preview" click required. The selected template is part of the
   // key so re-selecting a template invalidates the cached render.
   const previewQuery = useQuery({
@@ -571,7 +571,7 @@ function CampaignPreviewStep({
   const values = form.watch();
   const isScheduled = values.sendOption === "schedule";
 
-  // Prefer the live recipient estimate over the raw count of selected sources —
+  // Prefer the live recipient estimate over the raw count of selected sources -
   // "3 recipients" reads better than "1 audience source".
   const est = estimatedRecipients ?? null;
   const recipientLabel =
@@ -598,7 +598,7 @@ function CampaignPreviewStep({
 
   const scheduleLabel = useMemo(() => {
     if (!isScheduled) return "Send now";
-    if (!values.scheduleDate || !values.scheduleTime) return "Schedule (—)";
+    if (!values.scheduleDate || !values.scheduleTime) return "Schedule (-)";
     const { hour, minute } = parseTimeOfDay(values.scheduleTime);
     const utc = zonedWallTimeToUtcDate(
       {
@@ -629,13 +629,13 @@ function CampaignPreviewStep({
           Ready to send?
         </h2>
         <p className="text-sm text-muted-foreground">
-          Give it one last look — this is exactly what lands.
+          Give it one last look - this is exactly what lands.
         </p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
         <div className="space-y-6">
-          {/* Details checklist — one glanceable row per decision, each with a
+          {/* Details checklist - one glanceable row per decision, each with a
               jump-back-and-edit affordance. */}
           <div>
             <div className="text-sm font-medium text-foreground">Details</div>
@@ -655,8 +655,8 @@ function CampaignPreviewStep({
                   label="From"
                   value={
                     `${values.senderName ? `${values.senderName} ` : ""}${
-                      (values.senderEmail ?? "").trim() || "—"
-                    }`.trim() || "—"
+                      (values.senderEmail ?? "").trim() || "-"
+                    }`.trim() || "-"
                   }
                   onEdit={onEditStep ? () => onEditStep(2) : undefined}
                 />
@@ -680,7 +680,7 @@ function CampaignPreviewStep({
               />
               <p className="text-sm leading-relaxed text-amber-700 dark:text-amber-400">
                 You can&apos;t send this campaign yet. Your role can&apos;t
-                launch campaigns for this organization — ask an admin to send,
+                launch campaigns for this organization - ask an admin to send,
                 or check your sender verification in Settings.
               </p>
             </div>
@@ -786,11 +786,11 @@ function CampaignPreviewStep({
                 ))}
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                Edit the template and add a fallback — e.g.{" "}
+                Edit the template and add a fallback - e.g.{" "}
                 <span className="font-mono">
                   {'{{ ens_name | default: "there" }}'}
                 </span>{" "}
-                — or switch to a wallet-aware token like{" "}
+                - or switch to a wallet-aware token like{" "}
                 <span className="font-mono">{"{{ greeting_name }}"}</span>,
                 which never renders blank.
               </p>
@@ -860,7 +860,7 @@ function CampaignPreviewStep({
             </div>
           ) : null}
 
-          {/* Envelope header — mirrors what lands in the inbox. */}
+          {/* Envelope header - mirrors what lands in the inbox. */}
           {!isPush ? (
             <dl className="mt-3 space-y-1 rounded-xl border border-border bg-muted/30 p-3 text-xs">
               <div className="flex gap-2">
@@ -869,7 +869,7 @@ function CampaignPreviewStep({
                   {values.senderName ? `${values.senderName} ` : ""}
                   {(values.senderEmail ?? "").trim()
                     ? `<${(values.senderEmail ?? "").trim()}>`
-                    : "—"}
+                    : "-"}
                 </dd>
               </div>
               <div className="flex gap-2">
@@ -1296,7 +1296,7 @@ export function CreateCampaignPage() {
       if (hasHydratedCampaign) return;
 
       if (!initialCampaignFromUrl) {
-        // Nothing to load — the form defaults are the source of truth.
+        // Nothing to load - the form defaults are the source of truth.
         setAudienceHydrationOk(true);
         setContentHydrationOk(true);
         setHasHydratedCampaign(true);
@@ -1375,7 +1375,7 @@ export function CreateCampaignPage() {
             : {};
           // GET /campaigns/{id}/audience returns { profileIds, segmentIds }.
           // Reading only listIds meant a saved contact selection never
-          // hydrated, so reopening a campaign showed an empty audience — and
+          // hydrated, so reopening a campaign showed an empty audience - and
           // the next Continue saved that emptiness back over it. listIds is
           // kept purely as a fallback for anything persisted by older builds.
           const {
@@ -1385,7 +1385,7 @@ export function CreateCampaignPage() {
             segmentIds: segmentIdsRaw,
           } = aObj;
           if (allRaw === true) {
-            // Saved as "send to everyone" — restore the sentinel selection.
+            // Saved as "send to everyone" - restore the sentinel selection.
             nextValues.selectedAudiences = [ALL_CONTACTS_SELECTION_ID];
           } else {
             const toIds = (value: unknown) =>
@@ -1706,7 +1706,7 @@ export function CreateCampaignPage() {
       });
 
       // The validator requires at least one enabled channel; nothing else in
-      // the email flow sets channelsUsed, so enable EMAIL here. Non-fatal —
+      // the email flow sets channelsUsed, so enable EMAIL here. Non-fatal -
       // if it fails, validation below reports the real state.
       await campaignsService
         .ensureChannels(campaignId, ["email"])
@@ -1739,7 +1739,7 @@ export function CreateCampaignPage() {
       setShowConfirmation(true);
     } catch (e) {
       // An unverified sender domain is the one launch failure the user can
-      // fix themselves — point them at the verification flow rather than
+      // fix themselves - point them at the verification flow rather than
       // showing a raw backend string.
       const senderIssue = parseSenderNotVerified(e);
       if (senderIssue) {
@@ -1767,7 +1767,7 @@ export function CreateCampaignPage() {
     }
   };
 
-  // handleSubmit silently swallows schema failures without this — the send
+  // handleSubmit silently swallows schema failures without this - the send
   // button would appear dead. Surface the first blocking field error instead.
   const onInvalid = (errors: FieldErrors<CampaignFormData>) => {
     for (const value of Object.values(errors)) {
@@ -1792,7 +1792,7 @@ export function CreateCampaignPage() {
   const wizIsPush = form.watch("channel") === "in-app-push";
 
   // Org identity for the in-app preview: verified sending domain first, else a
-  // slug-derived org domain — never a generic placeholder. The badge uses the
+  // slug-derived org domain - never a generic placeholder. The badge uses the
   // org's initials instead of a hardcoded mark.
   const { activeOrg } = useOrgSwitcherContext();
   const pushAppDomain = useMemo(() => {
@@ -1832,19 +1832,19 @@ export function CreateCampaignPage() {
       : [form.watch("senderName"), form.watch("senderEmail")]
           .map((value) => (value ?? "").trim())
           .filter(Boolean)
-          .join(" · ") || "—",
-    template: wizTemplate.length > 0 ? wizTemplate : "—",
+          .join(" · ") || "-",
+    template: wizTemplate.length > 0 ? wizTemplate : "-",
     delivery: sendOption === "schedule" ? "Scheduled" : "Send immediately",
   };
 
   // In-app push surfaces different config than email (opens/expires vs
-  // sender/template) — override the summary rows for it.
+  // sender/template) - override the summary rows for it.
   const wizPushRows = wizIsPush
     ? [
         { label: "Channel", value: "In-app push" },
         {
           label: "Opens",
-          value: (form.watch("pushCtaUrl") ?? "").trim() || "—",
+          value: (form.watch("pushCtaUrl") ?? "").trim() || "-",
         },
         {
           label: "Delivery",
@@ -1866,7 +1866,7 @@ export function CreateCampaignPage() {
 
   return (
     <div className="min-h-screen bg-background font-sans -mt-[20px] z-2">
-      {/* Header — Campaigns link · editable name · saved status + Save & exit */}
+      {/* Header - Campaigns link · editable name · saved status + Save & exit */}
       <div className="bg-background">
         <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8 max-w-[1600px]">
           <div className="flex min-w-0 items-center gap-3">

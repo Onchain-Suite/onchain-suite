@@ -3,7 +3,7 @@ const FORMATTED_SUFFIX = "_formatted";
 /**
  * The backend injects human-readable `<key>_formatted` siblings next to raw
  * base-unit Web3 amounts on every GoldRush/MCP path (docs/backend.md
- * 2026-07-28, `normalizeWeb3Payload`) — e.g. USDC `balance: "2500000"` →
+ * 2026-07-28, `normalizeWeb3Payload`) - e.g. USDC `balance: "2500000"` →
  * `balance_formatted: "2.5"`. Render the formatted value when present.
  */
 export const preferFormattedCell = (
@@ -21,7 +21,7 @@ export const preferFormattedCell = (
 };
 
 /**
- * Hide `<key>_formatted` columns whose base column is also present — the base
+ * Hide `<key>_formatted` columns whose base column is also present - the base
  * column already renders the formatted value via {@link preferFormattedCell},
  * so showing both duplicates the data.
  */

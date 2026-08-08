@@ -102,7 +102,7 @@ export function DashboardNavbar({
   return (
     <aside
       className={cn(
-        // Hidden below lg — mobile navigation lives in the header's sheet menu.
+        // Hidden below lg - mobile navigation lives in the header's sheet menu.
         "fixed inset-y-0 left-0 z-30 transition-all duration-300 max-lg:hidden",
         isCollapsed ? "w-20" : "w-64"
       )}
@@ -129,7 +129,7 @@ export function DashboardNavbar({
             )}
           >
             {/* Org-branded logos can live on arbitrary hosts (backend/storage)
-                that aren't in next.config images.remotePatterns — skip the
+                that aren't in next.config images.remotePatterns - skip the
                 optimizer for them, and fall back to the platform logo when
                 the branded URL fails to load. */}
             <BrandLogo
@@ -187,7 +187,7 @@ export function DashboardNavbar({
                       </Link>
                     </TooltipTrigger>
                     <TooltipContent side="right">
-                      {item.wip ? `${item.label} — coming in v1` : item.label}
+                      {item.wip ? `${item.label} - coming in v1` : item.label}
                     </TooltipContent>
                   </Tooltip>
                 );

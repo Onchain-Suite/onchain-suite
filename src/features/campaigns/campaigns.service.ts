@@ -22,13 +22,13 @@ export interface CampaignCalendarItem {
 }
 
 /**
- * Canonical body of `PUT /campaigns/{id}/audience` — `{ profileIds,
+ * Canonical body of `PUT /campaigns/{id}/audience` - `{ profileIds,
  * segmentIds }`. Legacy `listIds` is accepted when reading a previously saved
  * selection but is never sent; the backend ignores it.
  */
 export interface CampaignAudienceSelection {
   segmentIds: string[];
-  /** Explicit profile/contact ids — backend requires the key to be an array. */
+  /** Explicit profile/contact ids - backend requires the key to be an array. */
   profileIds?: string[];
   /**
    * Target every contact in the org, regardless of list/segment. When true the
@@ -262,7 +262,7 @@ const request = async <T>(
         ? data.message
         : (err.message ?? "Campaigns request failed");
     // Carry the structured fields through. Flattening to a string lost the
-    // error code, so callers could not tell SENDER_NOT_VERIFIED (actionable —
+    // error code, so callers could not tell SENDER_NOT_VERIFIED (actionable -
     // send them to domain verification) from any other launch failure.
     throw withApiErrorFields(
       new Error(
@@ -391,7 +391,7 @@ const toFiniteNumber = (value: unknown): number | undefined => {
 };
 
 /**
- * Recipient count for a campaign row — never NaN.
+ * Recipient count for a campaign row - never NaN.
  *
  * The backend's `recipients` field is untyped (`recipients?: any` per
  * docs/backend.md `POST /campaigns`) and may be a count, a numeric string, an
@@ -403,7 +403,7 @@ const toFiniteNumber = (value: unknown): number | undefined => {
  *  2. the length of an explicit recipients selection,
  *  3. for sent campaigns, the analytics sent count when the row already
  *     embeds it (no extra per-row fetches),
- *  4. otherwise `undefined` — the UI renders an em dash.
+ *  4. otherwise `undefined` - the UI renders an em dash.
  */
 const toRecipientCount = (
   obj: Record<string, unknown>,
@@ -439,7 +439,7 @@ const toRecipientCount = (
 
 /**
  * Human-readable audience labels (tags / lists / segments) for the list's
- * Recipients column, pulled from whatever shape the row carries — no extra
+ * Recipients column, pulled from whatever shape the row carries - no extra
  * per-row fetches. Unknown shapes just yield an empty list (count fallback).
  */
 const toAudienceLabels = (obj: Record<string, unknown>): string[] => {
@@ -461,7 +461,7 @@ const toAudienceLabels = (obj: Record<string, unknown>): string[] => {
   // "Send to everyone" campaigns carry no segment/list/tag names, so they'd
   // otherwise show blank. When the row signals an all-audience target, show a
   // single clear "All contacts" label instead. (Backend must expose one of
-  // these flags on the campaign list row — see docs/campaigns-data-and-suppression.md.)
+  // these flags on the campaign list row - see docs/campaigns-data-and-suppression.md.)
   const rec = isJsonObject(obj.recipients) ? obj.recipients : undefined;
   const lower = (v: unknown) => (typeof v === "string" ? v.toLowerCase() : "");
   const isAllAudience =
@@ -575,7 +575,7 @@ export const campaignsService = {
   },
 
   setAudience(id: string, body: CampaignAudienceSelection, orgId?: string) {
-    // Canonical body is { profileIds, segmentIds } — both keys must be
+    // Canonical body is { profileIds, segmentIds } - both keys must be
     // present as arrays. There is no `listIds` in the contract; sending one
     // is ignored, which is how contact selections used to vanish. `all: true`
     // (send to every contact) is sent only when set, alongside the empty id
@@ -760,7 +760,7 @@ export const campaignsService = {
   },
 
   /**
-   * Ensure the campaign has its delivery channel enabled — the launch
+   * Ensure the campaign has its delivery channel enabled - the launch
    * validator rejects campaigns with an empty `channelsUsed` ("At least one
    * channel is required"). `PUT /campaigns/{id}/channels` is documented for
    * smart-campaign channels (inapp/telegram/discord/x), so if it rejects a
@@ -800,7 +800,7 @@ export const campaignsService = {
    * Send the campaign's in-app push to its wallet-reachable audience
    * (docs/backend.md, POST /campaigns/{id}/send-inapp). Content precedence:
    * body overrides → saved `channelsContent.inapp` → the linked in-app
-   * template. Immediate fan-out — there is no scheduled push send.
+   * template. Immediate fan-out - there is no scheduled push send.
    */
   sendInAppPush(
     id: string,

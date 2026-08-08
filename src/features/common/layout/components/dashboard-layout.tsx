@@ -57,7 +57,7 @@ const withWipFlags = (items: NavItem[]): NavItem[] =>
     wip: !SHOW_WIP_SECTIONS && isWipHref(item.url),
   }));
 
-// Resolved once at module scope — the routes and the WIP flag are both static.
+// Resolved once at module scope - the routes and the WIP flag are both static.
 // Matches the reference shell: Analytics is a top-level entry and Settings sits
 // inline at the foot of the list (no separate utility group).
 const NAV_MAIN: NavItem[] = withWipFlags([
@@ -127,7 +127,7 @@ function DashboardLayoutInner({
     [pathname]
   );
 
-  // Some accounts have no display name — fall back to first/last name the way
+  // Some accounts have no display name - fall back to first/last name the way
   // the campaigns page did before the shell was hoisted to the group layout.
   const rawUser: unknown = session?.user;
   const firstLast = isJsonObject(rawUser)
@@ -138,7 +138,7 @@ function DashboardLayoutInner({
     : "";
   // Identity is session-derived and independent of org selection, so the
   // account block (and its org switcher) stays visible even before an org is
-  // confirmed — the user must be able to see and use the switcher.
+  // confirmed - the user must be able to see and use the switcher.
   const fullName =
     session?.user?.name ?? (firstLast.length > 0 ? firstLast : undefined);
   const userId = session?.user?.id ?? undefined;
@@ -149,7 +149,7 @@ function DashboardLayoutInner({
   return (
     <OrgSwitcherProvider>
       {/* Bound the shell to the viewport so the content area (not the window)
-          is the scroll container — otherwise `position: sticky` inside pages
+          is the scroll container - otherwise `position: sticky` inside pages
           never engages (it would anchor to a non-scrolling ancestor). */}
       <SidebarProvider
         defaultOpen={defaultSidebarOpen}
@@ -176,7 +176,7 @@ function DashboardLayoutInner({
           {hasActiveOrganization ? <OrganizationStatusBanner /> : null}
           <PendingCheckoutBanner />
 
-          {/* Not a <main> — SidebarInset already renders one. */}
+          {/* Not a <main> - SidebarInset already renders one. */}
           <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 lg:p-8">
             <ShellContent
               hasActiveOrganization={hasActiveOrganization}
@@ -195,7 +195,7 @@ function DashboardLayoutInner({
 /**
  * Gates the content region on org resolution. While the org list is still
  * loading (or an org is being auto-selected) we mirror the page layout with a
- * skeleton instead of a "pick an org" wall — that wall only appears once we've
+ * skeleton instead of a "pick an org" wall - that wall only appears once we've
  * confirmed the account genuinely has no organization.
  */
 function ShellContent({
@@ -216,8 +216,8 @@ function ShellContent({
   }
 
   // `isMounted` guards the branch that reads client-only storage
-  // (hasResolved/organizations come from sessionStorage). Until it flips true —
-  // i.e. on the server and the first client render — both sides render the
+  // (hasResolved/organizations come from sessionStorage). Until it flips true -
+  // i.e. on the server and the first client render - both sides render the
   // skeleton, so hydration matches; the real no-org state only appears after.
   const confirmedNoOrg =
     isMounted && hasResolved && organizations.length === 0 && !isSwitchingOrg;
@@ -266,7 +266,7 @@ function NoOrganizationState() {
         </h1>
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
           You&apos;re signed in but don&apos;t have a workspace yet. Run setup
-          to create one — index a contract, enrich wallets, and verify your
+          to create one - index a contract, enrich wallets, and verify your
           sending domain. Already invited to one? It appears in the account menu
           at the bottom of the sidebar.
         </p>
@@ -285,7 +285,7 @@ function NoOrganizationState() {
 
 export function DashboardLayout(props: DashboardLayoutProps) {
   // Server state lives on the root QueryClient and the command palette on the
-  // root CommandPaletteProvider (see RootProviders) — both survive
+  // root CommandPaletteProvider (see RootProviders) - both survive
   // navigations; mounting either here would duplicate them per layout.
   return <DashboardLayoutInner {...props} />;
 }

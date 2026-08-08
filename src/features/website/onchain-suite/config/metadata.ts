@@ -5,7 +5,7 @@ import { KEYWORDS, SITE_CONFIG_META } from "./site";
 export function generateMetadata(): Metadata {
   return {
     title: {
-      default: `${SITE_CONFIG_META.name} — Web3 Retention Automation & Communication Layer`,
+      default: `${SITE_CONFIG_META.name} - Web3 Retention Automation & Communication Layer`,
       template: `%s · ${SITE_CONFIG_META.name}`,
     },
     description: SITE_CONFIG_META.description,
@@ -43,7 +43,7 @@ export function generateMetadata(): Metadata {
     },
     twitter: {
       card: "summary_large_image",
-      title: `${SITE_CONFIG_META.name} — Web3 Retention Automation`,
+      title: `${SITE_CONFIG_META.name} - Web3 Retention Automation`,
       description:
         "The communication infrastructure layer for Web3. When a wallet acts, your campaign fires, automatically, across every channel.",
       images: [SITE_CONFIG_META.twitterImage],

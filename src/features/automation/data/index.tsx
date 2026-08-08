@@ -36,7 +36,7 @@ export const emailTemplates = LIBRARY_EMAIL_TEMPLATES.map((template) => ({
   body: template.html,
 }));
 
-// Last-resort fallback for the trigger contract picker — used only when both
+// Last-resort fallback for the trigger contract picker - used only when both
 // `GET /automations/builder/project-contracts` and the org's project settings
 // return no contracts.
 export const mockContracts = [
@@ -50,7 +50,7 @@ export const mockContracts = [
   { address: "0x3Bf2...5e9D", name: "Base Bridge", chain: "Base", users: 1247 },
 ];
 
-// Fallback event list — used only when the GoldRush onchain catalog
+// Fallback event list - used only when the GoldRush onchain catalog
 // (`GET /automations/builder/onchain/catalog`) is unavailable.
 export const eventTypes = [
   "Transfer",
@@ -67,11 +67,11 @@ const catalogIcon = (Icon: typeof BoltIcon) => (
   <Icon aria-hidden="true" className="h-5 w-5" />
 );
 
-// Static fallback trigger catalog — mirrors the shape the backend
+// Static fallback trigger catalog - mirrors the shape the backend
 // `GET /automations/builder/triggers` returns, so the left palette shows a
 // full 6 on-chain / 9 off-chain split even before (or without) that call.
 export const triggerNodes = [
-  // On-chain (6) — fire from wallet activity, get a contract/event config.
+  // On-chain (6) - fire from wallet activity, get a contract/event config.
   {
     type: "onchain_event",
     label: "On-chain event",
@@ -108,7 +108,7 @@ export const triggerNodes = [
     description: "A position approaches liquidation",
     icon: catalogIcon(ExclamationTriangleIcon),
   },
-  // Off-chain (9) — fire from CRM / engagement events, no contract needed.
+  // Off-chain (9) - fire from CRM / engagement events, no contract needed.
   {
     type: "segment_entered",
     label: "Entered segment",
@@ -165,7 +165,7 @@ export const triggerNodes = [
   },
 ];
 
-// Static fallback action catalog — the 8 send/flow steps offered in the "+"
+// Static fallback action catalog - the 8 send/flow steps offered in the "+"
 // insert popover and the placeholder selector.
 export const actionNodes = [
   {

@@ -61,7 +61,7 @@ function EditorScreen() {
           const parsed = parseDocument(JSON.parse(decoded));
           if (parsed && docHasContent(parsed)) return parsed;
         } catch {
-          // Not our block format (e.g. a legacy EmailLayout doc) — start fresh.
+          // Not our block format (e.g. a legacy EmailLayout doc) - start fresh.
         }
       }
     }
@@ -108,7 +108,7 @@ function EditorScreen() {
       <FullScreen>
         <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
           <p className="text-sm text-muted-foreground">
-            Missing campaign — open the editor from a campaign.
+            Missing campaign - open the editor from a campaign.
           </p>
           <Button onClick={() => router.push("/campaigns")}>
             Back to campaigns

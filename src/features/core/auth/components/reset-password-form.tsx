@@ -82,7 +82,7 @@ export function ResetPasswordForm({
     }
   };
 
-  // A reset link without a token can never succeed — say so up front
+  // A reset link without a token can never succeed - say so up front
   // instead of failing after the user has typed a new password.
   if (!hasToken && !isSuccess) {
     return (
@@ -90,7 +90,7 @@ export function ResetPasswordForm({
         <AuthHeader
           icon={ExclamationCircleIcon}
           title="This reset link isn't valid"
-          subtitle="The link is missing its reset token — it may have expired or been copied incompletely."
+          subtitle="The link is missing its reset token - it may have expired or been copied incompletely."
         />
         <Button asChild className="h-12 w-full">
           <Link href="/auth/forgot-password">Request a new reset link</Link>

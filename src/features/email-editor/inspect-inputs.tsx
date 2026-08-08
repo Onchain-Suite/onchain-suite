@@ -61,7 +61,7 @@ export function ColorInput({
           className="h-8 w-10 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
         />
         <span className="font-mono text-xs text-muted-foreground">
-          {value ?? "—"}
+          {value ?? "-"}
         </span>
         {nullable && value ? (
           <button

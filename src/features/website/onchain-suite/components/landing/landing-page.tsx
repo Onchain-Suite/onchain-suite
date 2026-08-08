@@ -1,7 +1,7 @@
 import { LandingV2 } from "./v2/landing-v2";
 
 /**
- * OnchainSuite marketing landing — v2 "paper + electric blue" design.
+ * OnchainSuite marketing landing - v2 "paper + electric blue" design.
  * Faithful adaptation of the reference site (light theme, accent #1727E0,
  * Instrument Sans + JetBrains Mono) with scroll-reveal, marquee, count-up,
  * tilt, and accordion animations. Everything is scoped under `.ocs2`.

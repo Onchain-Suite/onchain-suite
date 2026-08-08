@@ -167,7 +167,7 @@ export const formsService = {
     );
   },
 
-  /** Connect the form to the API — auto-enables ZK encryption on captures. */
+  /** Connect the form to the API - auto-enables ZK encryption on captures. */
   connectForm(id: string, orgId?: string) {
     return request<CaptureForm>(
       { method: "POST", url: `/forms/${id}/connect` },
@@ -220,7 +220,7 @@ export const DEFAULT_DISPLAY: Required<FormDisplaySettings> = {
   submitLabel: "Verify & join",
   consentLabel:
     "I agree to receive updates and consent to linking my wallet to my contact details. I can unsubscribe any time.",
-  successMessage: "You're in — watch your inbox for what's next.",
+  successMessage: "You're in - watch your inbox for what's next.",
   accent: "#f97316",
   showZkNote: true,
 };

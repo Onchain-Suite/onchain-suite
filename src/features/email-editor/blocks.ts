@@ -4,7 +4,7 @@
  *
  * A document is a flat MAP of blockId -> node. The root is an `EmailLayout`
  * node holding global styles + `childrenIds`. `Container` and `ColumnsContainer`
- * reference their children by id too — so blocks nest arbitrarily while the map
+ * reference their children by id too - so blocks nest arbitrarily while the map
  * stays flat (every node is individually selectable / inspectable).
  *
  * The serializer walks from the root and emits table-based, inline-styled HTML

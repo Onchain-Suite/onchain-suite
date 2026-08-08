@@ -74,7 +74,7 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
       docFrom([
         heading("Welcome, {{ first_name }} 👋", "h1"),
         text(
-          "Thanks for connecting your wallet. You're all set — here's where to start."
+          "Thanks for connecting your wallet. You're all set - here's where to start."
         ),
         button("Open the app", "#4f46e5"),
         divider(),

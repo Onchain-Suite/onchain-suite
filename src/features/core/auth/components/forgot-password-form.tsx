@@ -60,7 +60,7 @@ export function ForgotPasswordForm({
     }
     toast.success(
       (data as { message?: string } | null)?.message ??
-        "Password reset link sent — check your email"
+        "Password reset link sent - check your email"
     );
     return true;
   };

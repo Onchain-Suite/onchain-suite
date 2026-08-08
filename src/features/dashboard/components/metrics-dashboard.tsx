@@ -21,15 +21,15 @@ import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 const formatCount = (value?: number | null) =>
   typeof value === "number" && Number.isFinite(value)
     ? value.toLocaleString()
-    : "—";
+    : "-";
 
 const formatPercent = (value?: number | null) =>
   typeof value === "number" && Number.isFinite(value)
     ? `${value.toFixed(1)}%`
-    : "—";
+    : "-";
 
 // Trend deltas and spark series aren't exposed by the overview endpoint yet, so
-// the shape of the line is illustrative — the headline values below are live.
+// the shape of the line is illustrative - the headline values below are live.
 const SPARKS = {
   wallets: [12, 14, 13, 16, 18, 17, 21, 24, 23, 27, 30],
   messages: [30, 26, 34, 28, 33, 38, 31, 40, 37, 44, 48],
@@ -54,7 +54,7 @@ interface ActivityRow {
 }
 
 // Recent on-chain activity is a curated sample (no first-party feed endpoint
-// yet) — mirrors the reference so the surface reads end-to-end.
+// yet) - mirrors the reference so the surface reads end-to-end.
 const ACTIVITY: ActivityRow[] = [
   {
     id: "swap",

@@ -558,7 +558,7 @@ const InAppIntegration = () => {
         icon={<ShieldCheckIcon className="h-5 w-5" aria-hidden="true" />}
         badge={
           orgId
-            ? `Active sessions: ${statusQuery.isLoading ? "Loading…" : (status.sessionCount ?? "—")}`
+            ? `Active sessions: ${statusQuery.isLoading ? "Loading…" : (status.sessionCount ?? "-")}`
             : "Select an organization"
         }
         collapsedPreview={
@@ -779,11 +779,11 @@ const InAppIntegration = () => {
                           {statusQuery.isLoading ? (
                             <Skeleton className="h-4 w-44" />
                           ) : showPublishable ? (
-                            (status.publishableKeys.production ?? "—")
+                            (status.publishableKeys.production ?? "-")
                           ) : status.publishableKeys.production ? (
                             maskKey(status.publishableKeys.production)
                           ) : (
-                            "—"
+                            "-"
                           )}
                         </code>
                       </div>
@@ -828,11 +828,11 @@ const InAppIntegration = () => {
                           {statusQuery.isLoading ? (
                             <Skeleton className="h-4 w-44" />
                           ) : showPublishable ? (
-                            (status.publishableKeys.test ?? "—")
+                            (status.publishableKeys.test ?? "-")
                           ) : status.publishableKeys.test ? (
                             maskKey(status.publishableKeys.test)
                           ) : (
-                            "—"
+                            "-"
                           )}
                         </code>
                       </div>
@@ -1158,13 +1158,13 @@ const InAppIntegration = () => {
         </div>
       </SettingsSectionCard>
 
-      {/* Custom Events API — ingestion is fully backend-abstracted
+      {/* Custom Events API - ingestion is fully backend-abstracted
           (POST /events, secret-key auth); the dashboard only documents the
           call. Events fire app_event automation triggers and land in
           Intelligence SQL (app_events). */}
       <SettingsSectionCard
         title="Custom Events"
-        description="Send product events from your backend — they trigger automations and power in-app messaging."
+        description="Send product events from your backend - they trigger automations and power in-app messaging."
         icon={<BoltIcon className="h-5 w-5" aria-hidden="true" />}
         badge="POST /events · secret-key auth"
       >
@@ -1186,7 +1186,7 @@ const InAppIntegration = () => {
             </div>
           </div>
           <p className="text-xs leading-5 text-muted-foreground">
-            Use a secret key from above (`sk_test_` keys dry-run — nothing
+            Use a secret key from above (`sk_test_` keys dry-run - nothing
             sends). Identify the contact by wallet, email, or externalId. Events
             match automations with an{" "}
             <span className="font-medium">App event</span> trigger by name and

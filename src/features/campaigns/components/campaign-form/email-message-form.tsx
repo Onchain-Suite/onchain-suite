@@ -120,7 +120,7 @@ export function EmailMessageForm({
                 </select>
               </FormControl>
               <FormDescription>
-                Verified senders only — manage them in{" "}
+                Verified senders only - manage them in{" "}
                 <Link
                   href="/settings?tab=account"
                   className="text-primary hover:underline"

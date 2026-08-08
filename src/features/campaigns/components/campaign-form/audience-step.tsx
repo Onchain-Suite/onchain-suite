@@ -108,7 +108,7 @@ export function AudienceStep({
   const [utmOpen, setUtmOpen] = useState(false);
   const syncSequenceRef = useRef(0);
 
-  // Individual contacts (with a real email) selectable directly — so a
+  // Individual contacts (with a real email) selectable directly - so a
   // campaign can be sent to specific people even with no tags/segments ready.
   const contactsQuery = useQuery({
     queryKey: ["audience", "profiles", "campaign-contacts"],
@@ -286,7 +286,7 @@ export function AudienceStep({
       const inputs = syncInputsRef.current;
       const { all, segmentIds, profileIds, tagNames } =
         partitionAudienceSelection(inputs.selectedAudiences, inputs.segments);
-      // Tag selections expand to the tagged contacts' profile ids — the
+      // Tag selections expand to the tagged contacts' profile ids - the
       // backend audience contract only knows profiles + segments. ("All
       // contacts" short-circuits to empty tags, so this is a no-op.)
       const tagProfileIds = await resolveTagsToProfileIds(tagNames);
@@ -332,7 +332,7 @@ export function AudienceStep({
       } catch (error) {
         if (syncSequenceRef.current !== currentSequence) return;
         if (isRateLimitError(error) && attempt === 0) {
-          // The budget resets every 10s — retry once after the window.
+          // The budget resets every 10s - retry once after the window.
           retryTimeout = window.setTimeout(() => {
             run(1).catch(() => undefined);
           }, 11_000);
@@ -489,8 +489,8 @@ export function AudienceStep({
         </div>
         <p className="text-xs text-muted-foreground">
           {isPush
-            ? "Delivered in-app to connected wallets — email optional."
-            : "Delivered by email — contacts need an email address."}
+            ? "Delivered in-app to connected wallets - email optional."
+            : "Delivered by email - contacts need an email address."}
         </p>
       </div>
 
@@ -548,7 +548,7 @@ export function AudienceStep({
                 title: l.name,
                 count: l.count,
               }))}
-              emptyText="No lists yet — save a segment or tag to reuse it."
+              emptyText="No lists yet - save a segment or tag to reuse it."
               isSelected={isSelected}
               onToggle={toggleSelection}
             />
@@ -610,7 +610,7 @@ export function AudienceStep({
               aria-hidden="true"
             />
             <p>
-              Wallets without a verified email are skipped on email campaigns —
+              Wallets without a verified email are skipped on email campaigns -
               switch to <span className="font-medium">In-app push</span> to
               reach more.
             </p>
@@ -691,7 +691,7 @@ export function AudienceStep({
                 className="h-9 w-24 rounded-lg"
               />
               <span className="text-xs text-muted-foreground">
-                hours override — blank uses the{" "}
+                hours override - blank uses the{" "}
                 <Link
                   href={accountSettingsHref}
                   className="text-primary hover:underline"

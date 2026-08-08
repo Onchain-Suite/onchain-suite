@@ -1,5 +1,5 @@
 /* =========================================================================
-   OnchainSuite landing v2 — light "paper + electric blue" design system.
+   OnchainSuite landing v2 - light "paper + electric blue" design system.
    Faithful to the reference (index.html): accent #1727E0, paper #FAFAF8,
    Instrument Sans + JetBrains Mono. Everything is scoped under `.ocs2`.
    ========================================================================= */
@@ -189,7 +189,7 @@
   color: var(--acc);
 }
 /* nav CTA fades out while the hero (with its own CTA) is on screen.
-   Opacity/visibility only — the button keeps its box, so no layout shift. */
+   Opacity/visibility only - the button keeps its box, so no layout shift. */
 .ocs2 .nav-cta {
   transition: transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1), background 0.18s,
     box-shadow 0.25s, border-color 0.18s, color 0.18s, opacity 0.25s ease,
@@ -201,7 +201,7 @@
   visibility: hidden;
   pointer-events: none;
 }
-/* On phones the CTA lives inside the mobile menu instead — the top bar only
+/* On phones the CTA lives inside the mobile menu instead - the top bar only
    fits logo + hamburger. (Media query, not the `hidden` utility: this file is
    unlayered so `.ocs2 .btn { display }` would beat Tailwind's layered class.) */
 @media (max-width: 639px) {
@@ -399,7 +399,7 @@
     transparent
   );
   transform: translateX(-120%);
-  /* one sweep on load — an always-on loop was pure repaint cost */
+  /* one sweep on load - an always-on loop was pure repaint cost */
   animation: ocs2-sheen 3.2s ease-in-out 1.2s 1;
 }
 

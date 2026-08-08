@@ -129,7 +129,7 @@ export function AudienceTagsTab({
 
       {tags.length === 0 && !creating ? (
         <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-          No tags yet — create one, or select contacts and apply a tag to group
+          No tags yet - create one, or select contacts and apply a tag to group
           them.
         </div>
       ) : tags.length > 0 ? (
@@ -165,10 +165,10 @@ export function AudienceTagsTab({
                         ? "…"
                         : typeof count === "number"
                           ? count.toLocaleString()
-                          : "—"}
+                          : "-"}
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
-                      —
+                      -
                     </td>
                   </tr>
                 );

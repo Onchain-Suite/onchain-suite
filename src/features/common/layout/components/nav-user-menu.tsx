@@ -58,7 +58,7 @@ export function NavUserMenu({
   const initials = fullName ? getInitials(fullName) : "U";
   const avatarColor = userId ? getAvatarColor(userId) : undefined;
   const showImage = imageUrl && isValidImageUrl(imageUrl) && !imgError;
-  // Org name comes from client-only storage — hold it until mount so the
+  // Org name comes from client-only storage - hold it until mount so the
   // server and first client render agree (no hydration mismatch).
   const orgName = showName && isMounted ? activeOrg?.name : undefined;
 

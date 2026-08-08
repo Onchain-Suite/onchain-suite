@@ -67,7 +67,7 @@ import {
 
 interface TemplateSelectorProps {
   form: UseFormReturn<CampaignFormData>;
-  /** Campaign delivery channel — push campaigns default to push templates. */
+  /** Campaign delivery channel - push campaigns default to push templates. */
   channel?: "email" | "in-app-push";
   onCreateEditor?: (opts?: { templateName?: string }) => void;
   onSelectTemplate?: (templateId: string) => void;
@@ -119,7 +119,7 @@ const writeRecents = (recents: Record<string, number>) => {
 /**
  * Renders an email's HTML as a thumbnail that always fills its card. The email
  * is laid out at a fixed 600px design width inside an iframe, then scaled by
- * (container width / 600) via a ResizeObserver — so the preview fits any card
+ * (container width / 600) via a ResizeObserver - so the preview fits any card
  * size instead of overflowing/underflowing a hard-coded scale.
  */
 function TemplateThumb({ html, title }: { html: string; title: string }) {
@@ -204,7 +204,7 @@ export function TemplateSelector({
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [tab, setTab] = useState<TabMode>("library");
   const [sortMode, setSortMode] = useState<SortMode>("used");
-  // Templates follow the campaign's channel — no manual override UI.
+  // Templates follow the campaign's channel - no manual override UI.
   const channelFilter: ChannelFilter =
     channel === "in-app-push" ? "inapp" : "email";
   const [templateSearch, setTemplateSearch] = useState("");

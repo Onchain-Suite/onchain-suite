@@ -83,10 +83,10 @@ const formatWhen = (d?: Date) =>
         hour: "numeric",
         minute: "2-digit",
       }).format(d)
-    : "—";
+    : "-";
 
 const pct = (v?: number) =>
-  typeof v === "number" && Number.isFinite(v) ? `${Math.round(v)}%` : "—";
+  typeof v === "number" && Number.isFinite(v) ? `${Math.round(v)}%` : "-";
 const count = (v?: number) =>
   typeof v === "number" && Number.isFinite(v) ? v.toLocaleString() : undefined;
 
@@ -189,7 +189,7 @@ export function CampaignDetailSheet({
               value={
                 typeof campaign?.recipients === "number"
                   ? campaign.recipients.toLocaleString()
-                  : "—"
+                  : "-"
               }
             />
             <Row
@@ -212,7 +212,7 @@ export function CampaignDetailSheet({
                     ) : null}
                   </>
                 ) : (
-                  "—"
+                  "-"
                 )
               }
             />
@@ -230,7 +230,7 @@ export function CampaignDetailSheet({
                     ) : null}
                   </>
                 ) : (
-                  "—"
+                  "-"
                 )
               }
             />

@@ -43,13 +43,13 @@ const PLACEMENT_LABEL: Record<PushPlacement, string> = {
 
 const PLACEMENT_BLURB: Record<PushPlacement, string> = {
   modal:
-    "Rendered by the SDK inside your dApp — no OS permission needed, so it reaches every connected wallet.",
+    "Rendered by the SDK inside your dApp - no OS permission needed, so it reaches every connected wallet.",
   banner:
-    "A sticky bar pinned to the top of your dApp — always visible, never blocks the page.",
+    "A sticky bar pinned to the top of your dApp - always visible, never blocks the page.",
   "slide-in":
-    "A dismissible card in the corner of your dApp — noticed without blocking the page.",
+    "A dismissible card in the corner of your dApp - noticed without blocking the page.",
   inline:
-    "Rendered by the SDK inside your dApp — no OS permission needed, so it reaches every connected wallet.",
+    "Rendered by the SDK inside your dApp - no OS permission needed, so it reaches every connected wallet.",
   "mobile-push":
     "Delivered as an OS notification. Requires the mobile SDK and notification permission.",
 };
@@ -64,7 +64,7 @@ const FREQUENCY_PHRASE: Record<PushFrequency, string> = {
   "until-dismissed": "until dismissed",
 };
 
-/** Preview caption — reflects the live "Show" setting for web placements. */
+/** Preview caption - reflects the live "Show" setting for web placements. */
 function previewBlurb(placement: PushPlacement, frequency: PushFrequency) {
   if (placement === "mobile-push") {
     return "Needs the mobile SDK and notification permission.";
@@ -383,7 +383,7 @@ export function InAppMessageStep({
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               {placement === "mobile-push"
-                ? "Under 48 characters — longer titles clip on the lock screen."
+                ? "Under 48 characters - longer titles clip on the lock screen."
                 : "One line reads best in a banner or slide-in."}
             </p>
           </div>
@@ -572,7 +572,7 @@ export function InAppMessageStep({
                 </div>
               </div>
 
-              {/* Expires + Max per session — only queued (wait-for-connect)
+              {/* Expires + Max per session - only queued (wait-for-connect)
                   delivery has a lifespan/cap; "only right now" fires once. */}
               {delivery === "wait-for-connect" ? (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -620,7 +620,7 @@ export function InAppMessageStep({
 
               <p className="text-xs leading-relaxed text-muted-foreground">
                 {delivery === "only-now"
-                  ? "Lowest reach — most wallets won't be connected the moment you press send."
+                  ? "Lowest reach - most wallets won't be connected the moment you press send."
                   : "This is why in-app beats email on view rate: the message is waiting when they arrive, not competing in an inbox."}
               </p>
             </>

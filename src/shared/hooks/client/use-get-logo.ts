@@ -28,7 +28,7 @@ export const readBrandingData = (branding: unknown) => {
       ? (data.logoPreview as Record<string, unknown>)
       : undefined;
 
-  // Branding URLs can be backend-relative — resolve them here so every
+  // Branding URLs can be backend-relative - resolve them here so every
   // consumer gets a URL the browser can actually load.
   return {
     primary: resolveBrandAssetUrl(

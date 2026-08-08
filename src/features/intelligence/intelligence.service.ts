@@ -381,7 +381,7 @@ export interface IntelligenceQueryReportStat {
   max: number;
 }
 
-/** `GET /intelligence/query/:queryId/report-data` — chart-ready report payload. */
+/** `GET /intelligence/query/:queryId/report-data` - chart-ready report payload. */
 export interface IntelligenceQueryReportDataResponse {
   queryId: string;
   generatedAt?: string;
@@ -478,7 +478,7 @@ export type IntelligenceWalletEnrichmentMetricsResponse = Record<
   unknown
 >;
 
-/** GoldRush credit meter — `GET /intelligence/query/credits`. */
+/** GoldRush credit meter - `GET /intelligence/query/credits`. */
 export interface IntelligenceCreditMeter {
   period: string;
   used: number;
@@ -489,7 +489,7 @@ export interface IntelligenceCreditMeter {
   status: "ok" | "warn" | "exceeded" | string;
 }
 
-/** Enrichment progress — `GET /intelligence/query/enrichment/status`. */
+/** Enrichment progress - `GET /intelligence/query/enrichment/status`. */
 export interface IntelligenceEnrichmentStatus {
   enrichedWallets: number;
   lastEnrichedAt: string | null;
@@ -673,7 +673,7 @@ export interface IntelligenceSegmentPreviewWallet {
 }
 
 /**
- * Result of `POST /intelligence/segments/preview` — a live estimate of how many
+ * Result of `POST /intelligence/segments/preview` - a live estimate of how many
  * wallets a draft segment matches, plus a few examples. `matchCount` is null when
  * the endpoint is unavailable so the UI can fall back to an honest "computed on
  * save" state instead of showing a fabricated number.

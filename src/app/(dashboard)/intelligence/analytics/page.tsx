@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 /**
  * Analytics is a top-level nav entry in the reference shell, but its dedicated
  * report surface is still in progress. Render the coming-soon panel directly so
- * the route resolves (no 404) in every environment — the group layout only
+ * the route resolves (no 404) in every environment - the group layout only
  * swaps in the panel when WIP sections are hidden, which isn't the case in dev.
  */
 export default function AnalyticsPage() {

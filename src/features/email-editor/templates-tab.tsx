@@ -130,7 +130,7 @@ export function TemplatesTab({
           </p>
         ) : saved.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-            No saved templates yet — save this email above to reuse it.
+            No saved templates yet - save this email above to reuse it.
           </p>
         ) : (
           saved.map((t) => (

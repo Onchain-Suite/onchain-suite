@@ -587,7 +587,7 @@ export const audienceService = {
   },
 
   /**
-   * `GET /audience/imports/presets` — platform CSV-header presets for
+   * `GET /audience/imports/presets` - platform CSV-header presets for
    * `createImportJob`'s `platform` option. Callers cache this aggressively
    * (long `staleTime`) and degrade to the manual-only flow when it fails.
    */

@@ -32,7 +32,7 @@ import { SidebarEdgeToggle } from "./sidebar-edge-toggle";
 import { SidebarSearch } from "./sidebar-search";
 import { TeamSwitcher } from "./team-switcher";
 
-// Sample data — swap `#` for real routes and the rows light up from the
+// Sample data - swap `#` for real routes and the rows light up from the
 // pathname on their own (see `isNavActive`).
 const data = {
   teams: [

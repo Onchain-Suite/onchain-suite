@@ -10,7 +10,7 @@ import { Toaster } from "@/ui/sonner";
 
 import { ThemeProvider } from "./theme-provider";
 
-// Shared query/revalidation defaults — fetch once and cache, instead of
+// Shared query/revalidation defaults - fetch once and cache, instead of
 // re-firing every request on window focus / network reconnect (which was
 // hammering the API and triggering 429s, e.g. on the org switcher + settings).
 export const queryClientDefaults = {

@@ -222,7 +222,7 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
         <h2 className="mt-4 text-xl font-bold">You&apos;re in</h2>
         <p className="mt-2 text-sm text-white/60">
           {config.display.successMessage ??
-            "Thanks — watch your inbox for what's next."}
+            "Thanks - watch your inbox for what's next."}
         </p>
       </div>
     );

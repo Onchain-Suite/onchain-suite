@@ -10,7 +10,7 @@ interface AuthHeaderProps {
 }
 
 /**
- * Branded auth header — electric-blue eyebrow chip, bold Outfit title, muted
+ * Branded auth header - electric-blue eyebrow chip, bold Outfit title, muted
  * subtitle. Matches the main app's design system.
  */
 export function AuthHeader({ title, subtitle }: AuthHeaderProps) {

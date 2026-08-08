@@ -57,7 +57,7 @@ const IMPORT_EXPORT_HREF = `${PRIVATE_ROUTES.AUDIENCE}/import-export`;
 const num = (v: unknown) =>
   typeof v === "number" && Number.isFinite(v) ? v : undefined;
 
-/** Deterministic pseudo lifetime (ETH) from the wallet — a stub until the API
+/** Deterministic pseudo lifetime (ETH) from the wallet - a stub until the API
  * exposes on-chain balances. Stable per wallet so it doesn't flicker. */
 const pseudoEth = (seed: string) => {
   let h = 0;
@@ -85,7 +85,7 @@ const toRow = (p: AudienceProfile): Row => {
   const email =
     rawEmail && !isSyntheticWalletEmail(rawEmail) ? rawEmail : undefined;
   const socials = extractSocialHandles(p.attributes ?? p);
-  // A "named" identity is a real name or ENS — not an email local-part. Wallet
+  // A "named" identity is a real name or ENS - not an email local-part. Wallet
   // contacts without one show the address itself (matching the reference).
   const nameField = typeof p.name === "string" ? p.name.trim() : "";
   const named =
@@ -116,7 +116,7 @@ const toRow = (p: AudienceProfile): Row => {
         : undefined,
     reach: {
       // ZK-protected (verified wallet) contacts are email-reachable even without
-      // a plaintext email. push/farcaster aren't modeled server-side yet —
+      // a plaintext email. push/farcaster aren't modeled server-side yet -
       // stubbed from signals we have so the column reads like the reference.
       email: Boolean(email) || (verified && Boolean(walletFull)),
       push: Boolean(walletFull),
@@ -373,7 +373,7 @@ export function AudiencePages() {
             Audience
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Wallet-first identity. Segments are channel-aware — reachable in-app
+            Wallet-first identity. Segments are channel-aware - reachable in-app
             is a different filter from has email.
           </p>
         </div>
@@ -530,7 +530,7 @@ export function AudiencePages() {
                 </div>
               ) : rows.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-                  No contacts yet — import a CSV or sync a contract to get
+                  No contacts yet - import a CSV or sync a contract to get
                   started.
                 </div>
               ) : (
@@ -555,7 +555,7 @@ export function AudiencePages() {
                         const selected = selectedIds.includes(row.id);
                         const lifetime = row.walletFull
                           ? `${pseudoEth(row.walletFull).toFixed(1)} ETH`
-                          : "—";
+                          : "-";
                         return (
                           <tr
                             key={row.id}
@@ -673,7 +673,7 @@ export function AudiencePages() {
                                   ZK-protected
                                 </span>
                               ) : (
-                                <span className="text-muted-foreground">—</span>
+                                <span className="text-muted-foreground">-</span>
                               )}
                             </td>
                             <td className="px-4 py-3.5">
@@ -694,14 +694,14 @@ export function AudiencePages() {
                                   ) : null}
                                 </div>
                               ) : (
-                                <span className="text-muted-foreground">—</span>
+                                <span className="text-muted-foreground">-</span>
                               )}
                             </td>
                             <td className="px-4 py-3.5 text-right tabular-nums text-foreground">
                               {lifetime}
                             </td>
                             <td className="px-4 py-3.5 text-right whitespace-nowrap text-muted-foreground">
-                              {row.lastActive ?? "—"}
+                              {row.lastActive ?? "-"}
                             </td>
                           </tr>
                         );
@@ -745,7 +745,7 @@ export function AudiencePages() {
             </div>
           ) : activeTab === "lists" ? (
             <div className="space-y-4">
-              {/* Inline New-list form — no modal. */}
+              {/* Inline New-list form - no modal. */}
               {creatingList ? (
                 <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
                   <p className="text-sm font-semibold text-foreground">
@@ -827,7 +827,7 @@ export function AudiencePages() {
 
               {segments.length === 0 && !creatingList ? (
                 <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-                  No lists yet — create one, or save a segment to reuse it
+                  No lists yet - create one, or save a segment to reuse it
                   across campaigns.
                 </div>
               ) : segments.length > 0 ? (
@@ -900,18 +900,18 @@ export function AudiencePages() {
                                     aria-hidden="true"
                                   />
                                 ) : null}
-                                {meta.reachable.length === 0 ? "—" : null}
+                                {meta.reachable.length === 0 ? "-" : null}
                               </span>
                             </td>
                             <td className="px-4 py-4 text-right tabular-nums text-foreground">
                               {typeof seg.count === "number"
                                 ? seg.count.toLocaleString()
-                                : "—"}
+                                : "-"}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
                               {seg.updatedAt
                                 ? formatRelativeTime(seg.updatedAt)
-                                : "—"}
+                                : "-"}
                             </td>
                             <td className="py-4 pr-3 text-right">
                               <ChevronRightIcon
@@ -937,7 +937,7 @@ export function AudiencePages() {
             <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
               {suppressed > 0
                 ? `${suppressed.toLocaleString()} contacts are unsubscribed or bounced. Suppression details land here once the API exposes them.`
-                : "No suppressed contacts — everyone's reachable."}
+                : "No suppressed contacts - everyone's reachable."}
             </div>
           )}
         </>

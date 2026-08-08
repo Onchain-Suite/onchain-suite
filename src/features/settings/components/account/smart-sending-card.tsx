@@ -21,7 +21,7 @@ import { useMyOrgRole } from "@/shared/hooks/client/use-my-org-role";
 const hoursLabel = (hours: number) => `${hours}h`;
 
 /**
- * Org-wide Smart Sending settings — the "account settings" destination the
+ * Org-wide Smart Sending settings - the "account settings" destination the
  * campaign builder's Smart Sending copy points at.
  *
  * The window set here applies to every campaign that doesn't override it, at

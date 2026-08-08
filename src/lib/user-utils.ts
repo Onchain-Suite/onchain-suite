@@ -93,7 +93,7 @@ export function isValidImageUrl(url: string | null | undefined): boolean {
     return false;
   }
 
-  // Any real URL is worth attempting — a host allowlist here silently
+  // Any real URL is worth attempting - a host allowlist here silently
   // rejected OAuth avatar hosts (e.g. lh3.googleusercontent.com) in
   // production. Broken images fall back via the <img> onError handler.
   return /^(https?:\/\/|data:image\/|blob:|\/)/i.test(url.trim());

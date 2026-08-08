@@ -121,7 +121,7 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
   const handleOAuthSignUp = async (provider: string) => {
     setIsLoading(true);
     try {
-      // Invited members arrive with redirectTo (the invite accept link) —
+      // Invited members arrive with redirectTo (the invite accept link) -
       // honor it for both existing and NEW users so they never land in the
       // owner-only onboarding flow.
       const redirectTo = safeRedirectPath(

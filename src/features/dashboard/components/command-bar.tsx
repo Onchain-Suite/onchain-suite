@@ -42,7 +42,7 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
 
 /**
  * Dashboard command bar. Submitting a query streams the AI answer inline
- * right below the bar (same bounded ask flow as ⌘K via useAiAnswer) — no
+ * right below the bar (same bounded ask flow as ⌘K via useAiAnswer) - no
  * redirect into the palette. An empty submit still opens ⌘K for browsing
  * commands, and voice input transcribes into the query.
  */
@@ -291,7 +291,7 @@ export function CommandBar() {
                 </span>
               )
             ) : (
-              <span>AI answers can be wrong — verify important data.</span>
+              <span>AI answers can be wrong - verify important data.</span>
             )}
           </div>
         </div>

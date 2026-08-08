@@ -15,7 +15,7 @@ import {
 import type { CampaignFormData } from "../../validations";
 
 /**
- * Inline date/time picker for the "Schedule" delivery option — a calendar +
+ * Inline date/time picker for the "Schedule" delivery option - a calendar +
  * time field that reveal in place on the review step, so scheduling never
  * pops a modal. The org timezone (from settings) is fixed and shown as context.
  */

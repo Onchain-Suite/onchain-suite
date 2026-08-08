@@ -52,7 +52,7 @@ export const DashboardHeader = ({
       </div>
 
       <div className="flex min-w-0 items-center gap-2 px-1 sm:px-4 md:ml-auto">
-        {/* Workspace switcher sits beside search — a visible, first-class
+        {/* Workspace switcher sits beside search - a visible, first-class
             control instead of being tucked into the account menu. */}
         {hasActiveOrganization ? <HeaderOrgSwitcher /> : null}
         {/* Search now lives in the header (the sidebar no longer carries it). */}

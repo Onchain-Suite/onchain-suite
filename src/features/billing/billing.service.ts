@@ -119,7 +119,7 @@ const describePlanLimits = (limits: unknown): string[] => {
  * Normalize GET /billing/plans into a predictable BillingPlan[] regardless of
  * response nesting (root array, {plans}, {items}, {data}) and field naming
  * (price/priceUsd/amount/monthlyPrice, interval/cycle). Prices shown in the
- * UI come from here — no hardcoded catalog when the backend answers.
+ * UI come from here - no hardcoded catalog when the backend answers.
  */
 export const normalizeBillingPlans = (payload: unknown): BillingPlan[] => {
   const root =
@@ -181,7 +181,7 @@ export interface BillingUpgradeResponse {
 /**
  * Sellable lineup per docs/backend.md 2026-07-25: Launch $29 · Growth $199 ·
  * Pro $499 (PAYG is the signup default, not a checkout slug). `starter` and
- * `pro_plus` were retired — checkout now 404s on them.
+ * `pro_plus` were retired - checkout now 404s on them.
  */
 export type PlanCheckoutSlug = "launch" | "growth" | "pro";
 
@@ -191,7 +191,7 @@ export interface PlanCheckoutRequest {
   organizationId: string;
   billingCycle?: "monthly" | "annual";
   /**
-   * "crypto" (Blockradar, default) or "card" (Stripe-hosted checkout —
+   * "crypto" (Blockradar, default) or "card" (Stripe-hosted checkout -
    * docs/backend.md 2026-07-28). Card returns `mode: "stripe_checkout"`;
    * 400 FIAT_CHECKOUT_UNAVAILABLE when Stripe isn't configured.
    */
@@ -199,7 +199,7 @@ export interface PlanCheckoutRequest {
 }
 
 /**
- * Response of POST /billing/checkout/plan — Blockradar crypto checkout.
+ * Response of POST /billing/checkout/plan - Blockradar crypto checkout.
  * `mode: "static_link"` means paymentUrl is the hosted static payment link
  * (pre-filled amount); the webhook matches the echoed reference either way.
  */
@@ -213,7 +213,7 @@ export interface PlanCheckoutResponse {
   [key: string]: unknown;
 }
 
-/** GET /billing/payg/wallet/{orgId} — prepaid usage wallet (micro-USD ledger). */
+/** GET /billing/payg/wallet/{orgId} - prepaid usage wallet (micro-USD ledger). */
 export interface PaygWallet {
   balanceUsd: number;
   rates?: Record<string, number | string>;
@@ -475,7 +475,7 @@ export const billingService = {
   },
 
   /**
-   * Per-meter plan usage (`GET /billing/plan-usage/:organizationId`) —
+   * Per-meter plan usage (`GET /billing/plan-usage/:organizationId`) -
    * `{ plan, meters: { contacts, emailsPerMonth, aiCredits, goldrushCredits,
    * seats, automations, apiKeys, trackedWallets } }`, each meter
    * `{ used, limit, percent, status }`. The `aiCredits` meter is the one that
@@ -533,7 +533,7 @@ export const billingService = {
   /**
    * Start a Blockradar crypto checkout for an org plan
    * (POST /billing/checkout/plan → { paymentUrl, reference, plan, cycle,
-   * amount }). This is the primary payment path — fiat checkout is disabled
+   * amount }). This is the primary payment path - fiat checkout is disabled
    * in production unless BILLING_FIAT_ENABLED is set server-side.
    */
   checkoutPlan(body: PlanCheckoutRequest, options?: BillingServiceOptions) {
@@ -544,7 +544,7 @@ export const billingService = {
   },
 
   /**
-   * Switch the org onto Pay-As-You-Go (`POST /billing/payg/start`) — flips
+   * Switch the org onto Pay-As-You-Go (`POST /billing/payg/start`) - flips
    * `organization.plan` to `payg` and grants the one-time $5 trial credit.
    */
   startPayg(organizationId: string, options?: BillingServiceOptions) {
@@ -554,7 +554,7 @@ export const billingService = {
     );
   },
 
-  /** `GET /billing/payg/wallet/{orgId}` — balance, unit rates, recent ledger. */
+  /** `GET /billing/payg/wallet/{orgId}` - balance, unit rates, recent ledger. */
   async getPaygWallet(
     organizationId: string,
     options?: BillingServiceOptions
@@ -574,7 +574,7 @@ export const billingService = {
   },
 
   /**
-   * `POST /billing/checkout/credits` — Blockradar checkout that tops up the
+   * `POST /billing/checkout/credits` - Blockradar checkout that tops up the
    * PAYG wallet on webhook confirmation ($10–$1000).
    */
   checkoutCredits(
@@ -613,7 +613,7 @@ export const billingService = {
     );
   },
 
-  /** `POST /billing/upgrade/{reference}/cancel` — cancel a pending checkout. */
+  /** `POST /billing/upgrade/{reference}/cancel` - cancel a pending checkout. */
   cancelUpgrade(reference: string, options?: BillingServiceOptions) {
     return billingRequest<BillingUpgradeResponse>(
       { method: "POST", url: `/billing/upgrade/${reference}/cancel` },

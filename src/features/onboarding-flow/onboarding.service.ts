@@ -4,7 +4,7 @@ import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 /**
- * Typed service for the onboarding API family (docs/backend.md 2026-07-16 —
+ * Typed service for the onboarding API family (docs/backend.md 2026-07-16 -
  * `POST /onboarding/suggest-contracts`). Owns URLs, the optional `x-org-id`
  * header (onboarding usually runs before an org exists), `{ success, data }`
  * envelope unwrapping, and the normalized suggestion shapes consumed by the
@@ -13,20 +13,20 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
  * Backend notes: LLM-assisted with deterministic sector defaults as the
  * no-LLM floor; contract addresses are only present for canonical
  * deployments (never invented); responses are cached server-side for 7 days;
- * `requiresReview: true` means nothing is auto-committed — the UI must render
+ * `requiresReview: true` means nothing is auto-committed - the UI must render
  * these as confirmable suggestions.
  */
 
 /** One suggested contract from `POST /onboarding/suggest-contracts`. */
 export interface SuggestedContract {
   name: string;
-  /** e.g. "core", "token", "staking" — free-form backend classification. */
+  /** e.g. "core", "token", "staking" - free-form backend classification. */
   kind: string;
   /** Canonical deployment address, or null when unknown. */
   address: string | null;
   /** Chain the suggestion most likely lives on (e.g. "eth-mainnet"). */
   chainHint: string;
-  /** Why this contract matters — rendered as muted helper text. */
+  /** Why this contract matters - rendered as muted helper text. */
   reason: string;
 }
 
@@ -40,7 +40,7 @@ export interface SuggestedEvent {
 export interface ContractSuggestions {
   contracts: SuggestedContract[];
   events: SuggestedEvent[];
-  /** Always true from the backend — suggestions require user confirmation. */
+  /** Always true from the backend - suggestions require user confirmation. */
   requiresReview: boolean;
 }
 
@@ -156,7 +156,7 @@ export const normalizeContractSuggestions = (
 
 export const onboardingService = {
   /**
-   * `POST /onboarding/suggest-contracts` — LLM-assisted contract/event
+   * `POST /onboarding/suggest-contracts` - LLM-assisted contract/event
    * suggestions for a protocol. Bounded (30s timeout + abort signal) because
    * the backend may consult a chat model; callers treat failures as a
    * silently skipped enhancement, never a blocker.

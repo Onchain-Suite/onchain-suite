@@ -23,7 +23,7 @@ interface CampaignAnalyticsDialogProps {
 const formatCount = (value?: number) =>
   typeof value === "number" && Number.isFinite(value)
     ? value.toLocaleString()
-    : "—";
+    : "-";
 
 function StatGrid({
   stats,
@@ -143,7 +143,7 @@ export function CampaignAnalyticsDialog({
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            Analytics{campaignName ? ` — ${campaignName}` : ""}
+            Analytics{campaignName ? ` - ${campaignName}` : ""}
           </DialogTitle>
         </DialogHeader>
 
@@ -188,7 +188,7 @@ export function CampaignAnalyticsDialog({
             ) : null}
             {!analytics?.email && !analytics?.inapp ? (
               <div className="py-4 text-center text-sm text-muted-foreground">
-                No engagement data yet — stats appear once the campaign has been
+                No engagement data yet - stats appear once the campaign has been
                 sent.
               </div>
             ) : null}

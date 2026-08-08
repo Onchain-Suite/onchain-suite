@@ -23,14 +23,14 @@ const SNIPPETS: Snippet[] = [
 // Publishable key from Dashboard → Integrations → In-App
 const os = new OnchainSuite("pk_live_xxx");
 
-// Wallet signs in — notifications start showing automatically
+// Wallet signs in - notifications start showing automatically
 await os.start();`,
   },
   {
     id: "send",
     label: "Send",
     language: "ts",
-    code: `// Server-side — never expose your secret key in the browser
+    code: `// Server-side - never expose your secret key in the browser
 await fetch("https://api.onchainsuite.com/api/v1/inapp/push", {
   method: "POST",
   headers: {
@@ -75,7 +75,7 @@ export function DeveloperSection() {
             Notifications in three lines
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-            Drop the SDK into any dApp — wallet-authenticated, real-time, and
+            Drop the SDK into any dApp - wallet-authenticated, real-time, and
             fully themeable. Send from your backend with one call.
           </p>
         </div>

@@ -137,7 +137,7 @@ const nodeTypes = {
   webhook: WebhookNode,
   dispatch: DispatchCampaignNode,
   placeholder: PlaceholderNode,
-  // Canonical backend types — so a graph saved/applied with these (e.g. built-in
+  // Canonical backend types - so a graph saved/applied with these (e.g. built-in
   // templates use `node.type: "send_inapp"`, "holder_acquired", …) still renders
   // the correct styled node when loaded onto the canvas.
   send_email: EmailNode,
@@ -198,7 +198,7 @@ const nodePanelLabel = (type?: string) => {
 /**
  * Maps an action catalog `type` (from GET /automations/builder/actions) to the
  * ReactFlow node renderer key above. Anything not listed falls through to its
- * own type (e.g. `wait`, `branch`). Triggers never use this — they all render
+ * own type (e.g. `wait`, `branch`). Triggers never use this - they all render
  * with the `trigger` node.
  */
 const ACTION_NODE_RENDERER: Record<string, string> = {
@@ -213,7 +213,7 @@ const ACTION_NODE_RENDERER: Record<string, string> = {
 };
 
 /**
- * True when a node still needs configuration — mirrors the per-node orange
+ * True when a node still needs configuration - mirrors the per-node orange
  * "Needs setup" dot logic so the header badge can count unconfigured steps
  * locally, before (or without) the backend validation pass.
  */
@@ -246,8 +246,8 @@ function nodeNeedsSetup(type: string | undefined, rawData: unknown): boolean {
 
 /**
  * Trigger types that are NOT on-chain (so they don't get a contract/event
- * placeholder). Everything else in the trigger catalog — `onchain_event` and the
- * business presets like `holder_acquired` — is treated as on-chain.
+ * placeholder). Everything else in the trigger catalog - `onchain_event` and the
+ * business presets like `holder_acquired` - is treated as on-chain.
  */
 const NON_ONCHAIN_TRIGGER_TYPES = new Set([
   "segment_entered",
@@ -262,7 +262,7 @@ const NON_ONCHAIN_TRIGGER_TYPES = new Set([
 ]);
 
 /**
- * Trigger `type`s that fire from on-chain activity — used to split the left
+ * Trigger `type`s that fire from on-chain activity - used to split the left
  * palette into "On-chain triggers" vs "Off-chain triggers" (everything else in
  * the trigger catalog, e.g. form_submitted / joined_list / segment_entered).
  */
@@ -283,7 +283,7 @@ const ON_CHAIN_TRIGGER_TYPES = new Set([
 
 /**
  * All canonical trigger `type`s (used to recognize a trigger node whether it was
- * created via drag — renderer key "trigger" — or loaded from a template, where
+ * created via drag - renderer key "trigger" - or loaded from a template, where
  * `node.type` is the canonical type like "holder_acquired").
  */
 const TRIGGER_NODE_TYPES = new Set([
@@ -1014,7 +1014,7 @@ const CreateAutomationContent = () => {
     staleTime: 60_000,
   });
 
-  // GoldRush event catalog — backend-recommended source of truth for the
+  // GoldRush event catalog - backend-recommended source of truth for the
   // event picker (normalized EVM + Solana definitions).
   const onchainCatalogQuery = useQuery({
     queryKey: ["automations", "builder", "onchain-catalog"],
@@ -1052,7 +1052,7 @@ const CreateAutomationContent = () => {
     projectSettingsQuery.data?.contractAddresses,
   ]);
 
-  // Custom Events API names (30-day distinct) — the app_event trigger's
+  // Custom Events API names (30-day distinct) - the app_event trigger's
   // matching key is the plain event name, so these merge straight into the
   // event picker alongside the on-chain catalog.
   const eventsCatalogQuery = useQuery({
@@ -1271,7 +1271,7 @@ const CreateAutomationContent = () => {
         if (!isJsonObject(r)) return null;
         const rec = r as Record<string, unknown>;
         return {
-          date: asString(rec.date) || asString(rec.at) || "—",
+          date: asString(rec.date) || asString(rec.at) || "-",
           entries: asNumber(rec.entries),
           conversions: asNumber(rec.conversions),
           revenue: asNumber(rec.revenue),
@@ -1317,12 +1317,12 @@ const CreateAutomationContent = () => {
         const rec = e as Record<string, unknown>;
         return {
           id: asString(rec.id) || asString(rec.entryId) || crypto.randomUUID(),
-          wallet: asString(rec.wallet) || "—",
-          email: asString(rec.email) || "—",
-          timestamp: asString(rec.timestamp ?? rec.at) || "—",
+          wallet: asString(rec.wallet) || "-",
+          email: asString(rec.email) || "-",
+          timestamp: asString(rec.timestamp ?? rec.at) || "-",
           outcome: asString(rec.outcome ?? rec.status) || "entered",
           revenue: asNumber(rec.revenue),
-          path: asString(rec.path) || "—",
+          path: asString(rec.path) || "-",
         };
       })
       .filter((x): x is RecentEntryRow => !!x);
@@ -1488,7 +1488,7 @@ const CreateAutomationContent = () => {
   );
 
   // The email node's explicit sender override. The runtime accepts either
-  // `senderEmail` or `from` in node data — `senderEmail` is canonical here,
+  // `senderEmail` or `from` in node data - `senderEmail` is canonical here,
   // but a graph loaded with `from` (template/older build) stays readable and
   // both keys are kept in sync on write so the stale one can't win at runtime.
   const selectedNodeSenderEmail = pickText(
@@ -1573,7 +1573,7 @@ const CreateAutomationContent = () => {
   );
 
   // Persist rules under both keys so the runtime (reads `rules`/`branches`) and
-  // the builder stay in sync — mirrors the tolerant wait/`seconds` fix.
+  // the builder stay in sync - mirrors the tolerant wait/`seconds` fix.
   const writeBranchRules = useCallback(
     (next: BranchRule[]) => {
       updateSelectedNodeData({ branches: next, rules: next });
@@ -2177,7 +2177,7 @@ const CreateAutomationContent = () => {
                 const relative = formatRelativeTime(raw);
                 return (
                   <span title={formatDateTime(raw)}>
-                    Last edited {relative || "—"}
+                    Last edited {relative || "-"}
                   </span>
                 );
               })()}
@@ -2493,7 +2493,7 @@ const CreateAutomationContent = () => {
                 </div>
               ) : null}
 
-              {/* "Add trigger" grid — choose the automation's entry trigger. */}
+              {/* "Add trigger" grid - choose the automation's entry trigger. */}
               {showTriggerPicker ? (
                 <>
                   <div
@@ -2863,7 +2863,7 @@ const CreateAutomationContent = () => {
                             {!senderIdentitiesQuery.isLoading &&
                             verifiedSenderIdentities.length === 0 ? (
                               <p className={PROPERTY_HINT_CLASS}>
-                                No verified sender identity yet — emails from
+                                No verified sender identity yet - emails from
                                 this node will use the platform fallback sender
                                 (DoNotReply@…azurecomm.net). Verify a domain and
                                 add a sender in Settings to send from your own
@@ -2890,7 +2890,7 @@ const CreateAutomationContent = () => {
                                 }
                                 if (isNew) {
                                   toast.error(
-                                    "Save the automation first — the builder attaches the design to a saved draft."
+                                    "Save the automation first - the builder attaches the design to a saved draft."
                                   );
                                   return;
                                 }
@@ -3628,7 +3628,7 @@ const CreateAutomationContent = () => {
                   {
                     label: "Entries",
                     value: statsEntries.toLocaleString(),
-                    change: "—",
+                    change: "-",
                     icon: (
                       <UserGroupIcon
                         aria-hidden="true"
@@ -3639,7 +3639,7 @@ const CreateAutomationContent = () => {
                   {
                     label: "Conversions",
                     value: statsConversions.toLocaleString(),
-                    change: "—",
+                    change: "-",
                     icon: (
                       <CheckCircleIcon
                         aria-hidden="true"
@@ -3650,7 +3650,7 @@ const CreateAutomationContent = () => {
                   {
                     label: "Conv. Rate",
                     value: `${statsConvRate}%`,
-                    change: "—",
+                    change: "-",
                     icon: (
                       <ViewfinderCircleIcon
                         aria-hidden="true"
@@ -3663,8 +3663,8 @@ const CreateAutomationContent = () => {
                     value:
                       statsRevenue > 0
                         ? `$${(statsRevenue / 1000).toFixed(0)}k`
-                        : "—",
-                    change: "—",
+                        : "-",
+                    change: "-",
                     icon: (
                       <CurrencyDollarIcon
                         aria-hidden="true"

@@ -29,7 +29,7 @@ const timeAgo = (iso: string | null): string => {
 /**
  * Compact wallet/contract enrichment button (sits next to the credit meter).
  * Kicks off holder discovery + per-wallet enrichment from saved project-settings
- * contracts — this is what populates `user_onchain_metrics`, so SQL queries
+ * contracts - this is what populates `user_onchain_metrics`, so SQL queries
  * return rows. Status is surfaced in the tooltip. Spends GoldRush credits.
  */
 export function EnrichmentControl() {
@@ -53,7 +53,7 @@ export function EnrichmentControl() {
       const wallets = res?.walletsEnqueued ?? 0;
       toast.success(
         wallets > 0
-          ? `Enriching ${wallets.toLocaleString()} wallets — metrics will populate shortly.`
+          ? `Enriching ${wallets.toLocaleString()} wallets - metrics will populate shortly.`
           : "Enrichment started. Save contract addresses in Settings to seed more wallets."
       );
       await queryClient.invalidateQueries({
@@ -70,7 +70,7 @@ export function EnrichmentControl() {
         msg.includes("402")
       ) {
         toast.error(
-          "Out of credits — top up the usage wallet or upgrade in Settings → Billing."
+          "Out of credits - top up the usage wallet or upgrade in Settings → Billing."
         );
         return;
       }

@@ -1,5 +1,5 @@
 /**
- * Passkeys section — exercised through the real `@/lib/passkey` client with
+ * Passkeys section - exercised through the real `@/lib/passkey` client with
  * the network mocked at the `fetch` level, so empty-vs-error handling,
  * request bodies, and the register ceremony ordering are all covered.
  *
@@ -88,7 +88,7 @@ describe("PasskeysSection", () => {
     networkLog = [];
     mockedIsSupported.mockReturnValue(true);
     vi.stubGlobal("fetch", fetchMock);
-    // Feature-detection stub — no real authenticator exists in jsdom.
+    // Feature-detection stub - no real authenticator exists in jsdom.
     vi.stubGlobal("PublicKeyCredential", class PublicKeyCredential {});
   });
 
@@ -114,7 +114,7 @@ describe("PasskeysSection", () => {
 
     expect(
       await screen.findByText(
-        /No passkeys yet — add one to sign in without a password/
+        /No passkeys yet - add one to sign in without a password/
       )
     ).toBeTruthy();
     // A single, prominent Add button (the empty-state CTA replaces the

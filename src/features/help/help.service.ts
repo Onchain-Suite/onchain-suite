@@ -4,7 +4,7 @@ import { apiClient } from "@/lib/api-client";
 import { isJsonObject } from "@/lib/utils";
 
 /**
- * Dashboard help search (RAG) — powers the search bar / command palette
+ * Dashboard help search (RAG) - powers the search bar / command palette
  * "how do I…" experience. Session-auth only (no x-org-id): see backend docs.
  */
 
@@ -59,7 +59,7 @@ const toSuggestion = (raw: unknown): HelpSuggestion | null => {
 };
 
 export const helpService = {
-  /** Instant typeahead over help articles — no LLM, safe per keystroke. */
+  /** Instant typeahead over help articles - no LLM, safe per keystroke. */
   async suggest(q: string, limit = 5, signal?: AbortSignal) {
     const data = await request<unknown>({
       method: "GET",
@@ -80,7 +80,7 @@ export const helpService = {
 
   /**
    * Grounded answer over the help corpus. When `generated` is false (no LLM
-   * configured or no matching article) render `sources` instead — the
+   * configured or no matching article) render `sources` instead - the
    * endpoint never 5xxs for that.
    */
   async ask(question: string, signal?: AbortSignal) {

@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
-  const MAX_SIZE = 10 * 1024 * 1024; // 10MB — email images should be small
+  const MAX_SIZE = 10 * 1024 * 1024; // 10MB - email images should be small
   const ALLOWED_TYPES = [
     "image/png",
     "image/jpeg",

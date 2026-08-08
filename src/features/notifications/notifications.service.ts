@@ -71,7 +71,7 @@ const extractList = (payload: unknown): unknown[] => {
 
 const normalizeNotification = (raw: unknown): NotificationItem => {
   const obj = isJsonObject(raw) ? raw : {};
-  // Spread first so the normalized fields below always win — the backend row
+  // Spread first so the normalized fields below always win - the backend row
   // may use isRead/readAt instead of read, and body instead of message.
   return {
     ...obj,

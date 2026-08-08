@@ -7,7 +7,7 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 /**
  * Typed service for the sender domains & identities API family
- * (docs/backend.md — "Sender domains & identities — frontend integration
+ * (docs/backend.md - "Sender domains & identities - frontend integration
  * guide"). Owns the URLs, the `x-org-id` header, `{ success, data }` envelope
  * unwrapping, and the normalized {@link SenderIdentity} shape shared by
  * settings, the campaign form, and the automation builder's send_email node.
@@ -19,7 +19,7 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 export type SenderIdentityStatus = "verified" | "pending" | "failed";
 
-/** Normalized org sender identity — the only shape components consume. */
+/** Normalized org sender identity - the only shape components consume. */
 export interface SenderIdentity {
   id: string;
   email: string;
@@ -73,7 +73,7 @@ export interface DomainProvisionProvider {
   reason?: string;
 }
 
-/** `POST /domain/{id}/provision` — every configured provider's DNS together. */
+/** `POST /domain/{id}/provision` - every configured provider's DNS together. */
 export interface DomainProvisionResult {
   domain: string;
   providers: DomainProvisionProvider[];
@@ -230,7 +230,7 @@ export const extractDomainAuthMap = (payload: unknown): DomainAuthMap => {
       value.spfVerified,
       value.spfStatus
     );
-    // Only record what the rollup explicitly states — fabricated statuses
+    // Only record what the rollup explicitly states - fabricated statuses
     // would be mistaken for backend truth downstream.
     map.set(domain, {
       dkim,
@@ -282,7 +282,7 @@ export const normalizeSenderIdentities = (
       if (!email) return null;
       const domain = email.includes("@") ? (email.split("@").pop() ?? "") : "";
       const domainState = domainMap.get(domain);
-      // Keep dkim/spf unknown (undefined) until the status is resolved — a
+      // Keep dkim/spf unknown (undefined) until the status is resolved - a
       // VERIFIED identity with no per-record rollup data should render its
       // checks as passed, not failed.
       const dkim =
@@ -354,7 +354,7 @@ export const senderIdentitiesService = {
     );
   },
 
-  /** `POST /sender-identities` — create a From-address on a verified domain. */
+  /** `POST /sender-identities` - create a From-address on a verified domain. */
   createSenderIdentity(body: CreateSenderIdentityBody, orgId?: string) {
     return request<unknown>(
       { method: "POST", url: "/sender-identities", data: body },
@@ -381,7 +381,7 @@ export const senderIdentitiesService = {
     );
   },
 
-  /** `PUT /sender-identities/default` — the org's default From identity. */
+  /** `PUT /sender-identities/default` - the org's default From identity. */
   setDefaultSenderIdentity(senderIdentityId: string, orgId?: string) {
     return request<unknown>(
       {
@@ -402,7 +402,7 @@ export const senderIdentitiesService = {
     return extractDomainAuthMap(payload);
   },
 
-  /** `GET /domain` — the org's sender domains. */
+  /** `GET /domain` - the org's sender domains. */
   async listDomains(orgId?: string): Promise<SenderDomainRecord[]> {
     const payload = await request<unknown>(
       { method: "GET", url: "/domain" },
@@ -412,7 +412,7 @@ export const senderIdentitiesService = {
   },
 
   /**
-   * `POST /domain` — registers the domain and provisions it in Azure ACS.
+   * `POST /domain` - registers the domain and provisions it in Azure ACS.
    * Check `status` on the response: `VERIFIED` → done (skip the DNS screen),
    * `PENDING_VERIFICATION` → show `getDomainDns` records then `verifyDomain`.
    */
@@ -423,7 +423,7 @@ export const senderIdentitiesService = {
     );
   },
 
-  /** `DELETE /domain/{id}` — removes a sender domain (e.g. a stuck pending one). */
+  /** `DELETE /domain/{id}` - removes a sender domain (e.g. a stuck pending one). */
   deleteDomain(domainId: string, orgId?: string) {
     return request<unknown>(
       { method: "DELETE", url: `/domain/${domainId}` },
@@ -431,7 +431,7 @@ export const senderIdentitiesService = {
     );
   },
 
-  /** `GET /domain/{id}/dns` — registrar-ready TXT/DKIM/SPF records. */
+  /** `GET /domain/{id}/dns` - registrar-ready TXT/DKIM/SPF records. */
   async getDomainDns(domainId: string, orgId?: string) {
     const payload = await request<unknown>(
       { method: "GET", url: `/domain/${domainId}/dns` },
@@ -441,7 +441,7 @@ export const senderIdentitiesService = {
   },
 
   /**
-   * `POST /domain/{id}/provision` — authenticate the domain in EVERY configured
+   * `POST /domain/{id}/provision` - authenticate the domain in EVERY configured
    * send provider (transactional `EMAIL_PROVIDER` + marketing `MARKETING_PROVIDER`)
    * and return all their DNS records together, so the customer can publish both
    * sets at once. A provider that isn't configured comes back `status:"skipped"`
@@ -480,7 +480,7 @@ export const senderIdentitiesService = {
   },
 
   /**
-   * `POST /domain/{id}/verify` — long-polls Azure until VERIFIED/FAILED, so
+   * `POST /domain/{id}/verify` - long-polls Azure until VERIFIED/FAILED, so
    * it is explicitly bounded rather than left to hang.
    */
   verifyDomain(domainId: string, orgId?: string) {

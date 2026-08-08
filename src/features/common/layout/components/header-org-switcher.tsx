@@ -21,7 +21,7 @@ const initialsOf = (name: string) =>
 
 /**
  * Compact workspace switcher for the top bar (beside search). Shows the active
- * org with its logo and a dropdown to switch — a visible, first-class control
+ * org with its logo and a dropdown to switch - a visible, first-class control
  * rather than being tucked into the account menu.
  */
 export function HeaderOrgSwitcher() {
@@ -36,7 +36,7 @@ export function HeaderOrgSwitcher() {
     switchOrg,
   } = useOrgSwitcherContext();
 
-  // Hold a skeleton until org state resolves from client storage — avoids a
+  // Hold a skeleton until org state resolves from client storage - avoids a
   // hydration mismatch and the empty/"no workspace" flash on first paint.
   if (!isMounted || (!hasResolved && organizations.length === 0)) {
     return <Skeleton className="h-9 w-9 rounded-lg sm:w-44" />;

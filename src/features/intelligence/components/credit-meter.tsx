@@ -30,7 +30,7 @@ const C = 2 * Math.PI * R;
 /**
  * AI credit meter, rendered as a compact circular usage ring with the AI
  * icon at its center. Reads the org's `meters.aiCredits` from
- * `GET /billing/plan-usage/:organizationId` — the weighted meter that gates
+ * `GET /billing/plan-usage/:organizationId` - the weighted meter that gates
  * the assistant, SQL generation, suggestions and the MCP agent (402
  * AI_CREDITS_EXCEEDED). Numeric usage and remaining credits surface on hover.
  * Refreshes when other intelligence requests invalidate the
@@ -58,7 +58,7 @@ export function CreditMeter() {
   const used = Math.max(0, Number(meter.used) || 0);
   const rawLimit = Number(meter.limit);
   // limit === -1 is the backend's unlimited convention (internal plan,
-  // env-raised allowances) — never render it as exhausted.
+  // env-raised allowances) - never render it as exhausted.
   const unlimited = rawLimit === -1;
   const limit = unlimited ? 0 : Math.max(0, rawLimit || 0);
   const remaining = Math.max(0, limit - used);
@@ -152,9 +152,9 @@ export function CreditMeter() {
           </div>
           <p className="mt-1">
             {unlimited
-              ? "Unlimited plan — no monthly cap."
+              ? "Unlimited plan - no monthly cap."
               : status === "exceeded"
-                ? "Limit reached — upgrade to continue."
+                ? "Limit reached - upgrade to continue."
                 : `${compact(remaining)} credits remaining this month.`}
           </p>
           <p className="mt-1 text-muted-foreground">

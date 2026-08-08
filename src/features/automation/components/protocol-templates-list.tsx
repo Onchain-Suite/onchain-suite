@@ -20,7 +20,7 @@ interface ProtocolTemplatesListProps {
   applyingId?: string | null;
 }
 
-// Per-family accent — thin accents only (dot, active chip), never a fill
+// Per-family accent - thin accents only (dot, active chip), never a fill
 // behind icons. Literal classes keep Tailwind's purge happy.
 const ACCENT: Record<
   ProtocolTemplateFamily,

@@ -5,7 +5,7 @@ import {
 } from "@heroicons/react/24/outline";
 import type { ReactElement } from "react";
 
-// Date formatting is app-wide, not audience-specific — it lives in
+// Date formatting is app-wide, not audience-specific - it lives in
 // @/lib/date. Imported for local use below and re-exported so existing
 // audience imports keep working.
 import { formatDateTime } from "@/lib/date";
@@ -122,7 +122,7 @@ export function normalizeTags(input: unknown): NormalizedTag[] {
 
 /**
  * Wallet-only contacts are stored with a synthetic placeholder email
- * (`…@wallet.onchainsuite.local`). Treat those as "no email channel" —
+ * (`…@wallet.onchainsuite.local`). Treat those as "no email channel" -
  * wallets with zero channels are valid and must not be rendered as
  * email-reachable.
  */

@@ -27,7 +27,7 @@ export const EdgeInsertContext = createContext<
 
 /**
  * A smoothstep edge with a "+" button at its midpoint. Clicking it asks the
- * builder to open the action palette and insert a node that splits this edge —
+ * builder to open the action palette and insert a node that splits this edge -
  * the reference's inline add-step interaction.
  */
 export function AddableEdge({

@@ -15,7 +15,7 @@ import { generateMetadata } from "@/onchain-suite-website/config";
 import { RootProviders } from "@/shared/providers";
 
 // App design system (DESIGN.md §4): Instrument Sans for UI/prose, Geist Mono
-// for data — metrics, wallet addresses, hashes, timestamps, code.
+// for data - metrics, wallet addresses, hashes, timestamps, code.
 const instrumentSans = Instrument_Sans({
   variable: "--font-instrument-sans",
   subsets: ["latin"],
@@ -28,7 +28,7 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
-// Marketing landing — terminal design system (Inter / Outfit / JetBrains Mono)
+// Marketing landing - terminal design system (Inter / Outfit / JetBrains Mono)
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],

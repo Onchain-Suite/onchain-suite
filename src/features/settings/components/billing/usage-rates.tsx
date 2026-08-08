@@ -13,7 +13,7 @@ import {
 } from "@/shared/components/ui/table";
 
 /**
- * Pay-as-you-go overage rates (docs/pricing.md — the priced catalog). These are
+ * Pay-as-you-go overage rates (docs/pricing.md - the priced catalog). These are
  * the ceiling rates charged from the prepaid wallet once an allowance is used
  * up; committed/subscription tiers are cheaper per unit.
  */
@@ -28,7 +28,7 @@ const RATES: { meter: string; rate: string; note?: string }[] = [
   {
     meter: "In-app push (via add-on)",
     rate: "$1 per 1,000 pushes",
-    note: "Ceiling rate — committed tiers are cheaper.",
+    note: "Ceiling rate - committed tiers are cheaper.",
   },
 ];
 
@@ -58,7 +58,7 @@ export default function UsageRates() {
                   {row.rate}
                 </TableCell>
                 <TableCell className="pr-5 text-muted-foreground sm:pr-6">
-                  {row.note ?? "—"}
+                  {row.note ?? "-"}
                 </TableCell>
               </TableRow>
             ))}

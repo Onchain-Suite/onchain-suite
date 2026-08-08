@@ -25,16 +25,16 @@ import {
 } from "@/features/billing/checkout";
 
 /**
- * Pay-As-You-Go starter option for small teams — replaces the old free tier.
+ * Pay-As-You-Go starter option for small teams - replaces the old free tier.
  * Selecting it flips the org to `plan: payg` (`POST /billing/payg/start`,
  * one-time $5 trial credit); usage is metered from the prepaid wallet at the
  * backend's PAYG rates, and hard caps still apply. Onboarding never
- * dead-ends on billing — a failed start is retried from Settings → Billing.
+ * dead-ends on billing - a failed start is retried from Settings → Billing.
  */
 const PAYG_PLAN = {
   name: "Pay as you go",
   interval: "usage-based",
-  description: "For small teams — no monthly fee, pay only for what you use",
+  description: "For small teams - no monthly fee, pay only for what you use",
   features: [
     "$5 trial credit to get started",
     "$1 per 1k messages · $5 per 1k AI credits",
@@ -86,7 +86,7 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
 const priceLabel = (price: BillingPlan["price"]) => {
   if (typeof price === "number") return `$${price.toLocaleString()}`;
   if (typeof price === "string" && price.trim().length > 0) return price;
-  return "—";
+  return "-";
 };
 
 const planFeatures = (plan: BillingPlan): string[] =>
@@ -191,10 +191,10 @@ function PlanCard({
 }
 
 /**
- * Onboarding step 2 — pick a real billing plan. Free completes onboarding
+ * Onboarding step 2 - pick a real billing plan. Free completes onboarding
  * immediately; paid plans start a checkout via POST /billing/upgrade and
  * redirect once onboarding is recorded. Billing failures never block
- * finishing onboarding — the plan can always be changed later in Settings.
+ * finishing onboarding - the plan can always be changed later in Settings.
  */
 export function PlanSelectionStep({
   initialData,
@@ -236,7 +236,7 @@ export function PlanSelectionStep({
             await billingService.startPayg(orgId, { orgId });
           }
         } catch (e) {
-          // Backend also auto-falls-back to payg — never block onboarding.
+          // Backend also auto-falls-back to payg - never block onboarding.
           console.warn("PAYG start failed during onboarding:", e);
           toast.warning(
             "We couldn't activate pay-as-you-go right now. You can enable it anytime in Settings → Billing."
@@ -245,7 +245,7 @@ export function PlanSelectionStep({
       }
       if (isPaidPlan) {
         try {
-          // Blockradar crypto checkout — the pending reference is stored
+          // Blockradar crypto checkout - the pending reference is stored
           // locally, so after paying the user lands back in the app and the
           // PendingCheckoutBanner confirms the upgrade and unlocks features.
           const selected = paidPlans.find((p) => p.name === selectedPlan);
@@ -260,7 +260,7 @@ export function PlanSelectionStep({
             );
           }
         } catch (e) {
-          // Don't dead-end onboarding on a billing hiccup — finish the flow
+          // Don't dead-end onboarding on a billing hiccup - finish the flow
           // and let the user upgrade from Settings → Billing.
           console.warn("Plan checkout failed during onboarding:", e);
           toast.warning(
@@ -302,7 +302,7 @@ export function PlanSelectionStep({
         </h1>
         <p className="mt-2 text-sm text-muted-foreground sm:text-base">
           Start pay-as-you-go with a $5 trial credit and upgrade whenever you
-          need more reach — you can change your plan anytime in Settings →
+          need more reach - you can change your plan anytime in Settings →
           Billing.
         </p>
       </div>

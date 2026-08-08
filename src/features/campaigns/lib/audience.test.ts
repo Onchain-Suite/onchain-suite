@@ -49,7 +49,7 @@ describe("partitionAudienceSelection", () => {
     const result = partitionAudienceSelection(["profile_abc", "seg_1"], []);
 
     // PUT /campaigns/{id}/audience accepts { all, profileIds, segmentIds,
-    // tagNames } — `all` was added with all-contacts targeting.
+    // tagNames } - `all` was added with all-contacts targeting.
     expect(Object.keys(result).sort()).toEqual([
       "all",
       "profileIds",

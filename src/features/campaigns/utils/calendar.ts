@@ -22,11 +22,11 @@ export const WEEK_DAYS_MOBILE = ["S", "M", "T", "W", "T", "F", "S"];
 
 /**
  * The date a campaign occupies on the calendar, chosen per status:
- * - sent/sending: when it (started to) send — `sentAt`, falling back to the
+ * - sent/sending: when it (started to) send - `sentAt`, falling back to the
  *   scheduled slot for scheduled sends whose `sentAt` isn't populated;
  * - scheduled/paused: the scheduled slot;
  * - draft/failed: the scheduled slot if one was saved, else when it was
- *   created — so drafts without a schedule still show up on the calendar.
+ *   created - so drafts without a schedule still show up on the calendar.
  */
 export function getCampaignCalendarDate(campaign: Campaign): Date | undefined {
   switch (campaign.status) {

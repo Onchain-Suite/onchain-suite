@@ -50,7 +50,7 @@ export const domainFromSender = (sender: string): string => {
 export interface SenderNotVerified {
   /** Full address when the backend gave one, else "". */
   sender: string;
-  /** Domain to verify — the actionable part. */
+  /** Domain to verify - the actionable part. */
   domain: string;
 }
 

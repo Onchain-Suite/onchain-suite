@@ -57,7 +57,7 @@ function EnrichmentStatus() {
       const wallets = res?.walletsEnqueued ?? 0;
       toast.success(
         wallets > 0
-          ? `Enriching ${wallets.toLocaleString()} wallets — metrics will populate shortly.`
+          ? `Enriching ${wallets.toLocaleString()} wallets - metrics will populate shortly.`
           : "Enrichment started. Save contract addresses in Settings to seed more wallets."
       );
       await queryClient.invalidateQueries({
@@ -71,7 +71,7 @@ function EnrichmentStatus() {
         msg.includes("402")
       ) {
         toast.error(
-          "Out of credits — top up the usage wallet or upgrade in Settings → Billing."
+          "Out of credits - top up the usage wallet or upgrade in Settings → Billing."
         );
         return;
       }

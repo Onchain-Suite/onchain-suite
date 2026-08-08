@@ -38,7 +38,7 @@ let organizationListRateLimitedUntil = 0;
  */
 const getCachedOrganizations = (): Organization[] | null => {
   const now = Date.now();
-  // Never serve a cached EMPTY list — an empty result is far more likely stale
+  // Never serve a cached EMPTY list - an empty result is far more likely stale
   // (e.g. the user just created their first org via onboarding) than a real
   // "belongs to nothing" state, so treat it as a miss and refetch.
   if (
@@ -80,7 +80,7 @@ const persistOrganizations = (orgs: Organization[], expiresAt: number) => {
       JSON.stringify({ orgs, expiresAt })
     );
   } catch {
-    // Best effort — quota/private-mode failures just skip persistence.
+    // Best effort - quota/private-mode failures just skip persistence.
   }
 };
 
@@ -92,7 +92,7 @@ export interface UseOrgSwitcher {
   isLoading: boolean;
   isMounted: boolean;
   /** True once the org list has been fetched (or served from cache) at least
-   * once — lets callers tell "still resolving" apart from "confirmed no org". */
+   * once - lets callers tell "still resolving" apart from "confirmed no org". */
   hasResolved: boolean;
   session: ReturnType<typeof authClient.useSession>["data"];
   switchOrg: (orgId: string, silent?: boolean) => Promise<void>;
@@ -162,7 +162,7 @@ export function useOrgSwitcher(): UseOrgSwitcher {
     [setVerifiedOrgId]
   );
 
-  // Drop the stored org entirely — used when the selected org isn't one we
+  // Drop the stored org entirely - used when the selected org isn't one we
   // belong to and there's no valid org to fall back to, so the shell stops
   // firing "not a member" requests and drops to the no-org/onboarding state.
   const clearSelectedOrg = React.useCallback(() => {
@@ -325,7 +325,7 @@ export function useOrgSwitcher(): UseOrgSwitcher {
             router.refresh();
           } else if (cookieOrgId && cookieOrgId.trim().length > 0) {
             // The stored org isn't one we belong to and there's nothing to fall
-            // back to — clear it so the shell drops to the no-org/onboarding
+            // back to - clear it so the shell drops to the no-org/onboarding
             // state instead of firing "not a member" requests for it.
             clearSelectedOrg();
             setActiveOrgId(null);

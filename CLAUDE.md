@@ -1,11 +1,11 @@
-# CLAUDE.md — Frontend rendering & engineering guide
+# CLAUDE.md - Frontend rendering & engineering guide
 
 This file guides anyone (humans or AI agents) editing the OnchainSuite frontend.
 Its job is to push the codebase toward **world-class production rendering
 performance** and **maintainable frontend engineering**.
 
 Scope right now: **rendering speed + frontend architecture only**. Do NOT make
-design/visual decisions — the team hasn't finalized design. Keep existing
+design/visual decisions - the team hasn't finalized design. Keep existing
 visuals; change *how* things render, not *how they look*. When a change forces a
 visual choice, keep it minimal and theme-token based, and call it out.
 
@@ -19,13 +19,17 @@ axios · react-hook-form + zod.
 
 1. Implement the latest API endpoints from `docs/backend.md`; model typed
    request/response contracts, never `any`.
-2. Reduce frontend render time as much as possible — this whole document is how.
+2. Reduce frontend render time as much as possible - this whole document is how.
 3. Model the domain **wallet-first** (Section 0.5). It's the product standard,
    shared with the backend; UI/data contracts must conform.
+4. **No em-dashes.** Never use the em-dash character (Unicode `U+2014`) anywhere
+   in the frontend: not in UI copy, string literals, JSX text, or comments. Use
+   a hyphen (`-`), a comma, a colon, or restructure the sentence. This keeps
+   copy consistent and on-brand. (Ellipsis `…` and arrows `→` are fine.)
 
 ---
 
-## 0.5 Product data contracts (wallet-first — shared standard)
+## 0.5 Product data contracts (wallet-first - shared standard)
 
 Mirrors the backend `CLAUDE.md` Section 2.5. These are product invariants; the
 frontend consumes and must not contradict them.
@@ -33,19 +37,19 @@ frontend consumes and must not contradict them.
 1. **Wallet is the identity.** Type a contact around `walletAddress` as the primary
    key; `email`, `farcaster`/FID, `x`, `ens`, `telegram`, `discord` are optional
    **channel handles** (`{ value, source, verifiedAt, optInAt }`). A wallet with
-   zero channels is valid — never gate UI (forms, tables, selection) on an email
+   zero channels is valid - never gate UI (forms, tables, selection) on an email
    existing, and never send an empty email as required.
 2. **Channel-aware reachability.** "reachable on in-app push" ≠ "has email". Model
    reachability per channel in audience/segment builders; don't assume email.
 3. **Never render PII from plaintext assumptions.** Email/FID/X/Discord are PII and
    are blind-indexed/encrypted server-side. Display only what the API returns
-   (decrypted at the boundary); don't build client-side joins/dedup on raw email —
+   (decrypted at the boundary); don't build client-side joins/dedup on raw email -
    use the server's contact id / wallet.
 4. **Multi-channel, one trigger.** The automation builder's send nodes are siblings
-   — `{ Send Email, Send In-App Push, Post to Discord, Post to Telegram, Post to
-   Farcaster }` — over a shared trigger/segment contract. Per-channel analytics
+   - `{ Send Email, Send In-App Push, Post to Discord, Post to Telegram, Post to
+   Farcaster }` - over a shared trigger/segment contract. Per-channel analytics
    differ (email: Sent/Delivered/Opened/Clicked; in-app: Delivered/Viewed/
-   Dismissed/Clicked; posts: Posted/Reactions/Replies) — type them separately.
+   Dismissed/Clicked; posts: Posted/Reactions/Replies) - type them separately.
 5. **Protocol Plays** are versioned specs the user forks into an editable
    automation; render the gallery by tier (Starter first) with "Ready to fork" vs
    "Needs setup" from the Play's tier/gate. First-mile shows an auto-generated
@@ -61,7 +65,7 @@ frontend consumes and must not contradict them.
 2. **Render only what's visible.** Paginate or virtualize anything that can grow
    past ~100 rows/items. Never map thousands of nodes into the DOM.
 3. **Fetch once, cache, don't re-fetch on focus/reconnect.** The shared
-   `QueryClient`/`SWRConfig` defaults already enforce this — keep it that way.
+   `QueryClient`/`SWRConfig` defaults already enforce this - keep it that way.
 4. **Every async op is bounded.** Long/agentic calls (MCP, enrichment, streams)
    must have a timeout and an abort path. No request may hang forever.
 5. **Stable references.** Memoize derived data and callbacks that feed memoized
@@ -70,7 +74,7 @@ frontend consumes and must not contradict them.
 6. **Measure before and after.** Use the React Profiler / Web Vitals; don't
    guess. A change "for perf" without a number is a maybe.
 7. **Type the boundary.** One typed service per API family; unwrap the
-   `{ success, data }` envelope once, in the service — components consume typed
+   `{ success, data }` envelope once, in the service - components consume typed
    data.
 
 ---
@@ -110,10 +114,10 @@ frontend consumes and must not contradict them.
   `features/intelligence/intelligence.service.ts`. Components never call axios
   directly.
 - **Parallelize, don't waterfall.** Independent requests run with
-  `Promise.all` / parallel queries — not awaited one after another.
+  `Promise.all` / parallel queries - not awaited one after another.
 - **Debounce user-driven fetches** (search, audience estimate) ~300–400ms; see
   `features/campaigns/.../audience-step.tsx`.
-- **SWR** is used for a few org-level reads — same discipline: focus/reconnect
+- **SWR** is used for a few org-level reads - same discipline: focus/reconnect
   revalidation off, dedupe interval set (see the global `SWRConfig`).
 - **Bound long calls.** Pass `signal` (AbortController) and a `timeout` to
   agentic/streaming requests; expose a Stop control. The MCP query in
@@ -124,31 +128,31 @@ frontend consumes and must not contradict them.
 ## 4. Rendering data fast (lists, tables, grids)
 
 - **Paginate at the source.** Request `page`/`limit`; render a page, not a
-  dataset. Backends cap rows (e.g. SQL results cap at 500) — respect it.
+  dataset. Backends cap rows (e.g. SQL results cap at 500) - respect it.
 - **Virtualize large/variable lists.** Add **`@tanstack/react-virtual`** (not
-  currently installed) for any list/table that can exceed a screen — render only
+  currently installed) for any list/table that can exceed a screen - render only
   rows in view. Mandatory for results grids, audience tables, long histories.
 - **Derive with `useMemo`.** Compute columns, filtered/sorted rows, totals once
-  per input change — not every render. Heavy transforms belong in memos or the
+  per input change - not every render. Heavy transforms belong in memos or the
   service, not inline JSX.
 - **Stable, meaningful `key`s** (entity id), never array index for dynamic
-  lists — index keys cause remount churn and state bugs.
+  lists - index keys cause remount churn and state bugs.
 - **Avoid inline allocation in hot render paths.** No `style={{...}}`,
   `onClick={() => ...}` recreated per row for thousands of rows when it can be
   hoisted or memoized.
-- **Format on demand.** `toLocaleString`/date formatting is not free at scale —
+- **Format on demand.** `toLocaleString`/date formatting is not free at scale -
   memoize formatters; format only visible rows.
 - **Cap visible columns/data** like the SQL table does (`columns.slice(0, 8)`),
   with "show more" affordances rather than dumping everything.
-- **Empty/loading/error states** are first-class — render skeletons, not blank
+- **Empty/loading/error states** are first-class - render skeletons, not blank
   layout shifts.
 
 ## 5. Icons (fast, no bloat)
 
-- **Heroicons, per-icon named imports only** — this is tree-shaken:
+- **Heroicons, per-icon named imports only** - this is tree-shaken:
   `import { BoltIcon } from "@heroicons/react/24/outline"`. This is already the
   convention; keep it.
-- **Never build a dynamic "all icons" map/registry** or `import * as Icons` — it
+- **Never build a dynamic "all icons" map/registry** or `import * as Icons` - it
   defeats tree-shaking and ships the whole set. Map your own string→component
   lookups explicitly with only the icons you use.
 - **`currentColor` + Tailwind text color** for theming; don't hardcode icon
@@ -164,7 +168,7 @@ frontend consumes and must not contradict them.
 
 - **Split components** so state changes re-render the smallest subtree. A giant
   component (e.g. a 3000-line query view) re-renders everything on every
-  keystroke — extract the input, the results table, the chat thread, etc.
+  keystroke - extract the input, the results table, the chat thread, etc.
 - **`React.memo`** leaf/presentational components that receive stable props.
   Pair with `useCallback`/`useMemo` for the props you pass them.
 - **Colocate state** with where it's used; lift only when shared. Avoid putting
@@ -181,11 +185,11 @@ frontend consumes and must not contradict them.
 - **`next/dynamic`** (with `ssr: false` when client-only) for heavy, below-the-
   fold, or rarely-used modules: **ReactFlow** (automation builder),
   **Recharts** (report charts), rich editors, anything pulling large deps.
-- **framer-motion** is heavy — load it only where used; prefer CSS transitions
+- **framer-motion** is heavy - load it only where used; prefer CSS transitions
   for simple hovers/reveals (see the landing's CSS-driven reveals). Don't import
   `motion` into otherwise-static components.
 - **Avoid barrel files that re-export everything** (`index.ts` exporting a whole
-  feature) on hot paths — they can pull unrelated code into a chunk. Import from
+  feature) on hot paths - they can pull unrelated code into a chunk. Import from
   the specific module.
 - **Watch import cost.** Before adding a dependency, check its size and whether a
   platform primitive (Intl, URL, fetch, CSS) already does the job.
@@ -193,7 +197,7 @@ frontend consumes and must not contradict them.
 
 ## 8. Images, fonts, media
 
-- **`next/image`** for all raster images — automatic sizing, lazy-load,
+- **`next/image`** for all raster images - automatic sizing, lazy-load,
   responsive `srcset`. Always set `width`/`height` (or `fill` + sized parent) to
   avoid CLS. Add remote hosts to `next.config.ts`.
 - **`next/font`** (already used in `app/layout.tsx`) for self-hosted, swap-free
@@ -204,7 +208,7 @@ frontend consumes and must not contradict them.
 
 ## 9. Forms, inputs, interactions
 
-- **react-hook-form + zod** for forms — uncontrolled by default, minimal
+- **react-hook-form + zod** for forms - uncontrolled by default, minimal
   re-renders, schema validation. Use `useWatch` for targeted subscriptions
   instead of `watch()` re-rendering the whole form.
 - **Debounce/throttle** expensive change handlers (search, live estimates,
@@ -225,24 +229,24 @@ frontend consumes and must not contradict them.
 ## 11. Pitfalls we've already hit (don't regress)
 
 - **Refetch storms:** focus/reconnect refetch was hammering the API (429s). It's
-  off globally — don't re-enable per-query without cause.
+  off globally - don't re-enable per-query without cause.
 - **Unbounded agent calls:** MCP "ran forever" with no timeout. All
   long/streaming calls need timeout + abort + a Stop button.
 - **Envelope shape:** responses are `{ success, data }`; unwrap once in the
   service. Map backend field names exactly (e.g. SQL columns are
   `{ key, label }`, not `name`).
 - **Hardcoded theme colors:** don't bake `bg-[#…]` / `rgba(...)` darks into
-  components — use Tailwind **semantic tokens** (`bg-card`, `bg-muted`,
+  components - use Tailwind **semantic tokens** (`bg-card`, `bg-muted`,
   `border-border`, `text-foreground`) so light/dark both work.
-- **Giant client components** re-rendering on every keystroke — split them.
+- **Giant client components** re-rendering on every keystroke - split them.
 
 ## 12. Quality gates & tooling
 
 - **TypeScript is the contract.** `next.config.ts` currently sets
-  `typescript.ignoreBuildErrors: true` — that hides real breakage. Treat type
+  `typescript.ignoreBuildErrors: true` - that hides real breakage. Treat type
   errors as build failures: run `npx tsc --noEmit` and keep it green; the goal
   is to remove that flag.
-- **Lint** (`eslint`) clean — unused imports/vars inflate bundles and signal
+- **Lint** (`eslint`) clean - unused imports/vars inflate bundles and signal
   dead code.
 - **Measure:** React DevTools Profiler for re-renders; Lighthouse / Web Vitals
   (LCP, INP, CLS) for the route; `@next/bundle-analyzer` for chunk size.
@@ -252,10 +256,10 @@ frontend consumes and must not contradict them.
 
 - [ ] Is this component a Server Component? If `"use client"`, is the boundary as
       small as possible?
-- [ ] Any list/table that can grow — is it paginated or virtualized?
-- [ ] New data fetch — typed service method, correct query key, inherits caching
+- [ ] Any list/table that can grow - is it paginated or virtualized?
+- [ ] New data fetch - typed service method, correct query key, inherits caching
       defaults, parallel (not waterfall)?
-- [ ] Long/async op — timeout + abort + cancel UI?
+- [ ] Long/async op - timeout + abort + cancel UI?
 - [ ] Derived data memoized; callbacks stable; keys are entity ids?
 - [ ] Icons: per-import, `currentColor`, fixed size, no dynamic icon registry?
 - [ ] Heavy dep (chart/flow/editor/motion) dynamically imported?

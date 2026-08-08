@@ -4,7 +4,7 @@ import type { List, Segment } from "../types";
 import { audienceService } from "@/features/audience/audience.service";
 
 /**
- * Audience tags are selectable in the campaign picker as `tag:<name>` ids —
+ * Audience tags are selectable in the campaign picker as `tag:<name>` ids -
  * the backend audience contract only knows { profileIds, segmentIds }, so tag
  * selections are expanded into profileIds before saving (see
  * resolveTagsToProfileIds).
@@ -18,7 +18,7 @@ export const tagSelectionId = (tagName: string) =>
  * Sentinel selection id for "send to every contact in the audience". It rides
  * the same `selectedAudiences` array as real ids (so it satisfies the wizard's
  * min-1 audience validation and flows through the existing autosync/Continue
- * paths), but is translated into the backend's `{ all: true }` audience flag —
+ * paths), but is translated into the backend's `{ all: true }` audience flag -
  * never sent as a profile id. It is mutually exclusive with any other
  * selection (see the selector's exclusivity logic).
  */
@@ -30,7 +30,7 @@ export const isAllContactsSelected = (selectedIds: string[]) =>
 /**
  * Split a wizard selection into the buckets `PUT /campaigns/{id}/audience`
  * accepts. Its canonical body is `{ profileIds, segmentIds }` (plus the
- * `all` flag) — there is no `listIds`, so anything binned there is silently
+ * `all` flag) - there is no `listIds`, so anything binned there is silently
  * dropped by the backend and the campaign launches with an empty audience.
  *
  * The `all:contacts` sentinel short-circuits everything: it maps to

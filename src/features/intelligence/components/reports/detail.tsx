@@ -41,16 +41,16 @@ const formatDate = (v: unknown): string => {
   const raw = asString(v);
   if (raw.length > 0) return raw;
   const n = asNumber(v);
-  if (n === null) return "—";
+  if (n === null) return "-";
   const d = new Date(n);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   return d.toLocaleDateString();
 };
 
 const formatMoney = (v: unknown): string => {
   if (typeof v === "string" && v.trim().length > 0) return v;
   const n = asNumber(v);
-  if (n === null) return "—";
+  if (n === null) return "-";
   return `$${Math.round(n).toLocaleString()}`;
 };
 
@@ -99,8 +99,8 @@ export function ReportDetailPage() {
     formatDate(rec.sentDate) ||
     formatDate(rec.sentAt) ||
     formatDate(rec.createdAt) ||
-    "—";
-  const status = asString(rec.status) || asString(rec.state) || "—";
+    "-";
+  const status = asString(rec.status) || asString(rec.state) || "-";
 
   const recipients =
     asNumber(rec.recipients) ??
@@ -114,7 +114,7 @@ export function ReportDetailPage() {
     rec.clickRate ?? rec.click_rate ?? rec.clickRatio
   );
   const revenue = formatMoney(rec.revenueUsd ?? rec.revenue);
-  // Saved reports carry the source query — the visual report layer (charts,
+  // Saved reports carry the source query - the visual report layer (charts,
   // typed table, CSV export) reads GET /intelligence/query/:id/report-data.
   const sourceQueryId =
     asString(rec.sourceQueryId) ||

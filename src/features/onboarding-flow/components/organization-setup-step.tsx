@@ -128,7 +128,7 @@ export function OrganizationSetupStep({
     },
   });
 
-  // Paused with the contract-suggestions panel below — restore these
+  // Paused with the contract-suggestions panel below - restore these
   // useWatch subscriptions (organizationName, sector) when re-enabling it.
 
   // Contracts the user explicitly accepted from the suggestion panel. The
@@ -418,7 +418,7 @@ export function OrganizationSetupStep({
             placeholder="Brief description..."
           />
 
-          {/* Contract suggestions are paused for launch — re-enable by
+          {/* Contract suggestions are paused for launch - re-enable by
               restoring the import, accept/remove handlers, and this panel.
           <ContractSuggestionsPanel
             protocolName={watchedName ?? ""}

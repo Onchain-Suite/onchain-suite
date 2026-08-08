@@ -109,7 +109,7 @@ export function CampaignsListsView() {
     return base;
   }, [statusCounts]);
 
-  // Next scheduled sends, soonest first — powers the "UPCOMING" row.
+  // Next scheduled sends, soonest first - powers the "UPCOMING" row.
   const upcomingCampaigns = useMemo(() => {
     const now = Date.now();
     return campaigns
@@ -247,14 +247,14 @@ export function CampaignsListsView() {
           No campaigns match this filter.
         </div>
       ) : (
-        // No campaigns to show — genuinely empty, or the request failed (data is
+        // No campaigns to show - genuinely empty, or the request failed (data is
         // empty either way). Show the actionable empty state, plus a Retry when
         // it actually errored so a transient failure isn't a dead end.
         <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
           <p className="text-sm text-muted-foreground">
             {campaignsQuery.isError
-              ? "We couldn't load your campaigns just now — retry, or create a new one."
-              : "No campaigns yet — create your first to start reaching wallets by email and in-app push."}
+              ? "We couldn't load your campaigns just now - retry, or create a new one."
+              : "No campaigns yet - create your first to start reaching wallets by email and in-app push."}
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {campaignsQuery.isError ? (

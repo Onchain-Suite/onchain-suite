@@ -1,7 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
- * Mirrors SettingsPage: a two-column layout — left title + vertical nav rail,
+ * Mirrors SettingsPage: a two-column layout - left title + vertical nav rail,
  * right stack of section cards. (The reference rebuild moved the old horizontal
  * PageTabs bar into this left sub-nav.)
  */

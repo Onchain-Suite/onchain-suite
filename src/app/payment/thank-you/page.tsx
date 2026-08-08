@@ -8,7 +8,7 @@ import { PaymentThankYou } from "@/features/billing/components/payment-thank-you
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Payment received — Onchain Suite",
+  title: "Payment received - Onchain Suite",
   description:
     "Thanks for your payment. Your Onchain Suite plan activates automatically once the transaction confirms.",
   robots: { index: false },

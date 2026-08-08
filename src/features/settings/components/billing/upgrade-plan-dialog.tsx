@@ -72,7 +72,7 @@ const FALLBACK_PLANS: BillingPlan[] = [
 const priceLabel = (price: BillingPlan["price"]) => {
   if (typeof price === "number") return `$${price.toLocaleString()}`;
   if (typeof price === "string" && price.trim().length > 0) return price;
-  return "—";
+  return "-";
 };
 
 const planFeatures = (plan: BillingPlan): string[] => {
@@ -99,7 +99,7 @@ export default function UpgradePlanDialog({
 
   // Crypto-only for now: every plan goes straight to the Blockradar mainnet
   // checkout (limits unlock via webhook). Card (Stripe) stays unwired until
-  // production keys exist — the service supports it when that day comes.
+  // production keys exist - the service supports it when that day comes.
   const upgradeMutation = useMutation({
     mutationFn: async (plan: string) => {
       const checkout = await startPlanCheckout(plan);
@@ -113,7 +113,7 @@ export default function UpgradePlanDialog({
       // confirm the payment; same-tab fallback when popups are blocked.
       if (openCheckoutInNewTab(checkout.paymentUrl)) {
         toast.success(
-          "Complete your payment in the new tab — your plan unlocks automatically once it confirms."
+          "Complete your payment in the new tab - your plan unlocks automatically once it confirms."
         );
         queryClient.invalidateQueries({ queryKey: ["billing"] });
         setOpen(false);
@@ -152,7 +152,7 @@ export default function UpgradePlanDialog({
         </DialogHeader>
 
         <p className="text-xs text-muted-foreground">
-          Pay in USDC via crypto checkout — your plan and limits unlock
+          Pay in USDC via crypto checkout - your plan and limits unlock
           automatically once the payment confirms on-chain.
         </p>
 

@@ -372,7 +372,7 @@ function BlockInner({
             ids={node.data.props.childrenIds}
             location={{ parentId: id }}
             handlers={handlers}
-            emptyHint="Empty container — add a block"
+            emptyHint="Empty container - add a block"
           />
         </div>
       );
@@ -383,7 +383,7 @@ function BlockInner({
           <div className="flex" style={{ gap: p.columnsGap }}>
             {Array.from({ length: p.columnsCount }).map((_, i) => (
               <div
-                // Columns are fixed positional slots — index is the identity.
+                // Columns are fixed positional slots - index is the identity.
                 // eslint-disable-next-line react/no-array-index-key
                 key={i}
                 className="min-w-0 flex-1 rounded border border-dashed border-border/50"
@@ -433,7 +433,7 @@ export function EmailCanvas(handlers: CanvasHandlers) {
           ids={d.childrenIds}
           location={{ parentId: handlers.doc.root }}
           handlers={handlers}
-          emptyHint="Empty email — add a block from the left or the + button."
+          emptyHint="Empty email - add a block from the left or the + button."
         />
       </div>
     </div>

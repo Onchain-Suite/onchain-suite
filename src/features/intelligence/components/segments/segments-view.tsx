@@ -176,7 +176,7 @@ export function SegmentsView() {
   });
 
   // Live preview: debounce the draft rules and ask the backend how many wallets
-  // match. Guarded — if the preview endpoint isn't available the query rejects
+  // match. Guarded - if the preview endpoint isn't available the query rejects
   // and we fall back to the honest "computed on save" copy (no fabricated data).
   const [previewPayload, setPreviewPayload] = useState<{
     operator: "AND" | "OR";
@@ -222,7 +222,7 @@ export function SegmentsView() {
       setCopiedWallet(address);
       window.setTimeout(() => setCopiedWallet(null), 1500);
     } catch {
-      /* clipboard unavailable — no-op */
+      /* clipboard unavailable - no-op */
     }
   };
 
@@ -273,7 +273,7 @@ export function SegmentsView() {
               type="button"
               onClick={() =>
                 toast.info(
-                  "Natural-language segment generation is coming soon — build with rules below for now."
+                  "Natural-language segment generation is coming soon - build with rules below for now."
                 )
               }
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
@@ -283,7 +283,7 @@ export function SegmentsView() {
             </button>
           </div>
           <p className="text-xs text-muted-foreground">
-            The prompt becomes editable rules below — tweak anything by hand.
+            The prompt becomes editable rules below - tweak anything by hand.
           </p>
         </div>
 
@@ -373,7 +373,7 @@ export function SegmentsView() {
           />
           <p>
             Balance, token and gas rules are matched with zero-knowledge proofs
-            — wallets qualify without their exact values ever being exposed.
+            - wallets qualify without their exact values ever being exposed.
           </p>
         </div>
 
@@ -408,7 +408,7 @@ export function SegmentsView() {
               ? previewCount.toLocaleString()
               : previewQuery.isFetching
                 ? "…"
-                : "—"}
+                : "-"}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {previewCount !== null ? (
@@ -513,7 +513,7 @@ export function SegmentsView() {
                   <span className="shrink-0 text-right">
                     <span className="block text-sm font-semibold tabular-nums text-foreground">
                       {segment.size === null || segment.size === undefined
-                        ? "—"
+                        ? "-"
                         : segment.size.toLocaleString()}
                     </span>
                     {segment.updatedAt ? (

@@ -13,12 +13,12 @@ import "./landing-v2.css";
 import { Counter, Reveal, Stagger, StaggerItem } from "./primitives";
 import { Heading, PageShell, SIGNUP } from "./shared";
 
-/* Pay-as-you-go unit rates — the live billing meters' prices. */
+/* Pay-as-you-go unit rates - the live billing meters' prices. */
 const PER_10K_ONCHAIN = 2.5; // $2.50 per 10,000 on-chain (GoldRush) credits
 const PER_1K_AI = 5; // $5 per 1,000 AI credits
 
 /* Per-1,000 message rates, split by channel. Email and in-app are billed
- * separately — set each channel's real rate here.
+ * separately - set each channel's real rate here.
  * TODO(pricing): confirm the email vs in-app rates with the team. Both default
  * to the previous bundled $1/1k until the finalized numbers land. */
 const EMAIL_PER_1K = 1;
@@ -53,7 +53,7 @@ const channelSummary = (channels: ChannelRate[]): string =>
   channels.map((c) => c.label.toLowerCase()).join(" and ") || "message";
 
 /** Non-exclusive channel toggle (Email / In-app push). Teams often run both,
- * so this is multi-select — at least one channel always stays on. Shared by the
+ * so this is multi-select - at least one channel always stays on. Shared by the
  * calculator and the plan grid so both read from one idiom. */
 function ChannelToggle({
   value,
@@ -146,7 +146,7 @@ function Calculator({
               Estimate your bill
             </span>
             <p className="mt-1 text-[13px] t-muted">
-              Email and in-app push are billed separately — run one or both.
+              Email and in-app push are billed separately - run one or both.
             </p>
           </div>
           <ChannelToggle value={channels} onChange={onChannelsChange} />
@@ -274,7 +274,7 @@ function Slider({
 
 /* Plan tiers. Email and in-app push are priced separately; a card's price is
  * the sum of the selected channels' prices (choosing both is cumulative). Each
- * tier is a full plan on either channel — the shared resources (contacts, AI,
+ * tier is a full plan on either channel - the shared resources (contacts, AI,
  * wallet-data, seats) are included once, never doubled. Numbers from the pricing
  * docs (docs/pricing.md). */
 interface Tier {
@@ -377,7 +377,7 @@ function Profiles({
               Where teams typically <span className="grad">land.</span>
             </>
           }
-          sub="Email and in-app push are priced separately — pick one or both. Choosing both simply adds the two prices. Pay in USDC via crypto checkout, upgrade or downgrade anytime."
+          sub="Email and in-app push are priced separately - pick one or both. Choosing both simply adds the two prices. Pay in USDC via crypto checkout, upgrade or downgrade anytime."
         />
         <div className="mt-8 flex justify-center">
           <ChannelToggle
@@ -387,7 +387,7 @@ function Profiles({
           />
         </div>
         <Stagger className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {/* PAYG is the signup default — usage-based, per-unit. */}
+          {/* PAYG is the signup default - usage-based, per-unit. */}
           <StaggerItem key="payg">
             <div className="card relative flex h-full flex-col p-5 transition-transform duration-200 hover:-translate-y-1">
               <span className="text-[13px] font-semibold t-ink">
@@ -502,7 +502,7 @@ function Profiles({
           })}
         </Stagger>
         <p className="mx-auto mt-6 max-w-2xl text-center text-[12.5px] t-muted2">
-          {`Showing ${channelSummary(enabledChannels)} pricing. Email and in-app push are billed separately — choosing both adds the two prices. Overage past any plan's allowance continues at the pay-as-you-go rate.`}
+          {`Showing ${channelSummary(enabledChannels)} pricing. Email and in-app push are billed separately - choosing both adds the two prices. Overage past any plan's allowance continues at the pay-as-you-go rate.`}
         </p>
       </div>
     </section>

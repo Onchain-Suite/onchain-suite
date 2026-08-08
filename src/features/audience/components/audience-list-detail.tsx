@@ -11,7 +11,7 @@ import type { AudienceSegment } from "../audience.service";
  *
  * List membership isn't exposed by the audience API yet (there's no
  * `listProfiles` filter by segment), so members render as the reference's
- * empty state — the count still comes from the segment.
+ * empty state - the count still comes from the segment.
  */
 export function AudienceListDetail({
   segment,
@@ -44,7 +44,7 @@ export function AudienceListDetail({
           </span>
         </div>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Every wallet in this list. Addresses show only for imported contacts —
+          Every wallet in this list. Addresses show only for imported contacts -
           ZK-linked emails stay protected, so you can message them without ever
           seeing who they are.
         </p>

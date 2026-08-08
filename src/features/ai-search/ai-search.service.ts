@@ -5,7 +5,7 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 /**
  * Semantic search over the organization's ingested content
- * (`GET /query/search`) — no LLM call, no AI-credit spend. Powers the
+ * (`GET /query/search`) - no LLM call, no AI-credit spend. Powers the
  * command palette's live "From your workspace" results; the streaming
  * RAG answer (`GET /query/text/stream`) stays in the palette itself.
  */

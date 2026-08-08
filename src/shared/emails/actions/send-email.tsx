@@ -14,7 +14,7 @@ const SEND_TIMEOUT_MS = 10000;
  * Transactional sends go through the backend's `POST /email/send` (Azure
  * pipeline). That route is session-auth only, so the caller's cookies are
  * forwarded; `x-api-key` is rate-limit identification, not auth. DTO:
- * `{ to, subject, html, text?, from?, tags?, configurationSet? }` — unknown
+ * `{ to, subject, html, text?, from?, tags?, configurationSet? }` - unknown
  * fields are stripped. Omitting `from` uses the platform sender.
  */
 async function sendTransactionalEmail({

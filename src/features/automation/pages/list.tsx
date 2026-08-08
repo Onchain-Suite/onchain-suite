@@ -59,7 +59,7 @@ const toRow = (input: unknown): Row | null => {
     asString(trigger.type) || asString(input.triggerType) || "onchain";
   const event = asString(trigger.event) || asString(input.triggerEvent);
   let triggerLabel = humanizeTrigger(type);
-  if (event && event !== "—" && event.toLowerCase() !== "any event") {
+  if (event && event !== "-" && event.toLowerCase() !== "any event") {
     triggerLabel += ` · ${event}`;
   }
   const rawStatus = asString(input.status);
@@ -84,7 +84,7 @@ const toRow = (input: unknown): Row | null => {
 
 /** Format an ISO/relative timestamp into a compact "12 min ago" label. */
 const relativeTime = (value: string): string => {
-  if (!value) return "—";
+  if (!value) return "-";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   const diffMs = Date.now() - parsed.getTime();
@@ -204,7 +204,7 @@ export function AutomationsListView() {
           <div key={card.label} className="bg-card px-5 py-4">
             <div className="text-sm text-muted-foreground">{card.label}</div>
             <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-              {listQuery.isLoading ? "—" : card.value}
+              {listQuery.isLoading ? "-" : card.value}
             </div>
           </div>
         ))}
@@ -258,7 +258,7 @@ export function AutomationsListView() {
                 const hasData = row.entries > 0;
                 const completion = hasData
                   ? `${((row.conversions / row.entries) * 100).toFixed(1)}%`
-                  : "—";
+                  : "-";
                 return (
                   <tr
                     key={row.id}
@@ -283,16 +283,16 @@ export function AutomationsListView() {
                       </span>
                     </td>
                     <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                      {hasData ? row.entries.toLocaleString() : "—"}
+                      {hasData ? row.entries.toLocaleString() : "-"}
                     </td>
                     <td className="px-4 py-4 text-right tabular-nums text-foreground">
                       {completion}
                     </td>
                     <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                      {hasData ? row.conversions.toLocaleString() : "—"}
+                      {hasData ? row.conversions.toLocaleString() : "-"}
                     </td>
                     <td className="px-4 py-4 text-right text-muted-foreground">
-                      {hasData ? relativeTime(row.lastTriggered) : "—"}
+                      {hasData ? relativeTime(row.lastTriggered) : "-"}
                     </td>
                     <td className="px-4 py-4 text-right">
                       <Link

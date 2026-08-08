@@ -51,13 +51,13 @@ const InvoiceHistory = () => {
     if (typeof amount === "number")
       return `${currency} ${amount.toFixed(2)}`.trim();
     if (typeof amount === "string") return `${currency} ${amount}`.trim();
-    return "—";
+    return "-";
   };
 
   const formatDate = (inv: unknown) => {
     const obj = isJsonObject(inv) ? inv : {};
     const v = obj.issuedAt ?? obj.createdAt ?? obj.date;
-    if (!v) return "—";
+    if (!v) return "-";
     const d = new Date(String(v));
     if (Number.isNaN(d.getTime())) return String(v);
     return d.toLocaleDateString();
@@ -118,8 +118,8 @@ const InvoiceHistory = () => {
                 {isOpen
                   ? items.length > 0
                     ? formatMoney(latestInvoice)
-                    : "—"
-                  : "—"}
+                    : "-"
+                  : "-"}
               </p>
             </div>
           </div>
@@ -190,7 +190,7 @@ const InvoiceHistory = () => {
                         if (typeof id === "string" && id.length > 0) {
                           return id;
                         }
-                        return "—";
+                        return "-";
                       })()}
                     </div>
                     <div className="text-muted-foreground">

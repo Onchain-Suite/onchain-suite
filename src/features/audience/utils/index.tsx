@@ -318,6 +318,19 @@ export function hashHue(input: string): number {
   return Number.isFinite(next) ? next : 210;
 }
 
+/**
+ * Deterministic pseudo lifetime (ETH) derived from the wallet - a stub until the
+ * API exposes on-chain balances (`onchain.lifetimeEth` is always null server-
+ * side). Stable per wallet so it doesn't flicker between renders.
+ */
+export function pseudoEth(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    h = (h * 31 + seed.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h % 3400) / 100; // 0 - 34 ETH
+}
+
 const readString = (obj: Record<string, unknown> | null, key: string) => {
   if (!obj) return "";
   const value = obj[key];

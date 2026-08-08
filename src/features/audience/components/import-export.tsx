@@ -940,6 +940,28 @@ export default function ImportExportPage() {
       toast.error(e instanceof Error ? e.message : "Failed to download errors"),
   });
 
+  // The verifier's auto-suppressed / rejected bad addresses (email,reason CSV).
+  const downloadImportRejectedMutation = useMutation({
+    mutationFn: async () => {
+      if (!importJobId) throw new Error("Missing jobId");
+      return audienceService.downloadImportRejected(importJobId);
+    },
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audience-import-bad-emails-${importJobId ?? "job"}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+    },
+    onError: (e: unknown) =>
+      toast.error(
+        e instanceof Error ? e.message : "Failed to download bad emails"
+      ),
+  });
+
   const exportMutation = useMutation({
     mutationFn: async (format: AudienceImportExportFormat) => {
       const res = await audienceService.createExportJob({ format });
@@ -1072,24 +1094,50 @@ export default function ImportExportPage() {
     if (!importStatus) return;
     const state = String(importStatus.state ?? "");
     if (state === "completed") {
-      const success =
-        (importStatus.createdCount ?? 0) + (importStatus.updatedCount ?? 0);
+      const created = importStatus.createdCount ?? 0;
+      const updated = importStatus.updatedCount ?? 0;
+      const success = created + updated;
       const failed = importStatus.errorCount ?? 0;
       setImportResult({ success, failed });
       setImportStep("complete");
-      toast.success(
-        failed > 0
-          ? `Import finished, ${success.toLocaleString()} contacts imported, ${failed.toLocaleString()} skipped.`
-          : `Import finished, ${success.toLocaleString()} contacts imported.`,
-        failed > 0
+
+      // One summary toast for the whole import (not one per contact): the row
+      // totals, plus how many bad emails the verifier auto-suppressed.
+      const { verification } = importStatus;
+      const processed =
+        importStatus.processedRows ??
+        importStatus.totalRows ??
+        success + failed;
+      const parts = [
+        `${processed.toLocaleString()} processed`,
+        `${created.toLocaleString()} created`,
+        `${updated.toLocaleString()} updated`,
+      ];
+      if (failed > 0) parts.push(`${failed.toLocaleString()} errors`);
+      if (verification?.bad)
+        parts.push(
+          `${verification.bad.toLocaleString()} bad emails suppressed`
+        );
+      if (verification?.suppressed)
+        parts.push(
+          `${verification.suppressed.toLocaleString()} already suppressed`
+        );
+
+      // Offer the most relevant download: the auto-suppressed/rejected bad
+      // addresses if the verifier produced a list, otherwise the error report.
+      const action = verification?.rejectedListAvailable
+        ? {
+            label: "Download bad emails",
+            onClick: () => downloadImportRejectedMutation.mutate(),
+          }
+        : failed > 0
           ? {
-              action: {
-                label: "Download errors",
-                onClick: () => downloadImportErrorsMutation.mutate(),
-              },
+              label: "Download errors",
+              onClick: () => downloadImportErrorsMutation.mutate(),
             }
-          : undefined
-      );
+          : undefined;
+
+      toast.success(`Import finished: ${parts.join(" · ")}.`, { action });
       return;
     }
     if (state === "failed") {
@@ -1102,7 +1150,7 @@ export default function ImportExportPage() {
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="mx-auto w-full max-w-[1600px] space-y-6 text-foreground"
+      className="mx-auto w-full max-w-7xl space-y-6 text-foreground"
     >
       <Link
         href="/audience"

@@ -2,6 +2,7 @@
 
 import {
   ArrowDownTrayIcon,
+  ArrowPathIcon,
   ArrowUpTrayIcon,
   AtSymbolIcon,
   CheckIcon,
@@ -12,7 +13,6 @@ import {
   PlusIcon,
   ShieldCheckIcon,
   SignalIcon,
-  Squares2X2Icon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import {
@@ -22,7 +22,6 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -40,6 +39,8 @@ import {
   ComposeEmailDialog,
   type EmailRecipient,
 } from "../components/compose-email-dialog";
+import { ContactSlideOver } from "../components/contact-slide-over";
+import { SuppressedTab } from "../components/suppressed-tab";
 import {
   deriveDisplayName,
   extractSocialHandles,
@@ -48,6 +49,7 @@ import {
   isAddressLike,
   isSyntheticWalletEmail,
   normalizeTags,
+  pseudoEth,
 } from "../utils";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
@@ -56,15 +58,6 @@ const IMPORT_EXPORT_HREF = `${PRIVATE_ROUTES.AUDIENCE}/import-export`;
 
 const num = (v: unknown) =>
   typeof v === "number" && Number.isFinite(v) ? v : undefined;
-
-/** Deterministic pseudo lifetime (ETH) from the wallet - a stub until the API
- * exposes on-chain balances. Stable per wallet so it doesn't flicker. */
-const pseudoEth = (seed: string) => {
-  let h = 0;
-  for (let i = 0; i < seed.length; i += 1)
-    h = (h * 31 + seed.charCodeAt(i)) | 0;
-  return Math.abs(h % 3400) / 100; // 0 – 34 ETH
-};
 
 interface Row {
   id: string;
@@ -163,7 +156,6 @@ function listMeta(seg: AudienceSegment): {
 }
 
 export function AudiencePages() {
-  const router = useRouter();
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<
@@ -183,6 +175,10 @@ export function AudiencePages() {
   );
   const [composeOpen, setComposeOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // Clicking a contact opens a slide-in detail panel (not a full-page nav).
+  const [selectedProfile, setSelectedProfile] =
+    useState<AudienceProfile | null>(null);
+  const [slideOpen, setSlideOpen] = useState(false);
 
   const overviewQuery = useQuery({
     queryKey: ["audience", "overview"],
@@ -244,10 +240,19 @@ export function AudiencePages() {
   );
 
   const meta = profilesQuery.data?.meta;
-  const totalItems = num(meta?.totalItems) ?? rows.length;
-  const totalPages = Math.max(1, num(meta?.totalPages) ?? 1);
 
   const overview = overviewQuery.data;
+  // Prefer the meta count, then the overview total, then the visible rows. The
+  // page count is derived from whichever total we trust so Prev/Next always
+  // appears when there are more contacts than one page - even if the profiles
+  // endpoint omits `meta.totalPages`.
+  const totalItems =
+    num(meta?.totalItems) ?? num(overview?.total) ?? rows.length;
+  const totalPages = Math.max(
+    1,
+    num(meta?.totalPages) ?? Math.ceil(totalItems / ITEMS_PER_PAGE)
+  );
+
   const total = num(overview?.total) ?? totalItems;
   const withWallet = num(overview?.withWallet) ?? 0;
   const emailOnly = Math.max(0, total - withWallet);
@@ -323,6 +328,46 @@ export function AudiencePages() {
     },
   });
 
+  // Apply tags to a single profile (from the slide-in panel).
+  const slideTagMutation = useMutation({
+    mutationFn: async (input: { profileId: string; tags: string[] }) => {
+      const existing = new Set(availableTags);
+      await Promise.all(
+        input.tags
+          .filter((t) => !existing.has(t))
+          .map((t) => audienceService.createTag({ name: t }).catch(() => null))
+      );
+      await audienceService
+        .addTagsToProfile(input.profileId, { tags: input.tags })
+        .catch(() => null);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audience", "profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["audience", "tags"] });
+    },
+  });
+
+  // The current page's profiles, addressable by id so a row click can hand the
+  // full profile to the slide-in without another fetch.
+  const profileById = useMemo(() => {
+    const map = new Map<string, AudienceProfile>();
+    for (const p of profilesQuery.data?.items ?? []) map.set(p.id, p);
+    return map;
+  }, [profilesQuery.data]);
+
+  const openContact = (id: string) => {
+    const profile = profileById.get(id);
+    if (!profile) return;
+    setSelectedProfile(profile);
+    setSlideOpen(true);
+  };
+
+  const sendTestFromSlide = (profile: AudienceProfile) => {
+    setSelectedIds([profile.id]);
+    setSlideOpen(false);
+    setComposeOpen(true);
+  };
+
   const toggleOne = (id: string) =>
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -392,7 +437,7 @@ export function AudiencePages() {
           </Button>
           <Button asChild className="rounded-xl">
             <Link href={IMPORT_EXPORT_HREF}>
-              <Squares2X2Icon className="mr-2 size-4" aria-hidden="true" />
+              <ArrowPathIcon className="mr-2 size-4" aria-hidden="true" />
               Sync wallets
             </Link>
           </Button>
@@ -580,11 +625,7 @@ export function AudiencePages() {
                                 />
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    router.push(
-                                      `${PRIVATE_ROUTES.AUDIENCE}/${encodeURIComponent(row.id)}`
-                                    )
-                                  }
+                                  onClick={() => openContact(row.id)}
                                   className="flex min-w-0 items-center gap-2 text-left"
                                 >
                                   {row.hasNamedIdentity ? (
@@ -934,14 +975,22 @@ export function AudiencePages() {
               onCancelCreate={() => setCreatingTag(false)}
             />
           ) : (
-            <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-              {suppressed > 0
-                ? `${suppressed.toLocaleString()} contacts are unsubscribed or bounced. Suppression details land here once the API exposes them.`
-                : "No suppressed contacts - everyone's reachable."}
-            </div>
+            <SuppressedTab />
           )}
         </>
       )}
+
+      <ContactSlideOver
+        profile={selectedProfile}
+        open={slideOpen}
+        onOpenChange={setSlideOpen}
+        availableTags={availableTags}
+        applyingTags={slideTagMutation.isPending}
+        onApplyTags={(profileId, tags) =>
+          slideTagMutation.mutateAsync({ profileId, tags })
+        }
+        onCompose={sendTestFromSlide}
+      />
 
       <ComposeEmailDialog
         open={composeOpen}

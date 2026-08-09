@@ -46,6 +46,15 @@ export interface CampaignAudienceEstimate {
   /** Canonical field per POST /campaigns/{id}/audience/estimate. */
   recipientCount?: number;
   excludedBySmartSending?: number;
+  // Full "Don't send to" breakdown (docs/backend.md 2026-08-xx): every count is
+  // a real query over the same resolved audience.
+  // recipientCount = max(0, totalWallets − missingEmail − suppressed −
+  // messagedRecently − internal). `excludedBySmartSending === messagedRecently`.
+  totalWallets?: number;
+  missingEmail?: number;
+  suppressed?: number;
+  messagedRecently?: number;
+  internal?: number;
   [key: string]: unknown;
 }
 

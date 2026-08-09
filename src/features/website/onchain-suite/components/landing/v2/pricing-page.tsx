@@ -208,7 +208,7 @@ const PAYG: Tier = {
   priceNote: "/mo + usage",
   who: "Every new workspace starts here, top up and pay only for what you use.",
   features: [
-    "1,000 contacts (cap)",
+    "1,000 contacts",
     "Direct campaigns, Audience & Forms",
     "Up to 3 automations",
     "Metered email, in-app, on-chain & AI",
@@ -357,7 +357,7 @@ function Profiles() {
               Where teams typically <span className="grad">land.</span>
             </>
           }
-          sub="Four flat tiers plus a metered entry point. Monthly billing, one price per plan, no free tier and no annual lock-in. Overage past any allowance continues at the pay-as-you-go rates. Pay in USDC via crypto checkout, upgrade or downgrade anytime."
+          sub="Four flat tiers plus a metered entry point. Monthly billing, one price per plan, no free tier and no annual lock-in. Overage past any allowance continues at the pay-as-you-go rates. Pay in Fiat or Crypto."
         />
         <Stagger className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <StaggerItem key={PAYG.slug}>
@@ -369,11 +369,6 @@ function Profiles() {
             </StaggerItem>
           ))}
         </Stagger>
-        <p className="mx-auto mt-6 max-w-2xl text-center text-[12.5px] t-muted2">
-          Dedicated IP is provisioned automatically once an account sustains
-          100,000 sends/month; below that it runs on the managed warm pool.
-          Concierge hours beyond the included 5 bill at $150 each.
-        </p>
       </div>
     </section>
   );

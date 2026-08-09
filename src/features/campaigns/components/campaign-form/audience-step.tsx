@@ -106,6 +106,9 @@ export function AudienceStep({
   const [estimatedRecipients, setEstimatedRecipients] = useState<number | null>(
     null
   );
+  // Full "Don't send to" breakdown from the last estimate (real backend counts).
+  const [estimateBreakdown, setEstimateBreakdown] =
+    useState<CampaignAudienceEstimate | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [sendTab, setSendTab] = useState<SendTab>("segments");
@@ -207,19 +210,47 @@ export function AudienceStep({
     staleTime: 60_000,
   });
   const overview = overviewQuery.data;
+
+  // Robust total-contacts fallback (the overview may omit reachable counts).
+  const audienceCountQuery = useQuery({
+    queryKey: ["audience", "profiles", "count"],
+    queryFn: async () => {
+      const res = await audienceService.listProfiles({ page: 1, limit: 1 });
+      const meta = (res as { meta?: { totalItems?: number } })?.meta;
+      return typeof meta?.totalItems === "number" ? meta.totalItems : null;
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  const audienceTotal = audienceCountQuery.data ?? null;
+
+  const allSelected = isAllContactsSelected(selectedAudiences);
+
   // "Everyone" is channel-aware: an email campaign reaches every email-reachable
-  // contact; an in-app push reaches every connected wallet.
+  // contact; an in-app push reaches every connected wallet. When Everyone is the
+  // active selection, the estimate's totalWallets is the real audience size.
   const everyoneReachable = ((): number | null => {
     const pick = (v: unknown) =>
       typeof v === "number" && Number.isFinite(v) ? v : null;
+    const breakdownTotal = allSelected
+      ? pick(estimateBreakdown?.totalWallets)
+      : null;
     if (isPush) {
       return (
+        breakdownTotal ??
         pick(overview?.pushReachable) ??
         pick(overview?.withWallet) ??
-        pick(overview?.total)
+        pick(overview?.total) ??
+        audienceTotal
       );
     }
-    return pick(overview?.emailReachable) ?? pick(overview?.total);
+    return (
+      breakdownTotal ??
+      pick(overview?.emailReachable) ??
+      pick(overview?.total) ??
+      audienceTotal
+    );
   })();
 
   // Contacts double as count-1 "lists" for the local recipient estimate and
@@ -238,8 +269,6 @@ export function AudienceStep({
     () => [...lists, ...contactsAsLists],
     [lists, contactsAsLists]
   );
-
-  const allSelected = isAllContactsSelected(selectedAudiences);
 
   const localEstimatedRecipients = useMemo(() => {
     // "Everyone" resolves to the whole reachable audience; the backend estimate
@@ -393,6 +422,7 @@ export function AudienceStep({
         if (syncSequenceRef.current !== currentSequence) return;
         if (estimate) {
           setEstimatedRecipients(getEstimatedRecipientsValue(estimate));
+          setEstimateBreakdown(estimate);
         }
         setIsSyncing(false);
       } catch (error) {
@@ -493,17 +523,30 @@ export function AudienceStep({
     { key: "everyone", label: "Everyone" },
   ];
 
+  // "Don't send to" reflects the estimate's real breakdown. "Messaged recently"
+  // is dropped here because it is exactly the Smart sending toggle below
+  // (backend: excludedBySmartSending === messagedRecently). These are always
+  // applied (there is no backend toggle for them), so the chips link to where
+  // the underlying lists are managed rather than toggling.
+  const asCount = (v: unknown) =>
+    typeof v === "number" && Number.isFinite(v) ? v : null;
+  const suppressedCount = asCount(estimateBreakdown?.suppressed);
+  const internalCount = asCount(estimateBreakdown?.internal);
   const exclusions = [
-    { label: "Suppressed & unsubscribed", meta: "always", primary: true },
     {
-      label: "Messaged recently",
+      label: "Suppressed & unsubscribed",
       meta:
-        smartSending && smartSendingWindow !== null
-          ? `${smartSendingWindow}h`
-          : "smart sending",
-      primary: false,
+        suppressedCount !== null ? suppressedCount.toLocaleString() : "always",
+      primary: true,
+      href: `${PRIVATE_ROUTES.AUDIENCE}?tab=suppressed`,
     },
-    { label: "Internal / team wallets", meta: "excluded", primary: false },
+    {
+      label: "Internal / team wallets",
+      meta:
+        internalCount !== null ? internalCount.toLocaleString() : "excluded",
+      primary: false,
+      href: `${PRIVATE_ROUTES.AUDIENCE}?tab=tags`,
+    },
   ];
 
   return (
@@ -752,7 +795,10 @@ export function AudienceStep({
               aria-hidden="true"
             />
             <p>
-              Wallets without a verified email are skipped on email campaigns -
+              {asCount(estimateBreakdown?.missingEmail) !== null &&
+              asCount(estimateBreakdown?.totalWallets) !== null
+                ? `${asCount(estimateBreakdown?.missingEmail)?.toLocaleString()} of ${asCount(estimateBreakdown?.totalWallets)?.toLocaleString()} wallets don't have a verified email and will be skipped. `
+                : "Wallets without a verified email are skipped on email campaigns - "}
               switch to <span className="font-medium">In-app push</span> to
               reach more.
             </p>
@@ -778,13 +824,15 @@ export function AudienceStep({
         </p>
         <div className="flex flex-wrap gap-2">
           {exclusions.map((ex) => (
-            <span
+            <Link
               key={ex.label}
+              href={ex.href}
+              title={`Manage ${ex.label.toLowerCase()}`}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm",
+                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors",
                 ex.primary
-                  ? "border-primary/30 bg-primary/[0.06] text-primary"
-                  : "border-border bg-card text-muted-foreground"
+                  ? "border-primary/30 bg-primary/[0.06] text-primary hover:bg-primary/[0.1]"
+                  : "border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               )}
             >
               {ex.primary ? (
@@ -792,7 +840,7 @@ export function AudienceStep({
               ) : null}
               {ex.label}
               <span className="text-muted-foreground/70">· {ex.meta}</span>
-            </span>
+            </Link>
           ))}
         </div>
         <p className="text-xs text-muted-foreground">

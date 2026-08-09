@@ -109,6 +109,8 @@ export function AudienceStep({
   // Full "Don't send to" breakdown from the last estimate (real backend counts).
   const [estimateBreakdown, setEstimateBreakdown] =
     useState<CampaignAudienceEstimate | null>(null);
+  // Internal/team wallets are an exclusion filter the sender can toggle off.
+  const [includeInternal, setIncludeInternal] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [sendTab, setSendTab] = useState<SendTab>("segments");
@@ -523,29 +525,28 @@ export function AudienceStep({
     { key: "everyone", label: "Everyone" },
   ];
 
-  // "Don't send to" reflects the estimate's real breakdown. "Messaged recently"
-  // is dropped here because it is exactly the Smart sending toggle below
-  // (backend: excludedBySmartSending === messagedRecently). These are always
-  // applied (there is no backend toggle for them), so the chips link to where
-  // the underlying lists are managed rather than toggling.
+  // "Don't send to" is a set of exclusion filters. Suppressed/unsubscribed is
+  // always applied (compliance, locked). "Messaged recently" is dropped here
+  // because it is exactly the Smart sending toggle below (backend:
+  // excludedBySmartSending === messagedRecently). Counts come from the estimate.
   const asCount = (v: unknown) =>
     typeof v === "number" && Number.isFinite(v) ? v : null;
   const suppressedCount = asCount(estimateBreakdown?.suppressed);
   const internalCount = asCount(estimateBreakdown?.internal);
   const exclusions = [
     {
+      key: "suppressed",
       label: "Suppressed & unsubscribed",
-      meta:
-        suppressedCount !== null ? suppressedCount.toLocaleString() : "always",
-      primary: true,
-      href: `${PRIVATE_ROUTES.AUDIENCE}?tab=suppressed`,
+      count: suppressedCount,
+      applied: true,
+      locked: true,
     },
     {
+      key: "internal",
       label: "Internal / team wallets",
-      meta:
-        internalCount !== null ? internalCount.toLocaleString() : "excluded",
-      primary: false,
-      href: `${PRIVATE_ROUTES.AUDIENCE}?tab=tags`,
+      count: internalCount,
+      applied: !includeInternal,
+      locked: false,
     },
   ];
 
@@ -824,23 +825,41 @@ export function AudienceStep({
         </p>
         <div className="flex flex-wrap gap-2">
           {exclusions.map((ex) => (
-            <Link
-              key={ex.label}
-              href={ex.href}
-              title={`Manage ${ex.label.toLowerCase()}`}
+            <button
+              key={ex.key}
+              type="button"
+              aria-pressed={ex.applied}
+              disabled={ex.locked}
+              onClick={
+                ex.locked ? undefined : () => setIncludeInternal((v) => !v)
+              }
+              title={
+                ex.locked
+                  ? "Always excluded - suppressed and unsubscribed wallets can't be messaged"
+                  : ex.applied
+                    ? "Excluded. Click to include internal / team wallets"
+                    : "Included. Click to exclude internal / team wallets"
+              }
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors",
-                ex.primary
-                  ? "border-primary/30 bg-primary/[0.06] text-primary hover:bg-primary/[0.1]"
-                  : "border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                ex.locked && "cursor-default",
+                ex.applied
+                  ? "border-primary/40 bg-primary/[0.08] text-primary"
+                  : "border-border bg-card text-muted-foreground line-through decoration-muted-foreground/40 hover:text-foreground"
               )}
             >
-              {ex.primary ? (
-                <ShieldCheckIcon className="size-4" aria-hidden="true" />
-              ) : null}
+              {ex.applied ? (
+                <CheckIcon className="size-4" aria-hidden="true" />
+              ) : (
+                <span className="size-4" aria-hidden="true" />
+              )}
               {ex.label}
-              <span className="text-muted-foreground/70">· {ex.meta}</span>
-            </Link>
+              {ex.count !== null ? (
+                <span className="tabular-nums opacity-70">
+                  · {ex.count.toLocaleString()}
+                </span>
+              ) : null}
+            </button>
           ))}
         </div>
         <p className="text-xs text-muted-foreground">

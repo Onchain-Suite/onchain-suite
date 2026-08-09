@@ -68,8 +68,21 @@ vi.mock("@/ui/dropdown-menu", async () => {
     </button>
   );
 
+  const DropdownMenuItem = ({
+    children,
+    onClick,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+  }) => (
+    <button type="button" role="menuitem" onClick={onClick}>
+      {children}
+    </button>
+  );
+
   return {
     DropdownMenu,
+    DropdownMenuItem,
     DropdownMenuTrigger,
     DropdownMenuContent,
     DropdownMenuRadioGroup,

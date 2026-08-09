@@ -18,11 +18,14 @@ import { type OnboardingStepsProps } from "../types";
 import {
   type BillingPlan,
   billingService,
+  DEFAULT_PAYMENT_METHOD,
+  type PaymentCheckoutMethod,
 } from "@/features/billing/billing.service";
 import {
   openCheckoutInNewTab,
   startPlanCheckout,
 } from "@/features/billing/checkout";
+import { PaymentMethodSelect } from "@/features/billing/components/payment-method-select";
 
 /**
  * Pay-As-You-Go starter option for small teams — replaces the old free tier.
@@ -205,6 +208,9 @@ export function PlanSelectionStep({
     initialData.selectedPlan ?? ""
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentCheckoutMethod>(
+    DEFAULT_PAYMENT_METHOD
+  );
 
   const plansQuery = useQuery({
     queryKey: ["billing", "plans"],
@@ -250,7 +256,9 @@ export function PlanSelectionStep({
           // PendingCheckoutBanner confirms the upgrade and unlocks features.
           const selected = paidPlans.find((p) => p.name === selectedPlan);
           const checkout = await startPlanCheckout(
-            selected?.slug ?? selectedPlan
+            selected?.slug ?? selectedPlan,
+            undefined,
+            { paymentMethod }
           );
           if (checkout) {
             ({ paymentUrl } = checkout);
@@ -360,6 +368,20 @@ export function PlanSelectionStep({
       )}
 
       <div className="mt-8 flex flex-col items-center gap-3">
+        {/* Only the paid plans reach a checkout — PAYG just flips the org over,
+            so a payment method would be a meaningless choice there. */}
+        {isPaidPlan ? (
+          <div className="w-full max-w-md space-y-2">
+            <p className="text-center text-xs text-muted-foreground">
+              How would you like to pay?
+            </p>
+            <PaymentMethodSelect
+              value={paymentMethod}
+              onChange={setPaymentMethod}
+              disabled={isSubmitting}
+            />
+          </div>
+        ) : null}
         <Button
           type="button"
           size="lg"
@@ -385,7 +407,9 @@ export function PlanSelectionStep({
         </Button>
         <p className="text-center text-xs text-muted-foreground">
           {isPaidPlan
-            ? "You'll be taken to our secure Stripe checkout after setup."
+            ? paymentMethod === "card"
+              ? "You'll be taken to our secure Stripe checkout after setup."
+              : "You'll be taken to a crypto checkout after setup."
             : "No credit card required. Upgrade anytime."}
         </p>
       </div>

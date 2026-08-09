@@ -7,8 +7,13 @@ import { toast } from "sonner";
 
 import { getSelectedOrganizationId } from "@/lib/utils";
 
-import { billingService } from "@/features/billing/billing.service";
+import {
+  billingService,
+  DEFAULT_PAYMENT_METHOD,
+  type PaymentCheckoutMethod,
+} from "@/features/billing/billing.service";
 import { openCheckoutInNewTab } from "@/features/billing/checkout";
+import { PaymentMethodSelect } from "@/features/billing/components/payment-method-select";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -38,6 +43,9 @@ export function PaygWalletCard({ planName }: { planName: string }) {
   const orgId = getSelectedOrganizationId();
   const isPayg = planName.trim().toLowerCase() === "payg";
   const [topUpOpen, setTopUpOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentCheckoutMethod>(
+    DEFAULT_PAYMENT_METHOD
+  );
   const [amount, setAmount] = useState("25");
   const [startingCheckout, setStartingCheckout] = useState(false);
 
@@ -69,7 +77,7 @@ export function PaygWalletCard({ planName }: { planName: string }) {
     setStartingCheckout(true);
     try {
       const checkout = await billingService.checkoutCredits(
-        { organizationId: orgId, amountUsd },
+        { organizationId: orgId, amountUsd, paymentMethod },
         { orgId }
       );
       const paymentUrl =
@@ -174,7 +182,7 @@ export function PaygWalletCard({ planName }: { planName: string }) {
               Top up usage wallet
             </DialogTitle>
             <DialogDescription>
-              Pay by card on our secure Stripe checkout — the balance credits
+              Choose how you&apos;d like to pay — the balance credits
               automatically once the payment confirms.
             </DialogDescription>
           </DialogHeader>
@@ -189,6 +197,11 @@ export function PaygWalletCard({ planName }: { planName: string }) {
               onChange={(e) => setAmount(e.target.value)}
             />
           </div>
+          <PaymentMethodSelect
+            value={paymentMethod}
+            onChange={setPaymentMethod}
+            disabled={startingCheckout}
+          />
           <DialogFooter>
             <Button
               variant="outline"

@@ -124,6 +124,49 @@ describe("billingService", () => {
     expect(cfg.url).toBe("/billing/payment-methods/default");
   });
 
+  it("defaults a direct plan checkout to card, so no caller can fall through to the backend's crypto default", async () => {
+    const requestSpy = vi.spyOn(apiClient, "request").mockResolvedValueOnce({
+      status: 200,
+      data: {
+        data: {
+          mode: "stripe_checkout",
+          paymentUrl: "https://checkout.stripe.com/c/pay/cs_test_2",
+          reference: "ref-plan",
+        },
+      },
+    } as unknown as ApiClientResponse);
+
+    // Deliberately bypasses startPlanCheckout and omits paymentMethod.
+    await billingService.checkoutPlan(
+      { plan: "growth", organizationId: "org-123" },
+      { orgId: "org-123" }
+    );
+
+    const cfg = requestSpy.mock.calls[0]?.[0] as unknown as {
+      url?: string;
+      data?: Record<string, unknown>;
+    };
+    expect(cfg.url).toBe("/billing/checkout/plan");
+    expect(cfg.data?.paymentMethod).toBe("card");
+  });
+
+  it("does not override an explicit crypto plan checkout", async () => {
+    const requestSpy = vi.spyOn(apiClient, "request").mockResolvedValueOnce({
+      status: 200,
+      data: { data: { mode: "static_link", paymentUrl: "https://pay/y" } },
+    } as unknown as ApiClientResponse);
+
+    await billingService.checkoutPlan(
+      { plan: "growth", organizationId: "org-123", paymentMethod: "crypto" },
+      { orgId: "org-123" }
+    );
+
+    const cfg = requestSpy.mock.calls[0]?.[0] as unknown as {
+      data?: Record<string, unknown>;
+    };
+    expect(cfg.data?.paymentMethod).toBe("crypto");
+  });
+
   it("defaults PAYG credit top-ups to the card (Stripe) checkout", async () => {
     const requestSpy = vi.spyOn(apiClient, "request").mockResolvedValueOnce({
       status: 200,

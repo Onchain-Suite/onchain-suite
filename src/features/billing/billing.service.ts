@@ -596,16 +596,27 @@ export const billingService = {
 
   /**
    * Start a checkout for an org plan (POST /billing/checkout/plan →
-   * { mode, paymentUrl, reference, plan, cycle, amount }). Send
-   * `paymentMethod: "card"` for Stripe-hosted Checkout — the app's default
-   * path, see {@link DEFAULT_PAYMENT_METHOD} — or `"crypto"` for a Blockradar
-   * deposit. Either way the returned `reference` is what
-   * {@link billingService.getCheckoutStatus} polls and the provider webhook
-   * settles against.
+   * { mode, paymentUrl, reference, plan, cycle, amount }). Defaults to
+   * {@link DEFAULT_PAYMENT_METHOD} (card — Stripe-hosted Checkout); pass
+   * `paymentMethod: "crypto"` for a Blockradar deposit. Either way the returned
+   * `reference` is what {@link billingService.getCheckoutStatus} polls and the
+   * provider webhook settles against.
+   *
+   * The default is applied HERE rather than only in `startPlanCheckout` so it
+   * holds for every caller: omitting the field entirely would otherwise fall
+   * through to the backend's own default, which is crypto — a card-only
+   * product would silently hand the buyer a deposit page.
    */
   checkoutPlan(body: PlanCheckoutRequest, options?: BillingServiceOptions) {
     return billingRequest<PlanCheckoutResponse>(
-      { method: "POST", url: "/billing/checkout/plan", data: body },
+      {
+        method: "POST",
+        url: "/billing/checkout/plan",
+        data: {
+          ...body,
+          paymentMethod: body.paymentMethod ?? DEFAULT_PAYMENT_METHOD,
+        },
+      },
       options
     );
   },

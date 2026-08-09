@@ -16,13 +16,17 @@ import {
 } from "@/components/ui/dialog";
 
 import {
+  BillingError,
   type BillingPlan,
   billingService,
+  DEFAULT_PAYMENT_METHOD,
+  type PaymentCheckoutMethod,
 } from "@/features/billing/billing.service";
 import {
   openCheckoutInNewTab,
   startPlanCheckout,
 } from "@/features/billing/checkout";
+import { PaymentMethodSelect } from "@/features/billing/components/payment-method-select";
 
 interface UpgradePlanDialogProps {
   currentPlan?: string;
@@ -87,6 +91,9 @@ export default function UpgradePlanDialog({
   trigger,
 }: UpgradePlanDialogProps) {
   const [open, setOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentCheckoutMethod>(
+    DEFAULT_PAYMENT_METHOD
+  );
   const queryClient = useQueryClient();
 
   const plansQuery = useQuery({
@@ -97,13 +104,22 @@ export default function UpgradePlanDialog({
     staleTime: 10 * 60 * 1000,
   });
 
-  // Card checkout: every plan goes to the Stripe-hosted Checkout Session and
-  // the plan's limits unlock when the `checkout.session.*` webhook lands.
-  // startPlanCheckout defaults to card; crypto stays available on the same
-  // endpoint via `{ paymentMethod: "crypto" }`.
+  // Both methods hit POST /billing/checkout/plan and the plan's limits unlock
+  // when the provider webhook lands — card via Stripe's `checkout.session.*`,
+  // crypto via the Blockradar deposit event. The buyer's pick is threaded
+  // through as the mutation argument rather than read from state inside
+  // mutationFn, so an in-flight checkout can't be retargeted by a late click.
   const upgradeMutation = useMutation({
-    mutationFn: async (plan: string) => {
-      const checkout = await startPlanCheckout(plan);
+    mutationFn: async ({
+      plan,
+      method,
+    }: {
+      plan: string;
+      method: PaymentCheckoutMethod;
+    }) => {
+      const checkout = await startPlanCheckout(plan, undefined, {
+        paymentMethod: method,
+      });
       if (!checkout?.paymentUrl) {
         throw new Error("Checkout did not return a payment link. Try again.");
       }
@@ -123,6 +139,15 @@ export default function UpgradePlanDialog({
       }
     },
     onError: (e) => {
+      // Card is unavailable in this environment (no Stripe key). Now that the
+      // buyer has a choice, move the selection to the method that does work so
+      // the retry is one click — the toast says so rather than doing it
+      // silently.
+      if (e instanceof BillingError && e.code === "FIAT_CHECKOUT_UNAVAILABLE") {
+        setPaymentMethod("crypto");
+        toast.error(`${e.message} We've switched you to crypto — try again.`);
+        return;
+      }
       toast.error(
         e instanceof Error ? e.message : "Couldn't start the upgrade."
       );
@@ -152,10 +177,17 @@ export default function UpgradePlanDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <p className="text-xs text-muted-foreground">
-          Pay by card on our secure Stripe checkout — your plan and limits
-          unlock automatically once the payment confirms.
-        </p>
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Choose how you&apos;d like to pay — your plan and limits unlock
+            automatically once the payment confirms.
+          </p>
+          <PaymentMethodSelect
+            value={paymentMethod}
+            onChange={setPaymentMethod}
+            disabled={upgradeMutation.isPending}
+          />
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
           {plans.map((plan, idx) => {
@@ -216,7 +248,12 @@ export default function UpgradePlanDialog({
                   type="button"
                   variant={featured ? "default" : "outline"}
                   disabled={isCurrent || upgradeMutation.isPending}
-                  onClick={() => upgradeMutation.mutate(plan.slug ?? name)}
+                  onClick={() =>
+                    upgradeMutation.mutate({
+                      plan: plan.slug ?? name,
+                      method: paymentMethod,
+                    })
+                  }
                   className="mt-5 w-full rounded-xl"
                 >
                   {isCurrent ? "Current plan" : `Upgrade to ${name}`}

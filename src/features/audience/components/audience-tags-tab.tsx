@@ -1,7 +1,12 @@
 "use client";
 
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -11,6 +16,8 @@ import { Input } from "@/ui/input";
 import type { AudienceProfile } from "../audience.service";
 import { audienceService } from "../audience.service";
 import { MemberTable, toDetailMemberFromProfile } from "./member-table";
+
+const MEMBERS_PER_PAGE = 25;
 
 /** Pull a total-count out of a listProfiles response's meta, if present. */
 function totalFromMeta(res: unknown): number | null {
@@ -42,29 +49,42 @@ export function AudienceTagsTab({
   const [name, setName] = useState("");
   // A tag selected from the table opens its in-page member detail.
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [detailPage, setDetailPage] = useState(1);
+  const openTag = (tag: string) => {
+    setSelectedTag(tag);
+    setDetailPage(1);
+  };
 
   const tagMembersQuery = useQuery({
-    queryKey: ["audience", "tag-members", selectedTag],
+    queryKey: ["audience", "tag-members", selectedTag, detailPage],
     enabled: Boolean(selectedTag),
     retry: false,
     refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
     queryFn: () =>
       audienceService.listProfiles({
         tag: selectedTag as string,
-        limit: 200,
+        page: detailPage,
+        limit: MEMBERS_PER_PAGE,
         include: "wallets,attributes,tags",
       }),
   });
 
-  const tagMembers = useMemo(() => {
+  const tagDetail = useMemo(() => {
     const res = tagMembersQuery.data;
     const obj = (Array.isArray(res) ? {} : res) as {
       items?: AudienceProfile[];
       data?: AudienceProfile[];
+      meta?: { totalItems?: number; totalPages?: number };
     };
     const items = Array.isArray(res) ? res : (obj.items ?? obj.data ?? []);
-    return items.map(toDetailMemberFromProfile);
+    return {
+      members: items.map(toDetailMemberFromProfile),
+      total: obj.meta?.totalItems ?? items.length,
+      totalPages: obj.meta?.totalPages ?? 1,
+    };
   }, [tagMembersQuery.data]);
+  const tagMembers = tagDetail.members;
 
   const countsQuery = useQuery({
     queryKey: ["audience", "tag-counts", tags],
@@ -103,7 +123,8 @@ export function AudienceTagsTab({
   });
 
   if (selectedTag) {
-    const emailReachable = tagMembers.filter((m) => m.emailReachable).length;
+    const { total } = tagDetail;
+    const totalPages = Math.max(1, tagDetail.totalPages);
     return (
       <div className="space-y-5">
         <button
@@ -118,9 +139,7 @@ export function AudienceTagsTab({
           <h2 className="flex flex-wrap items-baseline gap-2 text-xl font-semibold tracking-tight text-foreground">
             {selectedTag}
             <span className="text-sm font-normal text-muted-foreground">
-              Tag · {tagMembers.length.toLocaleString()} contact
-              {tagMembers.length === 1 ? "" : "s"} ·{" "}
-              {emailReachable.toLocaleString()} email-reachable
+              Tag · {total.toLocaleString()} contact{total === 1 ? "" : "s"}
             </span>
           </h2>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
@@ -138,7 +157,38 @@ export function AudienceTagsTab({
             No contacts carry this tag yet.
           </div>
         ) : (
-          <MemberTable members={tagMembers} />
+          <>
+            <MemberTable members={tagMembers} />
+            {totalPages > 1 ? (
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>
+                  Page {detailPage} of {totalPages}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-lg"
+                    disabled={detailPage <= 1}
+                    onClick={() => setDetailPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-lg"
+                    disabled={detailPage >= totalPages}
+                    onClick={() =>
+                      setDetailPage((p) => Math.min(totalPages, p + 1))
+                    }
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     );
@@ -221,9 +271,9 @@ export function AudienceTagsTab({
                     key={tag}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setSelectedTag(tag)}
+                    onClick={() => openTag(tag)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") setSelectedTag(tag);
+                      if (e.key === "Enter") openTag(tag);
                     }}
                     className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
                   >

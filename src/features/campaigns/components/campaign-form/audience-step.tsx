@@ -170,6 +170,22 @@ export function AudienceStep({
   });
   const smartSendingWindow = smartSendingQuery.data?.windowHours ?? null;
 
+  // Live audience totals so the "Everyone" option shows a real reachable count
+  // rather than a vague statement.
+  const overviewQuery = useQuery({
+    queryKey: ["audience", "overview"],
+    queryFn: () => audienceService.getOverview(),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  const overview = overviewQuery.data;
+  const everyoneReachable = ((): number | null => {
+    const pick = (v: unknown) =>
+      typeof v === "number" && Number.isFinite(v) ? v : null;
+    return pick(overview?.emailReachable) ?? pick(overview?.total);
+  })();
+
   // Contacts double as count-1 "lists" for the local recipient estimate and
   // for resolving selected ids into profileIds at sync time.
   const contactsAsLists = useMemo<List[]>(
@@ -389,6 +405,42 @@ export function AudienceStep({
   const isSelected = (id: string) => selectedAudiences.includes(id);
   const selectedCount = selectedAudiences.length;
 
+  // Describe the chosen audience so "Estimated recipients" reads back what was
+  // picked (or "Everyone" when nothing is selected).
+  const chosenSummary = useMemo(() => {
+    if (selectedCount === 0) {
+      return everyoneReachable !== null
+        ? `Everyone: all ${everyoneReachable.toLocaleString()} reachable wallets`
+        : "Everyone in your audience";
+    }
+    const segmentsChosen = selectedAudiences.filter((id) =>
+      segments.some((s) => s.id === id)
+    ).length;
+    const listsChosen = selectedAudiences.filter((id) =>
+      lists.some((l) => l.id === id)
+    ).length;
+    const contactsChosen = selectedAudiences.filter((id) =>
+      contacts.some((c) => c.id === id)
+    ).length;
+    const parts: string[] = [];
+    if (segmentsChosen)
+      parts.push(`${segmentsChosen} segment${segmentsChosen === 1 ? "" : "s"}`);
+    if (listsChosen)
+      parts.push(`${listsChosen} list${listsChosen === 1 ? "" : "s"}`);
+    if (contactsChosen)
+      parts.push(`${contactsChosen} contact${contactsChosen === 1 ? "" : "s"}`);
+    return parts.length > 0
+      ? `Sending to ${parts.join(", ")}`
+      : `${selectedCount} selected`;
+  }, [
+    selectedCount,
+    selectedAudiences,
+    segments,
+    lists,
+    contacts,
+    everyoneReachable,
+  ]);
+
   const SEND_TABS: { key: SendTab; label: string }[] = [
     { key: "segments", label: "Segments" },
     { key: "lists", label: "Lists" },
@@ -565,9 +617,21 @@ export function AudienceStep({
               onToggle={toggleSelection}
             />
           ) : (
-            <div className="p-6 text-sm text-muted-foreground">
-              Reaches every reachable wallet in your audience. Leave all filters
-              empty on the other tabs to send to everyone.
+            <div className="space-y-1 p-6 text-sm text-muted-foreground">
+              {everyoneReachable !== null ? (
+                <p className="text-foreground">
+                  Reaches all{" "}
+                  <span className="font-semibold">
+                    {everyoneReachable.toLocaleString()}
+                  </span>{" "}
+                  reachable wallets in your audience.
+                </p>
+              ) : (
+                <p>Reaches every reachable wallet in your audience.</p>
+              )}
+              <p>
+                Leave all filters empty on the other tabs to send to everyone.
+              </p>
             </div>
           )}
 
@@ -586,6 +650,24 @@ export function AudienceStep({
               </button>
             ) : null}
           </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm text-muted-foreground">
+              Estimated recipients
+            </span>
+            <span className="text-lg font-semibold tabular-nums text-foreground">
+              {isSyncing
+                ? "…"
+                : displayedEstimatedRecipients !== null
+                  ? displayedEstimatedRecipients.toLocaleString()
+                  : "-"}
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {chosenSummary}
+          </p>
         </div>
 
         <p className="text-xs text-muted-foreground">

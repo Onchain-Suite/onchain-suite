@@ -1,19 +1,23 @@
 "use client";
 
 import {
-  ArrowTopRightOnSquareIcon,
   CheckCircleIcon,
   DevicePhoneMobileIcon,
   EnvelopeIcon,
+  FingerPrintIcon,
   PaperAirplaneIcon,
-  SignalIcon,
+  PlusIcon,
 } from "@heroicons/react/24/outline";
-import Link from "next/link";
 import { useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
-import type { AudienceProfile } from "../audience.service";
+import type { AudienceProfile, AudienceSegment } from "../audience.service";
 import {
   deriveDisplayName,
   extractSocialHandles,
@@ -31,7 +35,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/shared/components/ui/sheet";
-import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 function Channel({
   icon,
@@ -71,6 +74,9 @@ export function ContactSlideOver({
   applyingTags,
   onApplyTags,
   onCompose,
+  segments,
+  addingToSegment,
+  onAddToSegment,
 }: {
   profile: AudienceProfile | null;
   open: boolean;
@@ -79,6 +85,12 @@ export function ContactSlideOver({
   applyingTags: boolean;
   onApplyTags: (profileId: string, tags: string[]) => Promise<void> | void;
   onCompose: (profile: AudienceProfile) => void;
+  segments: AudienceSegment[];
+  addingToSegment: boolean;
+  onAddToSegment: (
+    segmentId: string,
+    profileId: string
+  ) => Promise<void> | void;
 }) {
   const derived = useMemo(() => {
     if (!profile) return null;
@@ -107,7 +119,6 @@ export function ContactSlideOver({
       verified,
       tags: normalizeTags(profile.tags),
       homeChain: chain?.name ?? primaryWallet?.chain ?? "-",
-      hasFarcaster: verified,
       hasPush: Boolean(walletFull),
     };
   }, [profile]);
@@ -122,7 +133,7 @@ export function ContactSlideOver({
           <>
             <SheetHeader className="border-b border-border p-6">
               <SheetTitle className="flex items-center gap-2 text-lg">
-                <SignalIcon
+                <FingerPrintIcon
                   className="size-5 text-primary"
                   aria-hidden="true"
                 />
@@ -179,12 +190,6 @@ export function ContactSlideOver({
                     status={derived.hasPush ? "device signed in" : "no device"}
                     linked={derived.hasPush}
                   />
-                  <Channel
-                    icon={<SignalIcon className="size-4" aria-hidden="true" />}
-                    label="Farcaster"
-                    status={derived.hasFarcaster ? "FID linked" : "not linked"}
-                    linked={derived.hasFarcaster}
-                  />
                 </div>
               </div>
 
@@ -232,17 +237,40 @@ export function ContactSlideOver({
             </div>
 
             <div className="mt-auto flex items-center justify-end gap-2 border-t border-border p-4">
-              <Button asChild variant="outline" className="rounded-xl">
-                <Link
-                  href={`${PRIVATE_ROUTES.AUDIENCE}/${encodeURIComponent(profile.id)}`}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="rounded-xl"
+                    disabled={segments.length === 0 || addingToSegment}
+                  >
+                    <PlusIcon className="mr-1.5 size-4" aria-hidden="true" />
+                    Add to segment
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className="max-h-64 w-56 overflow-y-auto p-1"
                 >
-                  <ArrowTopRightOnSquareIcon
-                    className="mr-1.5 size-4"
-                    aria-hidden="true"
-                  />
-                  Full profile
-                </Link>
-              </Button>
+                  {segments.length === 0 ? (
+                    <p className="px-2 py-1.5 text-sm text-muted-foreground">
+                      No lists yet.
+                    </p>
+                  ) : (
+                    segments.map((seg) => (
+                      <button
+                        key={seg.id}
+                        type="button"
+                        disabled={addingToSegment}
+                        onClick={() => onAddToSegment(seg.id, profile.id)}
+                        className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                      >
+                        {seg.name}
+                      </button>
+                    ))
+                  )}
+                </PopoverContent>
+              </Popover>
               <Button
                 className="rounded-xl"
                 disabled={!derived.email}

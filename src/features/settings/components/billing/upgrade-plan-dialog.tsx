@@ -29,42 +29,56 @@ interface UpgradePlanDialogProps {
   trigger?: React.ReactNode;
 }
 
-/** Mirrors the sellable catalog (docs/backend.md 2026-07-25). */
+/** Mirrors the sellable catalog (docs/pricing.md v4). Shown only when the
+ *  backend plan catalog is unavailable; the charged price always comes from the
+ *  backend at checkout. */
 const FALLBACK_PLANS: BillingPlan[] = [
   {
     name: "Launch",
     slug: "launch",
-    price: 29,
+    price: 49,
     interval: "month",
     features: [
-      "For protocols getting started",
-      "Monthly message & credit allowance",
-      "Email + in-app channels",
-      "Overage continues at PAYG rates",
+      "2,500 contacts · 50,000 emails/mo",
+      "25,000 in-app pushes/mo",
+      "1,000 on-chain · 500 AI credits/mo",
+      "Intelligence at sample size · 2 seats",
     ],
   },
   {
     name: "Growth",
     slug: "growth",
-    price: 199,
+    price: 349,
     interval: "month",
     features: [
-      "Bigger allowances for scaling teams",
-      "Unlimited campaigns & automations",
-      "Onchain audience intelligence",
-      "Overage continues at PAYG rates",
+      "25,000 contacts · 250,000 emails/mo",
+      "250,000 in-app pushes/mo",
+      "Forms + dedicated IP",
+      "10,000 on-chain · 8,000 AI · 4 seats",
     ],
   },
   {
     name: "Pro",
     slug: "pro",
-    price: 499,
+    price: 799,
     interval: "month",
     features: [
-      "High-volume allowances",
-      "Advanced segmentation & UTM tracking",
-      "Priority support",
-      "All channels + webhooks",
+      "75,000 contacts · 750,000 emails/mo",
+      "1,000,000 in-app pushes/mo",
+      "Intelligence at working scale",
+      "25,000 on-chain · 16,000 AI · 7 seats",
+    ],
+  },
+  {
+    name: "Scale",
+    slug: "scale",
+    price: 2299,
+    interval: "month",
+    features: [
+      "150,000 contacts · 1.5M emails/mo",
+      "2,000,000 in-app pushes/mo",
+      "5 concierge hours/mo",
+      "50,000 on-chain · 40,000 AI · custom seats",
     ],
   },
 ];
@@ -72,7 +86,7 @@ const FALLBACK_PLANS: BillingPlan[] = [
 const priceLabel = (price: BillingPlan["price"]) => {
   if (typeof price === "number") return `$${price.toLocaleString()}`;
   if (typeof price === "string" && price.trim().length > 0) return price;
-  return "—";
+  return "-";
 };
 
 const planFeatures = (plan: BillingPlan): string[] => {
@@ -99,7 +113,7 @@ export default function UpgradePlanDialog({
 
   // Crypto-only for now: every plan goes straight to the Blockradar mainnet
   // checkout (limits unlock via webhook). Card (Stripe) stays unwired until
-  // production keys exist — the service supports it when that day comes.
+  // production keys exist - the service supports it when that day comes.
   const upgradeMutation = useMutation({
     mutationFn: async (plan: string) => {
       const checkout = await startPlanCheckout(plan);
@@ -113,7 +127,7 @@ export default function UpgradePlanDialog({
       // confirm the payment; same-tab fallback when popups are blocked.
       if (openCheckoutInNewTab(checkout.paymentUrl)) {
         toast.success(
-          "Complete your payment in the new tab — your plan unlocks automatically once it confirms."
+          "Complete your payment in the new tab - your plan unlocks automatically once it confirms."
         );
         queryClient.invalidateQueries({ queryKey: ["billing"] });
         setOpen(false);
@@ -152,11 +166,11 @@ export default function UpgradePlanDialog({
         </DialogHeader>
 
         <p className="text-xs text-muted-foreground">
-          Pay in USDC via crypto checkout — your plan and limits unlock
+          Pay in USDC via crypto checkout - your plan and limits unlock
           automatically once the payment confirms on-chain.
         </p>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {plans.map((plan, idx) => {
             const name =
               typeof plan.name === "string" ? plan.name : `Plan ${idx + 1}`;

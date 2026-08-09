@@ -14,7 +14,7 @@ type AutoGrowTextareaProps = Omit<
 
 /**
  * Textarea that grows to fit its content so the full value is visible without
- * an inner scrollbar — used for the Properties "Message Body" field. Recomputes
+ * an inner scrollbar - used for the Properties "Message Body" field. Recomputes
  * on value change and on mount; caps at `maxHeight` (then scrolls) to avoid the
  * panel getting unusably tall.
  */

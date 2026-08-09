@@ -349,10 +349,10 @@ export const automationService = {
   },
 
   /**
-   * `GET /events/catalog` — distinct Custom Events API event names from the
+   * `GET /events/catalog` - distinct Custom Events API event names from the
    * last 30 days, for app_event trigger autocomplete (docs/backend.md
    * 2026-07-21). Ingestion itself is server-to-server (`POST /events`,
-   * secret-key auth) — the dashboard only ever reads the catalog.
+   * secret-key auth) - the dashboard only ever reads the catalog.
    */
   async getEventsCatalog(orgId?: string): Promise<string[]> {
     const payload = await request<unknown>(

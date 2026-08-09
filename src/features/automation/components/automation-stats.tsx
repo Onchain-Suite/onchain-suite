@@ -27,7 +27,7 @@ export const AutomationStats = ({ stats }: AutomationStatsProps) => {
   const conversionRate =
     stats.entries > 0
       ? `${Math.round((stats.conversions / stats.entries) * 1000) / 10}%`
-      : "—";
+      : "-";
 
   const cards: {
     key: string;

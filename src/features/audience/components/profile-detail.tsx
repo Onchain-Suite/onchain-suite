@@ -237,7 +237,7 @@ export function ProfileDetailPage() {
   });
 
   const email = typeof profile?.email === "string" ? profile.email.trim() : "";
-  // Wallet-only contacts carry a synthetic placeholder email — treat them as
+  // Wallet-only contacts carry a synthetic placeholder email - treat them as
   // having no email channel (channel-aware reachability, wallet-first).
   const hasEmailChannel = email.length > 0 && !isSyntheticWalletEmail(email);
   const name = useMemo(() => {
@@ -489,7 +489,7 @@ export function ProfileDetailPage() {
         ) : (
           <button
             disabled
-            title="This contact has no email channel — reach them with an in-app push instead."
+            title="This contact has no email channel - reach them with an in-app push instead."
             className="flex shrink-0 cursor-not-allowed items-center gap-2 self-start rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground opacity-50"
           >
             <EnvelopeIcon className="h-4 w-4" aria-hidden="true" />
@@ -640,7 +640,7 @@ export function ProfileDetailPage() {
                         <p className="font-medium text-foreground">
                           {typeof cl.txCount === "number"
                             ? `${cl.txCount.toLocaleString()} ${cl.txCount === 1 ? "interaction" : "interactions"}`
-                            : "—"}
+                            : "-"}
                         </p>
                         {typeof cl.volumeUsd === "number" ? (
                           <p className="text-xs text-muted-foreground">
@@ -894,7 +894,7 @@ export function ProfileDetailPage() {
                           className="truncate"
                           title={formatAttributeValue(value)}
                         >
-                          {formatAttributeValue(value) || "—"}
+                          {formatAttributeValue(value) || "-"}
                         </span>
                       )}
                     </dd>
@@ -903,7 +903,7 @@ export function ProfileDetailPage() {
               </dl>
             ) : (
               <div className="text-sm text-muted-foreground">
-                No attributes recorded yet — run enrichment to derive onchain
+                No attributes recorded yet - run enrichment to derive onchain
                 traits
               </div>
             )}
@@ -1079,7 +1079,7 @@ export function ProfileDetailPage() {
                                       typeof part === "string" &&
                                       part.length > 0
                                   )
-                                  .join(" ") || "—"}
+                                  .join(" ") || "-"}
                           </p>
                           <p
                             className="text-xs text-muted-foreground"

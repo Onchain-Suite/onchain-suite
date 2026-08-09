@@ -47,6 +47,12 @@ CHANGELOG.md
 *.min.js
 *.min.css
 
+# PayloadCMS-generated / template-owned files (rewritten by generate:types and
+# generate:importmap, so formatting them just creates churn)
+src/payload-types.ts
+src/app/(payload)/
+src/migrations/
+
 # Public assets
 public/
 

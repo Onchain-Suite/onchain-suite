@@ -72,7 +72,7 @@ export function AudienceTagsTab({
 
   const tagDetail = useMemo(() => {
     const res = tagMembersQuery.data;
-    const obj = (Array.isArray(res) ? {} : res) as {
+    const obj = (res && !Array.isArray(res) ? res : {}) as {
       items?: AudienceProfile[];
       data?: AudienceProfile[];
       meta?: { totalItems?: number; totalPages?: number };

@@ -18,17 +18,23 @@ import {
  * up; committed/subscription tiers are cheaper per unit.
  */
 const RATES: { meter: string; rate: string; note?: string }[] = [
-  { meter: "Messages (email + in-app)", rate: "$1 per 1,000 messages" },
+  { meter: "Email", rate: "$1 per 1,000 sends" },
+  { meter: "In-app push", rate: "$1 per 1,000 pushes" },
   {
-    meter: "Wallet-data credits",
-    rate: "$2.50 per 10,000 credits",
-    note: "Clears un-cached cost at a 70% cache hit.",
+    meter: "ONS+ list protection",
+    rate: "$10 per 1,000 verified",
+    note: "Email verification at upload; two-stage, billed per verified address.",
+  },
+  {
+    meter: "On-chain credits",
+    rate: "$10 per 10,000 credits",
+    note: "Wallet reads & enrichment (GoldRush).",
   },
   { meter: "AI actions", rate: "$5 per 1,000 actions" },
   {
-    meter: "In-app push (via add-on)",
-    rate: "$1 per 1,000 pushes",
-    note: "Ceiling rate - committed tiers are cheaper.",
+    meter: "Concierge",
+    rate: "$150 per hour",
+    note: "Scale plan; 5 hours included, then billed per hour.",
   },
 ];
 

@@ -66,6 +66,11 @@ export function PaymentThankYou() {
   );
 
   const planName = pending?.plan ?? "";
+  const providerLabel =
+    pending?.paymentMethod === "card" ||
+    pending?.mode?.toLowerCase().includes("stripe") === true
+      ? "Stripe"
+      : "Blockradar";
 
   const statusQuery = useQuery({
     queryKey: ["billing", "checkout-status", reference],

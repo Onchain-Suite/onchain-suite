@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { fadeInUp } from "../../utils";
 import InvoiceHistory from "./invoice-history";
 import PlanUsage from "./plan-usage";
+import UsageRates from "./usage-rates";
 
 export default function BillingSettings() {
   return (
@@ -22,6 +23,8 @@ export default function BillingSettings() {
           A saved-cards panel would need a Stripe Customer + SetupIntent on the
           backend first. */}
       <PlanUsage />
+
+      <UsageRates />
 
       <InvoiceHistory />
     </motion.div>

@@ -179,6 +179,21 @@ export const columns: ColumnDef<Campaign>[] = [
     meta: { className: "hidden lg:table-cell" } satisfies CampaignColumnMeta,
   },
   {
+    id: "deliveryAt",
+    header: "Sent / Scheduled",
+    accessorFn: (row) => row.sentAt ?? row.scheduledFor ?? null,
+    cell: ({ row }) => {
+      const { sentAt, scheduledFor } = row.original;
+      const label = sentAt
+        ? `Sent ${formatDate(sentAt)}`
+        : scheduledFor
+          ? `Scheduled ${formatDate(scheduledFor)}`
+          : "—";
+      return <div className="text-sm text-muted-foreground">{label}</div>;
+    },
+    meta: { className: "hidden xl:table-cell" } satisfies CampaignColumnMeta,
+  },
+  {
     accessorKey: "createdAt",
     header: ({ column }) => {
       return (

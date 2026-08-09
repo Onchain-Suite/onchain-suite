@@ -33,6 +33,10 @@ export interface PendingCheckout {
   startedAt: number;
   /** Human-readable checkout amount (e.g. "49" / "49 USDC"), when known. */
   amount?: string;
+  /** "crypto" (Blockradar) or "card" (Stripe-hosted checkout). */
+  paymentMethod?: "crypto" | "card";
+  /** Backend checkout mode hint, e.g. "static_link" (Blockradar) or "stripe_checkout". */
+  mode?: string;
 }
 
 /** Fired whenever the pending checkout changes, so live UI (the pending
@@ -99,6 +103,11 @@ export const readPendingCheckout = (): PendingCheckout | null => {
       startedAt:
         typeof parsed.startedAt === "number" ? parsed.startedAt : Date.now(),
       amount: typeof parsed.amount === "string" ? parsed.amount : undefined,
+      paymentMethod:
+        parsed.paymentMethod === "crypto" || parsed.paymentMethod === "card"
+          ? parsed.paymentMethod
+          : undefined,
+      mode: typeof parsed.mode === "string" ? parsed.mode : undefined,
     };
 
     // Self-heal: a checkout this old is never going to confirm, so drop it
@@ -296,16 +305,23 @@ export async function startPlanCheckout(
         ? res.amount
         : undefined;
 
+  const mode = typeof res.mode === "string" ? res.mode : undefined;
+  const paymentMethod =
+    options?.paymentMethod ??
+    (mode?.toLowerCase().includes("stripe") === true ? "card" : "crypto");
+
   writePendingCheckout({
     reference,
     plan: planName,
     startedAt: Date.now(),
     amount,
+    paymentMethod,
+    mode,
   });
   return {
     paymentUrl,
     reference,
     amount,
-    mode: typeof res.mode === "string" ? res.mode : undefined,
+    mode,
   };
 }

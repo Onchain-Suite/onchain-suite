@@ -60,6 +60,25 @@ export interface DomainDnsRecord {
   [key: string]: unknown;
 }
 
+/** One provider's records from `POST /domain/{id}/provision`. */
+export interface DomainProvisionProvider {
+  provider: "sendgrid" | "ses" | "acs" | string;
+  status: "authenticating" | "skipped" | "error" | string;
+  records: Array<{
+    host: string;
+    type: string;
+    value: string;
+    valid?: boolean;
+  }>;
+  reason?: string;
+}
+
+/** `POST /domain/{id}/provision` — every configured provider's DNS together. */
+export interface DomainProvisionResult {
+  domain: string;
+  providers: DomainProvisionProvider[];
+}
+
 export interface DomainStatusResponse {
   status?: string;
   dkim?: unknown;
@@ -404,6 +423,14 @@ export const senderIdentitiesService = {
     );
   },
 
+  /** `DELETE /domain/{id}` — removes a sender domain (e.g. a stuck pending one). */
+  deleteDomain(domainId: string, orgId?: string) {
+    return request<unknown>(
+      { method: "DELETE", url: `/domain/${domainId}` },
+      orgId
+    );
+  },
+
   /** `GET /domain/{id}/dns` — registrar-ready TXT/DKIM/SPF records. */
   async getDomainDns(domainId: string, orgId?: string) {
     const payload = await request<unknown>(
@@ -411,6 +438,45 @@ export const senderIdentitiesService = {
       orgId
     );
     return toArray(payload).filter(isJsonObject) as DomainDnsRecord[];
+  },
+
+  /**
+   * `POST /domain/{id}/provision` — authenticate the domain in EVERY configured
+   * send provider (transactional `EMAIL_PROVIDER` + marketing `MARKETING_PROVIDER`)
+   * and return all their DNS records together, so the customer can publish both
+   * sets at once. A provider that isn't configured comes back `status:"skipped"`
+   * (with `reason`); one that errors is `status:"error"`; neither fails the call.
+   */
+  async provisionDomain(
+    domainId: string,
+    orgId?: string
+  ): Promise<DomainProvisionResult> {
+    const payload = await request<unknown>(
+      { method: "POST", url: `/domain/${domainId}/provision` },
+      orgId
+    );
+    const obj = isJsonObject(payload) ? payload : {};
+    const providers = Array.isArray(obj.providers)
+      ? obj.providers
+          .filter(isJsonObject)
+          .map((p): DomainProvisionProvider => ({
+            provider: typeof p.provider === "string" ? p.provider : "",
+            status: typeof p.status === "string" ? p.status : "",
+            records: Array.isArray(p.records)
+              ? p.records.filter(isJsonObject).map((r) => ({
+                  host: typeof r.host === "string" ? r.host : "",
+                  type: typeof r.type === "string" ? r.type : "",
+                  value: typeof r.value === "string" ? r.value : "",
+                  valid: typeof r.valid === "boolean" ? r.valid : undefined,
+                }))
+              : [],
+            reason: typeof p.reason === "string" ? p.reason : undefined,
+          }))
+      : [];
+    return {
+      domain: typeof obj.domain === "string" ? obj.domain : "",
+      providers,
+    };
   },
 
   /**

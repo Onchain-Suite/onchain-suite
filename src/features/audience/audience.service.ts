@@ -98,6 +98,18 @@ export interface AudienceImportJobStatus {
     message?: string;
     code?: string;
   }>;
+  // Present once the import verifier pass ran (absent on dry-run / pre-feature
+  // jobs). `good` = imported + mailable, `bad` = newly suppressed this import
+  // (undeliverable), `suppressed` = already suppressed before this import.
+  verification?: {
+    good?: number;
+    bad?: number;
+    suppressed?: number;
+    deepVerified?: number;
+    capReached?: boolean;
+    rejectedListAvailable?: boolean;
+    suppressedListAvailable?: boolean;
+  };
 }
 
 export interface AudienceExportJobStatus {
@@ -203,6 +215,72 @@ export interface AudienceSegment {
   starred?: boolean;
   criteria?: unknown;
   updatedAt?: string;
+  [key: string]: unknown;
+}
+
+/** A member row from `GET /audience/segments/{id}` (list/tag detail). */
+export interface AudienceSegmentMember {
+  id: string;
+  name?: string;
+  email?: string;
+  walletAddress?: string;
+  emailReachable?: boolean;
+  pushReachable?: boolean;
+  tags?: string[];
+  addedAt?: string;
+  [key: string]: unknown;
+}
+
+/** `GET /audience/segments/{id}` — the list plus a paginated member page. */
+export interface AudienceSegmentDetail extends AudienceSegment {
+  members?: {
+    data?: AudienceSegmentMember[];
+    items?: AudienceSegmentMember[];
+    meta?: {
+      page?: number;
+      limit?: number;
+      totalItems?: number;
+      totalPages?: number;
+    };
+  };
+}
+
+/** Normalized suppression reason enum (docs/backend.md 2026-08-19). */
+export type SuppressionReason =
+  | "hard_bounce"
+  | "soft_bounce"
+  | "complaint"
+  | "unsubscribe"
+  | "manual"
+  | string;
+
+/** One row from `GET /audience/suppressions`. */
+export interface AudienceSuppression {
+  contactId: string;
+  email?: string;
+  reason?: SuppressionReason;
+  source?: string;
+  suppressedAt?: string;
+  detail?: string;
+  [key: string]: unknown;
+}
+
+export interface AudienceSuppressionsResponse {
+  items: AudienceSuppression[];
+  total?: number;
+  page?: number;
+  limit?: number;
+}
+
+/** `GET /audience/sync` — wallet-sync job status (two phases). */
+export interface AudienceSyncStatus {
+  jobId?: string;
+  state?: AudienceJobState | string;
+  progress?: number;
+  totalWallets?: number;
+  dispatch?: Record<string, unknown>;
+  enrichment?: Record<string, unknown>;
+  outcome?: string;
   [key: string]: unknown;
 }
 
@@ -329,12 +407,32 @@ export const audienceService = {
     );
   },
 
-  listProfiles(params?: ListProfilesParams, orgId?: string) {
+  listProfiles(
+    params?: ListProfilesParams,
+    orgId?: string,
+    options?: { signal?: AbortSignal }
+  ) {
+    const normalizedParams: ListProfilesParams = {
+      page: params?.page,
+      ...params,
+      limit:
+        typeof params?.limit === "number" && params.limit > 0
+          ? Math.min(params.limit, 200)
+          : 200,
+    };
     return request<
       | { items?: AudienceProfile[]; data?: AudienceProfile[]; meta?: unknown }
       | { data?: AudienceProfile[]; meta?: unknown }
       | AudienceProfile[]
-    >({ method: "GET", url: "/audience/profiles", params }, orgId);
+    >(
+      {
+        method: "GET",
+        url: "/audience/profiles",
+        params: normalizedParams,
+        signal: options?.signal,
+      },
+      orgId
+    );
   },
 
   listSegments(params?: { q?: string; limit?: number }, orgId?: string) {
@@ -346,7 +444,16 @@ export const audienceService = {
     );
   },
 
-  createSegment(body: { name: string; criteria?: unknown }, orgId?: string) {
+  createSegment(
+    body: {
+      name: string;
+      /** Growing = keeps gaining members from forms/rules; static = fixed set.
+       *  Forwarded now; the backend ignores it until it supports list types. */
+      type?: "growing" | "static";
+      criteria?: unknown;
+    },
+    orgId?: string
+  ) {
     return request<AudienceSegment>(
       { method: "POST", url: "/audience/segments", data: body },
       orgId
@@ -558,7 +665,7 @@ export const audienceService = {
   },
 
   /**
-   * `GET /audience/imports/presets` — platform CSV-header presets for
+   * `GET /audience/imports/presets` - platform CSV-header presets for
    * `createImportJob`'s `platform` option. Callers cache this aggressively
    * (long `staleTime`) and degrade to the manual-only flow when it fails.
    */
@@ -689,6 +796,106 @@ export const audienceService = {
       url: `/audience/exports/${encodeURIComponent(jobId)}/download`,
       responseType: "blob",
       headers,
+    });
+    return res.data;
+  },
+
+  /** `GET /audience/segments/{id}` — list/tag detail + a paginated member page. */
+  getSegment(
+    id: string,
+    params?: { page?: number; limit?: number },
+    orgId?: string
+  ) {
+    return request<AudienceSegmentDetail>(
+      {
+        method: "GET",
+        url: `/audience/segments/${encodeURIComponent(id)}`,
+        params,
+      },
+      orgId
+    );
+  },
+
+  /** `POST /audience/segments/{id}/members` — add contacts to a list. */
+  addSegmentMembers(segmentId: string, profileIds: string[], orgId?: string) {
+    return request<{ added?: number; skipped?: number; count?: number }>(
+      {
+        method: "POST",
+        url: `/audience/segments/${encodeURIComponent(segmentId)}/members`,
+        data: { profileIds },
+      },
+      orgId
+    );
+  },
+
+  /** `GET /audience/suppressions` — the email suppression list. */
+  listSuppressions(
+    params?: { search?: string; page?: number; limit?: number },
+    orgId?: string
+  ) {
+    return request<AudienceSuppressionsResponse | AudienceSuppression[]>(
+      { method: "GET", url: "/audience/suppressions", params },
+      orgId
+    ).then((res) =>
+      Array.isArray(res)
+        ? { items: res, total: res.length }
+        : { items: res.items ?? [], total: res.total, page: res.page }
+    );
+  },
+
+  /** `DELETE /audience/suppressions/{contactId}` — un-suppress (reinstate). */
+  reinstateSuppression(contactId: string, orgId?: string) {
+    return request<{ success?: boolean }>(
+      {
+        method: "DELETE",
+        url: `/audience/suppressions/${encodeURIComponent(contactId)}`,
+      },
+      orgId
+    );
+  },
+
+  /** `POST /audience/suppressions` — manually suppress an existing contact's email. */
+  suppressEmail(email: string, orgId?: string) {
+    return request<{ success?: boolean }>(
+      { method: "POST", url: "/audience/suppressions", data: { email } },
+      orgId
+    );
+  },
+
+  /** `POST /audience/sync` (202) — enqueue a wallet sync for the org. */
+  syncWallets(force?: boolean, orgId?: string) {
+    return request<AudienceSyncStatus>(
+      {
+        method: "POST",
+        url: "/audience/sync",
+        data: force ? { force: true } : {},
+      },
+      orgId
+    );
+  },
+
+  /** `GET /audience/sync[?jobId=]` — poll the most recent (or a specific) sync. */
+  getSyncStatus(jobId?: string, orgId?: string) {
+    return request<AudienceSyncStatus>(
+      {
+        method: "GET",
+        url: "/audience/sync",
+        params: jobId ? { jobId } : undefined,
+      },
+      orgId
+    );
+  },
+
+  async downloadImportRejected(jobId: string, orgId?: string) {
+    const resolvedOrgId = pickOrgId(orgId);
+    const res = await apiClient.request<Blob>({
+      method: "GET",
+      url: `/audience/imports/${encodeURIComponent(jobId)}/rejected.csv`,
+      responseType: "blob",
+      headers: {
+        ...(resolvedOrgId ? { "x-org-id": resolvedOrgId } : {}),
+        "x-onchain-silent-error": "1",
+      },
     });
     return res.data;
   },

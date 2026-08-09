@@ -54,22 +54,22 @@ export function CampaignsAnalyticsOverview() {
     {
       label: `Messages sent (${rangeDays}d)`,
       value: formatCount(overview.totals?.messagesSent),
-      hint: "Email + in-app push",
+      // hint: "Email + in-app push",
     },
     {
       label: "Email open rate",
       value: formatPercentage(overview.email?.openRate),
-      hint: `${formatCount(overview.email?.uniqueOpens)} unique opens`,
+      // hint: `${formatCount(overview.email?.uniqueOpens)} unique opens`,
     },
     {
       label: "Email click rate",
       value: formatPercentage(overview.email?.clickRate),
-      hint: `${formatCount(overview.email?.uniqueClicks)} unique clicks`,
+      // hint: `${formatCount(overview.email?.uniqueClicks)} unique clicks`,
     },
     {
       label: "Push view rate",
       value: formatPercentage(overview.inapp?.viewRate),
-      hint: `${formatCount(overview.inapp?.viewed)} viewed`,
+      // hint: `${formatCount(overview.inapp?.viewed)} viewed`,
     },
   ];
 
@@ -86,9 +86,7 @@ export function CampaignsAnalyticsOverview() {
           <div className="mt-1 text-xl font-semibold text-foreground">
             {card.value}
           </div>
-          <div className="truncate text-[11px] text-muted-foreground">
-            {card.hint}
-          </div>
+          {/* hint hidden for now */}
         </div>
       ))}
 
@@ -110,25 +108,23 @@ export function CampaignsAnalyticsOverview() {
             </span>
           )}
         </div>
-        {usagePct !== null ? (
-          <div
-            className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"
-            role="progressbar"
-            aria-valuenow={usagePct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label="Monthly message allowance used"
-          >
+        {
+          usagePct !== null ? (
             <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
-              style={{ width: `${usagePct}%` }}
-            />
-          </div>
-        ) : (
-          <div className="truncate text-[11px] text-muted-foreground">
-            Email + in-app push combined
-          </div>
-        )}
+              className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"
+              role="progressbar"
+              aria-valuenow={usagePct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Monthly message allowance used"
+            >
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-500"
+                style={{ width: `${usagePct}%` }}
+              />
+            </div>
+          ) : null /* "Email + in-app push combined" hidden for now */
+        }
       </div>
     </div>
   );

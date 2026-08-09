@@ -6,12 +6,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import BillingSettings from "../components/billing/billing";
 import IntegrationsSettings from "../components/integrations/integrations";
+import PrivacyIdentitySettings from "../components/privacy/privacy";
 import ProfileSettings from "../components/profile/profile";
 import RewardsSettings from "../components/rewards/rewards";
+import { SettingsNav } from "../components/settings-nav";
 import { tabs } from "../utils";
 import CompanySettingsView from "./company-settings-view";
-import { PageHeader } from "@/shared/components/page/page-header";
-import { PageTabs } from "@/shared/components/page/page-tabs";
 import { useMyOrgRole } from "@/shared/hooks/client/use-my-org-role";
 
 export default function SettingsPage() {
@@ -55,35 +55,38 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Settings"
-        description="Manage your account, billing, and integrations."
-      />
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 lg:flex-row lg:gap-12">
+      <aside className="lg:w-56 lg:shrink-0">
+        <h1 className="mb-6 text-3xl font-semibold tracking-tight text-foreground">
+          Settings
+        </h1>
+        <SettingsNav
+          items={visibleTabs}
+          value={activeTab}
+          onValueChange={selectTab}
+          className="lg:sticky lg:top-6"
+        />
+      </aside>
 
-      <PageTabs
-        tabs={visibleTabs}
-        value={activeTab}
-        onValueChange={selectTab}
-        layoutId="settings-tabs"
-      />
-
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="mx-auto w-full max-w-6xl"
-        >
-          {activeTab === "profile" && <ProfileSettings />}
-          {activeTab === "account" && <CompanySettingsView />}
-          {activeTab === "billing" && isOwner && <BillingSettings />}
-          {activeTab === "integrations" && <IntegrationsSettings />}
-          {activeTab === "rewards" && <RewardsSettings />}
-        </motion.div>
-      </AnimatePresence>
+      <div className="min-w-0 flex-1">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="space-y-6"
+          >
+            {activeTab === "profile" && <ProfileSettings />}
+            {activeTab === "account" && <CompanySettingsView />}
+            {activeTab === "privacy" && <PrivacyIdentitySettings />}
+            {activeTab === "billing" && isOwner && <BillingSettings />}
+            {activeTab === "integrations" && <IntegrationsSettings />}
+            {activeTab === "rewards" && <RewardsSettings />}
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

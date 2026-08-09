@@ -26,13 +26,6 @@ export interface WipSection {
 
 export const WIP_SECTIONS: WipSection[] = [
   {
-    prefix: "/forms",
-    label: "Forms",
-    description:
-      "Build signup and capture forms that turn visitors into wallet-first contacts — embeddable anywhere, synced straight into your audience.",
-    percentComplete: 35,
-  },
-  {
     prefix: "/inbox",
     label: "Inbox",
     description:

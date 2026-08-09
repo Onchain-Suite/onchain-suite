@@ -2,7 +2,6 @@
 
 import {
   ArrowLeftIcon,
-  ArrowPathIcon,
   CheckCircleIcon,
   CheckIcon,
   CloudArrowUpIcon,
@@ -21,12 +20,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -38,6 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import {
   type AudienceExportJobStatus,
@@ -123,6 +118,51 @@ const safeJsonParse = (raw: string): unknown => {
 };
 
 const toIsoNow = () => new Date().toISOString();
+
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const isRateLimitedError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const err = error as { cause?: unknown; message?: unknown };
+  const candidate = (err.cause ?? err) as {
+    response?: { status?: unknown };
+    status?: unknown;
+    message?: unknown;
+  };
+  const status =
+    typeof candidate.response?.status === "number"
+      ? candidate.response.status
+      : typeof candidate.status === "number"
+        ? candidate.status
+        : null;
+  if (status === 429) return true;
+  const msg =
+    typeof err.message === "string"
+      ? err.message
+      : typeof candidate.message === "string"
+        ? candidate.message
+        : "";
+  return msg.includes("429") || msg.toLowerCase().includes("rate limit");
+};
+
+// Large imports (100k+ rows) exceed the Next.js/Vercel proxy body cap, so upload
+// straight to the backend when NEXT_PUBLIC_BACKEND_URL is set; fall back to the
+// proxied service call on a network/CORS error.
+const getDirectBackendBaseUrl = () => {
+  const raw = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").trim();
+  if (!raw) return null;
+  return raw.replace(/\/$/, "");
+};
+
+const unwrapBackendEnvelope = (payload: unknown): unknown => {
+  if (isJsonObject(payload) && "data" in payload) {
+    return payload.data ?? payload;
+  }
+  return payload;
+};
 
 const toHumanBytes = (bytes: number) => {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -416,7 +456,7 @@ export default function ImportExportPage() {
   const [importPlatform, setImportPlatform] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Presets discovery is effectively static — cache it for the session and
+  // Presets discovery is effectively static - cache it for the session and
   // degrade silently to the manual-only flow if it fails (no toast, no gate).
   const presetsQuery = useQuery({
     queryKey: ["audience", "imports", "presets"],
@@ -437,7 +477,7 @@ export default function ImportExportPage() {
   );
 
   // Headers the selected preset pre-maps (case-insensitive), when the
-  // discovery payload exposes the header map — used purely as a visual hint.
+  // discovery payload exposes the header map - used purely as a visual hint.
   const presetHeaderSet = useMemo(() => {
     const set = new Set<string>();
     for (const header of Object.keys(selectedPreset?.mapping ?? {})) {
@@ -551,9 +591,11 @@ export default function ImportExportPage() {
       toast.error("Only CSV and JSON files are supported");
       return;
     }
-    const maxBytes = 25 * 1024 * 1024;
+    const maxBytes = 100 * 1024 * 1024;
     if (file.size > maxBytes) {
-      toast.error("File too large (max 25MB)");
+      toast.error(
+        "That file is over 100MB. Split your contacts into a few smaller files (each under 100MB) and import them one at a time."
+      );
       return;
     }
 
@@ -657,18 +699,123 @@ export default function ImportExportPage() {
         }
       }
 
-      const res = await audienceService.createImportJob({
-        file: uploadedFile,
-        format,
-        mapping: format === "csv" ? mapping : undefined,
-        // Backend auto-maps this platform's CSV headers; the explicit
-        // mapping entries above still override the preset.
-        platform: importPlatform || undefined,
-      });
+      const query = {
+        mode: "upsert",
+        onConflict: "update",
+        dedupeKey: "email",
+        maxErrors: 10000,
+      };
 
+      const orgId = getSelectedOrganizationId();
+      const directBase = getDirectBackendBaseUrl();
+
+      const uploadDirect = async (): Promise<unknown> => {
+        if (!directBase) throw new Error("Missing backend URL");
+        if (!orgId) throw new Error("Missing organization id");
+
+        const fd = new FormData();
+        fd.append("file", uploadedFile);
+        if (format === "csv" && Object.keys(mapping).length > 0) {
+          fd.append("mapping", JSON.stringify(mapping));
+        }
+
+        const params = new URLSearchParams();
+        params.set("format", format);
+        if (importPlatform) params.set("platform", importPlatform);
+        for (const [k, v] of Object.entries(query)) {
+          if (v === undefined) continue;
+          params.set(k, String(v));
+        }
+
+        let attempts = 0;
+        for (;;) {
+          const res = await fetch(`${directBase}/audience/imports?${params}`, {
+            method: "POST",
+            body: fd,
+            credentials: "include",
+            headers: {
+              "x-org-id": orgId,
+            },
+          });
+
+          if (res.ok) {
+            const json = await res.json().catch(() => null);
+            return unwrapBackendEnvelope(json);
+          }
+
+          if (res.status === 429 && attempts < 3) {
+            attempts += 1;
+            await wait(2000 + Math.floor(Math.random() * 3000));
+            continue;
+          }
+
+          const bodyText = await res.text().catch(() => "");
+          throw new Error(
+            `Import upload failed [HTTP ${res.status}]: ${
+              bodyText.trim().length > 0 ? bodyText : "Request failed"
+            }`
+          );
+        }
+      };
+
+      // The same-origin API proxy injects the session server-side (from the
+      // onchain.token cookie), so it authenticates reliably - but it runs on a
+      // serverless function with a ~4.5MB request-body cap. The direct-to-
+      // backend upload has no size cap but relies on a cross-origin session
+      // cookie the browser won't send (→ 401). So: route small/medium files
+      // through the authenticated proxy, and only large files direct.
+      const PROXY_BODY_LIMIT = 4 * 1024 * 1024; // headroom under the ~4.5MB cap
+
+      const uploadViaProxy = async (): Promise<unknown> => {
+        let attempts = 0;
+        for (;;) {
+          try {
+            return await audienceService.createImportJob({
+              file: uploadedFile,
+              format,
+              mapping: format === "csv" ? mapping : undefined,
+              platform: importPlatform || undefined,
+              query,
+            });
+          } catch (innerError) {
+            if (!isRateLimitedError(innerError) || attempts >= 3)
+              throw innerError;
+            attempts += 1;
+            await wait(2000 + Math.floor(Math.random() * 3000));
+          }
+        }
+      };
+
+      let res: unknown;
+      if (uploadedFile.size <= PROXY_BODY_LIMIT) {
+        res = await uploadViaProxy();
+      } else {
+        // Large file: must go direct (over the proxy's serverless body cap).
+        try {
+          res = await uploadDirect();
+        } catch (error) {
+          const authRejected =
+            error instanceof Error && /\[HTTP 40[13]\]/.test(error.message);
+          const networkFailed =
+            !directBase ||
+            !orgId ||
+            error instanceof TypeError ||
+            (error instanceof Error &&
+              error.message.toLowerCase().includes("failed to fetch"));
+          if (authRejected || networkFailed) {
+            throw new Error(
+              "This file is larger than the app can proxy (~4.5MB) and the direct upload to the backend was rejected. Split it into files under 4MB to import now, or enable credentialed CORS on the backend imports endpoint so large direct uploads authenticate.",
+              { cause: error }
+            );
+          }
+          throw error;
+        }
+      }
+
+      const jobIdCandidate = (res as { jobId?: unknown }).jobId;
       const jobId =
-        typeof res.jobId === "string" && res.jobId.length > 0
-          ? res.jobId
+        typeof jobIdCandidate === "string" && jobIdCandidate.length > 0
+          ? jobIdCandidate
           : typeof (res as unknown as { id?: unknown }).id === "string"
             ? String((res as unknown as { id?: unknown }).id)
             : typeof (res as unknown as { jobId?: unknown }).jobId === "string"
@@ -696,7 +843,15 @@ export default function ImportExportPage() {
           [entry, ...prev.filter((x) => x.jobId !== jobId)].slice(0, 50)
         );
       }
-      toast.success("Import started");
+      toast.success(
+        "Import started, you can keep using the platform. It runs in the background and we'll let you know when it's done.",
+        {
+          action: {
+            label: "Cancel",
+            onClick: () => cancelImportMutation.mutate(),
+          },
+        }
+      );
     },
     onError: (e: unknown) => {
       const message = e instanceof Error ? e.message : "Import failed";
@@ -783,6 +938,28 @@ export default function ImportExportPage() {
     },
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Failed to download errors"),
+  });
+
+  // The verifier's auto-suppressed / rejected bad addresses (email,reason CSV).
+  const downloadImportRejectedMutation = useMutation({
+    mutationFn: async () => {
+      if (!importJobId) throw new Error("Missing jobId");
+      return audienceService.downloadImportRejected(importJobId);
+    },
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audience-import-bad-emails-${importJobId ?? "job"}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+    },
+    onError: (e: unknown) =>
+      toast.error(
+        e instanceof Error ? e.message : "Failed to download bad emails"
+      ),
   });
 
   const exportMutation = useMutation({
@@ -917,11 +1094,50 @@ export default function ImportExportPage() {
     if (!importStatus) return;
     const state = String(importStatus.state ?? "");
     if (state === "completed") {
-      const success =
-        (importStatus.createdCount ?? 0) + (importStatus.updatedCount ?? 0);
+      const created = importStatus.createdCount ?? 0;
+      const updated = importStatus.updatedCount ?? 0;
+      const success = created + updated;
       const failed = importStatus.errorCount ?? 0;
       setImportResult({ success, failed });
       setImportStep("complete");
+
+      // One summary toast for the whole import (not one per contact): the row
+      // totals, plus how many bad emails the verifier auto-suppressed.
+      const { verification } = importStatus;
+      const processed =
+        importStatus.processedRows ??
+        importStatus.totalRows ??
+        success + failed;
+      const parts = [
+        `${processed.toLocaleString()} processed`,
+        `${created.toLocaleString()} created`,
+        `${updated.toLocaleString()} updated`,
+      ];
+      if (failed > 0) parts.push(`${failed.toLocaleString()} errors`);
+      if (verification?.bad)
+        parts.push(
+          `${verification.bad.toLocaleString()} bad emails suppressed`
+        );
+      if (verification?.suppressed)
+        parts.push(
+          `${verification.suppressed.toLocaleString()} already suppressed`
+        );
+
+      // Offer the most relevant download: the auto-suppressed/rejected bad
+      // addresses if the verifier produced a list, otherwise the error report.
+      const action = verification?.rejectedListAvailable
+        ? {
+            label: "Download bad emails",
+            onClick: () => downloadImportRejectedMutation.mutate(),
+          }
+        : failed > 0
+          ? {
+              label: "Download errors",
+              onClick: () => downloadImportErrorsMutation.mutate(),
+            }
+          : undefined;
+
+      toast.success(`Import finished: ${parts.join(" · ")}.`, { action });
       return;
     }
     if (state === "failed") {
@@ -934,7 +1150,7 @@ export default function ImportExportPage() {
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className="mx-auto w-full max-w-[1600px] space-y-6 text-foreground"
+      className="mx-auto w-full max-w-7xl space-y-6 text-foreground"
     >
       <Link
         href="/audience"
@@ -1554,119 +1770,6 @@ export default function ImportExportPage() {
             </div>
           </div>
         )}
-
-        {(() => {
-          const state = String(importStatus?.state ?? "queued");
-          const isTerminal = ["completed", "failed", "cancelled"].includes(
-            state
-          );
-          const pct = Math.max(
-            0,
-            Math.min(
-              100,
-              Number(
-                importStatus?.progress ?? (state === "completed" ? 100 : 0)
-              )
-            )
-          );
-          return (
-            <Dialog
-              open={Boolean(importJobId)}
-              onOpenChange={(open) => {
-                if (!open && isTerminal) setImportJobId(null);
-              }}
-            >
-              <DialogContent
-                className="sm:max-w-md"
-                onInteractOutside={(e) => {
-                  if (!isTerminal) e.preventDefault();
-                }}
-              >
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    {isTerminal ? (
-                      <CheckCircleIcon
-                        aria-hidden="true"
-                        className={`h-5 w-5 ${
-                          state === "completed"
-                            ? "text-primary"
-                            : "text-amber-500"
-                        }`}
-                      />
-                    ) : (
-                      <ArrowPathIcon
-                        aria-hidden="true"
-                        className="h-5 w-5 animate-spin text-primary"
-                      />
-                    )}
-                    {state === "completed"
-                      ? "Import complete"
-                      : state === "failed"
-                        ? "Import failed"
-                        : state === "cancelled"
-                          ? "Import cancelled"
-                          : "Importing your audience…"}
-                  </DialogTitle>
-                </DialogHeader>
-
-                <div className="space-y-3">
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {typeof importStatus?.processedRows === "number"
-                      ? `${importStatus.processedRows.toLocaleString()} processed`
-                      : "Preparing…"}
-                    {typeof importStatus?.createdCount === "number"
-                      ? ` · ${importStatus.createdCount.toLocaleString()} created`
-                      : ""}
-                    {typeof importStatus?.updatedCount === "number"
-                      ? ` · ${importStatus.updatedCount.toLocaleString()} updated`
-                      : ""}
-                    {typeof importStatus?.errorCount === "number" &&
-                    importStatus.errorCount > 0
-                      ? ` · ${importStatus.errorCount.toLocaleString()} errors`
-                      : ""}
-                  </p>
-                </div>
-
-                <div className="mt-2 flex justify-end gap-2">
-                  {importStatus && (importStatus.errorCount ?? 0) > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => downloadImportErrorsMutation.mutate()}
-                      disabled={downloadImportErrorsMutation.isPending}
-                      className="rounded-xl border border-border px-3 py-2 text-xs font-medium hover:bg-muted disabled:opacity-50"
-                    >
-                      Download errors
-                    </button>
-                  ) : null}
-                  {isTerminal ? (
-                    <button
-                      type="button"
-                      onClick={() => setImportJobId(null)}
-                      className="rounded-xl bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-                    >
-                      Done
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => cancelImportMutation.mutate()}
-                      disabled={cancelImportMutation.isPending}
-                      className="rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted disabled:opacity-50"
-                    >
-                      Cancel import
-                    </button>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-          );
-        })()}
 
         {importStep === "complete" && importResult && (
           <div className="flex flex-col items-center justify-center py-20 text-center">

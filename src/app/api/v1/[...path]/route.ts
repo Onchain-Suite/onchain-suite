@@ -446,7 +446,7 @@ const handleAudienceImportExport = async (
         );
       }
 
-      const maxBytes = 25 * 1024 * 1024;
+      const maxBytes = 100 * 1024 * 1024;
       if (file.size > maxBytes) {
         return okJson(
           req,
@@ -904,7 +904,7 @@ const handleAudienceImportExport = async (
 
       try {
         const maxItems = 5000;
-        const limit = 500;
+        const limit = 200;
         let page = 1;
         const all: unknown[] = [];
         while (all.length < maxItems) {
@@ -1839,12 +1839,17 @@ const forward = async (
   const method = (overrideMethod ?? req.method).toUpperCase();
   const startedAt = Date.now();
 
-  const audienceImportExport = await handleAudienceImportExport(
-    req,
-    path,
-    method
-  );
-  if (audienceImportExport) return audienceImportExport;
+  const useLocalAudienceJobs =
+    process.env.USE_LOCAL_AUDIENCE_JOBS === "1" &&
+    process.env.NODE_ENV !== "production";
+  if (useLocalAudienceJobs) {
+    const audienceImportExport = await handleAudienceImportExport(
+      req,
+      path,
+      method
+    );
+    if (audienceImportExport) return audienceImportExport;
+  }
 
   const inbox = await handleInbox(req, path, method);
   if (inbox) return inbox;

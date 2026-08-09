@@ -5,8 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { isJsonObject } from "@/lib/utils";
 
+import ChangePlanDialog from "./change-plan-dialog";
 import { PaygWalletCard } from "./payg-wallet-card";
-import UpgradePlanDialog from "./upgrade-plan-dialog";
 import { billingService } from "@/features/billing/billing.service";
 import {
   SettingsCard,
@@ -251,7 +251,7 @@ const PlanUsage = () => {
       title="Plan & usage"
       description="Current plan, what's left this cycle, and what happens beyond it"
       action={
-        <UpgradePlanDialog
+        <ChangePlanDialog
           currentPlan={planName}
           trigger={
             <Button variant="outline" size="sm">

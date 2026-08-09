@@ -112,12 +112,35 @@ export function AudienceStep({
   const [utmOpen, setUtmOpen] = useState(false);
   const syncSequenceRef = useRef(0);
 
+  // Contact picker search. Large audiences (10k+) can't all render, so the
+  // search runs server-side (debounced) and the list shows a page at a time.
+  const [contactSearch, setContactSearch] = useState("");
+  const [debouncedContactSearch, setDebouncedContactSearch] = useState("");
+  useEffect(() => {
+    const id = window.setTimeout(
+      () => setDebouncedContactSearch(contactSearch.trim()),
+      300
+    );
+    return () => window.clearTimeout(id);
+  }, [contactSearch]);
+
+  const CONTACTS_PAGE_LIMIT = 200;
+
   // Individual contacts (with a real email) selectable directly - so a
   // campaign can be sent to specific people even with no tags/segments ready.
   const contactsQuery = useQuery({
-    queryKey: ["audience", "profiles", "campaign-contacts"],
+    queryKey: [
+      "audience",
+      "profiles",
+      "campaign-contacts",
+      debouncedContactSearch,
+    ],
     queryFn: async () => {
-      const res = await audienceService.listProfiles({ page: 1, limit: 100 });
+      const res = await audienceService.listProfiles({
+        page: 1,
+        limit: CONTACTS_PAGE_LIMIT,
+        ...(debouncedContactSearch ? { q: debouncedContactSearch } : {}),
+      });
       const envelope = res as {
         items?: AudienceProfile[];
         data?: AudienceProfile[];
@@ -637,7 +660,18 @@ export function AudienceStep({
               }))}
               loading={contactsQuery.isLoading}
               searchPlaceholder="Search contacts…"
-              emptyText="No contacts with a verified email yet."
+              searchValue={contactSearch}
+              onSearchChange={setContactSearch}
+              emptyText={
+                debouncedContactSearch
+                  ? "No contacts match your search."
+                  : "No contacts with a verified email yet."
+              }
+              footerNote={
+                contacts.length >= CONTACTS_PAGE_LIMIT
+                  ? `Showing the first ${CONTACTS_PAGE_LIMIT.toLocaleString()}. Search by name or email to find anyone, or send to a segment, list, or Everyone.`
+                  : null
+              }
               isSelected={isSelected}
               onToggle={toggleSelection}
             />
@@ -917,6 +951,9 @@ function SelectList({
   searchPlaceholder,
   isSelected,
   onToggle,
+  searchValue,
+  onSearchChange,
+  footerNote,
 }: {
   rows: {
     id: string;
@@ -930,9 +967,18 @@ function SelectList({
   searchPlaceholder: string;
   isSelected: (id: string) => boolean;
   onToggle: (id: string) => void;
+  /** When provided, search is controlled by the parent (server-side) and rows
+   *  are shown as-is; otherwise search filters the loaded rows client-side. */
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  footerNote?: React.ReactNode;
 }) {
-  const [query, setQuery] = useState("");
+  const [internalQuery, setInternalQuery] = useState("");
+  const controlled = onSearchChange !== undefined;
+  const query = controlled ? (searchValue ?? "") : internalQuery;
+  const setQuery = controlled ? onSearchChange : setInternalQuery;
   const filtered = useMemo(() => {
+    if (controlled) return rows; // server already filtered
     const q = query.trim().toLowerCase();
     if (q.length === 0) return rows;
     return rows.filter((r) =>
@@ -940,7 +986,7 @@ function SelectList({
         .filter((v): v is string => typeof v === "string")
         .some((v) => v.toLowerCase().includes(q))
     );
-  }, [rows, query]);
+  }, [controlled, rows, query]);
 
   return (
     <div>
@@ -1016,6 +1062,11 @@ function SelectList({
           })}
         </ul>
       )}
+      {footerNote && !loading && rows.length > 0 ? (
+        <div className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
+          {footerNote}
+        </div>
+      ) : null}
     </div>
   );
 }

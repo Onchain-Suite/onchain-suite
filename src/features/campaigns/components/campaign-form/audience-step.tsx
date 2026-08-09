@@ -6,6 +6,7 @@ import {
   DevicePhoneMobileIcon,
   EnvelopeIcon,
   ExclamationTriangleIcon,
+  MagnifyingGlassIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
@@ -183,9 +184,18 @@ export function AudienceStep({
     staleTime: 60_000,
   });
   const overview = overviewQuery.data;
+  // "Everyone" is channel-aware: an email campaign reaches every email-reachable
+  // contact; an in-app push reaches every connected wallet.
   const everyoneReachable = ((): number | null => {
     const pick = (v: unknown) =>
       typeof v === "number" && Number.isFinite(v) ? v : null;
+    if (isPush) {
+      return (
+        pick(overview?.pushReachable) ??
+        pick(overview?.withWallet) ??
+        pick(overview?.total)
+      );
+    }
     return pick(overview?.emailReachable) ?? pick(overview?.total);
   })();
 
@@ -435,42 +445,23 @@ export function AudienceStep({
   const isSelected = (id: string) => selectedAudiences.includes(id);
   const selectedCount = selectedAudiences.length;
 
-  // Describe the chosen audience so "Estimated recipients" reads back what was
-  // picked (or "Everyone" when nothing is selected).
-  const chosenSummary = useMemo(() => {
-    if (allSelected || selectedCount === 0) {
-      return everyoneReachable !== null
-        ? `Everyone: all ${everyoneReachable.toLocaleString()} reachable wallets`
-        : "Everyone in your audience";
-    }
-    const segmentsChosen = selectedAudiences.filter((id) =>
-      segments.some((s) => s.id === id)
-    ).length;
-    const listsChosen = selectedAudiences.filter((id) =>
-      lists.some((l) => l.id === id)
-    ).length;
-    const contactsChosen = selectedAudiences.filter((id) =>
-      contacts.some((c) => c.id === id)
-    ).length;
-    const parts: string[] = [];
-    if (segmentsChosen)
-      parts.push(`${segmentsChosen} segment${segmentsChosen === 1 ? "" : "s"}`);
-    if (listsChosen)
-      parts.push(`${listsChosen} list${listsChosen === 1 ? "" : "s"}`);
-    if (contactsChosen)
-      parts.push(`${contactsChosen} contact${contactsChosen === 1 ? "" : "s"}`);
-    return parts.length > 0
-      ? `Sending to ${parts.join(", ")}`
-      : `${selectedCount} selected`;
-  }, [
-    allSelected,
-    selectedCount,
-    selectedAudiences,
-    segments,
-    lists,
-    contacts,
-    everyoneReachable,
-  ]);
+  // Per-tab totals so the footer can read "N of M selected" for the open tab.
+  const tabTotal =
+    sendTab === "segments"
+      ? segments.length
+      : sendTab === "lists"
+        ? lists.length
+        : sendTab === "contacts"
+          ? contacts.length
+          : 0;
+  const tabSelected =
+    sendTab === "segments"
+      ? segments.filter((s) => isSelected(s.id)).length
+      : sendTab === "lists"
+        ? lists.filter((l) => isSelected(l.id)).length
+        : sendTab === "contacts"
+          ? contacts.filter((c) => isSelected(c.id)).length
+          : 0;
 
   const SEND_TABS: { key: SendTab; label: string }[] = [
     { key: "segments", label: "Segments" },
@@ -612,6 +603,7 @@ export function AudienceStep({
                 count: s.count,
               }))}
               loading={segmentsLoading}
+              searchPlaceholder="Search segments…"
               emptyText={
                 <>
                   No saved segments.{" "}
@@ -631,6 +623,7 @@ export function AudienceStep({
                 title: l.name,
                 count: l.count,
               }))}
+              searchPlaceholder="Search lists…"
               emptyText="No lists yet - save a segment or tag to reuse it."
               isSelected={isSelected}
               onToggle={toggleSelection}
@@ -643,6 +636,7 @@ export function AudienceStep({
                 trailing: c.email,
               }))}
               loading={contactsQuery.isLoading}
+              searchPlaceholder="Search contacts…"
               emptyText="No contacts with a verified email yet."
               isSelected={isSelected}
               onToggle={toggleSelection}
@@ -669,12 +663,15 @@ export function AudienceStep({
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-foreground">
+                  {isPush ? "Every connected wallet" : "Everyone with an email"}
                   {everyoneReachable !== null
-                    ? `Everyone: all ${everyoneReachable.toLocaleString()} reachable wallets`
-                    : "Everyone in your audience"}
+                    ? ` · ${everyoneReachable.toLocaleString()}`
+                    : ""}
                 </span>
                 <span className="block text-xs text-muted-foreground">
-                  Sends to every reachable wallet, minus the exclusions below.
+                  {isPush
+                    ? "Sends an in-app push to every wallet signed in to the app, minus the exclusions below."
+                    : "Sends to every email-reachable contact, minus the exclusions below."}
                 </span>
               </span>
             </button>
@@ -682,7 +679,9 @@ export function AudienceStep({
 
           <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
             <span>
-              {allSelected ? "Everyone selected" : `${selectedCount} selected`}
+              {allSelected
+                ? "Everyone selected"
+                : `${tabSelected} of ${tabTotal} selected`}
               {isSyncing ? " · updating estimate…" : ""}
             </span>
             {selectedCount > 0 ? (
@@ -695,24 +694,6 @@ export function AudienceStep({
               </button>
             ) : null}
           </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm text-muted-foreground">
-              Estimated recipients
-            </span>
-            <span className="text-lg font-semibold tabular-nums text-foreground">
-              {isSyncing
-                ? "…"
-                : displayedEstimatedRecipients !== null
-                  ? displayedEstimatedRecipients.toLocaleString()
-                  : "-"}
-            </span>
-          </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {chosenSummary}
-          </p>
         </div>
 
         <p className="text-xs text-muted-foreground">
@@ -933,6 +914,7 @@ function SelectList({
   rows,
   loading = false,
   emptyText,
+  searchPlaceholder,
   isSelected,
   onToggle,
 }: {
@@ -945,70 +927,95 @@ function SelectList({
   }[];
   loading?: boolean;
   emptyText: React.ReactNode;
+  searchPlaceholder: string;
   isSelected: (id: string) => boolean;
   onToggle: (id: string) => void;
 }) {
-  if (loading) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
-  }
-  if (rows.length === 0) {
-    return <div className="p-6 text-sm text-muted-foreground">{emptyText}</div>;
-  }
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (q.length === 0) return rows;
+    return rows.filter((r) =>
+      [r.title, r.sub, r.trailing]
+        .filter((v): v is string => typeof v === "string")
+        .some((v) => v.toLowerCase().includes(q))
+    );
+  }, [rows, query]);
+
   return (
-    <ul className="max-h-72 divide-y divide-border overflow-y-auto">
-      {rows.map((row) => {
-        const selected = isSelected(row.id);
-        return (
-          <li key={row.id}>
-            <button
-              type="button"
-              onClick={() => onToggle(row.id)}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
-            >
-              <span
-                className={cn(
-                  "flex size-5 shrink-0 items-center justify-center rounded border",
-                  selected
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border"
-                )}
-                aria-hidden="true"
-              >
-                {selected ? (
-                  <svg viewBox="0 0 16 16" className="size-3.5" fill="none">
-                    <path
-                      d="M3.5 8.5l3 3 6-6"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : null}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-foreground">
-                  {row.title}
-                </span>
-                {row.sub ? (
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {row.sub}
+    <div>
+      <div className="relative border-b border-border">
+        <MagnifyingGlassIcon
+          className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
+          className="h-11 w-full bg-transparent pl-11 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+        />
+      </div>
+      {loading ? (
+        <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+      ) : rows.length === 0 ? (
+        <div className="p-6 text-sm text-muted-foreground">{emptyText}</div>
+      ) : filtered.length === 0 ? (
+        <div className="p-6 text-sm text-muted-foreground">
+          Nothing matches “{query}”.
+        </div>
+      ) : (
+        <ul className="max-h-72 divide-y divide-border overflow-y-auto">
+          {filtered.map((row) => {
+            const selected = isSelected(row.id);
+            return (
+              <li key={row.id}>
+                <button
+                  type="button"
+                  onClick={() => onToggle(row.id)}
+                  className={cn(
+                    "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40",
+                    selected && "bg-primary/[0.04]"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-5 shrink-0 items-center justify-center rounded border",
+                      selected
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border"
+                    )}
+                    aria-hidden="true"
+                  >
+                    {selected ? <CheckIcon className="size-3.5" /> : null}
                   </span>
-                ) : null}
-              </span>
-              {row.trailing ? (
-                <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                  {row.trailing}
-                </span>
-              ) : typeof row.count === "number" ? (
-                <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-                  {row.count.toLocaleString()}
-                </span>
-              ) : null}
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {row.title}
+                    </span>
+                    {row.sub ? (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {row.sub}
+                      </span>
+                    ) : null}
+                  </span>
+                  {row.trailing ? (
+                    <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                      {row.trailing}
+                    </span>
+                  ) : typeof row.count === "number" ? (
+                    <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                      {row.count.toLocaleString()}
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CheckIcon,
   ChevronDownIcon,
   DevicePhoneMobileIcon,
   EnvelopeIcon,
@@ -19,7 +20,9 @@ import { cn } from "@/lib/utils";
 
 import { type CampaignAudienceEstimate } from "../../campaigns.service";
 import {
+  ALL_CONTACTS_SELECTION_ID,
   getEstimatedRecipientsFromSelection,
+  isAllContactsSelected,
   partitionAudienceSelection,
   resolveTagsToProfileIds,
 } from "../../lib/audience";
@@ -203,15 +206,20 @@ export function AudienceStep({
     [lists, contactsAsLists]
   );
 
-  const localEstimatedRecipients = useMemo(
-    () =>
-      getEstimatedRecipientsFromSelection(
-        selectedAudiences,
-        [...profileOptions, ...tags],
-        segments
-      ),
-    [profileOptions, tags, segments, selectedAudiences]
-  );
+  const allSelected = isAllContactsSelected(selectedAudiences);
+
+  const localEstimatedRecipients = useMemo(() => {
+    // "Everyone" resolves to the whole reachable audience; the backend estimate
+    // refines it, this is the immediate local figure.
+    if (isAllContactsSelected(selectedAudiences)) {
+      return everyoneReachable ?? 0;
+    }
+    return getEstimatedRecipientsFromSelection(
+      selectedAudiences,
+      [...profileOptions, ...tags],
+      segments
+    );
+  }, [profileOptions, tags, segments, selectedAudiences, everyoneReachable]);
 
   // Assemble the UTM object sent to the backend (only when tracking is on and
   // at least one value is set). Keys map to utm_source/medium/campaign/…
@@ -270,6 +278,7 @@ export function AudienceStep({
   const syncInputsRef = useRef({
     selectedAudiences,
     segments,
+    lists,
     profileOptions,
     utmParams,
     windowOverride,
@@ -277,6 +286,7 @@ export function AudienceStep({
   syncInputsRef.current = {
     selectedAudiences,
     segments,
+    lists,
     profileOptions,
     utmParams,
     windowOverride,
@@ -302,16 +312,23 @@ export function AudienceStep({
       const inputs = syncInputsRef.current;
       const { all, segmentIds, profileIds, tagNames } =
         partitionAudienceSelection(inputs.selectedAudiences, inputs.segments);
+      // Audience Lists are saved segments too, but they aren't in the
+      // intelligence `segments` array, so partition drops their ids into
+      // profileIds. Reclassify them as segmentIds (a list id is a segment id,
+      // not a profile id); real contacts stay in profileIds.
+      const listIds = new Set(inputs.lists.map((l) => l.id));
+      const listSegmentIds = profileIds.filter((id) => listIds.has(id));
+      const nonListProfileIds = profileIds.filter((id) => !listIds.has(id));
       // Tag selections expand to the tagged contacts' profile ids - the
       // backend audience contract only knows profiles + segments. ("All
       // contacts" short-circuits to empty tags, so this is a no-op.)
       const tagProfileIds = await resolveTagsToProfileIds(tagNames);
       const mergedProfileIds = Array.from(
-        new Set([...profileIds, ...tagProfileIds])
+        new Set([...nonListProfileIds, ...tagProfileIds])
       );
       return {
         audience: {
-          segmentIds,
+          segmentIds: Array.from(new Set([...segmentIds, ...listSegmentIds])),
           profileIds: mergedProfileIds,
           ...(all ? { all: true } : {}),
         },
@@ -394,10 +411,23 @@ export function AudienceStep({
     form.setValue("channel", next, { shouldDirty: true });
 
   const toggleSelection = (id: string) => {
-    const next = selectedAudiences.includes(id)
-      ? selectedAudiences.filter((x) => x !== id)
-      : [...selectedAudiences, id];
+    // Picking a specific audience clears the mutually-exclusive "Everyone".
+    const base = selectedAudiences.filter(
+      (x) => x !== ALL_CONTACTS_SELECTION_ID
+    );
+    const next = base.includes(id)
+      ? base.filter((x) => x !== id)
+      : [...base, id];
     form.setValue("selectedAudiences", next, { shouldDirty: true });
+  };
+
+  // "Everyone" is exclusive: selecting it replaces any specific picks.
+  const toggleEveryone = () => {
+    form.setValue(
+      "selectedAudiences",
+      allSelected ? [] : [ALL_CONTACTS_SELECTION_ID],
+      { shouldDirty: true }
+    );
   };
   const clearSelection = () =>
     form.setValue("selectedAudiences", [], { shouldDirty: true });
@@ -408,7 +438,7 @@ export function AudienceStep({
   // Describe the chosen audience so "Estimated recipients" reads back what was
   // picked (or "Everyone" when nothing is selected).
   const chosenSummary = useMemo(() => {
-    if (selectedCount === 0) {
+    if (allSelected || selectedCount === 0) {
       return everyoneReachable !== null
         ? `Everyone: all ${everyoneReachable.toLocaleString()} reachable wallets`
         : "Everyone in your audience";
@@ -433,6 +463,7 @@ export function AudienceStep({
       ? `Sending to ${parts.join(", ")}`
       : `${selectedCount} selected`;
   }, [
+    allSelected,
     selectedCount,
     selectedAudiences,
     segments,
@@ -617,27 +648,41 @@ export function AudienceStep({
               onToggle={toggleSelection}
             />
           ) : (
-            <div className="space-y-1 p-6 text-sm text-muted-foreground">
-              {everyoneReachable !== null ? (
-                <p className="text-foreground">
-                  Reaches all{" "}
-                  <span className="font-semibold">
-                    {everyoneReachable.toLocaleString()}
-                  </span>{" "}
-                  reachable wallets in your audience.
-                </p>
-              ) : (
-                <p>Reaches every reachable wallet in your audience.</p>
+            <button
+              type="button"
+              onClick={toggleEveryone}
+              className={cn(
+                "flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/40",
+                allSelected && "bg-primary/[0.04]"
               )}
-              <p>
-                Leave all filters empty on the other tabs to send to everyone.
-              </p>
-            </div>
+            >
+              <span
+                className={cn(
+                  "flex size-5 shrink-0 items-center justify-center rounded border",
+                  allSelected
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border"
+                )}
+                aria-hidden="true"
+              >
+                {allSelected ? <CheckIcon className="size-3.5" /> : null}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-foreground">
+                  {everyoneReachable !== null
+                    ? `Everyone: all ${everyoneReachable.toLocaleString()} reachable wallets`
+                    : "Everyone in your audience"}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  Sends to every reachable wallet, minus the exclusions below.
+                </span>
+              </span>
+            </button>
           )}
 
           <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
             <span>
-              {selectedCount} selected
+              {allSelected ? "Everyone selected" : `${selectedCount} selected`}
               {isSyncing ? " · updating estimate…" : ""}
             </span>
             {selectedCount > 0 ? (

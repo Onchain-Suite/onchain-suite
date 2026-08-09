@@ -1151,6 +1151,34 @@ export function CreateCampaignPage() {
     staleTime: 0,
   });
 
+  // Audience Lists (saved /audience/segments), distinct from the intelligence
+  // segments above. Powers the campaign audience "Lists" tab. The system
+  // suppression segment is excluded (it lives in the Suppressed tab only).
+  const audienceListsQuery = useQuery({
+    queryKey: ["audience", "lists", "campaign-form", organizationId],
+    enabled: Boolean(organizationId),
+    queryFn: async () => {
+      const rows = await audienceService.listSegments({ limit: 100 });
+      return rows
+        .filter((s) => {
+          const criteria = isJsonObject(s.criteria) ? s.criteria : null;
+          if (criteria && typeof criteria.system === "string") {
+            return criteria.system.toLowerCase() !== "suppressed";
+          }
+          return s.name.trim().toLowerCase() !== "suppressed emails";
+        })
+        .map((s): List => ({
+          id: s.id,
+          name: s.name,
+          count: typeof s.count === "number" ? s.count : 0,
+          starred: Boolean(s.starred),
+        }));
+    },
+    retry: false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
+
   const verifiedSenderIdentities = useMemo(
     () =>
       (senderIdentitiesQuery.data ?? []).filter(
@@ -1979,6 +2007,7 @@ export function CreateCampaignPage() {
                           audienceHydrationOk
                         }
                         tags={audienceTagsQuery.data ?? []}
+                        lists={audienceListsQuery.data ?? []}
                         segments={audienceSegmentsQuery.data ?? []}
                         segmentsLoading={audienceSegmentsQuery.isLoading}
                         segmentsError={

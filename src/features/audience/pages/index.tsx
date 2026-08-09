@@ -176,6 +176,12 @@ export function AudiencePages() {
   const [activeTab, setActiveTab] = useState<
     "contacts" | "lists" | "tags" | "suppressed"
   >("contacts");
+  // Deep-link support: `/audience?tab=suppressed` opens that tab (read after
+  // mount to avoid a hydration mismatch / Suspense requirement).
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "lists" || t === "tags" || t === "suppressed") setActiveTab(t);
+  }, []);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 

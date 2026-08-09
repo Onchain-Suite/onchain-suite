@@ -63,7 +63,7 @@ const toAutomation = (input: unknown): Automation | null => {
   const triggerType =
     asString(triggerObj?.type) || asString(a.triggerType) || "onchain";
   const triggerEvent =
-    asString(triggerObj?.event) || asString(a.triggerEvent) || "—";
+    asString(triggerObj?.event) || asString(a.triggerEvent) || "-";
   const triggerContract =
     asString(triggerObj?.contract) || asString(a.triggerContract) || undefined;
   const entries = asNumber(a.entries ?? a.entryCount);
@@ -73,8 +73,8 @@ const toAutomation = (input: unknown): Automation | null => {
     (entries > 0 ? Math.round((conversions / entries) * 1000) / 10 : 0);
   const revenue = asNumber(a.revenue ?? a.revenueUsd ?? a.revenue_usd);
   const lastTriggered =
-    asString(a.lastTriggered ?? a.last_triggered ?? a.updatedAt) || "—";
-  const createdAt = asString(a.createdAt ?? a.created_at) || "—";
+    asString(a.lastTriggered ?? a.last_triggered ?? a.updatedAt) || "-";
+  const createdAt = asString(a.createdAt ?? a.created_at) || "-";
 
   return {
     id,
@@ -518,7 +518,7 @@ export const AutomationList = () => {
                   conversions: 0,
                   conversionRate: 0,
                   revenue: 0,
-                  lastTriggered: "—",
+                  lastTriggered: "-",
                   createdAt: draft.lastEdited,
                 },
               })

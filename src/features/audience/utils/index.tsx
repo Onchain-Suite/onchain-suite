@@ -5,7 +5,7 @@ import {
 } from "@heroicons/react/24/outline";
 import type { ReactElement } from "react";
 
-// Date formatting is app-wide, not audience-specific — it lives in
+// Date formatting is app-wide, not audience-specific - it lives in
 // @/lib/date. Imported for local use below and re-exported so existing
 // audience imports keep working.
 import { formatDateTime } from "@/lib/date";
@@ -122,7 +122,7 @@ export function normalizeTags(input: unknown): NormalizedTag[] {
 
 /**
  * Wallet-only contacts are stored with a synthetic placeholder email
- * (`…@wallet.onchainsuite.local`). Treat those as "no email channel" —
+ * (`…@wallet.onchainsuite.local`). Treat those as "no email channel" -
  * wallets with zero channels are valid and must not be rendered as
  * email-reachable.
  */
@@ -316,6 +316,19 @@ export function hashHue(input: string): number {
   }
   const next = Math.abs(hash) % 360;
   return Number.isFinite(next) ? next : 210;
+}
+
+/**
+ * Deterministic pseudo lifetime (ETH) derived from the wallet - a stub until the
+ * API exposes on-chain balances (`onchain.lifetimeEth` is always null server-
+ * side). Stable per wallet so it doesn't flicker between renders.
+ */
+export function pseudoEth(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    h = (h * 31 + seed.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h % 3400) / 100; // 0 - 34 ETH
 }
 
 const readString = (obj: Record<string, unknown> | null, key: string) => {

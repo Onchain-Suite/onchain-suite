@@ -575,3 +575,188 @@
     width: 100% !important;
   }
 }
+
+/* ============================================================================
+   BLOG PROSE
+   Typography for CMS-authored post bodies (Payload Lexical -> JSX).
+
+   Built only from tokens already declared at the top of this file (--ink,
+   --muted, --acc, --line, --surface, --r*, --font-sans, --font-mono) and sized
+   to match the existing legal-page / security-page scale, so a post reads as
+   part of the same site. No Tailwind typography plugin is involved -- its own
+   scale would fight .ocs2's.
+   ========================================================================== */
+.ocs2 .blog-prose {
+  color: var(--ink-2);
+  font-family: var(--font-sans);
+  font-size: 16.5px;
+  line-height: 1.75;
+}
+
+.ocs2 .blog-prose > * + * {
+  margin-top: 1.15em;
+}
+
+.ocs2 .blog-prose h2,
+.ocs2 .blog-prose h3,
+.ocs2 .blog-prose h4 {
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  /* Generous space above, tight below: binds a heading to the text it owns. */
+  margin-top: 2em;
+  margin-bottom: 0.6em;
+  scroll-margin-top: 7rem;
+}
+
+.ocs2 .blog-prose h2 {
+  font-size: 1.45em;
+}
+.ocs2 .blog-prose h3 {
+  font-size: 1.2em;
+}
+.ocs2 .blog-prose h4 {
+  font-size: 1.05em;
+}
+
+.ocs2 .blog-prose a {
+  color: var(--acc);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.ocs2 .blog-prose a:hover {
+  color: var(--acc-h);
+}
+
+.ocs2 .blog-prose strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.ocs2 .blog-prose ul,
+.ocs2 .blog-prose ol {
+  padding-left: 1.35em;
+}
+
+.ocs2 .blog-prose ul {
+  list-style: disc;
+}
+.ocs2 .blog-prose ol {
+  list-style: decimal;
+}
+
+.ocs2 .blog-prose li + li {
+  margin-top: 0.4em;
+}
+
+.ocs2 .blog-prose li::marker {
+  color: var(--muted-2);
+}
+
+/* Lexical emits nested checklists as role=checkbox lists; keep them unmarked. */
+.ocs2 .blog-prose ul[class*="checklist"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.ocs2 .blog-prose blockquote {
+  border-left: 2px solid var(--acc);
+  padding-left: 1.1em;
+  color: var(--muted);
+  font-style: normal;
+}
+
+.ocs2 .blog-prose hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin-top: 2.4em;
+  margin-bottom: 2.4em;
+}
+
+.ocs2 .blog-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--acc-soft);
+  color: var(--ink);
+  border-radius: var(--r-sm);
+  padding: 0.15em 0.4em;
+}
+
+/* ----- code block ----- */
+.ocs2 .blog-code {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.6;
+  background: var(--ink);
+  color: #f4f4f2;
+  border-radius: var(--r);
+  padding: 16px 18px;
+  /* Long lines scroll inside the block instead of widening the page. */
+  overflow-x: auto;
+}
+
+.ocs2 .blog-code code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ----- callout ----- */
+.ocs2 .blog-callout {
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: var(--r);
+  background: var(--surface);
+  padding: 14px 16px;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+.ocs2 .blog-callout--info {
+  border-left-color: var(--acc);
+}
+.ocs2 .blog-callout--success {
+  border-left-color: var(--ok-deep);
+}
+.ocs2 .blog-callout--warning {
+  border-left-color: #d97706;
+}
+
+/* ----- figures ----- */
+.ocs2 .blog-figure {
+  margin-top: 1.8em;
+  margin-bottom: 1.8em;
+}
+
+.ocs2 .blog-figure__img {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+.ocs2 .blog-figure__caption {
+  margin-top: 0.6em;
+  font-size: 13px;
+  color: var(--muted-2);
+  text-align: center;
+}
+
+/* ----- embeds ----- */
+.ocs2 .blog-embed {
+  /* Reserve 16:9 up front so the iframe cannot shift layout as it loads. */
+  aspect-ratio: 16 / 9;
+  margin-top: 1.8em;
+  margin-bottom: 1.8em;
+}
+
+.ocs2 .blog-embed__frame {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}

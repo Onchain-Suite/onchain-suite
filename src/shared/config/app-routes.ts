@@ -1,5 +1,8 @@
 export const publicRoutes = {
   HOME: "/",
+  BLOG: "/blog",
+  BLOG_POST: (slug: string) => `/blog/${slug}` as const,
+  BLOG_CATEGORY: (slug: string) => `/blog/category/${slug}` as const,
 } as const;
 
 export const AUTH_ROUTES = {

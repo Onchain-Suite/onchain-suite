@@ -2,5 +2,5 @@
   SECRETS_SCAN_OMIT_KEYS = "NODE_ENV"
 
 [build]
-  command = "bun run build"
+  command = "bun run build:deploy"
   publish = ".next"

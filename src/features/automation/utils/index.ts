@@ -49,8 +49,8 @@ export const getAutomationData = (id: string) => {
     conversions: 0,
     conversionRate: 0,
     revenue: 0,
-    createdAt: isNew ? "Just now" : "—",
-    lastTriggered: "—",
+    createdAt: isNew ? "Just now" : "-",
+    lastTriggered: "-",
   };
 };
 

@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 interface ApplyTagsPopoverProps {
   /** Tag names already known to the org (for quick selection). */
   availableTags: string[];
-  /** Tag names already present on the target(s) — shown as checked. */
+  /** Tag names already present on the target(s) - shown as checked. */
   activeTags?: string[];
   /**
    * Apply the chosen tags. Parent owns the mutation + cache invalidation so it

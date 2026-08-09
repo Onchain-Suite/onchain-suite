@@ -68,6 +68,14 @@ const eslintConfig = [
       // Design-system reference bundle (standalone .jsx mockups + assets, not
       // app source). Outside tsconfig's project, so it fails the same way.
       "Onchain Suite Design System v2/**",
+      // PayloadCMS-owned files. These are generated or copied verbatim from
+      // Payload's template and get rewritten by `generate:types` /
+      // `generate:importmap`, so they satisfy neither our KEBAB_CASE filename
+      // rule, simple-import-sort's grouping, nor prettier. Linting them would
+      // fail the pre-push hook on every regeneration.
+      "src/app/(payload)/**",
+      "src/payload-types.ts",
+      "src/migrations/**",
     ],
   },
 

@@ -460,6 +460,13 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
           >
             Pricing
           </Link>
+          <Link
+            href="/blog"
+            onMouseEnter={() => setOpenMenu(null)}
+            className="rounded-full px-3 py-1.5 text-[13.5px] font-medium t-muted transition-colors hover:bg-[color:var(--acc-soft)] hover:text-[color:var(--acc)]"
+          >
+            Blog
+          </Link>
           <a
             href={DOCS_URL}
             target="_blank"
@@ -537,7 +544,7 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
               ))}
             </div>
             <div
-              className="mt-4 grid grid-cols-2 gap-2 border-t pt-4"
+              className="mt-4 grid grid-cols-3 gap-2 border-t pt-4"
               style={{ borderColor: "var(--line)" }}
             >
               <Link
@@ -546,6 +553,13 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
                 className="btn btn-ghost w-full"
               >
                 Pricing
+              </Link>
+              <Link
+                href="/blog"
+                onClick={() => setMobileOpen(false)}
+                className="btn btn-ghost w-full"
+              >
+                Blog
               </Link>
               <a
                 href={DOCS_URL}
@@ -687,7 +701,7 @@ const FOOTER: { h: string; links: [string, string][] }[] = [
     h: "Company",
     links: [
       ["About", DOCS_URL],
-      ["Blog", DOCS_URL],
+      ["Blog", "/blog"],
       ["Careers", DOCS_URL],
     ],
   },

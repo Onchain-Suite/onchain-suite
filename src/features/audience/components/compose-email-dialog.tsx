@@ -199,7 +199,7 @@ export function ComposeEmailDialog({
               className="resize-y"
             />
             <p className="text-xs text-muted-foreground">
-              Sent as-is to every recipient — merge tags are not resolved here.
+              Sent as-is to every recipient - merge tags are not resolved here.
             </p>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { withPayload } from "@payloadcms/next/withPayload";
 import type { NextConfig } from "next";
 
 const pickNonEmpty = (...values: Array<string | undefined | null>) => {
@@ -52,4 +53,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// withPayload wires up the aliases and server-external packages the CMS needs.
+// The existing rewrites are unaffected: the /api/v1/:path* rule is a `fallback`
+// (it only fires when nothing else matched) and Payload is mounted at /cms-api.
+export default withPayload(nextConfig);

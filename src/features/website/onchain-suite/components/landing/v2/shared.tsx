@@ -48,8 +48,8 @@ export function Logo({
       width={Math.round(height * 5.4)}
       height={height}
       priority
-      className={className ?? "w-auto"}
-      style={className ? undefined : { height, width: "auto" }}
+      className={className ? `${className} w-auto` : "w-auto"}
+      style={className ? { width: "auto" } : { height, width: "auto" }}
     />
   );
 }

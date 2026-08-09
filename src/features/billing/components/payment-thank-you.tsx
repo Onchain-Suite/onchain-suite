@@ -65,6 +65,11 @@ export function PaymentThankYou() {
   );
 
   const planName = pending?.plan ?? "";
+  const providerLabel =
+    pending?.paymentMethod === "card" ||
+    pending?.mode?.toLowerCase().includes("stripe") === true
+      ? "Stripe"
+      : "Blockradar";
 
   const statusQuery = useQuery({
     queryKey: ["billing", "checkout-status", reference],
@@ -116,7 +121,7 @@ export function PaymentThankYou() {
             ? `Your ${planName || "new"} plan is active and every feature is unlocked. Welcome aboard.`
             : state === "failed"
               ? "The checkout was cancelled or didn't go through. No worries — you can restart the upgrade anytime from Settings → Billing."
-              : "We're confirming your payment on-chain. Your plan activates automatically — this usually takes a couple of minutes."}
+              : `We're confirming your payment with ${providerLabel}. Your plan activates automatically — this usually takes a couple of minutes.`}
         </p>
 
         <div className="mt-6 rounded-2xl border border-border bg-card px-5 py-4 text-left">

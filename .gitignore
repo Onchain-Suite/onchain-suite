@@ -55,6 +55,7 @@ CLAUDE.md
 
 # Claude Code agent scratch space (local settings, git worktrees)
 .claude/
+.worktrees/
 
 # Design-system reference bundle (local only, never committed)
 Onchain Suite Design System v2/

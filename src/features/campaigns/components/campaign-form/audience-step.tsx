@@ -1,26 +1,21 @@
 "use client";
 
 import {
-  ArrowTrendingUpIcon,
-  InformationCircleIcon,
-  UserGroupIcon,
+  ChevronDownIcon,
+  DevicePhoneMobileIcon,
+  EnvelopeIcon,
+  ExclamationTriangleIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 
-import {
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+
+import { cn } from "@/lib/utils";
 
 import { type CampaignAudienceEstimate } from "../../campaigns.service";
 import {
@@ -35,7 +30,7 @@ import {
 } from "../../lib/audience-sync";
 import type { List, Segment } from "../../types";
 import type { CampaignFormData } from "../../validations";
-import { AudienceSelector, type ContactOption } from "./audience-selector";
+import { type ContactOption } from "./audience-selector";
 import {
   type AudienceProfile,
   audienceService,
@@ -58,6 +53,9 @@ interface AudienceStepProps {
   segments?: Segment[];
   segmentsLoading?: boolean;
   segmentsError?: string | null;
+  /** Lifts the live recipient estimate up so the wizard summary rail can show
+   * it on every step. */
+  onEstimateChange?: (value: number | null) => void;
 }
 
 const getEstimatedRecipientsValue = (estimate: CampaignAudienceEstimate) => {
@@ -75,6 +73,8 @@ const getEstimatedRecipientsValue = (estimate: CampaignAudienceEstimate) => {
   return null;
 };
 
+type SendTab = "segments" | "lists" | "contacts" | "everyone";
+
 export function AudienceStep({
   form,
   campaignId,
@@ -84,12 +84,12 @@ export function AudienceStep({
   segments = [],
   segmentsLoading = false,
   segmentsError,
+  onEstimateChange,
 }: AudienceStepProps) {
-  const UTM_HELP_URL =
-    "https://support.google.com/analytics/answer/1033863?hl=en";
-  // Segments live as a tab on /intelligence, not their own route.
   const segmentsHref = PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS;
   const accountSettingsHref = `${PRIVATE_ROUTES.SETTINGS}?tab=account`;
+  const channel = form.watch("channel");
+  const isPush = channel === "in-app-push";
   const selectedAudiences = form.watch("selectedAudiences");
   const smartSending = form.watch("smartSending");
   const windowOverrideDraft = form.watch("smartSendingWindowHours");
@@ -104,9 +104,11 @@ export function AudienceStep({
   );
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [sendTab, setSendTab] = useState<SendTab>("segments");
+  const [utmOpen, setUtmOpen] = useState(false);
   const syncSequenceRef = useRef(0);
 
-  // Individual contacts (with a real email) selectable directly — so a
+  // Individual contacts (with a real email) selectable directly - so a
   // campaign can be sent to specific people even with no tags/segments ready.
   const contactsQuery = useQuery({
     queryKey: ["audience", "profiles", "campaign-contacts"],
@@ -168,6 +170,22 @@ export function AudienceStep({
   });
   const smartSendingWindow = smartSendingQuery.data?.windowHours ?? null;
 
+  // Live audience totals so the "Everyone" option shows a real reachable count
+  // rather than a vague statement.
+  const overviewQuery = useQuery({
+    queryKey: ["audience", "overview"],
+    queryFn: () => audienceService.getOverview(),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  const overview = overviewQuery.data;
+  const everyoneReachable = ((): number | null => {
+    const pick = (v: unknown) =>
+      typeof v === "number" && Number.isFinite(v) ? v : null;
+    return pick(overview?.emailReachable) ?? pick(overview?.total);
+  })();
+
   // Contacts double as count-1 "lists" for the local recipient estimate and
   // for resolving selected ids into profileIds at sync time.
   const contactsAsLists = useMemo<List[]>(
@@ -185,10 +203,6 @@ export function AudienceStep({
     [lists, contactsAsLists]
   );
 
-  const selectedSegmentIds = useMemo(
-    () => new Set(segments.map((segment) => segment.id)),
-    [segments]
-  );
   const localEstimatedRecipients = useMemo(
     () =>
       getEstimatedRecipientsFromSelection(
@@ -197,16 +211,6 @@ export function AudienceStep({
         segments
       ),
     [profileOptions, tags, segments, selectedAudiences]
-  );
-  const unresolvedSelectionCount = useMemo(
-    () =>
-      selectedAudiences.filter(
-        (selectedId) =>
-          !profileOptions.some((p) => p.id === selectedId) &&
-          !tags.some((tag) => tag.id === selectedId) &&
-          !selectedSegmentIds.has(selectedId)
-      ).length,
-    [profileOptions, tags, selectedAudiences, selectedSegmentIds]
   );
 
   // Assemble the UTM object sent to the backend (only when tracking is on and
@@ -296,18 +300,21 @@ export function AudienceStep({
 
     const buildPayloads = async () => {
       const inputs = syncInputsRef.current;
-      const { segmentIds, profileIds, tagNames } = partitionAudienceSelection(
-        inputs.selectedAudiences,
-        inputs.segments
-      );
-      // Tag selections expand to the tagged contacts' profile ids — the
-      // backend audience contract only knows profiles + segments.
+      const { all, segmentIds, profileIds, tagNames } =
+        partitionAudienceSelection(inputs.selectedAudiences, inputs.segments);
+      // Tag selections expand to the tagged contacts' profile ids - the
+      // backend audience contract only knows profiles + segments. ("All
+      // contacts" short-circuits to empty tags, so this is a no-op.)
       const tagProfileIds = await resolveTagsToProfileIds(tagNames);
       const mergedProfileIds = Array.from(
         new Set([...profileIds, ...tagProfileIds])
       );
       return {
-        audience: { segmentIds, profileIds: mergedProfileIds },
+        audience: {
+          segmentIds,
+          profileIds: mergedProfileIds,
+          ...(all ? { all: true } : {}),
+        },
         tracking: {
           smartSending: Boolean(smartSending),
           trackingParameters: Boolean(trackingParameters),
@@ -341,7 +348,7 @@ export function AudienceStep({
       } catch (error) {
         if (syncSequenceRef.current !== currentSequence) return;
         if (isRateLimitError(error) && attempt === 0) {
-          // The budget resets every 10s — retry once after the window.
+          // The budget resets every 10s - retry once after the window.
           retryTimeout = window.setTimeout(() => {
             run(1).catch(() => undefined);
           }, 11_000);
@@ -379,308 +386,584 @@ export function AudienceStep({
   const displayedEstimatedRecipients =
     estimatedRecipients ?? localEstimatedRecipients;
 
+  useEffect(() => {
+    onEstimateChange?.(displayedEstimatedRecipients);
+  }, [displayedEstimatedRecipients, onEstimateChange]);
+
+  const setChannel = (next: "email" | "in-app-push") =>
+    form.setValue("channel", next, { shouldDirty: true });
+
+  const toggleSelection = (id: string) => {
+    const next = selectedAudiences.includes(id)
+      ? selectedAudiences.filter((x) => x !== id)
+      : [...selectedAudiences, id];
+    form.setValue("selectedAudiences", next, { shouldDirty: true });
+  };
+  const clearSelection = () =>
+    form.setValue("selectedAudiences", [], { shouldDirty: true });
+
+  const isSelected = (id: string) => selectedAudiences.includes(id);
+  const selectedCount = selectedAudiences.length;
+
+  // Describe the chosen audience so "Estimated recipients" reads back what was
+  // picked (or "Everyone" when nothing is selected).
+  const chosenSummary = useMemo(() => {
+    if (selectedCount === 0) {
+      return everyoneReachable !== null
+        ? `Everyone: all ${everyoneReachable.toLocaleString()} reachable wallets`
+        : "Everyone in your audience";
+    }
+    const segmentsChosen = selectedAudiences.filter((id) =>
+      segments.some((s) => s.id === id)
+    ).length;
+    const listsChosen = selectedAudiences.filter((id) =>
+      lists.some((l) => l.id === id)
+    ).length;
+    const contactsChosen = selectedAudiences.filter((id) =>
+      contacts.some((c) => c.id === id)
+    ).length;
+    const parts: string[] = [];
+    if (segmentsChosen)
+      parts.push(`${segmentsChosen} segment${segmentsChosen === 1 ? "" : "s"}`);
+    if (listsChosen)
+      parts.push(`${listsChosen} list${listsChosen === 1 ? "" : "s"}`);
+    if (contactsChosen)
+      parts.push(`${contactsChosen} contact${contactsChosen === 1 ? "" : "s"}`);
+    return parts.length > 0
+      ? `Sending to ${parts.join(", ")}`
+      : `${selectedCount} selected`;
+  }, [
+    selectedCount,
+    selectedAudiences,
+    segments,
+    lists,
+    contacts,
+    everyoneReachable,
+  ]);
+
+  const SEND_TABS: { key: SendTab; label: string }[] = [
+    { key: "segments", label: "Segments" },
+    { key: "lists", label: "Lists" },
+    { key: "contacts", label: "Contacts" },
+    { key: "everyone", label: "Everyone" },
+  ];
+
+  const exclusions = [
+    { label: "Suppressed & unsubscribed", meta: "always", primary: true },
+    {
+      label: "Messaged recently",
+      meta:
+        smartSending && smartSendingWindow !== null
+          ? `${smartSendingWindow}h`
+          : "smart sending",
+      primary: false,
+    },
+    { label: "Internal / team wallets", meta: "excluded", primary: false },
+  ];
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 p-4 sm:p-6 md:p-8 lg:p-10">
-      <div className="flex items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary ring-1 ring-primary/20">
-          <UserGroupIcon className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div className="space-y-1">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground text-balance">
-            Audience & Tracking
-          </h2>
-          <p className="text-base text-muted-foreground text-pretty">
-            Define who will receive your campaign and tracking settings
-          </p>
-        </div>
+    <div className="space-y-6 p-4 sm:p-6">
+      <div>
+        <h2 className="text-xl font-semibold text-foreground">
+          Who gets this?
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Pick the campaign type, then choose segments, lists, contacts, or
+          everyone.
+        </p>
       </div>
 
-      {/* Audience Section */}
-      <div className="space-y-6 p-4 sm:p-6 bg-muted/30 rounded-2xl border border-border">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <UserGroupIcon
-              aria-hidden="true"
-              className="h-5 w-5 text-foreground"
-            />
-            <h3 className="text-xl font-semibold text-foreground">Audience</h3>
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <div
-              aria-busy={isSyncing}
-              title={isSyncing ? "Updating estimate…" : undefined}
-              className={`flex items-center justify-center w-8 h-8 rounded-full border-2 border-border bg-background transition-opacity ${
-                isSyncing ? "opacity-50" : "opacity-100"
-              }`}
-            >
-              <span className="text-sm font-semibold tabular-nums">
-                {displayedEstimatedRecipients}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium">Estimated recipients</span>
-              <InformationCircleIcon aria-hidden="true" className="h-4 w-4" />
-            </div>
-          </div>
-        </div>
-
-        <FormField
-          control={form.control}
-          name="selectedAudiences"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-base font-medium">Send to</FormLabel>
-              <FormControl>
-                <AudienceSelector
-                  value={field.value}
-                  onChange={field.onChange}
-                  lists={lists}
-                  tags={tags}
-                  segments={segments}
-                  contacts={contacts}
-                  isSegmentsLoading={segmentsLoading}
-                  isContactsLoading={contactsQuery.isLoading}
-                  unresolvedSelectionCount={unresolvedSelectionCount}
-                />
-              </FormControl>
-              <FormDescription>
-                Pick individual contacts by email, or send to a tag or segment —
-                named groups of contacts created in{" "}
-                <Link
-                  href={segmentsHref}
-                  className="text-primary hover:underline"
-                >
-                  Intelligence → Segments
-                </Link>
-                . No tags ready? Just select the emails directly.
-              </FormDescription>
-              {segmentsError ? (
-                <p className="text-sm text-amber-400">
-                  Failed to load saved segments: {segmentsError}
-                </p>
-              ) : null}
-              {syncError ? (
-                <p className="text-sm text-amber-400">
-                  Failed to sync audience settings: {syncError}
-                </p>
-              ) : null}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
-
-      {/* Don't Send To Section */}
-      <div className="space-y-4 p-4 sm:p-6 bg-muted/30 rounded-2xl border border-border">
-        <Label className="text-base font-medium text-foreground">
-          Don&apos;t send to
-        </Label>
-        <FormField
-          control={form.control}
-          name="smartSending"
-          render={({ field }) => (
-            <FormItem className="flex items-start justify-between gap-4">
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      className="data-[state=checked]:bg-primary"
-                    />
-                  </FormControl>
-                  <FormLabel className="text-sm font-medium cursor-pointer">
-                    Run on Smart Sending
-                  </FormLabel>
-                </div>
-                <FormDescription>
-                  This campaign won&apos;t be sent to profiles who received a
-                  message from you in the last{" "}
-                  {smartSendingWindow !== null ? (
-                    <span className="font-medium text-foreground">
-                      {smartSendingWindow} hour
-                      {smartSendingWindow === 1 ? "" : "s"}
-                    </span>
-                  ) : (
-                    "suppression window"
-                  )}
-                  . Anyone excluded is already reflected in the estimated
-                  recipient count. Change the window in{" "}
-                  <Link
-                    href={accountSettingsHref}
-                    className="text-primary hover:underline"
+      {/* Campaign type */}
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-foreground">Campaign type</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {[
+            {
+              key: "email" as const,
+              icon: EnvelopeIcon,
+              title: "Direct campaign",
+              sub: "Email · wallet optional",
+            },
+            {
+              key: "in-app-push" as const,
+              icon: DevicePhoneMobileIcon,
+              title: "In-app push",
+              sub: "Wallet · email optional",
+            },
+          ].map((opt) => {
+            const active =
+              opt.key === "email" ? !isPush : channel === "in-app-push";
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setChannel(opt.key)}
+                className={cn(
+                  "flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors",
+                  active
+                    ? "border-primary bg-primary/[0.06]"
+                    : "border-border bg-card hover:border-primary/40"
+                )}
+              >
+                <span className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      "flex size-9 items-center justify-center rounded-lg",
+                      active
+                        ? "bg-primary/15 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    )}
                   >
-                    account settings
+                    <opt.icon className="size-5" aria-hidden="true" />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-semibold text-foreground">
+                      {opt.title}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {opt.sub}
+                    </span>
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    "flex size-4 items-center justify-center rounded-full border",
+                    active ? "border-primary" : "border-border"
+                  )}
+                >
+                  {active ? (
+                    <span className="size-2 rounded-full bg-primary" />
+                  ) : null}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {isPush
+            ? "Delivered in-app to connected wallets - email optional."
+            : "Delivered by email - contacts need an email address."}
+        </p>
+      </div>
+
+      {/* Send to */}
+      <div className="space-y-3">
+        <p className="text-sm font-medium text-foreground">Send to</p>
+        <div className="inline-flex items-center gap-1 rounded-lg bg-muted p-1 text-sm">
+          {SEND_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setSendTab(tab.key)}
+              className={cn(
+                "rounded-md px-3 py-1 transition-colors",
+                sendTab === tab.key
+                  ? "bg-background font-medium text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          {sendTab === "segments" ? (
+            <SelectList
+              rows={segments.map((s) => ({
+                id: s.id,
+                title: s.name,
+                sub:
+                  typeof (s as { description?: string }).description ===
+                  "string"
+                    ? (s as { description?: string }).description
+                    : undefined,
+                count: s.count,
+              }))}
+              loading={segmentsLoading}
+              emptyText={
+                <>
+                  No saved segments.{" "}
+                  <Link href={segmentsHref} className="text-primary underline">
+                    Create one
                   </Link>
                   .
-                </FormDescription>
-
-                {field.value ? (
-                  <FormField
-                    control={form.control}
-                    name="smartSendingWindowHours"
-                    render={({ field: overrideField }) => (
-                      <FormItem className="pt-3">
-                        <FormLabel className="text-xs font-medium text-muted-foreground">
-                          Override for this campaign (optional)
-                        </FormLabel>
-                        <div className="flex items-center gap-2">
-                          <FormControl>
-                            <Input
-                              {...overrideField}
-                              value={overrideField.value ?? ""}
-                              type="number"
-                              min={1}
-                              max={168}
-                              step={1}
-                              placeholder={
-                                smartSendingWindow !== null
-                                  ? String(smartSendingWindow)
-                                  : "10"
-                              }
-                              className="h-9 w-28 rounded-lg bg-card"
-                            />
-                          </FormControl>
-                          <span className="text-xs text-muted-foreground">
-                            hours — leave blank to use the org setting
-                          </span>
-                        </div>
-                        {/* The value is only sent when it's a valid 1–168
-                            integer, so say so rather than silently ignoring
-                            what was typed. */}
-                        {(overrideField.value ?? "").toString().trim().length >
-                          0 && windowOverride === undefined ? (
-                          <p className="text-xs text-amber-500">
-                            Enter a whole number between 1 and 168. Until then
-                            this campaign uses the org window.
-                          </p>
-                        ) : null}
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                ) : null}
-              </div>
-            </FormItem>
+                </>
+              }
+              isSelected={isSelected}
+              onToggle={toggleSelection}
+            />
+          ) : sendTab === "lists" ? (
+            <SelectList
+              rows={lists.map((l) => ({
+                id: l.id,
+                title: l.name,
+                count: l.count,
+              }))}
+              emptyText="No lists yet - save a segment or tag to reuse it."
+              isSelected={isSelected}
+              onToggle={toggleSelection}
+            />
+          ) : sendTab === "contacts" ? (
+            <SelectList
+              rows={contacts.map((c) => ({
+                id: c.id,
+                title: c.name,
+                trailing: c.email,
+              }))}
+              loading={contactsQuery.isLoading}
+              emptyText="No contacts with a verified email yet."
+              isSelected={isSelected}
+              onToggle={toggleSelection}
+            />
+          ) : (
+            <div className="space-y-1 p-6 text-sm text-muted-foreground">
+              {everyoneReachable !== null ? (
+                <p className="text-foreground">
+                  Reaches all{" "}
+                  <span className="font-semibold">
+                    {everyoneReachable.toLocaleString()}
+                  </span>{" "}
+                  reachable wallets in your audience.
+                </p>
+              ) : (
+                <p>Reaches every reachable wallet in your audience.</p>
+              )}
+              <p>
+                Leave all filters empty on the other tabs to send to everyone.
+              </p>
+            </div>
           )}
+
+          <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
+            <span>
+              {selectedCount} selected
+              {isSyncing ? " · updating estimate…" : ""}
+            </span>
+            {selectedCount > 0 ? (
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="font-medium text-primary hover:underline"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm text-muted-foreground">
+              Estimated recipients
+            </span>
+            <span className="text-lg font-semibold tabular-nums text-foreground">
+              {isSyncing
+                ? "…"
+                : displayedEstimatedRecipients !== null
+                  ? displayedEstimatedRecipients.toLocaleString()
+                  : "-"}
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {chosenSummary}
+          </p>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          Overlapping wallets are only messaged once.
+        </p>
+
+        {segmentsError ? (
+          <p className="text-xs text-amber-500">
+            Failed to load saved segments: {segmentsError}
+          </p>
+        ) : null}
+        {syncError ? (
+          <p className="text-xs text-amber-500">
+            Failed to sync audience settings: {syncError}
+          </p>
+        ) : null}
+
+        {!isPush ? (
+          <div className="flex gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-600 dark:text-amber-400">
+            <ExclamationTriangleIcon
+              className="size-5 shrink-0"
+              aria-hidden="true"
+            />
+            <p>
+              Wallets without a verified email are skipped on email campaigns -
+              switch to <span className="font-medium">In-app push</span> to
+              reach more.
+            </p>
+          </div>
+        ) : null}
+
+        {sendTab === "contacts" ? (
+          <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+            <ShieldCheckIcon
+              className="mt-0.5 size-4 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+            Recipients are matched through ZK-verified identity links. You send
+            to them without their wallet identity ever being exposed to you.
+          </p>
+        ) : null}
+      </div>
+
+      {/* Don't send to */}
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-foreground">
+          Don&apos;t send to
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {exclusions.map((ex) => (
+            <span
+              key={ex.label}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm",
+                ex.primary
+                  ? "border-primary/30 bg-primary/[0.06] text-primary"
+                  : "border-border bg-card text-muted-foreground"
+              )}
+            >
+              {ex.primary ? (
+                <ShieldCheckIcon className="size-4" aria-hidden="true" />
+              ) : null}
+              {ex.label}
+              <span className="text-muted-foreground/70">· {ex.meta}</span>
+            </span>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Suppressed and unsubscribed wallets are always excluded, and are
+          already removed from the estimate.
+        </p>
+      </div>
+
+      {/* Smart sending */}
+      <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-card p-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">Smart sending</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Skip anyone who already heard from you in the last{" "}
+            {smartSendingWindow !== null
+              ? `${smartSendingWindow} hours`
+              : "window"}
+            .
+          </p>
+          {smartSending ? (
+            <div className="mt-3 flex items-center gap-2">
+              <Input
+                type="number"
+                min={1}
+                max={168}
+                step={1}
+                value={windowOverrideDraft ?? ""}
+                onChange={(e) =>
+                  form.setValue("smartSendingWindowHours", e.target.value, {
+                    shouldDirty: true,
+                  })
+                }
+                placeholder={
+                  smartSendingWindow !== null
+                    ? String(smartSendingWindow)
+                    : "10"
+                }
+                className="h-9 w-24 rounded-lg"
+              />
+              <span className="text-xs text-muted-foreground">
+                hours override - blank uses the{" "}
+                <Link
+                  href={accountSettingsHref}
+                  className="text-primary hover:underline"
+                >
+                  org setting
+                </Link>
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <Switch
+          checked={smartSending}
+          onCheckedChange={(v) =>
+            form.setValue("smartSending", v, { shouldDirty: true })
+          }
         />
       </div>
 
-      {/* Tracking Section */}
-      <div className="space-y-4 p-4 sm:p-6 bg-muted/30 rounded-2xl border border-border">
-        <div className="flex items-center gap-2">
-          <ArrowTrendingUpIcon
-            aria-hidden="true"
-            className="h-5 w-5 text-foreground"
-          />
-          <h3 className="text-xl font-semibold text-foreground">Tracking</h3>
-        </div>
-
-        <FormField
-          control={form.control}
-          name="trackingParameters"
-          render={({ field }) => (
-            <FormItem className="flex items-start justify-between gap-4">
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      className="data-[state=checked]:bg-primary"
-                    />
-                  </FormControl>
-                  <FormLabel className="text-sm font-medium cursor-pointer">
-                    Include tracking parameters
-                  </FormLabel>
-                </div>
-                <FormDescription>
-                  Tags links in this campaign with UTM parameters so tools like
-                  Google Analytics can attribute the traffic. Defaults to{" "}
-                  <span className="font-mono text-xs text-foreground">
-                    utm_source=onchainsuite
-                  </span>
-                  ,{" "}
-                  <span className="font-mono text-xs text-foreground">
-                    utm_medium=email
-                  </span>{" "}
-                  and the campaign id — fill any field below to override one.
-                  Links that already carry their own UTM values are left
-                  untouched, and unsubscribe links are never tagged.{" "}
-                  <a
-                    href={UTM_HELP_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    Learn more about UTM
-                  </a>
-                  .
-                </FormDescription>
-              </div>
-            </FormItem>
-          )}
-        />
-
-        {trackingParameters ? (
-          <div className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-background p-4 sm:grid-cols-2">
-            {(
-              [
-                {
-                  name: "utmSource",
-                  label: "Source",
-                  placeholder: "onchain_suite",
-                },
-                { name: "utmMedium", label: "Medium", placeholder: "email" },
-                {
-                  name: "utmCampaign",
-                  label: "Campaign",
-                  placeholder: "spring_launch",
-                },
-                { name: "utmTerm", label: "Term", placeholder: "optional" },
-                {
-                  name: "utmContent",
-                  label: "Content",
-                  placeholder: "optional",
-                },
-              ] as const
-            ).map((f) => (
-              <FormField
-                key={f.name}
-                control={form.control}
-                name={f.name}
-                render={({ field }) => (
-                  <FormItem
-                    className={f.name === "utmContent" ? "sm:col-span-2" : ""}
-                  >
-                    <FormLabel className="text-xs font-medium text-muted-foreground">
-                      utm_{f.label.toLowerCase()}
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        value={field.value ?? ""}
-                        placeholder={f.placeholder}
-                        className="h-9 rounded-lg bg-card"
-                      />
-                    </FormControl>
-                  </FormItem>
+      {/* UTM tracking (collapsible) */}
+      <div className="rounded-xl border border-border bg-card">
+        <button
+          type="button"
+          onClick={() => setUtmOpen((o) => !o)}
+          className="flex w-full items-center justify-between px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+            UTM tracking
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium",
+                trackingParameters
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "bg-muted text-muted-foreground"
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  trackingParameters ? "bg-emerald-500" : "bg-muted-foreground"
                 )}
               />
-            ))}
-            <p className="text-[11px] leading-5 text-muted-foreground sm:col-span-2">
-              Example:{" "}
-              <span className="font-mono text-foreground">
-                ?utm_source={(utmSource ?? "").trim() || "onchain_suite"}
-                &amp;utm_medium={(utmMedium ?? "").trim() || "email"}
-                {utmCampaign?.trim()
-                  ? `&utm_campaign=${utmCampaign.trim()}`
-                  : ""}
+              {trackingParameters ? "On · auto" : "Off"}
+            </span>
+          </span>
+          <ChevronDownIcon
+            className={cn(
+              "size-4 text-muted-foreground transition-transform",
+              utmOpen && "rotate-180"
+            )}
+            aria-hidden="true"
+          />
+        </button>
+
+        {utmOpen ? (
+          <div className="space-y-4 border-t border-border p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                Auto-tag links with UTM parameters (source=onchainsuite,
+                medium=email, campaign=id). Fill a field to override.
               </span>
-            </p>
+              <Switch
+                checked={trackingParameters}
+                onCheckedChange={(v) =>
+                  form.setValue("trackingParameters", v, { shouldDirty: true })
+                }
+              />
+            </div>
+            {trackingParameters ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    { name: "utmSource", label: "source", ph: "onchain_suite" },
+                    { name: "utmMedium", label: "medium", ph: "email" },
+                    {
+                      name: "utmCampaign",
+                      label: "campaign",
+                      ph: "spring_launch",
+                    },
+                    { name: "utmTerm", label: "term", ph: "optional" },
+                    { name: "utmContent", label: "content", ph: "optional" },
+                  ] as const
+                ).map((f) => (
+                  <div
+                    key={f.name}
+                    className={f.name === "utmContent" ? "sm:col-span-2" : ""}
+                  >
+                    <label className="text-xs font-medium text-muted-foreground">
+                      utm_{f.label}
+                    </label>
+                    <Input
+                      value={form.watch(f.name) ?? ""}
+                      onChange={(e) =>
+                        form.setValue(f.name, e.target.value, {
+                          shouldDirty: true,
+                        })
+                      }
+                      placeholder={f.ph}
+                      className="mt-1 h-9 rounded-lg"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
     </div>
+  );
+}
+
+function SelectList({
+  rows,
+  loading = false,
+  emptyText,
+  isSelected,
+  onToggle,
+}: {
+  rows: {
+    id: string;
+    title: string;
+    sub?: string;
+    trailing?: string;
+    count?: number;
+  }[];
+  loading?: boolean;
+  emptyText: React.ReactNode;
+  isSelected: (id: string) => boolean;
+  onToggle: (id: string) => void;
+}) {
+  if (loading) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+  }
+  if (rows.length === 0) {
+    return <div className="p-6 text-sm text-muted-foreground">{emptyText}</div>;
+  }
+  return (
+    <ul className="max-h-72 divide-y divide-border overflow-y-auto">
+      {rows.map((row) => {
+        const selected = isSelected(row.id);
+        return (
+          <li key={row.id}>
+            <button
+              type="button"
+              onClick={() => onToggle(row.id)}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+            >
+              <span
+                className={cn(
+                  "flex size-5 shrink-0 items-center justify-center rounded border",
+                  selected
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border"
+                )}
+                aria-hidden="true"
+              >
+                {selected ? (
+                  <svg viewBox="0 0 16 16" className="size-3.5" fill="none">
+                    <path
+                      d="M3.5 8.5l3 3 6-6"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : null}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-foreground">
+                  {row.title}
+                </span>
+                {row.sub ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {row.sub}
+                  </span>
+                ) : null}
+              </span>
+              {row.trailing ? (
+                <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                  {row.trailing}
+                </span>
+              ) : typeof row.count === "number" ? (
+                <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                  {row.count.toLocaleString()}
+                </span>
+              ) : null}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

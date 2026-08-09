@@ -5,7 +5,7 @@ import {
   CheckCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -31,6 +31,12 @@ export function PendingCheckoutBanner() {
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<PendingCheckout | null>(null);
   const [outcome, setOutcome] = useState<"completed" | "failed" | null>(null);
+
+  const providerLabel =
+    pending?.paymentMethod === "card" ||
+    pending?.mode?.toLowerCase().includes("stripe") === true
+      ? "Stripe"
+      : "Blockradar";
 
   useEffect(() => {
     const sync = () => {
@@ -82,14 +88,31 @@ export function PendingCheckoutBanner() {
     if (status === "pending") return;
 
     setOutcome(status);
+    clearPendingCheckout();
     if (status === "completed") {
-      clearPendingCheckout();
       queryClient.invalidateQueries({ queryKey: ["billing"] });
       toast.success(
         `Payment confirmed — your ${pending.plan || "new"} plan is active and all features are unlocked.`
       );
     }
   }, [statusQuery.data, pending, outcome, queryClient]);
+
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      if (!pending?.reference) throw new Error("Missing checkout reference.");
+      return billingService.cancelUpgrade(pending.reference);
+    },
+    onSuccess: () => {
+      toast.success("Payment cancelled.");
+      clearPendingCheckout();
+      setPending(null);
+      setOutcome(null);
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : "Failed to cancel payment."
+      ),
+  });
 
   const dismiss = () => {
     clearPendingCheckout();
@@ -169,15 +192,27 @@ export function PendingCheckoutBanner() {
             Otherwise you can safely dismiss this and try again.
           </span>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="shrink-0 rounded-xl"
-          onClick={dismiss}
-        >
-          Dismiss
-        </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 rounded-xl"
+            disabled={cancelMutation.isPending}
+            onClick={() => cancelMutation.mutate()}
+          >
+            Cancel payment
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 rounded-xl"
+            onClick={dismiss}
+          >
+            Dismiss
+          </Button>
+        </div>
       </div>
     );
   }
@@ -191,7 +226,8 @@ export function PendingCheckoutBanner() {
         />
         <span>
           <span className="font-medium">
-            Waiting for your {pending.plan || "plan"} payment…
+            Waiting for your {pending.plan || "plan"} payment via{" "}
+            {providerLabel}…
           </span>{" "}
           <span className="text-muted-foreground">
             We&apos;ll unlock everything as soon as the payment confirms —
@@ -199,15 +235,27 @@ export function PendingCheckoutBanner() {
           </span>
         </span>
       </div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="shrink-0 rounded-xl text-muted-foreground"
-        onClick={dismiss}
-      >
-        Hide
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 rounded-xl"
+          disabled={cancelMutation.isPending}
+          onClick={() => cancelMutation.mutate()}
+        >
+          Cancel payment
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="shrink-0 rounded-xl text-muted-foreground"
+          onClick={dismiss}
+        >
+          Hide
+        </Button>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import {
   BoltIcon,
   CheckIcon,
   EnvelopeIcon,
+  GlobeAltIcon,
   StarIcon,
   TagIcon,
   UserGroupIcon,
@@ -29,6 +30,10 @@ import {
 import { cn } from "@/lib/utils";
 
 import type { List as CampaignList, Segment } from "../../../campaigns/types";
+import {
+  ALL_CONTACTS_SELECTION_ID,
+  isAllContactsSelected,
+} from "../../lib/audience";
 
 /** A single audience profile pickable by email (`profileIds` at save time). */
 export interface ContactOption {
@@ -98,29 +103,39 @@ export function AudienceSelector({
     filteredTags.length > 0 ||
     filteredSegments.length > 0;
 
+  const allSelected = isAllContactsSelected(value);
+  // Specific selections and the "all contacts" sentinel are mutually
+  // exclusive, so any specific pick starts from a base with the sentinel
+  // stripped out.
+  const specificValue = value.filter((id) => id !== ALL_CONTACTS_SELECTION_ID);
+
+  const toggleSendToAll = () => {
+    onChange(allSelected ? [] : [ALL_CONTACTS_SELECTION_ID]);
+  };
+
   const toggleAudience = (audienceId: string) => {
-    const newValue = value.includes(audienceId)
-      ? value.filter((id) => id !== audienceId)
-      : [...value, audienceId];
+    const newValue = specificValue.includes(audienceId)
+      ? specificValue.filter((id) => id !== audienceId)
+      : [...specificValue, audienceId];
     onChange(newValue);
   };
 
   // Select-all scoped to the currently-matching contacts.
   const filteredContactIds = filteredContacts.map((c) => c.id);
   const selectedContactTotal = contacts.reduce(
-    (n, c) => (value.includes(c.id) ? n + 1 : n),
+    (n, c) => (specificValue.includes(c.id) ? n + 1 : n),
     0
   );
   const allFilteredContactsSelected =
     filteredContactIds.length > 0 &&
-    filteredContactIds.every((id) => value.includes(id));
+    filteredContactIds.every((id) => specificValue.includes(id));
 
-  const toggleAllContacts = () => {
+  const toggleAllFilteredContacts = () => {
     if (allFilteredContactsSelected) {
       const remove = new Set(filteredContactIds);
-      onChange(value.filter((id) => !remove.has(id)));
+      onChange(specificValue.filter((id) => !remove.has(id)));
     } else {
-      onChange(Array.from(new Set([...value, ...filteredContactIds])));
+      onChange(Array.from(new Set([...specificValue, ...filteredContactIds])));
     }
   };
 
@@ -145,9 +160,11 @@ export function AudienceSelector({
               value.length > 0 && "text-foreground"
             )}
           >
-            {value.length > 0
-              ? `${value.length} selected`
-              : "Select contacts or segments"}
+            {allSelected
+              ? "All contacts"
+              : specificValue.length > 0
+                ? `${specificValue.length} selected`
+                : "Select contacts or segments"}
           </span>
           <ArrowsUpDownIcon
             aria-hidden="true"
@@ -167,6 +184,40 @@ export function AudienceSelector({
             className="h-11 border-0 focus:ring-0"
           />
           <CommandList className="max-h-[340px]">
+            {/* Send to everyone — mutually exclusive with any specific pick.
+                Always shown (even mid-search) so it's a one-click target. */}
+            <CommandGroup className="p-1.5">
+              <CommandItem
+                value="all contacts everyone entire audience"
+                onSelect={toggleSendToAll}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-lg px-2.5 py-2 cursor-pointer",
+                  allSelected && "bg-primary/5"
+                )}
+              >
+                <div className={checkboxClass(allSelected)}>
+                  {allSelected && (
+                    <CheckIcon
+                      aria-hidden="true"
+                      className="h-3 w-3 text-primary-foreground"
+                    />
+                  )}
+                </div>
+                <GlobeAltIcon
+                  aria-hidden="true"
+                  className="h-4 w-4 shrink-0 text-primary"
+                />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-sm font-medium text-foreground">
+                    All contacts
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Send to every contact in your audience
+                  </span>
+                </div>
+              </CommandItem>
+            </CommandGroup>
+
             {q.length > 0 && !hasAnyResults ? (
               <div className="px-3 py-6 text-center text-sm text-muted-foreground">
                 No matches found.
@@ -200,7 +251,7 @@ export function AudienceSelector({
                     {filteredContacts.length > 0 ? (
                       <button
                         type="button"
-                        onClick={toggleAllContacts}
+                        onClick={toggleAllFilteredContacts}
                         className="text-xs font-medium text-primary hover:underline"
                       >
                         {allFilteredContactsSelected

@@ -15,20 +15,43 @@ export const tagSelectionId = (tagName: string) =>
   `${TAG_SELECTION_PREFIX}${tagName}`;
 
 /**
+ * Sentinel selection id for "send to every contact in the audience". It rides
+ * the same `selectedAudiences` array as real ids (so it satisfies the wizard's
+ * min-1 audience validation and flows through the existing autosync/Continue
+ * paths), but is translated into the backend's `{ all: true }` audience flag —
+ * never sent as a profile id. It is mutually exclusive with any other
+ * selection (see the selector's exclusivity logic).
+ */
+export const ALL_CONTACTS_SELECTION_ID = "all:contacts";
+
+export const isAllContactsSelected = (selectedIds: string[]) =>
+  selectedIds.includes(ALL_CONTACTS_SELECTION_ID);
+
+/**
  * Split a wizard selection into the buckets `PUT /campaigns/{id}/audience`
- * accepts. Its canonical body is `{ profileIds, segmentIds }` — there is no
- * `listIds`, so anything binned there is silently dropped by the backend and
- * the campaign launches with an empty audience.
+ * accepts. Its canonical body is `{ profileIds, segmentIds }` (plus the
+ * `all` flag) — there is no `listIds`, so anything binned there is silently
+ * dropped by the backend and the campaign launches with an empty audience.
  *
- * Therefore anything that isn't a `tag:` selection or a known segment id is
- * treated as a profile id. The `profiles` argument is now only a hint used to
- * confirm membership; callers that can't supply it (the wizard's Continue
- * save) still produce a correct payload, which they previously did not.
+ * The `all:contacts` sentinel short-circuits everything: it maps to
+ * `{ all: true }` with no profile/segment/tag ids. Otherwise anything that
+ * isn't a `tag:` selection or a known segment id is treated as a profile id.
+ * The `segments` argument is a membership hint; callers that can't supply it
+ * (the wizard's Continue save) still produce a correct payload.
  */
 export const partitionAudienceSelection = (
   selectedIds: string[],
   segments: Segment[]
 ) => {
+  if (isAllContactsSelected(selectedIds)) {
+    return {
+      all: true,
+      segmentIds: [] as string[],
+      profileIds: [] as string[],
+      tagNames: [] as string[],
+    };
+  }
+
   const knownSegmentIds = new Set(segments.map((segment) => segment.id));
 
   return selectedIds.reduce(
@@ -44,6 +67,7 @@ export const partitionAudienceSelection = (
       return result;
     },
     {
+      all: false,
       segmentIds: [] as string[],
       profileIds: [] as string[],
       tagNames: [] as string[],
@@ -70,24 +94,121 @@ const extractProfileIds = (payload: unknown): string[] => {
     .filter((id) => id.length > 0);
 };
 
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const throwIfAborted = (signal?: AbortSignal) => {
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
+};
+
+const isRateLimitedError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const err = error as { cause?: unknown; message?: unknown };
+  const candidate = (err.cause ?? err) as {
+    response?: { status?: unknown };
+    status?: unknown;
+    message?: unknown;
+  };
+  const status =
+    typeof candidate.response?.status === "number"
+      ? candidate.response.status
+      : typeof candidate.status === "number"
+        ? candidate.status
+        : null;
+  if (status === 429) return true;
+  const msg =
+    typeof err.message === "string"
+      ? err.message
+      : typeof candidate.message === "string"
+        ? candidate.message
+        : "";
+  return msg.includes("429") || msg.toLowerCase().includes("rate limit");
+};
+
+const listTagProfileIds = async (
+  tag: string,
+  options?: {
+    signal?: AbortSignal;
+    onProgress?: (value: { tag: string; page: number }) => void;
+  }
+) => {
+  const limit = 200;
+  const ids: string[] = [];
+  let page = 1;
+
+  for (;;) {
+    let payload!: unknown;
+    let attempts = 0;
+    for (;;) {
+      throwIfAborted(options?.signal);
+      try {
+        payload = await audienceService.listProfiles(
+          { tag, page, limit },
+          undefined,
+          { signal: options?.signal }
+        );
+        break;
+      } catch (error) {
+        if (!isRateLimitedError(error) || attempts >= 3) throw error;
+        attempts += 1;
+        await wait(2000 + Math.floor(Math.random() * 3000));
+      }
+    }
+    options?.onProgress?.({ tag, page });
+    const pageIds = extractProfileIds(payload);
+    if (pageIds.length === 0) break;
+    ids.push(...pageIds);
+    if (pageIds.length < limit) break;
+    page += 1;
+  }
+
+  return ids;
+};
+
 /**
  * Expand selected tag names into the tagged contacts' profile ids
  * (GET /audience/profiles?tag=). Failures per tag resolve to an empty set
  * rather than failing the whole save.
  */
 export async function resolveTagsToProfileIds(
-  tagNames: string[]
+  tagNames: string[],
+  options?: {
+    signal?: AbortSignal;
+    onProgress?: (value: {
+      current: number;
+      total: number;
+      tag: string;
+      page: number;
+    }) => void;
+  }
 ): Promise<string[]> {
   if (tagNames.length === 0) return [];
-  const results = await Promise.all(
-    tagNames.map((tag) =>
-      audienceService
-        .listProfiles({ tag, page: 1, limit: 200 })
-        .then(extractProfileIds)
-        .catch(() => [] as string[])
-    )
-  );
-  return Array.from(new Set(results.flat()));
+  const seen = new Set<string>();
+  for (let i = 0; i < tagNames.length; i += 1) {
+    const tag = tagNames[i] ?? "";
+    if (!tag) continue;
+    try {
+      const ids = await listTagProfileIds(tag, {
+        signal: options?.signal,
+        onProgress: ({ page }) => {
+          options?.onProgress?.({
+            current: i + 1,
+            total: tagNames.length,
+            tag,
+            page,
+          });
+        },
+      });
+      for (const id of ids) seen.add(id);
+    } catch (_e) {
+      String(_e);
+    }
+  }
+  return Array.from(seen);
 }
 
 export const getEstimatedRecipientsFromSelection = (

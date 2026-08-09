@@ -30,6 +30,12 @@ export interface CampaignAudienceSelection {
   segmentIds: string[];
   /** Explicit profile/contact ids — backend requires the key to be an array. */
   profileIds?: string[];
+  /**
+   * Target every contact in the org, regardless of list/segment. When true the
+   * backend ignores `profileIds`/`segmentIds` and resolves the full audience.
+   * Sent (and echoed back by GET) only when set.
+   */
+  all?: boolean;
   /** @deprecated Read-only fallback for audiences saved by older builds. */
   listIds?: string[];
 }
@@ -452,6 +458,21 @@ const toAudienceLabels = (obj: Record<string, unknown>): string[] => {
     if (Array.isArray(value)) value.forEach(push);
   };
 
+  // "Send to everyone" campaigns carry no segment/list/tag names, so they'd
+  // otherwise show blank. When the row signals an all-audience target, show a
+  // single clear "All contacts" label instead. (Backend must expose one of
+  // these flags on the campaign list row — see docs/campaigns-data-and-suppression.md.)
+  const rec = isJsonObject(obj.recipients) ? obj.recipients : undefined;
+  const lower = (v: unknown) => (typeof v === "string" ? v.toLowerCase() : "");
+  const isAllAudience =
+    obj.all === true ||
+    obj.allContacts === true ||
+    obj.audienceAll === true ||
+    lower(obj.audienceType) === "all" ||
+    rec?.all === true ||
+    lower(rec?.type) === "all";
+  if (isAllAudience) return ["All contacts"];
+
   pushAll(obj.audience);
   pushAll(obj.tags);
   pushAll(obj.tagNames);
@@ -553,11 +574,18 @@ export const campaignsService = {
   setAudience(id: string, body: CampaignAudienceSelection, orgId?: string) {
     // Canonical body is { profileIds, segmentIds } — both keys must be
     // present as arrays. There is no `listIds` in the contract; sending one
-    // is ignored, which is how contact selections used to vanish.
-    const payload = {
+    // is ignored, which is how contact selections used to vanish. `all: true`
+    // (send to every contact) is sent only when set, alongside the empty id
+    // arrays the contract still requires.
+    const payload: {
+      segmentIds: string[];
+      profileIds: string[];
+      all?: boolean;
+    } = {
       segmentIds: Array.isArray(body.segmentIds) ? body.segmentIds : [],
       profileIds: Array.isArray(body.profileIds) ? body.profileIds : [],
     };
+    if (body.all) payload.all = true;
     return request<{ success?: boolean }>(
       { method: "PUT", url: `/campaigns/${id}/audience`, data: payload },
       orgId

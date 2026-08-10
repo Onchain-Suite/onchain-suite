@@ -212,6 +212,112 @@ function PlanCard({
   );
 }
 
+/** Side-by-side allowance table (docs/pricing.md v4 §1). Columns key off the
+ *  same selection state as the cards, so the picked plan's column highlights.
+ *  PAYG's metered channels read "Metered" (no bundled allowance). */
+const COMPARISON_PLANS: { key: string; label: string }[] = [
+  { key: "payg", label: "PAYG" },
+  { key: "Launch", label: "Launch" },
+  { key: "Growth", label: "Growth" },
+  { key: "Pro", label: "Pro" },
+  { key: "Scale", label: "Scale" },
+];
+
+const COMPARISON_ROWS: { label: string; values: string[] }[] = [
+  {
+    label: "Price / mo",
+    values: ["$0 + usage", "$49", "$349", "$799", "$2,299"],
+  },
+  {
+    label: "Contacts",
+    values: ["1,000 (cap)", "2,500", "25,000", "75,000", "150,000"],
+  },
+  {
+    label: "Emails",
+    values: ["Metered", "50,000", "250,000", "750,000", "1,500,000"],
+  },
+  {
+    label: "In-app push",
+    values: ["Metered", "25,000", "250,000", "1,000,000", "2,000,000"],
+  },
+  {
+    label: "On-chain credits",
+    values: ["Metered", "1,000", "10,000", "25,000", "50,000"],
+  },
+];
+
+function PlanComparison({ selectedPlan }: { selectedPlan: string }) {
+  return (
+    <div className="mt-6">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Compare plans
+      </p>
+      <div className="overflow-x-auto rounded-2xl border border-border">
+        <table className="w-full min-w-[620px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th
+                scope="col"
+                className="sticky left-0 z-10 bg-muted/60 px-4 py-3 text-left font-medium text-muted-foreground"
+              >
+                Plan
+              </th>
+              {COMPARISON_PLANS.map((p) => {
+                const active = selectedPlan === p.key;
+                return (
+                  <th
+                    key={p.key}
+                    scope="col"
+                    className={cn(
+                      "px-4 py-3 text-center font-semibold",
+                      active
+                        ? "bg-primary/5 text-primary"
+                        : "bg-muted/40 text-foreground"
+                    )}
+                  >
+                    {p.label}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARISON_ROWS.map((row) => (
+              <tr
+                key={row.label}
+                className="border-b border-border/60 last:border-0"
+              >
+                <th
+                  scope="row"
+                  className="sticky left-0 z-10 bg-card px-4 py-3 text-left font-medium text-muted-foreground"
+                >
+                  {row.label}
+                </th>
+                {row.values.map((value, ci) => {
+                  const active = selectedPlan === COMPARISON_PLANS[ci].key;
+                  return (
+                    <td
+                      key={COMPARISON_PLANS[ci].key}
+                      className={cn(
+                        "px-4 py-3 text-center tabular-nums",
+                        active
+                          ? "bg-primary/5 font-semibold text-foreground"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {value}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /** PAYG rendered as a full-width entry banner above the paid grid, so the
  *  "start free" default reads as the obvious first step rather than one of five
  *  equally-weighted columns. Still a radio option in the same group. */
@@ -495,6 +601,9 @@ export function PlanPicker({
           </div>
         </div>
       )}
+
+      {/* Full allowance table so buyers can compare the plans side by side. */}
+      <PlanComparison selectedPlan={selectedPlan} />
 
       {/* Baseline reassurance + how overage bills, so the modal fully explains
           the purchase now that the standalone rates table is gone. */}

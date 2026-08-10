@@ -32,7 +32,7 @@ import {
  * New uploads land in a holding folder, not directly in the blog root.
  *
  * The destination folder is a property of the *post*, and a post is not known at
- * upload time — the upload drawer creates the media document on its own, usually
+ * upload time - the upload drawer creates the media document on its own, usually
  * before the post is saved. Assets are filed into `blog/<post-slug>/` when a post
  * referencing them is saved; see src/payload/hooks/organize-post-media.ts.
  */
@@ -57,7 +57,7 @@ type CloudinaryDocumentData = {
  *
  * Only correct for an asset still sitting in the holding folder: once a post
  * claims it the folder changes, and nothing about the filename reveals that. The
- * stored `cloudinaryPublicId` is always authoritative — this exists so a
+ * stored `cloudinaryPublicId` is always authoritative - this exists so a
  * half-written document degrades to a wrong URL rather than a crash.
  */
 function fallbackPublicId(filename: string): string {
@@ -71,7 +71,7 @@ function readString(value: unknown): string | undefined {
 
 /**
  * Prefer the id Cloudinary actually returned (persisted on the document) over
- * one re-derived from the filename — the two diverge as soon as Cloudinary
+ * one re-derived from the filename - the two diverge as soon as Cloudinary
  * normalises or de-duplicates a name.
  */
 function resolvePublicId(data: unknown, filename: string): string {
@@ -151,14 +151,14 @@ const generateURL: GenerateURL = ({ data, filename }) =>
  *
  * With `disablePayloadAccessControl` enabled in payload.config.ts, media `url`
  * values point straight at Cloudinary, so this route is no longer on the hot
- * path — it only answers direct hits on the Payload file URL.
+ * path - it only answers direct hits on the Payload file URL.
  *
  * The public id is looked up from the document rather than derived from the
  * filename. Deriving it only ever worked while every asset sat in one flat
  * folder: assets are now filed per post, and a filename says nothing about which
  * folder claimed it.
  *
- * Redirect rather than proxy — streaming bytes through our own server would add
+ * Redirect rather than proxy - streaming bytes through our own server would add
  * a hop, burn serverless execution time and defeat Cloudinary's CDN edge caching
  * for no benefit. These assets are public by design.
  */

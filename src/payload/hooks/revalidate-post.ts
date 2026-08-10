@@ -27,7 +27,7 @@ function shouldSkip(context: { disableRevalidate?: unknown }): boolean {
  * Revalidation must never be able to fail a write.
  *
  * `revalidateTag`/`revalidatePath` throw "Invariant: static generation store
- * missing" when called outside a Next request or render context — which is
+ * missing" when called outside a Next request or render context - which is
  * exactly what happens when the Local API is driven from a seed script, a data
  * migration, the `payload` CLI or a standalone cron job. Without this guard, an
  * unrelated script creating a post would have its `create()` call throw *after*

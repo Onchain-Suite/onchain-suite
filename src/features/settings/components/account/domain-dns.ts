@@ -39,7 +39,7 @@ export interface DomainDnsData {
   sendReady?: boolean;
   verificationStates: { check: string; state: string }[];
   fixes: string[];
-  /** Saved purpose — transactional → ACS, marketing → SES. */
+  /** Saved purpose - transactional → ACS, marketing → SES. */
   purpose?: DomainPurpose;
 }
 

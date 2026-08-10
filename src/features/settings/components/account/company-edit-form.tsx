@@ -639,7 +639,7 @@ export default function CompanyEditForm() {
                     const v = data?.tokenTicker;
                     if (isNonEmptyString(v)) return v;
                     return (
-                      <span className="text-muted-foreground/50 italic">—</span>
+                      <span className="text-muted-foreground/50 italic">-</span>
                     );
                   })()}
                 </p>
@@ -652,7 +652,7 @@ export default function CompanyEditForm() {
                   {primaryChainsLabel.length > 0 ? (
                     primaryChainsLabel
                   ) : (
-                    <span className="text-muted-foreground/50 italic">—</span>
+                    <span className="text-muted-foreground/50 italic">-</span>
                   )}
                 </p>
               </div>
@@ -665,7 +665,7 @@ export default function CompanyEditForm() {
                     const email = data?.email;
                     if (isNonEmptyString(email)) return email;
                     return (
-                      <span className="text-muted-foreground/50 italic">—</span>
+                      <span className="text-muted-foreground/50 italic">-</span>
                     );
                   })()}
                 </p>
@@ -678,7 +678,7 @@ export default function CompanyEditForm() {
                   {(() => {
                     const taxId = data?.taxId;
                     if (isNonEmptyString(taxId)) return taxId;
-                    return "—";
+                    return "-";
                   })()}
                 </p>
               </div>
@@ -691,7 +691,7 @@ export default function CompanyEditForm() {
                     const address = data?.address;
                     if (isNonEmptyString(address)) return address;
                     return (
-                      <span className="text-muted-foreground/50 italic">—</span>
+                      <span className="text-muted-foreground/50 italic">-</span>
                     );
                   })()}
                 </p>

@@ -126,7 +126,7 @@ export function EmailMessageForm({
           />
           <div className="text-sm leading-relaxed text-amber-700 dark:text-amber-400">
             <p className="font-medium">
-              No verified sender identity — this campaign will send from the
+              No verified sender identity - this campaign will send from the
               platform address (DoNotReply@…azurecomm.net).
             </p>
             <p className="mt-1">

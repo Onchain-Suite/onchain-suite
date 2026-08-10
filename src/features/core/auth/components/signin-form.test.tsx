@@ -93,7 +93,7 @@ describe("SignInForm", () => {
       screen.getByText("Enter the 6-digit code from your authenticator app")
     ).toBeTruthy();
     expect(screen.getByPlaceholderText("000000")).toBeTruthy();
-    // No session yet — no redirect.
+    // No session yet - no redirect.
     expect(push).not.toHaveBeenCalled();
   });
 

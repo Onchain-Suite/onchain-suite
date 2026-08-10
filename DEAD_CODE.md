@@ -3,20 +3,20 @@
 > Generated 2026-07-22. Scan method: `bunx knip` across 567 `.ts`/`.tsx` files,
 > then **every hit independently grep-verified** for zero live importers across the
 > whole repo (including root configs and dynamic usage). Knip's raw output had
-> false positives (e.g. `src/components/ui/button.tsx` is imported 55×) — those
+> false positives (e.g. `src/components/ui/button.tsx` is imported 55×) - those
 > were filtered out. Everything below is verified dead. **Nothing has been removed.**
 
 ## How to read this
-- **Confidence: High** — zero importers anywhere in the repo, verified by grep.
-- **Transitively dead** — only referenced by other dead code in this report; dies with it.
-- **Verify first** — likely dead but has an edge case worth a manual check before deleting.
+- **Confidence: High** - zero importers anywhere in the repo, verified by grep.
+- **Transitively dead** - only referenced by other dead code in this report; dies with it.
+- **Verify first** - likely dead but has an edge case worth a manual check before deleting.
 
 ---
 
-## 1. Abandoned onboarding feature (~45 files) — highest value
+## 1. Abandoned onboarding feature (~45 files) - highest value
 
 The live route `src/app/onboarding/page.tsx` imports `@/features/onboarding-flow/onboarding-flow`.
-The **entire** `src/features/core/onboarding/` tree is unreferenced — a superseded implementation.
+The **entire** `src/features/core/onboarding/` tree is unreferenced - a superseded implementation.
 
 **Location:** `src/features/core/onboarding/` (whole directory)
 
@@ -30,15 +30,15 @@ Includes (non-exhaustive):
 - `page/index.tsx`, `types/index.ts`, `utils/index.ts`, `validation/index.ts`
 
 **Related dead code (same feature area):**
-- `src/features/onboarding-flow/components/onboarding-flow.tsx` — stale duplicate; the *used* one is the dir root, not `components/`
+- `src/features/onboarding-flow/components/onboarding-flow.tsx` - stale duplicate; the *used* one is the dir root, not `components/`
 - `src/features/onboarding-flow/components/contract-suggestions.tsx`
-- `src/lib/safe-execute.ts` — **transitively dead**, only imported by `core/onboarding/actions/mutations.ts`
+- `src/lib/safe-execute.ts` - **transitively dead**, only imported by `core/onboarding/actions/mutations.ts`
 
 ---
 
 ## 2. Entire `data-table` component set (11 files)
 
-**Location:** `src/shared/components/data-table/` (whole directory) — zero importers anywhere.
+**Location:** `src/shared/components/data-table/` (whole directory) - zero importers anywhere.
 
 - `index.ts`
 - `types/index.ts`
@@ -54,7 +54,7 @@ Includes (non-exhaustive):
 
 ---
 
-## 3. Email subtree — all except the live service (9 files)
+## 3. Email subtree - all except the live service (9 files)
 
 **Location:** `src/shared/emails/`
 
@@ -70,13 +70,13 @@ The only **live** file here is `email.service.ts` (used by `src/features/audienc
 - `templates/password-reset-email.tsx`
 - `templates/email-verfication.tsx` _(note: misspelled filename)_
 
-**Transitively dead:** `src/lib/backend.ts` — only imported by the dead `emails/actions/send-email.tsx`.
+**Transitively dead:** `src/lib/backend.ts` - only imported by the dead `emails/actions/send-email.tsx`.
 
 ---
 
 ## 4. Orphaned UI primitives (~19 files)
 
-**Location:** `src/shared/components/ui/` — zero importers.
+**Location:** `src/shared/components/ui/` - zero importers.
 
 - `accordion.tsx`
 - `alert.tsx`
@@ -104,8 +104,8 @@ The only **live** file here is `email.service.ts` (used by `src/features/audienc
 
 ## 5. `lib/` orphans
 
-- `src/lib/arcjet.ts` — not imported anywhere
-- `src/lib/env/index.ts` — **not wired into `next.config.ts`** (env validation never runs)
+- `src/lib/arcjet.ts` - not imported anywhere
+- `src/lib/env/index.ts` - **not wired into `next.config.ts`** (env validation never runs)
 - `src/lib/env/server.ts`
 - `src/lib/server-error.ts`
 
@@ -137,7 +137,7 @@ The only **live** file here is `email.service.ts` (used by `src/features/audienc
 
 ## 7. Unused dependencies (`package.json`)
 
-### Genuinely zero usages — safe to remove
+### Genuinely zero usages - safe to remove
 - `@arcjet/inspect`
 - `@hugeicons/core-free-icons`
 - `@hugeicons/react`
@@ -154,7 +154,7 @@ The only **live** file here is `email.service.ts` (used by `src/features/audienc
 > `reactflow` v11 is actually imported (12 files)**. You're shipping both packages. Either
 > finish the migration to `@xyflow/react` or drop it.
 
-### Transitively dead — only imported by dead files in sections above
+### Transitively dead - only imported by dead files in sections above
 - `@radix-ui/react-accordion` (only `ui/accordion.tsx`)
 - `@radix-ui/react-scroll-area` (only `ui/scroll-area.tsx`)
 - `@radix-ui/react-slider` (only `ui/slider.tsx`)
@@ -177,14 +177,14 @@ Top offenders by unused-export count:
 - `src/shared/components/meta-components/index.ts` (5)
 - `src/features/campaigns/constants/campaign.ts` (5)
 
-These are lower-value / noisier — review individually before trimming.
+These are lower-value / noisier - review individually before trimming.
 
 ---
 
-## Caveats — verify before deleting
+## Caveats - verify before deleting
 
 **devDependencies knip flagged but are likely false positives** (referenced by config
-files knip parses inconsistently — do NOT remove without checking):
+files knip parses inconsistently - do NOT remove without checking):
 - `@commitlint/cli`
 - `eslint-config-next`
 - `tsx`

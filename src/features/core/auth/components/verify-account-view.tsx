@@ -71,7 +71,7 @@ function VerifyAccountContent() {
         setStatus("success");
         toast.success("Email verified successfully!");
 
-        // Invited members carry a redirectTo (their invite accept link) —
+        // Invited members carry a redirectTo (their invite accept link) -
         // send them there; owners continue to onboarding.
         const redirectToRaw = searchParams?.get("redirectTo") ?? "";
         const redirectTo =

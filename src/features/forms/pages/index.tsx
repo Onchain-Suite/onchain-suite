@@ -64,7 +64,7 @@ export function FormsPage() {
     <div className="mx-auto w-full max-w-7xl space-y-6 p-4 md:p-6">
       <PageHeader
         title="Forms"
-        description="Capture emails via embeddable forms — connect to the API to encrypt captures (ZK) and never expose addresses."
+        description="Capture emails via embeddable forms - connect to the API to encrypt captures (ZK) and never expose addresses."
         actions={
           <Button onClick={() => setCreateOpen(true)}>
             <PlusIcon className="mr-1 h-4 w-4" aria-hidden="true" />

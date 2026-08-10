@@ -47,7 +47,7 @@ import {
 const DEFAULT_SQL_QUERY = "";
 
 /**
- * Ceiling for SQL status polling. Every async op must be bounded — if the
+ * Ceiling for SQL status polling. Every async op must be bounded - if the
  * backend never reports `completed`/`failed` within this window we stop
  * polling and render an explicit timeout state in the results area instead of
  * spinning forever.
@@ -103,7 +103,7 @@ const ISO_TIMESTAMP_RE =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
 
 const asDisplayText = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return "—";
+  if (value === null || value === undefined || value === "") return "-";
   if (typeof value === "number") return value.toLocaleString();
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string" && ISO_TIMESTAMP_RE.test(value)) {
@@ -466,18 +466,18 @@ interface MpcFailureReport {
 
 /**
  * Translate known backend failure messages into guidance the user can act
- * on — a bare "503 … not configured" tells them nothing.
+ * on - a bare "503 … not configured" tells them nothing.
  */
 const MCP_FAILURE_GUIDANCE: Array<{ match: RegExp; guidance: string }> = [
   {
     match: /mcp routing is not configured/i,
     guidance:
-      "The on-chain data agent (GoldRush MCP) isn't enabled on this backend environment — an operator needs to configure the GoldRush API key and MCP routing on the server. Until then, Chat and SQL modes still answer questions over your own audience and campaign data.",
+      "The on-chain data agent (GoldRush MCP) isn't enabled on this backend environment - an operator needs to configure the GoldRush API key and MCP routing on the server. Until then, Chat and SQL modes still answer questions over your own audience and campaign data.",
   },
   {
     match: /unknown variant `?developer`?/i,
     guidance:
-      'The backend\'s AI agent sent a message role ("developer") that its configured LLM provider doesn\'t accept. This is a backend configuration bug — the agent needs to use the "system" role (or an LLM endpoint that supports "developer") for this environment\'s model. Nothing on your side; flag it to the backend team.',
+      'The backend\'s AI agent sent a message role ("developer") that its configured LLM provider doesn\'t accept. This is a backend configuration bug - the agent needs to use the "system" role (or an LLM endpoint that supports "developer") for this environment\'s model. Nothing on your side; flag it to the backend team.',
   },
   {
     match: /plan_limit_exceeded|credit/i,
@@ -500,7 +500,7 @@ const guidanceForMcpFailure = (
   );
   if (matched) return matched.guidance;
   if (statusCode === 503) {
-    return "The on-chain agent is temporarily unavailable. Try again shortly — if this persists, the backend service may need attention.";
+    return "The on-chain agent is temporarily unavailable. Try again shortly - if this persists, the backend service may need attention.";
   }
   return undefined;
 };
@@ -661,7 +661,7 @@ const getFallbackReasoningActivity = (
       id: "result-path",
       label: recovering ? "Almost there" : "Writing your answer",
       detail: recovering
-        ? "The connection recovered — finishing your answer now."
+        ? "The connection recovered - finishing your answer now."
         : "Turning the data into a clear answer.",
       tone: recovering ? "warning" : "success",
     },
@@ -677,7 +677,7 @@ const isStructuredResult = (
 
 /**
  * Backend answers occasionally dump the raw tool envelope
- * ("Rendered multichain_transactions result: { ... }") instead of prose —
+ * ("Rendered multichain_transactions result: { ... }") instead of prose -
  * never show those to users.
  */
 const isRawToolDump = (text: string) => {
@@ -730,7 +730,7 @@ const emptyResultMessage = (
   if (normalized.includes("nft")) {
     return "No NFTs were found for this wallet.";
   }
-  return "Nothing was found for this lookup — there's no matching onchain activity.";
+  return "Nothing was found for this lookup - there's no matching onchain activity.";
 };
 
 const normalizeStructuredRows = (
@@ -863,7 +863,7 @@ export function QueryTab({
   const [hasRunQuery, setHasRunQuery] = useState(Boolean(initialQueryId));
   // Bounded status polling: once the poll exceeds SQL_STATUS_POLL_TIMEOUT_MS
   // we stop and show an explicit timeout error (with a retry) in the results
-  // area — a run must never end with nothing visible.
+  // area - a run must never end with nothing visible.
   const [sqlPollTimedOut, setSqlPollTimedOut] = useState(false);
   const sqlPollStartedAtRef = useRef<number | null>(null);
   const [page, setPage] = useState(1);
@@ -874,7 +874,7 @@ export function QueryTab({
     "report" | "segment" | "campaign"
   >("report");
   const [nameDialogValue, setNameDialogValue] = useState("");
-  // Result of a successful "Create segment" — drives the confirmation dialog
+  // Result of a successful "Create segment" - drives the confirmation dialog
   // (profile/contact counts + links) instead of navigating away immediately.
   const [segmentResult, setSegmentResult] = useState<{
     segmentId: string;
@@ -929,7 +929,7 @@ export function QueryTab({
     []
   );
 
-  // What we actually send to validate/run — leading comments stripped so the
+  // What we actually send to validate/run - leading comments stripped so the
   // backend sees a query that starts with SELECT/WITH.
   const executableSql = toExecutableSql(sqlQuery);
   const trimmedAssistantPrompt = assistantPrompt.trim();
@@ -1256,7 +1256,7 @@ export function QueryTab({
                   ? step.description
                   : undefined,
             }))
-            // Steps with no content render as bare "Step N" boxes — drop them.
+            // Steps with no content render as bare "Step N" boxes - drop them.
             .filter(
               (step) => step.title ?? step.toolName ?? step.description ?? false
             )
@@ -1329,13 +1329,13 @@ export function QueryTab({
         setHasRunQuery(false);
       }
 
-      // MCP runs spend GoldRush credits — refresh the meter.
+      // MCP runs spend GoldRush credits - refresh the meter.
       queryClient
         .invalidateQueries({ queryKey: ["intelligence", "credits"] })
         .catch(() => undefined);
     },
     onError: (err) => {
-      // User pressed Stop (or the run was aborted) — exit quietly.
+      // User pressed Stop (or the run was aborted) - exit quietly.
       const msg = err instanceof Error ? err.message.toLowerCase() : "";
       if (
         isAbortError(err) ||
@@ -1566,7 +1566,7 @@ export function QueryTab({
         metadata: { destination: "segment" },
       });
       // Confirmation dialog (profileCount + contactsCreated) instead of an
-      // immediate redirect — the user chooses where to go next.
+      // immediate redirect - the user chooses where to go next.
       setSegmentResult({
         segmentId: res.segmentId,
         profileCount:
@@ -1608,8 +1608,8 @@ export function QueryTab({
   const latestRunData = runMutation.data;
   const status = statusQuery.data?.status ?? latestRunData?.status ?? "";
   // A run is settled only at a terminal status (or once the bounded poll gave
-  // up). Anything else — "running", "queued", a status endpoint that errors
-  // between polls — keeps the loader up instead of a silent blank area.
+  // up). Anything else - "running", "queued", a status endpoint that errors
+  // between polls - keeps the loader up instead of a silent blank area.
   const sqlStatusSettled =
     status === "completed" || status === "failed" || sqlPollTimedOut;
   const isQueryRunning =
@@ -1622,7 +1622,7 @@ export function QueryTab({
     (!mcpMutation.isPending && !!queryId && !sqlStatusSettled);
 
   // Backend message for a rejected run (4xx/5xx, e.g. "Only SELECT queries
-  // are allowed") — rendered as an explicit panel in the results area, not
+  // are allowed") - rendered as an explicit panel in the results area, not
   // just a toast. Scoped to the SQL surface; the chat surface reports MCP
   // failures inline in the thread.
   const sqlRunError =
@@ -1633,7 +1633,7 @@ export function QueryTab({
       : null;
 
   // The backend's `error` field from GET /intelligence/query/{id}/status when
-  // the run reaches `failed` — shown verbatim.
+  // the run reaches `failed` - shown verbatim.
   const statusFailureDetail =
     typeof statusQuery.data?.error === "string" &&
     statusQuery.data.error.trim().length > 0
@@ -1641,7 +1641,7 @@ export function QueryTab({
       : null;
 
   // Inline validation feedback for the SQL editor (invalid SQL or a rejected
-  // validate call) — the toast alone disappears too quickly.
+  // validate call) - the toast alone disappears too quickly.
   const validationIssue = validateMutation.isError
     ? validateMutation.error instanceof Error
       ? validateMutation.error.message
@@ -2020,7 +2020,7 @@ export function QueryTab({
                         <div className="text-sm font-medium text-foreground">
                           {amountColumn
                             ? formatCompactNumber(row[amountColumn])
-                            : "—"}
+                            : "-"}
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
                           {shareColumn
@@ -2129,7 +2129,7 @@ export function QueryTab({
                       </span>
                     </div>
                     <div className="mt-5 text-2xl font-semibold tracking-tight text-foreground">
-                      {amountColumn ? asDisplayText(row[amountColumn]) : "—"}
+                      {amountColumn ? asDisplayText(row[amountColumn]) : "-"}
                     </div>
                     <div className="mt-2 text-sm text-primary">
                       {usdValueColumn
@@ -2225,7 +2225,7 @@ export function QueryTab({
                           From
                         </div>
                         <div className="mt-2 text-sm text-foreground">
-                          {fromColumn ? asIdentifierText(row[fromColumn]) : "—"}
+                          {fromColumn ? asIdentifierText(row[fromColumn]) : "-"}
                         </div>
                       </div>
                       <div className="rounded-xl border border-border/50 bg-card/60 p-3">
@@ -2233,7 +2233,7 @@ export function QueryTab({
                           To
                         </div>
                         <div className="mt-2 text-sm text-foreground">
-                          {toColumn ? asIdentifierText(row[toColumn]) : "—"}
+                          {toColumn ? asIdentifierText(row[toColumn]) : "-"}
                         </div>
                       </div>
                     </div>
@@ -2282,7 +2282,7 @@ export function QueryTab({
                       <div className="mt-2 text-lg font-semibold text-foreground">
                         {slowFeeColumn
                           ? asDisplayText(row[slowFeeColumn])
-                          : "—"}
+                          : "-"}
                       </div>
                     </div>
                     <div className="rounded-xl border border-border/50 bg-card/60 p-3">
@@ -2292,7 +2292,7 @@ export function QueryTab({
                       <div className="mt-2 text-lg font-semibold text-foreground">
                         {standardFeeColumn
                           ? asDisplayText(row[standardFeeColumn])
-                          : "—"}
+                          : "-"}
                       </div>
                     </div>
                     <div className="rounded-xl border border-border/50 bg-card/60 p-3">
@@ -2302,7 +2302,7 @@ export function QueryTab({
                       <div className="mt-2 text-lg font-semibold text-foreground">
                         {fastFeeColumn
                           ? asDisplayText(row[fastFeeColumn])
-                          : "—"}
+                          : "-"}
                       </div>
                     </div>
                     <div className="rounded-xl border border-border/50 bg-card/60 p-3">
@@ -2312,7 +2312,7 @@ export function QueryTab({
                       <div className="mt-2 text-lg font-semibold text-foreground">
                         {baseFeeColumn
                           ? asDisplayText(row[baseFeeColumn])
-                          : "—"}
+                          : "-"}
                       </div>
                     </div>
                   </div>
@@ -2887,7 +2887,7 @@ export function QueryTab({
                           AI SQL assistant
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Describe what you want — generate SQL, get ideas, or
+                          Describe what you want - generate SQL, get ideas, or
                           start from a template.
                         </p>
                       </div>
@@ -3217,12 +3217,12 @@ export function QueryTab({
           </div>
         ) : rows.length === 0 && !resultsQuery.isSuccess ? (
           // Terminal status reached but the paginated results are still on
-          // their way — keep the loader up rather than flashing an empty table.
+          // their way - keep the loader up rather than flashing an empty table.
           <SqlBlockchainLoader query={sqlQuery} />
         ) : rows.length === 0 ? (
           <div className="rounded-xl border border-border bg-card px-5 py-8 text-center">
             <div className="text-sm font-medium text-foreground">
-              Query ran successfully — 0 rows returned
+              Query ran successfully - 0 rows returned
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               The SQL executed without errors but matched no rows. Adjust the
@@ -3465,7 +3465,7 @@ export function QueryTab({
                   <div className="mt-1 text-lg font-semibold text-foreground">
                     {typeof segmentResult.profileCount === "number"
                       ? segmentResult.profileCount.toLocaleString()
-                      : "—"}
+                      : "-"}
                   </div>
                 </div>
                 <div className="rounded-xl border border-border bg-card p-3">
@@ -3475,7 +3475,7 @@ export function QueryTab({
                   <div className="mt-1 text-lg font-semibold text-foreground">
                     {typeof segmentResult.contactsCreated === "number"
                       ? segmentResult.contactsCreated.toLocaleString()
-                      : "—"}
+                      : "-"}
                   </div>
                 </div>
               </div>

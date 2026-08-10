@@ -280,7 +280,7 @@ export function CommandPaletteProvider({
     return () => window.clearTimeout(t);
   }, [open, view, query]);
 
-  // Live semantic search over the org's ingested content — plain vector
+  // Live semantic search over the org's ingested content - plain vector
   // search (no LLM, no AI-credit spend). Fails silently: no results group.
   const siteSearchQuery = useQuery({
     queryKey: ["palette", "site-search", debouncedQuery],
@@ -401,7 +401,7 @@ export function CommandPaletteProvider({
 
   const options = useMemo<PaletteOption[]>(() => {
     const q = query.trim();
-    // WIP sections stay listed in production but flagged — their routes
+    // WIP sections stay listed in production but flagged - their routes
     // render a coming-soon panel until they ship (see wip-sections.ts).
     const all = [...NAVIGATE_OPTIONS, ...ACTION_OPTIONS].map((option) =>
       !SHOW_WIP_SECTIONS &&
@@ -600,7 +600,7 @@ export function CommandPaletteProvider({
                     </span>
                   )
                 ) : (
-                  <span>AI answers can be wrong — verify important data.</span>
+                  <span>AI answers can be wrong - verify important data.</span>
                 )}
               </div>
             </div>
@@ -633,10 +633,10 @@ export function CommandPaletteProvider({
                 </button>
               </div>
 
-              {/* CommandList must be its own scroll container — kmenu scrolls
+              {/* CommandList must be its own scroll container - kmenu scrolls
                   this element directly for keyboard navigation. Its internal
                   `.command-active-indicator` div is unstyled (we don't ship
-                  kmenu's CSS) and would occupy flow space, so hide it — the
+                  kmenu's CSS) and would occupy flow space, so hide it - the
                   active row is styled via data-[active=true] instead. */}
               <CommandList className="max-h-[min(60vh,420px)] overflow-y-auto px-2 pb-2 pt-1.5 [&_.command-active-indicator]:hidden">
                 <CommandEmpty>

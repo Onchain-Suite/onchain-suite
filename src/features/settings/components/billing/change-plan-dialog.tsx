@@ -41,9 +41,11 @@ export default function ChangePlanDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-5xl">
+      <DialogContent className="max-h-[92dvh] w-[calc(100vw-1.5rem)] overflow-y-auto p-4 sm:max-w-6xl sm:p-6">
         <DialogHeader>
-          <DialogTitle>Choose your plan</DialogTitle>
+          <DialogTitle className="text-xl sm:text-2xl">
+            Choose your plan
+          </DialogTitle>
           <DialogDescription>
             Upgrade to unlock more contacts, channels, and intelligence. Pay by
             card (Stripe) or crypto - your plan unlocks once payment confirms.

@@ -7,11 +7,11 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 /**
  * Client-side service for the backend's transactional email family
- * (`POST /email/send`, docs/backend.md — "Domain & Email"). That route is
+ * (`POST /email/send`, docs/backend.md - "Domain & Email"). That route is
  * session-auth only; the browser session cookie is forwarded automatically by
  * the `withCredentials` axios client, so no extra auth wiring is needed.
  *
- * Unlike campaign sends, `/email/send` does **not** resolve merge tags — it
+ * Unlike campaign sends, `/email/send` does **not** resolve merge tags - it
  * expects already-rendered `html`/`text` and forwards them straight to the
  * Azure send queue. Callers that want per-recipient personalization must
  * render it before calling `send`.
@@ -109,7 +109,7 @@ export const buildEmailPayload = (
 };
 
 export const emailService = {
-  /** `POST /email/send` — queue a single transactional email. */
+  /** `POST /email/send` - queue a single transactional email. */
   send(body: SendTransactionalEmailBody, orgId?: string) {
     return request<
       { id?: string; messageId?: string } & Record<string, unknown>

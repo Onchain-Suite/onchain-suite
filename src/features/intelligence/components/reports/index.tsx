@@ -36,9 +36,9 @@ const formatDate = (v: unknown): string => {
   const raw = asString(v);
   if (raw.length > 0) return raw;
   const n = asNumber(v);
-  if (n === null) return "—";
+  if (n === null) return "-";
   const d = new Date(n);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   return d.toLocaleDateString();
 };
 
@@ -88,7 +88,7 @@ interface ReportsTabProps {
  * report"); this tab only visualizes.
  */
 export function ReportsTab({ onOpenSavedQuery }: ReportsTabProps = {}) {
-  // Keyed under ["intelligence","reports",…] — not the chat's history key —
+  // Keyed under ["intelligence","reports",…] - not the chat's history key -
   // so the save mutation's invalidation of ["intelligence","reports"] makes a
   // fresh save visible the moment this tab mounts, despite the 5-minute
   // global staleTime.
@@ -178,7 +178,7 @@ export function ReportsTab({ onOpenSavedQuery }: ReportsTabProps = {}) {
             </h3>
             <p className="mt-2 max-w-md text-sm text-muted-foreground">
               Run a query in the SQL editor or the chat, then hit “Save report”
-              — its charts will show up here.
+              - its charts will show up here.
             </p>
           </div>
         ) : effectiveQueryId ? (

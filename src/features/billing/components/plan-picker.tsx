@@ -41,6 +41,7 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
     slug: "launch",
     price: 49,
     interval: "month",
+    description: "A protocol getting started on email + wallet.",
     features: [
       "2,500 contacts · 50,000 emails/mo",
       "25,000 in-app pushes/mo",
@@ -53,6 +54,7 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
     slug: "growth",
     price: 349,
     interval: "month",
+    description: "Scaling retention, with Forms and a dedicated IP.",
     features: [
       "25,000 contacts · 250,000 emails/mo",
       "250,000 in-app pushes/mo",
@@ -65,6 +67,7 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
     slug: "pro",
     price: 799,
     interval: "month",
+    description: "Intelligence at working scale across a large list.",
     features: [
       "75,000 contacts · 750,000 emails/mo",
       "1,000,000 in-app pushes/mo",
@@ -77,6 +80,7 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
     slug: "scale",
     price: 2299,
     interval: "month",
+    description: "Custom allowances and concierge for big ecosystems.",
     features: [
       "150,000 contacts · 1.5M emails/mo",
       "2,000,000 in-app pushes/mo",
@@ -84,6 +88,17 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
       "Custom team seats",
     ],
   },
+];
+
+/** The platform baseline every plan (PAYG included) ships with, shown as a
+ *  reassurance strip so buyers see they get the whole product, not a slice. */
+const EVERY_PLAN_INCLUDES = [
+  "In-app push to every connected wallet",
+  "Email over a wallet-linked identity bridge",
+  "Behavior-triggered automations + Protocol Plays",
+  "On-chain Intelligence (from Launch up)",
+  "ONS+ list protection on every upload",
+  "Pay by card (Stripe) or crypto (USDC)",
 ];
 
 const priceLabel = (price: BillingPlan["price"]): string => {
@@ -181,6 +196,90 @@ function PlanCard({
       </div>
       <ul className="mt-4 space-y-2">
         {features.map((feature) => (
+          <li
+            key={feature}
+            className="flex items-start gap-2 text-sm text-muted-foreground"
+          >
+            <CheckIcon
+              aria-hidden="true"
+              className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+            />
+            {feature}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** PAYG rendered as a full-width entry banner above the paid grid, so the
+ *  "start free" default reads as the obvious first step rather than one of five
+ *  equally-weighted columns. Still a radio option in the same group. */
+function PaygCard({
+  isSelected,
+  isCurrent,
+  onSelect,
+}: {
+  isSelected: boolean;
+  isCurrent?: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <div
+      role="radio"
+      aria-checked={isSelected}
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={cn(
+        "relative flex cursor-pointer flex-col gap-4 rounded-2xl border-2 bg-card p-5 text-left transition-colors md:flex-row md:items-center md:gap-6",
+        isSelected
+          ? "border-primary shadow-lg"
+          : "border-border hover:border-muted-foreground/40"
+      )}
+    >
+      <div className="flex items-start gap-3 md:w-64 md:shrink-0">
+        <span
+          aria-hidden="true"
+          className={cn(
+            "mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
+            isSelected
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-background"
+          )}
+        >
+          {isSelected ? <CheckIcon className="h-3 w-3" /> : null}
+        </span>
+        <div>
+          <div className="flex flex-wrap items-center gap-2 text-base font-semibold text-foreground">
+            {PAYG_PLAN.name}
+            <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+              Start free
+            </span>
+            {isCurrent ? (
+              <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Current
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {PAYG_PLAN.description}
+          </p>
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="text-2xl font-bold tracking-tight text-foreground">
+              $0
+            </span>
+            <span className="text-sm text-muted-foreground">/mo + usage</span>
+          </div>
+        </div>
+      </div>
+      <ul className="grid flex-1 gap-2 sm:grid-cols-2">
+        {PAYG_PLAN.features.map((feature) => (
           <li
             key={feature}
             className="flex items-start gap-2 text-sm text-muted-foreground"
@@ -305,7 +404,7 @@ export function PlanPicker({
       ) : null}
 
       {/* Payment method: Stripe (card) by default, crypto (USDC) fallback. */}
-      <div className="mb-5 flex items-center gap-2">
+      <div className="mb-5 flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted-foreground">Pay with</span>
         <div
           role="group"
@@ -349,60 +448,80 @@ export function PlanPicker({
       </div>
 
       {plansQuery.isLoading ? (
-        <div
-          className="grid animate-pulse gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
-          aria-hidden="true"
-        >
-          {Array.from({ length: 5 }, (_, i) => (
-            <div key={i} className="h-72 rounded-2xl bg-muted" />
-          ))}
+        <div className="space-y-4" aria-hidden="true">
+          <div className="h-28 animate-pulse rounded-2xl bg-muted" />
+          <div className="grid animate-pulse gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="h-72 rounded-2xl bg-muted" />
+            ))}
+          </div>
         </div>
       ) : (
-        <div
-          role="radiogroup"
-          aria-label="Billing plan"
-          className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
-        >
-          <PlanCard
-            name={PAYG_PLAN.name}
-            description={PAYG_PLAN.description}
-            priceText="$0"
-            interval="mo + usage"
-            features={PAYG_PLAN.features}
+        <div role="radiogroup" aria-label="Billing plan" className="space-y-4">
+          <PaygCard
             isSelected={selectedPlan === "payg"}
             isCurrent={
               currentName === "payg" || currentName === "pay as you go"
             }
             onSelect={() => setSelectedPlan("payg")}
           />
-          {paidPlans.map((plan, idx) => {
-            const name =
-              typeof plan.name === "string" && plan.name.trim().length > 0
-                ? plan.name
-                : `Plan ${idx + 1}`;
-            return (
-              <PlanCard
-                key={name}
-                name={name}
-                description={
-                  typeof plan.description === "string"
-                    ? plan.description
-                    : undefined
-                }
-                priceText={priceLabel(plan.price)}
-                interval={
-                  typeof plan.interval === "string" ? plan.interval : "month"
-                }
-                features={planFeatures(plan)}
-                isSelected={selectedPlan === name}
-                isCurrent={name.trim().toLowerCase() === currentName}
-                isRecommended={name === "Growth"}
-                onSelect={() => setSelectedPlan(name)}
-              />
-            );
-          })}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {paidPlans.map((plan, idx) => {
+              const name =
+                typeof plan.name === "string" && plan.name.trim().length > 0
+                  ? plan.name
+                  : `Plan ${idx + 1}`;
+              return (
+                <PlanCard
+                  key={name}
+                  name={name}
+                  description={
+                    typeof plan.description === "string"
+                      ? plan.description
+                      : undefined
+                  }
+                  priceText={priceLabel(plan.price)}
+                  interval={
+                    typeof plan.interval === "string" ? plan.interval : "month"
+                  }
+                  features={planFeatures(plan)}
+                  isSelected={selectedPlan === name}
+                  isCurrent={name.trim().toLowerCase() === currentName}
+                  isRecommended={name === "Growth"}
+                  onSelect={() => setSelectedPlan(name)}
+                />
+              );
+            })}
+          </div>
         </div>
       )}
+
+      {/* Baseline reassurance + how overage bills, so the modal fully explains
+          the purchase now that the standalone rates table is gone. */}
+      <div className="mt-6 rounded-2xl border border-border bg-muted/30 p-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Every plan includes
+        </p>
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {EVERY_PLAN_INCLUDES.map((feature) => (
+            <li
+              key={feature}
+              className="flex items-start gap-2 text-sm text-foreground"
+            >
+              <CheckIcon
+                aria-hidden="true"
+                className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+              />
+              {feature}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-4 border-t border-border/60 pt-4 text-xs leading-relaxed text-muted-foreground">
+          Plans bundle an allowance of every meter (email, in-app, on-chain and
+          AI). Once an allowance is used up, that meter continues at the
+          pay-as-you-go rate; billing is monthly, cancel anytime.
+        </p>
+      </div>
 
       <div className="mt-8 flex flex-col items-center gap-3">
         <Button

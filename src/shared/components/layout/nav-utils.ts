@@ -1,6 +1,6 @@
 import type * as React from "react";
 
-/** Any icon component that takes svg props — Heroicons and lucide both match. */
+/** Any icon component that takes svg props - Heroicons and lucide both match. */
 export type NavIcon = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
 export type NavSubItem = {
@@ -46,7 +46,7 @@ export function isBranchActive(pathname: string, item: NavItem) {
   );
 }
 
-/** Row tooltip — WIP sections say so rather than repeating the label. */
+/** Row tooltip - WIP sections say so rather than repeating the label. */
 export function navTooltip(item: NavItem) {
-  return item.wip ? `${item.title} — coming in v1` : item.title;
+  return item.wip ? `${item.title} - coming in v1` : item.title;
 }

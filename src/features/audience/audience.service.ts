@@ -231,7 +231,7 @@ export interface AudienceSegmentMember {
   [key: string]: unknown;
 }
 
-/** `GET /audience/segments/{id}` — the list plus a paginated member page. */
+/** `GET /audience/segments/{id}` - the list plus a paginated member page. */
 export interface AudienceSegmentDetail extends AudienceSegment {
   members?: {
     data?: AudienceSegmentMember[];
@@ -272,7 +272,7 @@ export interface AudienceSuppressionsResponse {
   limit?: number;
 }
 
-/** `GET /audience/sync` — wallet-sync job status (two phases). */
+/** `GET /audience/sync` - wallet-sync job status (two phases). */
 export interface AudienceSyncStatus {
   jobId?: string;
   state?: AudienceJobState | string;
@@ -800,7 +800,7 @@ export const audienceService = {
     return res.data;
   },
 
-  /** `GET /audience/segments/{id}` — list/tag detail + a paginated member page. */
+  /** `GET /audience/segments/{id}` - list/tag detail + a paginated member page. */
   getSegment(
     id: string,
     params?: { page?: number; limit?: number },
@@ -816,7 +816,7 @@ export const audienceService = {
     );
   },
 
-  /** `POST /audience/segments/{id}/members` — add contacts to a list. */
+  /** `POST /audience/segments/{id}/members` - add contacts to a list. */
   addSegmentMembers(segmentId: string, profileIds: string[], orgId?: string) {
     return request<{ added?: number; skipped?: number; count?: number }>(
       {
@@ -828,7 +828,7 @@ export const audienceService = {
     );
   },
 
-  /** `GET /audience/suppressions` — the email suppression list. */
+  /** `GET /audience/suppressions` - the email suppression list. */
   listSuppressions(
     params?: { search?: string; page?: number; limit?: number },
     orgId?: string
@@ -843,7 +843,7 @@ export const audienceService = {
     );
   },
 
-  /** `DELETE /audience/suppressions/{contactId}` — un-suppress (reinstate). */
+  /** `DELETE /audience/suppressions/{contactId}` - un-suppress (reinstate). */
   reinstateSuppression(contactId: string, orgId?: string) {
     return request<{ success?: boolean }>(
       {
@@ -854,7 +854,7 @@ export const audienceService = {
     );
   },
 
-  /** `POST /audience/suppressions` — manually suppress an existing contact's email. */
+  /** `POST /audience/suppressions` - manually suppress an existing contact's email. */
   suppressEmail(email: string, orgId?: string) {
     return request<{ success?: boolean }>(
       { method: "POST", url: "/audience/suppressions", data: { email } },
@@ -862,7 +862,7 @@ export const audienceService = {
     );
   },
 
-  /** `POST /audience/sync` (202) — enqueue a wallet sync for the org. */
+  /** `POST /audience/sync` (202) - enqueue a wallet sync for the org. */
   syncWallets(force?: boolean, orgId?: string) {
     return request<AudienceSyncStatus>(
       {
@@ -874,7 +874,7 @@ export const audienceService = {
     );
   },
 
-  /** `GET /audience/sync[?jobId=]` — poll the most recent (or a specific) sync. */
+  /** `GET /audience/sync[?jobId=]` - poll the most recent (or a specific) sync. */
   getSyncStatus(jobId?: string, orgId?: string) {
     return request<AudienceSyncStatus>(
       {

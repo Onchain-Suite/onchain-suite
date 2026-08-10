@@ -11,7 +11,7 @@ import { BlogIndexView } from "@/onchain-suite-website/blog/components/blog-inde
 export const metadata: Metadata = {
   title: "Blog",
   description:
-    "Onchain retention, wallet-first identity and multi-channel messaging — notes from the team building OnchainSuite.",
+    "Onchain retention, wallet-first identity and multi-channel messaging - notes from the team building OnchainSuite.",
   alternates: { canonical: `${getSiteUrl()}/blog` },
 };
 
@@ -42,7 +42,7 @@ export default async function BlogIndexPage({
           Notes on <span className="grad">onchain retention.</span>
         </>
       }
-      intro="How wallet behaviour turns into messaging that works — product updates, engineering notes and what we learn running retention for onchain teams."
+      intro="How wallet behaviour turns into messaging that works - product updates, engineering notes and what we learn running retention for onchain teams."
     />
   );
 }

@@ -22,7 +22,7 @@ function mountPayloadField(id = "pw") {
 const toggleFor = (input: HTMLInputElement) =>
   input.nextElementSibling as HTMLButtonElement | null;
 
-/** The toggle, or a clear failure — keeps the assertions free of `!`. */
+/** The toggle, or a clear failure - keeps the assertions free of `!`. */
 function requireToggle(input: HTMLInputElement): HTMLButtonElement {
   const button = toggleFor(input);
   if (!button) {

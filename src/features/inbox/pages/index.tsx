@@ -18,7 +18,7 @@ export function InboxPages() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([]);
   const [focusedIndex, setFocusedIndex] = useState(0);
-  // Serverless hosts (Vercel) can't hold the socket — poll instead.
+  // Serverless hosts (Vercel) can't hold the socket - poll instead.
   const [realtimeDown, setRealtimeDown] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -248,7 +248,7 @@ export function InboxPages() {
 
       {/* Two-pane: stacked on mobile, side-by-side on lg */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-border bg-card">
-        {/* List pane — hidden on mobile when a thread is open */}
+        {/* List pane - hidden on mobile when a thread is open */}
         <div
           className={`min-h-0 w-full shrink-0 border-border lg:flex lg:w-80 lg:border-r ${
             selectedThreadId ? "hidden lg:flex" : "flex"
@@ -274,7 +274,7 @@ export function InboxPages() {
           />
         </div>
 
-        {/* Reading pane — full-width on mobile when a thread is open */}
+        {/* Reading pane - full-width on mobile when a thread is open */}
         <div
           className={`min-h-0 flex-1 flex-col ${
             selectedThreadId ? "flex" : "hidden lg:flex"

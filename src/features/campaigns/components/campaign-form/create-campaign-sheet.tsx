@@ -66,7 +66,7 @@ const suggestedCampaignName = () =>
 /**
  * Sidebar entry point for the campaign wizard. Collects the campaign name and
  * type up front (replacing the old details step), creates the draft, and
- * drops the user straight into the audience step — two fewer steps in the
+ * drops the user straight into the audience step - two fewer steps in the
  * send flow.
  */
 export function CreateCampaignSheet({
@@ -226,7 +226,7 @@ export function CreateCampaignSheet({
                 </div>
               </div>
               {/*
-                Social channels are intentionally disabled for now — smart
+                Social channels are intentionally disabled for now - smart
                 campaigns support in-app push only. Restore these options once
                 the social send pipeline lands:
 

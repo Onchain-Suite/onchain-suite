@@ -47,7 +47,7 @@ export async function generateMetadata({
   const { token } = await params;
   const form = await fetchPublicForm(token);
   const display = readDisplaySettings(form?.settings);
-  const title = form?.name ? `${form.name} — ${display.headline}` : "Join";
+  const title = form?.name ? `${form.name} - ${display.headline}` : "Join";
   return { title, description: display.description };
 }
 

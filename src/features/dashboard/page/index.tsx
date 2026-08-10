@@ -66,7 +66,7 @@ export function MainDashboard({ userData }: MainDashboardProps) {
 
     if (userData.isNewUser && walkthroughCompleted === "true") {
       toast.info(
-        `Suite Live—Your ${userData.userType} Engine is Purring!,
+        `Suite Live-Your ${userData.userType} Engine is Purring!,
         Welcome to OnchainSuite. Your retention platform is ready.`
       );
     }

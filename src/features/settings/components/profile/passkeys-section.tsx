@@ -241,7 +241,7 @@ const PasskeysSection = () => {
     addMutation.mutate(newName);
   };
 
-  // The empty state carries its own prominent CTA — hide the header button
+  // The empty state carries its own prominent CTA - hide the header button
   // then so there's a single, obvious "Add passkey" affordance.
   const showEmptyState =
     !passkeysQuery.isPending && !passkeysQuery.isError && passkeys.length === 0;
@@ -335,7 +335,7 @@ const PasskeysSection = () => {
       ) : passkeysQuery.isError ? (
         <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border/60 bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            Couldn&apos;t load your passkeys — check your connection and retry.
+            Couldn&apos;t load your passkeys - check your connection and retry.
           </p>
           <Button
             variant="outline"
@@ -353,7 +353,7 @@ const PasskeysSection = () => {
           <p className="text-sm text-muted-foreground">
             No passkeys yet
             {webAuthnSupported
-              ? " — add one to sign in without a password."
+              ? " - add one to sign in without a password."
               : "."}
           </p>
           {webAuthnSupported && !isAdding ? (

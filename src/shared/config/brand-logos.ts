@@ -1,6 +1,6 @@
 /**
  * Official brand logo assets (Cloudinary-hosted) for chains, wallets, and
- * integrated services. Single source of truth — use these instead of
+ * integrated services. Single source of truth - use these instead of
  * hand-drawn SVG approximations wherever a real brand mark should render.
  */
 

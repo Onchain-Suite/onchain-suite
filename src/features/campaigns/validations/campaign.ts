@@ -28,7 +28,7 @@ export const campaignFormSchema = z
     /**
      * Optional per-campaign override of the Smart Sending suppression window
      * (backend accepts an integer 1–168). Empty string = inherit the org
-     * setting, which is the common case. Kept as a plain optional string —
+     * setting, which is the common case. Kept as a plain optional string -
      * a `.refine()` here measurably slows type inference across this schema,
      * and the value is range-checked before it reaches the API anyway.
      */

@@ -28,7 +28,7 @@ export function SidebarBrand({
   href?: string;
   /** Custom brand mark; defaults to the first letter of `name` in a filled tile. */
   mark?: React.ReactNode;
-  /** Overrides the tile behind the mark — e.g. a neutral fill for a real logo. */
+  /** Overrides the tile behind the mark - e.g. a neutral fill for a real logo. */
   markClassName?: string;
 }) {
   return (

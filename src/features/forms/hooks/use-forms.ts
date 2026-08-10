@@ -15,7 +15,7 @@ export const formDetailKey = (id: string) => ["forms", "detail", id] as const;
 export const formSubmissionsKey = (id: string, page: number, limit: number) =>
   ["forms", "submissions", id, { page, limit }] as const;
 
-/** Server state for capture forms — owned by React Query, inherits app caching defaults. */
+/** Server state for capture forms - owned by React Query, inherits app caching defaults. */
 export function useFormsList() {
   return useQuery({
     queryKey: FORMS_KEY,
@@ -92,7 +92,7 @@ export function useConnectForm(onSuccess?: (form: CaptureForm) => void) {
   return useMutation({
     mutationFn: (id: string) => formsService.connectForm(id),
     onSuccess: (form) => {
-      toast.success("Connected to API — ZK encryption enabled");
+      toast.success("Connected to API - ZK encryption enabled");
       queryClient
         .invalidateQueries({ queryKey: FORMS_KEY })
         .catch(() => undefined);

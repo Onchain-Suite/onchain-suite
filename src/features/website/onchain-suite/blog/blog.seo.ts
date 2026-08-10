@@ -6,7 +6,7 @@ import { SITE_CONFIG } from "@/onchain-suite-website/config/site";
  * Canonical site origin, resolved in one place.
  *
  * Previously sitemap.ts and robots.ts hardcoded "onchain-suite.vercel.app" while
- * SITE_CONFIG.url said "onchainsuite.com" — two different canonical hosts, which
+ * SITE_CONFIG.url said "onchainsuite.com" - two different canonical hosts, which
  * is actively harmful for SEO once per-post canonical URLs exist.
  */
 export function getSiteUrl(): string {

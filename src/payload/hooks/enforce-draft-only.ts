@@ -18,8 +18,8 @@ import { canAccessCms, canPublish } from "@/payload/access/roles";
 export const enforceDraftOnly: CollectionBeforeChangeHook = ({ data, req }) => {
   const role = (req.user as { role?: unknown } | null | undefined)?.role;
 
-  // Publishers are unaffected. Users with no CMS role never get this far —
-  // access control has already rejected them — so this is a safety net only.
+  // Publishers are unaffected. Users with no CMS role never get this far -
+  // access control has already rejected them - so this is a safety net only.
   if (canPublish(role) || !canAccessCms(role)) {
     return data;
   }

@@ -39,7 +39,7 @@ export const PRIVATE_ROUTES = {
   INTELLIGENCE: "/intelligence",
   ANALYTICS: "/intelligence/analytics",
   ADVANCED_ANALYTICS: "/intelligence/analytics/advanced",
-  // Segments and Reports are tabs on /intelligence, not their own routes —
+  // Segments and Reports are tabs on /intelligence, not their own routes -
   // only /intelligence/segments/create and the /[id] detail pages exist. Deep
   // link the tab so breadcrumbs and cross-links don't 404.
   INTELLIGENCE_SEGMENTS: "/intelligence?tab=segments",

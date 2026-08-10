@@ -28,7 +28,7 @@ const usePrefersReducedMotion = () => {
 /**
  * Compact, in-thread "assistant is thinking" bubble for the MCP chat.
  * Shows a small matrix shimmer, animated dots, and the agent's latest
- * reasoning step — sized like a chat message, not a full panel.
+ * reasoning step - sized like a chat message, not a full panel.
  */
 export function McpTypingIndicator({
   activity,

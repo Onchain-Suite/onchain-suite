@@ -21,16 +21,6 @@ const ONSPLUS_PER_1K = 10; // $10.00 per 1,000 ONS+ verifications
 const ONCHAIN_PER_10K = 10; // $10.00 per 10,000 on-chain credits
 const AI_PER_1K = 5; // $5.00 per 1,000 AI actions
 
-/* The six metered rates, shown as a rate card. */
-const METERS: { label: string; rate: string; note: string }[] = [
-  { label: "Email", rate: "$1.00", note: "per 1,000 sends" },
-  { label: "In-app push", rate: "$1.00", note: "per 1,000 pushes" },
-  { label: "ONS+ list protection", rate: "$10.00", note: "per 1,000 verified" },
-  { label: "On-chain credits", rate: "$10.00", note: "per 10,000 credits" },
-  { label: "AI actions", rate: "$5.00", note: "per 1,000 actions" },
-  { label: "Concierge", rate: "$150.00", note: "per hour (Scale)" },
-];
-
 function Calculator() {
   const [email, setEmail] = useState(50000);
   const [inapp, setInapp] = useState(50000);
@@ -374,39 +364,6 @@ function Profiles() {
   );
 }
 
-function Rates() {
-  return (
-    <section className="py-16">
-      <div className="wrap">
-        <Heading
-          eyebrow="Unit rates"
-          title={
-            <>
-              The meters, <span className="grad">in the open.</span>
-            </>
-          }
-          sub="Every plan bundles an allowance of each; overage bills at these list rates. Nothing is priced below its worst-case cost."
-        />
-        <Stagger className="mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {METERS.map((m) => (
-            <StaggerItem key={m.label}>
-              <div className="card flex items-baseline justify-between gap-3 p-4">
-                <div>
-                  <p className="text-[13.5px] font-semibold t-ink">{m.label}</p>
-                  <p className="text-[12px] t-muted2">{m.note}</p>
-                </div>
-                <span className="mono text-[16px] font-semibold t-acc">
-                  {m.rate}
-                </span>
-              </div>
-            </StaggerItem>
-          ))}
-        </Stagger>
-      </div>
-    </section>
-  );
-}
-
 const INCLUDED = [
   "In-app push to 100% of connected wallets, via a drop-in SDK",
   "Email over a wallet-linked, zero-knowledge identity bridge",
@@ -455,7 +412,7 @@ function Included() {
 const PRICING_FAQ: [string, string][] = [
   [
     "How does pricing work?",
-    "Four flat monthly tiers (Launch $49, Growth $349, Pro $799, Scale $2,299) plus a pay-as-you-go entry point at $0/mo. Each plan bundles an allowance of every meter; once you pass an allowance, that meter continues at the list rate: $1 per 1,000 emails, $1 per 1,000 in-app pushes, $10 per 10,000 on-chain credits, $5 per 1,000 AI actions, and $10 per 1,000 ONS+ verifications. Billing is monthly only.",
+    "Four flat monthly tiers (Launch $49, Growth $349, Pro $799, Scale $2,299) plus a pay-as-you-go entry point at $0/mo. Each plan bundles an allowance of every meter; once you pass an allowance, that meter continues at the pay-as-you-go rate. Billing is monthly only.",
   ],
   [
     "What is pay-as-you-go?",
@@ -613,13 +570,12 @@ export function PricingPage() {
                 <span className="grad">what you actually use.</span>
               </>
             }
-            sub="Start on pay-as-you-go with no monthly fee: $1 per 1,000 messages (email or in-app), $10 per 10,000 on-chain credits, $5 per 1,000 AI actions, all prepaid from a top-up wallet. Flat plans from $49/mo take over when your volume settles."
+            sub="Start on pay-as-you-go with no monthly fee, all prepaid from a top-up wallet. Flat plans from $49/mo take over when your volume settles."
           />
           <Calculator />
         </div>
       </section>
       <Profiles />
-      <Rates />
       <Included />
       <PricingFaq />
       <PricingCta />

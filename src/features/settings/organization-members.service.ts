@@ -7,7 +7,7 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 /**
  * Typed service for the organization members + invites API family
- * (docs/backend.md — "Organization Members", 2026-07-14 follow-up 4).
+ * (docs/backend.md - "Organization Members", 2026-07-14 follow-up 4).
  * Owns the URLs, the `x-org-id` header, `{ success, data }` envelope
  * unwrapping, and the normalized member/invite shapes consumed by the
  * settings Team members section and the invite-accept page.
@@ -97,7 +97,7 @@ export const isRateLimitError = (error: unknown): boolean =>
   error instanceof OrganizationMembersError && error.status === 429;
 
 export const INVITE_RATE_LIMIT_MESSAGE =
-  "Invite limit reached — you can send up to 5 invite emails per minute. Please wait a moment and try again.";
+  "Invite limit reached - you can send up to 5 invite emails per minute. Please wait a moment and try again.";
 
 const pickOrgId = (orgId?: string) =>
   orgId ?? getSelectedOrganizationId() ?? null;
@@ -208,7 +208,7 @@ export const normalizeMembers = (payload: unknown): OrganizationMember[] =>
     .map((entry, index) => {
       if (!isJsonObject(entry)) return null;
       // Member rows arrive flat ({email, name}) or better-auth style with a
-      // nested user ({role, user: {email, name, image}}) — dropping nested
+      // nested user ({role, user: {email, name, image}}) - dropping nested
       // rows made owners see only themselves in the team list.
       const user = isJsonObject(entry.user) ? entry.user : undefined;
       const email = pickString(entry.email, entry.userEmail, user?.email);
@@ -259,7 +259,7 @@ export const normalizeInvites = (payload: unknown): OrganizationInvite[] =>
     .filter((row): row is OrganizationInvite => Boolean(row));
 
 export const organizationMembersService = {
-  /** `GET /organizations/{orgId}/members` — paginated, searchable. */
+  /** `GET /organizations/{orgId}/members` - paginated, searchable. */
   async listMembers(
     orgId: string,
     params?: ListMembersParams
@@ -280,7 +280,7 @@ export const organizationMembersService = {
   },
 
   /**
-   * `PATCH /organizations/{orgId}/members/{userId}` — change role and/or
+   * `PATCH /organizations/{orgId}/members/{userId}` - change role and/or
    * enabled status. Owners cannot be downgraded (backend-enforced).
    */
   updateMember(orgId: string, userId: string, body: UpdateMemberBody) {
@@ -306,7 +306,7 @@ export const organizationMembersService = {
   },
 
   /**
-   * `POST /organizations/{orgId}/invites` — sends a branded invite email.
+   * `POST /organizations/{orgId}/invites` - sends a branded invite email.
    * Rate-limited at 5/min; a 429 surfaces {@link INVITE_RATE_LIMIT_MESSAGE}.
    */
   createInvite(orgId: string, body: CreateInviteBody) {
@@ -320,7 +320,7 @@ export const organizationMembersService = {
     );
   },
 
-  /** `GET /organizations/{orgId}/invites` — pending invites. */
+  /** `GET /organizations/{orgId}/invites` - pending invites. */
   async listInvites(orgId: string): Promise<OrganizationInvite[]> {
     const payload = await request<unknown>(
       { method: "GET", url: `/organizations/${orgId}/invites` },
@@ -330,7 +330,7 @@ export const organizationMembersService = {
   },
 
   /**
-   * `POST /organizations/{orgId}/invites/{inviteId}/resend` — refreshed
+   * `POST /organizations/{orgId}/invites/{inviteId}/resend` - refreshed
    * token + new branded email. Rate-limited at 5/min.
    */
   resendInvite(orgId: string, inviteId: string) {
@@ -344,7 +344,7 @@ export const organizationMembersService = {
   },
 
   /**
-   * `POST /invites/{token}/accept` — global endpoint (not org-scoped, no
+   * `POST /invites/{token}/accept` - global endpoint (not org-scoped, no
    * `x-org-id` header) that joins the authenticated user to the inviting org.
    */
   async acceptInvite(token: string): Promise<AcceptInviteResult> {

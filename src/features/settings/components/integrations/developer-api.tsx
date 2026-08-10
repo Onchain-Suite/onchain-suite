@@ -17,7 +17,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 
-// TODO(backend): keys + webhooks are frontend-only state for now — wire to the
+// TODO(backend): keys + webhooks are frontend-only state for now - wire to the
 // management API when it ships (list/create/revoke keys, list/create/delete
 // webhook endpoints). See docs/campaign-inapp-backend-needs.md.
 const BASE_URL = "https://api.onchainsuite.com/v1";
@@ -179,7 +179,7 @@ export function DeveloperApiCard() {
   return (
     <SettingsCard
       title="Developer API"
-      description="Keys, webhooks and endpoints — included on every plan"
+      description="Keys, webhooks and endpoints - included on every plan"
     >
       {/* Base URL + auth header */}
       <div className="space-y-2">
@@ -239,7 +239,7 @@ export function DeveloperApiCard() {
         {revealKey ? (
           <div className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
             <p className="text-xs font-medium text-foreground">
-              Copy your key now — it won&apos;t be shown again.
+              Copy your key now - it won&apos;t be shown again.
             </p>
             <div className="mt-2 flex items-center gap-2">
               <code className="min-w-0 flex-1 truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs text-foreground ring-1 ring-border">
@@ -253,7 +253,7 @@ export function DeveloperApiCard() {
         <div className="mt-3 space-y-2">
           {keys.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No keys yet — create one to authenticate server-to-server calls.
+              No keys yet - create one to authenticate server-to-server calls.
             </p>
           ) : (
             keys.map((key) => (
@@ -318,7 +318,7 @@ export function DeveloperApiCard() {
                 className="h-9 rounded-lg font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                HTTPS only — events carry contact data.
+                HTTPS only - events carry contact data.
               </p>
             </div>
             <div className="space-y-2">
@@ -428,7 +428,7 @@ export function DeveloperApiCard() {
           />
           <span>
             <code className="font-mono">/identify</code> takes a wallet address
-            and rejects email, phone or any other personal identifier — sending
+            and rejects email, phone or any other personal identifier - sending
             one would hand you the wallet↔identity mapping your subscribers were
             told you cannot see.
           </span>

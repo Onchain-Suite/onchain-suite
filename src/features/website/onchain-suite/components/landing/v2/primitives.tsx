@@ -13,7 +13,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 
 /**
  * Offscreen animation gate. Attach `ref` to a section/container and spread
- * `data-anim` — while the element is out of the viewport every CSS animation
+ * `data-anim` - while the element is out of the viewport every CSS animation
  * inside is paused (see the `[data-anim="off"]` rule in landing-v2.css), so
  * looping animations only cost anything while actually visible.
  */
@@ -79,7 +79,7 @@ export function Reveal({
   );
 }
 
-/** Staggered container — children should be <Stagger.Item>. */
+/** Staggered container - children should be <Stagger.Item>. */
 const staggerParent: Variants = {
   hidden: {},
   show: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
@@ -186,7 +186,7 @@ export function Counter({
   );
 }
 
-/** Infinite marquee — duplicates children so the loop is seamless.
+/** Infinite marquee - duplicates children so the loop is seamless.
  *  Pauses automatically while scrolled out of view. */
 export function Marquee({
   children,

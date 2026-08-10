@@ -12,7 +12,7 @@ import { StatCard } from "@/ui/stat-card";
 
 import type { CaptureForm } from "../forms.service";
 
-/** Aggregate stats derived from the forms list — no extra fetches. */
+/** Aggregate stats derived from the forms list - no extra fetches. */
 export function FormStats({ forms }: { forms: CaptureForm[] }) {
   const stats = useMemo(() => {
     const total = forms.length;

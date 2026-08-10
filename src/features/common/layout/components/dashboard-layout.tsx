@@ -51,7 +51,7 @@ const withWipFlags = (items: NavItem[]): NavItem[] =>
     wip: !SHOW_WIP_SECTIONS && isWipHref(item.url),
   }));
 
-// Resolved once at module scope — the routes and the WIP flag are both static.
+// Resolved once at module scope - the routes and the WIP flag are both static.
 const NAV_MAIN: NavItem[] = withWipFlags([
   { title: "Dashboard", url: PRIVATE_ROUTES.DASHBOARD, icon: Squares2X2Icon },
   { title: "Campaigns", url: PRIVATE_ROUTES.CAMPAIGNS, icon: MegaphoneIcon },
@@ -122,7 +122,7 @@ function DashboardLayoutInner({
     [pathname]
   );
 
-  // Some accounts have no display name — fall back to first/last name the way
+  // Some accounts have no display name - fall back to first/last name the way
   // the campaigns page did before the shell was hoisted to the group layout.
   const rawUser: unknown = session?.user;
   const firstLast = isJsonObject(rawUser)
@@ -168,7 +168,7 @@ function DashboardLayoutInner({
         {hasActiveOrganization ? <OrganizationStatusBanner /> : null}
         <PendingCheckoutBanner />
 
-        {/* Not a <main> — SidebarInset already renders one. */}
+        {/* Not a <main> - SidebarInset already renders one. */}
         <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 lg:p-8">
           {hasActiveOrganization ? (
             wipSection ? (
@@ -206,7 +206,7 @@ function DashboardLayoutInner({
 
 export function DashboardLayout(props: DashboardLayoutProps) {
   // Server state lives on the root QueryClient and the command palette on the
-  // root CommandPaletteProvider (see RootProviders) — both survive
+  // root CommandPaletteProvider (see RootProviders) - both survive
   // navigations; mounting either here would duplicate them per layout.
   return <DashboardLayoutInner {...props} />;
 }

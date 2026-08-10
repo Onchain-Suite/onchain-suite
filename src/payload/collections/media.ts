@@ -4,7 +4,7 @@ import { isCmsUser, isPublisher, publicRead } from "@/payload/access";
 
 /**
  * Uploads. Files are stored in Cloudinary via the adapter wired up in
- * payload.config.ts (see src/payload/storage/cloudinary-adapter.ts) — nothing is
+ * payload.config.ts (see src/payload/storage/cloudinary-adapter.ts) - nothing is
  * written to local disk, which matters because serverless deploys have no
  * persistent filesystem.
  *

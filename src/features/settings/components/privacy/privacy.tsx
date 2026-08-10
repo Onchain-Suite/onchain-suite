@@ -25,7 +25,7 @@ import {
 } from "@/shared/components/ui/select";
 
 /**
- * Privacy & Identity settings — how wallets link to email/socials, how the
+ * Privacy & Identity settings - how wallets link to email/socials, how the
  * links are stored/retained, and what wallets consent to. These map to product
  * invariants (wallet-first, ZK-verified, GDPR-aligned) that don't yet have a
  * write API, so the retention control is local state pending the backend.
@@ -39,7 +39,7 @@ const RETENTION_OPTIONS = [
 
 const CONSENT_COPY = `By linking your wallet you agree that OnchainSuite may associate this wallet address with the contact channels you verify (email, X, Farcaster) so the projects you opt into can message you.
 
-The link is stored off-chain and encrypted. Your wallet address is treated as personal data. You can withdraw consent at any time — a self-serve unsubscribe purges the link and stops all messaging on the affected channels.`;
+The link is stored off-chain and encrypted. Your wallet address is treated as personal data. You can withdraw consent at any time - a self-serve unsubscribe purges the link and stops all messaging on the affected channels.`;
 
 export default function PrivacyIdentitySettings() {
   const [editingRetention, setEditingRetention] = useState(false);
@@ -204,7 +204,7 @@ export default function PrivacyIdentitySettings() {
           items={[
             {
               label: "Opt-in required",
-              value: "Yes — no link without explicit consent",
+              value: "Yes - no link without explicit consent",
             },
             { label: "Channels covered", value: "Email, X, Farcaster" },
           ]}

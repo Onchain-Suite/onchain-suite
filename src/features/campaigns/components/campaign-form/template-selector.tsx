@@ -68,7 +68,7 @@ import {
 
 interface TemplateSelectorProps {
   form: UseFormReturn<CampaignFormData>;
-  /** Campaign delivery channel — push campaigns default to push templates. */
+  /** Campaign delivery channel - push campaigns default to push templates. */
   channel?: "email" | "in-app-push";
   onCreateEditor?: (opts?: { templateName?: string }) => void;
   onSelectTemplate?: (templateId: string) => void;
@@ -120,7 +120,7 @@ const writeRecents = (recents: Record<string, number>) => {
 /**
  * Renders an email's HTML as a thumbnail that always fills its card. The email
  * is laid out at a fixed 600px design width inside an iframe, then scaled by
- * (container width / 600) via a ResizeObserver — so the preview fits any card
+ * (container width / 600) via a ResizeObserver - so the preview fits any card
  * size instead of overflowing/underflowing a hard-coded scale.
  */
 function TemplateThumb({ html, title }: { html: string; title: string }) {
@@ -644,7 +644,7 @@ export function TemplateSelector({
                   </h3>
                   <p className="mt-1 max-w-xl text-sm text-muted-foreground">
                     {LIBRARY_EMAIL_TEMPLATES.length} production-ready, on-brand
-                    emails built for onchain protocols — each with dynamic
+                    emails built for onchain protocols - each with dynamic
                     variables baked in. Preview any design below to get started.
                   </p>
                 </div>

@@ -17,7 +17,7 @@ const SUPPORT_EMAIL = "info@onchainsuite.com";
 
 /**
  * Target of the "Learn more about security" link in the onboarding security
- * banner. Keep the anti-phishing promise here identical to the banner copy —
+ * banner. Keep the anti-phishing promise here identical to the banner copy -
  * this page is what people check when they are trying to decide whether a
  * message claiming to be us is real.
  */
@@ -26,7 +26,7 @@ const SECTIONS = [
     id: "never-ask",
     icon: NoSymbolIcon,
     title: "What we will never ask for",
-    body: "OnchainSuite will never call, email, or text you asking for your password, a one-time passcode, a 2FA code, or a wallet seed phrase or private key. No one from our team needs any of these to help you, and we will never ask you to share your screen while you enter them. Any message that asks for one is not from us — no matter what the sender name, logo, or reply address looks like.",
+    body: "OnchainSuite will never call, email, or text you asking for your password, a one-time passcode, a 2FA code, or a wallet seed phrase or private key. No one from our team needs any of these to help you, and we will never ask you to share your screen while you enter them. Any message that asks for one is not from us - no matter what the sender name, logo, or reply address looks like.",
   },
   {
     id: "how-we-contact-you",

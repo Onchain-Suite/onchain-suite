@@ -68,7 +68,7 @@ export const Posts: CollectionConfig = {
     // Runs before access-controlled writes land: keeps editors on drafts.
     beforeChange: [enforceDraftOnly],
     // Order matters: filing media rewrites Cloudinary public ids, and therefore
-    // image URLs, so it has to finish before the page is revalidated — otherwise
+    // image URLs, so it has to finish before the page is revalidated - otherwise
     // the freshly cached HTML would carry the pre-move URLs.
     afterChange: [organizePostMedia, revalidatePostAfterChange],
     // Cleanup first: it deletes media documents, and revalidation should run

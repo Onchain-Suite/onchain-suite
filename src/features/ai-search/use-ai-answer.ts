@@ -143,7 +143,7 @@ async function streamQueryText(args: {
     }
   }
 
-  // A stream that closes without a done event is a failure — surface it now
+  // A stream that closes without a done event is a failure - surface it now
   // rather than letting the caller's timeout turn it into a minute of silence.
   if (!doneSeen) {
     throw new Error("The answer stream ended unexpectedly. Try again.");
@@ -188,7 +188,7 @@ export function useAiAnswer() {
     setFeedback(null);
     setCitations([]);
 
-    // Bound the stream — never hang forever.
+    // Bound the stream - never hang forever.
     timeoutRef.current = window.setTimeout(() => {
       if (abortRef.current === controller) {
         controller.abort();
@@ -233,7 +233,7 @@ export function useAiAnswer() {
       if (controller.signal.aborted) return; // user stop or timeout
       const raw = e instanceof Error ? e.message : "AI request failed";
       const message = raw.includes("(402)")
-        ? "Your organization is out of AI credits and the usage wallet can't cover it — top up or upgrade in Settings → Billing."
+        ? "Your organization is out of AI credits and the usage wallet can't cover it - top up or upgrade in Settings → Billing."
         : raw.includes("(404)") || raw.includes("(501)")
           ? "AI search isn't available yet for this workspace."
           : raw;
@@ -253,7 +253,7 @@ export function useAiAnswer() {
   }, [stop]);
 
   // Fire-and-forget relevance feedback (POST /ai/feedback); the UI flips to
-  // a thank-you immediately — a lost request isn't worth surfacing.
+  // a thank-you immediately - a lost request isn't worth surfacing.
   const sendFeedback = useCallback(
     (vote: "up" | "down") => {
       setFeedback(vote);

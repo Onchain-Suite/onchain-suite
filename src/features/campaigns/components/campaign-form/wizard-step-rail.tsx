@@ -9,7 +9,7 @@ const STEPS = [
 ] as const;
 
 /**
- * Left rail for the campaign wizard — numbered Audience / Message / Review
+ * Left rail for the campaign wizard - numbered Audience / Message / Review
  * steps with done/active states. Collapses to a horizontal row on small
  * screens. Presentational only; the parent owns `currentStep`.
  */

@@ -67,7 +67,7 @@ export function TemplateStep({
 }: TemplateStepProps) {
   const router = useRouter();
   // Guards against out-of-order writes when templates are selected in quick
-  // succession — only the latest selection is applied to the campaign.
+  // succession - only the latest selection is applied to the campaign.
   const applyTemplateSeqRef = useRef(0);
 
   const normalizedCampaignId = useMemo(
@@ -76,7 +76,7 @@ export function TemplateStep({
   );
 
   /**
-   * The editor reads `?campaign=` and can render nothing without it — no id
+   * The editor reads `?campaign=` and can render nothing without it - no id
    * means a dead "Missing campaign id." page. Previously the param was set
    * conditionally and we navigated anyway; refuse to leave instead, and say
    * why, so the user isn't dropped somewhere with no way forward.
@@ -85,7 +85,7 @@ export function TemplateStep({
     (params: URLSearchParams) => {
       if (!normalizedCampaignId) {
         toast.error(
-          "Add a campaign name first — the editor needs a saved campaign to attach the design to."
+          "Add a campaign name first - the editor needs a saved campaign to attach the design to."
         );
         return;
       }
@@ -194,7 +194,7 @@ export function TemplateStep({
               if (!normalizedCampaignId) {
                 // Was a silent no-op: the click appeared to do nothing at all.
                 toast.error(
-                  "Add a campaign name first — the template needs a saved campaign to apply to."
+                  "Add a campaign name first - the template needs a saved campaign to apply to."
                 );
                 return;
               }
@@ -203,7 +203,7 @@ export function TemplateStep({
               const seq = ++applyTemplateSeqRef.current;
               try {
                 // Selecting a template must also replace the campaign's
-                // stored content — setTemplate alone leaves the previously
+                // stored content - setTemplate alone leaves the previously
                 // saved design in place, so preview/send would still use the
                 // old message.
                 const full = await templatesService.get(clean);
@@ -214,7 +214,7 @@ export function TemplateStep({
                 if (applyTemplateSeqRef.current !== seq) return;
 
                 // In-app templates carry { title, body, cta } instead of
-                // html — save them as the campaign's push variant
+                // html - save them as the campaign's push variant
                 // (channelsContent.inapp), which send-inapp consumes.
                 const push = extractTemplatePushContent(full);
                 if (push) {

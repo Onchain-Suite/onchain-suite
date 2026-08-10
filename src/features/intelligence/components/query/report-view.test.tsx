@@ -26,7 +26,7 @@ vi.mock("../../intelligence.service", () => ({
   intelligenceService: mocks.intelligenceService,
 }));
 
-// Charts are recharts' concern — stub the primitives so jsdom only has to
+// Charts are recharts' concern - stub the primitives so jsdom only has to
 // verify our composition (titles, actions, branding, table).
 vi.mock("recharts", () => {
   const Stub = ({ children }: { children?: ReactNode }) => (

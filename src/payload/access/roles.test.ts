@@ -73,7 +73,7 @@ describe("canPublish", () => {
     expect(canPublish("Super Admin")).toBe(true);
   });
 
-  it("does NOT allow editors — this is the whole point of the role", () => {
+  it("does NOT allow editors - this is the whole point of the role", () => {
     expect(canPublish("editor")).toBe(false);
     expect(canPublish("EDITOR")).toBe(false);
     expect(canPublish("Editor")).toBe(false);
@@ -96,7 +96,7 @@ describe("isSuperAdminRole", () => {
     expect(isSuperAdminRole("super-admin")).toBe(true);
   });
 
-  it("is false for admin and editor — managing accounts is separate", () => {
+  it("is false for admin and editor - managing accounts is separate", () => {
     expect(isSuperAdminRole("admin")).toBe(false);
     expect(isSuperAdminRole("editor")).toBe(false);
   });
@@ -118,7 +118,7 @@ describe("role hierarchy is consistent", () => {
     }
   });
 
-  it("a super admin can publish — never accounts-only", () => {
+  it("a super admin can publish - never accounts-only", () => {
     expect(canPublish("super_admin")).toBe(true);
   });
 

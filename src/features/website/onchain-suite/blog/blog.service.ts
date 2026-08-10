@@ -52,7 +52,7 @@ async function findPublishedPosts({
 
   const result = await payload.find({
     collection: "posts",
-    // Pagination at the source (CLAUDE.md §4) — never fetch the whole dataset.
+    // Pagination at the source (CLAUDE.md §4) - never fetch the whole dataset.
     page,
     limit,
     depth: 1,
@@ -186,7 +186,7 @@ export const getCategoryBySlug = unstable_cache(
  * fresh documents to the browser over postMessage, so the client re-runs the same
  * mappers (blog.mappers.ts) on the same shape.
  *
- * Deliberately NOT cached and NOT filtered to published — preview must always
+ * Deliberately NOT cached and NOT filtered to published - preview must always
  * reflect the newest draft, and caching would leak unpublished content into the
  * shared cache.
  */

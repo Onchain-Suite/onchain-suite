@@ -36,7 +36,7 @@ export interface ListTemplatesParams {
   folder?: string;
   limit?: number;
   /**
-   * Delivery channel the template targets — "email" | "inapp"
+   * Delivery channel the template targets - "email" | "inapp"
    * (docs/backend.md: GET /templates?channel= filters exactly).
    */
   channel?: "email" | "inapp";
@@ -297,7 +297,7 @@ export const templatesService = {
           .filter((n) => n.length > 0)
       );
     } catch {
-      // If listing fails, proceed optimistically — the backend can still reject
+      // If listing fails, proceed optimistically - the backend can still reject
       // duplicates on its own.
     }
 
@@ -313,7 +313,7 @@ export const templatesService = {
         continue;
       }
 
-      // Up to 3 attempts with exponential backoff — many partial-seed failures
+      // Up to 3 attempts with exponential backoff - many partial-seed failures
       // are transient (rate limits / cold backend), so a retry recovers them.
       let lastError = "Unknown error";
       let created = false;

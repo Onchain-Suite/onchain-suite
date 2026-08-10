@@ -124,7 +124,7 @@ export default function IntelligencePage() {
             <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground data-[state=active]:bg-primary-foreground/20">
               {typeof segmentsMetricsQuery.data?.segmentsCount === "number"
                 ? segmentsMetricsQuery.data.segmentsCount
-                : "—"}
+                : "-"}
             </span>
           </TabsTrigger>
           <TabsTrigger

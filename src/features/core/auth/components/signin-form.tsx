@@ -79,7 +79,7 @@ function GoogleOAuthButtons({
       const callbackURL = redirectTo ?? PRIVATE_ROUTES.DASHBOARD;
 
       // A redirectTo (e.g. an invite accept link) must win for NEW users
-      // too — the default new-user destination is onboarding, which invited
+      // too - the default new-user destination is onboarding, which invited
       // members should never see.
       await signInWithGoogle({
         callbackURL,
@@ -184,12 +184,12 @@ export function SignInForm({
 
       if (error) {
         if (isUserNotFoundError(error)) {
-          toast.info("No account found for this email — create one");
+          toast.info("No account found for this email - create one");
           goToSignUpWithEmail(formData.email);
           return;
         }
         // Backend returns a generic invalid-credentials error for both
-        // unknown-email and wrong-password — surface a sign-up affordance
+        // unknown-email and wrong-password - surface a sign-up affordance
         // instead of guessing which one it was.
         setFailedEmail(formData.email);
         toast.error(

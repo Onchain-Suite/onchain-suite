@@ -19,7 +19,7 @@ export type BlogCategory = Pick<Category, "id" | "title" | "slug"> & {
   description: string | null;
 };
 
-/** A post as rendered on the index / category listings — no body content. */
+/** A post as rendered on the index / category listings - no body content. */
 export type BlogPostSummary = {
   id: number;
   title: string;

@@ -230,7 +230,7 @@ const requireOrgId = (req: NextRequest): string | null => {
 
 /**
  * Every better-auth session cookie name we may receive. Kept in step with
- * `getSession()` in @/lib/auth-session, which accepts the same set — the
+ * `getSession()` in @/lib/auth-session, which accepts the same set - the
  * secure/host prefixes and the snake/camel spelling vary by deployment, and
  * matching a narrower set here would 401 a perfectly valid session.
  */

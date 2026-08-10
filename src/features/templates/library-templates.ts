@@ -7,7 +7,7 @@ import {
 /**
  * Built-in, production-grade email templates for the Email Library.
  *
- * Design language: OnchainSuite brand — electric blue on a light "paper"
+ * Design language: OnchainSuite brand - electric blue on a light "paper"
  * canvas. HTML is table-based, 600px, inline-styled, and responsive so it
  * renders across Gmail, Apple Mail, and Outlook. All copy uses onchain merge
  * variables ({{ ens_name }}, {{ wallet_short }}, …) so protocols can send
@@ -206,7 +206,7 @@ const productUpdate: LibraryEmailTemplate = {
         [
           h1("Big upgrades just shipped, {{ ens_name }}"),
           p(
-            "We've been building. Here's what's new in {{ protocol }} this cycle — designed to make your onchain workflow faster and clearer."
+            "We've been building. Here's what's new in {{ protocol }} this cycle - designed to make your onchain workflow faster and clearer."
           ),
           `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:6px 0 24px 0;">
             ${[
@@ -238,12 +238,12 @@ const winback: LibraryEmailTemplate = {
   name: "Winback Campaign",
   category: "Re-engagement",
   subject: "We saved your spot, {{ ens_name }}",
-  previewText: "Your wallet's been quiet — here's a reason to come back.",
+  previewText: "Your wallet's been quiet - here's a reason to come back.",
   description:
     "Re-engage dormant wallets with a warm headline, a personalized nudge, and an incentive.",
   variables: ["ens_name", "wallet_short", "protocol", "token_symbol", "amount"],
   html: shell({
-    preheader: "Your wallet's been quiet — here's a reason to come back.",
+    preheader: "Your wallet's been quiet - here's a reason to come back.",
     eyebrow: "We miss you",
     bodyHtml: [
       pad(
@@ -252,7 +252,7 @@ const winback: LibraryEmailTemplate = {
           p(
             `Your wallet <strong style="color:${
               BRAND.ink
-            }">{{ wallet_short }}</strong> hasn't interacted with {{ protocol }} recently. A lot has changed — and we'd love to have you back.`
+            }">{{ wallet_short }}</strong> hasn't interacted with {{ protocol }} recently. A lot has changed - and we'd love to have you back.`
           ),
           `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:6px 0 22px 0;background:${BRAND.soft};border:1px solid ${BRAND.border};border-radius:16px;">
             <tr><td style="padding:22px 24px;font-family:${FONT};text-align:center;">
@@ -262,7 +262,7 @@ const winback: LibraryEmailTemplate = {
             </td></tr>
           </table>`,
           button("Claim &amp; come back", "#"),
-          `<div style="margin-top:14px;">${small("No pressure — this offer is tied to your wallet and waiting whenever you're ready.")}</div>`,
+          `<div style="margin-top:14px;">${small("No pressure - this offer is tied to your wallet and waiting whenever you're ready.")}</div>`,
         ].join("")
       ),
     ].join(""),
@@ -287,7 +287,7 @@ const newsletter: LibraryEmailTemplate = {
         [
           h1("This week onchain"),
           p(
-            "Hey {{ ens_name }} — here's your weekly digest from {{ protocol }}, distilled to what actually matters."
+            "Hey {{ ens_name }} - here's your weekly digest from {{ protocol }}, distilled to what actually matters."
           ),
           `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
             ${[
@@ -297,7 +297,7 @@ const newsletter: LibraryEmailTemplate = {
               },
               {
                 t: "New integrations shipped",
-                d: "Three protocols joined the network this week — bridging just got cheaper.",
+                d: "Three protocols joined the network this week - bridging just got cheaper.",
               },
               {
                 t: "Onchain metric of the week",
@@ -327,7 +327,7 @@ const airdrop: LibraryEmailTemplate = {
   name: "Airdrop Alert",
   category: "Promotional",
   subject:
-    "You're eligible, {{ ens_name }} — claim {{ amount }} {{ token_symbol }}",
+    "You're eligible, {{ ens_name }} - claim {{ amount }} {{ token_symbol }}",
   previewText: "Your wallet qualified. Claim before the window closes.",
   description:
     "High-urgency claim email with an allocation callout, wallet badges, and a countdown line.",
@@ -384,7 +384,7 @@ const vip: LibraryEmailTemplate = {
           `<div style="font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:${BRAND.primary};margin-bottom:10px;">Members only</div>`,
           h1("You're invited, {{ ens_name }}"),
           p(
-            "As one of {{ protocol }}'s most active members, you're getting first access — before this goes out to anyone else."
+            "As one of {{ protocol }}'s most active members, you're getting first access - before this goes out to anyone else."
           ),
           `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:6px 0 22px 0;border:1px solid ${BRAND.border};border-radius:16px;">
             <tr><td style="padding:22px 24px;font-family:${FONT};">
@@ -491,7 +491,7 @@ export function buildTemplateSeedPayload(template: LibraryEmailTemplate): {
     name: template.name,
     content: {
       // Bake safe defaults into every merge tag so the template can be sent
-      // to any audience — unresolved variables without a default block the
+      // to any audience - unresolved variables without a default block the
       // send at validation.
       html: withMergeTagDefaults(template.html),
       text: withMergeTagDefaults(template.text),

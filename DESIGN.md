@@ -1,25 +1,25 @@
-# OnchainSuite — Design System (v2)
+# OnchainSuite - Design System (v2)
 
 The single source of truth for how the **product (dashboard/app)** looks and feels. The reference
-implementation is live at **https://onchainsuite.aborodeolusegun.workers.dev/** — when a value here
+implementation is live at **https://onchainsuite.aborodeolusegun.workers.dev/** - when a value here
 and the running app disagree, the reference wins, and this doc is what we migrate the app toward.
 
 The aesthetic is **paper + electric blue**: a near-white canvas (graphite in dark), white/graphite
 surfaces, **electric-blue** as the single brand action color, **orange** reserved for focus and
 links-on-hover, navy ink, soft navy-tinted elevation, and **Instrument Sans / Geist Mono** type. It
-is a calm, data-dense product system — not a marketing showpiece.
+is a calm, data-dense product system - not a marketing showpiece.
 
 > Scope note: this is the **app** design system. The marketing landing runs a separate `.ocs2`
 > implementation of the same brand (`features/website/.../ landing/v2/landing-v2.css`) and is
 > intentionally left on its own styling. Older revisions of this file described a terminal/cyan
-> `.os-landing` system — that was **removed**; ignore any memory of it.
+> `.os-landing` system - that was **removed**; ignore any memory of it.
 
 ---
 
 ## 1. Principles
 
 1. **Light-first, dark by token.** Every color is a semantic token that resolves per theme. Never
-   hardcode a hex in a component — reference a token so `[data-theme="dark"]` flips it for free.
+   hardcode a hex in a component - reference a token so `[data-theme="dark"]` flips it for free.
 2. **One accent, used sparingly.** Electric blue (`--action-primary`) is for the primary action and
    selected state, nothing else. Orange is focus/attention only. Color is a signal, not decoration.
 3. **Numbers are typographic.** Metrics, addresses, hashes, code, timestamps → **Geist Mono** via
@@ -33,7 +33,7 @@ is a calm, data-dense product system — not a marketing showpiece.
 
 ---
 
-## 2. Color — primitive ramps
+## 2. Color - primitive ramps
 
 Raw palettes. Components should almost never use these directly; they exist so the **semantic**
 tokens in §3 can be built from them.
@@ -53,7 +53,7 @@ Plus `--alice #F0F7FF` (brand wash for gradients/marketing accents).
 
 ---
 
-## 3. Color — semantic tokens (use these)
+## 3. Color - semantic tokens (use these)
 
 Values shown **light → dark**. This is the contract the whole app is built on.
 
@@ -102,7 +102,7 @@ success text `#4ADE9C`).
 
 ### Focus & tints
 
-`--focus-ring rgba(255,104,40,.28)` (orange, dark `.3`) — **focus is orange, not blue.**
+`--focus-ring rgba(255,104,40,.28)` (orange, dark `.3`) - **focus is orange, not blue.**
 `--tint-hover rgba(18,20,23,.06)` / dark `rgba(255,255,255,.07)`; `--tint-pressed` `.1` / `.12`.
 
 ### Data-viz series
@@ -116,7 +116,7 @@ success text `#4ADE9C`).
 
 - **Sans:** `--font-sans` = **"Instrument Sans"** (already registered in `app/layout.tsx`). Body,
   headings, UI.
-- **Mono:** `--font-mono` = **"Geist Mono"** — data, metrics, addresses, code. Registered via
+- **Mono:** `--font-mono` = **"Geist Mono"** - data, metrics, addresses, code. Registered via
   `next/font/google` as `--font-geist-mono`; it replaces JetBrains Mono for the app (JetBrains stays
   registered for the `.os-404` terminal page only).
 
@@ -152,7 +152,7 @@ page/section/card title → heading. Stat tiles use `--text-numeric-*` in Geist 
   `2 0 2px 8px /.1` · `3 0 8px 24px /.14` · `4 0 16px 48px /.18`. Cards sit at 0–1; popovers/menus
   at 2–3; modals at 4.
 - **Effects:** `--blur-glass 16px`, `--blur-overlay 8px`. Gradients: `--gradient-core` (sky→blue),
-  `--gradient-dawn`, `--gradient-depth`, `--gradient-ember` — brand flourishes, use sparingly.
+  `--gradient-dawn`, `--gradient-depth`, `--gradient-ember` - brand flourishes, use sparingly.
 
 ---
 
@@ -193,10 +193,10 @@ page/section/card title → heading. Stat tiles use `--text-numeric-*` in Geist 
 
 ## 8. Theming
 
-Light is the default on `:root`; dark is opted into with the **`.dark` class** on `<html>` — the
+Light is the default on `:root`; dark is opted into with the **`.dark` class** on `<html>` - the
 app's `ThemeProvider` runs next-themes with `attribute="class"`, so the override block in
 `globals.css` is `.dark { … }`, not `[data-theme="dark"]`. Only the subset of semantic tokens in §3 is
-overridden in dark — primitives stay fixed, so anything built on semantic tokens is automatically
+overridden in dark - primitives stay fixed, so anything built on semantic tokens is automatically
 theme-correct. Never branch on theme in components; branch in the tokens.
 
 ---
@@ -237,7 +237,7 @@ Do **not** port marketing-only gradients/flourishes into dense app views.
 - [x] Add the type scale (§4) as utilities (`text-heading-xl`, `text-numeric-l`, `text-code-s`, …),
       plus `--color-*` utilities for the surface/status/data tokens and `shadow-elevation-*`.
 - [ ] Move stat values / metrics onto `text-numeric-*` + `font-mono`.
-- [ ] Standardize radii on `md`(4)/`lg`(6). **Deliberately deferred** — `--radius` stays at the
+- [ ] Standardize radii on `md`(4)/`lg`(6). **Deliberately deferred** - `--radius` stays at the
       app's current `0.625rem` so adopting the tokens caused no visual change. Flipping it is a
       design decision, not a migration step.
 - [x] Elevation available as `--elevation-0..4` / `shadow-elevation-*`.
@@ -249,12 +249,12 @@ Do **not** port marketing-only gradients/flourishes into dense app views.
 ## 11. Files
 
 - **Reference (source of truth):** https://onchainsuite.aborodeolusegun.workers.dev/
-- `src/styles/globals.css` — app tokens (§2–3 ramps + semantic tokens, shadcn aliases mapped onto
+- `src/styles/globals.css` - app tokens (§2–3 ramps + semantic tokens, shadcn aliases mapped onto
   them, and the §4 type scale exposed as Tailwind utilities in `@theme inline`).
-- `src/app/layout.tsx` — font registration (Instrument Sans + Geist Mono; the `.variable` classes
+- `src/app/layout.tsx` - font registration (Instrument Sans + Geist Mono; the `.variable` classes
   live on `<html>` so `:root` can reference them).
-- `src/shared/providers/theme-provider.tsx` — next-themes with `attribute="class"` → `.dark`.
+- `src/shared/providers/theme-provider.tsx` - next-themes with `attribute="class"` → `.dark`.
 - `src/shared/components/channel-chip.tsx`, `features/dashboard/components/*`,
-  `features/settings/pages/settings-side-nav.tsx` — current v2-token consumers.
+  `features/settings/pages/settings-side-nav.tsx` - current v2-token consumers.
 
 When in doubt, open the reference URL in both themes and match it.

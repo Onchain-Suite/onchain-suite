@@ -33,7 +33,7 @@ export function configureCloudinary(): void {
  * Whether credentials are present at all.
  *
  * Only used to skip *optional* work (folder filing). The upload path does not
- * check this — an upload without credentials must fail loudly rather than
+ * check this - an upload without credentials must fail loudly rather than
  * silently drop the file.
  */
 export function hasCloudinaryCredentials(): boolean {

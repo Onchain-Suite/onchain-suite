@@ -7,7 +7,7 @@ const HOME: BreadcrumbItem = { href: publicRoutes.HOME, label: "Home" };
 /**
  * Route → breadcrumb mapping for the shared dashboard shell. Replaces the
  * per-page constants that lived in each route file before DashboardLayout was
- * hoisted into the (dashboard) group layout. Ordered — first match wins, so
+ * hoisted into the (dashboard) group layout. Ordered - first match wins, so
  * deeper paths must precede their parents.
  */
 const MATCHERS: Array<{

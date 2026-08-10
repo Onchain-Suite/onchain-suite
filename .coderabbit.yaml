@@ -1,4 +1,4 @@
-# CodeRabbit configuration — https://docs.coderabbit.ai/reference/yaml-template
+# CodeRabbit configuration - https://docs.coderabbit.ai/reference/yaml-template
 language: en-US
 
 reviews:
@@ -16,7 +16,7 @@ reviews:
   path_instructions:
     - path: "src/**/*.{ts,tsx}"
       instructions: |
-        This repo's conventions live in CLAUDE.md — enforce them:
+        This repo's conventions live in CLAUDE.md - enforce them:
         - Server Components by default; "use client" boundaries as small as
           possible (leaf, not page).
         - One typed service per API family; unwrap the { success, data }
@@ -26,7 +26,7 @@ reviews:
           no per-query refetchOnWindowFocus without justification.
         - Every long/streaming call needs a timeout and an abort path.
         - Lists that can exceed ~100 rows must be paginated or virtualized.
-        - Tailwind semantic tokens only (bg-card, text-foreground, …) — flag
+        - Tailwind semantic tokens only (bg-card, text-foreground, …) - flag
           hardcoded hex/rgba theme colors; light and dark must both work.
         - Heroicons per-icon named imports only; no dynamic icon registries.
         - Contacts are wallet-first: walletAddress is the identity; email and

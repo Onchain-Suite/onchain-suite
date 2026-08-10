@@ -10,7 +10,7 @@ export type OrgRole = "OWNER" | "ADMIN" | "EDITOR" | "VIEWER";
 /**
  * The current user's role in the selected organization, from
  * `GET /organization/list` (each org row carries the caller's `role`).
- * `null` while loading or when no org is selected — callers gating
+ * `null` while loading or when no org is selected - callers gating
  * owner-only UI should treat `null` as "not owner" so restricted surfaces
  * never flash for members. Enforcement lives in the backend
  * (billing is OWNER-guarded); this hook is cosmetic gating only.

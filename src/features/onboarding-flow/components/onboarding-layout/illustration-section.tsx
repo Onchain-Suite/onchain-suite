@@ -175,7 +175,7 @@ function AnalyticsArt() {
 }
 
 const CAPTIONS = {
-  audience: "See every wallet that touches your protocol — and reach them.",
+  audience: "See every wallet that touches your protocol - and reach them.",
   automation: "Trigger journeys the moment something happens onchain.",
   campaign: "Send personalized, on-brand emails that convert.",
   analytics: "Tie every message back to conversions and revenue.",

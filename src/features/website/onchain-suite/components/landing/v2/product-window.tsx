@@ -525,7 +525,7 @@ export function AutomationsViz() {
 const INTEL_QUESTION =
   "Which wallets deposited over $10k last month but haven't returned?";
 
-/* Intelligence card for the marketing feature section — a self-driving loop:
+/* Intelligence card for the marketing feature section - a self-driving loop:
    type the question → reveal the full animated MCP result (skeleton → bar
    chart → rows → buttons) → hold → clear → retype. Loops while in view. */
 export function IntelligenceAskCard() {

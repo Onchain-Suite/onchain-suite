@@ -39,7 +39,7 @@ const toErrorState = (error: unknown): AcceptState => {
       phase: "error",
       title: "Invite already accepted",
       message:
-        "This invitation has already been used. If that was you, you already have access — head to your dashboard.",
+        "This invitation has already been used. If that was you, you already have access - head to your dashboard.",
     };
   }
   return {
@@ -80,7 +80,7 @@ export function InviteAcceptView({ token }: { token: string }) {
         if (cancelled) return;
         // Invited members skip onboarding entirely (docs/backend.md
         // 2026-07-29: accept marks onboarding COMPLETE server-side and binds
-        // sessions to the inviting org) — mirror that locally and go
+        // sessions to the inviting org) - mirror that locally and go
         // straight to the team dashboard.
         document.cookie =
           "onchain.onboardingComplete=1; Path=/; Max-Age=31536000; SameSite=Lax";

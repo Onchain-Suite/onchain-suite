@@ -36,7 +36,7 @@ const extractErrorCode = (error: unknown): string => {
  * Self-serve account deletion (`DELETE /auth/account`, docs/backend.md
  * 2026-07-29). Sole-member workspaces are deleted with the account; owning a
  * workspace that still has other members returns 400
- * TRANSFER_OWNERSHIP_REQUIRED — surfaced with a clear next step.
+ * TRANSFER_OWNERSHIP_REQUIRED - surfaced with a clear next step.
  */
 export default function DangerZone() {
   const [open, setOpen] = useState(false);
@@ -78,7 +78,7 @@ export default function DangerZone() {
         <p className="max-w-xl text-sm text-muted-foreground">
           Deleting your account removes your profile and every workspace where
           you are the only member. Workspaces with other members must be
-          transferred first — your team is never deleted out from under them.
+          transferred first - your team is never deleted out from under them.
         </p>
         <Button
           variant="destructive"

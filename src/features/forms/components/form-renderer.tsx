@@ -11,7 +11,7 @@ import {
   readDisplaySettings,
 } from "../forms.service";
 
-/** X (Twitter) glyph — brand mark, kept inline so we ship no icon font. */
+/** X (Twitter) glyph - brand mark, kept inline so we ship no icon font. */
 function XGlyph({ className }: { className?: string }) {
   return (
     <svg
@@ -280,7 +280,7 @@ export function FormRenderer({
               className="size-3.5 text-indigo-400"
               aria-hidden="true"
             />
-            Verified with a zero-knowledge proof — your identity is never
+            Verified with a zero-knowledge proof - your identity is never
             exposed
           </p>
         )}

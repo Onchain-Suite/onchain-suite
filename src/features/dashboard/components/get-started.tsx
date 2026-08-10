@@ -37,7 +37,7 @@ import { useMyOrgRole } from "@/shared/hooks/client/use-my-org-role";
 
 const ACCOUNT_SETTINGS_HREF = `${PRIVATE_ROUTES.SETTINGS}?tab=account`;
 
-/** Static task definitions — completion is resolved from live org data. */
+/** Static task definitions - completion is resolved from live org data. */
 interface TaskDefinition {
   id: string;
   title: string;
@@ -106,7 +106,7 @@ const TASK_DEFINITIONS: TaskDefinition[] = [
     id: "create-automation",
     title: "Create your first automation",
     description:
-      "React to onchain events automatically — emails, pushes, and posts on triggers.",
+      "React to onchain events automatically - emails, pushes, and posts on triggers.",
     icon: <BoltIcon aria-hidden="true" className="h-6 w-6" />,
     href: PRIVATE_ROUTES.NEW_AUTOMATION,
     cta: "Build automation",
@@ -377,7 +377,7 @@ export function GetStartedSection() {
 
   // Onboarding is the OWNER's journey. Members (admin/editor/viewer) never
   // completed the wizard, so both the resume-redirect and the "finish
-  // onboarding" banner must be owner-only — role null (loading/unknown)
+  // onboarding" banner must be owner-only - role null (loading/unknown)
   // counts as not-owner so members are never yanked out of the dashboard.
   const { role: myOrgRole } = useMyOrgRole();
   const isOrgOwner = myOrgRole === "OWNER";
@@ -404,7 +404,7 @@ export function GetStartedSection() {
   }, []);
 
   // Resumable onboarding: users who abandoned mid-flow land back on
-  // /onboarding to finish — at most once per browser session (see
+  // /onboarding to finish - at most once per browser session (see
   // RESUME_REDIRECT_SESSION_KEY), so skipping out isn't a redirect loop.
   useEffect(() => {
     if (!isOrgOwner) return;
@@ -412,7 +412,7 @@ export function GetStartedSection() {
     if (resume?.status !== "in_progress") return;
     if (progress?.is_completed) return;
     if (typeof window === "undefined") return;
-    // Read the cookie directly — the mirrored state may not have settled yet.
+    // Read the cookie directly - the mirrored state may not have settled yet.
     if (document.cookie.includes("onchain.onboardingComplete=1")) return;
     if (window.sessionStorage.getItem(RESUME_REDIRECT_SESSION_KEY) === "1") {
       return;

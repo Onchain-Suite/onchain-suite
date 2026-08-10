@@ -5,7 +5,7 @@ import { useEffect } from "react";
 /**
  * Adds a show/hide toggle to every password input in the admin panel.
  *
- * One implementation, applied everywhere — the create-first-user screen, the
+ * One implementation, applied everywhere - the create-first-user screen, the
  * login form, the account screen, and any password field added later. Payload's
  * password inputs are not collection fields; they are synthesised inside
  * Payload's own auth views, so there is no field config to attach a component to
@@ -76,7 +76,7 @@ export function PasswordVisibilityProvider({
      * Whether each field is currently revealed.
      *
      * This has to be ours, not the DOM's. React owns `type` on these inputs and
-     * re-asserts `type="password"` from its virtual DOM on every re-render — so
+     * re-asserts `type="password"` from its virtual DOM on every re-render - so
      * on every keystroke. Reading the live attribute would therefore lose the
      * user's choice the moment they type; instead the desired state is kept here
      * and re-applied whenever React overwrites it.
@@ -93,7 +93,7 @@ export function PasswordVisibilityProvider({
 
     const setState = (button: HTMLButtonElement, visible: boolean) => {
       // Bail when nothing changes. `apply` runs on every DOM mutation, and
-      // rewriting innerHTML unconditionally is itself a childList mutation — that
+      // rewriting innerHTML unconditionally is itself a childList mutation - that
       // fed the observer back into apply and span forever.
       if (button.getAttribute("aria-pressed") === String(visible)) {
         return;
@@ -146,7 +146,7 @@ export function PasswordVisibilityProvider({
       const button = document.createElement("button");
       button.setAttribute(TOGGLE_ATTR, "");
       // Without an explicit type, a <button> inside Payload's auth form submits
-      // it — clicking "show password" would try to log in or create the user.
+      // it - clicking "show password" would try to log in or create the user.
       button.type = "button";
       button.tabIndex = 0;
 
@@ -211,7 +211,7 @@ export function PasswordVisibilityProvider({
     scan();
 
     // Payload re-renders and client-navigates between admin views, so password
-    // inputs appear — and our buttons disappear — after mount.
+    // inputs appear - and our buttons disappear - after mount.
     const observer = new MutationObserver(() => scan());
     observer.observe(document.body, {
       // `type` matters as much as childList: React rewrites it on re-render, and

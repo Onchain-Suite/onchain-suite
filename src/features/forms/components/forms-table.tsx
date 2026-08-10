@@ -74,7 +74,7 @@ export const FormsTable = memo(function FormsTable({
                   ? formatDistanceToNow(new Date(form.lastSubmissionAt), {
                       addSuffix: true,
                     })
-                  : "—"}
+                  : "-"}
               </TableCell>
               <TableCell className="hidden sm:table-cell">
                 <div className="flex gap-1">

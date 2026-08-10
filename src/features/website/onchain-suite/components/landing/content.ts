@@ -223,7 +223,7 @@ export const POSTS = [
   {
     title: "Why Web3's retention crisis is an infrastructure problem",
     excerpt:
-      "Lending cohorts retain 25–35% by month three, DEXs 15–25%. The fix isn't louder ads — it's a communication layer that can act on on-chain behavior.",
+      "Lending cohorts retain 25–35% by month three, DEXs 15–25%. The fix isn't louder ads - it's a communication layer that can act on on-chain behavior.",
     tag: "Retention",
     readTime: "6 min read",
   },

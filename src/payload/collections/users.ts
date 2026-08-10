@@ -3,7 +3,7 @@ import type { CollectionConfig } from "payload";
 import { isCmsUser, isSuperAdmin } from "@/payload/access";
 
 /**
- * CMS accounts — the logins for /admin.
+ * CMS accounts - the logins for /admin.
  *
  * Payload owns authentication and sessions here: its own email + password
  * strategy, its own session cookie, its own user table. This is deliberately
@@ -21,7 +21,7 @@ import { isCmsUser, isSuperAdmin } from "@/payload/access";
  *   - `admin`       additionally publishes, unpublishes and deletes content
  *   - `super_admin` additionally creates and deletes CMS accounts
  *
- * This repo has no middleware.ts, so nothing guards /admin at the edge — these
+ * This repo has no middleware.ts, so nothing guards /admin at the edge - these
  * rules and Payload's auth are the boundary. src/app/robots.ts keeps both
  * /admin and /cms-api out of search indexes.
  */
@@ -34,7 +34,7 @@ export const Users: CollectionConfig = {
     group: "Admin",
   },
   access: {
-    // Any signed-in CMS user can read the list — the author picker on posts
+    // Any signed-in CMS user can read the list - the author picker on posts
     // needs it.
     read: isCmsUser,
     // Only a super admin may add or remove CMS accounts. Granting blog access

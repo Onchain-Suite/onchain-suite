@@ -25,7 +25,7 @@ const DEFAULT_FIELDS: CaptureFieldSpec[] = [
 ];
 
 /**
- * Create dialog with a live preview pane — the preview re-renders as the
+ * Create dialog with a live preview pane - the preview re-renders as the
  * name/fields/ZK settings change, so users see exactly what they'll embed.
  */
 export function CreateFormDialog({

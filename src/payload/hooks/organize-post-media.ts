@@ -11,8 +11,8 @@ import { renameCloudinaryAsset } from "@/payload/storage/cloudinary-move";
 /**
  * Moves a post's media into that post's own Cloudinary folder.
  *
- * Uploads cannot know their destination — Payload's upload drawer creates the
- * media document independently, usually before the post exists — so assets land
+ * Uploads cannot know their destination - Payload's upload drawer creates the
+ * media document independently, usually before the post exists - so assets land
  * in `blog/_unassigned` and are filed here, when a post that references them is
  * saved. See src/payload/storage/cloudinary-folders.ts for the layout and the
  * move policy.

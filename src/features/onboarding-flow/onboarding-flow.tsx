@@ -30,7 +30,7 @@ export function OnboardingFlow() {
 
   // Safety net: onboarding is the OWNER's journey. The backend marks
   // `user.onboardingCompleted` true for invited members on invite accept
-  // (docs/backend.md 2026-07-29) — anyone carrying that flag is bounced
+  // (docs/backend.md 2026-07-29) - anyone carrying that flag is bounced
   // straight to the team dashboard, whatever path routed them here. New
   // owners (auto-provisioned org, flag false) still onboard normally.
   React.useEffect(() => {

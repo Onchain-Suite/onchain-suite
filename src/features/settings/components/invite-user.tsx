@@ -54,7 +54,7 @@ const InviteUser = ({ open, onOpenChange, onSuccess }: InviteUserProps) => {
 
     setSaving(true);
     try {
-      // Rate-limited at 5 invites/minute — a 429 surfaces the service's
+      // Rate-limited at 5 invites/minute - a 429 surfaces the service's
       // friendly wait-a-moment message below.
       await organizationMembersService.createInvite(orgId, {
         email,

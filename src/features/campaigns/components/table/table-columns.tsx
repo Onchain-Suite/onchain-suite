@@ -133,7 +133,7 @@ export const columns: ColumnDef<Campaign>[] = [
               {recipients.toLocaleString()}
             </div>
           ) : shown.length === 0 ? (
-            "—"
+            "-"
           ) : null}
         </div>
       );
@@ -188,7 +188,7 @@ export const columns: ColumnDef<Campaign>[] = [
         ? `Sent ${formatDate(sentAt)}`
         : scheduledFor
           ? `Scheduled ${formatDate(scheduledFor)}`
-          : "—";
+          : "-";
       return <div className="text-sm text-muted-foreground">{label}</div>;
     },
     meta: { className: "hidden xl:table-cell" } satisfies CampaignColumnMeta,

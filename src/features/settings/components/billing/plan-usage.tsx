@@ -88,7 +88,7 @@ const PlanUsage = () => {
     refetchOnReconnect: false,
   });
 
-  // Exact-plan fallback: GET /billing sometimes omits the plan name — the
+  // Exact-plan fallback: GET /billing sometimes omits the plan name - the
   // dedicated GET /billing/plan endpoint is authoritative, so query it whenever
   // the overview can't name the plan (fixes "Unknown plan").
   const overviewObj = isJsonObject(overviewQuery.data)
@@ -264,15 +264,15 @@ const PlanUsage = () => {
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Plan">{planName}</StatTile>
-        <StatTile label="Price">{priceLabel ?? "—"}</StatTile>
-        <StatTile label="Billing">{billingCycleLabel ?? "—"}</StatTile>
+        <StatTile label="Price">{priceLabel ?? "-"}</StatTile>
+        <StatTile label="Billing">{billingCycleLabel ?? "-"}</StatTile>
         <StatTile label="Status">
           {billingStatus ? (
             <StatusPill tone={statusTone}>
               {billingStatus.charAt(0).toUpperCase() + billingStatus.slice(1)}
             </StatusPill>
           ) : (
-            "—"
+            "-"
           )}
         </StatTile>
       </div>
@@ -336,7 +336,7 @@ const PlanUsage = () => {
           className="mt-0.5 h-4 w-4 shrink-0 text-primary"
         />
         <p>
-          Running out never cuts you off. Past the allowance — or past expiry —
+          Running out never cuts you off. Past the allowance - or past expiry -
           usage bills from your prepaid wallet at the rates below. Renewal
           reminders go out 4, 2, 1 days before expiry.
         </p>

@@ -147,7 +147,7 @@ export const PRICING = {
         "Email + in-app push",
         "Starter Protocol Plays",
       ],
-      cta: "Start free trial",
+      cta: "Start",
       featured: false,
     },
     {
@@ -162,7 +162,7 @@ export const PRICING = {
         "All channels except SMS",
         "Advanced Plays + peer benchmarks",
       ],
-      cta: "Start free trial",
+      cta: "Start",
       featured: true,
     },
     {

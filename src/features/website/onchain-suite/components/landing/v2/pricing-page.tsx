@@ -204,7 +204,7 @@ const PAYG: Tier = {
     "Metered email, in-app, on-chain & AI",
     "2 team seats",
   ],
-  cta: "Start free",
+  cta: "Start",
 };
 
 const TIERS: Tier[] = [
@@ -563,7 +563,7 @@ export function PricingPage() {
         />
         <div className="wrap relative">
           <Heading
-            eyebrow="Start free, pay per use"
+            eyebrow="Start and pay per use"
             title={
               <>
                 Simple plans, priced by{" "}

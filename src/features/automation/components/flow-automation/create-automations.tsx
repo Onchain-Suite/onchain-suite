@@ -2099,7 +2099,6 @@ const CreateAutomationContent = () => {
   });
 
   const builderNodeCount = nodes.length;
-  const builderConnectionCount = edges.length;
   const builderErrorCount = pickArray(
     isJsonObject(validateMutation.data)
       ? validateMutation.data.errors
@@ -2180,12 +2179,13 @@ const CreateAutomationContent = () => {
                   </span>
                 );
               })()}
-              <span className="text-border">/</span>
+              <span className="text-border">·</span>
               <span>{builderNodeCount} nodes</span>
-              <span className="text-border">/</span>
-              <span>{builderConnectionCount} links</span>
-              <span className="text-border">/</span>
-              <span>{builderErrorCount} validation issues</span>
+              <span className="text-border">·</span>
+              <span>
+                {builderErrorCount}{" "}
+                {builderErrorCount === 1 ? "issue" : "issues"}
+              </span>
             </div>
           </div>
         </div>

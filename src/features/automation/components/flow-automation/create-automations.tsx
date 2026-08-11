@@ -668,7 +668,7 @@ function FlowSettingsPanel() {
   const [quietHours, setQuietHours] = useState(true);
   const [frequencyCap, setFrequencyCap] = useState(true);
   return (
-    <div className="hidden w-[344px] shrink-0 overflow-y-auto border-l border-border bg-card/60 p-6 md:block">
+    <div className="hidden w-[344px] shrink-0 overflow-y-auto rounded-xl border border-border bg-card p-6 md:block">
       <h3 className="font-semibold tracking-tight text-foreground">
         Flow settings
       </h3>
@@ -2092,12 +2092,12 @@ const CreateAutomationContent = () => {
       }}
       initial="initial"
       animate="animate"
-      className="flex h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm md:h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)]"
+      className="mx-auto flex h-[calc(100vh-4.5rem)] w-full max-w-[1600px] flex-col gap-4 overflow-hidden px-4 py-3 md:h-[calc(100vh-5rem)]"
     >
       <Confetti show={!showConfetti} />
 
       {/* Header */}
-      <header className="flex min-h-20 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border bg-gradient-to-b from-primary/5 to-transparent px-4 py-3 sm:px-6">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-1">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <Link
             href="/automations"
@@ -2242,7 +2242,7 @@ const CreateAutomationContent = () => {
       </header>
 
       {/* Main Content */}
-      <div className="relative flex flex-1 overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 gap-4 overflow-hidden">
         {activeTab === "builder" ? (
           <>
             {/* Sidebar */}
@@ -2252,7 +2252,7 @@ const CreateAutomationContent = () => {
                   initial={{ width: 0, opacity: 0 }}
                   animate={{ width: 304, opacity: 1 }}
                   exit={{ width: 0, opacity: 0 }}
-                  className="absolute inset-y-0 left-0 z-20 flex max-w-full flex-col border-r border-border bg-gradient-to-b from-card to-card md:static md:z-auto md:bg-gradient-to-b md:from-card md:to-card/60"
+                  className="absolute inset-y-0 left-0 z-20 flex max-w-full flex-col overflow-hidden border-r border-border bg-card md:static md:z-auto md:rounded-xl md:border md:border-border md:bg-card"
                 >
                   <div className="flex items-center gap-2 p-4 pb-3">
                     <label className="group relative block min-w-0 flex-1">
@@ -2308,7 +2308,7 @@ const CreateAutomationContent = () => {
 
             {/* Canvas Area - clean flat surface (reference has no graph pill
                 or helper banner overlay). */}
-            <div className="relative flex-1 overflow-hidden bg-background">
+            <div className="relative flex-1 overflow-hidden rounded-xl border border-border bg-background">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="absolute left-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
@@ -2574,7 +2574,7 @@ const CreateAutomationContent = () => {
                     initial={{ x: 320, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     exit={{ x: 320, opacity: 0 }}
-                    className="scrollbar-sleek absolute inset-y-0 right-0 z-30 w-[min(344px,100%)] overflow-y-auto border-l border-border bg-gradient-to-b from-card to-card p-6 shadow-2xl md:static md:z-auto md:w-[344px] md:bg-gradient-to-b md:from-card md:to-card/60 md:shadow-none"
+                    className="scrollbar-sleek absolute inset-y-0 right-0 z-30 w-[min(344px,100%)] overflow-y-auto border-l border-border bg-card p-6 shadow-2xl md:static md:z-auto md:w-[344px] md:rounded-xl md:border md:border-border md:bg-card md:shadow-none"
                   >
                     <div className="mb-6 flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">

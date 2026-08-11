@@ -19,10 +19,10 @@ export const AddToListNode = ({ data, selected }: AddToListNodeProps) => {
   const needsSetup = listName.length === 0;
   return (
     <div
-      className={`relative min-w-[216px] rounded-xl border bg-card p-3.5 shadow-sm transition-all ${
+      className={`relative w-[260px] rounded-lg border bg-card p-3 shadow-sm transition-all ${
         selected
           ? "border-emerald-500/60 shadow-emerald-500/10 ring-2 ring-emerald-500/25"
-          : "border-border hover:-translate-y-0.5 hover:border-emerald-500/40 hover:shadow-lg"
+          : "border-border hover:border-emerald-500/40 hover:shadow-lg"
       }`}
     >
       {needsSetup ? (
@@ -42,14 +42,14 @@ export const AddToListNode = ({ data, selected }: AddToListNodeProps) => {
         className="h-2.5 w-2.5 border-2 border-emerald-400 bg-background"
       />
       <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10">
           <QueueListIcon
             aria-hidden="true"
             className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
           />
         </div>
         <div className="flex-1">
-          <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400">
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">
             Add to List
           </p>
           <p className="text-sm font-semibold tracking-tight text-foreground">
@@ -66,7 +66,7 @@ export const AddToListNode = ({ data, selected }: AddToListNodeProps) => {
           Needs setup
         </p>
       ) : (
-        <div className="mt-2.5 rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-3 py-2">
+        <div className="mt-2.5 rounded-lg border border-emerald-500/15 bg-emerald-500/5 px-3 py-2">
           <p className="line-clamp-1 text-xs text-muted-foreground">
             List: <span className="text-foreground">{listName}</span>
           </p>

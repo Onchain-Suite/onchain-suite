@@ -126,14 +126,14 @@ export function NavUserMenu({
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-60 rounded-lg"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-md p-1"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
           >
             {/* Workspace header */}
-            <DropdownMenuLabel className="flex items-center gap-2.5 py-2 font-normal">
-              <Avatar className="size-8 shrink-0 rounded-md ring-1 ring-border/60">
+            <DropdownMenuLabel className="flex items-center gap-2 py-1.5 font-normal">
+              <Avatar className="size-7 shrink-0 rounded-md ring-1 ring-border/60">
                 {activeOrgLogo ? (
                   <AvatarImage src={activeOrgLogo} alt={workspaceName} />
                 ) : null}
@@ -178,7 +178,7 @@ export function NavUserMenu({
                 />
                 <span>Switch workspace</span>
               </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="min-w-56">
+              <DropdownMenuSubContent className="min-w-52 rounded-md p-1">
                 <DropdownMenuLabel className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Workspaces
                 </DropdownMenuLabel>

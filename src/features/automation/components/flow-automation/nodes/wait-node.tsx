@@ -10,10 +10,10 @@ interface WaitNodeProps {
 
 export const WaitNode = ({ data, selected }: WaitNodeProps) => (
   <div
-    className={`min-w-[188px] rounded-xl border bg-card p-3.5 shadow-sm transition-all ${
+    className={`w-[260px] rounded-lg border bg-card p-3 shadow-sm transition-all ${
       selected
         ? "border-violet-500/60 shadow-violet-500/10 ring-2 ring-violet-500/25"
-        : "border-border hover:-translate-y-0.5 hover:border-violet-500/40 hover:shadow-lg"
+        : "border-border hover:border-violet-500/40 hover:shadow-lg"
     }`}
   >
     <Handle
@@ -27,14 +27,14 @@ export const WaitNode = ({ data, selected }: WaitNodeProps) => (
       className="h-2.5 w-2.5 border-2 border-violet-400 bg-background"
     />
     <div className="flex items-center gap-2.5">
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-violet-500/20 bg-violet-500/10">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-violet-500/20 bg-violet-500/10">
         <ClockIcon
           aria-hidden="true"
           className="h-4 w-4 text-violet-600 dark:text-violet-400"
         />
       </div>
       <div>
-        <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-violet-600 dark:text-violet-400">
+        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-violet-600 dark:text-violet-400">
           Wait
         </p>
         <p className="text-sm font-semibold tracking-tight text-foreground">

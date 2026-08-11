@@ -2121,7 +2121,7 @@ const CreateAutomationContent = () => {
       }}
       initial="initial"
       animate="animate"
-      className="flex h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-[24px] border border-border bg-card shadow-sm md:h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)]"
+      className="flex h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm md:h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)]"
     >
       <Confetti show={!showConfetti} />
 
@@ -2385,19 +2385,12 @@ const CreateAutomationContent = () => {
               )}
             </AnimatePresence>
 
-            {/* Canvas Area */}
-            <div className="relative flex-1 overflow-hidden bg-gradient-to-b from-muted/40 to-background">
-              <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] flex items-center justify-between px-6 py-4">
-                <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-primary backdrop-blur">
-                  Automation Graph
-                </div>
-                <div className="hidden rounded-full border border-border bg-card/75 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur sm:block">
-                  Connect triggers to waits, branches, and actions
-                </div>
-              </div>
+            {/* Canvas Area - clean flat surface (reference has no graph pill
+                or helper banner overlay). */}
+            <div className="relative flex-1 overflow-hidden bg-background">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="absolute left-4 top-16 z-10 flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground shadow-md transition-colors hover:bg-muted hover:text-foreground"
+                className="absolute left-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
               >
                 {sidebarOpen ? (
                   <ArrowLeftIcon aria-hidden="true" className="h-4 w-4" />

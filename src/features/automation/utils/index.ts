@@ -70,7 +70,7 @@ export const autoLayoutNodes = (
   // Position new node below the lowest with offset
   return {
     x: lowestNode.position.x,
-    y: lowestNode.position.y + 150,
+    y: lowestNode.position.y + 118,
   };
 };
 

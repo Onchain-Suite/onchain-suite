@@ -16,12 +16,19 @@ export const EmailNode = ({ data, selected }: EmailNodeProps) => {
     (typeof data.template === "string" && data.template) ||
     "";
   const needsSetup = templateLabel.length === 0;
+  const subtitle = needsSetup
+    ? "Needs setup"
+    : (data.subject?.trim() ?? "").length > 0
+      ? (data.subject as string)
+      : templateLabel.length > 0
+        ? templateLabel
+        : "Email or reusable template";
   return (
     <div
-      className={`relative min-w-[216px] rounded-xl border bg-card p-3.5 shadow-sm transition-all ${
+      className={`relative w-[260px] rounded-lg border bg-card p-3 shadow-sm transition-all ${
         selected
           ? "border-indigo-500/60 shadow-indigo-500/10 ring-2 ring-indigo-500/25"
-          : "border-border hover:-translate-y-0.5 hover:border-indigo-500/40 hover:shadow-lg"
+          : "border-border hover:border-indigo-500/40 hover:shadow-md"
       }`}
     >
       {needsSetup ? (
@@ -41,60 +48,24 @@ export const EmailNode = ({ data, selected }: EmailNodeProps) => {
         className="h-2.5 w-2.5 border-2 border-indigo-400 bg-background"
       />
       <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-indigo-500/20 bg-indigo-500/10">
           <EnvelopeIcon
             aria-hidden="true"
             className="h-4 w-4 text-indigo-600 dark:text-indigo-400"
           />
         </div>
-        <div className="flex-1">
-          <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-indigo-600 dark:text-indigo-400">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-400">
             Send Email
           </p>
-          <p className="text-sm font-semibold tracking-tight text-foreground">
+          <p className="truncate text-sm font-semibold tracking-tight text-foreground">
             {data.label}
           </p>
         </div>
       </div>
-      {needsSetup ? (
-        <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-          <span
-            aria-hidden="true"
-            className="h-1.5 w-1.5 rounded-full bg-amber-500"
-          />
-          Needs setup
-        </p>
-      ) : (
-        <div className="mt-2.5 space-y-2">
-          <div className="rounded-xl border border-indigo-500/15 bg-indigo-500/5 px-3 py-2">
-            <p className="text-xs font-medium text-foreground">
-              {templateLabel}
-            </p>
-            {data.subject && (
-              <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                {data.subject}
-              </p>
-            )}
-          </div>
-          {data.dynamicFields && (
-            <div className="flex flex-wrap gap-1">
-              {data.dynamicFields.slice(0, 3).map((field: string) => (
-                <span
-                  key={field}
-                  className="rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                >
-                  {field}
-                </span>
-              ))}
-              {data.dynamicFields.length > 3 && (
-                <span className="text-[10px] text-muted-foreground">
-                  +{data.dynamicFields.length - 3} more
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      <p className="mt-1.5 truncate text-xs text-muted-foreground">
+        {subtitle}
+      </p>
     </div>
   );
 };

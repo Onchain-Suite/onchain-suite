@@ -27,20 +27,23 @@ export const WaitNode = ({ data, selected }: WaitNodeProps) => (
       className="h-2.5 w-2.5 border-2 border-indigo-400 bg-background"
     />
     <div className="flex items-center gap-2.5">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10">
         <ClockIcon
           aria-hidden="true"
           className="h-4 w-4 text-indigo-600 dark:text-indigo-400"
         />
       </div>
-      <div>
+      <div className="min-w-0 flex-1">
         <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Wait
         </p>
-        <p className="text-sm font-semibold tracking-tight text-foreground">
-          {data.duration ?? "3 days"}
+        <p className="truncate text-sm font-semibold tracking-tight text-foreground">
+          Wait {data.duration ?? "3 days"}
         </p>
       </div>
     </div>
+    <p className="mt-1.5 truncate text-xs text-muted-foreground">
+      Pause before the next step
+    </p>
   </div>
 );

@@ -7,8 +7,6 @@ import { useCommandPalette } from "@/components/common/command-palette";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
-import { HeaderOrgSwitcher } from "./header-org-switcher";
-
 export const DashboardHeader = ({
   breadcrumbs,
   currentPage,
@@ -52,9 +50,8 @@ export const DashboardHeader = ({
       </div>
 
       <div className="flex min-w-0 items-center gap-2 px-1 sm:px-4 md:ml-auto">
-        {/* Workspace switcher sits beside search - a visible, first-class
-            control instead of being tucked into the account menu. */}
-        {hasActiveOrganization ? <HeaderOrgSwitcher /> : null}
+        {/* Workspace switching now lives in the account menu (bottom of the
+            sidebar), matching the reference shell - no top-bar switcher. */}
         {/* Search now lives in the header (the sidebar no longer carries it). */}
         {hasActiveOrganization ? (
           <SearchTrigger onClick={() => palette.open()} />

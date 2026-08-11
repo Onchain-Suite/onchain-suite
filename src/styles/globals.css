@@ -256,8 +256,8 @@
   --text-caption-size: 12px;
   --text-caption-line: 16px;
 
-  /* ── Radius - kept at the app's current scale (unchanged) ─────────────── */
-  --radius: 0.625rem;
+  /* ── Radius - tightened for a crisper, less-curvy dashboard ──────────── */
+  --radius: 0.5rem;
 
   /* ── Spacing ─────────────────────────────────────────────────────────── */
   --spacing: 0.25rem;

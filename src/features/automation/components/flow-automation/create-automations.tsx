@@ -98,11 +98,9 @@ import {
 } from "./nodes";
 import { PropertySelect, type PropertySelectOption } from "./property-select";
 import {
-  actionNodes,
   emailTemplates as fallbackEmailTemplates,
   eventTypes,
   mockContracts,
-  triggerNodes,
 } from "@/features/automation/data";
 import {
   autoLayoutNodes,
@@ -298,6 +296,87 @@ const ON_CHAIN_TRIGGER_TYPES = new Set([
   "liquidation_detected",
   "approval_intent",
 ]);
+
+/** The exact triggers offered in the builder library + "Add trigger" grid.
+ *  Config schemas are still fetched per type; this only scopes the palette. */
+const FIXED_TRIGGERS: { type: string; label: string; description: string }[] = [
+  {
+    type: "onchain_event",
+    label: "On-chain event",
+    description: "Wallet interacts with a contract",
+  },
+  {
+    type: "swap_completed",
+    label: "Swap completed",
+    description: "DEX trade or token exchange",
+  },
+  {
+    type: "liquidity_added",
+    label: "Liquidity added",
+    description: "Deposits into your pools",
+  },
+  {
+    type: "capital_withdrawn",
+    label: "Capital withdrawn",
+    description: "Burns, unstakes, or withdraws",
+  },
+  {
+    type: "approval_intent",
+    label: "Approval intent",
+    description: "Approves a contract to spend",
+  },
+  {
+    type: "form_submitted",
+    label: "Form submitted",
+    description: "Wallet completes a capture form",
+  },
+  {
+    type: "list_joined",
+    label: "Joined a list",
+    description: "Wallet is added to a list",
+  },
+  {
+    type: "segment_entered",
+    label: "Segment entered",
+    description: "Wallet joins a saved segment",
+  },
+];
+
+/** The exact actions offered in the "Add step" grid + library. */
+const FIXED_ACTIONS: { type: string; label: string; description: string }[] = [
+  {
+    type: "send_email",
+    label: "Send email",
+    description: "Email or reusable template",
+  },
+  {
+    type: "send_inapp",
+    label: "Send in-app",
+    description: "Push to the matched wallet",
+  },
+  { type: "wait", label: "Wait", description: "Pause the flow for a duration" },
+  {
+    type: "branch",
+    label: "Branch",
+    description: "Split paths on a condition",
+  },
+  {
+    type: "add_tag",
+    label: "Add tag",
+    description: "Attach a tag to the contact",
+  },
+  {
+    type: "add_to_list",
+    label: "Add to list",
+    description: "Add the contact to a list",
+  },
+  { type: "webhook", label: "Webhook", description: "Call an external URL" },
+  {
+    type: "dispatch_campaign",
+    label: "Dispatch campaign",
+    description: "Fire an existing campaign",
+  },
+];
 
 /**
  * All canonical trigger `type`s (used to recognize a trigger node whether it was
@@ -852,45 +931,6 @@ const CreateAutomationContent = () => {
     [setEdges, setNodes]
   );
 
-  const resolvedTriggerNodes = useMemo(() => {
-    return triggerNodes;
-  }, []);
-
-  const resolvedActionNodes = useMemo(() => {
-    return actionNodes;
-  }, []);
-
-  const triggersQuery = useQuery({
-    queryKey: ["automations", "builder", "triggers"],
-    queryFn: async () => {
-      try {
-        const primary = await automationService.listTriggerTypes();
-        const primaryItems = pickArray(primary);
-        if (primaryItems.length > 0) return primaryItems;
-        const alias = await automationService.listAvailableTriggers();
-        return pickArray(alias);
-      } catch {
-        return [];
-      }
-    },
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const actionsQuery = useQuery({
-    queryKey: ["automations", "builder", "actions"],
-    queryFn: async () => {
-      try {
-        const res = await automationService.listActionTypes();
-        return pickArray(res);
-      } catch {
-        return [];
-      }
-    },
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
   const emailTemplatesQuery = useQuery({
     queryKey: ["automations", "builder", "email-templates"],
     queryFn: async () => {
@@ -905,49 +945,23 @@ const CreateAutomationContent = () => {
     refetchOnWindowFocus: false,
   });
 
-  const triggerCatalog = useMemo(() => {
-    const fetched = triggersQuery.data ?? [];
-    const normalized = fetched
-      .map((t) => {
-        if (!isJsonObject(t)) return null;
-        const rec = t as Record<string, unknown>;
-        const type = asString(rec.type) || asString(rec.id);
-        if (type.length === 0) return null;
-        const label = asString(rec.label) || asString(rec.name) || type;
-        const description = asString(rec.description);
-        return {
-          type,
-          label,
-          description,
-          icon: <LibraryIcon type={type} />,
-        };
-      })
-      .filter((x): x is (typeof triggerNodes)[number] => !!x);
-    const base = normalized.length > 0 ? normalized : resolvedTriggerNodes;
-    return base.map((n) => ({ ...n, icon: <LibraryIcon type={n.type} /> }));
-  }, [resolvedTriggerNodes, triggersQuery.data]);
+  const triggerCatalog = useMemo(
+    () =>
+      FIXED_TRIGGERS.map((t) => ({
+        ...t,
+        icon: <LibraryIcon type={t.type} />,
+      })),
+    []
+  );
 
-  const actionCatalog = useMemo(() => {
-    const fetched = actionsQuery.data ?? [];
-    const normalized = fetched
-      .map((a) => {
-        if (!isJsonObject(a)) return null;
-        const rec = a as Record<string, unknown>;
-        const type = asString(rec.type) || asString(rec.id);
-        if (type.length === 0) return null;
-        const label = asString(rec.label) || asString(rec.name) || type;
-        const description = asString(rec.description);
-        return {
-          type,
-          label,
-          description,
-          icon: <LibraryIcon type={type} />,
-        };
-      })
-      .filter((x): x is (typeof actionNodes)[number] => !!x);
-    const base = normalized.length > 0 ? normalized : resolvedActionNodes;
-    return base.map((n) => ({ ...n, icon: <LibraryIcon type={n.type} /> }));
-  }, [actionsQuery.data, resolvedActionNodes]);
+  const actionCatalog = useMemo(
+    () =>
+      FIXED_ACTIONS.map((a) => ({
+        ...a,
+        icon: <LibraryIcon type={a.type} />,
+      })),
+    []
+  );
 
   const matchesNodeSearch = useCallback(
     (item: { label?: string; description?: string }) => {
@@ -2039,6 +2053,25 @@ const CreateAutomationContent = () => {
     [actionCatalog]
   );
 
+  // While the inline "Add step" grid is open on an edge, push the target step
+  // and everything below it down so the grid sits in the opened gap instead of
+  // covering the next node.
+  const displayNodes = useMemo(() => {
+    if (!activeInsertEdge) return nodes;
+    const edge = edges.find((e) => e.id === activeInsertEdge);
+    const targetNode = edge
+      ? nodes.find((n) => n.id === edge.target)
+      : undefined;
+    if (!targetNode) return nodes;
+    const threshold = targetNode.position.y;
+    const offset = 250;
+    return nodes.map((n) =>
+      n.position.y >= threshold
+        ? { ...n, position: { ...n.position, y: n.position.y + offset } }
+        : n
+    );
+  }, [nodes, edges, activeInsertEdge]);
+
   const addNode = (type: string, label: string) => {
     const { rendererType, data } = resolveNodeShape(type, label);
     const newNode: Node = {
@@ -2388,7 +2421,7 @@ const CreateAutomationContent = () => {
                 }}
               >
                 <ReactFlow
-                  nodes={nodes}
+                  nodes={displayNodes}
                   edges={edges}
                   onNodesChange={onNodesChange}
                   onEdgesChange={onEdgesChange}
@@ -2475,29 +2508,6 @@ const CreateAutomationContent = () => {
                     </div>
                   </div>
                 </div>
-              ) : null}
-
-              {/* Persistent "Add trigger" affordance once the flow has a
-                  trigger, so more entry events can be added (reference lets a
-                  flow start from up to three). */}
-              {nodes.length > 0 && !showTriggerPicker ? (
-                <button
-                  type="button"
-                  onClick={() => setShowTriggerPicker(true)}
-                  className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-dashed border-border bg-card/80 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur transition-colors hover:border-primary/50 hover:text-foreground"
-                >
-                  <svg
-                    viewBox="0 0 20 20"
-                    aria-hidden="true"
-                    className="h-3.5 w-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M10 4v12M4 10h12" strokeLinecap="round" />
-                  </svg>
-                  Add trigger
-                </button>
               ) : null}
 
               {/* "Add trigger" grid - choose the automation's entry trigger. */}
@@ -2624,9 +2634,10 @@ const CreateAutomationContent = () => {
               {selectedNode &&
                 !selectedNodeDetails?.type?.includes("placeholder") && (
                   <motion.div
-                    initial={{ x: 320, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: 320, opacity: 0 }}
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.12, ease: "easeOut" }}
                     className="scrollbar-sleek absolute inset-y-0 right-0 z-30 w-[min(344px,100%)] overflow-y-auto border-l border-border bg-card p-6 shadow-2xl md:static md:z-auto md:w-[344px] md:rounded-xl md:border md:border-border md:bg-card md:shadow-none"
                   >
                     <div className="mb-6 flex items-start justify-between gap-3">

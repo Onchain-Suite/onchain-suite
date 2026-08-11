@@ -80,7 +80,9 @@ export function AddableEdge({
           <div
             className="nodrag nopan pointer-events-auto absolute z-50 w-[264px] rounded-2xl border border-border bg-card p-2 shadow-2xl"
             style={{
-              transform: `translate(-50%, 12px) translate(${labelX}px, ${labelY}px)`,
+              // Anchor just below the source node; the builder pushes the
+              // downstream steps down so the grid sits in the opened gap.
+              transform: `translate(-50%, 16px) translate(${labelX}px, ${sourceY}px)`,
             }}
           >
             <div className="mb-1.5 flex items-center justify-between px-1.5 pt-0.5">

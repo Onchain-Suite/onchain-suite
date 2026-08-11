@@ -1304,6 +1304,37 @@ const CreateAutomationContent = () => {
     return mapped;
   }, [statsEntriesQuery.data]);
 
+  // "Messages in this flow" is derived from the flow's send steps. Per-message
+  // delivery counts have no backend endpoint yet, so metrics render as "—".
+  const messageRows = useMemo(() => {
+    const sendTypes = new Set([
+      "send_email",
+      "email",
+      "send_inapp",
+      "inapp",
+      "dispatch_campaign",
+    ]);
+    return nodes
+      .filter((n) => typeof n.type === "string" && sendTypes.has(n.type))
+      .map((n) => {
+        const data = isJsonObject(n.data)
+          ? (n.data as Record<string, unknown>)
+          : {};
+        const channel =
+          n.type === "send_email" || n.type === "email"
+            ? "Email"
+            : n.type === "dispatch_campaign"
+              ? "Campaign"
+              : "In-app push";
+        const title =
+          asString(data.subject) ||
+          asString(data.title) ||
+          asString(data.label) ||
+          channel;
+        return { id: n.id, title, channel };
+      });
+  }, [nodes]);
+
   const isStatsLoading =
     !isNew &&
     activeTab === "stats" &&
@@ -3560,14 +3591,32 @@ const CreateAutomationContent = () => {
               {/* Charts Row */}
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6 lg:col-span-2">
-                  <h3 className="mb-6 font-semibold">Performance Over Time</h3>
+                  <div className="mb-6 flex items-center justify-between gap-3">
+                    <h3 className="font-semibold">Performance over time</h3>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          aria-hidden="true"
+                          className="h-2.5 w-2.5 rounded-[3px] bg-primary"
+                        />
+                        Completed the flow
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          aria-hidden="true"
+                          className="h-2.5 w-2.5 rounded-[3px] bg-primary/25"
+                        />
+                        Entered
+                      </span>
+                    </div>
+                  </div>
                   <div className="h-[300px] w-full">
                     {chartData.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData}>
                           <defs>
                             <linearGradient
-                              id="colorRevenue"
+                              id="colCompleted"
                               x1="0"
                               y1="0"
                               x2="0"
@@ -3576,7 +3625,25 @@ const CreateAutomationContent = () => {
                               <stop
                                 offset="5%"
                                 stopColor="var(--primary)"
-                                stopOpacity={0.1}
+                                stopOpacity={0.35}
+                              />
+                              <stop
+                                offset="95%"
+                                stopColor="var(--primary)"
+                                stopOpacity={0.02}
+                              />
+                            </linearGradient>
+                            <linearGradient
+                              id="colEntered"
+                              x1="0"
+                              y1="0"
+                              x2="0"
+                              y2="1"
+                            >
+                              <stop
+                                offset="5%"
+                                stopColor="var(--primary)"
+                                stopOpacity={0.12}
                               />
                               <stop
                                 offset="95%"
@@ -3602,16 +3669,27 @@ const CreateAutomationContent = () => {
                             fontSize={12}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={(value) => `$${value}`}
+                            allowDecimals={false}
                           />
                           <Tooltip />
                           <Area
                             type="monotone"
-                            dataKey="revenue"
+                            dataKey="entries"
+                            name="Entered"
+                            stroke="var(--primary)"
+                            strokeOpacity={0.35}
+                            strokeWidth={1.5}
+                            fillOpacity={1}
+                            fill="url(#colEntered)"
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="conversions"
+                            name="Completed the flow"
                             stroke="var(--primary)"
                             strokeWidth={2}
                             fillOpacity={1}
-                            fill="url(#colorRevenue)"
+                            fill="url(#colCompleted)"
                           />
                         </AreaChart>
                       </ResponsiveContainer>
@@ -3632,43 +3710,50 @@ const CreateAutomationContent = () => {
                 </div>
 
                 <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <h3 className="mb-6 font-semibold">Path Performance</h3>
-                  {pathRows.length > 0 ? (
-                    <div className="space-y-6">
-                      {pathRows.map((path) => (
-                        <div key={path.path} className="space-y-2">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-medium text-muted-foreground">
-                              {path.path}
-                            </span>
-                            <span className="font-bold text-primary">
-                              {path.rate}%
-                            </span>
+                  <h3 className="mb-4 font-semibold">Recent entries</h3>
+                  {recentRows.length > 0 ? (
+                    <div className="space-y-3">
+                      {recentRows.slice(0, 6).map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="flex items-center justify-between gap-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {entry.wallet}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {entry.path}
+                            </p>
                           </div>
-                          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-                            <div
-                              className="h-full rounded-full bg-primary"
-                              style={{ width: `${path.rate}%` }}
-                            />
-                          </div>
-                          <div className="flex justify-between text-[10px] text-muted-foreground">
-                            <span>{path.entries} entries</span>
-                            <span>
-                              ${(path.revenue / 1000).toFixed(1)}k rev
+                          <div className="flex shrink-0 items-center gap-2">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                                entry.outcome === "converted" ||
+                                entry.outcome === "completed"
+                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                  : entry.outcome === "exited"
+                                    ? "bg-muted text-muted-foreground"
+                                    : "bg-primary/10 text-primary"
+                              }`}
+                            >
+                              {entry.outcome}
+                            </span>
+                            <span className="whitespace-nowrap text-xs text-muted-foreground">
+                              {formatRelativeTime(entry.timestamp) || "-"}
                             </span>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="flex h-[300px] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 text-center">
+                    <div className="flex h-[280px] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 text-center">
                       <div>
                         <div className="text-sm font-medium text-foreground">
-                          No path data yet
+                          No entries yet
                         </div>
                         <div className="mt-2 text-sm leading-6 text-muted-foreground">
-                          Branch outcomes and conversion paths appear here after
-                          the automation runs.
+                          Wallets appear here as they enter the flow.
                         </div>
                       </div>
                     </div>
@@ -3676,99 +3761,71 @@ const CreateAutomationContent = () => {
                 </div>
               </div>
 
-              {/* Recent Activity */}
+              {/* Messages in this flow */}
               <div className="rounded-xl border border-border bg-card shadow-sm">
-                <div className="border-b border-border px-6 py-4">
-                  <h3 className="font-semibold">Recent Entries</h3>
+                <div className="flex items-center justify-between border-b border-border px-6 py-4">
+                  <h3 className="font-semibold">Messages in this flow</h3>
+                  <span className="text-xs text-muted-foreground">
+                    In the order they send
+                  </span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[640px] text-sm">
                     <thead>
-                      <tr className="border-b border-border/50 bg-muted/30 text-left text-xs font-medium text-muted-foreground">
-                        <th className="px-6 py-3">User</th>
-                        <th className="px-6 py-3">Status</th>
-                        <th className="px-6 py-3">Path</th>
-                        <th className="px-6 py-3 text-right">Revenue</th>
-                        <th className="px-6 py-3 text-right">Time</th>
+                      <tr className="border-b border-border/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        <th className="px-6 py-3">Message</th>
+                        <th className="px-6 py-3 text-right">Sent</th>
+                        <th className="px-6 py-3 text-right">
+                          Opened / Viewed
+                        </th>
+                        <th className="px-6 py-3 text-right">Clicked</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {recentRows.length > 0 ? (
-                        recentRows.map((entry) => (
+                      {messageRows.length > 0 ? (
+                        messageRows.map((m) => (
                           <tr
-                            key={entry.id}
-                            className="cursor-pointer border-b border-border/50 transition-colors hover:bg-muted/50"
-                            onClick={() => {
-                              if (isNew) return;
-                              automationService
-                                .getStatsEntryDetails(automationId, entry.id)
-                                .then((data) => {
-                                  const text = JSON.stringify(data, null, 2);
-                                  navigator.clipboard
-                                    .writeText(text)
-                                    .then(() => toast.success("Copied details"))
-                                    .catch(() => toast.error("Failed to copy"));
-                                })
-                                .catch((_e) => String(_e));
-                            }}
+                            key={m.id}
+                            className="border-b border-border/50 last:border-0"
                           >
                             <td className="px-6 py-4">
-                              <div className="flex items-center gap-3">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-                                  <UserGroupIcon
-                                    aria-hidden="true"
-                                    className="h-4 w-4"
-                                  />
-                                </div>
-                                <div>
-                                  <p className="font-medium">{entry.wallet}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {entry.email}
-                                  </p>
-                                </div>
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-foreground">
+                                  {m.title}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {m.channel}
+                                </p>
                               </div>
                             </td>
-                            <td className="px-6 py-4">
-                              <span
-                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                                  entry.outcome === "converted"
-                                    ? "bg-primary/10 text-primary"
-                                    : entry.outcome === "exited"
-                                      ? "bg-destructive/10 text-destructive"
-                                      : "bg-secondary text-secondary-foreground"
-                                }`}
-                              >
-                                {entry.outcome}
-                              </span>
+                            <td className="px-6 py-4 text-right tabular-nums text-muted-foreground">
+                              —
                             </td>
-                            <td className="px-6 py-4 text-muted-foreground">
-                              {entry.path}
+                            <td className="px-6 py-4 text-right tabular-nums text-muted-foreground">
+                              —
                             </td>
-                            <td className="px-6 py-4 text-right font-medium text-primary">
-                              {entry.revenue > 0 ? `$${entry.revenue}` : "-"}
-                            </td>
-                            <td
-                              className="px-6 py-4 text-right text-muted-foreground"
-                              title={formatDateTime(entry.timestamp)}
-                            >
-                              {formatDateTime(entry.timestamp) ||
-                                entry.timestamp}
+                            <td className="px-6 py-4 text-right tabular-nums text-muted-foreground">
+                              —
                             </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
                           <td
-                            colSpan={5}
+                            colSpan={4}
                             className="px-6 py-16 text-center text-sm text-muted-foreground"
                           >
-                            No entries yet. This table will populate after the
-                            automation begins processing users.
+                            Add a Send Email or Send In-App step to see it here.
                           </td>
                         </tr>
                       )}
                     </tbody>
                   </table>
+                </div>
+                <div className="border-t border-border/50 px-6 py-3 text-xs leading-relaxed text-muted-foreground">
+                  Each message is measured against the wallets that reached it.
+                  Per-message delivery counts populate once the backend exposes
+                  them.
                 </div>
               </div>
               {isStatsLoading &&

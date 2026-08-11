@@ -371,6 +371,40 @@ export function resolveSampleTags(
 }
 
 /**
+ * Bracket-style placeholders many ESP exports use (`[First Name]`) mapped to our
+ * resolvable merge tokens. Name-ish labels go to the blank-safe `greeting_name`
+ * so an imported "Hi [First Name]," never blocks a wallet-first send. Unknown
+ * labels are left untouched (they may be intentional literal text).
+ */
+const BRACKET_ALIASES: Record<string, string> = {
+  "first name": "greeting_name",
+  firstname: "greeting_name",
+  first: "greeting_name",
+  name: "greeting_name",
+  "full name": "greeting_name",
+  wallet: "wallet_short",
+  "wallet address": "wallet_address",
+  ens: "ens_or_wallet",
+  unsubscribe: "unsubscribe_url",
+  "unsubscribe link": "unsubscribe_url",
+  "manage preferences": "preference_center_url",
+  preferences: "preference_center_url",
+};
+
+/**
+ * Rewrite known `[Label]` placeholders to `{{ token }}` merge tags so imported
+ * templates personalise on send. Applied at import time; unknown brackets pass
+ * through unchanged.
+ */
+export function normalizeBracketTags(text: string): string {
+  return text.replace(/\[([a-z0-9 _-]{2,30})\]/gi, (whole, label: string) => {
+    const key = label.trim().toLowerCase().replace(/[_-]+/g, " ");
+    const token = BRACKET_ALIASES[key];
+    return token ? `{{ ${token} }}` : whole;
+  });
+}
+
+/**
  * The footer's editable body. Prefers `content`; falls back to the legacy
  * opt-in-reason + company-line + unsubscribe composition for older documents.
  */
@@ -433,44 +467,53 @@ export function footerComplianceIssues(footer?: EmailFooter): string[] {
   return issues;
 }
 
-/** All user-authored text across the document (block content + links + alt). */
-function documentTextCorpus(doc: EmailDocument): string {
-  const parts: string[] = [];
+const UNSUB_TOKEN =
+  /\{\{\s*(unsubscribe(_url)?|preferences|preference_center_url)\s*\}\}/i;
+const UNSUB_TARGET = /(unsubscribe|preference)/i;
+
+/**
+ * True when the email body carries its own **working** unsubscribe mechanism -
+ * an actual link (an `<a href>` in an Html block, or a Button/Image whose URL
+ * points at unsubscribe/preferences) or the unsubscribe merge tag. Plain text
+ * that merely says "unsubscribe" does NOT count, so the compliance badge only
+ * clears when a recipient could really opt out.
+ */
+export function documentHasOwnFooter(doc: EmailDocument): boolean {
   for (const node of Object.values(doc.blocks)) {
     switch (node.type) {
-      case "Heading":
-      case "Text":
-        parts.push(node.data.props.text);
+      case "Html": {
+        const html = node.data.props.contents;
+        if (UNSUB_TOKEN.test(html)) return true;
+        const hrefs = html.match(/href\s*=\s*["']([^"']+)["']/gi) ?? [];
+        if (hrefs.some((h) => UNSUB_TARGET.test(h))) return true;
         break;
+      }
       case "Button":
-        parts.push(node.data.props.text, node.data.props.url);
+        if (
+          UNSUB_TOKEN.test(node.data.props.url) ||
+          UNSUB_TOKEN.test(node.data.props.text) ||
+          UNSUB_TARGET.test(node.data.props.url)
+        )
+          return true;
         break;
       case "Image":
-        parts.push(node.data.props.alt, node.data.props.linkHref ?? "");
+        if (
+          node.data.props.linkHref &&
+          (UNSUB_TOKEN.test(node.data.props.linkHref) ||
+            UNSUB_TARGET.test(node.data.props.linkHref))
+        )
+          return true;
         break;
-      case "Html":
-        parts.push(node.data.props.contents);
+      case "Heading":
+      case "Text":
+        // Only the merge tag counts here - bare "unsubscribe" text is not a link.
+        if (UNSUB_TOKEN.test(node.data.props.text)) return true;
         break;
       default:
         break;
     }
   }
-  return parts.join(" ").toLowerCase();
-}
-
-/**
- * True when the email body already carries its own unsubscribe mechanism (an
- * imported footer, an unsubscribe link, or the merge tag) - so the builder's
- * compliance footer is redundant and may be turned off without losing
- * compliance.
- */
-export function documentHasOwnFooter(doc: EmailDocument): boolean {
-  const corpus = documentTextCorpus(doc);
-  return (
-    corpus.includes("unsubscribe") ||
-    corpus.includes("{{ unsubscribe") ||
-    corpus.includes("preference_center_url")
-  );
+  return false;
 }
 
 /**
@@ -1260,15 +1303,17 @@ export function parseHtmlToDocument(html: string): EmailDocument {
     return style;
   };
   const textFromBr = (el: Element): string =>
-    el.innerHTML
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<[^>]+>/g, "")
-      .replace(/&nbsp;/gi, " ")
-      .replace(/&amp;/gi, "&")
-      .split("\n")
-      .map((l) => l.trim())
-      .join("\n")
-      .trim();
+    normalizeBracketTags(
+      el.innerHTML
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&amp;/gi, "&")
+        .split("\n")
+        .map((l) => l.trim())
+        .join("\n")
+        .trim()
+    );
 
   const isButtonLike = (a: Element): boolean => {
     const s = styleOf(a);
@@ -1385,14 +1430,40 @@ export function parseHtmlToDocument(html: string): EmailDocument {
     return out;
   };
 
+  /**
+   * A leaf content cell whose links include an unsubscribe/preference target -
+   * i.e. the sender's own footer. Excludes layout wrappers (cells that nest a
+   * table) so only the real footer section is matched.
+   */
+  const isFooterCell = (cell: Element): boolean =>
+    !cell.querySelector("table") &&
+    Array.from(cell.querySelectorAll("a")).some((a) =>
+      UNSUB_TARGET.test(a.getAttribute("href") ?? "")
+    );
+
+  /** Preserve the sender's footer verbatim (links + formatting) as one Html
+   *  block, so an imported unsubscribe link survives as a real link. */
+  const buildFooterHtml = (cell: Element): string => {
+    const node = createNode("Html") as HtmlNode;
+    node.data.props.contents = normalizeBracketTags(
+      cell.innerHTML
+        .replace(/<script[\s\S]*?<\/script>/gi, "")
+        .replace(/<style[\s\S]*?<\/style>/gi, "")
+        .trim()
+    );
+    node.data.style.padding = PAD(24, 24, 32, 32);
+    return register(node);
+  };
+
   /** Parse a cell, wrapping in a Container when it has a real section bg. */
   const parseCellInto = (cell: Element, out: string[]) => {
-    const inner: string[] = [];
-    parseChildren(cell, inner);
+    const footer = isFooterCell(cell);
+    const inner: string[] = footer ? [buildFooterHtml(cell)] : [];
+    if (!footer) parseChildren(cell, inner);
     if (!inner.length) return;
     const bg = bgOf(cell);
     const onlyButton =
-      inner.length === 1 && blocks[inner[0]]?.type === "Button";
+      !footer && inner.length === 1 && blocks[inner[0]]?.type === "Button";
     if (
       bg &&
       !isWhitish(bg) &&

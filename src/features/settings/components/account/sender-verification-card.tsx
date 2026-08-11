@@ -296,8 +296,8 @@ export function SenderVerificationCard() {
                             Verified - sending is live
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            SES authentication passed for this domain. There are
-                            no DNS records left to publish.
+                            Domain authentication passed for this domain. There
+                            are no DNS records left to publish.
                           </p>
                         </div>
                       </div>

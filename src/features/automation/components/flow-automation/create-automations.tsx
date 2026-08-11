@@ -30,7 +30,6 @@ import {
   Controls,
   type Edge,
   MarkerType,
-  MiniMap,
   type Node,
   ReactFlow,
   ReactFlowProvider,
@@ -2434,14 +2433,16 @@ const CreateAutomationContent = () => {
                   fitView
                 >
                   <Background
-                    color="rgba(120,130,160,0.18)"
+                    color="rgba(120,130,160,0.14)"
                     gap={24}
                     size={1.2}
                   />
-                  <Controls className="overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-sm [&_button]:border-border [&_button]:bg-card [&_button]:text-foreground [&_button:hover]:bg-muted" />
-                  <MiniMap
-                    className="rounded-lg border border-border bg-card"
-                    maskColor="rgba(120,130,160,0.18)"
+                  {/* Reference builder is a clean linear spine: no minimap, and
+                      a minimal zoom control tucked bottom-left. */}
+                  <Controls
+                    position="bottom-left"
+                    showInteractive={false}
+                    className="overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-sm [&_button]:border-border [&_button]:bg-card [&_button]:text-foreground [&_button:hover]:bg-muted"
                   />
                 </ReactFlow>
               </EdgeInsertContext.Provider>

@@ -307,7 +307,7 @@ export function VariableTagButton({
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
       >
-        {"{ }"} Variable Tags
+        {"{ }"} Merge tags
       </button>
       {open ? (
         <div className="absolute right-0 z-20 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md">

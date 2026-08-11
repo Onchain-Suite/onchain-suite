@@ -28,6 +28,7 @@ import {
   type FontFamily,
   fontFamilyToCss,
   type InsertableType,
+  resolveSampleTags,
   STYLE_KEYS,
   type StyleKey,
 } from "./blocks";
@@ -377,7 +378,7 @@ function BlockInner({
       }
       return (
         <div style={style} className="whitespace-pre-wrap">
-          {node.data.props.text || "Heading"}
+          {resolveSampleTags(node.data.props.text) || "Heading"}
         </div>
       );
     }
@@ -403,7 +404,7 @@ function BlockInner({
       }
       return (
         <div style={style} className="whitespace-pre-wrap">
-          {node.data.props.text || "Text"}
+          {resolveSampleTags(node.data.props.text) || "Text"}
         </div>
       );
     }
@@ -430,7 +431,7 @@ function BlockInner({
               textAlign: "center",
             }}
           >
-            {p.text || "Button"}
+            {resolveSampleTags(p.text) || "Button"}
           </span>
         </div>
       );

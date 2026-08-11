@@ -1042,49 +1042,123 @@ export function renderDocumentToText(doc: EmailDocument): string {
  */
 export function parseHtmlToDocument(html: string): EmailDocument {
   const blocks: Record<string, BlockNode> = {};
-  const childrenIds: string[] = [];
-  const push = (node: BlockNode) => {
+  const register = (node: BlockNode): string => {
     const id = newBlockId();
     blocks[id] = node;
-    childrenIds.push(id);
-  };
-  const pushText = (raw: string) => {
-    const text = raw.replace(/\s+/g, " ").trim();
-    if (text)
-      push({
-        type: "Text",
-        data: { props: { text }, style: { padding: PAD(0, 16, 24, 24) } },
-      });
+    return id;
   };
 
-  const finish = () => {
-    blocks.root = defaultEmailLayout(childrenIds);
-    return {
-      version: 2 as const,
-      root: "root",
-      blocks,
-      footer: { ...DEFAULT_FOOTER },
-    };
+  let backdropColor: string | null = null;
+  let canvasColor: string | null = null;
+
+  const finish = (childrenIds: string[]): EmailDocument => {
+    const layout = defaultEmailLayout(childrenIds);
+    if (backdropColor) layout.data.backdropColor = backdropColor;
+    if (canvasColor) layout.data.canvasColor = canvasColor;
+    blocks.root = layout;
+    return { version: 2, root: "root", blocks, footer: { ...DEFAULT_FOOTER } };
   };
 
   if (typeof DOMParser === "undefined") {
-    pushText(html.replace(/<[^>]+>/g, " "));
-    return finish();
+    const text = html
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const ids = text
+      ? [
+          register({
+            type: "Text",
+            data: { props: { text }, style: { padding: PAD(0, 16, 24, 24) } },
+          }),
+        ]
+      : [];
+    return finish(ids);
   }
 
-  const parsed = new DOMParser().parseFromString(html, "text/html");
-  const root = parsed.body ?? parsed.documentElement;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const rootEl = doc.body ?? doc.documentElement;
 
-  const isButtonLike = (a: HTMLAnchorElement) => {
-    const style = (a.getAttribute("style") ?? "").toLowerCase();
-    const role = (a.getAttribute("role") ?? "").toLowerCase();
+  /* ---------------------------------------------------------- style helpers */
+  const styleOf = (el: Element): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const decl of (el.getAttribute("style") ?? "").split(";")) {
+      const i = decl.indexOf(":");
+      if (i === -1) continue;
+      const k = decl.slice(0, i).trim().toLowerCase();
+      const v = decl.slice(i + 1).trim();
+      if (k && v) out[k] = v;
+    }
+    return out;
+  };
+  const normColor = (v?: string): string | undefined => {
+    if (!v) return undefined;
+    const c = v.trim().toLowerCase();
+    if (!c || c === "transparent" || c === "inherit" || c === "none")
+      return undefined;
+    return v.trim();
+  };
+  const isWhitish = (c?: string): boolean => {
+    if (!c) return true;
+    const v = c.trim().toLowerCase().replace(/\s/g, "");
     return (
-      role === "button" ||
-      style.includes("background") ||
-      style.includes("border-radius")
+      v === "#fff" ||
+      v === "#ffffff" ||
+      v === "white" ||
+      v === "rgb(255,255,255)"
     );
   };
-  const textFromBr = (el: Element) =>
+  const sameColor = (a?: string, b?: string | null): boolean => {
+    if (!a || !b) return false;
+    return a.trim().toLowerCase() === b.trim().toLowerCase();
+  };
+  const bgOf = (el: Element): string | undefined => {
+    const s = styleOf(el);
+    const direct = normColor(s["background-color"]);
+    if (direct) return direct;
+    const shorthand = s["background"];
+    if (shorthand) {
+      const m = shorthand.match(/#[0-9a-f]{3,8}\b|rgb\([^)]*\)/i);
+      if (m) return normColor(m[0]);
+    }
+    return normColor(el.getAttribute("bgcolor") ?? undefined);
+  };
+  const pxOf = (v?: string): number | undefined => {
+    if (!v) return undefined;
+    const m = v.match(/-?\d+(\.\d+)?/);
+    return m ? Math.round(parseFloat(m[0])) : undefined;
+  };
+  const inheritedAlign = (
+    el: Element
+  ): "left" | "center" | "right" | undefined => {
+    let cur: Element | null = el;
+    for (let hops = 0; cur && hops < 5; hops += 1, cur = cur.parentElement) {
+      const a = (
+        styleOf(cur)["text-align"] ??
+        cur.getAttribute("align") ??
+        ""
+      ).toLowerCase();
+      if (a === "left" || a === "center" || a === "right") return a;
+    }
+    return undefined;
+  };
+  /** Pull color/align/size/weight from an element (and its styled children). */
+  const textStyle = (el: Element): BlockStyle => {
+    const style: BlockStyle = { padding: PAD(0, 16, 24, 24) };
+    const collect = (n: Element) => {
+      const s = styleOf(n);
+      style.color ??= normColor(s["color"]);
+      if (!style.fontWeight) {
+        const w = s["font-weight"];
+        if (w === "bold" || (pxOf(w) ?? 0) >= 600) style.fontWeight = "bold";
+      }
+      style.fontSize ??= pxOf(s["font-size"]);
+      for (const c of Array.from(n.children)) collect(c);
+    };
+    collect(el);
+    style.textAlign = inheritedAlign(el);
+    return style;
+  };
+  const textFromBr = (el: Element): string =>
     el.innerHTML
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<[^>]+>/g, "")
@@ -1095,72 +1169,238 @@ export function parseHtmlToDocument(html: string): EmailDocument {
       .join("\n")
       .trim();
 
-  const walk = (node: Element) => {
-    for (const child of Array.from(node.children)) {
-      const tag = child.tagName.toLowerCase();
-      if (/^h[1-6]$/.test(tag)) {
-        const text = child.textContent?.trim() ?? "";
-        const level =
-          tag === "h1" ? "h1" : tag === "h3" || tag === "h4" ? "h3" : "h2";
-        if (text)
-          push({
-            type: "Heading",
-            data: {
-              props: { text, level },
-              style: { padding: PAD(16, 16, 24, 24) },
-            },
-          });
-      } else if (tag === "p") {
-        const text = textFromBr(child);
-        if (text)
-          push({
-            type: "Text",
-            data: { props: { text }, style: { padding: PAD(0, 16, 24, 24) } },
-          });
-      } else if (tag === "img") {
-        const url = child.getAttribute("src") ?? "";
-        if (url)
-          push({
-            type: "Image",
-            data: {
-              props: {
-                url,
-                alt: child.getAttribute("alt") ?? "",
-                linkHref: null,
-                contentAlignment: "middle",
-                width: null,
-                height: null,
-              },
-              style: { padding: PAD(16, 16, 24, 24) },
-            },
-          });
-      } else if (tag === "hr") {
-        push({
-          type: "Divider",
-          data: {
-            props: { lineColor: "#CCCCCC", lineHeight: 1 },
-            style: { padding: PAD(16, 16, 0, 0) },
-          },
-        });
-      } else if (tag === "a") {
-        const a = child as HTMLAnchorElement;
-        const label = a.textContent?.trim() ?? "";
-        if (label && isButtonLike(a)) {
-          const node = createNode("Button") as ButtonNode;
-          node.data.props.text = label;
-          node.data.props.url = a.getAttribute("href") ?? "#";
-          push(node);
-        } else if (label) {
-          pushText(label);
-        }
-      } else if (child.querySelector("img, a, h1, h2, h3, p, hr")) {
-        walk(child);
+  const isButtonLike = (a: Element): boolean => {
+    const s = styleOf(a);
+    if ((a.getAttribute("role") ?? "").toLowerCase() === "button") return true;
+    if (bgOf(a)) return true;
+    if (s["border-radius"]) return true;
+    return (s["display"] ?? "").includes("inline-block") && Boolean(s.padding);
+  };
+
+  /* -------------------------------------------------------- layout defaults */
+  const bodyBg = bgOf(rootEl);
+  if (bodyBg && !isWhitish(bodyBg)) backdropColor = bodyBg;
+  const tables = Array.from(doc.querySelectorAll("table"));
+  for (const t of tables) {
+    const b = bgOf(t);
+    if (b && !isWhitish(b)) backdropColor ??= b;
+  }
+  const card = tables.find((t) => {
+    const s = styleOf(t);
+    return (
+      t.getAttribute("width") === "600" ||
+      (s["max-width"] ?? "").includes("600") ||
+      (s.width ?? "").includes("600")
+    );
+  });
+  if (card) {
+    const cardBg = bgOf(card);
+    if (cardBg) canvasColor = cardBg;
+  }
+
+  /* --------------------------------------------------------------- builders */
+  const buildImage = (img: Element, link: string | null): string => {
+    const node = createNode("Image") as ImageNode;
+    const s = styleOf(img);
+    node.data.props.url = img.getAttribute("src") ?? "";
+    node.data.props.alt = img.getAttribute("alt") ?? "";
+    node.data.props.linkHref = link;
+    node.data.props.width = (s.width ?? "").includes("%")
+      ? null
+      : (pxOf(s.width) ?? pxOf(img.getAttribute("width") ?? "") ?? null);
+    node.data.style.padding = PAD(0, 0, 0, 0);
+    return register(node);
+  };
+  const buildButton = (a: Element): string => {
+    const node = createNode("Button") as ButtonNode;
+    const s = styleOf(a);
+    node.data.props.text = textFromBr(a) || "Button";
+    node.data.props.url = a.getAttribute("href") ?? "#";
+    let bg = bgOf(a);
+    let anc = a.parentElement;
+    for (let i = 0; !bg && anc && i < 3; i += 1, anc = anc.parentElement)
+      bg = bgOf(anc);
+    if (bg) node.data.props.buttonBackgroundColor = bg;
+    const color = normColor(s.color);
+    if (color) node.data.props.buttonTextColor = color;
+    const radius = pxOf(s["border-radius"]);
+    if (radius !== undefined)
+      node.data.props.buttonStyle =
+        radius === 0 ? "rectangle" : radius >= 40 ? "pill" : "rounded";
+    return register(node);
+  };
+  const buildDivider = (hr: Element): string => {
+    const node = createNode("Divider") as DividerNode;
+    const s = styleOf(hr);
+    const border = s["border-top"] ?? s.border ?? "";
+    const m = border.match(/#[0-9a-f]{3,8}\b|rgb\([^)]*\)/i);
+    if (m) {
+      const [lineColor] = m;
+      node.data.props.lineColor = lineColor;
+    }
+    return register(node);
+  };
+
+  /** td/th cells in a row that actually carry content (skip spacer cells). */
+  const contentCells = (tr: Element): Element[] =>
+    Array.from(tr.children).filter((c) => {
+      const tag = c.tagName.toLowerCase();
+      if (tag !== "td" && tag !== "th") return false;
+      return (
+        (c.textContent ?? "").replace(/\s+/g, "").length > 0 ||
+        c.querySelector("img") !== null
+      );
+    });
+
+  const rowsOf = (table: Element): Element[] =>
+    Array.from(
+      table.querySelectorAll(
+        ":scope > tbody > tr, :scope > thead > tr, :scope > tr"
+      )
+    );
+
+  const parseTable = (table: Element, out: string[]) => {
+    for (const tr of rowsOf(table)) {
+      const cells = contentCells(tr);
+      if (cells.length >= 2) {
+        const cols = cells.slice(0, 3).map((td) => ({
+          childrenIds: parseCell(td),
+        }));
+        const node = createNode("ColumnsContainer") as ColumnsContainerNode;
+        node.data.props.columnsCount = (cols.length >= 3 ? 3 : 2) as 2 | 3;
+        node.data.props.columns = cols;
+        out.push(register(node));
+      } else if (cells.length === 1) {
+        parseCellInto(cells[0], out);
       } else {
-        pushText(child.textContent ?? "");
+        for (const td of Array.from(tr.children)) parseChildren(td, out);
       }
     }
   };
 
-  walk(root);
-  return finish();
+  const parseCell = (cell: Element): string[] => {
+    const out: string[] = [];
+    parseCellInto(cell, out);
+    return out;
+  };
+
+  /** Parse a cell, wrapping in a Container when it has a real section bg. */
+  const parseCellInto = (cell: Element, out: string[]) => {
+    const inner: string[] = [];
+    parseChildren(cell, inner);
+    if (!inner.length) return;
+    const bg = bgOf(cell);
+    const onlyButton =
+      inner.length === 1 && blocks[inner[0]]?.type === "Button";
+    if (
+      bg &&
+      !isWhitish(bg) &&
+      !sameColor(bg, backdropColor) &&
+      !sameColor(bg, canvasColor) &&
+      !onlyButton
+    ) {
+      const c = createNode("Container") as ContainerNode;
+      c.data.props.childrenIds = inner;
+      c.data.style = {
+        ...c.data.style,
+        backgroundColor: bg,
+        padding: PAD(28, 28, 32, 32),
+      };
+      out.push(register(c));
+    } else {
+      out.push(...inner);
+    }
+  };
+
+  const parseNode = (el: Element, out: string[]) => {
+    const tag = el.tagName.toLowerCase();
+    if (["script", "style", "head", "meta", "title", "link"].includes(tag))
+      return;
+
+    if (/^h[1-6]$/.test(tag)) {
+      const text = textFromBr(el);
+      if (!text) return;
+      const level = tag === "h1" ? "h1" : tag === "h2" ? "h2" : ("h3" as const);
+      const style = textStyle(el);
+      style.padding = PAD(16, 8, 24, 24);
+      out.push(
+        register({ type: "Heading", data: { props: { text, level }, style } })
+      );
+      return;
+    }
+    if (tag === "p") {
+      const text = textFromBr(el);
+      if (text)
+        out.push(
+          register({
+            type: "Text",
+            data: { props: { text }, style: textStyle(el) },
+          })
+        );
+      return;
+    }
+    if (tag === "img") {
+      if (el.getAttribute("src")) out.push(buildImage(el, null));
+      return;
+    }
+    if (tag === "hr") {
+      out.push(buildDivider(el));
+      return;
+    }
+    if (tag === "a") {
+      const img = el.querySelector("img");
+      if (img && !(el.textContent ?? "").trim()) {
+        out.push(buildImage(img, el.getAttribute("href")));
+        return;
+      }
+      if (isButtonLike(el)) {
+        out.push(buildButton(el));
+        return;
+      }
+      const text = textFromBr(el);
+      if (text)
+        out.push(
+          register({
+            type: "Text",
+            data: { props: { text }, style: textStyle(el) },
+          })
+        );
+      return;
+    }
+    if (tag === "table") {
+      parseTable(el, out);
+      return;
+    }
+    if (tag === "tr") {
+      const cells = contentCells(el);
+      if (cells.length >= 2) parseTable(el.parentElement ?? el, out);
+      else cells.forEach((c) => parseCellInto(c, out));
+      return;
+    }
+    if (tag === "td" || tag === "th") {
+      parseCellInto(el, out);
+      return;
+    }
+    // div/span/section/etc: recurse if it holds block content, else emit text.
+    if (el.querySelector("h1,h2,h3,h4,h5,h6,p,img,hr,table,a")) {
+      parseCellInto(el, out);
+      return;
+    }
+    const text = textFromBr(el);
+    if (text)
+      out.push(
+        register({
+          type: "Text",
+          data: { props: { text }, style: textStyle(el) },
+        })
+      );
+  };
+
+  const parseChildren = (parent: Element, out: string[]) => {
+    for (const child of Array.from(parent.children)) parseNode(child, out);
+  };
+
+  const childrenIds: string[] = [];
+  parseChildren(rootEl, childrenIds);
+  return finish(childrenIds);
 }

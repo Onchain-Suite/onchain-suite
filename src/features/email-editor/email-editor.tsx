@@ -7,7 +7,7 @@ import {
   DevicePhoneMobileIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -39,8 +39,9 @@ import {
 } from "./blocks";
 import { EmailCanvas, type InsertLocation } from "./canvas";
 import { Field } from "./inspect-inputs";
-import { InspectPanel, StylesPanel } from "./inspect-panels";
+import { ImageUploadButton, InspectPanel, StylesPanel } from "./inspect-panels";
 import { TemplatesTab } from "./templates-tab";
+import { useFooterDefaults } from "./use-footer-defaults";
 
 type Tab = "blocks" | "templates" | "styles" | "inspect";
 
@@ -149,6 +150,35 @@ export function EmailEditor({
   const selectedNode = selectedId ? doc.blocks[selectedId] : null;
   const compliant = doc.footer?.enabled ?? false;
 
+  // Auto-populate the compliance footer with the org's company name, address
+  // and logo on first load. Only fills blanks, so saved values and user edits
+  // are never clobbered.
+  const footerDefaults = useFooterDefaults();
+  const [footerSeeded, setFooterSeeded] = useState(false);
+  useEffect(() => {
+    const defaults = footerDefaults.data;
+    if (!defaults || footerSeeded) return;
+    setFooterSeeded(true);
+    setDoc((prev) => {
+      const f = prev.footer;
+      const next = {
+        ...f,
+        companyName: f.companyName?.trim()
+          ? f.companyName
+          : defaults.companyName,
+        companyAddress: f.companyAddress?.trim()
+          ? f.companyAddress
+          : defaults.companyAddress,
+        logoUrl: f.logoUrl?.trim() ? f.logoUrl : defaults.logoUrl,
+      };
+      const unchanged =
+        next.companyName === f.companyName &&
+        next.companyAddress === f.companyAddress &&
+        next.logoUrl === f.logoUrl;
+      return unchanged ? prev : { ...prev, footer: next };
+    });
+  }, [footerDefaults.data, footerSeeded]);
+
   const selectBlock = (id: string) => {
     setSelectedId(id);
     setTab(id === doc.root ? "styles" : "inspect");
@@ -236,6 +266,13 @@ export function EmailEditor({
   };
 
   const handleSave = async () => {
+    // CAN-SPAM: never let a template save without an unsubscribe footer.
+    if (!doc.footer?.enabled) {
+      toast.error("Add an unsubscribe footer before saving.");
+      setSelectedId(doc.root);
+      setTab("styles");
+      return;
+    }
     await onSave({
       doc,
       html: renderDocumentToHtml(doc),
@@ -412,9 +449,27 @@ export function EmailEditor({
             <EmailCanvas {...handlers} />
             {doc.footer?.enabled ? (
               <div className="mt-2 rounded-lg bg-black/[0.03] px-6 py-4 text-xs leading-relaxed text-gray-400">
+                {doc.footer.logoUrl?.trim() ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- email logo preview, not a Next asset
+                  <img
+                    src={doc.footer.logoUrl}
+                    alt={
+                      doc.footer.companyName?.trim()
+                        ? doc.footer.companyName.trim()
+                        : "Company logo"
+                    }
+                    className="mb-3 h-7 w-auto"
+                  />
+                ) : null}
                 <p className="whitespace-pre-wrap">{doc.footer.optInReason}</p>
                 <p>
-                  {"{{ sender_name }}"} · {"{{ postal_address }}"}
+                  {doc.footer.companyName?.trim()
+                    ? doc.footer.companyName.trim()
+                    : "{{ sender_name }}"}{" "}
+                  ·{" "}
+                  {doc.footer.companyAddress?.trim()
+                    ? doc.footer.companyAddress.trim()
+                    : "{{ postal_address }}"}
                 </p>
                 <p>
                   <span className="underline">Unsubscribe</span> ·{" "}
@@ -503,33 +558,75 @@ function FooterControls({
   setDoc: React.Dispatch<React.SetStateAction<EmailDocument>>;
 }) {
   const { footer } = doc;
+  const setFooter = (patch: Partial<EmailDocument["footer"]>) =>
+    setDoc((d) => ({ ...d, footer: { ...d.footer, ...patch } }));
+
+  const inputClass =
+    "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40";
+
   return (
-    <div className="space-y-3 border-t border-border pt-4">
+    <div className="space-y-4 border-t border-border pt-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-foreground">
             Compliance footer
           </p>
           <p className="text-xs text-muted-foreground">
-            Address + unsubscribe (CAN-SPAM).
+            Logo, company details + unsubscribe (CAN-SPAM). Required to save.
           </p>
         </div>
         <Switch
           checked={footer.enabled}
-          onCheckedChange={(enabled) =>
-            setDoc((d) => ({ ...d, footer: { ...d.footer, enabled } }))
-          }
+          onCheckedChange={(enabled) => setFooter({ enabled })}
         />
       </div>
+
+      <Field label="Logo">
+        {footer.logoUrl?.trim() ? (
+          <div className="mb-2 flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element -- email logo preview */}
+            <img
+              src={footer.logoUrl}
+              alt="Footer logo"
+              className="h-8 w-auto max-w-[140px] object-contain"
+            />
+            <button
+              type="button"
+              onClick={() => setFooter({ logoUrl: "" })}
+              className="ml-auto text-xs font-medium text-muted-foreground hover:text-destructive"
+            >
+              Remove
+            </button>
+          </div>
+        ) : null}
+        <ImageUploadButton
+          label={footer.logoUrl?.trim() ? "Change logo" : "Upload logo"}
+          onUploaded={(url) => setFooter({ logoUrl: url })}
+        />
+      </Field>
+
+      <Field label="Company name">
+        <input
+          value={footer.companyName ?? ""}
+          onChange={(e) => setFooter({ companyName: e.target.value })}
+          placeholder="{{ sender_name }}"
+          className={inputClass}
+        />
+      </Field>
+
+      <Field label="Postal address">
+        <input
+          value={footer.companyAddress ?? ""}
+          onChange={(e) => setFooter({ companyAddress: e.target.value })}
+          placeholder="{{ postal_address }}"
+          className={inputClass}
+        />
+      </Field>
+
       <Field label="Opt-in reason">
         <Textarea
           value={footer.optInReason}
-          onChange={(e) =>
-            setDoc((d) => ({
-              ...d,
-              footer: { ...d.footer, optInReason: e.target.value },
-            }))
-          }
+          onChange={(e) => setFooter({ optInReason: e.target.value })}
           rows={2}
           className="rounded-lg"
         />

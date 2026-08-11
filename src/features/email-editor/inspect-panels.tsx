@@ -95,10 +95,12 @@ async function uploadEmailImage(
   return url;
 }
 
-function ImageUploadButton({
+export function ImageUploadButton({
   onUploaded,
+  label = "Upload image",
 }: {
   onUploaded: (url: string) => void;
+  label?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -136,7 +138,7 @@ function ImageUploadButton({
         className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-sm font-medium text-foreground hover:bg-muted/40 disabled:opacity-60"
       >
         <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
-        {busy ? "Uploading…" : "Upload image"}
+        {busy ? "Uploading…" : label}
       </button>
     </>
   );

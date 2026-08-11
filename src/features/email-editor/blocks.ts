@@ -268,16 +268,27 @@ export type BlockType = BlockNode["type"];
 /** Block types the palette can add (everything except the root EmailLayout). */
 export type InsertableType = Exclude<BlockType, "EmailLayout">;
 
-/** The always-on compliance footer (opt-in reason + address + unsub links). */
+/** The always-on compliance footer (logo + opt-in reason + company details +
+ *  unsubscribe links). Company name/address auto-populate from org settings on
+ *  first load; a blank field falls back to its send-time merge tag. */
 export interface EmailFooter {
   enabled: boolean;
   optInReason: string;
+  /** Org/company logo shown above the footer text; editable in the builder. */
+  logoUrl?: string;
+  /** Literal company name; blank renders the `{{ sender_name }}` merge tag. */
+  companyName?: string;
+  /** Literal postal address; blank renders the `{{ postal_address }}` tag. */
+  companyAddress?: string;
 }
 
 export const DEFAULT_FOOTER: EmailFooter = {
   enabled: true,
   optInReason:
     "You're receiving this because you opted in at {{ sender_name }}.",
+  logoUrl: "",
+  companyName: "",
+  companyAddress: "",
 };
 
 export interface EmailDocument {
@@ -516,6 +527,16 @@ export function parseDocument(raw: unknown): EmailDocument | null {
           typeof raw.footer.optInReason === "string"
             ? raw.footer.optInReason
             : DEFAULT_FOOTER.optInReason,
+        logoUrl:
+          typeof raw.footer.logoUrl === "string" ? raw.footer.logoUrl : "",
+        companyName:
+          typeof raw.footer.companyName === "string"
+            ? raw.footer.companyName
+            : "",
+        companyAddress:
+          typeof raw.footer.companyAddress === "string"
+            ? raw.footer.companyAddress
+            : "",
       }
     : { ...DEFAULT_FOOTER };
 
@@ -792,7 +813,16 @@ function renderNode(id: string, doc: EmailDocument): string {
 function renderFooterRow(footer: EmailFooter): string {
   if (!footer.enabled) return "";
   const reason = escMultiline(footer.optInReason);
-  return `<tr><td style="padding:24px 32px;border-top:1px solid #e6e8eb;font-family:${FALLBACK_FONT};font-size:12px;line-height:1.6;color:#8a9099;">${reason}<br />{{ sender_name }} · {{ postal_address }}<br /><a href="{{ unsubscribe_url }}" target="_blank" style="color:#8a9099;text-decoration:underline;">Unsubscribe</a> · <a href="{{ manage_preferences_url }}" target="_blank" style="color:#8a9099;text-decoration:underline;">Manage preferences</a></td></tr>`;
+  const name = footer.companyName?.trim()
+    ? esc(footer.companyName.trim())
+    : "{{ sender_name }}";
+  const address = footer.companyAddress?.trim()
+    ? esc(footer.companyAddress.trim())
+    : "{{ postal_address }}";
+  const logo = footer.logoUrl?.trim()
+    ? `<img src="${esc(footer.logoUrl.trim())}" alt="${name}" height="28" style="height:28px;width:auto;margin-bottom:12px;border:0;display:block;" />`
+    : "";
+  return `<tr><td style="padding:24px 32px;border-top:1px solid #e6e8eb;font-family:${FALLBACK_FONT};font-size:12px;line-height:1.6;color:#8a9099;">${logo}${reason}<br />${name} · ${address}<br /><a href="{{ unsubscribe_url }}" target="_blank" style="color:#8a9099;text-decoration:underline;">Unsubscribe</a> · <a href="{{ manage_preferences_url }}" target="_blank" style="color:#8a9099;text-decoration:underline;">Manage preferences</a></td></tr>`;
 }
 
 /** Render the full document to email-safe HTML (MSO fallbacks + footer). */
@@ -889,8 +919,12 @@ export function renderDocumentToText(doc: EmailDocument): string {
   };
   walk(doc.root);
   const body = lines.filter(Boolean).join("\n\n");
+  const nameTrim = doc.footer?.companyName?.trim() ?? "";
+  const addrTrim = doc.footer?.companyAddress?.trim() ?? "";
+  const name = nameTrim.length > 0 ? nameTrim : "{{ sender_name }}";
+  const address = addrTrim.length > 0 ? addrTrim : "{{ postal_address }}";
   const footer = doc.footer?.enabled
-    ? `\n\n----\n${doc.footer.optInReason}\n{{ sender_name }} · {{ postal_address }}\nUnsubscribe: {{ unsubscribe_url }} · Manage preferences: {{ manage_preferences_url }}`
+    ? `\n\n----\n${doc.footer.optInReason}\n${name} · ${address}\nUnsubscribe: {{ unsubscribe_url }} · Manage preferences: {{ manage_preferences_url }}`
     : "";
   return `${body}${footer}`;
 }

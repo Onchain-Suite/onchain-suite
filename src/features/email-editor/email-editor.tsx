@@ -211,6 +211,39 @@ export function EmailEditor({
   const updateNode = (id: string, node: BlockNode) =>
     setDoc((d) => ({ ...d, blocks: { ...d.blocks, [id]: node } }));
 
+  /** Move an existing block to `target`/`index` (drag-and-drop reorder). */
+  const reorderBlock = (
+    dragId: string,
+    target: InsertLocation,
+    index: number
+  ) => {
+    const from = locate(doc, dragId);
+    if (!from) return;
+    // Never drop a container into itself or one of its own descendants.
+    if (
+      target.parentId === dragId ||
+      descendantIds(doc, dragId).includes(target.parentId)
+    ) {
+      return;
+    }
+    const sameList =
+      from.parentId === target.parentId &&
+      (from.columnIndex ?? undefined) === (target.columnIndex ?? undefined);
+    const insertIndex = sameList && from.index < index ? index - 1 : index;
+
+    let next = withChildList(
+      doc,
+      { parentId: from.parentId, columnIndex: from.columnIndex },
+      (ids) => ids.filter((x) => x !== dragId)
+    );
+    next = withChildList(next, target, (ids) => [
+      ...ids.slice(0, insertIndex),
+      dragId,
+      ...ids.slice(insertIndex),
+    ]);
+    setDoc(next);
+  };
+
   const moveBlock = (id: string, dir: -1 | 1) => {
     const loc = locate(doc, id);
     if (!loc) return;
@@ -291,6 +324,8 @@ export function EmailEditor({
       onInsert: insertBlock,
       onMove: moveBlock,
       onRemove: removeBlock,
+      onUpdate: updateNode,
+      onReorder: reorderBlock,
     }),
     // selectBlock/insert/move/remove are stable enough for this editor scope
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,13 +1,22 @@
 "use client";
 
 import {
+  ArrowsUpDownIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   PhotoIcon,
   PlusIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  type CSSProperties,
+  type DragEvent,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -36,7 +45,17 @@ interface CanvasHandlers {
   onInsert: (loc: InsertLocation, index: number, type: InsertableType) => void;
   onMove: (id: string, dir: -1 | 1) => void;
   onRemove: (id: string) => void;
+  /** Commit an edited block (inline text editing). */
+  onUpdate: (id: string, node: BlockNode) => void;
+  /** Move an existing block to a container location at a given index. */
+  onReorder: (dragId: string, loc: InsertLocation, index: number) => void;
 }
+
+/** Tracks the block currently being dragged so drop zones can react. */
+const DragCtx = createContext<{
+  draggingId: string | null;
+  setDraggingId: (id: string | null) => void;
+}>({ draggingId: null, setDraggingId: () => undefined });
 
 /** Convert a BlockStyle (subset) to React inline styles. */
 function toCss(style: BlockStyle | undefined, keys: StyleKey[]): CSSProperties {
@@ -68,9 +87,18 @@ function toCss(style: BlockStyle | undefined, keys: StyleKey[]): CSSProperties {
   return s;
 }
 
-/** "+" affordance opening a block-type menu. */
-function AddButton({ onPick }: { onPick: (type: InsertableType) => void }) {
+/** "+" affordance opening a block-type menu; doubles as a drop target for
+ *  reordering an existing block to this position while a drag is in progress. */
+function AddButton({
+  onPick,
+  onDropBlock,
+}: {
+  onPick: (type: InsertableType) => void;
+  onDropBlock?: (dragId: string) => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [over, setOver] = useState(false);
+  const { draggingId } = useContext(DragCtx);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -81,6 +109,36 @@ function AddButton({ onPick }: { onPick: (type: InsertableType) => void }) {
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
+
+  const dragActive = Boolean(draggingId) && Boolean(onDropBlock);
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOver(false);
+    if (draggingId && onDropBlock) onDropBlock(draggingId);
+  };
+
+  if (dragActive) {
+    return (
+      <div
+        className="flex justify-center py-1.5"
+        onDragOver={(e) => {
+          e.preventDefault();
+          setOver(true);
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={handleDrop}
+      >
+        <div
+          className={cn(
+            "h-1.5 w-full rounded-full transition-colors",
+            over ? "bg-primary" : "bg-primary/15"
+          )}
+        />
+      </div>
+    );
+  }
+
   return (
     <div ref={ref} className="relative flex justify-center py-0.5">
       <button
@@ -130,7 +188,10 @@ function ChildList({
 }) {
   return (
     <div>
-      <AddButton onPick={(t) => handlers.onInsert(location, 0, t)} />
+      <AddButton
+        onPick={(t) => handlers.onInsert(location, 0, t)}
+        onDropBlock={(dragId) => handlers.onReorder(dragId, location, 0)}
+      />
       {ids.length === 0 && emptyHint ? (
         <p className="py-3 text-center text-xs text-muted-foreground/70">
           {emptyHint}
@@ -139,7 +200,12 @@ function ChildList({
       {ids.map((id, i) => (
         <div key={id}>
           <BlockView id={id} handlers={handlers} />
-          <AddButton onPick={(t) => handlers.onInsert(location, i + 1, t)} />
+          <AddButton
+            onPick={(t) => handlers.onInsert(location, i + 1, t)}
+            onDropBlock={(dragId) =>
+              handlers.onReorder(dragId, location, i + 1)
+            }
+          />
         </div>
       ))}
     </div>
@@ -149,8 +215,10 @@ function ChildList({
 /** Selectable visual render of one block (recurses into containers). */
 function BlockView({ id, handlers }: { id: string; handlers: CanvasHandlers }) {
   const node = handlers.doc.blocks[id];
+  const { draggingId, setDraggingId } = useContext(DragCtx);
   if (!node) return null;
   const selected = handlers.selectedId === id;
+  const dragging = draggingId === id;
 
   return (
     <div
@@ -168,11 +236,28 @@ function BlockView({ id, handlers }: { id: string; handlers: CanvasHandlers }) {
       }}
       className={cn(
         "group relative cursor-pointer rounded outline-none transition-shadow",
-        selected ? "ring-2 ring-primary" : "hover:ring-1 hover:ring-primary/30"
+        selected ? "ring-2 ring-primary" : "hover:ring-1 hover:ring-primary/30",
+        dragging && "opacity-40"
       )}
     >
       {selected ? (
         <div className="absolute -top-3 right-1 z-10 flex items-center gap-0.5 rounded-md border border-border bg-background p-0.5 shadow-sm">
+          <button
+            type="button"
+            draggable
+            onDragStart={(e) => {
+              setDraggingId(id);
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", id);
+            }}
+            onDragEnd={() => setDraggingId(null)}
+            onClick={(e) => e.stopPropagation()}
+            className="cursor-grab rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+            aria-label="Drag to reorder"
+            title="Drag to reorder"
+          >
+            <ArrowsUpDownIcon className="size-4" />
+          </button>
           <button
             type="button"
             onClick={(e) => {
@@ -208,8 +293,45 @@ function BlockView({ id, handlers }: { id: string; handlers: CanvasHandlers }) {
           </button>
         </div>
       ) : null}
-      <BlockInner id={id} node={node} handlers={handlers} />
+      <BlockInner id={id} node={node} handlers={handlers} selected={selected} />
     </div>
+  );
+}
+
+/** Inline-editable text for Heading/Text blocks. Uncontrolled (seeded once) so
+ *  the caret never jumps; commits to the doc on blur. */
+function EditableText({
+  value,
+  onCommit,
+  style,
+  className,
+}: {
+  value: string;
+  onCommit: (text: string) => void;
+  style?: CSSProperties;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (ref.current && ref.current.innerText !== value) {
+      ref.current.innerText = value;
+    }
+    // Seed once on mount; further prop changes come from this same field.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div
+      ref={ref}
+      contentEditable
+      suppressContentEditableWarning
+      role="textbox"
+      tabIndex={0}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+      onBlur={() => onCommit(ref.current?.innerText ?? "")}
+      style={style}
+      className={cn("cursor-text outline-none", className)}
+    />
   );
 }
 
@@ -217,10 +339,12 @@ function BlockInner({
   id,
   node,
   handlers,
+  selected,
 }: {
   id: string;
   node: BlockNode;
   handlers: CanvasHandlers;
+  selected: boolean;
 }) {
   switch (node.type) {
     case "Heading": {
@@ -230,32 +354,59 @@ function BlockInner({
           : node.data.props.level === "h3"
             ? 20
             : 24;
+      const style: CSSProperties = {
+        ...toCss(node.data.style, STYLE_KEYS.Heading),
+        fontSize: size,
+        fontWeight: "bold",
+        lineHeight: 1.25,
+      };
+      if (selected) {
+        return (
+          <EditableText
+            value={node.data.props.text}
+            onCommit={(text) =>
+              handlers.onUpdate(id, {
+                ...node,
+                data: { ...node.data, props: { ...node.data.props, text } },
+              })
+            }
+            style={style}
+            className="whitespace-pre-wrap"
+          />
+        );
+      }
       return (
-        <div
-          style={{
-            ...toCss(node.data.style, STYLE_KEYS.Heading),
-            fontSize: size,
-            fontWeight: "bold",
-            lineHeight: 1.25,
-          }}
-          className="whitespace-pre-wrap"
-        >
+        <div style={style} className="whitespace-pre-wrap">
           {node.data.props.text || "Heading"}
         </div>
       );
     }
-    case "Text":
+    case "Text": {
+      const style: CSSProperties = {
+        ...toCss(node.data.style, STYLE_KEYS.Text),
+        lineHeight: 1.6,
+      };
+      if (selected) {
+        return (
+          <EditableText
+            value={node.data.props.text}
+            onCommit={(text) =>
+              handlers.onUpdate(id, {
+                ...node,
+                data: { ...node.data, props: { ...node.data.props, text } },
+              })
+            }
+            style={style}
+            className="whitespace-pre-wrap"
+          />
+        );
+      }
       return (
-        <div
-          style={{
-            ...toCss(node.data.style, STYLE_KEYS.Text),
-            lineHeight: 1.6,
-          }}
-          className="whitespace-pre-wrap"
-        >
+        <div style={style} className="whitespace-pre-wrap">
           {node.data.props.text || "Text"}
         </div>
       );
+    }
     case "Button": {
       const p = node.data.props;
       const radius =
@@ -407,35 +558,38 @@ function BlockInner({
 
 /** The email canvas: renders the root's children with insert/select/reorder. */
 export function EmailCanvas(handlers: CanvasHandlers) {
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const root = handlers.doc.blocks[handlers.doc.root];
   if (root?.type !== "EmailLayout") return null;
   const d = root.data;
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label="Select email styles"
-      onClick={() => handlers.onSelect(handlers.doc.root)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") handlers.onSelect(handlers.doc.root);
-      }}
-      style={{
-        backgroundColor: d.canvasColor,
-        borderRadius: d.borderRadius,
-        border: d.borderColor ? `1px solid ${d.borderColor}` : undefined,
-        color: d.textColor,
-        fontFamily: fontFamilyToCss(d.fontFamily) ?? undefined,
-      }}
-      className="mx-auto w-full overflow-hidden outline-none"
-    >
-      <div className="p-2">
-        <ChildList
-          ids={d.childrenIds}
-          location={{ parentId: handlers.doc.root }}
-          handlers={handlers}
-          emptyHint="Empty email - add a block from the left or the + button."
-        />
+    <DragCtx.Provider value={{ draggingId, setDraggingId }}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label="Select email styles"
+        onClick={() => handlers.onSelect(handlers.doc.root)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handlers.onSelect(handlers.doc.root);
+        }}
+        style={{
+          backgroundColor: d.canvasColor,
+          borderRadius: d.borderRadius,
+          border: d.borderColor ? `1px solid ${d.borderColor}` : undefined,
+          color: d.textColor,
+          fontFamily: fontFamilyToCss(d.fontFamily) ?? undefined,
+        }}
+        className="mx-auto w-full overflow-hidden outline-none"
+      >
+        <div className="p-2">
+          <ChildList
+            ids={d.childrenIds}
+            location={{ parentId: handlers.doc.root }}
+            handlers={handlers}
+            emptyHint="Empty email - add a block from the left or the + button."
+          />
+        </div>
       </div>
-    </div>
+    </DragCtx.Provider>
   );
 }

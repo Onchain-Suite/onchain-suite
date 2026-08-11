@@ -2477,18 +2477,41 @@ const CreateAutomationContent = () => {
                 </div>
               ) : null}
 
+              {/* Persistent "Add trigger" affordance once the flow has a
+                  trigger, so more entry events can be added (reference lets a
+                  flow start from up to three). */}
+              {nodes.length > 0 && !showTriggerPicker ? (
+                <button
+                  type="button"
+                  onClick={() => setShowTriggerPicker(true)}
+                  className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-dashed border-border bg-card/80 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur transition-colors hover:border-primary/50 hover:text-foreground"
+                >
+                  <svg
+                    viewBox="0 0 20 20"
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M10 4v12M4 10h12" strokeLinecap="round" />
+                  </svg>
+                  Add trigger
+                </button>
+              ) : null}
+
               {/* "Add trigger" grid - choose the automation's entry trigger. */}
               {showTriggerPicker ? (
                 <>
                   <div
-                    className="absolute inset-0 z-30 bg-background/40 backdrop-blur-[1px]"
+                    className="absolute inset-0 z-30"
                     aria-hidden="true"
                     onClick={() => setShowTriggerPicker(false)}
                   />
                   <div
                     role="dialog"
                     aria-label="Add trigger"
-                    className="absolute left-1/2 top-1/2 z-40 w-[min(30rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-4 shadow-2xl"
+                    className="absolute left-1/2 top-4 z-40 w-[min(30rem,calc(100%-2rem))] -translate-x-1/2 rounded-2xl border border-border bg-card p-4 shadow-2xl"
                   >
                     <div className="mb-3 flex items-center justify-between">
                       <p className="text-sm font-semibold text-foreground">

@@ -6,7 +6,6 @@ import {
   ComputerDesktopIcon,
   DevicePhoneMobileIcon,
   LockClosedIcon,
-  PaperAirplaneIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -27,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 import {
+  ATTRIBUTION_TEXT,
   BLOCK_BUTTONS,
   type BlockNode,
   childListsOf,
@@ -54,8 +54,6 @@ type Tab = "blocks" | "templates" | "styles" | "inspect";
 
 /** Sentinel id for the always-on compliance footer (not a real block node). */
 const FOOTER_ID = "__footer__";
-
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 /* ------------------------------------------------------- document mutations */
 
@@ -141,12 +139,6 @@ export interface EmailEditorProps {
     html: string;
     text: string;
   }) => void | Promise<void>;
-  /** Send a one-off test email of the current draft to `to`. */
-  onSendTest?: (payload: {
-    to: string;
-    html: string;
-    text: string;
-  }) => void | Promise<void>;
   saving?: boolean;
 }
 
@@ -155,7 +147,6 @@ export function EmailEditor({
   title,
   onBack,
   onSave,
-  onSendTest,
   saving = false,
 }: EmailEditorProps) {
   const [doc, setDoc] = useState<EmailDocument>(initialDoc);
@@ -164,9 +155,6 @@ export function EmailEditor({
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [importOpen, setImportOpen] = useState(false);
   const [importHtml, setImportHtml] = useState("");
-  const [sendOpen, setSendOpen] = useState(false);
-  const [sendTo, setSendTo] = useState("");
-  const [sending, setSending] = useState(false);
 
   const root = doc.blocks[doc.root] as EmailLayoutNode | undefined;
   const selectedNode = selectedId ? doc.blocks[selectedId] : null;
@@ -342,30 +330,6 @@ export function EmailEditor({
     });
   };
 
-  const handleSendTest = async () => {
-    const to = sendTo.trim();
-    if (!EMAIL_RE.test(to)) {
-      toast.error("Enter a valid email address.");
-      return;
-    }
-    if (!onSendTest) return;
-    setSending(true);
-    try {
-      await onSendTest({
-        to,
-        html: renderDocumentToHtml(doc),
-        text: renderDocumentToText(doc),
-      });
-      toast.success(`Test email sent to ${to}`);
-      setSendOpen(false);
-      setSendTo("");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Couldn't send the test.");
-    } finally {
-      setSending(false);
-    }
-  };
-
   const canvasWidth = device === "desktop" ? "max-w-[600px]" : "max-w-[360px]";
   const backdrop = root?.data.backdropColor ?? "#F5F5F5";
 
@@ -447,18 +411,6 @@ export function EmailEditor({
             <ShieldCheckIcon className="size-4" aria-hidden="true" />
             {compliant ? "Compliant" : complianceIssues[0]}
           </button>
-          {onSendTest ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="rounded-lg"
-              onClick={() => setSendOpen(true)}
-            >
-              <PaperAirplaneIcon className="size-4" aria-hidden="true" />
-              Send test
-            </Button>
-          ) : null}
           <Button
             type="button"
             variant="outline"
@@ -576,7 +528,7 @@ export function EmailEditor({
       </div>
 
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Import HTML</DialogTitle>
             <DialogDescription>
@@ -596,50 +548,6 @@ export function EmailEditor({
             </Button>
             <Button type="button" onClick={applyImport}>
               Import
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={sendOpen} onOpenChange={setSendOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Send a test email</DialogTitle>
-            <DialogDescription>
-              We&apos;ll render the current draft and send it to one address so
-              you can check it in a real inbox. Merge tags resolve to sample
-              values.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <label
-              htmlFor="send-test-email"
-              className="text-xs font-medium text-muted-foreground"
-            >
-              Recipient
-            </label>
-            <input
-              id="send-test-email"
-              type="email"
-              value={sendTo}
-              onChange={(e) => setSendTo(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSendTest();
-              }}
-              placeholder="you@company.com"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setSendOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="button" onClick={handleSendTest} disabled={sending}>
-              {sending ? "Sending…" : "Send test"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -734,6 +642,21 @@ function FooterControls({
         />
       </Field>
 
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-foreground">
+            Sent by OnchainSuite
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Adds a small attribution line under the footer.
+          </p>
+        </div>
+        <Switch
+          checked={footer.attribution ?? false}
+          onCheckedChange={(attribution) => setFooter({ attribution })}
+        />
+      </div>
+
       <p className="text-xs leading-relaxed text-muted-foreground">
         Edit the footer text and merge tags by selecting the{" "}
         <span className="font-medium text-foreground">Footer</span> block on the
@@ -817,6 +740,12 @@ function FooterBlock({
             </p>
           ))}
         </div>
+        {footer.attribution ? (
+          <p className="mt-3 text-[11px] text-gray-400/80">
+            {ATTRIBUTION_TEXT.replace("OnchainSuite", "")}
+            <span className="underline">OnchainSuite</span>
+          </p>
+        ) : null}
       </button>
     </div>
   );
@@ -918,10 +847,10 @@ function HtmlCodeInput({
           paste.html
         </span>
       </div>
-      <div className="flex h-64 overflow-hidden">
+      <div className="flex h-[28rem] max-h-[60vh] overflow-hidden">
         <div
           aria-hidden="true"
-          className="w-9 shrink-0 select-none overflow-hidden border-r border-border bg-muted/50 py-3 text-right font-mono text-[11px] leading-5 text-muted-foreground/70"
+          className="w-10 shrink-0 select-none overflow-hidden border-r border-border bg-muted/50 py-3 text-right font-mono text-[11px] leading-5 text-muted-foreground/70"
         >
           <div style={{ transform: `translateY(${-scrollTop}px)` }}>
             {Array.from({ length: lineCount }, (_, i) => (

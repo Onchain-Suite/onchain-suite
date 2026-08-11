@@ -285,6 +285,8 @@ export interface EmailFooter {
   companyName?: string;
   /** Literal postal address; resolves `{{ postal_address }}` in the preview. */
   companyAddress?: string;
+  /** Optional "Sent by OnchainSuite" marketing attribution line. */
+  attribution?: boolean;
 }
 
 export const DEFAULT_FOOTER_CONTENT = [
@@ -301,7 +303,12 @@ export const DEFAULT_FOOTER: EmailFooter = {
   logoUrl: "",
   companyName: "",
   companyAddress: "",
+  attribution: true,
 };
+
+/** Marketing attribution appended below the footer when `attribution` is on. */
+export const ATTRIBUTION_TEXT = "Sent by OnchainSuite";
+export const ATTRIBUTION_URL = "https://onchainsuite.com";
 
 export interface EmailDocument {
   version: 2;
@@ -628,6 +635,7 @@ export function parseDocument(raw: unknown): EmailDocument | null {
           typeof raw.footer.companyAddress === "string"
             ? raw.footer.companyAddress
             : "",
+        attribution: raw.footer.attribution !== false,
       }
     : { ...DEFAULT_FOOTER };
 
@@ -917,7 +925,10 @@ function renderFooterRow(footer: EmailFooter): string {
   const logo = footer.logoUrl?.trim()
     ? `<img src="${esc(footer.logoUrl.trim())}" alt="${name}" height="28" style="height:28px;width:auto;margin-bottom:12px;border:0;display:block;" />`
     : "";
-  return `<tr><td style="padding:24px 32px;border-top:1px solid #e6e8eb;font-family:${FALLBACK_FONT};font-size:12px;line-height:1.6;color:#8a9099;">${logo}${body}</td></tr>`;
+  const attribution = footer.attribution
+    ? `<div style="margin-top:12px;font-size:11px;color:#aab0b8;">Sent by <a href="${ATTRIBUTION_URL}" target="_blank" style="color:#aab0b8;text-decoration:underline;">OnchainSuite</a></div>`
+    : "";
+  return `<tr><td style="padding:24px 32px;border-top:1px solid #e6e8eb;font-family:${FALLBACK_FONT};font-size:12px;line-height:1.6;color:#8a9099;">${logo}${body}${attribution}</td></tr>`;
 }
 
 /** Render the full document to email-safe HTML (MSO fallbacks + footer). */
@@ -1014,8 +1025,11 @@ export function renderDocumentToText(doc: EmailDocument): string {
   };
   walk(doc.root);
   const body = lines.filter(Boolean).join("\n\n");
+  const attribution = doc.footer?.attribution
+    ? `\n${ATTRIBUTION_TEXT} (${ATTRIBUTION_URL})`
+    : "";
   const footer = doc.footer?.enabled
-    ? `\n\n----\n${composeFooterContent(doc.footer)}`
+    ? `\n\n----\n${composeFooterContent(doc.footer)}${attribution}`
     : "";
   return `${body}${footer}`;
 }

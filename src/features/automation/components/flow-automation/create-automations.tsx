@@ -2636,7 +2636,6 @@ const CreateAutomationContent = () => {
                   <motion.div
                     initial={{ opacity: 0, x: 8 }}
                     animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0 }}
                     transition={{ duration: 0.12, ease: "easeOut" }}
                     className="scrollbar-sleek absolute inset-y-0 right-0 z-30 w-[min(344px,100%)] overflow-y-auto border-l border-border bg-card p-6 shadow-2xl md:static md:z-auto md:w-[344px] md:rounded-xl md:border md:border-border md:bg-card md:shadow-none"
                   >

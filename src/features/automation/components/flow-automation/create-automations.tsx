@@ -377,7 +377,7 @@ type RecentEntryRow = {
 };
 
 const EDGE_COLORS = {
-  default: "#38bdf8",
+  default: "rgba(120,130,160,0.5)",
   success: "#22c55e",
   danger: "#f97316",
 } as const;
@@ -1878,8 +1878,8 @@ const CreateAutomationContent = () => {
           {
             ...params,
             type: "addable",
-            animated: true,
-            style: { stroke: edgeColor, strokeWidth: 2.5 },
+            animated: false,
+            style: { stroke: edgeColor, strokeWidth: 1.5 },
             markerEnd: {
               type: MarkerType.ArrowClosed,
               color: edgeColor,
@@ -2069,8 +2069,8 @@ const CreateAutomationContent = () => {
       source,
       target: dest,
       type: "addable",
-      animated: true,
-      style: { stroke: color, strokeWidth: 2.5 },
+      animated: false,
+      style: { stroke: color, strokeWidth: 1.5 },
       markerEnd: { type: MarkerType.ArrowClosed, color },
     });
     setNodes((nds) => nds.concat(newNode));
@@ -2414,16 +2414,19 @@ const CreateAutomationContent = () => {
                   edgeTypes={edgeTypes}
                   defaultEdgeOptions={{
                     type: "addable",
-                    animated: true,
-                    style: { stroke: EDGE_COLORS.default, strokeWidth: 2.5 },
+                    animated: false,
+                    style: { stroke: EDGE_COLORS.default, strokeWidth: 1.5 },
                   }}
                   connectionLineStyle={{
                     stroke: EDGE_COLORS.default,
-                    strokeWidth: 2.5,
+                    strokeWidth: 1.5,
                   }}
                   snapToGrid
                   snapGrid={[24, 24]}
                   fitView
+                  fitViewOptions={{ maxZoom: 1, padding: 0.3 }}
+                  minZoom={0.4}
+                  maxZoom={1.25}
                 >
                   <Background
                     color="rgba(120,130,160,0.14)"

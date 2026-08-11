@@ -14,7 +14,6 @@ import {
   TrashIcon,
   UserGroupIcon,
   ViewfinderCircleIcon,
-  XCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1137,25 +1136,6 @@ const CreateAutomationContent = () => {
     },
   });
 
-  const previewMutation = useMutation({
-    mutationFn: async () => {
-      const triggerNode = nodes.find((n) => n.type === "trigger");
-      const trigger = isJsonObject(triggerNode?.data)
-        ? (triggerNode?.data as Record<string, unknown>)
-        : {};
-      return automationService.previewAutomation(automationId, { trigger });
-    },
-    onSuccess: (res) => {
-      const raw = (res as Record<string, unknown>).matches;
-      const matches = typeof raw === "number" ? raw : asNumber(raw);
-      toast.info(`Preview matches: ${matches.toLocaleString()}`);
-    },
-    onError: (err) => {
-      const message = err instanceof Error ? err.message : "Failed to preview";
-      toast.error(message);
-    },
-  });
-
   const statsOverviewQuery = useQuery({
     queryKey: ["automations", automationId, "stats"],
     queryFn: () => automationService.getStatsOverview(automationId),
@@ -1823,41 +1803,6 @@ const CreateAutomationContent = () => {
     return () => window.clearTimeout(t);
   }, [automationId, draftSaveMutation, edges, isNew, nodes]);
 
-  const discardMutation = useMutation({
-    mutationFn: async () => {
-      if (isNew) return;
-      return automationService.discardBuilder(automationId);
-    },
-    onSuccess: async (payload) => {
-      if (isNew) return;
-      if (payload) {
-        hydrateBuilderState(payload);
-        return;
-      }
-      await builderQuery.refetch();
-    },
-  });
-
-  const resetMutation = useMutation({
-    mutationFn: async () => {
-      if (isNew) return null;
-      return automationService.resetBuilder(automationId);
-    },
-    onSuccess: async (payload) => {
-      if (isNew) return;
-      if (payload) {
-        hydrateBuilderState(payload);
-        toast.success("Builder reset to a blank persisted state");
-        return;
-      }
-      await builderQuery.refetch();
-    },
-    onError: (err) => {
-      const message = err instanceof Error ? err.message : "Failed to reset";
-      toast.error(message);
-    },
-  });
-
   const onConnect = useCallback(
     (params: Connection) => {
       const validation = isValidConnection(params, nodes, edges);
@@ -2204,53 +2149,8 @@ const CreateAutomationContent = () => {
 
           <div className="hidden h-6 w-px bg-border sm:block" />
 
-          {!isNew && (
-            <button
-              type="button"
-              className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-              onClick={() => previewMutation.mutate()}
-              disabled={previewMutation.isPending}
-            >
-              Preview
-            </button>
-          )}
-
-          {!isNew && automationData.status === "draft" && (
-            <button
-              type="button"
-              className="flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-              onClick={() => publishMutation.mutate()}
-              disabled={publishMutation.isPending}
-            >
-              {publishMutation.isPending ? (
-                <ArrowPathIcon
-                  aria-hidden="true"
-                  className="h-3.5 w-3.5 animate-spin"
-                />
-              ) : null}
-              Publish
-            </button>
-          )}
-
-          {!isNew ? (
-            <button
-              type="button"
-              className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-600 transition-colors hover:bg-amber-500/15 disabled:opacity-50 dark:text-amber-300"
-              onClick={() => resetMutation.mutate()}
-              disabled={resetMutation.isPending}
-            >
-              {resetMutation.isPending ? (
-                <ArrowPathIcon
-                  aria-hidden="true"
-                  className="h-3.5 w-3.5 animate-spin"
-                />
-              ) : (
-                <ArrowPathIcon aria-hidden="true" className="h-3.5 w-3.5" />
-              )}
-              Reset Canvas
-            </button>
-          ) : null}
-
+          {/* Reference header keeps only the live toggle: flipping a ready
+              draft On publishes it; On/Off otherwise activates/pauses. */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-muted-foreground">
               {automationData.status === "active" ? "Active" : "Off"}
@@ -2264,12 +2164,22 @@ const CreateAutomationContent = () => {
                   ? "Deactivate automation"
                   : "Activate automation"
               }
-              disabled={isNew || statusToggleMutation.isPending}
-              onClick={() =>
-                statusToggleMutation.mutate(
-                  automationData.status === "active" ? "paused" : "active"
-                )
+              disabled={
+                isNew ||
+                statusToggleMutation.isPending ||
+                publishMutation.isPending
               }
+              onClick={() => {
+                if (automationData.status === "active") {
+                  statusToggleMutation.mutate("paused");
+                } else if (automationData.status === "draft") {
+                  publishMutation.mutate(undefined, {
+                    onSuccess: () => statusToggleMutation.mutate("active"),
+                  });
+                } else {
+                  statusToggleMutation.mutate("active");
+                }
+              }}
               className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 automationData.status === "active"
                   ? "bg-emerald-500"
@@ -2286,22 +2196,6 @@ const CreateAutomationContent = () => {
               />
             </button>
           </div>
-          <button
-            className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            onClick={() => {
-              if (isNew) {
-                setNodes([]);
-                setEdges([]);
-                setSelectedNode(null);
-                setShowNodeSelector({ show: false, x: 0, y: 0 });
-                return;
-              }
-              discardMutation.mutate();
-            }}
-          >
-            <XCircleIcon aria-hidden="true" className="h-3.5 w-3.5" />
-            {isNew ? "Clear Draft" : "Discard Draft"}
-          </button>
           <button
             className="flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground shadow-[0_10px_28px_-14px_rgba(86,112,255,0.9)] transition-colors hover:bg-primary/90 disabled:opacity-80"
             onClick={handleSave}

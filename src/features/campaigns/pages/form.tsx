@@ -2148,7 +2148,25 @@ export function CreateCampaignPage() {
                       />
                     )}
                     {currentStep === 2 &&
-                      (wizIsPush ? (
+                      // Hold the Message step until the campaign has hydrated:
+                      // `channel` defaults to email and only flips to in-app
+                      // once `getCampaign` resolves, so rendering early flashes
+                      // the wrong composer on a cold reload of a push draft.
+                      (isHydratingCampaign ? (
+                        <div
+                          aria-busy="true"
+                          aria-label="Loading message"
+                          className="space-y-4"
+                        >
+                          <div className="h-6 w-44 animate-pulse rounded bg-muted" />
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="h-20 animate-pulse rounded-xl bg-muted" />
+                            <div className="h-20 animate-pulse rounded-xl bg-muted" />
+                          </div>
+                          <div className="h-24 animate-pulse rounded-lg bg-muted" />
+                          <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
+                        </div>
+                      ) : wizIsPush ? (
                         <InAppMessageStep
                           form={form}
                           appDomain={pushAppDomain}

@@ -34,18 +34,18 @@ export const AddToListNode = ({ data, selected }: AddToListNodeProps) => {
       <Handle
         type="target"
         position={Position.Top}
-        className="h-2.5 w-2.5 border-2 border-emerald-400 bg-background"
+        className="h-2.5 w-2.5 border-2 border-indigo-400 bg-background"
       />
       <Handle
         type="source"
         position={Position.Bottom}
-        className="h-2.5 w-2.5 border-2 border-emerald-400 bg-background"
+        className="h-2.5 w-2.5 border-2 border-indigo-400 bg-background"
       />
       <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10">
           <QueueListIcon
             aria-hidden="true"
-            className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+            className="h-4 w-4 text-indigo-600 dark:text-indigo-400"
           />
         </div>
         <div className="flex-1">
@@ -58,15 +58,15 @@ export const AddToListNode = ({ data, selected }: AddToListNodeProps) => {
         </div>
       </div>
       {needsSetup ? (
-        <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+        <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
           <span
             aria-hidden="true"
-            className="h-1.5 w-1.5 rounded-full bg-amber-500"
+            className="h-1.5 w-1.5 rounded-full bg-orange-500"
           />
           Needs setup
         </p>
       ) : (
-        <div className="mt-2.5 rounded-lg border border-emerald-500/15 bg-emerald-500/5 px-3 py-2">
+        <div className="mt-2.5 rounded-lg border border-indigo-500/15 bg-indigo-500/5 px-3 py-2">
           <p className="line-clamp-1 text-xs text-muted-foreground">
             List: <span className="text-foreground">{listName}</span>
           </p>

@@ -23,7 +23,7 @@ export const BranchNode = ({ data, selected }: BranchNodeProps) => (
     <Handle
       type="target"
       position={Position.Top}
-      className="h-2.5 w-2.5 border-2 border-cyan-400 bg-background"
+      className="h-2.5 w-2.5 border-2 border-indigo-400 bg-background"
     />
     <Handle
       type="source"
@@ -40,10 +40,10 @@ export const BranchNode = ({ data, selected }: BranchNodeProps) => (
       style={{ left: "70%" }}
     />
     <div className="flex items-center gap-2.5">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-500/20 bg-cyan-500/10">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10">
         <ArrowsRightLeftIcon
           aria-hidden="true"
-          className="h-4 w-4 text-cyan-600 dark:text-cyan-400"
+          className="h-4 w-4 text-indigo-600 dark:text-indigo-400"
         />
       </div>
       <div className="flex-1">

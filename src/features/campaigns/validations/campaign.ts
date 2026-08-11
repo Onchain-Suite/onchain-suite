@@ -58,10 +58,11 @@ export const campaignFormSchema = z
       .optional()
       .or(z.literal("")),
 
-    // Step 2 (in-app push): notification composer. The backend persists only
-    // title (= emailSubject) / body / cta under `channelsContent.inapp`; the
-    // placement, trigger, and display/delivery settings below are frontend-only
-    // until the in-app settings API ships.
+    // Step 2 (in-app push): notification composer. The full object below -
+    // title (= emailSubject) / body / cta + placement / trigger / frequency /
+    // accent / dismissible / delivery / expiresDays / maxPerSession - now
+    // persists, hydrates and is honored on send via `channelsContent.inapp`
+    // (see campaigns.service `CampaignPushContent`).
     pushPlacement: z
       .enum(["modal", "banner", "slide-in", "inline", "mobile-push"])
       .default("modal"),

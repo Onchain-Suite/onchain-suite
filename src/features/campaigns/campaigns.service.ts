@@ -58,16 +58,39 @@ export interface CampaignAudienceEstimate {
   [key: string]: unknown;
 }
 
+export type PushPlacement =
+  "modal" | "banner" | "slide-in" | "inline" | "mobile-push";
+export type PushTrigger = "wallet-connect" | "page-view" | "manual";
+export type PushFrequency =
+  "once-per-wallet" | "once-per-session" | "every-time" | "until-dismissed";
+export type PushDelivery = "wait-for-connect" | "only-now";
+export type PushExpiresDays = 3 | 7 | 14 | 30;
+export type PushMaxPerSession = 1 | 2 | 3;
+
 /**
- * The campaign's in-app push variant (docs/backend.md). Saved via
- * `PUT /campaigns/{id}` as `pushContent` (stored under `channelsContent.inapp`)
- * and consumed by `POST /campaigns/{id}/send-inapp`.
+ * The campaign's full in-app push Message-step object (docs/backend.md,
+ * 2026-08-12). Saved via `PUT /campaigns/{id}` as `pushContent` (stored under
+ * `channelsContent.inapp`), hydrated on `GET /campaigns/{id}`, and consumed by
+ * `POST /campaigns/{id}/send-inapp` - `placement`/`accent`/`dismissible` ride
+ * the emitted PUSH payload, `delivery`/`expiresDays` shape the queue + TTL,
+ * `trigger`/`frequency`/`maxPerSession` are honored client-side by the SDK.
+ * Backend drops `expiresDays`/`maxPerSession` unless
+ * `delivery === "wait-for-connect"` and `placement !== "mobile-push"`.
  */
 export interface CampaignPushContent {
   title: string;
   body: string;
   ctaLabel?: string;
   ctaUrl?: string;
+  placement?: PushPlacement;
+  trigger?: PushTrigger;
+  frequency?: PushFrequency;
+  /** Accent color as `#RRGGBB`. */
+  accent?: string;
+  dismissible?: boolean;
+  delivery?: PushDelivery;
+  expiresDays?: PushExpiresDays;
+  maxPerSession?: PushMaxPerSession;
 }
 
 export interface CampaignSendInAppResult {
@@ -75,6 +98,8 @@ export interface CampaignSendInAppResult {
   recipientCount?: number;
   deliveredNowCount?: number;
   skippedCount?: number;
+  /** Echoes the persisted delivery mode used for this run. */
+  delivery?: PushDelivery;
   [key: string]: unknown;
 }
 
@@ -522,6 +547,12 @@ const toCampaign = (raw: unknown): Campaign => {
     clickRate: obj.clickRate !== undefined ? Number(obj.clickRate) : undefined,
     channelsUsed: Array.isArray(obj.channelsUsed)
       ? obj.channelsUsed.map(String)
+      : undefined,
+    // Preserve the raw per-channel content so the wizard can hydrate the in-app
+    // push composer (`channelsContent.inapp`) on reopen - the normalized fields
+    // above don't carry it.
+    channelsContent: isJsonObject(obj.channelsContent)
+      ? obj.channelsContent
       : undefined,
     createdAt,
     scheduledFor,

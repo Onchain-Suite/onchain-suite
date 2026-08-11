@@ -46,7 +46,16 @@ import {
   audienceService,
   type AudienceTag,
 } from "@/features/audience/audience.service";
-import { campaignsService } from "@/features/campaigns/campaigns.service";
+import {
+  type CampaignPushContent,
+  campaignsService,
+  type PushDelivery,
+  type PushExpiresDays,
+  type PushFrequency,
+  type PushMaxPerSession,
+  type PushPlacement,
+  type PushTrigger,
+} from "@/features/campaigns/campaigns.service";
 import { AudienceStep } from "@/features/campaigns/components/campaign-form/audience-step";
 import { ConfirmationPage } from "@/features/campaigns/components/campaign-form/campaign-confirmation";
 import {
@@ -123,6 +132,100 @@ interface CurrentMemberAccess {
 const isLikelyEmail = (value: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
+const PUSH_PLACEMENTS: readonly PushPlacement[] = [
+  "modal",
+  "banner",
+  "slide-in",
+  "inline",
+  "mobile-push",
+];
+const PUSH_TRIGGERS: readonly PushTrigger[] = [
+  "wallet-connect",
+  "page-view",
+  "manual",
+];
+const PUSH_FREQUENCIES: readonly PushFrequency[] = [
+  "once-per-wallet",
+  "once-per-session",
+  "every-time",
+  "until-dismissed",
+];
+const PUSH_DELIVERIES: readonly PushDelivery[] = [
+  "wait-for-connect",
+  "only-now",
+];
+const PUSH_EXPIRES: readonly PushExpiresDays[] = [3, 7, 14, 30];
+const PUSH_MAXPER: readonly PushMaxPerSession[] = [1, 2, 3];
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+/** Hydrate the composer form fields from a persisted `channelsContent.inapp`
+ *  object, validating every enum/color/number before it reaches the form. */
+function readPushInto(
+  inapp: Record<string, unknown>,
+  into: Partial<CampaignFormData>
+): void {
+  const str = (v: unknown): string | undefined =>
+    typeof v === "string" ? v : undefined;
+  const title = str(inapp.title);
+  if (title !== undefined) into.emailSubject = title;
+  const body = str(inapp.body);
+  if (body !== undefined) into.pushBody = body;
+  const ctaLabel = str(inapp.ctaLabel);
+  if (ctaLabel !== undefined) into.pushCtaLabel = ctaLabel;
+  const ctaUrl = str(inapp.ctaUrl);
+  if (ctaUrl !== undefined) into.pushCtaUrl = ctaUrl;
+  const placement = str(inapp.placement);
+  if (placement && PUSH_PLACEMENTS.includes(placement as PushPlacement))
+    into.pushPlacement = placement as PushPlacement;
+  const trigger = str(inapp.trigger);
+  if (trigger && PUSH_TRIGGERS.includes(trigger as PushTrigger))
+    into.pushTrigger = trigger as PushTrigger;
+  const frequency = str(inapp.frequency);
+  if (frequency && PUSH_FREQUENCIES.includes(frequency as PushFrequency))
+    into.pushFrequency = frequency as PushFrequency;
+  const delivery = str(inapp.delivery);
+  if (delivery && PUSH_DELIVERIES.includes(delivery as PushDelivery))
+    into.pushDelivery = delivery as PushDelivery;
+  const accent = str(inapp.accent);
+  if (accent && HEX_COLOR.test(accent)) into.pushAccent = accent;
+  if (typeof inapp.dismissible === "boolean")
+    into.pushDismissible = inapp.dismissible;
+  if (typeof inapp.expiresDays === "number")
+    into.pushExpiresDays = String(inapp.expiresDays);
+  if (typeof inapp.maxPerSession === "number")
+    into.pushMaxPerSession = String(inapp.maxPerSession);
+}
+
+/** Map the composer's form values to the backend's full in-app push contract
+ *  (`channelsContent.inapp`), coercing the numeric fields the form holds as
+ *  strings and only sending a CTA when both label + URL are present. */
+function toPushContent(data: CampaignFormData): CampaignPushContent {
+  const label = (data.pushCtaLabel ?? "").trim();
+  const url = (data.pushCtaUrl ?? "").trim();
+  const accent = (data.pushAccent ?? "").trim();
+  const expires = Number(data.pushExpiresDays);
+  const maxPer = Number(data.pushMaxPerSession);
+  return {
+    title: (data.emailSubject ?? "").trim(),
+    body: (data.pushBody ?? "").trim(),
+    // Backend requires the URL whenever a label is set, so send the CTA only as
+    // a complete pair - an incomplete CTA never blocks the launch.
+    ...(label && url ? { ctaLabel: label, ctaUrl: url } : {}),
+    placement: data.pushPlacement,
+    trigger: data.pushTrigger,
+    frequency: data.pushFrequency,
+    accent: HEX_COLOR.test(accent) ? accent : "#4f46e5",
+    dismissible: data.pushDismissible,
+    delivery: data.pushDelivery,
+    expiresDays: PUSH_EXPIRES.includes(expires as PushExpiresDays)
+      ? (expires as PushExpiresDays)
+      : 14,
+    maxPerSession: PUSH_MAXPER.includes(maxPer as PushMaxPerSession)
+      ? (maxPer as PushMaxPerSession)
+      : 1,
+  };
+}
+
 /**
  * Persist the final step's message + template so the saved campaign reflects
  * the current edits. Shared by the launch flow and the send-a-test control -
@@ -133,15 +236,11 @@ const persistCampaignContent = async (
   campaignId: string,
   data: CampaignFormData
 ): Promise<void> => {
-  // In-app push carries its own composer - persist the notification (the only
-  // fields the backend stores today) instead of the email content/template.
+  // In-app push carries its own composer - persist the full notification
+  // (placement + display/delivery settings) so the chosen format round-trips
+  // and rides the send payload, instead of the email content/template.
   if (data.channel === "in-app-push") {
-    await campaignsService.setPushContent(campaignId, {
-      title: (data.emailSubject ?? "").trim(),
-      body: (data.pushBody ?? "").trim(),
-      ctaLabel: (data.pushCtaLabel ?? "").trim() || undefined,
-      ctaUrl: (data.pushCtaUrl ?? "").trim() || undefined,
-    });
+    await campaignsService.setPushContent(campaignId, toPushContent(data));
     return;
   }
   await campaignsService.updateContent(campaignId, {
@@ -1395,6 +1494,36 @@ export function CreateCampaignPage() {
             nextValues.replyToEmail = reply;
             nextValues.useReplyTo = reply.length > 0;
           }
+        }
+
+        // In-app push composer: restore the full notification (placement +
+        // display/delivery settings) from the persisted `channelsContent.inapp`
+        // (campaign) or the `push` mirror on the content endpoint, so reopening
+        // a draft brings back the chosen format - not just title/body/CTA.
+        const inappSource = (() => {
+          if (
+            campaignRes.status === "fulfilled" &&
+            isJsonObject(campaignRes.value)
+          ) {
+            const cc = campaignRes.value.channelsContent;
+            if (isJsonObject(cc) && isJsonObject(cc.inapp)) return cc.inapp;
+          }
+          if (
+            contentRes.status === "fulfilled" &&
+            isJsonObject(contentRes.value) &&
+            isJsonObject(contentRes.value.push)
+          ) {
+            return contentRes.value.push;
+          }
+          return undefined;
+        })();
+        if (inappSource) {
+          readPushInto(inappSource, nextValues);
+          // The campaign carries in-app content, so it's a push campaign -
+          // restore the channel too. Otherwise a cold reload (no `?channel=` in
+          // the URL) falls back to the email composer and the notification is
+          // hidden even though it's saved.
+          nextValues.channel = "in-app-push";
         }
 
         if (audienceRes.status === "fulfilled") {

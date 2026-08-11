@@ -5,9 +5,11 @@ import {
   CodeBracketIcon,
   ComputerDesktopIcon,
   DevicePhoneMobileIcon,
+  LockClosedIcon,
+  PaperAirplaneIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -28,14 +30,19 @@ import {
   BLOCK_BUTTONS,
   type BlockNode,
   childListsOf,
+  composeFooterContent,
   createNode,
   type EmailDocument,
+  type EmailFooter,
   type EmailLayoutNode,
+  footerComplianceIssues,
   type InsertableType,
+  MERGE_TAGS,
   newBlockId,
   parseHtmlToDocument,
   renderDocumentToHtml,
   renderDocumentToText,
+  resolveSampleTags,
 } from "./blocks";
 import { EmailCanvas, type InsertLocation } from "./canvas";
 import { Field } from "./inspect-inputs";
@@ -44,6 +51,11 @@ import { TemplatesTab } from "./templates-tab";
 import { useFooterDefaults } from "./use-footer-defaults";
 
 type Tab = "blocks" | "templates" | "styles" | "inspect";
+
+/** Sentinel id for the always-on compliance footer (not a real block node). */
+const FOOTER_ID = "__footer__";
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 /* ------------------------------------------------------- document mutations */
 
@@ -129,6 +141,12 @@ export interface EmailEditorProps {
     html: string;
     text: string;
   }) => void | Promise<void>;
+  /** Send a one-off test email of the current draft to `to`. */
+  onSendTest?: (payload: {
+    to: string;
+    html: string;
+    text: string;
+  }) => void | Promise<void>;
   saving?: boolean;
 }
 
@@ -137,6 +155,7 @@ export function EmailEditor({
   title,
   onBack,
   onSave,
+  onSendTest,
   saving = false,
 }: EmailEditorProps) {
   const [doc, setDoc] = useState<EmailDocument>(initialDoc);
@@ -145,10 +164,17 @@ export function EmailEditor({
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [importOpen, setImportOpen] = useState(false);
   const [importHtml, setImportHtml] = useState("");
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendTo, setSendTo] = useState("");
+  const [sending, setSending] = useState(false);
 
   const root = doc.blocks[doc.root] as EmailLayoutNode | undefined;
   const selectedNode = selectedId ? doc.blocks[selectedId] : null;
-  const compliant = doc.footer?.enabled ?? false;
+  const complianceIssues = useMemo(
+    () => footerComplianceIssues(doc.footer),
+    [doc.footer]
+  );
+  const compliant = complianceIssues.length === 0;
 
   // Auto-populate the compliance footer with the org's company name, address
   // and logo on first load. Only fills blanks, so saved values and user edits
@@ -299,11 +325,14 @@ export function EmailEditor({
   };
 
   const handleSave = async () => {
-    // CAN-SPAM: never let a template save without an unsubscribe footer.
-    if (!doc.footer?.enabled) {
-      toast.error("Add an unsubscribe footer before saving.");
-      setSelectedId(doc.root);
-      setTab("styles");
+    // CAN-SPAM: never let a template save unless the footer identifies the
+    // sender, gives a postal address and offers a way to unsubscribe.
+    if (!compliant) {
+      toast.error(
+        complianceIssues[0] ?? "Complete the compliance footer before saving."
+      );
+      setSelectedId(FOOTER_ID);
+      setTab("inspect");
       return;
     }
     await onSave({
@@ -311,6 +340,30 @@ export function EmailEditor({
       html: renderDocumentToHtml(doc),
       text: renderDocumentToText(doc),
     });
+  };
+
+  const handleSendTest = async () => {
+    const to = sendTo.trim();
+    if (!EMAIL_RE.test(to)) {
+      toast.error("Enter a valid email address.");
+      return;
+    }
+    if (!onSendTest) return;
+    setSending(true);
+    try {
+      await onSendTest({
+        to,
+        html: renderDocumentToHtml(doc),
+        text: renderDocumentToText(doc),
+      });
+      toast.success(`Test email sent to ${to}`);
+      setSendOpen(false);
+      setSendTo("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't send the test.");
+    } finally {
+      setSending(false);
+    }
   };
 
   const canvasWidth = device === "desktop" ? "max-w-[600px]" : "max-w-[360px]";
@@ -375,17 +428,37 @@ export function EmailEditor({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <span
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedId(FOOTER_ID);
+              setTab("inspect");
+            }}
+            title={
+              compliant ? "All checks passed" : complianceIssues.join(" · ")
+            }
             className={cn(
-              "hidden items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium sm:inline-flex",
+              "hidden items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors sm:inline-flex",
               compliant
                 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400"
             )}
           >
             <ShieldCheckIcon className="size-4" aria-hidden="true" />
-            {compliant ? "Compliant" : "Add unsubscribe"}
-          </span>
+            {compliant ? "Compliant" : complianceIssues[0]}
+          </button>
+          {onSendTest ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-lg"
+              onClick={() => setSendOpen(true)}
+            >
+              <PaperAirplaneIcon className="size-4" aria-hidden="true" />
+              Send test
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="outline"
@@ -456,7 +529,12 @@ export function EmailEditor({
             ) : null}
 
             {tab === "inspect" ? (
-              selectedNode && selectedId && selectedId !== doc.root ? (
+              selectedId === FOOTER_ID ? (
+                <FooterInspect
+                  footer={doc.footer}
+                  onChange={(footer) => setDoc((d) => ({ ...d, footer }))}
+                />
+              ) : selectedNode && selectedId && selectedId !== doc.root ? (
                 <InspectPanel
                   node={selectedNode}
                   onChange={(next) => updateNode(selectedId, next)}
@@ -483,34 +561,15 @@ export function EmailEditor({
           <div className={cn("mx-auto w-full", canvasWidth)}>
             <EmailCanvas {...handlers} />
             {doc.footer?.enabled ? (
-              <div className="mt-2 rounded-lg bg-black/[0.03] px-6 py-4 text-xs leading-relaxed text-gray-400">
-                {doc.footer.logoUrl?.trim() ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- email logo preview, not a Next asset
-                  <img
-                    src={doc.footer.logoUrl}
-                    alt={
-                      doc.footer.companyName?.trim()
-                        ? doc.footer.companyName.trim()
-                        : "Company logo"
-                    }
-                    className="mb-3 h-7 w-auto"
-                  />
-                ) : null}
-                <p className="whitespace-pre-wrap">{doc.footer.optInReason}</p>
-                <p>
-                  {doc.footer.companyName?.trim()
-                    ? doc.footer.companyName.trim()
-                    : "{{ sender_name }}"}{" "}
-                  ·{" "}
-                  {doc.footer.companyAddress?.trim()
-                    ? doc.footer.companyAddress.trim()
-                    : "{{ postal_address }}"}
-                </p>
-                <p>
-                  <span className="underline">Unsubscribe</span> ·{" "}
-                  <span className="underline">Manage preferences</span>
-                </p>
-              </div>
+              <FooterBlock
+                footer={doc.footer}
+                campaignName={title}
+                selected={selectedId === FOOTER_ID}
+                onSelect={() => {
+                  setSelectedId(FOOTER_ID);
+                  setTab("inspect");
+                }}
+              />
             ) : null}
           </div>
         </main>
@@ -526,13 +585,7 @@ export function EmailEditor({
               is kept.
             </DialogDescription>
           </DialogHeader>
-          <Textarea
-            value={importHtml}
-            onChange={(e) => setImportHtml(e.target.value)}
-            rows={10}
-            placeholder="<h1>…</h1> <p>…</p>"
-            className="rounded-lg font-mono text-xs"
-          />
+          <HtmlCodeInput value={importHtml} onChange={setImportHtml} />
           <DialogFooter>
             <Button
               type="button"
@@ -543,6 +596,50 @@ export function EmailEditor({
             </Button>
             <Button type="button" onClick={applyImport}>
               Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={sendOpen} onOpenChange={setSendOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send a test email</DialogTitle>
+            <DialogDescription>
+              We&apos;ll render the current draft and send it to one address so
+              you can check it in a real inbox. Merge tags resolve to sample
+              values.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label
+              htmlFor="send-test-email"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Recipient
+            </label>
+            <input
+              id="send-test-email"
+              type="email"
+              value={sendTo}
+              onChange={(e) => setSendTo(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSendTest();
+              }}
+              placeholder="you@company.com"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSendOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSendTest} disabled={sending}>
+              {sending ? "Sending…" : "Send test"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -596,9 +693,6 @@ function FooterControls({
   const setFooter = (patch: Partial<EmailDocument["footer"]>) =>
     setDoc((d) => ({ ...d, footer: { ...d.footer, ...patch } }));
 
-  const inputClass =
-    "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40";
-
   return (
     <div className="space-y-4 border-t border-border pt-4">
       <div className="flex items-center justify-between gap-3">
@@ -607,7 +701,7 @@ function FooterControls({
             Compliance footer
           </p>
           <p className="text-xs text-muted-foreground">
-            Logo, company details + unsubscribe (CAN-SPAM). Required to save.
+            Logo + unsubscribe (CAN-SPAM). Required to save.
           </p>
         </div>
         <Switch
@@ -640,32 +734,212 @@ function FooterControls({
         />
       </Field>
 
-      <Field label="Company name">
-        <input
-          value={footer.companyName ?? ""}
-          onChange={(e) => setFooter({ companyName: e.target.value })}
-          placeholder="{{ sender_name }}"
-          className={inputClass}
-        />
-      </Field>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Edit the footer text and merge tags by selecting the{" "}
+        <span className="font-medium text-foreground">Footer</span> block on the
+        canvas.
+      </p>
+    </div>
+  );
+}
 
-      <Field label="Postal address">
-        <input
-          value={footer.companyAddress ?? ""}
-          onChange={(e) => setFooter({ companyAddress: e.target.value })}
-          placeholder="{{ postal_address }}"
-          className={inputClass}
-        />
-      </Field>
+/** The selectable, non-removable compliance footer rendered under the canvas. */
+function FooterBlock({
+  footer,
+  campaignName,
+  selected,
+  onSelect,
+}: {
+  footer: EmailFooter;
+  campaignName: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const lines = useMemo(() => {
+    const overrides: Record<string, string> = {};
+    if (campaignName?.trim()) overrides.campaign_name = campaignName.trim();
+    if (footer.companyName?.trim())
+      overrides.sender_name = footer.companyName.trim();
+    if (footer.companyAddress?.trim())
+      overrides.postal_address = footer.companyAddress.trim();
+    return resolveSampleTags(composeFooterContent(footer), overrides).split(
+      "\n"
+    );
+  }, [footer, campaignName]);
 
-      <Field label="Opt-in reason">
+  return (
+    <div className="mt-2">
+      <div className="mx-6 border-t border-border/60" />
+      <button
+        type="button"
+        onClick={onSelect}
+        className={cn(
+          "group relative mt-1 block w-full rounded-lg border px-6 py-4 text-left transition-colors",
+          selected
+            ? "border-primary ring-2 ring-primary/30"
+            : "border-transparent hover:border-primary/40"
+        )}
+      >
+        <span
+          className={cn(
+            "pointer-events-none absolute -top-2.5 left-3 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground transition-opacity",
+            selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}
+        >
+          Footer · Required
+        </span>
+        <span
+          className={cn(
+            "pointer-events-none absolute -top-2.5 right-3 inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground transition-opacity",
+            selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}
+        >
+          <LockClosedIcon className="size-3" aria-hidden="true" />
+          Required
+        </span>
+        {footer.logoUrl?.trim() ? (
+          // eslint-disable-next-line @next/next/no-img-element -- email logo preview, not a Next asset
+          <img
+            src={footer.logoUrl}
+            alt={
+              footer.companyName?.trim()
+                ? footer.companyName.trim()
+                : "Company logo"
+            }
+            className="mb-3 h-7 w-auto"
+          />
+        ) : null}
+        <div className="space-y-0.5 text-xs leading-relaxed text-gray-400">
+          {lines.map((line, i) => (
+            // eslint-disable-next-line react/no-array-index-key -- static preview lines, never reordered
+            <p key={i} className="whitespace-pre-wrap break-words">
+              {line}
+            </p>
+          ))}
+        </div>
+      </button>
+    </div>
+  );
+}
+
+/** Inspect panel for the required footer: editable content + merge-tag insert. */
+function FooterInspect({
+  footer,
+  onChange,
+}: {
+  footer: EmailFooter;
+  onChange: (footer: EmailFooter) => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const value = footer.content ?? composeFooterContent(footer);
+  const setContent = (content: string) => onChange({ ...footer, content });
+
+  const insertTag = (token: string) => {
+    const snippet = `{{ ${token} }}`;
+    const el = ref.current;
+    if (!el) {
+      setContent(`${value}${snippet}`);
+      return;
+    }
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    setContent(value.slice(0, start) + snippet + value.slice(end));
+    requestAnimationFrame(() => {
+      el.focus();
+      const caret = start + snippet.length;
+      el.setSelectionRange(caret, caret);
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Footer · Required block
+      </p>
+      <div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+        <LockClosedIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        <p>
+          Required by law - every email must identify the sender and offer a way
+          to unsubscribe. You can reword it, but it can&apos;t be removed.
+        </p>
+      </div>
+      <Field label="Content">
         <Textarea
-          value={footer.optInReason}
-          onChange={(e) => setFooter({ optInReason: e.target.value })}
-          rows={2}
-          className="rounded-lg"
+          ref={ref}
+          value={value}
+          onChange={(e) => setContent(e.target.value)}
+          rows={6}
+          className="rounded-lg font-mono text-xs leading-relaxed"
         />
       </Field>
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Insert a merge tag
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {MERGE_TAGS.map((tag) => (
+            <button
+              key={tag.token}
+              type="button"
+              onClick={() => insertTag(tag.token)}
+              className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-muted"
+            >
+              {tag.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Tags resolve per recipient at send time. The preview shows sample
+        values.
+      </p>
+    </div>
+  );
+}
+
+/** Code-editor-styled input (title bar + line-number gutter) for HTML import. */
+function HtmlCodeInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [scrollTop, setScrollTop] = useState(0);
+  const lineCount = Math.max(value.split("\n").length, 12);
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-muted/40">
+      <div className="flex items-center gap-1.5 border-b border-border px-3 py-2">
+        <span className="size-2.5 rounded-full bg-red-400/70" />
+        <span className="size-2.5 rounded-full bg-amber-400/70" />
+        <span className="size-2.5 rounded-full bg-emerald-400/70" />
+        <span className="ml-1.5 font-mono text-[11px] text-muted-foreground">
+          paste.html
+        </span>
+      </div>
+      <div className="flex h-64 overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="w-9 shrink-0 select-none overflow-hidden border-r border-border bg-muted/50 py-3 text-right font-mono text-[11px] leading-5 text-muted-foreground/70"
+        >
+          <div style={{ transform: `translateY(${-scrollTop}px)` }}>
+            {Array.from({ length: lineCount }, (_, i) => (
+              <div key={i} className="pr-2">
+                {i + 1}
+              </div>
+            ))}
+          </div>
+        </div>
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+          spellCheck={false}
+          placeholder={"<h1>…</h1>\n<p>…</p>"}
+          className="h-full flex-1 resize-none bg-transparent px-3 py-3 font-mono text-xs leading-5 text-foreground outline-none placeholder:text-muted-foreground/60"
+        />
+      </div>
     </div>
   );
 }

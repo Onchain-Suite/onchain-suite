@@ -157,6 +157,22 @@ function EditorScreen() {
     }
   };
 
+  const handleSendTest = async ({
+    to,
+    html,
+    text,
+  }: {
+    to: string;
+    html: string;
+    text: string;
+  }) => {
+    await campaignsService.sendTest(
+      campaignId,
+      { to, html, textVersion: text, subject: title || undefined },
+      getSelectedOrganizationId() ?? undefined
+    );
+  };
+
   if (resolvedDoc === null) {
     return (
       <FullScreen>
@@ -186,6 +202,7 @@ function EditorScreen() {
         title={title}
         onBack={goBack}
         onSave={handleSave}
+        onSendTest={handleSendTest}
         saving={saving}
       />
     </FullScreen>

@@ -273,17 +273,29 @@ export type InsertableType = Exclude<BlockType, "EmailLayout">;
  *  first load; a blank field falls back to its send-time merge tag. */
 export interface EmailFooter {
   enabled: boolean;
+  /**
+   * The editable footer body, with merge tags (the reference "Content" field).
+   * Source of truth when set; blank falls back to the legacy composed text.
+   */
+  content?: string;
   optInReason: string;
   /** Org/company logo shown above the footer text; editable in the builder. */
   logoUrl?: string;
-  /** Literal company name; blank renders the `{{ sender_name }}` merge tag. */
+  /** Literal company name; resolves `{{ sender_name }}` in the preview. */
   companyName?: string;
-  /** Literal postal address; blank renders the `{{ postal_address }}` tag. */
+  /** Literal postal address; resolves `{{ postal_address }}` in the preview. */
   companyAddress?: string;
 }
 
+export const DEFAULT_FOOTER_CONTENT = [
+  "You're receiving this because you opted in at {{ sender_name }}.",
+  "{{ sender_name }} · {{ postal_address }}",
+  "Unsubscribe: {{ unsubscribe_url }} · Manage preferences: {{ manage_preferences_url }}",
+].join("\n");
+
 export const DEFAULT_FOOTER: EmailFooter = {
   enabled: true,
+  content: DEFAULT_FOOTER_CONTENT,
   optInReason:
     "You're receiving this because you opted in at {{ sender_name }}.",
   logoUrl: "",
@@ -310,6 +322,81 @@ export const MERGE_TAGS: { label: string; token: string }[] = [
   { label: "Unsubscribe link", token: "unsubscribe_url" },
   { label: "Manage preferences", token: "manage_preferences_url" },
 ];
+
+/** Sample values used to preview merge tags in the builder (never sent). */
+export const SAMPLE_TAG_VALUES: Record<string, string> = {
+  first_name: "Alex",
+  ens_or_wallet: "vitalik.eth",
+  wallet_short: "0x1a2…9f4b",
+  sender_name: "Your Company",
+  postal_address: "123 Market St, San Francisco, CA 94103",
+  sender_email: "hello@yourcompany.com",
+  campaign_name: "Your campaign",
+  unsubscribe_url: "https://example.com/u/8f3a2b",
+  manage_preferences_url: "https://example.com/p/8f3a2b",
+};
+
+const TAG_RE = /\{\{\s*([a-z_]+)\s*\}\}/gi;
+
+/**
+ * Replace `{{ token }}` merge tags with preview-only sample values, so the
+ * canvas reads like a real send. `overrides` win over {@link SAMPLE_TAG_VALUES}
+ * (used to feed the org's real name/address into `sender_name`/`postal_address`).
+ */
+export function resolveSampleTags(
+  text: string,
+  overrides: Record<string, string> = {}
+): string {
+  return text.replace(TAG_RE, (whole, token: string) => {
+    const key = token.toLowerCase();
+    const override = overrides[key]?.trim();
+    if (override) return override;
+    return SAMPLE_TAG_VALUES[key] ?? whole;
+  });
+}
+
+/**
+ * The footer's editable body. Prefers `content`; falls back to the legacy
+ * opt-in-reason + company-line + unsubscribe composition for older documents.
+ */
+export function composeFooterContent(footer: EmailFooter): string {
+  if (footer.content?.trim()) return footer.content;
+  const name = footer.companyName?.trim()
+    ? footer.companyName.trim()
+    : "{{ sender_name }}";
+  const address = footer.companyAddress?.trim()
+    ? footer.companyAddress.trim()
+    : "{{ postal_address }}";
+  return [
+    footer.optInReason,
+    `${name} · ${address}`,
+    "Unsubscribe: {{ unsubscribe_url }} · Manage preferences: {{ manage_preferences_url }}",
+  ].join("\n");
+}
+
+/**
+ * CAN-SPAM checklist for the footer. Empty array == compliant. Drives both the
+ * header badge and the save/send gate, so "Compliant" only shows when the
+ * footer truly identifies the sender, gives a postal address, and offers a way
+ * to unsubscribe.
+ */
+export function footerComplianceIssues(footer?: EmailFooter): string[] {
+  if (!footer?.enabled) return ["Turn on the compliance footer"];
+  const body = composeFooterContent(footer);
+  const issues: string[] = [];
+  const hasUnsub =
+    /\{\{\s*unsubscribe_url\s*\}\}/i.test(body) || /unsubscribe/i.test(body);
+  const hasSender =
+    /\{\{\s*sender_name\s*\}\}/i.test(body) ||
+    Boolean(footer.companyName?.trim());
+  const hasAddress =
+    /\{\{\s*postal_address\s*\}\}/i.test(body) ||
+    Boolean(footer.companyAddress?.trim());
+  if (!hasSender) issues.push("Identify the sender (name)");
+  if (!hasAddress) issues.push("Add a postal address");
+  if (!hasUnsub) issues.push("Add an unsubscribe link");
+  return issues;
+}
 
 /* --------------------------------------------------------------- id + new */
 
@@ -523,6 +610,10 @@ export function parseDocument(raw: unknown): EmailDocument | null {
   const footer: EmailFooter = isRecord(raw.footer)
     ? {
         enabled: raw.footer.enabled !== false,
+        content:
+          typeof raw.footer.content === "string" && raw.footer.content.trim()
+            ? raw.footer.content
+            : undefined,
         optInReason:
           typeof raw.footer.optInReason === "string"
             ? raw.footer.optInReason
@@ -812,17 +903,21 @@ function renderNode(id: string, doc: EmailDocument): string {
 
 function renderFooterRow(footer: EmailFooter): string {
   if (!footer.enabled) return "";
-  const reason = escMultiline(footer.optInReason);
+  const link = (token: string) =>
+    `<a href="{{ ${token} }}" target="_blank" style="color:#8a9099;text-decoration:underline;">{{ ${token} }}</a>`;
+  const body = escMultiline(composeFooterContent(footer))
+    .replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, link("unsubscribe_url"))
+    .replace(
+      /\{\{\s*manage_preferences_url\s*\}\}/gi,
+      link("manage_preferences_url")
+    );
   const name = footer.companyName?.trim()
     ? esc(footer.companyName.trim())
-    : "{{ sender_name }}";
-  const address = footer.companyAddress?.trim()
-    ? esc(footer.companyAddress.trim())
-    : "{{ postal_address }}";
+    : "Company logo";
   const logo = footer.logoUrl?.trim()
     ? `<img src="${esc(footer.logoUrl.trim())}" alt="${name}" height="28" style="height:28px;width:auto;margin-bottom:12px;border:0;display:block;" />`
     : "";
-  return `<tr><td style="padding:24px 32px;border-top:1px solid #e6e8eb;font-family:${FALLBACK_FONT};font-size:12px;line-height:1.6;color:#8a9099;">${logo}${reason}<br />${name} · ${address}<br /><a href="{{ unsubscribe_url }}" target="_blank" style="color:#8a9099;text-decoration:underline;">Unsubscribe</a> · <a href="{{ manage_preferences_url }}" target="_blank" style="color:#8a9099;text-decoration:underline;">Manage preferences</a></td></tr>`;
+  return `<tr><td style="padding:24px 32px;border-top:1px solid #e6e8eb;font-family:${FALLBACK_FONT};font-size:12px;line-height:1.6;color:#8a9099;">${logo}${body}</td></tr>`;
 }
 
 /** Render the full document to email-safe HTML (MSO fallbacks + footer). */
@@ -919,12 +1014,8 @@ export function renderDocumentToText(doc: EmailDocument): string {
   };
   walk(doc.root);
   const body = lines.filter(Boolean).join("\n\n");
-  const nameTrim = doc.footer?.companyName?.trim() ?? "";
-  const addrTrim = doc.footer?.companyAddress?.trim() ?? "";
-  const name = nameTrim.length > 0 ? nameTrim : "{{ sender_name }}";
-  const address = addrTrim.length > 0 ? addrTrim : "{{ postal_address }}";
   const footer = doc.footer?.enabled
-    ? `\n\n----\n${doc.footer.optInReason}\n${name} · ${address}\nUnsubscribe: {{ unsubscribe_url }} · Manage preferences: {{ manage_preferences_url }}`
+    ? `\n\n----\n${composeFooterContent(doc.footer)}`
     : "";
   return `${body}${footer}`;
 }

@@ -1233,10 +1233,6 @@ const CreateAutomationContent = () => {
   const statsConversions = asNumber(
     (statsOverview as Record<string, unknown>).conversions
   );
-  const statsRevenue =
-    asNumber(
-      (statsRevenueQuery.data as Record<string, unknown> | undefined)?.revenue
-    ) || asNumber((statsOverview as Record<string, unknown>).revenue);
   const statsConvRate =
     asNumber((statsOverview as Record<string, unknown>).conversionRate) ||
     (statsEntries > 0
@@ -3522,19 +3518,18 @@ const CreateAutomationContent = () => {
                     value: statsEntries.toLocaleString(),
                   },
                   {
+                    label: "Completed",
+                    value: `${statsConvRate}%`,
+                  },
+                  {
                     label: "On-chain conversions",
                     value: statsConversions.toLocaleString(),
                   },
                   {
-                    label: "Conversion rate",
-                    value: `${statsConvRate}%`,
-                  },
-                  {
-                    label: "Revenue",
-                    value:
-                      statsRevenue > 0
-                        ? `$${(statsRevenue / 1000).toFixed(0)}k`
-                        : "-",
+                    label: "Last triggered",
+                    value: automationData.lastTriggered
+                      ? formatRelativeTime(automationData.lastTriggered)
+                      : "-",
                   },
                 ].map((stat, i) => (
                   <motion.div

@@ -3579,7 +3579,7 @@ const CreateAutomationContent = () => {
         ) : (
           /* Stats Tab Content */
           <div className="scrollbar-sleek flex-1 overflow-y-auto bg-muted/10 p-4 sm:p-6">
-            <div className="mx-auto max-w-6xl space-y-6">
+            <div className="mx-auto max-w-[1600px] space-y-6">
               {/* Overview Cards - reference layout: label over a big number,
                   no icon badge or delta chip. */}
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

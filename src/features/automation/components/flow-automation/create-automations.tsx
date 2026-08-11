@@ -3623,41 +3623,21 @@ const CreateAutomationContent = () => {
           /* Stats Tab Content */
           <div className="scrollbar-sleek flex-1 overflow-y-auto bg-muted/10 p-4 sm:p-6">
             <div className="mx-auto max-w-6xl space-y-6">
-              {/* Overview Cards */}
+              {/* Overview Cards - reference layout: label over a big number,
+                  no icon badge or delta chip. */}
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 {[
                   {
-                    label: "Entries",
+                    label: "Entries · 30d",
                     value: statsEntries.toLocaleString(),
-                    change: "-",
-                    icon: (
-                      <UserGroupIcon
-                        aria-hidden="true"
-                        className="h-4 w-4 text-blue-500"
-                      />
-                    ),
                   },
                   {
-                    label: "Conversions",
+                    label: "On-chain conversions",
                     value: statsConversions.toLocaleString(),
-                    change: "-",
-                    icon: (
-                      <CheckCircleIcon
-                        aria-hidden="true"
-                        className="h-4 w-4 text-primary"
-                      />
-                    ),
                   },
                   {
-                    label: "Conv. Rate",
+                    label: "Conversion rate",
                     value: `${statsConvRate}%`,
-                    change: "-",
-                    icon: (
-                      <ViewfinderCircleIcon
-                        aria-hidden="true"
-                        className="h-4 w-4 text-purple-500"
-                      />
-                    ),
                   },
                   {
                     label: "Revenue",
@@ -3665,13 +3645,6 @@ const CreateAutomationContent = () => {
                       statsRevenue > 0
                         ? `$${(statsRevenue / 1000).toFixed(0)}k`
                         : "-",
-                    change: "-",
-                    icon: (
-                      <CurrencyDollarIcon
-                        aria-hidden="true"
-                        className="h-4 w-4 text-amber-500"
-                      />
-                    ),
                   },
                 ].map((stat, i) => (
                   <motion.div
@@ -3687,27 +3660,13 @@ const CreateAutomationContent = () => {
                     initial="initial"
                     animate="animate"
                     transition={{ delay: i * 0.1 }}
-                    className="rounded-xl border border-border bg-card p-4 shadow-sm"
+                    className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5"
                   >
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {stat.label}
-                      </span>
-                      <div className="rounded-full bg-muted p-1.5">
-                        {stat.icon}
-                      </div>
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <span className="text-2xl font-bold">{stat.value}</span>
-                      <span
-                        className={`text-xs font-medium ${
-                          stat.change.startsWith("+")
-                            ? "text-primary"
-                            : "text-destructive"
-                        }`}
-                      >
-                        {stat.change}
-                      </span>
+                    <span className="text-sm text-muted-foreground">
+                      {stat.label}
+                    </span>
+                    <div className="mt-1.5 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                      {stat.value}
                     </div>
                   </motion.div>
                 ))}

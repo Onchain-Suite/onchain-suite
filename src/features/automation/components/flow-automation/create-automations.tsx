@@ -5,12 +5,32 @@ import {
   ArrowLeftIcon,
   ArrowPathIcon,
   ArrowRightIcon,
+  ArrowsRightLeftIcon,
+  ArrowsUpDownIcon,
+  ArrowTrendingDownIcon,
+  BanknotesIcon,
+  BeakerIcon,
+  BoltIcon,
   CheckCircleIcon,
+  ClipboardDocumentListIcon,
+  ClockIcon,
   Cog6ToothIcon,
   CurrencyDollarIcon,
+  CursorArrowRaysIcon,
+  DevicePhoneMobileIcon,
+  DocumentCheckIcon,
+  EnvelopeIcon,
+  EnvelopeOpenIcon,
+  ExclamationTriangleIcon,
   GlobeAltIcon,
+  HeartIcon,
   MagnifyingGlassIcon,
+  MegaphoneIcon,
   PencilSquareIcon,
+  QueueListIcon,
+  ScaleIcon,
+  SparklesIcon,
+  TagIcon,
   TrashIcon,
   UserGroupIcon,
   ViewfinderCircleIcon,
@@ -375,6 +395,46 @@ type RecentEntryRow = {
   path: string;
 };
 
+/** Distinct, compact icon per trigger/action type for the node library and
+ *  insert menus (the backend catalogs otherwise ship one generic glyph). */
+const LIBRARY_ICONS: Record<string, typeof BoltIcon> = {
+  onchain_event: BoltIcon,
+  on_chain_event: BoltIcon,
+  holder_acquired: SparklesIcon,
+  swap_completed: ArrowsRightLeftIcon,
+  liquidity_added: BeakerIcon,
+  governance_activity: ScaleIcon,
+  liquidation_detected: ExclamationTriangleIcon,
+  borrow_opened: BanknotesIcon,
+  exchange_outflow: ArrowTrendingDownIcon,
+  capital_withdrawn: ArrowTrendingDownIcon,
+  approval_intent: DocumentCheckIcon,
+  segment_entered: UserGroupIcon,
+  segment_exited: UserGroupIcon,
+  list_joined: QueueListIcon,
+  form_submitted: ClipboardDocumentListIcon,
+  email_opened: EnvelopeOpenIcon,
+  email_clicked: CursorArrowRaysIcon,
+  tag_added: TagIcon,
+  campaign_completed: MegaphoneIcon,
+  health_threshold: HeartIcon,
+  send_email: EnvelopeIcon,
+  email: EnvelopeIcon,
+  send_inapp: DevicePhoneMobileIcon,
+  inapp: DevicePhoneMobileIcon,
+  wait: ClockIcon,
+  branch: ArrowsUpDownIcon,
+  add_tag: TagIcon,
+  add_to_list: QueueListIcon,
+  webhook: GlobeAltIcon,
+  dispatch_campaign: MegaphoneIcon,
+};
+
+function LibraryIcon({ type }: { type: string }) {
+  const Icon = LIBRARY_ICONS[type] ?? BoltIcon;
+  return <Icon aria-hidden="true" className="h-3.5 w-3.5" />;
+}
+
 const EDGE_COLORS = {
   default: "rgba(120,130,160,0.5)",
   success: "#22c55e",
@@ -584,10 +644,10 @@ function NodeLibrarySection({
               e.dataTransfer.setData("application/reactflow", node.type);
               e.dataTransfer.setData("application/label", node.label);
             }}
-            className={`group flex cursor-grab items-center gap-3 rounded-xl border border-border/60 bg-background p-2.5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-primary/30 ${a.hover}`}
+            className={`group flex cursor-grab items-center gap-2.5 rounded-lg border border-border/60 bg-background p-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-primary/30 ${a.hover}`}
           >
             <div
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${a.tile}`}
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${a.tile}`}
             >
               {node.icon}
             </div>
@@ -841,7 +901,6 @@ const CreateAutomationContent = () => {
 
   const triggerCatalog = useMemo(() => {
     const fetched = triggersQuery.data ?? [];
-    if (fetched.length === 0) return resolvedTriggerNodes;
     const normalized = fetched
       .map((t) => {
         if (!isJsonObject(t)) return null;
@@ -854,16 +913,16 @@ const CreateAutomationContent = () => {
           type,
           label,
           description,
-          icon: <ViewfinderCircleIcon aria-hidden="true" className="h-4 w-4" />,
+          icon: <LibraryIcon type={type} />,
         };
       })
       .filter((x): x is (typeof triggerNodes)[number] => !!x);
-    return normalized.length > 0 ? normalized : resolvedTriggerNodes;
+    const base = normalized.length > 0 ? normalized : resolvedTriggerNodes;
+    return base.map((n) => ({ ...n, icon: <LibraryIcon type={n.type} /> }));
   }, [resolvedTriggerNodes, triggersQuery.data]);
 
   const actionCatalog = useMemo(() => {
     const fetched = actionsQuery.data ?? [];
-    if (fetched.length === 0) return resolvedActionNodes;
     const normalized = fetched
       .map((a) => {
         if (!isJsonObject(a)) return null;
@@ -876,11 +935,12 @@ const CreateAutomationContent = () => {
           type,
           label,
           description,
-          icon: <ArrowRightIcon aria-hidden="true" className="h-4 w-4" />,
+          icon: <LibraryIcon type={type} />,
         };
       })
       .filter((x): x is (typeof actionNodes)[number] => !!x);
-    return normalized.length > 0 ? normalized : resolvedActionNodes;
+    const base = normalized.length > 0 ? normalized : resolvedActionNodes;
+    return base.map((n) => ({ ...n, icon: <LibraryIcon type={n.type} /> }));
   }, [actionsQuery.data, resolvedActionNodes]);
 
   const matchesNodeSearch = useCallback(
@@ -2219,7 +2279,7 @@ const CreateAutomationContent = () => {
         className={cn(
           "relative flex min-h-0 gap-4",
           activeTab === "builder"
-            ? "h-[48vh] min-h-[420px] overflow-hidden"
+            ? "h-[75vh] min-h-[560px] overflow-hidden"
             : ""
         )}
       >

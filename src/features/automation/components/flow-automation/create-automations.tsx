@@ -430,9 +430,15 @@ const LIBRARY_ICONS: Record<string, typeof BoltIcon> = {
   dispatch_campaign: MegaphoneIcon,
 };
 
-function LibraryIcon({ type }: { type: string }) {
+function LibraryIcon({
+  type,
+  className = "h-3.5 w-3.5",
+}: {
+  type: string;
+  className?: string;
+}) {
   const Icon = LIBRARY_ICONS[type] ?? BoltIcon;
-  return <Icon aria-hidden="true" className="h-3.5 w-3.5" />;
+  return <Icon aria-hidden="true" className={className} />;
 }
 
 const EDGE_COLORS = {
@@ -802,7 +808,7 @@ const CreateAutomationContent = () => {
     sourceNode?: string;
   }>({ show: false, x: 0, y: 0 });
   // The edge whose "+" was clicked, and where to float the insert palette.
-  const [insertMenu, setInsertMenu] = useState<EdgeInsertTarget | null>(null);
+  const [activeInsertEdge, setActiveInsertEdge] = useState<string | null>(null);
   const [jsonFieldDrafts, setJsonFieldDrafts] = useState<
     Record<string, string>
   >({});
@@ -2019,7 +2025,19 @@ const CreateAutomationContent = () => {
   const handlePaneClick = () => {
     setSelectedNode(null);
     setShowNodeSelector({ show: false, x: 0, y: 0 });
+    setActiveInsertEdge(null);
   };
+
+  /** Actions offered by the inline "+" add-step grid on each edge. */
+  const insertMenuItems = useMemo(
+    () =>
+      actionCatalog.map((a) => ({
+        type: a.type,
+        label: a.label,
+        icon: <LibraryIcon type={a.type} className="h-5 w-5" />,
+      })),
+    [actionCatalog]
+  );
 
   const addNode = (type: string, label: string) => {
     const { rendererType, data } = resolveNodeShape(type, label);
@@ -2103,7 +2121,7 @@ const CreateAutomationContent = () => {
       mkEdge(newId, target.target),
     ]);
     setSelectedNode(newId);
-    setInsertMenu(null);
+    setActiveInsertEdge(null);
   };
 
   const statusToggleMutation = useMutation({
@@ -2360,7 +2378,15 @@ const CreateAutomationContent = () => {
                 )}
               </button>
 
-              <EdgeInsertContext.Provider value={setInsertMenu}>
+              <EdgeInsertContext.Provider
+                value={{
+                  activeEdgeId: activeInsertEdge,
+                  items: insertMenuItems,
+                  open: (t) => setActiveInsertEdge(t.edgeId),
+                  close: () => setActiveInsertEdge(null),
+                  pick: (t, type, label) => insertNodeOnEdge(t, type, label),
+                }}
+              >
                 <ReactFlow
                   nodes={nodes}
                   edges={edges}
@@ -2566,44 +2592,8 @@ const CreateAutomationContent = () => {
                 </div>
               )}
 
-              {/* Inline "+" insert palette, opened from an addable edge. */}
-              {insertMenu ? (
-                <>
-                  <div
-                    className="fixed inset-0 z-30"
-                    aria-hidden="true"
-                    onClick={() => setInsertMenu(null)}
-                  />
-                  <div
-                    className="fixed z-40 w-64 rounded-2xl border border-border bg-card p-2 shadow-2xl"
-                    style={{
-                      left: `min(${insertMenu.x}px, calc(100vw - 17rem))`,
-                      top: `min(${insertMenu.y}px, calc(100vh - 20rem))`,
-                    }}
-                  >
-                    <p className="mb-2 px-2 pt-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                      Add step
-                    </p>
-                    <div className="grid grid-cols-2 gap-1">
-                      {actionCatalog.map((node) => (
-                        <button
-                          key={node.type}
-                          type="button"
-                          onClick={() =>
-                            insertNodeOnEdge(insertMenu, node.type, node.label)
-                          }
-                          className="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center text-xs font-medium text-foreground transition-colors hover:bg-muted"
-                        >
-                          <span className="text-muted-foreground [&_svg]:h-5 [&_svg]:w-5">
-                            {node.icon}
-                          </span>
-                          <span className="line-clamp-1">{node.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : null}
+              {/* The "+" add-step menu now renders inline on each edge
+                  (AddableEdge), so there is no floating palette here. */}
             </div>
 
             {/* Properties Panel */}

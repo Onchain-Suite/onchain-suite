@@ -49,8 +49,8 @@ import { toast } from "sonner";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { formatDateTime, formatRelativeTime } from "@/lib/date";
-import { isJsonObject } from "@/lib/utils";
+import { formatRelativeTime } from "@/lib/date";
+import { cn, isJsonObject } from "@/lib/utils";
 
 import "reactflow/dist/style.css";
 import {
@@ -1115,15 +1115,6 @@ const CreateAutomationContent = () => {
     refetchOnWindowFocus: false,
   });
 
-  const lastEditedQuery = useQuery({
-    queryKey: ["automations", automationId, "last-edited"],
-    queryFn: () => automationService.getLastEdited(automationId),
-    enabled:
-      !isNew && typeof automationId === "string" && automationId.length > 0,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
   const publishMutation = useMutation({
     mutationFn: async () => automationService.publishAutomation(automationId),
     onSuccess: async () => {
@@ -2092,7 +2083,7 @@ const CreateAutomationContent = () => {
       }}
       initial="initial"
       animate="animate"
-      className="mx-auto flex h-[calc(100vh-4.5rem)] w-full max-w-[1600px] flex-col gap-4 overflow-hidden px-4 py-3 md:h-[calc(100vh-5rem)]"
+      className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-3"
     >
       <Confetti show={!showConfetti} />
 
@@ -2105,60 +2096,42 @@ const CreateAutomationContent = () => {
           >
             <ArrowLeftIcon aria-hidden="true" className="h-4 w-4" />
           </Link>
-          <div className="flex min-w-0 flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                value={automationData.name}
-                onChange={(e) =>
-                  setAutomationData({ ...automationData, name: e.target.value })
-                }
-                className="min-w-0 max-w-[60vw] rounded-md bg-transparent px-1 text-sm font-semibold tracking-tight text-foreground transition-colors hover:bg-muted/50 focus:bg-muted/50 focus:outline-none sm:max-w-none"
-              />
-              {draftSaveMutation.isPending ? (
-                <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                  Autosaving
-                </span>
-              ) : stepsNeedingSetup > 0 ? (
-                <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
-                  <span
-                    aria-hidden="true"
-                    className="h-1.5 w-1.5 rounded-full bg-amber-500"
-                  />
-                  {stepsNeedingSetup}{" "}
-                  {stepsNeedingSetup === 1 ? "step needs" : "steps need"} setup
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
-                  <CheckCircleIcon aria-hidden="true" className="h-3 w-3" />
-                  Ready
-                </span>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-              {(() => {
-                const raw =
-                  typeof (
-                    lastEditedQuery.data as { lastEditedAt?: unknown } | null
-                  )?.lastEditedAt === "string"
-                    ? (lastEditedQuery.data as { lastEditedAt: string })
-                        .lastEditedAt
-                    : automationData.createdAt;
-                const relative = formatRelativeTime(raw);
-                return (
-                  <span title={formatDateTime(raw)}>
-                    Last edited {relative || "-"}
-                  </span>
-                );
-              })()}
-              <span className="text-border">·</span>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            <input
+              type="text"
+              value={automationData.name}
+              onChange={(e) =>
+                setAutomationData({ ...automationData, name: e.target.value })
+              }
+              className="min-w-0 max-w-[45vw] rounded-md bg-transparent px-1 text-base font-semibold tracking-tight text-foreground transition-colors hover:bg-muted/50 focus:bg-muted/50 focus:outline-none sm:max-w-none"
+            />
+            {draftSaveMutation.isPending ? (
+              <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                Autosaving
+              </span>
+            ) : stepsNeedingSetup > 0 ? (
+              <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 rounded-full bg-amber-500"
+                />
+                {stepsNeedingSetup}{" "}
+                {stepsNeedingSetup === 1 ? "step needs" : "steps need"} setup
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+                <CheckCircleIcon aria-hidden="true" className="h-3 w-3" />
+                Ready
+              </span>
+            )}
+            <span className="flex items-center gap-2 text-[13px] text-muted-foreground">
               <span>{builderNodeCount} nodes</span>
               <span className="text-border">·</span>
               <span>
                 {builderErrorCount}{" "}
                 {builderErrorCount === 1 ? "issue" : "issues"}
               </span>
-            </div>
+            </span>
           </div>
         </div>
 
@@ -2242,7 +2215,14 @@ const CreateAutomationContent = () => {
       </header>
 
       {/* Main Content */}
-      <div className="relative flex min-h-0 flex-1 gap-4 overflow-hidden">
+      <div
+        className={cn(
+          "relative flex min-h-0 gap-4",
+          activeTab === "builder"
+            ? "h-[48vh] min-h-[420px] overflow-hidden"
+            : ""
+        )}
+      >
         {activeTab === "builder" ? (
           <>
             {/* Sidebar */}
@@ -2345,8 +2325,8 @@ const CreateAutomationContent = () => {
                   snapToGrid
                   snapGrid={[24, 24]}
                   fitView
-                  fitViewOptions={{ maxZoom: 1, padding: 0.3 }}
-                  minZoom={0.4}
+                  fitViewOptions={{ maxZoom: 1, minZoom: 0.85, padding: 0.15 }}
+                  minZoom={0.5}
                   maxZoom={1.25}
                 >
                   <Background

@@ -141,14 +141,15 @@ function AddButton({
   }
 
   return (
-    <div ref={ref} className="relative flex justify-center py-0.5">
+    <div ref={ref} className="group/add relative flex justify-center py-0.5">
       <button
         type="button"
+        data-open={open}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="flex size-5 items-center justify-center rounded-full border border-dashed border-border bg-background text-muted-foreground opacity-40 transition-opacity hover:opacity-100"
+        className="flex size-5 items-center justify-center rounded-full border border-dashed border-border bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover/add:opacity-100 focus-visible:opacity-100 data-[open=true]:opacity-100"
         aria-label="Add block here"
       >
         <PlusIcon className="size-3.5" />

@@ -292,7 +292,7 @@ export interface EmailFooter {
 export const DEFAULT_FOOTER_CONTENT = [
   "You're receiving this because you opted in at {{ sender_name }}.",
   "{{ sender_name }} · {{ postal_address }}",
-  "Unsubscribe: {{ unsubscribe_url }} · Manage preferences: {{ manage_preferences_url }}",
+  "Unsubscribe: {{ unsubscribe_url }} · Manage preferences: {{ preference_center_url }}",
 ].join("\n");
 
 export const DEFAULT_FOOTER: EmailFooter = {
@@ -317,29 +317,37 @@ export interface EmailDocument {
   footer: EmailFooter;
 }
 
-/** Merge tags offered in inspect panels; resolved per-recipient at send time. */
+/**
+ * Merge tags offered in inspect panels; resolved per-recipient at send time by
+ * the backend render engine (docs/backend.md - `GET /email-builder/config`).
+ * Only backend-recognised tokens are offered: an unknown token blocks the send,
+ * so we never surface one the resolver can't fill. "Greeting name" is the
+ * blank-safe default (first name -> ENS -> short wallet -> "there").
+ */
 export const MERGE_TAGS: { label: string; token: string }[] = [
+  { label: "Greeting name", token: "greeting_name" },
   { label: "First name", token: "first_name" },
   { label: "ENS or wallet", token: "ens_or_wallet" },
   { label: "Wallet (short)", token: "wallet_short" },
-  { label: "Sender name", token: "sender_name" },
-  { label: "Postal address", token: "postal_address" },
-  { label: "Sender email", token: "sender_email" },
-  { label: "Campaign name", token: "campaign_name" },
+  { label: "Wallet address", token: "wallet_address" },
   { label: "Unsubscribe link", token: "unsubscribe_url" },
-  { label: "Manage preferences", token: "manage_preferences_url" },
+  { label: "Manage preferences", token: "preference_center_url" },
 ];
 
 /** Sample values used to preview merge tags in the builder (never sent). */
 export const SAMPLE_TAG_VALUES: Record<string, string> = {
+  greeting_name: "Alex",
   first_name: "Alex",
   ens_or_wallet: "vitalik.eth",
   wallet_short: "0x1a2…9f4b",
+  wallet_address: "0x1a2b3c4d5e6f7890abcdef1234567890abcdef12",
   sender_name: "Your Company",
   postal_address: "123 Market St, San Francisco, CA 94103",
   sender_email: "hello@yourcompany.com",
   campaign_name: "Your campaign",
   unsubscribe_url: "https://example.com/u/8f3a2b",
+  preference_center_url: "https://example.com/p/8f3a2b",
+  // Back-compat alias for older saved footers still using this token.
   manage_preferences_url: "https://example.com/p/8f3a2b",
 };
 
@@ -377,8 +385,28 @@ export function composeFooterContent(footer: EmailFooter): string {
   return [
     footer.optInReason,
     `${name} · ${address}`,
-    "Unsubscribe: {{ unsubscribe_url }} · Manage preferences: {{ manage_preferences_url }}",
+    "Unsubscribe: {{ unsubscribe_url }} · Manage preferences: {{ preference_center_url }}",
   ].join("\n");
+}
+
+/**
+ * Footer body ready for the send engine. Non-system tokens the backend can't
+ * resolve (`sender_name`/`postal_address`) are replaced with the org's literal
+ * company details so they never leak into (or block) a delivered email; the
+ * legacy `manage_preferences_url` token is normalised to the backend's
+ * `preference_center_url`. Only true system links (`unsubscribe_url`,
+ * `preference_center_url`) survive as merge tags for per-recipient resolution.
+ */
+export function footerBodyForSend(footer: EmailFooter): string {
+  const name = footer.companyName?.trim();
+  const address = footer.companyAddress?.trim();
+  return composeFooterContent(footer)
+    .replace(/\{\{\s*sender_name\s*\}\}/gi, name ?? "our company")
+    .replace(/\{\{\s*postal_address\s*\}\}/gi, address ?? "")
+    .replace(
+      /\{\{\s*(manage_preferences_url|preferences)\s*\}\}/gi,
+      "{{ preference_center_url }}"
+    );
 }
 
 /**
@@ -913,11 +941,11 @@ function renderFooterRow(footer: EmailFooter): string {
   if (!footer.enabled) return "";
   const link = (token: string) =>
     `<a href="{{ ${token} }}" target="_blank" style="color:#8a9099;text-decoration:underline;">{{ ${token} }}</a>`;
-  const body = escMultiline(composeFooterContent(footer))
+  const body = escMultiline(footerBodyForSend(footer))
     .replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, link("unsubscribe_url"))
     .replace(
-      /\{\{\s*manage_preferences_url\s*\}\}/gi,
-      link("manage_preferences_url")
+      /\{\{\s*preference_center_url\s*\}\}/gi,
+      link("preference_center_url")
     );
   const name = footer.companyName?.trim()
     ? esc(footer.companyName.trim())
@@ -931,6 +959,17 @@ function renderFooterRow(footer: EmailFooter): string {
   return `<tr><td style="padding:24px 32px;border-top:1px solid #e6e8eb;font-family:${FALLBACK_FONT};font-size:12px;line-height:1.6;color:#8a9099;">${logo}${body}${attribution}</td></tr>`;
 }
 
+/**
+ * Trim the send payload without touching the design: only whitespace that is
+ * pure formatting (a newline between two tags) is removed. Text content, inline
+ * single spaces, `<style>` rules and MSO conditional comments are all preserved,
+ * so the rendered email is byte-for-byte identical but smaller on the wire
+ * (helps stay under Gmail's ~102KB clipping threshold).
+ */
+function minifyEmailHtml(html: string): string {
+  return html.replace(/>[ \t\r\n]*\n[ \t\r\n]*</g, "><").trim();
+}
+
 /** Render the full document to email-safe HTML (MSO fallbacks + footer). */
 export function renderDocumentToHtml(doc: EmailDocument): string {
   const root = doc.blocks[doc.root];
@@ -942,7 +981,7 @@ export function renderDocumentToHtml(doc: EmailDocument): string {
     ? `border:1px solid ${layout.borderColor};`
     : "";
   const footer = renderFooterRow(doc.footer ?? DEFAULT_FOOTER);
-  return `<!doctype html>
+  return minifyEmailHtml(`<!doctype html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
 <meta charset="utf-8" />
@@ -975,7 +1014,7 @@ ${footer}
 </td></tr>
 </table>
 </body>
-</html>`;
+</html>`);
 }
 
 /** Plain-text fallback for deliverability. */
@@ -1029,7 +1068,7 @@ export function renderDocumentToText(doc: EmailDocument): string {
     ? `\n${ATTRIBUTION_TEXT} (${ATTRIBUTION_URL})`
     : "";
   const footer = doc.footer?.enabled
-    ? `\n\n----\n${composeFooterContent(doc.footer)}${attribution}`
+    ? `\n\n----\n${footerBodyForSend(doc.footer)}${attribution}`
     : "";
   return `${body}${footer}`;
 }

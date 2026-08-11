@@ -71,12 +71,16 @@ export function NavUserMenu({
     isMounted,
   } = useOrgSwitcherContext();
 
-  const displayName = fullName && fullName.length > 0 ? fullName : "User";
-  const initials = fullName ? getInitials(fullName) : "U";
-  const avatarColor = userId ? getAvatarColor(userId) : undefined;
-  const showImage = imageUrl && isValidImageUrl(imageUrl) && !imgError;
-  // Org name comes from client-only storage - hold it until mount so the
-  // server and first client render agree (no hydration mismatch).
+  // Identity (name/avatar) and org name are client-only. Hold them until mount
+  // so the server and first client render agree - otherwise the avatar renders
+  // "U"/no-color on the server and the real initials/color on the client,
+  // which trips a hydration mismatch.
+  const displayName =
+    isMounted && fullName && fullName.length > 0 ? fullName : "User";
+  const initials = isMounted && fullName ? getInitials(fullName) : "U";
+  const avatarColor = isMounted && userId ? getAvatarColor(userId) : undefined;
+  const showImage =
+    isMounted && imageUrl && isValidImageUrl(imageUrl) && !imgError;
   const orgName = showName && isMounted ? activeOrg?.name : undefined;
   const workspaceName = orgName ?? "Workspace";
 

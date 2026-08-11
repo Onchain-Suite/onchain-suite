@@ -63,7 +63,7 @@ export function NavMain({
   );
 }
 
-/** Leaf row — navigates directly, no disclosure. */
+/** Leaf row - navigates directly, no disclosure. */
 function LinkRow({ item, pathname }: { item: NavItem; pathname: string }) {
   return (
     <SidebarMenuItem>

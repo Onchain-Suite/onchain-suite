@@ -21,7 +21,7 @@ function fieldSummary(sub: FormSubmission): string {
   const entries = Object.entries(sub.data ?? {})
     .filter(([, v]) => v !== null && v !== undefined && String(v).length > 0)
     .map(([k, v]) => `${k}: ${shorten(String(v))}`);
-  return entries.length > 0 ? entries.join(" · ") : "—";
+  return entries.length > 0 ? entries.join(" · ") : "-";
 }
 
 export function SubmissionsTab({
@@ -94,7 +94,7 @@ export function SubmissionsTab({
                     className="border-b border-border/60 last:border-0"
                   >
                     <td className="px-4 py-3 font-mono text-xs text-foreground">
-                      {sub.walletAddress ? shorten(sub.walletAddress) : "—"}
+                      {sub.walletAddress ? shorten(sub.walletAddress) : "-"}
                     </td>
                     <td className="px-4 py-3">
                       {sub.channels?.length ? (
@@ -109,7 +109,7 @@ export function SubmissionsTab({
                           ))}
                         </div>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </td>
                     <td className="max-w-[280px] truncate px-4 py-3 text-muted-foreground">
@@ -125,7 +125,7 @@ export function SubmissionsTab({
                           Verified
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right text-xs text-muted-foreground">
@@ -133,7 +133,7 @@ export function SubmissionsTab({
                         ? formatDistanceToNow(new Date(sub.createdAt), {
                             addSuffix: true,
                           })
-                        : "—"}
+                        : "-"}
                     </td>
                   </tr>
                 ))}

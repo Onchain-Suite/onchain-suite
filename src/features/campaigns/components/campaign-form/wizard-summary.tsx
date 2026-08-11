@@ -36,7 +36,7 @@ export function WizardSummary({
             >
               <dt className="shrink-0 text-muted-foreground">{row.label}</dt>
               <dd className="min-w-0 truncate text-right font-medium text-foreground">
-                {row.value || "—"}
+                {row.value || "-"}
               </dd>
             </div>
           ))}

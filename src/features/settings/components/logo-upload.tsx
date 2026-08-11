@@ -47,7 +47,7 @@ const LogoUpload = ({
 
   const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
-  // Reset for a fresh upload every time the dialog opens — a stale `success`
+  // Reset for a fresh upload every time the dialog opens - a stale `success`
   // from a previous upload used to lock the dialog on "Upload Complete!" and
   // made it impossible to upload the other logo types.
   useEffect(() => {
@@ -71,7 +71,7 @@ const LogoUpload = ({
   }, [file]);
 
   /**
-   * Per-type allowed uploads. ICO is only valid for the favicon slot —
+   * Per-type allowed uploads. ICO is only valid for the favicon slot -
    * primary/dark logos must be SVG/PNG/JPG.
    */
   const validateFileType = (candidate: File): string | null => {
@@ -83,7 +83,7 @@ const LogoUpload = ({
         : "Favicons must be an ICO or PNG file.";
     }
     if (extension === "ico") {
-      return "ICO files can only be used for the favicon — upload an SVG, PNG, or JPG logo here.";
+      return "ICO files can only be used for the favicon - upload an SVG, PNG, or JPG logo here.";
     }
     return ["svg", "png", "jpg", "jpeg"].includes(extension ?? "")
       ? null
@@ -119,7 +119,7 @@ const LogoUpload = ({
     }
     if (Object.keys(next).length === 0) return;
 
-    // The SWR cache for this key holds the `{ success, data }` envelope —
+    // The SWR cache for this key holds the `{ success, data }` envelope -
     // merge into `data` (a root-level merge is invisible to readBrandingData).
     mutate(
       "/api/v1/organization/branding",

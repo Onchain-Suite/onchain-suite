@@ -61,7 +61,7 @@ export function FieldsEditor({
       </div>
       {fields.length === 0 ? (
         <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-          No fields — the form defaults to a single email field.
+          No fields - the form defaults to a single email field.
         </p>
       ) : (
         <div className="space-y-2">

@@ -22,7 +22,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
-    // Agent worktrees under .claude are full copies of the repo — without
+    // Agent worktrees under .claude are full copies of the repo - without
     // this every suite runs twice, the second time against stale code.
     exclude: [...configDefaults.exclude, '**/.claude/**'],
     pool: 'threads',

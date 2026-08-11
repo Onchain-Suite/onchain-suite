@@ -77,7 +77,7 @@ function SuggestionSkeleton() {
 }
 
 interface ContractSuggestionsPanelProps {
-  /** Raw (undebounced) protocol name — usually the organization name. */
+  /** Raw (undebounced) protocol name - usually the organization name. */
   protocolName: string;
   /** Sector label; suggestions only fetch when both inputs are present. */
   sector: string;
@@ -92,7 +92,7 @@ interface ContractSuggestionsPanelProps {
  * (`POST /onboarding/suggest-contracts`). Because the backend replies with
  * `requiresReview: true`, nothing here is auto-committed: each suggestion is
  * a card the user explicitly accepts (into the step's contract list) or
- * dismisses. Fetch failures render nothing — suggestions are an enhancement,
+ * dismisses. Fetch failures render nothing - suggestions are an enhancement,
  * never a blocker for the onboarding step.
  */
 export function ContractSuggestionsPanel({
@@ -139,7 +139,7 @@ export function ContractSuggestionsPanel({
   }, [suggestionsQuery.data, dismissed]);
 
   if (!enabled) return null;
-  if (suggestionsQuery.isError) return null; // silent — enhancement only
+  if (suggestionsQuery.isError) return null; // silent - enhancement only
 
   if (suggestionsQuery.isPending) {
     return (
@@ -166,7 +166,7 @@ export function ContractSuggestionsPanel({
           Suggested contracts
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Based on {trimmedName} ({trimmedSector}). Review each suggestion —
+          Based on {trimmedName} ({trimmedSector}). Review each suggestion -
           nothing is added until you accept it.
         </p>
       </div>
@@ -230,7 +230,7 @@ export function ContractSuggestionsPanel({
                     </div>
                   ) : (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Address not verified — add it later in settings.
+                      Address not verified - add it later in settings.
                     </p>
                   )}
                   {contract.reason ? (

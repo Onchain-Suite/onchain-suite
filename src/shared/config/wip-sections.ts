@@ -1,14 +1,14 @@
 /**
  * Sections still in active development. They are hidden from the sidebar nav
  * and the ⌘K palette in production builds, so dev and main can share
- * identical code — no more re-commenting nav entries after every merge.
+ * identical code - no more re-commenting nav entries after every merge.
  *
  * Resolution:
  * - `NEXT_PUBLIC_SHOW_WIP_SECTIONS=true`  → always show (e.g. a dev preview)
  * - `NEXT_PUBLIC_SHOW_WIP_SECTIONS=false` → always hide
  * - unset → show in local dev (`next dev`), hide in production builds
  *
- * Routes stay reachable by direct URL — this is nav-level hiding only,
+ * Routes stay reachable by direct URL - this is nav-level hiding only,
  * matching the previous commented-out behavior.
  */
 export const SHOW_WIP_SECTIONS =
@@ -29,7 +29,7 @@ export const WIP_SECTIONS: WipSection[] = [
     prefix: "/inbox",
     label: "Inbox",
     description:
-      "A shared inbox for replies to your campaigns — read, assign, and answer conversations without leaving the suite.",
+      "A shared inbox for replies to your campaigns - read, assign, and answer conversations without leaving the suite.",
     percentComplete: 30,
   },
 ];

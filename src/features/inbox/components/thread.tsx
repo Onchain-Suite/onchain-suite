@@ -66,7 +66,7 @@ const Thread = ({ thread }: ThreadProps) => {
                     >
                       {message.createdAt
                         ? new Date(message.createdAt).toLocaleString()
-                        : "—"}
+                        : "-"}
                     </p>
                   </div>
                 </div>

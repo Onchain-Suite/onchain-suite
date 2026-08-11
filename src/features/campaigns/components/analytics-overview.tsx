@@ -8,7 +8,7 @@ import { formatPercentage } from "../utils";
 const formatCount = (value?: number | null) =>
   typeof value === "number" && Number.isFinite(value)
     ? value.toLocaleString()
-    : "—";
+    : "-";
 
 /**
  * Org-wide engagement snapshot for the campaigns landing page, backed by

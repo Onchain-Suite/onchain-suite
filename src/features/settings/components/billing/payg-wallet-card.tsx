@@ -30,7 +30,7 @@ const formatUsd = (value: number) =>
 
 /**
  * Prepaid usage wallet (Pay-As-You-Go). Shown for `payg` orgs, and for
- * subscription orgs too — mid-cycle overage falls back to this wallet
+ * subscription orgs too - mid-cycle overage falls back to this wallet
  * (docs/backend.md 2026-07-22), so exhausted teams top up here instead of
  * being cut off. Renders nothing when the wallet endpoint is unavailable.
  */
@@ -108,12 +108,12 @@ export function PaygWalletCard({ planName }: { planName: string }) {
             </div>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {isPayg
-                ? "Your plan is usage-based — sends, on-chain reads, and AI are metered from this balance ($1/1k messages · $1/10k on-chain · $5/1k AI)."
+                ? "Your plan is usage-based - sends, on-chain reads, and AI are metered from this balance ($1/1k messages · $1/10k on-chain · $5/1k AI)."
                 : "When your monthly plan allowance runs out, usage continues from this wallet at pay-as-you-go rates instead of stopping."}
             </p>
             {lowBalance ? (
               <p className="mt-1 text-xs font-medium text-destructive">
-                Balance is low — top up to keep sends and AI running.
+                Balance is low - top up to keep sends and AI running.
               </p>
             ) : null}
           </div>
@@ -158,7 +158,7 @@ export function PaygWalletCard({ planName }: { planName: string }) {
                   >
                     {Number.isFinite(amountValue)
                       ? formatUsd(amountValue)
-                      : "—"}
+                      : "-"}
                   </span>
                 </span>
               </div>
@@ -174,7 +174,7 @@ export function PaygWalletCard({ planName }: { planName: string }) {
               Top up usage wallet
             </DialogTitle>
             <DialogDescription>
-              Pay with crypto via checkout — the balance credits automatically
+              Pay with crypto via checkout - the balance credits automatically
               once the payment confirms.
             </DialogDescription>
           </DialogHeader>

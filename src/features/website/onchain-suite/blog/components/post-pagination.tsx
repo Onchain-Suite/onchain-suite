@@ -2,7 +2,7 @@ import Link from "next/link";
 
 /**
  * Prev/next pagination. Uses real links (not buttons) so pages are crawlable
- * and work without JS — which is also why this stays a Server Component.
+ * and work without JS - which is also why this stays a Server Component.
  */
 export function PostPagination({
   basePath,

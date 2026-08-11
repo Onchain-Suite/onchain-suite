@@ -167,7 +167,7 @@ export default function CampaignEditorPage() {
    *
    * The `onchain.selectedOrgId` cookie is written client-side by the org
    * switcher with no expiry, so it's a session cookie: on a fresh browser
-   * session — or simply before the switcher has mounted and written it — the
+   * session - or simply before the switcher has mounted and written it - the
    * cookie is empty and we'd hand the editor a null orgId. Fall back to the
    * session's active organization, which is authoritative and always present
    * once authenticated.
@@ -182,7 +182,7 @@ export default function CampaignEditorPage() {
     [sessionOrgId]
   );
   // In-app push campaigns author a pop-up notification in the builder's push
-  // panel instead of an email — saves skip the email render pipeline.
+  // panel instead of an email - saves skip the email render pipeline.
   const isPushMode = (searchParams?.get("channel") ?? "") === "in-app-push";
   const templateNameParam = (searchParams?.get("templateName") ?? "").trim();
   const subjectParam = (searchParams?.get("subject") ?? "").trim();
@@ -551,7 +551,7 @@ export default function CampaignEditorPage() {
       campaignId,
       editorSessionQuery.isSuccess,
       editorSessionToken,
-      // Re-post HOST_CONFIG when the org resolves — otherwise a config sent
+      // Re-post HOST_CONFIG when the org resolves - otherwise a config sent
       // before the session landed leaves the editor stuck on "Missing orgId".
       resolvedOrgId,
     ]
@@ -902,7 +902,7 @@ export default function CampaignEditorPage() {
             if (!campaignId) throw new Error("Missing campaign id.");
 
             // Push campaigns: persist the pop-up notification variant and
-            // return to the wizard — there is no email to render/confirm.
+            // return to the wizard - there is no email to render/confirm.
             if (isPushMode) {
               const pushPayload = extractPushPayload(messageData);
               if (pushPayload) {
@@ -911,7 +911,7 @@ export default function CampaignEditorPage() {
                 });
               }
               // The builder may also save the push variant itself via its
-              // editor-token API — verify the campaign has one either way.
+              // editor-token API - verify the campaign has one either way.
               const saved = await campaignsService
                 .getEditorContent(campaignId)
                 .catch(() => null);

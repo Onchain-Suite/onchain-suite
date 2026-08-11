@@ -6,7 +6,7 @@ import {
 import { SITE_CONFIG } from "@/onchain-suite-website/config/site";
 
 /**
- * RSS 2.0 feed. Hand-built rather than pulling in a feed library — the format is
+ * RSS 2.0 feed. Hand-built rather than pulling in a feed library - the format is
  * a dozen lines of XML and CLAUDE.md §7 asks for a dependency check first.
  */
 
@@ -25,7 +25,7 @@ export async function GET() {
 
   // Feed readers only ever show recent items; one page is the right bound.
   // Wrapped because this route is evaluated during `next build`, which must not
-  // fail when no database is configured — an empty channel is a valid feed.
+  // fail when no database is configured - an empty channel is a valid feed.
   let posts: Awaited<ReturnType<typeof listPosts>>["posts"] = [];
 
   try {

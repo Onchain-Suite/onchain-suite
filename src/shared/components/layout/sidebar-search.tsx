@@ -42,7 +42,7 @@ export function SidebarSearch({ onClick }: { onClick?: () => void }) {
             Search...
           </span>
           {/* Slot holds its width from first paint so resolving the shortcut
-              doesn't shift the row — but stays chromeless until then, rather
+              doesn't shift the row - but stays chromeless until then, rather
               than flashing an empty key cap. */}
           <kbd
             className={cn(

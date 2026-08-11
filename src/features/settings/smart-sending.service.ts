@@ -7,7 +7,7 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 /**
  * Typed service for org-wide Smart Sending settings (docs/backend.md
- * 2026-08-02 — "Org-level Smart Sending settings + guaranteed UTM defaults").
+ * 2026-08-02 - "Org-level Smart Sending settings + guaranteed UTM defaults").
  *
  * Suppression window resolution at send time, and identically in
  * `POST /campaigns/{id}/audience/estimate`, is:
@@ -24,7 +24,7 @@ export const SMART_SENDING_MAX_HOURS = 168;
 
 export interface SmartSendingSettings {
   /**
-   * Always concrete — the org's saved value, else the platform default.
+   * Always concrete - the org's saved value, else the platform default.
    * Render it directly; no client-side fallback needed.
    */
   windowHours: number;
@@ -104,7 +104,7 @@ export const normalizeSmartSendingSettings = (
 };
 
 export const smartSendingService = {
-  /** `GET /organization/settings/smart-sending` — readable by any org role. */
+  /** `GET /organization/settings/smart-sending` - readable by any org role. */
   async getSettings(orgId?: string): Promise<SmartSendingSettings> {
     const payload = await request<unknown>(
       { method: "GET", url: "/organization/settings/smart-sending" },
@@ -113,7 +113,7 @@ export const smartSendingService = {
     return normalizeSmartSendingSettings(payload);
   },
 
-  /** `PUT /organization/settings/smart-sending` — OWNER/ADMIN only. */
+  /** `PUT /organization/settings/smart-sending` - OWNER/ADMIN only. */
   async updateSettings(
     body: UpdateSmartSendingBody,
     orgId?: string

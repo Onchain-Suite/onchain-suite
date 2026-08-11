@@ -43,13 +43,13 @@ function normalizeOrigin(value: string) {
 export default function IntegrationsSettings() {
   const [manageKeysOpen, setManageKeysOpen] = useState(false);
 
-  // Web in-app push — generate a copy-paste install snippet from the dApp
+  // Web in-app push - generate a copy-paste install snippet from the dApp
   // origin. Origin allow-listing + key management stay in the full panel behind
   // "Manage keys" (real API); this card is the first-mile install surface.
   const [dappOrigin, setDappOrigin] = useState("");
   const [snippet, setSnippet] = useState<string | null>(null);
 
-  // Mobile in-app push — no backend yet; capture the bundle id and flag it as
+  // Mobile in-app push - no backend yet; capture the bundle id and flag it as
   // coming soon rather than pretending to register.
   const [bundleId, setBundleId] = useState("");
 
@@ -84,7 +84,7 @@ export default function IntegrationsSettings() {
     >
       <SettingsCard
         title="In-app push · Web"
-        description="Install the SDK in your dApp — push can't send until it reports a connected wallet"
+        description="Install the SDK in your dApp - push can't send until it reports a connected wallet"
         action={
           <Button
             variant="outline"
@@ -133,7 +133,7 @@ export default function IntegrationsSettings() {
 
       <SettingsCard
         title="In-app push · Mobile"
-        description="A separate SDK and store credentials — the OS delivers these, so it sets the rules"
+        description="A separate SDK and store credentials - the OS delivers these, so it sets the rules"
       >
         <SettingsStepper steps={MOBILE_STEPS} current={0} />
         <div className="mt-6 max-w-xl space-y-2">
@@ -145,7 +145,7 @@ export default function IntegrationsSettings() {
             placeholder="com.yourcompany.app"
           />
           <p className="text-xs text-muted-foreground">
-            Must match the app you ship to the App Store and Play Store — the OS
+            Must match the app you ship to the App Store and Play Store - the OS
             rejects a token signed for anything else.
           </p>
         </div>

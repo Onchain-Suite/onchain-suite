@@ -478,7 +478,7 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
           </a>
         </div>
         <div className="ml-auto flex items-center gap-2.5">
-          {/* Sign in — temporarily hidden, functionality preserved.
+          {/* Sign in - temporarily hidden, functionality preserved.
           <Link href="/auth/signin" className="btn btn-ghost hidden sm:inline-flex">
             Sign in
           </Link>
@@ -512,7 +512,7 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
         </div>
       </nav>
 
-      {/* mobile dropdown menu — same links as the desktop mega-menus + CTA */}
+      {/* mobile dropdown menu - same links as the desktop mega-menus + CTA */}
       {mobileOpen ? (
         <div className="mobile-menu absolute inset-x-0 top-full z-20 px-3 pt-2 md:hidden">
           <div

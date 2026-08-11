@@ -64,7 +64,7 @@ const PLAN_SLUGS: Record<string, PlanCheckoutSlug> = {
 };
 
 /**
- * Every displayed plan is self-serve payable — unknown names normalize to a
+ * Every displayed plan is self-serve payable - unknown names normalize to a
  * slug and the backend is the authority (404 Unknown plan on a bad one).
  * Null only for an empty name.
  */
@@ -124,7 +124,7 @@ export const clearPendingCheckout = (): void => {
 
 /**
  * Open the hosted payment page in a new tab so the app stays alive to track
- * the payment. Returns false only when a popup blocker actually intervened —
+ * the payment. Returns false only when a popup blocker actually intervened -
  * callers fall back to same-tab navigation.
  *
  * Do NOT pass "noopener" in the features string: per the HTML spec
@@ -151,7 +151,7 @@ export const openCheckoutInNewTab = (paymentUrl: string): boolean => {
   try {
     win.location.replace(paymentUrl);
   } catch {
-    // Never strand an empty tab — close it and let the caller fall back.
+    // Never strand an empty tab - close it and let the caller fall back.
     try {
       win.close();
     } catch {
@@ -212,7 +212,7 @@ export interface StartPlanCheckoutResult {
 }
 
 /**
- * Start a plan checkout for a display plan name ("Growth", "Pro", …) — crypto
+ * Start a plan checkout for a display plan name ("Growth", "Pro", …) - crypto
  * (Blockradar, default) or card (Stripe-hosted). Persists the pending
  * reference locally and returns the hosted payment URL to redirect to.
  * Every plan is payable; null only for an empty plan name.
@@ -243,15 +243,15 @@ export async function startPlanCheckout(
       error instanceof Error ? error.message : "Couldn't start checkout.";
     if (message.includes("FIAT_CHECKOUT_UNAVAILABLE")) {
       throw new Error(
-        "Card payments aren't available yet — switch to crypto checkout.",
+        "Card payments aren't available yet - switch to crypto checkout.",
         { cause: error }
       );
     }
     // "Failed to create payment link" here means the backend couldn't mint
-    // the payment link — usually missing operator setup (API key, master
+    // the payment link - usually missing operator setup (API key, master
     // wallet, webhook) in this environment, not a user problem.
     throw new Error(
-      `${message} If this keeps happening, checkout isn't configured for this environment yet — contact support or try again later.`,
+      `${message} If this keeps happening, checkout isn't configured for this environment yet - contact support or try again later.`,
       { cause: error }
     );
   }

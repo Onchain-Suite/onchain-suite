@@ -139,7 +139,7 @@ export function CampaignDetailModal({
                       <p className="text-sm font-medium text-foreground">
                         {typeof campaign.recipients === "number"
                           ? campaign.recipients.toLocaleString()
-                          : "—"}
+                          : "-"}
                       </p>
                     </div>
 

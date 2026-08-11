@@ -12,7 +12,7 @@
  * Renders an unknown thrown value as something worth reading in a log.
  *
  * The Cloudinary SDK rejects with a plain object (`{ message, http_code }`), not
- * an Error, so `String(error)` yields "[object Object]" — which is exactly the
+ * an Error, so `String(error)` yields "[object Object]" - which is exactly the
  * message you get on an auth failure, and exactly when you need detail.
  */
 export function describeError(error: unknown): string {
@@ -24,7 +24,7 @@ export function describeError(error: unknown): string {
  *
  * Cloudinary echoes the offending key back on an auth failure ("Unknown API key
  * 1234..."), and these warnings can end up in a third-party log aggregator. The
- * key and secret are masked by exact match, which is precise — no guessing at
+ * key and secret are masked by exact match, which is precise - no guessing at
  * what a credential looks like.
  */
 function redactCredentials(message: string): string {
@@ -84,7 +84,7 @@ function idOf(value: unknown): number | string | null {
  * upload node embedded in the rich text.
  *
  * The rich text is walked rather than read from known paths because Lexical
- * nests upload nodes arbitrarily deep — inside blocks, quotes or list items —
+ * nests upload nodes arbitrarily deep - inside blocks, quotes or list items -
  * and a fixed path would silently miss them.
  *
  * Exported for testing: this is the part that decides which assets get filed, so

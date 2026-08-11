@@ -3,7 +3,7 @@ import type { Field } from "payload";
 /**
  * URL-safe slug derivation. Deliberately conservative: strips diacritics, drops
  * anything that is not alphanumeric or a hyphen, and collapses runs of
- * separators so a title like "Base's L2 — Q3 Recap!" yields "bases-l2-q3-recap".
+ * separators so a title like "Base's L2 - Q3 Recap!" yields "bases-l2-q3-recap".
  */
 export function slugify(input: string): string {
   return input

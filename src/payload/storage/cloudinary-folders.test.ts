@@ -160,7 +160,7 @@ describe("shouldMove", () => {
     expect(shouldMove("hero", "my-post")).toBe(false);
   });
 
-  it("is idempotent — moving, then re-checking, is a no-op", () => {
+  it("is idempotent - moving, then re-checking, is a no-op", () => {
     const from = unassigned("hero");
     const to = targetPublicId(from, "my-post");
     expect(shouldMove(from, "my-post")).toBe(true);

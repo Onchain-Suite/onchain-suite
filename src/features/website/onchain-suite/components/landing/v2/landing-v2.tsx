@@ -578,7 +578,7 @@ const MONITOR_EVENTS: MonitorEvent[] = [
         logo: "ethereum",
         sig: "mint(recipient, quantity, comment)",
         wallet: "0x3de1…77b",
-        value: "—",
+        value: "-",
         ts: "14:05:33",
       },
       {
@@ -588,7 +588,7 @@ const MONITOR_EVENTS: MonitorEvent[] = [
         logo: "base",
         sig: "mintWithRewards(to, qty, referrer…)",
         wallet: "0xa17d…5ce",
-        value: "—",
+        value: "-",
         ts: "11:02:47",
       },
       {
@@ -598,7 +598,7 @@ const MONITOR_EVENTS: MonitorEvent[] = [
         logo: "solana",
         sig: "mintV1(metadata, token, authority…)",
         wallet: "9pQs…4Lm2",
-        value: "—",
+        value: "-",
         ts: "08:51:10",
       },
       {
@@ -608,7 +608,7 @@ const MONITOR_EVENTS: MonitorEvent[] = [
         logo: "polygon",
         sig: "mintBase(creator, to, tokenId)",
         wallet: "0xbe90…2a1",
-        value: "—",
+        value: "-",
         ts: "19:33:21",
       },
     ],
@@ -729,7 +729,7 @@ function Monitor() {
   };
   const row = ev.rows[sel] ?? ev.rows[ev.defaultIndex];
 
-  // auto-walk the highlight across protocols, then across events —
+  // auto-walk the highlight across protocols, then across events -
   // only while the section is on screen
   useEffect(() => {
     if (reduce || paused || !gate.visible) return;
@@ -1149,7 +1149,7 @@ function Why() {
         />
         <Reveal delay={0.1}>
           {/* phones: the 3-col grid scrolls inside the card instead of
-              crushing each column — the page body never scrolls sideways */}
+              crushing each column - the page body never scrolls sideways */}
           <div className="card mx-auto mt-12 overflow-hidden">
             <div className="overflow-x-auto">
               <div className="min-w-[560px]">

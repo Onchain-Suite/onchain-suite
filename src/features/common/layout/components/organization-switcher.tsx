@@ -90,7 +90,7 @@ const persistOrganizations = (orgs: Organization[], expiresAt: number) => {
       JSON.stringify({ orgs, expiresAt })
     );
   } catch {
-    // Best effort — quota/private-mode failures just skip persistence.
+    // Best effort - quota/private-mode failures just skip persistence.
   }
 };
 

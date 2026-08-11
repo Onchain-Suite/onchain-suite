@@ -117,7 +117,7 @@ const PersonalDetails = () => {
     typeof profileQuery.data?.fullName === "string" &&
     profileQuery.data.fullName.trim().length > 0
       ? profileQuery.data.fullName
-      : "—";
+      : "-";
   const timezoneLabel =
     typeof profileData.timezone === "string" && profileData.timezone.length > 0
       ? profileData.timezone
@@ -156,7 +156,7 @@ const PersonalDetails = () => {
                 <Skeleton className="mt-1 h-5 w-44" />
               ) : (
                 <p className="mt-1 text-sm text-foreground">
-                  {profileData.email || "—"}
+                  {profileData.email || "-"}
                 </p>
               )}
             </div>
@@ -392,7 +392,7 @@ const PersonalDetails = () => {
                   Email
                 </p>
                 <p className="text-base text-foreground">
-                  {profileData.email || "—"}
+                  {profileData.email || "-"}
                 </p>
               </div>
               <div>

@@ -11,7 +11,7 @@ import {
  * matters: a full sync burst (setAudience + updateTracking + estimate) spends
  * the entire budget on its own.
  *
- * Module-level on purpose — the audience step's live autosync and the wizard's
+ * Module-level on purpose - the audience step's live autosync and the wizard's
  * "Continue" save share it, so Continue right after an autosync sends zero
  * requests instead of repeating all three.
  */
@@ -26,7 +26,7 @@ export const isRateLimitError = (error: unknown): boolean =>
 /**
  * Seed the cache from hydrated form state without touching the network. The
  * wizard only enables sync after the campaign hydrates, so the initial form
- * values mirror what the backend already has — re-saving them on mount would
+ * values mirror what the backend already has - re-saving them on mount would
  * waste the whole rate-limit window before the user changes anything.
  */
 export function seedAudienceSyncCache(

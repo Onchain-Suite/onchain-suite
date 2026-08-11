@@ -21,18 +21,6 @@ import { openCheckoutInNewTab, startPlanCheckout } from "../checkout";
 
 type PaymentMethod = "card" | "crypto";
 
-const PAYG_PLAN = {
-  name: "Pay as you go",
-  slug: "payg",
-  description: "For small teams - no monthly fee, pay only for what you use",
-  features: [
-    "$5 trial credit to get started",
-    "1,000 contacts (cap) · 2 seats",
-    "Metered email, in-app, on-chain & AI",
-    "Direct campaigns, Audience & Forms",
-  ],
-};
-
 /** v4 catalogue (docs/pricing.md). Shown only when the backend plan list is
  *  unavailable; the charged price always comes from the backend at checkout. */
 const FALLBACK_PAID_PLANS: BillingPlan[] = [
@@ -41,6 +29,7 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
     slug: "launch",
     price: 49,
     interval: "month",
+    description: "A protocol getting started on email + wallet.",
     features: [
       "2,500 contacts · 50,000 emails/mo",
       "25,000 in-app pushes/mo",
@@ -53,6 +42,7 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
     slug: "growth",
     price: 349,
     interval: "month",
+    description: "Scaling retention, with Forms and a dedicated IP.",
     features: [
       "25,000 contacts · 250,000 emails/mo",
       "250,000 in-app pushes/mo",
@@ -65,6 +55,7 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
     slug: "pro",
     price: 799,
     interval: "month",
+    description: "Intelligence at working scale across a large list.",
     features: [
       "75,000 contacts · 750,000 emails/mo",
       "1,000,000 in-app pushes/mo",
@@ -77,6 +68,7 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
     slug: "scale",
     price: 2299,
     interval: "month",
+    description: "Custom allowances and concierge for big ecosystems.",
     features: [
       "150,000 contacts · 1.5M emails/mo",
       "2,000,000 in-app pushes/mo",
@@ -86,113 +78,163 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
   },
 ];
 
-const priceLabel = (price: BillingPlan["price"]): string => {
-  if (typeof price === "number") return `$${price.toLocaleString()}`;
-  if (typeof price === "string" && price.trim().length > 0) return price;
-  return "-";
-};
+/** The platform baseline every plan (PAYG included) ships with, shown as a
+ *  reassurance strip so buyers see they get the whole product, not a slice. */
+const EVERY_PLAN_INCLUDES = [
+  "In-app push to every connected wallet",
+  "Email over a wallet-linked identity bridge",
+  "Behavior-triggered automations + Protocol Plays",
+  "On-chain Intelligence (from Launch up)",
+  "ONS+ list protection on every upload",
+  "Pay by card (Stripe) or crypto (USDC)",
+];
 
-const planFeatures = (plan: BillingPlan): string[] =>
-  Array.isArray(plan.features)
-    ? plan.features.filter((f): f is string => typeof f === "string")
-    : [];
+/** Side-by-side allowance table (docs/pricing.md v4 §1). This IS the plan
+ *  selector: each column header is a radio, the picked plan's column
+ *  highlights. PAYG's metered channels read "Metered" (no bundled allowance). */
+const COMPARISON_PLANS: { key: string; label: string }[] = [
+  { key: "payg", label: "PAYG" },
+  { key: "Launch", label: "Launch" },
+  { key: "Growth", label: "Growth" },
+  { key: "Pro", label: "Pro" },
+  { key: "Scale", label: "Scale" },
+];
 
-function PlanCard({
-  name,
-  description,
-  priceText,
-  interval,
-  features,
-  isSelected,
-  isCurrent,
-  isRecommended,
+const COMPARISON_ROWS: { label: string; values: string[] }[] = [
+  {
+    label: "Price / mo",
+    values: ["$0 + usage", "$49", "$349", "$799", "$2,299"],
+  },
+  {
+    label: "Contacts",
+    values: ["1,000 (cap)", "2,500", "25,000", "75,000", "150,000"],
+  },
+  {
+    label: "Emails",
+    values: ["Metered", "50,000", "250,000", "750,000", "1,500,000"],
+  },
+  {
+    label: "In-app push",
+    values: ["Metered", "25,000", "250,000", "1,000,000", "2,000,000"],
+  },
+  {
+    label: "On-chain credits",
+    values: ["Metered", "1,000", "10,000", "25,000", "50,000"],
+  },
+];
+
+function PlanComparison({
+  selectedPlan,
+  currentPlan,
   onSelect,
 }: {
-  name: string;
-  description?: string;
-  priceText: string;
-  interval?: string;
-  features: string[];
-  isSelected: boolean;
-  isCurrent?: boolean;
-  isRecommended?: boolean;
-  onSelect: () => void;
+  selectedPlan: string;
+  currentPlan?: string;
+  onSelect: (planKey: string) => void;
 }) {
+  const currentName = (currentPlan ?? "").trim().toLowerCase();
   return (
     <div
-      role="radio"
-      aria-checked={isSelected}
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onSelect();
-        }
-      }}
-      className={cn(
-        "relative flex h-full cursor-pointer flex-col rounded-2xl border-2 bg-card p-5 text-left transition-colors",
-        isSelected
-          ? "border-primary shadow-lg"
-          : "border-border hover:border-muted-foreground/40"
-      )}
+      role="radiogroup"
+      aria-label="Billing plan"
+      className="overflow-x-auto rounded-2xl border border-border"
     >
-      {isRecommended ? (
-        <span className="absolute -top-3 left-5 inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-semibold text-primary-foreground">
-          <SparklesIcon aria-hidden="true" className="h-3 w-3" />
-          Popular
-        </span>
-      ) : null}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2 text-base font-semibold text-foreground">
-            {name}
-            {isCurrent ? (
-              <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                Current
-              </span>
-            ) : null}
-          </div>
-          {description ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        <span
-          aria-hidden="true"
-          className={cn(
-            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
-            isSelected
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border bg-background"
-          )}
-        >
-          {isSelected ? <CheckIcon className="h-3 w-3" /> : null}
-        </span>
-      </div>
-      <div className="mt-4 flex items-baseline gap-1">
-        <span className="text-3xl font-bold tracking-tight text-foreground">
-          {priceText}
-        </span>
-        {interval ? (
-          <span className="text-sm text-muted-foreground">/{interval}</span>
-        ) : null}
-      </div>
-      <ul className="mt-4 space-y-2">
-        {features.map((feature) => (
-          <li
-            key={feature}
-            className="flex items-start gap-2 text-sm text-muted-foreground"
-          >
-            <CheckIcon
-              aria-hidden="true"
-              className="mt-0.5 h-4 w-4 shrink-0 text-primary"
-            />
-            {feature}
-          </li>
-        ))}
-      </ul>
+      <table className="w-full min-w-[600px] border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-border">
+            <th
+              scope="col"
+              className="sticky left-0 z-10 bg-muted/60 px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+            >
+              Plan
+            </th>
+            {COMPARISON_PLANS.map((p) => {
+              const active = selectedPlan === p.key;
+              const isCurrent =
+                p.key.toLowerCase() === currentName ||
+                (p.key === "payg" && currentName === "pay as you go");
+              const isPopular = p.key === "Growth";
+              return (
+                <th
+                  key={p.key}
+                  scope="col"
+                  className={cn("p-0", active ? "bg-primary/5" : "bg-muted/30")}
+                >
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => onSelect(p.key)}
+                    className={cn(
+                      "flex w-full flex-col items-center gap-1 px-3 py-2.5 transition-colors",
+                      active
+                        ? "text-primary"
+                        : "text-foreground hover:bg-muted/60"
+                    )}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "flex h-4 w-4 items-center justify-center rounded-full border-2",
+                        active
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background"
+                      )}
+                    >
+                      {active ? <CheckIcon className="h-2.5 w-2.5" /> : null}
+                    </span>
+                    <span className="text-sm font-semibold">{p.label}</span>
+                    {isCurrent ? (
+                      <span className="rounded-full border border-border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Current
+                      </span>
+                    ) : isPopular ? (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary-foreground">
+                        <SparklesIcon
+                          aria-hidden="true"
+                          className="h-2.5 w-2.5"
+                        />
+                        Popular
+                      </span>
+                    ) : null}
+                  </button>
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {COMPARISON_ROWS.map((row) => (
+            <tr
+              key={row.label}
+              className="border-b border-border/60 last:border-0"
+            >
+              <th
+                scope="row"
+                className="sticky left-0 z-10 bg-card px-4 py-2 text-left font-medium text-muted-foreground"
+              >
+                {row.label}
+              </th>
+              {row.values.map((value, ci) => {
+                const active = selectedPlan === COMPARISON_PLANS[ci].key;
+                return (
+                  <td
+                    key={COMPARISON_PLANS[ci].key}
+                    className={cn(
+                      "px-3 py-2 text-center tabular-nums",
+                      active
+                        ? "bg-primary/5 font-semibold text-foreground"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {value}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -290,7 +332,9 @@ export function PlanPicker({
   };
 
   return (
-    <div>
+    // min-w-0 lets this shrink to the dialog's grid cell so the table's
+    // min-width scrolls inside overflow-x-auto instead of widening the modal.
+    <div className="w-full min-w-0">
       {onBack ? (
         <Button
           type="button"
@@ -305,7 +349,7 @@ export function PlanPicker({
       ) : null}
 
       {/* Payment method: Stripe (card) by default, crypto (USDC) fallback. */}
-      <div className="mb-5 flex items-center gap-2">
+      <div className="mb-5 flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted-foreground">Pay with</span>
         <div
           role="group"
@@ -348,63 +392,23 @@ export function PlanPicker({
         </div>
       </div>
 
-      {plansQuery.isLoading ? (
-        <div
-          className="grid animate-pulse gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
-          aria-hidden="true"
-        >
-          {Array.from({ length: 5 }, (_, i) => (
-            <div key={i} className="h-72 rounded-2xl bg-muted" />
-          ))}
-        </div>
-      ) : (
-        <div
-          role="radiogroup"
-          aria-label="Billing plan"
-          className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
-        >
-          <PlanCard
-            name={PAYG_PLAN.name}
-            description={PAYG_PLAN.description}
-            priceText="$0"
-            interval="mo + usage"
-            features={PAYG_PLAN.features}
-            isSelected={selectedPlan === "payg"}
-            isCurrent={
-              currentName === "payg" || currentName === "pay as you go"
-            }
-            onSelect={() => setSelectedPlan("payg")}
-          />
-          {paidPlans.map((plan, idx) => {
-            const name =
-              typeof plan.name === "string" && plan.name.trim().length > 0
-                ? plan.name
-                : `Plan ${idx + 1}`;
-            return (
-              <PlanCard
-                key={name}
-                name={name}
-                description={
-                  typeof plan.description === "string"
-                    ? plan.description
-                    : undefined
-                }
-                priceText={priceLabel(plan.price)}
-                interval={
-                  typeof plan.interval === "string" ? plan.interval : "month"
-                }
-                features={planFeatures(plan)}
-                isSelected={selectedPlan === name}
-                isCurrent={name.trim().toLowerCase() === currentName}
-                isRecommended={name === "Growth"}
-                onSelect={() => setSelectedPlan(name)}
-              />
-            );
-          })}
-        </div>
-      )}
+      {/* The comparison table doubles as the selector: allowances are static
+          (pricing.md); the plans query only resolves the checkout slug. */}
+      <PlanComparison
+        selectedPlan={selectedPlan}
+        currentPlan={currentPlan}
+        onSelect={setSelectedPlan}
+      />
 
-      <div className="mt-8 flex flex-col items-center gap-3">
+      <p className="mt-3 rounded-xl border border-border bg-muted/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+        <span className="font-semibold text-foreground">
+          Every plan includes:{" "}
+        </span>
+        {EVERY_PLAN_INCLUDES.join(" · ")}. Allowances are monthly; past an
+        allowance each meter continues at the pay-as-you-go rate.
+      </p>
+
+      <div className="mt-5 flex flex-col items-center gap-3">
         <Button
           type="button"
           size="lg"

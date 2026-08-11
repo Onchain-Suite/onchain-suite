@@ -121,7 +121,7 @@ const resolveToken = (req: NextRequest) => {
 
 /**
  * Every better-auth session cookie name we may receive. Kept in step with
- * `getSession()` in @/lib/auth-session, which accepts the same set — the
+ * `getSession()` in @/lib/auth-session, which accepts the same set - the
  * secure/host prefixes vary by deployment.
  */
 const SESSION_COOKIE_RE =

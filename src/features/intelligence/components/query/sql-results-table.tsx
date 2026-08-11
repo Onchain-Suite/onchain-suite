@@ -150,7 +150,7 @@ function SqlResultsTableImpl({
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-xs">
                   Estimated value of re-engaging the dormant contacts in this
-                  result — how much activity could be recovered with a win-back
+                  result - how much activity could be recovered with a win-back
                   campaign.
                 </TooltipContent>
               </Tooltip>

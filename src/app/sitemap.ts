@@ -56,7 +56,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   // A missing DATABASE_URI (or an unreachable database) must not fail the whole
-  // sitemap — the static marketing routes still deserve to be indexed.
+  // sitemap - the static marketing routes still deserve to be indexed.
   let postRoutes: MetadataRoute.Sitemap = [];
 
   try {

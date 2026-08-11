@@ -281,7 +281,7 @@ const EmailListPanel = ({
                     <span className="text-xs text-muted-foreground">
                       {thread.updatedAt
                         ? new Date(thread.updatedAt).toLocaleString()
-                        : "—"}
+                        : "-"}
                     </span>
                   </div>
                 </div>

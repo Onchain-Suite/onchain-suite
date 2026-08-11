@@ -105,7 +105,7 @@ export function SenderVerificationCard() {
   });
 
   // Both providers at once (transactional + marketing), so the customer can
-  // publish every DNS record — not just the routed provider's. Idempotent, so
+  // publish every DNS record - not just the routed provider's. Idempotent, so
   // it's safe to run on expand; cached to avoid re-provisioning on focus.
   const provisionQuery = useQuery({
     queryKey: ["account", "domain-provision", expandedId],
@@ -139,7 +139,7 @@ export function SenderVerificationCard() {
       const id = typeof record.id === "string" ? record.id : undefined;
       setDomainInput("");
       if (id) setExpandedId(id);
-      toast.success("Domain added — publish the DNS records to verify");
+      toast.success("Domain added - publish the DNS records to verify");
     },
     onError: (error: unknown) =>
       toast.error(
@@ -293,7 +293,7 @@ export function SenderVerificationCard() {
                         />
                         <div className="space-y-0.5">
                           <p className="text-sm font-medium text-foreground">
-                            Verified — sending is live
+                            Verified - sending is live
                           </p>
                           <p className="text-xs text-muted-foreground">
                             SES authentication passed for this domain. There are
@@ -334,7 +334,7 @@ const PROVIDER_META: Record<string, string> = {
 const providerName = (provider: string) =>
   PROVIDER_META[provider.toLowerCase()] ?? provider ?? "Provider";
 
-// SES is the only surfaced provider — transactional (ACS) and SendGrid records
+// SES is the only surfaced provider - transactional (ACS) and SendGrid records
 // are hidden, so customers publish exactly one set of DNS records.
 const HIDDEN_PROVIDERS = new Set(["sendgrid", "acs"]);
 const providerOrder = (provider: string) => {
@@ -397,7 +397,7 @@ function AllProviderDnsRecords({
               <p className="mt-1 text-xs text-muted-foreground">
                 {prov.reason ??
                   (prov.status === "skipped"
-                    ? "This provider isn't configured yet — no records to publish."
+                    ? "This provider isn't configured yet - no records to publish."
                     : "Couldn't fetch records for this provider.")}
               </p>
             ) : prov.records.length === 0 ? (
@@ -576,7 +576,7 @@ function DomainDnsPanel({
                   <div className="font-medium">
                     {record.conflict.informational
                       ? "Existing record found"
-                      : "Conflicting record — update it"}
+                      : "Conflicting record - update it"}
                   </div>
                   {record.conflict.reason ? (
                     <p className="mt-1 text-muted-foreground">

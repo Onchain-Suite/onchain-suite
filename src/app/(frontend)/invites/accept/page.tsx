@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Landing page for the emailed invite link in its query-param form
- * (`/invites/accept?token=…` — the shape the backend emails). Renders the
+ * (`/invites/accept?token=…` - the shape the backend emails). Renders the
  * same accept flow as `/invite/[token]`.
  */
 export default async function InviteAcceptQueryPage({

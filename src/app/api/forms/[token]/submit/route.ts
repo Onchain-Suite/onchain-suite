@@ -17,7 +17,7 @@ const safeJson = (text: string): unknown => {
 
 /**
  * Public submission proxy. Forwards a hosted-form submission to the backend's
- * `/public/forms/:token/submit`. No user auth — the form's public token is the
+ * `/public/forms/:token/submit`. No user auth - the form's public token is the
  * only credential. The body carries field values plus (optionally) the wallet
  * address, signed nonce and linked-channel tokens.
  */

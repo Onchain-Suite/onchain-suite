@@ -13,11 +13,11 @@ const roleOf = (user: unknown): unknown =>
 export const isCmsUser: Access = ({ req: { user } }) =>
   canAccessCms(roleOf(user));
 
-/** Admins and super admins — may publish, unpublish and delete. */
+/** Admins and super admins - may publish, unpublish and delete. */
 export const isPublisher: Access = ({ req: { user } }) =>
   canPublish(roleOf(user));
 
-/** Super admins only — managing who has CMS access. */
+/** Super admins only - managing who has CMS access. */
 export const isSuperAdmin: Access = ({ req: { user } }) =>
   isSuperAdminRole(roleOf(user));
 
@@ -35,7 +35,7 @@ export const isSuperAdmin: Access = ({ req: { user } }) =>
  * another name. Restricting them to non-live documents closes that.
  *
  * The consequence, which is intended but worth knowing: an editor cannot fix a
- * typo on a post that is already live — an admin has to. See docs/blog.md.
+ * typo on a post that is already live - an admin has to. See docs/blog.md.
  */
 export const canEditPost: Access = ({ req: { user } }) => {
   const role = roleOf(user);
@@ -51,7 +51,7 @@ export const canEditPost: Access = ({ req: { user } }) => {
 /**
  * Content the public site reads.
  *
- * Any CMS user sees everything — editors need their drafts visible in the admin
+ * Any CMS user sees everything - editors need their drafts visible in the admin
  * panel. Everyone else is narrowed to published documents by a query constraint,
  * so the filter runs in the database and a draft cannot leak through the Local
  * API, REST or GraphQL.
@@ -65,7 +65,7 @@ export const publishedOrCmsUser: Access = ({ req: { user } }) => {
 
 /**
  * Categories and media are referenced by published posts, so they stay publicly
- * readable. They carry no unpublished state of their own — a category is just a
- * label — so there is nothing to hide here.
+ * readable. They carry no unpublished state of their own - a category is just a
+ * label - so there is nothing to hide here.
  */
 export const publicRead: Access = () => true;

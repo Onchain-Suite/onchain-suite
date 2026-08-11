@@ -19,7 +19,7 @@ const VALUE_PROPS = [
 ];
 
 /**
- * Branded auth shell — reflects the main app's light "paper + electric-blue"
+ * Branded auth shell - reflects the main app's light "paper + electric-blue"
  * identity. A showcase brand panel (left, desktop) sits beside a clean white
  * form card (right). `.os-auth` remaps the shadcn theme tokens to the brand
  * palette so the shared form controls recolor + round automatically. Used by

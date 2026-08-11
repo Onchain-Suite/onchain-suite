@@ -168,7 +168,7 @@ export function CampaignsListsView() {
   const hasCampaigns = filteredCampaigns.length > 0;
 
   // GET /campaigns/calendar returns only *scheduled* campaigns, so merge it
-  // with the full list — otherwise sent/draft/failed campaigns never appear
+  // with the full list - otherwise sent/draft/failed campaigns never appear
   // on the calendar. List rows are richer (type/subject), so they win on id
   // collisions; calendar-only rows are appended.
   const calendarCampaigns = useMemo(() => {
@@ -184,7 +184,7 @@ export function CampaignsListsView() {
         status: normalizeStatus(item.status),
         subject: "",
         audience: [] as string[],
-        // Calendar rows carry no audience info; undefined renders as "—".
+        // Calendar rows carry no audience info; undefined renders as "-".
         recipients: undefined as number | undefined,
         createdAt: new Date(),
         scheduledFor:

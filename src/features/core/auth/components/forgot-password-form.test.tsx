@@ -47,10 +47,10 @@ describe("ForgotPasswordForm", () => {
       redirectTo: "/auth/reset-password",
     });
     expect(screen.getByText("user@example.com")).toBeTruthy();
-    // Backend sends no message for unknown emails (anti-enumeration) —
+    // Backend sends no message for unknown emails (anti-enumeration) -
     // the fallback copy is used instead of toasting `undefined`.
     expect(toast.success).toHaveBeenCalledWith(
-      "Password reset link sent — check your email"
+      "Password reset link sent - check your email"
     );
   });
 
@@ -105,7 +105,7 @@ describe("ForgotPasswordForm", () => {
   it("validates the email before making any request", async () => {
     render(<ForgotPasswordForm onSwitchToSignIn={vi.fn()} />);
     // Passes the native `type="email"` constraint (so the submit event
-    // fires) but fails the stricter zod schema — the schema message must
+    // fires) but fails the stricter zod schema - the schema message must
     // render and no request may go out.
     fillAndSubmit("user@nodot");
 

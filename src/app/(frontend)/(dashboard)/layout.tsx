@@ -11,7 +11,7 @@ export default async function DashboardGroupLayout({
   children: React.ReactNode;
 }) {
   // Read the rail state here so the server renders the sidebar in the state the
-  // user left it — reading the cookie on the client would flash the wrong width.
+  // user left it - reading the cookie on the client would flash the wrong width.
   const cookieStore = await cookies();
   const sidebarOpen = cookieStore.get("sidebar_state")?.value !== "false";
 

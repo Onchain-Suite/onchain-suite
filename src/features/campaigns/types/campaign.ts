@@ -15,7 +15,7 @@ export interface Campaign {
   status: CampaignStatus;
   subject: string;
   audience: string[];
-  /** Recipient count when the backend provides one; undefined renders as "—". */
+  /** Recipient count when the backend provides one; undefined renders as "-". */
   recipients?: number;
   openRate?: number;
   clickRate?: number;

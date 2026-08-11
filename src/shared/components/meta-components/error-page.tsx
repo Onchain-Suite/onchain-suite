@@ -27,14 +27,14 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
         </div>
 
         <p className="mt-6 text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-          500 — Server error
+          500 - Server error
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
           Something went wrong
         </h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           An unexpected error occurred while loading this page. It has been
-          logged — try again, or head back to your dashboard.
+          logged - try again, or head back to your dashboard.
         </p>
 
         {error?.digest ? (

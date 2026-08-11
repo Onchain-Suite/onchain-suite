@@ -502,7 +502,7 @@ function FieldsPanel({
         </p>
         {fields.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-            No fields yet — add Connect wallet + Email for a wallet-first form.
+            No fields yet - add Connect wallet + Email for a wallet-first form.
           </p>
         ) : (
           fields.map((field, index) => (

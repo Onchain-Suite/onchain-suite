@@ -239,7 +239,7 @@ const sanitizeRows = (
 
 // Only the fields the backend's project-settings schema accepts. `treasuryWallets`
 // and `teamWallets` were removed server-side, and empty optional scalars (e.g.
-// "" billingEmail / phone) fail validation — so omit anything empty and always
+// "" billingEmail / phone) fail validation - so omit anything empty and always
 // send the arrays (so the user can clear them).
 const toSavePayload = (values: ProjectSettingsFormData) => {
   const payload: Record<string, unknown> = {

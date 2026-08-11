@@ -2,7 +2,7 @@
  * Canonical date/time formatting for the whole app.
  *
  * Backend timestamps arrive as ISO-8601 (`2026-07-22T08:37:01.061Z`). That is
- * a wire format, never something to render — surface one of these instead so
+ * a wire format, never something to render - surface one of these instead so
  * dates read the same way on every screen.
  *
  * All of them are locale-aware (`undefined` locale = the viewer's) and return
@@ -38,7 +38,7 @@ export function formatDateTime(value: unknown): string {
   }
 }
 
-/** Absolute date only ("Jul 22, 2026") — for columns where time is noise. */
+/** Absolute date only ("Jul 22, 2026") - for columns where time is noise. */
 export function formatDate(value: unknown): string {
   const date = parseDate(value);
   if (!date) return "";

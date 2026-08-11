@@ -113,7 +113,7 @@ export function ProjectCard() {
     setEditing(false);
   };
 
-  const dash = <span className="text-muted-foreground">—</span>;
+  const dash = <span className="text-muted-foreground">-</span>;
 
   return (
     <SettingsCard

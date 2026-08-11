@@ -6,7 +6,7 @@ import { Suspense, useEffect } from "react";
 /**
  * Landing page the backend OAuth flow redirects the popup back to. It relays
  * the linked channel + handle to the opener window via postMessage, then
- * closes itself. Rendered with no chrome — the user only sees it for a blink.
+ * closes itself. Rendered with no chrome - the user only sees it for a blink.
  */
 function CallbackInner() {
   const params = useSearchParams();

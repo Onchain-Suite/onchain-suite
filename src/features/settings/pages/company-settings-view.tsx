@@ -14,7 +14,7 @@ import { TeamCard } from "../components/account/team-card";
 const SENDER_VERIFICATION_SECTION_ID = "sender-verification";
 
 /**
- * Account settings — protocol identity, indexed contracts, branding, sender
+ * Account settings - protocol identity, indexed contracts, branding, sender
  * verification + addresses, and team. Reference-match flat cards; each card
  * owns its own real-API queries/mutations via {@link useAccountOrg}.
  */

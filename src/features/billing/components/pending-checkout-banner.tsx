@@ -92,7 +92,7 @@ export function PendingCheckoutBanner() {
     if (status === "completed") {
       queryClient.invalidateQueries({ queryKey: ["billing"] });
       toast.success(
-        `Payment confirmed — your ${pending.plan || "new"} plan is active and all features are unlocked.`
+        `Payment confirmed - your ${pending.plan || "new"} plan is active and all features are unlocked.`
       );
     }
   }, [statusQuery.data, pending, outcome, queryClient]);
@@ -134,7 +134,7 @@ export function PendingCheckoutBanner() {
             <span className="font-medium">
               {pending.plan || "Plan"} is active.
             </span>{" "}
-            Payment confirmed — all plan features are unlocked.
+            Payment confirmed - all plan features are unlocked.
           </span>
         </div>
         <Button
@@ -230,7 +230,7 @@ export function PendingCheckoutBanner() {
             {providerLabel}…
           </span>{" "}
           <span className="text-muted-foreground">
-            We&apos;ll unlock everything as soon as the payment confirms —
+            We&apos;ll unlock everything as soon as the payment confirms -
             usually within a couple of minutes.
           </span>
         </span>

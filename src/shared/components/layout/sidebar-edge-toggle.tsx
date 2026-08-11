@@ -9,7 +9,7 @@ import {
 
 import { cn } from "@/lib/utils";
 
-// Half of the grip — 8×2, so the pair reads as a single 16×2 line. Only the
+// Half of the grip - 8×2, so the pair reads as a single 16×2 line. Only the
 // outer ends are rounded (`rounded-t/b-full`); rounding the joint too would
 // pinch the middle and give away that this is two elements.
 const SEGMENT =
@@ -26,9 +26,9 @@ const TILT_BACK =
 /**
  * Expand/Collapse control pinned to the outer edge of the sidebar, replacing
  * the invisible drag rail. At rest it's a thin vertical grip; on hover or focus
- * the grip *becomes* a caret — it's two halves that pivot about their shared
+ * the grip *becomes* a caret - it's two halves that pivot about their shared
  * joint, so the line bends rather than swapping for an icon. The tip points the
- * way the panel will move. Desktop only — mobile uses the sheet.
+ * way the panel will move. Desktop only - mobile uses the sheet.
  */
 export function SidebarEdgeToggle({ className }: { className?: string }) {
   const { state, toggleSidebar, isMobile } = useSidebar();
@@ -39,7 +39,7 @@ export function SidebarEdgeToggle({ className }: { className?: string }) {
   const label = collapsed ? "Expand" : "Collapse";
 
   // Each half pivots about the joint (the shared inner end), never about its
-  // outer tip — pivoting about the tips would tear the line apart mid-morph.
+  // outer tip - pivoting about the tips would tear the line apart mid-morph.
   // Collapsed points the caret right (›), expanded points it left (‹).
   const upper = collapsed ? TILT_BACK : TILT;
   const lower = collapsed ? TILT : TILT_BACK;
@@ -56,7 +56,7 @@ export function SidebarEdgeToggle({ className }: { className?: string }) {
             "group/edge absolute top-1/2 -right-3 z-20 hidden h-12 w-6 -translate-y-1/2 cursor-pointer flex-col items-center justify-center rounded-full outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring md:flex",
             // Offsets are measured from the container's padding box. The
             // floating/inset variants pad the container by 8px, so the card's
-            // edge sits 8px further in — pull the button back to straddle it.
+            // edge sits 8px further in - pull the button back to straddle it.
             "group-data-[variant=floating]:-right-1 group-data-[variant=inset]:-right-1",
             className
           )}

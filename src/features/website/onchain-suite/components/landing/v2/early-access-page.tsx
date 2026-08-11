@@ -52,7 +52,7 @@ function googleCalendarUrl(opts: {
   reasons: string[];
   preferredTime?: string;
 }) {
-  const title = `OnchainSuite intro call${opts.protocol ? ` — ${opts.protocol}` : ""}`;
+  const title = `OnchainSuite intro call${opts.protocol ? ` - ${opts.protocol}` : ""}`;
   const detailLines = [
     "20–30 min walkthrough of OnchainSuite on your own on-chain data.",
     opts.reasons.length ? `Focus: ${opts.reasons.join(", ")}.` : "",
@@ -124,7 +124,7 @@ function Form() {
 
   if (done) {
     const mailSubject = encodeURIComponent(
-      `OnchainSuite intro call — ${protocol || "our protocol"}`
+      `OnchainSuite intro call - ${protocol || "our protocol"}`
     );
     const mailBody = encodeURIComponent(
       `Hi OnchainSuite team,\n\nWe'd like an intro call.\n\nName: ${name}\nProtocol: ${protocol}\nEmail: ${email}${
@@ -241,7 +241,7 @@ function Form() {
       <div>
         <span className="mb-2 block text-[12px] font-medium t-muted">
           What do you want to use OnchainSuite for?{" "}
-          <span className="t-muted2">(optional — choose all that apply)</span>
+          <span className="t-muted2">(optional - choose all that apply)</span>
         </span>
         <div className="flex flex-wrap gap-2">
           {REASONS.map((u) => {
@@ -280,7 +280,7 @@ function Form() {
       <div>
         <span className="mb-1.5 block text-[12px] font-medium t-muted">
           Preferred call time{" "}
-          <span className="t-muted2">(optional — pick a day &amp; slot)</span>
+          <span className="t-muted2">(optional - pick a day &amp; slot)</span>
         </span>
         <DateTimePicker value={preferredTime} onChange={setPreferredTime} />
         {preferredTime ? (

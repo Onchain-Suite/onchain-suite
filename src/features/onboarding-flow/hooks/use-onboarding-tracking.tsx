@@ -129,7 +129,7 @@ const normalizeResume = (value: unknown): OnboardingResume | null => {
 /**
  * Map the backend's `resume.step` (step name or numeric index) onto the
  * routed onboarding flow's two screens: 1 = organization setup,
- * 2 = plan selection. Unknown values fall back to step 1 — restarting a
+ * 2 = plan selection. Unknown values fall back to step 1 - restarting a
  * screen early is safe, skipping one is not.
  */
 export function resolveResumeFlowStep(step: OnboardingResume["step"]): 1 | 2 {
@@ -239,7 +239,7 @@ export function useOnboardingTracking(): UseOnboardingTracking {
 
       const updatedStepData = payload.stepData ?? {};
 
-      // Update local progress immediately — tracking is telemetry and must
+      // Update local progress immediately - tracking is telemetry and must
       // never gate the user's step transition.
       const completionFromMeta =
         isJsonObject(payload.metadata) &&
@@ -262,7 +262,7 @@ export function useOnboardingTracking(): UseOnboardingTracking {
       // Fire-and-forget: the backend rate-limits at 3 requests / 10s, and a
       // step transition can fire multiple track events on top of the flow's
       // real API calls. A 429 (or any failure) must not surface an error or
-      // block onboarding — retry once after the limit window, then give up
+      // block onboarding - retry once after the limit window, then give up
       // quietly.
       postWithRateLimitRetry("/onboarding/track", {
         stepName: payload.stepName,
@@ -294,7 +294,7 @@ export function useOnboardingTracking(): UseOnboardingTracking {
       try {
         const completeStepData = payload.stepData ?? {};
 
-        // Completion is a real state change (unlike track), so we await it —
+        // Completion is a real state change (unlike track), so we await it -
         // but ride out a rate-limit window instead of failing outright.
         await postWithRateLimitRetry("/onboarding/complete", {
           totalTimeSeconds: payload.totalTimeSeconds,

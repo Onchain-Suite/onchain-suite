@@ -6,7 +6,7 @@ import {
 } from "@/payload/storage/cloudinary-client";
 
 /**
- * Moves an asset to a new public id (Cloudinary's "rename" is a move — the
+ * Moves an asset to a new public id (Cloudinary's "rename" is a move - the
  * folder is part of the id).
  *
  * Isolated from the adapter so the filing hook can be reasoned about and mocked

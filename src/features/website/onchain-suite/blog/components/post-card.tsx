@@ -5,7 +5,7 @@ import { formatPostDate, toIsoDate } from "../blog.format";
 import type { BlogPostSummary } from "../blog.types";
 
 /**
- * One post on the index / category listing. Server Component — a card is pure
+ * One post on the index / category listing. Server Component - a card is pure
  * presentation, so there is no reason to ship it to the browser.
  */
 export function PostCard({

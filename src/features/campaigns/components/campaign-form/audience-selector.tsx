@@ -184,7 +184,7 @@ export function AudienceSelector({
             className="h-11 border-0 focus:ring-0"
           />
           <CommandList className="max-h-[340px]">
-            {/* Send to everyone — mutually exclusive with any specific pick.
+            {/* Send to everyone - mutually exclusive with any specific pick.
                 Always shown (even mid-search) so it's a one-click target. */}
             <CommandGroup className="p-1.5">
               <CommandItem
@@ -224,7 +224,7 @@ export function AudienceSelector({
               </div>
             ) : null}
 
-            {/* Individual contacts — pick emails directly when you have no
+            {/* Individual contacts - pick emails directly when you have no
                 tags or segments ready. Compact, dense rows. */}
             <CommandGroup heading="Contacts" className="p-1.5">
               {isContactsLoading ? (
@@ -304,7 +304,7 @@ export function AudienceSelector({
               )}
             </CommandGroup>
 
-            {/* Lists Group — only when a real list source exists. */}
+            {/* Lists Group - only when a real list source exists. */}
             {filteredLists.length > 0 ? (
               <CommandGroup heading="List" className="p-1.5">
                 {filteredLists.map((list) => (
@@ -342,7 +342,7 @@ export function AudienceSelector({
               </CommandGroup>
             ) : null}
 
-            {/* Tags Group — audience tags; expanded to tagged contacts at
+            {/* Tags Group - audience tags; expanded to tagged contacts at
                 save time. */}
             {filteredTags.length > 0 ? (
               <CommandGroup heading="Tag" className="p-1.5">

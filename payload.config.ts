@@ -26,7 +26,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
  */
 export default buildConfig({
   // Must stay in sync with the folder name at
-  // src/app/(payload)/cms-api — Payload's default of /api would collide with
+  // src/app/(payload)/cms-api - Payload's default of /api would collide with
   // the app's existing /api/v1/*, /api/upload/* and /api/waitlist handlers,
   // which Next rejects as conflicting routes.
   routes: {
@@ -50,7 +50,7 @@ export default buildConfig({
   secret: process.env.PAYLOAD_SECRET ?? "",
   db: postgresAdapter({
     pool: {
-      // The CMS owns its own dedicated database — DATABASE_URI must not point
+      // The CMS owns its own dedicated database - DATABASE_URI must not point
       // at the product database. The blog is editorial content with a different
       // lifecycle, backup cadence and blast radius from product data, and
       // Payload's migrations manage its schema exclusively: pointing this at a
@@ -65,7 +65,7 @@ export default buildConfig({
     },
   }),
   // Enables the admin panel's crop and focal-point tools. No `imageSizes` are
-  // configured on the media collection, so sharp never generates derivatives —
+  // configured on the media collection, so sharp never generates derivatives -
   // Cloudinary transformation URLs handle responsive variants instead.
   sharp,
   typescript: {
@@ -91,7 +91,7 @@ export default buildConfig({
           // /cms-api/media/file/<filename>.
           //
           // Two reasons. Performance: without this every blog image is a 302
-          // through our own server before reaching the CDN — a hop and a
+          // through our own server before reaching the CDN - a hop and a
           // serverless invocation per image. Correctness: it makes the plugin
           // derive the URL from `cloudinaryPublicId` on every read, so when an
           // asset is filed into a post's folder its URL follows automatically

@@ -213,7 +213,7 @@ export const WEB2_VARIABLES: OnchainVariable[] = [
   },
 ];
 
-/** Web3 variables — kept as the default export name for existing imports. */
+/** Web3 variables - kept as the default export name for existing imports. */
 export const ONCHAIN_VARIABLES: OnchainVariable[] = WEB3_VARIABLES;
 
 /** Every variable across both families. */
@@ -281,7 +281,7 @@ const FALLBACKS_BY_KEY: Record<string, string> = ALL_VARIABLES.reduce<
  * Rewrite bare `{{ key }}` tokens to `{{ key | default: "..." }}` for every
  * variable that has a safe fallback. Tokens that already carry a pipe
  * (existing defaults/filters) are left untouched. This keeps starter
- * templates sendable to any audience — the backend refuses to send when a
+ * templates sendable to any audience - the backend refuses to send when a
  * variable resolves blank without a default.
  */
 export function withMergeTagDefaults(input: string): string {

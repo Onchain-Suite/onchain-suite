@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 /**
  * Flat "reference-match" settings card: a bordered surface with a header row
  * (title + description on the left, an optional action on the right), then an
- * optional divided body. Non-collapsible on purpose — the reference lays every
+ * optional divided body. Non-collapsible on purpose - the reference lays every
  * section out flat, unlike the collapsible {@link SettingsSectionCard}.
  */
 interface SettingsCardProps {
@@ -81,7 +81,7 @@ export function DefinitionGrid({
             {item.label}
           </dt>
           <dd className="mt-1.5 break-words text-sm text-foreground">
-            {item.value ?? <span className="text-muted-foreground">—</span>}
+            {item.value ?? <span className="text-muted-foreground">-</span>}
           </dd>
         </div>
       ))}

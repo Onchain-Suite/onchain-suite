@@ -91,8 +91,8 @@ describe("AudienceStep links", () => {
       </QueryClientProvider>
     );
 
-    // /intelligence/segments has no route — Segments is a tab on
-    // /intelligence — so the link must carry the ?tab= deep link.
+    // /intelligence/segments has no route - Segments is a tab on
+    // /intelligence - so the link must carry the ?tab= deep link.
     const link = screen.getByRole("link", { name: /Intelligence.*Segments/i });
     expect(link).toHaveAttribute("href", PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS);
     expect(PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS).toContain("tab=segments");

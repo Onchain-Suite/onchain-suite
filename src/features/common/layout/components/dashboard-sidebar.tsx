@@ -68,7 +68,7 @@ export function DashboardSidebar({
           mark={
             <>
               {/* Org logos can live on hosts outside next.config's
-                  remotePatterns — BrandLogo skips the optimizer for those and
+                  remotePatterns - BrandLogo skips the optimizer for those and
                   falls back to the platform mark when the URL is stale. */}
               <BrandLogo
                 src={lightIcon}

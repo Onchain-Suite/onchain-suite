@@ -92,7 +92,7 @@ const formatSegmentSize = (size: number | null | undefined): string =>
 const EMAIL_MATCH_SAMPLE = 200;
 
 /**
- * A member counts as email-reachable only with a real address — wallet-only
+ * A member counts as email-reachable only with a real address - wallet-only
  * contacts carry a synthetic `…@wallet.onchainsuite.local` placeholder, which
  * is not an email channel.
  */
@@ -120,7 +120,7 @@ export function SegmentsTab({ openEmailComposer }: SegmentsTabProps) {
         limit: 100,
       });
       // The list arrives in several envelope shapes depending on backend
-      // version ({items}, {segments}, {data}, {data:{items}}, bare array) —
+      // version ({items}, {segments}, {data}, {data:{items}}, bare array) -
       // accepting them all is what makes the section actually render.
       const r = res as Record<string, unknown>;
       const nested =
@@ -439,13 +439,13 @@ export function SegmentsTab({ openEmailComposer }: SegmentsTabProps) {
                             <div className="h-full rounded-full bg-primary" />
                           </div>
                           <span className="text-sm font-medium text-primary">
-                            —
+                            -
                           </span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm font-medium text-primary">
-                          {segment.revenue ?? "—"}
+                          {segment.revenue ?? "-"}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -453,7 +453,7 @@ export function SegmentsTab({ openEmailComposer }: SegmentsTabProps) {
                           className="text-xs text-muted-foreground"
                           title={formatDateTime(segment.lastUpdated)}
                         >
-                          {formatDateTime(segment.lastUpdated) || "—"}
+                          {formatDateTime(segment.lastUpdated) || "-"}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -527,9 +527,9 @@ export function SegmentsTab({ openEmailComposer }: SegmentsTabProps) {
                 <p className="text-xs text-muted-foreground">Email Match</p>
                 <p className="text-xl font-semibold text-secondary-foreground">
                   {emailMatch.isLoading
-                    ? "—"
+                    ? "-"
                     : emailMatch.isError
-                      ? "—"
+                      ? "-"
                       : `${emailMatch.count.toLocaleString()}${
                           emailMatch.isPartial ? "+" : ""
                         }`}
@@ -557,7 +557,7 @@ export function SegmentsTab({ openEmailComposer }: SegmentsTabProps) {
                     No email-reachable members
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    These wallets have no email channel yet — reach them with an
+                    These wallets have no email channel yet - reach them with an
                     in-app push from{" "}
                     <Link
                       href="/automations"

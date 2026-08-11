@@ -76,7 +76,7 @@ import { useActiveTimezone } from "@/shared/hooks/client/use-timezones";
 const TOTAL_STEPS = 3;
 /**
  * Domain verification lives in the account tab's "Sender verification"
- * section, which is collapsed by default — `section=` expands and scrolls to
+ * section, which is collapsed by default - `section=` expands and scrolls to
  * it so the link lands on the thing the user was told to do.
  */
 const SENDER_VERIFICATION_HREF = `${PRIVATE_ROUTES.SETTINGS}?tab=account&section=sender-verification`;
@@ -116,7 +116,7 @@ const isLikelyEmail = (value: string): boolean =>
 
 /**
  * Persist the final step's message + template so the saved campaign reflects
- * the current edits. Shared by the launch flow and the send-a-test control —
+ * the current edits. Shared by the launch flow and the send-a-test control -
  * a test renders from saved content, so it must run before sendTest too, or
  * the test would use stale content.
  */
@@ -343,7 +343,7 @@ function CampaignPreviewStep({
     setIsSendingTest(true);
     try {
       // A test renders from saved content, so persist the current message +
-      // template first — otherwise the test reflects a previous save.
+      // template first - otherwise the test reflects a previous save.
       await persistCampaignContent(campaignId, form.getValues());
       await campaignsService.sendTest(campaignId, { to });
       toast.success(`Test sent to ${to}.`);
@@ -441,7 +441,7 @@ function CampaignPreviewStep({
   const selectedTemplateId = form.watch("selectedTemplate") ?? "";
   const isPush = form.watch("channel") === "in-app-push";
 
-  // Auto-load the rendered email as soon as the step opens — no manual
+  // Auto-load the rendered email as soon as the step opens - no manual
   // "Generate preview" click required. The selected template is part of the
   // key so re-selecting a template invalidates the cached render.
   const previewQuery = useQuery({
@@ -456,7 +456,7 @@ function CampaignPreviewStep({
     retry: false,
   });
 
-  // Push campaigns have no rendered email — preview the saved push variant
+  // Push campaigns have no rendered email - preview the saved push variant
   // instead (GET /campaigns/{id}/editor/content returns `push`).
   const pushPreviewQuery = useQuery({
     queryKey: [
@@ -503,7 +503,7 @@ function CampaignPreviewStep({
 
   const scheduleLabel = useMemo(() => {
     if (!isScheduled) return "Send now";
-    if (!values.scheduleDate || !values.scheduleTime) return "Schedule (—)";
+    if (!values.scheduleDate || !values.scheduleTime) return "Schedule (-)";
     const { hour, minute } = parseTimeOfDay(values.scheduleTime);
     const utc = zonedWallTimeToUtcDate(
       {
@@ -555,13 +555,13 @@ function CampaignPreviewStep({
               </div>
               <div>
                 <span className="text-foreground">Subject:</span>{" "}
-                {values.emailSubject || "—"}
+                {values.emailSubject || "-"}
               </div>
               {!isPush ? (
                 <div>
                   <span className="text-foreground">From:</span>{" "}
                   {values.senderName ? `${values.senderName} ` : ""}
-                  {(values.senderEmail ?? "").trim() || "—"}
+                  {(values.senderEmail ?? "").trim() || "-"}
                 </div>
               ) : (
                 <div>
@@ -575,13 +575,13 @@ function CampaignPreviewStep({
                 <span className="text-foreground">Template:</span>{" "}
                 {values.selectedTemplate && values.selectedTemplate.length > 0
                   ? values.selectedTemplate
-                  : "—"}
+                  : "-"}
               </div>
             </div>
           </div>
 
           {/* Send a test to one address before committing to the audience.
-              Email only — send-inapp has no test variant. */}
+              Email only - send-inapp has no test variant. */}
           {!isPush ? (
             <div className="rounded-2xl border border-border bg-card p-5">
               <label
@@ -720,11 +720,11 @@ function CampaignPreviewStep({
                 ))}
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                Edit the template and add a fallback — e.g.{" "}
+                Edit the template and add a fallback - e.g.{" "}
                 <span className="font-mono">
                   {'{{ ens_name | default: "there" }}'}
                 </span>{" "}
-                — or switch to a wallet-aware token like{" "}
+                - or switch to a wallet-aware token like{" "}
                 <span className="font-mono">{"{{ greeting_name }}"}</span>,
                 which never renders blank.
               </p>
@@ -1241,7 +1241,7 @@ export function CreateCampaignPage() {
       if (hasHydratedCampaign) return;
 
       if (!initialCampaignFromUrl) {
-        // Nothing to load — the form defaults are the source of truth.
+        // Nothing to load - the form defaults are the source of truth.
         setAudienceHydrationOk(true);
         setContentHydrationOk(true);
         setHasHydratedCampaign(true);
@@ -1320,7 +1320,7 @@ export function CreateCampaignPage() {
             : {};
           // GET /campaigns/{id}/audience returns { profileIds, segmentIds }.
           // Reading only listIds meant a saved contact selection never
-          // hydrated, so reopening a campaign showed an empty audience — and
+          // hydrated, so reopening a campaign showed an empty audience - and
           // the next Continue saved that emptiness back over it. listIds is
           // kept purely as a fallback for anything persisted by older builds.
           const {
@@ -1330,7 +1330,7 @@ export function CreateCampaignPage() {
             segmentIds: segmentIdsRaw,
           } = aObj;
           if (allRaw === true) {
-            // Saved as "send to everyone" — restore the sentinel selection.
+            // Saved as "send to everyone" - restore the sentinel selection.
             nextValues.selectedAudiences = [ALL_CONTACTS_SELECTION_ID];
           } else {
             const toIds = (value: unknown) =>
@@ -1651,7 +1651,7 @@ export function CreateCampaignPage() {
       });
 
       // The validator requires at least one enabled channel; nothing else in
-      // the email flow sets channelsUsed, so enable EMAIL here. Non-fatal —
+      // the email flow sets channelsUsed, so enable EMAIL here. Non-fatal -
       // if it fails, validation below reports the real state.
       await campaignsService
         .ensureChannels(campaignId, ["email"])
@@ -1684,7 +1684,7 @@ export function CreateCampaignPage() {
       setShowConfirmation(true);
     } catch (e) {
       // An unverified sender domain is the one launch failure the user can
-      // fix themselves — point them at the verification flow rather than
+      // fix themselves - point them at the verification flow rather than
       // showing a raw backend string.
       const senderIssue = parseSenderNotVerified(e);
       if (senderIssue) {
@@ -1712,7 +1712,7 @@ export function CreateCampaignPage() {
     }
   };
 
-  // handleSubmit silently swallows schema failures without this — the send
+  // handleSubmit silently swallows schema failures without this - the send
   // button would appear dead. Surface the first blocking field error instead.
   const onInvalid = (errors: FieldErrors<CampaignFormData>) => {
     for (const value of Object.values(errors)) {
@@ -1744,8 +1744,8 @@ export function CreateCampaignPage() {
       : [form.watch("senderName"), form.watch("senderEmail")]
           .map((value) => (value ?? "").trim())
           .filter(Boolean)
-          .join(" · ") || "—",
-    template: wizTemplate.length > 0 ? wizTemplate : "—",
+          .join(" · ") || "-",
+    template: wizTemplate.length > 0 ? wizTemplate : "-",
     delivery: sendOption === "schedule" ? "Scheduled" : "Send immediately",
   };
 
@@ -1900,7 +1900,7 @@ export function CreateCampaignPage() {
                       onOpenChange={setScheduleDialogOpen}
                       onConfirm={() => {
                         // The dialog stores the date/time; sending now happens
-                        // on this same step, so only flip the send option — the
+                        // on this same step, so only flip the send option - the
                         // send button reads it and becomes "Schedule campaign".
                         form.setValue("sendOption", "schedule", {
                           shouldDirty: true,

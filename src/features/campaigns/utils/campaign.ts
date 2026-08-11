@@ -37,7 +37,7 @@ export function getCampaignTypeColor(type: CampaignType): string {
 }
 
 export function formatPercentage(value?: number): string {
-  if (value === undefined) return "—";
+  if (value === undefined) return "-";
   return `${value.toFixed(1)}%`;
 }
 

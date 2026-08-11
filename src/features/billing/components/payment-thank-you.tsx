@@ -33,8 +33,8 @@ const FAILED_URL_STATUSES = new Set([
 /**
  * Landing page for the hosted Blockradar payment link
  * (pay.blockradar.co/onchainsuite-payment-link). When we know the upgrade
- * reference — from a `?reference=` query param or the locally stored pending
- * checkout — the page polls until the deposit webhook confirms and unlocks
+ * reference - from a `?reference=` query param or the locally stored pending
+ * checkout - the page polls until the deposit webhook confirms and unlocks
  * the plan. Without a reference (or without a session) it degrades to a
  * static "payment received" confirmation, since activation happens
  * server-side via the webhook either way.
@@ -58,7 +58,7 @@ export function PaymentThankYou() {
     return fromUrl.length > 0 ? fromUrl : (pending?.reference ?? "");
   }, [searchParams, pending?.reference]);
 
-  // Blockradar's redirect may carry ?status= — treat explicit failure values
+  // Blockradar's redirect may carry ?status= - treat explicit failure values
   // as a failed checkout, but keep polling: a late webhook can still confirm.
   const failedFromUrl = FAILED_URL_STATUSES.has(
     (searchParams?.get("status") ?? "").trim().toLowerCase()
@@ -89,7 +89,7 @@ export function PaymentThankYou() {
     }
   }, [statusQuery.data, confirmed, queryClient]);
 
-  // Failed/unknown statuses aren't surfaced as errors here — the user just
+  // Failed/unknown statuses aren't surfaced as errors here - the user just
   // paid, and false alarms (webhook lag, logged-out polling) would be worse
   // than the neutral "being confirmed" message.
   const state: PageState = confirmed
@@ -113,15 +113,15 @@ export function PaymentThankYou() {
         <h1 className="mt-6 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
           {state === "failed"
             ? "Payment not completed"
-            : "Thank you — payment received!"}
+            : "Thank you - payment received!"}
         </h1>
 
         <p className="mt-3 text-base text-muted-foreground">
           {state === "confirmed"
             ? `Your ${planName || "new"} plan is active and every feature is unlocked. Welcome aboard.`
             : state === "failed"
-              ? "The checkout was cancelled or didn't go through. No worries — you can restart the upgrade anytime from Settings → Billing."
-              : `We're confirming your payment with ${providerLabel}. Your plan activates automatically — this usually takes a couple of minutes.`}
+              ? "The checkout was cancelled or didn't go through. No worries - you can restart the upgrade anytime from Settings → Billing."
+              : `We're confirming your payment with ${providerLabel}. Your plan activates automatically - this usually takes a couple of minutes.`}
         </p>
 
         <div className="mt-6 rounded-2xl border border-border bg-card px-5 py-4 text-left">
@@ -140,7 +140,7 @@ export function PaymentThankYou() {
             <div className="text-sm text-foreground">
               <span className="font-medium">Nothing was charged.</span>{" "}
               <span className="text-muted-foreground">
-                If you did complete the payment, keep this page open — it
+                If you did complete the payment, keep this page open - it
                 updates automatically when the transaction confirms.
               </span>
             </div>
@@ -157,7 +157,7 @@ export function PaymentThankYou() {
                     : "Payment processing."}
                 </span>{" "}
                 <span className="text-muted-foreground">
-                  You can head back to the app now — everything unlocks the
+                  You can head back to the app now - everything unlocks the
                   moment it confirms.
                 </span>
               </span>

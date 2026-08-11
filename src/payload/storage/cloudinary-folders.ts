@@ -7,8 +7,8 @@
  *   onchainsuite/blog/_unassigned/<file>   just uploaded, not on a post yet
  *   onchainsuite/blog/<post-slug>/<file>   claimed by a post
  *
- * Media is uploaded independently of posts — Payload's upload drawer creates the
- * media document on its own, often before the post has been saved — so the
+ * Media is uploaded independently of posts - Payload's upload drawer creates the
+ * media document on its own, often before the post has been saved - so the
  * destination folder is not knowable at upload time. Assets therefore land in
  * `_unassigned` and are moved when a post that references them is saved. See
  * src/payload/hooks/organize-post-media.ts.
@@ -83,7 +83,7 @@ export function folderFor(segment: string): string {
   return `${CLOUDINARY_ROOT}/${segment}`;
 }
 
-/** The last path component of a public id — the file's own name. */
+/** The last path component of a public id - the file's own name. */
 export function basenameOf(publicId: string): string {
   const index = publicId.lastIndexOf("/");
   return index === -1 ? publicId : publicId.slice(index + 1);
@@ -102,7 +102,7 @@ export function folderOf(publicId: string): string {
 export function segmentOf(publicId: string): string | null {
   const folder = folderOf(publicId);
   if (folder === CLOUDINARY_ROOT) {
-    // Directly in the root — an asset from before folders existed.
+    // Directly in the root - an asset from before folders existed.
     return "";
   }
   const prefix = `${CLOUDINARY_ROOT}/`;
@@ -117,7 +117,7 @@ export function segmentOf(publicId: string): string | null {
  *
  * The folder already says which post owns an asset, but the name is what shows up
  * in Cloudinary's search, in the media library's flat views and in the delivery
- * URL — so `my-post-hero.png` is findable where a bare `hero.png` is not.
+ * URL - so `my-post-hero.png` is findable where a bare `hero.png` is not.
  *
  * Idempotent: an already-prefixed name is left alone, so re-saving a post does
  * not produce `my-post-my-post-hero`.

@@ -97,8 +97,8 @@ const triggerDownload = (href: string, filename: string) => {
 
 /**
  * Renders one backend-suggested chart (line/bar/pie) in a card with an
- * OnchainSuite branding footer and a PNG export action. The whole card —
- * title, chart, footer — is what gets rasterized, so the exported image is
+ * OnchainSuite branding footer and a PNG export action. The whole card -
+ * title, chart, footer - is what gets rasterized, so the exported image is
  * share-ready for social/investor updates.
  */
 type ChartDisplayType = "line" | "bar" | "pie";
@@ -112,7 +112,7 @@ function ReportChartCard({
 }) {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [exporting, setExporting] = useState(false);
-  // Users can re-render the suggested chart as any type — keys are mapped
+  // Users can re-render the suggested chart as any type - keys are mapped
   // across shapes (x/y ↔ label/value) below.
   const [displayType, setDisplayType] = useState<ChartDisplayType>(
     chart.type === "bar" || chart.type === "pie" ? chart.type : "line"
@@ -147,7 +147,7 @@ function ReportChartCard({
     }
   }, [chart.title, displayType]);
 
-  // Axis charts need x/y; pie needs label/value — each falls back to the
+  // Axis charts need x/y; pie needs label/value - each falls back to the
   // other pair so any suggested chart can render as any display type.
   const xKey = chart.xKey ?? chart.labelKey ?? "";
   const yKey = chart.yKey ?? chart.valueKey ?? "";
@@ -306,7 +306,7 @@ function ReportChartCard({
           {body}
         </ChartContainer>
       </div>
-      {/* Branding footer — part of the card so it lands in the exported PNG. */}
+      {/* Branding footer - part of the card so it lands in the exported PNG. */}
       <div className="flex items-center justify-between border-t border-border/60 bg-muted/20 px-4 py-2.5">
         <span className="text-xs font-semibold tracking-tight text-foreground">
           OnchainSuite
@@ -319,7 +319,7 @@ function ReportChartCard({
   );
 }
 
-/** Wallet cell — shortened for display, one click copies the full address. */
+/** Wallet cell - shortened for display, one click copies the full address. */
 function WalletCell({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<number | null>(null);
@@ -462,7 +462,7 @@ export interface ReportViewProps {
 /**
  * Visual report layer for a stored MCP/SQL query: backend-suggested charts,
  * stat tiles per numeric column, a wallet-aware table, plus CSV and PNG
- * export. Data comes from `GET /intelligence/query/:queryId/report-data` —
+ * export. Data comes from `GET /intelligence/query/:queryId/report-data` -
  * a pure transformation over the stored rows, so rendering it costs no
  * GoldRush credits.
  */

@@ -181,7 +181,7 @@ describe("TwoFactorAuthModal", () => {
       fireEvent.change(screen.getByPlaceholderText("000000"), {
         target: { value: "123" },
       });
-      // Button is disabled for short codes — the guard never lets a short
+      // Button is disabled for short codes - the guard never lets a short
       // code reach the backend.
       expect(
         (screen.getByRole("button", { name: /Verify/ }) as HTMLButtonElement)
@@ -192,7 +192,7 @@ describe("TwoFactorAuthModal", () => {
   });
 
   describe("state reset between opens", () => {
-    it("shows backup codes only once — reopening starts back at the first step", async () => {
+    it("shows backup codes only once - reopening starts back at the first step", async () => {
       setSession(false);
       enableSuccess();
       mockedVerifyTotp.mockResolvedValue({

@@ -9,7 +9,7 @@
  *   - `super_admin` all of the above, plus creating and deleting CMS accounts
  *
  * Everything here is pure so the authorisation boundary can be tested without a
- * database or a Payload instance. See roles.test.ts — this is the file that
+ * database or a Payload instance. See roles.test.ts - this is the file that
  * decides who can put content on the public site, so it is the one place in the
  * blog that must not be "probably right".
  *
@@ -32,7 +32,7 @@ export type CmsRole = (typeof CMS_ROLES)[number];
 
 /**
  * Normalises a role value to a canonical SCREAMING_SNAKE spelling, accepting the
- * spellings this value realistically arrives in — `super_admin`, `Super Admin`,
+ * spellings this value realistically arrives in - `super_admin`, `Super Admin`,
  * `super-admin`.
  *
  * Note this only normalises *shape*, never *authority*: an unrecognised value
@@ -52,7 +52,7 @@ export function normalizeRole(value: unknown): string | null {
 }
 
 /**
- * May sign in and work in the CMS — any of the three roles.
+ * May sign in and work in the CMS - any of the three roles.
  *
  * This is the *read* boundary: it is what lets an editor see unpublished drafts
  * in the admin panel. It is deliberately not the write boundary for publishing.
@@ -70,7 +70,7 @@ export function canAccessCms(role: unknown): boolean {
  * May publish, unpublish or delete content.
  *
  * Editors are excluded on purpose: nothing reaches the public site without an
- * admin. Fails closed — anything unrecognised is denied, including roles that
+ * admin. Fails closed - anything unrecognised is denied, including roles that
  * merely *contain* an approved word (`NOT_ADMIN`, `SUPER_ADMINISTRATOR`).
  */
 export function canPublish(role: unknown): boolean {

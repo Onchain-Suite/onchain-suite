@@ -83,7 +83,7 @@ const fetchAuthJson = async (
     signal?: AbortSignal;
     fallbackError?: string;
     /** Treat a 404 as "resource doesn't exist" (resolves to `null`) instead
-     * of throwing — e.g. listing passkeys when none are registered. */
+     * of throwing - e.g. listing passkeys when none are registered. */
     notFoundIsEmpty?: boolean;
   }
 ): Promise<unknown> => {
@@ -186,7 +186,7 @@ export const listPasskeys = async (
   const payload = await fetchAuthJson("/passkey/list-user-passkeys", {
     signal,
     fallbackError: "Failed to load passkeys",
-    // Some better-auth versions 404 when the user has no passkeys —
+    // Some better-auth versions 404 when the user has no passkeys -
     // "none registered" is an empty list, not a failure.
     notFoundIsEmpty: true,
   });

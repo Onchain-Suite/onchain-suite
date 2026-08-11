@@ -5,7 +5,7 @@ import { collectMediaIds, describeError } from "@/payload/hooks/media-refs";
 /**
  * Deletes a post's media when the post itself is deleted.
  *
- * Deleting the media *document* is what removes the file from Cloudinary — the
+ * Deleting the media *document* is what removes the file from Cloudinary - the
  * cloud-storage plugin's own afterDelete hook calls the adapter, so this never
  * talks to Cloudinary directly.
  *
@@ -23,7 +23,7 @@ import { collectMediaIds, describeError } from "@/payload/hooks/media-refs";
  * How many posts to examine per page while looking for surviving references.
  *
  * Rich text has to be read to find embedded uploads, so this walks posts rather
- * than issuing a query — there is no index for "mentions media id 7 somewhere in
+ * than issuing a query - there is no index for "mentions media id 7 somewhere in
  * a Lexical tree". Deletes are rare enough that the scan is affordable.
  */
 const SCAN_PAGE_SIZE = 200;
@@ -34,7 +34,7 @@ const MAX_SCAN_PAGES = 25;
 /**
  * Every media id still referenced by a post other than the one just deleted.
  *
- * Returns null when the scan could not be completed — the caller must then delete
+ * Returns null when the scan could not be completed - the caller must then delete
  * nothing, because an incomplete reference set would look exactly like "unused".
  */
 async function collectSurvivingMediaIds(

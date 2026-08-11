@@ -22,14 +22,14 @@ export function LivePreviewPost({ initialPost }: { initialPost: Post }) {
     serverURL:
       process.env.NEXT_PUBLIC_SERVER_URL ??
       (typeof window === "undefined" ? "" : window.location.origin),
-    // Must match `routes.api` in payload.config.ts — the default /api is taken
+    // Must match `routes.api` in payload.config.ts - the default /api is taken
     // by this app's own handlers.
     apiRoute: "/cms-api",
     depth: 1,
   });
 
   // Mapping walks the whole Lexical tree to count words, so it must not re-run
-  // on every unrelated render — only when the document actually changes.
+  // on every unrelated render - only when the document actually changes.
   const post = useMemo(() => toPost(data), [data]);
 
   return (
@@ -38,7 +38,7 @@ export function LivePreviewPost({ initialPost }: { initialPost: Post }) {
         className="fixed inset-x-0 top-0 z-50 px-4 py-2 text-center text-[12.5px] font-medium"
         style={{ background: "var(--acc)", color: "#fff" }}
       >
-        Draft preview — not publicly visible
+        Draft preview - not publicly visible
       </div>
       <BlogPostView post={post} />
     </>

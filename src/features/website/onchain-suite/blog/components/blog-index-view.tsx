@@ -10,7 +10,7 @@ import { PageShell } from "@/onchain-suite-website/components/landing/v2/shared"
  *
  * Server Component. `PageShell` is a client module (it owns the animated nav and
  * footer), but children passed into it from a server parent still render on the
- * server — so none of this listing markup ships as JS.
+ * server - so none of this listing markup ships as JS.
  */
 export function BlogIndexView({
   result,

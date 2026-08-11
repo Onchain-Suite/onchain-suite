@@ -346,8 +346,8 @@ export function SegmentDetailPage() {
                     wallet: rec.wallet,
                     walletAddress: rec.walletAddress,
                   });
-                  const email = asString(rec.email) || "—";
-                  const wallet = extractWalletFields(rec).wallet || "—";
+                  const email = asString(rec.email) || "-";
+                  const wallet = extractWalletFields(rec).wallet || "-";
                   const { walletFull } = extractWalletFields(rec);
                   return (
                     <tr

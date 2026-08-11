@@ -28,7 +28,7 @@ const placeholderFor = (field: CaptureFieldSpec) => {
 
 /**
  * Live rendering of the embeddable capture form, driven by the form's field
- * spec. Purely presentational (inputs disabled) — mirrors what visitors see
+ * spec. Purely presentational (inputs disabled) - mirrors what visitors see
  * when the embed snippet is dropped on a site.
  */
 export const FormPreview = memo(function FormPreview({

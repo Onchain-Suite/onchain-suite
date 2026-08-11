@@ -312,16 +312,25 @@ export const projectSettingsService = {
     return normalizeSupportedChains(response.data);
   },
 
-  async getProjectSettings(organizationId?: string) {
+  async getProjectSettings(
+    organizationId?: string,
+    opts?: { silent?: boolean }
+  ) {
+    // Callers that fail soft (e.g. the email footer auto-populate) pass
+    // `silent` so a transient 4xx/5xx doesn't spam the console.
+    const headers = {
+      ...getHeaders(organizationId),
+      ...(opts?.silent ? { "x-onchain-silent-error": "1" } : {}),
+    };
     try {
       const response = await apiClient.get("/organization/project-settings", {
-        headers: getHeaders(organizationId),
+        headers,
       });
       return normalizeProjectSettings(response.data);
     } catch (error) {
       try {
         const fallback = await apiClient.get("/organization", {
-          headers: getHeaders(organizationId),
+          headers,
         });
         return normalizeLegacyOrganization(fallback.data);
       } catch {

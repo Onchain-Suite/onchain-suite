@@ -32,10 +32,11 @@ import {
   childListsOf,
   composeFooterContent,
   createNode,
+  documentComplianceIssues,
+  documentHasOwnFooter,
   type EmailDocument,
   type EmailFooter,
   type EmailLayoutNode,
-  footerComplianceIssues,
   type InsertableType,
   MERGE_TAGS,
   newBlockId,
@@ -158,10 +159,7 @@ export function EmailEditor({
 
   const root = doc.blocks[doc.root] as EmailLayoutNode | undefined;
   const selectedNode = selectedId ? doc.blocks[selectedId] : null;
-  const complianceIssues = useMemo(
-    () => footerComplianceIssues(doc.footer),
-    [doc.footer]
-  );
+  const complianceIssues = useMemo(() => documentComplianceIssues(doc), [doc]);
   const compliant = complianceIssues.length === 0;
 
   // Auto-populate the compliance footer with the org's company name, address
@@ -304,7 +302,13 @@ export function EmailEditor({
       return;
     }
     const next = parseHtmlToDocument(trimmed);
-    setDoc((d) => ({ ...next, footer: d.footer }));
+    // Keep the user's footer content/logo, but adopt the parser's enabled
+    // decision: if the imported HTML already has its own footer, ours is
+    // turned off so the email isn't stacked with two footers.
+    setDoc((d) => ({
+      ...next,
+      footer: { ...d.footer, enabled: next.footer.enabled },
+    }));
     setSelectedId(null);
     setImportOpen(false);
     setImportHtml("");
@@ -319,8 +323,15 @@ export function EmailEditor({
       toast.error(
         complianceIssues[0] ?? "Complete the compliance footer before saving."
       );
-      setSelectedId(FOOTER_ID);
-      setTab("inspect");
+      // If our footer is on but incomplete, open its editor; if it's off (and
+      // the body has no footer of its own), send them to the footer toggle.
+      if (doc.footer?.enabled) {
+        setSelectedId(FOOTER_ID);
+        setTab("inspect");
+      } else {
+        setSelectedId(null);
+        setTab("styles");
+      }
       return;
     }
     await onSave({
@@ -609,7 +620,8 @@ function FooterControls({
             Compliance footer
           </p>
           <p className="text-xs text-muted-foreground">
-            Logo + unsubscribe (CAN-SPAM). Required to save.
+            Logo + unsubscribe (CAN-SPAM). Turn off if your email already has
+            its own footer.
           </p>
         </div>
         <Switch
@@ -618,50 +630,68 @@ function FooterControls({
         />
       </div>
 
-      <Field label="Logo">
-        {footer.logoUrl?.trim() ? (
-          <div className="mb-2 flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-2">
-            {/* eslint-disable-next-line @next/next/no-img-element -- email logo preview */}
-            <img
-              src={footer.logoUrl}
-              alt="Footer logo"
-              className="h-8 w-auto max-w-[140px] object-contain"
+      {!footer.enabled ? (
+        documentHasOwnFooter(doc) ? (
+          <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-xs leading-relaxed text-emerald-700 dark:text-emerald-300">
+            Off - using the unsubscribe footer already in your email body.
+          </p>
+        ) : (
+          <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+            Off, and no unsubscribe was found in your email - it can&apos;t be
+            sent. Add your own footer with an unsubscribe link, or turn this
+            back on.
+          </p>
+        )
+      ) : null}
+
+      {footer.enabled ? (
+        <>
+          <Field label="Logo">
+            {footer.logoUrl?.trim() ? (
+              <div className="mb-2 flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element -- email logo preview */}
+                <img
+                  src={footer.logoUrl}
+                  alt="Footer logo"
+                  className="h-8 w-auto max-w-[140px] object-contain"
+                />
+                <button
+                  type="button"
+                  onClick={() => setFooter({ logoUrl: "" })}
+                  className="ml-auto text-xs font-medium text-muted-foreground hover:text-destructive"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : null}
+            <ImageUploadButton
+              label={footer.logoUrl?.trim() ? "Change logo" : "Upload logo"}
+              onUploaded={(url) => setFooter({ logoUrl: url })}
             />
-            <button
-              type="button"
-              onClick={() => setFooter({ logoUrl: "" })}
-              className="ml-auto text-xs font-medium text-muted-foreground hover:text-destructive"
-            >
-              Remove
-            </button>
+          </Field>
+
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Sent by OnchainSuite
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Adds a small attribution line under the footer.
+              </p>
+            </div>
+            <Switch
+              checked={footer.attribution ?? false}
+              onCheckedChange={(attribution) => setFooter({ attribution })}
+            />
           </div>
-        ) : null}
-        <ImageUploadButton
-          label={footer.logoUrl?.trim() ? "Change logo" : "Upload logo"}
-          onUploaded={(url) => setFooter({ logoUrl: url })}
-        />
-      </Field>
 
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-foreground">
-            Sent by OnchainSuite
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Edit the footer text and merge tags by selecting the{" "}
+            <span className="font-medium text-foreground">Footer</span> block on
+            the canvas.
           </p>
-          <p className="text-xs text-muted-foreground">
-            Adds a small attribution line under the footer.
-          </p>
-        </div>
-        <Switch
-          checked={footer.attribution ?? false}
-          onCheckedChange={(attribution) => setFooter({ attribution })}
-        />
-      </div>
-
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        Edit the footer text and merge tags by selecting the{" "}
-        <span className="font-medium text-foreground">Footer</span> block on the
-        canvas.
-      </p>
+        </>
+      ) : null}
     </div>
   );
 }

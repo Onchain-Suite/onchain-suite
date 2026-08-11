@@ -51,10 +51,15 @@ export function useFooterDefaults() {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const [settings, branding] = await Promise.all([
-        projectSettingsService.getProjectSettings(orgId).catch(() => null),
+        projectSettingsService
+          .getProjectSettings(orgId, { silent: true })
+          .catch(() => null),
         apiClient
           .get("/organization/branding", {
-            headers: orgId ? { "x-org-id": orgId } : undefined,
+            headers: {
+              "x-onchain-silent-error": "1",
+              ...(orgId ? { "x-org-id": orgId } : {}),
+            },
           })
           .then((res) => res.data)
           .catch(() => null),

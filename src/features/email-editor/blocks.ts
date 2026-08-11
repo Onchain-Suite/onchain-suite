@@ -433,6 +433,58 @@ export function footerComplianceIssues(footer?: EmailFooter): string[] {
   return issues;
 }
 
+/** All user-authored text across the document (block content + links + alt). */
+function documentTextCorpus(doc: EmailDocument): string {
+  const parts: string[] = [];
+  for (const node of Object.values(doc.blocks)) {
+    switch (node.type) {
+      case "Heading":
+      case "Text":
+        parts.push(node.data.props.text);
+        break;
+      case "Button":
+        parts.push(node.data.props.text, node.data.props.url);
+        break;
+      case "Image":
+        parts.push(node.data.props.alt, node.data.props.linkHref ?? "");
+        break;
+      case "Html":
+        parts.push(node.data.props.contents);
+        break;
+      default:
+        break;
+    }
+  }
+  return parts.join(" ").toLowerCase();
+}
+
+/**
+ * True when the email body already carries its own unsubscribe mechanism (an
+ * imported footer, an unsubscribe link, or the merge tag) - so the builder's
+ * compliance footer is redundant and may be turned off without losing
+ * compliance.
+ */
+export function documentHasOwnFooter(doc: EmailDocument): boolean {
+  const corpus = documentTextCorpus(doc);
+  return (
+    corpus.includes("unsubscribe") ||
+    corpus.includes("{{ unsubscribe") ||
+    corpus.includes("preference_center_url")
+  );
+}
+
+/**
+ * Compliance gate for the whole document. An email may never send without an
+ * unsubscribe footer - either the builder's (which must also identify the
+ * sender + give a postal address) OR the sender's own footer detected in the
+ * body. Empty array == may send.
+ */
+export function documentComplianceIssues(doc: EmailDocument): string[] {
+  if (doc.footer?.enabled) return footerComplianceIssues(doc.footer);
+  if (documentHasOwnFooter(doc)) return [];
+  return ["Add an unsubscribe footer, or turn the compliance footer back on"];
+}
+
 /* --------------------------------------------------------------- id + new */
 
 let idCounter = 0;
@@ -1095,7 +1147,17 @@ export function parseHtmlToDocument(html: string): EmailDocument {
     if (backdropColor) layout.data.backdropColor = backdropColor;
     if (canvasColor) layout.data.canvasColor = canvasColor;
     blocks.root = layout;
-    return { version: 2, root: "root", blocks, footer: { ...DEFAULT_FOOTER } };
+    const doc: EmailDocument = {
+      version: 2,
+      root: "root",
+      blocks,
+      footer: { ...DEFAULT_FOOTER },
+    };
+    // If the imported HTML already has its own unsubscribe footer, don't stack
+    // the builder's on top - turn it off so there's a single footer (the user
+    // can re-enable it in Styles).
+    if (documentHasOwnFooter(doc)) doc.footer.enabled = false;
+    return doc;
   };
 
   if (typeof DOMParser === "undefined") {

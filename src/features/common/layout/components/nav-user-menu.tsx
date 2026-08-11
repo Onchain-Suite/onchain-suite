@@ -84,6 +84,12 @@ export function NavUserMenu({
   const orgName = showName && isMounted ? activeOrg?.name : undefined;
   const workspaceName = orgName ?? "Workspace";
 
+  // `showName` is derived from client-only org state, so gating the name block's
+  // *presence* on it directly makes the server and first client render disagree
+  // (hydration mismatch). Keep the block mounted until we're client-side, then
+  // honor showName - so the initial DOM is identical on both sides.
+  const showNameBlock = !isMounted || showName;
+
   return (
     <SidebarMenu className="group-data-[collapsible=icon]:items-center">
       <SidebarMenuItem>
@@ -111,7 +117,7 @@ export function NavUserMenu({
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              {showName ? (
+              {showNameBlock ? (
                 <div className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="truncate text-sm font-semibold">
                     {displayName}

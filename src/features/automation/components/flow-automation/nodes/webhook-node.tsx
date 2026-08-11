@@ -13,10 +13,10 @@ export const WebhookNode = ({ data, selected }: WebhookNodeProps) => {
   const needsSetup = !data.url;
   return (
     <div
-      className={`relative w-[260px] rounded-lg border bg-card p-3 shadow-sm transition-all ${
+      className={`relative w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${
         selected
-          ? "border-amber-500/60 shadow-amber-500/10 ring-2 ring-amber-500/25"
-          : "border-border hover:border-amber-500/40 hover:shadow-lg"
+          ? "border-primary shadow-lg ring-2 ring-primary/30"
+          : "border-border hover:border-primary/40 hover:shadow-lg"
       }`}
     >
       {needsSetup ? (
@@ -43,7 +43,7 @@ export const WebhookNode = ({ data, selected }: WebhookNodeProps) => {
           />
         </div>
         <div className="flex-1">
-          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-amber-600 dark:text-amber-400">
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Webhook
           </p>
           <p className="text-sm font-semibold tracking-tight text-foreground">

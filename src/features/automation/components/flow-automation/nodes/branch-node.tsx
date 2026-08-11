@@ -14,10 +14,10 @@ interface BranchNodeProps {
 
 export const BranchNode = ({ data, selected }: BranchNodeProps) => (
   <div
-    className={`w-[260px] rounded-lg border bg-card p-3 shadow-sm transition-all ${
+    className={`w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${
       selected
-        ? "border-cyan-500/60 shadow-cyan-500/10 ring-2 ring-cyan-500/25"
-        : "border-border hover:border-cyan-500/40 hover:shadow-lg"
+        ? "border-primary shadow-lg ring-2 ring-primary/30"
+        : "border-border hover:border-primary/40 hover:shadow-lg"
     }`}
   >
     <Handle
@@ -47,7 +47,7 @@ export const BranchNode = ({ data, selected }: BranchNodeProps) => (
         />
       </div>
       <div className="flex-1">
-        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-400">
+        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Branch
         </p>
         <p className="text-sm font-semibold tracking-tight text-foreground">

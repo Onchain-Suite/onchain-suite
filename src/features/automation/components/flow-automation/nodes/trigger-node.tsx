@@ -20,10 +20,10 @@ export const TriggerNode = ({ data, selected }: TriggerNodeProps) => {
       : "Configured";
   return (
     <div
-      className={`relative w-[260px] rounded-lg border bg-card p-3 shadow-sm transition-all ${
+      className={`relative w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${
         selected
-          ? "border-sky-500/60 shadow-sky-500/10 ring-2 ring-sky-500/25"
-          : "border-border hover:border-sky-500/40 hover:shadow-md"
+          ? "border-primary shadow-lg ring-2 ring-primary/30"
+          : "border-border hover:border-primary/40 hover:shadow-md"
       }`}
     >
       {needsSetup ? (
@@ -35,17 +35,17 @@ export const TriggerNode = ({ data, selected }: TriggerNodeProps) => {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="h-2.5 w-2.5 border-2 border-sky-400 bg-background"
+        className="h-2.5 w-2.5 border-2 border-orange-400 bg-background"
       />
       <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-sky-500/20 bg-sky-500/10">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-orange-500/20 bg-orange-500/10">
           <BoltIcon
             aria-hidden="true"
-            className="h-4 w-4 text-sky-600 dark:text-sky-400"
+            className="h-4 w-4 text-orange-600 dark:text-orange-400"
           />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-sky-600 dark:text-sky-400">
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Trigger
           </p>
           <p className="truncate text-sm font-semibold tracking-tight text-foreground">

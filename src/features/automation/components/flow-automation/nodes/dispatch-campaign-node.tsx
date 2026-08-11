@@ -16,10 +16,10 @@ export const DispatchCampaignNode = ({
   const needsSetup = !data.campaignId;
   return (
     <div
-      className={`relative w-[260px] rounded-lg border bg-card p-3 shadow-sm transition-all ${
+      className={`relative w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${
         selected
-          ? "border-rose-500/60 shadow-rose-500/10 ring-2 ring-rose-500/25"
-          : "border-border hover:border-rose-500/40 hover:shadow-lg"
+          ? "border-primary shadow-lg ring-2 ring-primary/30"
+          : "border-border hover:border-primary/40 hover:shadow-lg"
       }`}
     >
       {needsSetup ? (
@@ -46,7 +46,7 @@ export const DispatchCampaignNode = ({
           />
         </div>
         <div className="flex-1">
-          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-rose-600 dark:text-rose-400">
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Dispatch Campaign
           </p>
           <p className="text-sm font-semibold tracking-tight text-foreground">

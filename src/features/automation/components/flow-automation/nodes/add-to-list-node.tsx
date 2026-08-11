@@ -19,10 +19,10 @@ export const AddToListNode = ({ data, selected }: AddToListNodeProps) => {
   const needsSetup = listName.length === 0;
   return (
     <div
-      className={`relative w-[260px] rounded-lg border bg-card p-3 shadow-sm transition-all ${
+      className={`relative w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${
         selected
-          ? "border-emerald-500/60 shadow-emerald-500/10 ring-2 ring-emerald-500/25"
-          : "border-border hover:border-emerald-500/40 hover:shadow-lg"
+          ? "border-primary shadow-lg ring-2 ring-primary/30"
+          : "border-border hover:border-primary/40 hover:shadow-lg"
       }`}
     >
       {needsSetup ? (
@@ -49,7 +49,7 @@ export const AddToListNode = ({ data, selected }: AddToListNodeProps) => {
           />
         </div>
         <div className="flex-1">
-          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Add to List
           </p>
           <p className="text-sm font-semibold tracking-tight text-foreground">

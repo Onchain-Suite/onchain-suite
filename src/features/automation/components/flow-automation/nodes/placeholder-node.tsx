@@ -12,7 +12,7 @@ export const PlaceholderNode = ({
   data,
   selected: _selected,
 }: PlaceholderNodeProps) => (
-  <div className="w-[260px] rounded-2xl border border-dashed border-border bg-muted/40 p-3 transition-colors hover:border-primary/40 hover:bg-muted/60">
+  <div className="w-[360px] rounded-2xl border border-dashed border-border bg-muted/40 p-3 transition-colors hover:border-primary/40 hover:bg-muted/60">
     <Handle
       type="target"
       position={Position.Top}

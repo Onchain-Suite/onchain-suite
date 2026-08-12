@@ -61,7 +61,7 @@ export function FormSummary({
   const tpl = getTemplate(template);
 
   return (
-    <aside className="w-full rounded-2xl border border-border bg-card p-5">
+    <aside className="w-full self-start rounded-2xl border border-border bg-card p-5">
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
         <ClipboardDocumentListIcon
           className="size-4 text-primary"

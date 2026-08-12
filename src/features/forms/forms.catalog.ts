@@ -1,4 +1,11 @@
-import type { CaptureFieldSpec, CaptureFieldType } from "./forms.service";
+import type {
+  CaptureFieldSpec,
+  CaptureFieldType,
+  FormBg,
+  FormButton,
+  FormCompletion,
+  FormCorners,
+} from "./forms.service";
 
 /**
  * Catalog for the form create/build flow (style -> template -> content).
@@ -210,3 +217,34 @@ export const defaultFieldsForTemplate = (
 /** The submit button copy differs by capture type. */
 export const submitLabelForType = (type: FormCaptureType): string =>
   type === "identity" ? "Verify & join" : "Subscribe";
+
+// ---- Appearance option lists (Settings > Style) ----
+
+export const ACCENT_SWATCHES = ["#FF6828", "#111827", "#2563EB", "#16A34A"];
+
+export const BG_OPTIONS: [FormBg, string][] = [
+  ["surface", "Light"],
+  ["tint", "Tint"],
+  ["dark", "Dark"],
+];
+
+export const CORNER_OPTIONS: [FormCorners, string][] = [
+  ["sharp", "Sharp"],
+  ["md", "Rounded"],
+  ["pill", "Pill"],
+];
+
+export const BUTTON_OPTIONS: [FormButton, string][] = [
+  ["solid", "Solid"],
+  ["outline", "Outline"],
+];
+
+export const COMPLETION_OPTIONS: [FormCompletion, string][] = [
+  ["message", "Show a message"],
+  ["redirect", "Redirect to a URL"],
+  ["reveal", "Reveal eligibility result"],
+];
+
+/** Card / input border-radius for each corner setting (px). */
+export const radiusForCorners = (corners: FormCorners): number =>
+  corners === "sharp" ? 4 : corners === "pill" ? 22 : 14;

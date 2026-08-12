@@ -9,8 +9,12 @@ import {
 import { cn } from "@/lib/utils";
 
 import { type FormStyleId, type FormSurface, getStyle } from "../forms.catalog";
-import type { CaptureFieldSpec, FormDisplaySettings } from "../forms.service";
-import { FormRenderer } from "./form-renderer";
+import type {
+  CaptureFieldSpec,
+  FormAppearance,
+  FormDisplaySettings,
+} from "../forms.service";
+import { FormRenderer, type FormRendererEditing } from "./form-renderer";
 
 /** Faint page content the widget sits on top of, so positioning reads clearly. */
 const MOCK_BARS = [
@@ -45,12 +49,15 @@ interface StageProps {
   name: string;
   fields: CaptureFieldSpec[];
   display: Required<FormDisplaySettings>;
+  appearance: FormAppearance;
+  submitLabel?: string;
   zkEnabled: boolean;
   style: FormStyleId;
   surface: FormSurface;
   device: "desktop" | "mobile";
   onDevice: (d: "desktop" | "mobile") => void;
   onEditStyle: () => void;
+  editing?: FormRendererEditing;
   hostedUrl: string;
 }
 
@@ -63,12 +70,15 @@ export function FormPreviewStage({
   name,
   fields,
   display,
+  appearance,
+  submitLabel,
   zkEnabled,
   style,
   surface,
   device,
   onDevice,
   onEditStyle,
+  editing,
   hostedUrl,
 }: StageProps) {
   const hosted = surface === "hosted";
@@ -77,7 +87,10 @@ export function FormPreviewStage({
       name={name}
       fields={fields}
       displayOverride={display}
+      appearance={appearance}
+      submitLabel={submitLabel}
       zkEnabled={zkEnabled}
+      editing={editing}
       device={device}
       className={
         style === "hellobar" ? "max-w-none rounded-none border-x-0" : undefined

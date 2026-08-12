@@ -9,6 +9,7 @@ import {
   EnvelopeIcon,
   InformationCircleIcon,
   PauseIcon,
+  PencilIcon,
   PlayIcon,
   QrCodeIcon,
   ShieldCheckIcon,
@@ -178,6 +179,7 @@ export function FormBuilder({ id }: { id: string }) {
   const [buildTab, setBuildTab] = useState<BuildTab>("fields");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
 
   // Staged edits, seeded from the loaded form.
   const [name, setName] = useState("");
@@ -354,9 +356,33 @@ export function FormBuilder({ id }: { id: string }) {
             Forms
           </Link>
           <span className="text-border">|</span>
-          <span className="truncate text-sm font-semibold text-foreground">
-            {name || "Untitled form"}
-          </span>
+          {renaming ? (
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={() => setRenaming(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === "Escape") setRenaming(false);
+              }}
+              aria-label="Form name"
+              placeholder="Untitled form"
+              className="min-w-0 max-w-[240px] rounded border border-border bg-background px-1.5 py-0.5 text-sm font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setRenaming(true)}
+              title="Rename form"
+              className="group flex min-w-0 items-center gap-1.5 text-sm font-semibold text-foreground"
+            >
+              <span className="truncate">{name || "Untitled form"}</span>
+              <PencilIcon
+                className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                aria-hidden="true"
+              />
+            </button>
+          )}
           <span
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
@@ -441,7 +467,7 @@ export function FormBuilder({ id }: { id: string }) {
                 ))}
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto p-4">
                 {buildTab === "fields" ? (
                   <FieldsPanel
                     captureType={meta.type}
@@ -483,7 +509,7 @@ export function FormBuilder({ id }: { id: string }) {
             </aside>
 
             {/* Preview canvas */}
-            <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30 p-6">
+            <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto bg-muted/30 p-6">
               <FormPreviewStage
                 name={name}
                 fields={fields}
@@ -523,7 +549,7 @@ export function FormBuilder({ id }: { id: string }) {
             </div>
           </>
         ) : tab === "submissions" ? (
-          <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto p-6">
             <div className="mx-auto max-w-5xl">
               <SubmissionsTab
                 formId={id}
@@ -532,13 +558,15 @@ export function FormBuilder({ id }: { id: string }) {
             </div>
           </div>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto p-6">
-            <ShareTab
-              surface={meta.surface}
-              publicUrl={publicUrl}
-              embedCode={form.embedCode}
-              submitUrl={form.submitUrl}
-            />
+          <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto p-6">
+            <div className="mx-auto max-w-5xl">
+              <ShareTab
+                surface={meta.surface}
+                publicUrl={publicUrl}
+                embedCode={form.embedCode}
+                submitUrl={form.submitUrl}
+              />
+            </div>
           </div>
         )}
       </div>

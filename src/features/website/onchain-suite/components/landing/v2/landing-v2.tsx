@@ -978,6 +978,7 @@ function FeatureSplit({
   points,
   visual,
   flip,
+  docsHref,
 }: {
   id: string;
   eyebrow: string;
@@ -986,6 +987,8 @@ function FeatureSplit({
   points: string[];
   visual: React.ReactNode;
   flip?: boolean;
+  /** Docs section the "Learn more" link points to (defaults to the docs home). */
+  docsHref?: string;
 }) {
   const gate = useAnimGate();
   return (
@@ -1022,7 +1025,7 @@ function FeatureSplit({
             ))}
           </ul>
           <a
-            href={DOCS_URL}
+            href={docsHref ?? DOCS_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-7 inline-flex items-center gap-1.5 text-[14px] font-semibold t-acc"
@@ -1278,7 +1281,7 @@ function Developer() {
             or modal. No extra identifier needed.
           </p>
           <a
-            href={DOCS_URL}
+            href={`${DOCS_URL}/api/overview`}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-6 inline-flex items-center gap-1.5 text-[14px] font-semibold t-acc"
@@ -1665,6 +1668,7 @@ export function LandingV2() {
       <FeatureSplit
         id="automations"
         eyebrow="Automations"
+        docsHref={`${DOCS_URL}/automation/overview`}
         title={
           <>
             Automations that fire on{" "}
@@ -1687,6 +1691,7 @@ export function LandingV2() {
         id="intelligence"
         eyebrow="Intelligence · MCP"
         flip
+        docsHref={`${DOCS_URL}/intelligence/overview`}
         title={
           <>
             Ask your on-chain data <span className="grad">anything.</span>

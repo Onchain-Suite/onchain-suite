@@ -9,7 +9,6 @@
  * The folder name here must stay in sync with `routes.api` in payload.config.ts.
  */
 import config from "@payload-config";
-import "@payloadcms/next/css";
 import {
   REST_DELETE,
   REST_GET,
@@ -18,6 +17,8 @@ import {
   REST_POST,
   REST_PUT,
 } from "@payloadcms/next/routes";
+
+import "@payloadcms/next/css";
 
 export const GET = REST_GET(config);
 export const POST = REST_POST(config);

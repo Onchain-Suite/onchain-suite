@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { fadeInUp } from "../../utils";
 import InvoiceHistory from "./invoice-history";
 import PlanUsage from "./plan-usage";
-import UsageRates from "./usage-rates";
 
 export default function BillingSettings() {
   return (
@@ -20,8 +19,6 @@ export default function BillingSettings() {
       {/* Payment methods are intentionally not shown - payments run through
           the Blockradar crypto checkout, so there is nothing to save here. */}
       <PlanUsage />
-
-      <UsageRates />
 
       <InvoiceHistory />
     </motion.div>

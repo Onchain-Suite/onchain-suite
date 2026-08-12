@@ -3,16 +3,17 @@
 import {
   ArrowLeftIcon,
   ArrowUpTrayIcon,
+  CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  ComputerDesktopIcon,
-  DevicePhoneMobileIcon,
   EnvelopeIcon,
+  InformationCircleIcon,
   PauseIcon,
   PlayIcon,
   PlusIcon,
   TrashIcon,
   WalletIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -35,15 +36,28 @@ import { cn } from "@/lib/utils";
 
 import { FORMS_FARCASTER_ENABLED } from "../config";
 import {
+  FORM_STYLES,
+  type FormCaptureType,
+  type FormStyleId,
+  type FormSurface,
+  surfaceForStyle,
+  timingApplies,
+} from "../forms.catalog";
+import {
   type CaptureFieldSpec,
   type CaptureFieldType,
   type FormDisplaySettings,
+  type FormMeta,
+  type FormTiming,
+  type FormTrigger,
   readDisplaySettings,
+  readFormMeta,
   writeDisplaySettings,
+  writeFormMeta,
 } from "../forms.service";
 import { useForm, useUpdateForm } from "../hooks/use-forms";
 import { EmbedSnippet } from "./embed-snippet";
-import { FormRenderer } from "./form-renderer";
+import { FormPreviewStage } from "./form-preview-stage";
 import { SubmissionsTab } from "./submissions-tab";
 
 type Tab = "build" | "submissions" | "share";
@@ -114,6 +128,7 @@ export function FormBuilder({ id }: { id: string }) {
   const [display, setDisplay] = useState<Required<FormDisplaySettings>>(
     readDisplaySettings(undefined)
   );
+  const [meta, setMeta] = useState<FormMeta>(readFormMeta(undefined));
 
   useEffect(() => {
     if (!form) return;
@@ -124,6 +139,7 @@ export function FormBuilder({ id }: { id: string }) {
     setZk(form.zkEnabled);
     setFields(form.fields.length > 0 ? form.fields : []);
     setDisplay(readDisplaySettings(form.settings));
+    setMeta(readFormMeta(form.settings));
   }, [form]);
 
   const buildInput = () => ({
@@ -136,7 +152,10 @@ export function FormBuilder({ id }: { id: string }) {
       .split(",")
       .map((o) => o.trim())
       .filter(Boolean),
-    settings: writeDisplaySettings(form?.settings, display),
+    settings: writeFormMeta(
+      writeDisplaySettings(form?.settings, display),
+      meta
+    ),
   });
 
   const save = () => {
@@ -331,7 +350,12 @@ export function FormBuilder({ id }: { id: string }) {
             ) : null}
 
             {buildTab === "display" ? (
-              <DisplayPanel display={display} onChange={setDisplay} />
+              <DisplayPanel
+                display={display}
+                onChange={setDisplay}
+                meta={meta}
+                onTiming={(timing) => setMeta((m) => ({ ...m, timing }))}
+              />
             ) : null}
 
             {buildTab === "settings" ? (
@@ -341,58 +365,47 @@ export function FormBuilder({ id }: { id: string }) {
                 status={status}
                 origins={origins}
                 zk={zk}
+                meta={meta}
+                fields={fields}
                 onName={setName}
                 onTag={setTag}
                 onStatus={setStatus}
                 onOrigins={setOrigins}
                 onZk={setZk}
+                onMeta={setMeta}
               />
             ) : null}
           </div>
 
           {/* Preview */}
           <div className="rounded-2xl border border-border bg-muted/20 p-6">
-            <div className="mb-4 flex items-center justify-center gap-1 rounded-lg border border-border bg-background p-0.5 w-fit mx-auto">
-              {(
-                [
-                  {
-                    key: "desktop",
-                    label: "Desktop",
-                    Icon: ComputerDesktopIcon,
-                  },
-                  {
-                    key: "mobile",
-                    label: "Mobile",
-                    Icon: DevicePhoneMobileIcon,
-                  },
-                ] as const
-              ).map(({ key, label, Icon }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setDevice(key)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                    device === key
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Icon className="size-4" aria-hidden="true" />
-                  {label}
-                </button>
-              ))}
-            </div>
-            <FormRenderer
+            <FormPreviewStage
               name={name}
               fields={fields}
-              displayOverride={display}
+              display={display}
               zkEnabled={zk}
+              style={meta.style}
+              surface={meta.surface}
               device={device}
+              onDevice={setDevice}
+              onEditStyle={() => setBuildTab("settings")}
+              hostedUrl={publicUrl.replace(/^https?:\/\//, "")}
             />
             <p className="mx-auto mt-4 max-w-md text-center text-xs text-muted-foreground">
-              Live preview of the hosted form at{" "}
-              <span className="font-mono">/f/{form.publicToken}</span>
+              {meta.surface === "hosted" ? (
+                <>
+                  Live preview of the hosted page at{" "}
+                  <span className="font-mono">/f/{form.publicToken}</span>
+                </>
+              ) : (
+                <>
+                  Live preview of the{" "}
+                  {FORM_STYLES.find(
+                    (s) => s.id === meta.style
+                  )?.name.toLowerCase()}{" "}
+                  widget
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -410,7 +423,11 @@ export function FormBuilder({ id }: { id: string }) {
       {tab === "share" ? (
         <div className="flex-1 space-y-6 pt-6">
           <div className="space-y-2">
-            <Label>Public form link</Label>
+            <Label>
+              {meta.surface === "hosted"
+                ? "Hosted page link"
+                : "Public form link"}
+            </Label>
             <div className="flex gap-2">
               <Input readOnly value={publicUrl} className="font-mono text-sm" />
               <Button
@@ -432,10 +449,17 @@ export function FormBuilder({ id }: { id: string }) {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Share this link or embed the snippet below on your site.
+              {meta.surface === "hosted"
+                ? "Send visitors straight to this page - we host it, no site changes needed."
+                : "Share this link, or embed the snippet below on your site."}
             </p>
           </div>
-          <EmbedSnippet embedCode={form.embedCode} submitUrl={form.submitUrl} />
+          {meta.surface === "hosted" ? null : (
+            <EmbedSnippet
+              embedCode={form.embedCode}
+              submitUrl={form.submitUrl}
+            />
+          )}
         </div>
       ) : null}
     </div>
@@ -564,17 +588,150 @@ function FieldsPanel({
   );
 }
 
+const PAGE_OPTIONS = [
+  "All pages",
+  "Homepage only",
+  "Specific paths…",
+  "Everywhere except checkout",
+];
+const FREQ_OPTIONS = [
+  "Once per visitor",
+  "Once per session",
+  "Every visit",
+  "Until submitted",
+];
+const TRIGGER_OPTIONS: { value: FormTrigger; label: string }[] = [
+  { value: "load", label: "On page load" },
+  { value: "delay", label: "After a delay" },
+  { value: "scroll", label: "On scroll depth" },
+  { value: "exit", label: "On exit intent" },
+];
+
+function TimingPanel({
+  meta,
+  onTiming,
+}: {
+  meta: FormMeta;
+  onTiming: (t: FormTiming) => void;
+}) {
+  const t = meta.timing;
+  const set = (patch: Partial<FormTiming>) => onTiming({ ...t, ...patch });
+  const applies = timingApplies(meta.style, meta.surface);
+
+  return (
+    <div className="space-y-3">
+      <Field label="Where it shows">
+        <Select
+          value={t.pages}
+          onValueChange={(v) => set({ pages: v })}
+          disabled={meta.surface === "hosted"}
+        >
+          <SelectTrigger className="h-9" aria-label="Where it shows">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PAGE_OPTIONS.map((p) => (
+              <SelectItem key={p} value={p}>
+                {p}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+        <InformationCircleIcon
+          className="mt-0.5 size-3.5 shrink-0"
+          aria-hidden="true"
+        />
+        {meta.surface === "hosted"
+          ? "Hosted pages open from their own link - timing rules below don't apply."
+          : "Inline forms show in place - timing rules apply to overlays (Pop-up, Slide-in, Hello bar)."}
+      </p>
+
+      {applies ? (
+        <>
+          <Field label="When it appears">
+            <Select
+              value={t.trigger}
+              onValueChange={(v) => set({ trigger: v as FormTrigger })}
+            >
+              <SelectTrigger className="h-9" aria-label="When it appears">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TRIGGER_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          {t.trigger === "delay" ? (
+            <Field label="Delay (seconds)">
+              <Input
+                type="number"
+                min={0}
+                value={t.delay}
+                onChange={(e) => set({ delay: Number(e.target.value) })}
+                className="h-9"
+              />
+            </Field>
+          ) : null}
+          {t.trigger === "scroll" ? (
+            <Field label="Scroll depth (%)">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={t.scroll}
+                onChange={(e) => set({ scroll: Number(e.target.value) })}
+                className="h-9"
+              />
+            </Field>
+          ) : null}
+          <Field label="Frequency">
+            <Select value={t.freq} onValueChange={(v) => set({ freq: v })}>
+              <SelectTrigger className="h-9" aria-label="Frequency">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FREQ_OPTIONS.map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {f}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 function DisplayPanel({
   display,
   onChange,
+  meta,
+  onTiming,
 }: {
   display: Required<FormDisplaySettings>;
   onChange: (next: Required<FormDisplaySettings>) => void;
+  meta: FormMeta;
+  onTiming: (t: FormTiming) => void;
 }) {
   const set = (patch: Partial<FormDisplaySettings>) =>
     onChange({ ...display, ...patch });
   return (
     <div className="space-y-3">
+      <TimingPanel meta={meta} onTiming={onTiming} />
+      <div className="border-t border-border pt-3">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Appearance
+        </p>
+      </div>
       <Field label="Brand name">
         <Input
           value={display.brandName}
@@ -656,25 +813,144 @@ function SettingsPanel({
   status,
   origins,
   zk,
+  meta,
+  fields,
   onName,
   onTag,
   onStatus,
   onOrigins,
   onZk,
+  onMeta,
 }: {
   name: string;
   tag: string;
   status: string;
   origins: string;
   zk: boolean;
+  meta: FormMeta;
+  fields: CaptureFieldSpec[];
   onName: (v: string) => void;
   onTag: (v: string) => void;
   onStatus: (v: string) => void;
   onOrigins: (v: string) => void;
   onZk: (v: boolean) => void;
+  onMeta: (updater: (m: FormMeta) => FormMeta) => void;
 }) {
+  const emailReachable = fields.some((f) => (f.type ?? "text") === "email");
+  const pushReachable = fields.some((f) => (f.type ?? "text") === "wallet");
+  const widgetStyles = FORM_STYLES.filter((s) => s.surface === "widget");
+
+  const setSurface = (surface: FormSurface) =>
+    onMeta((m) => {
+      const style: FormStyleId =
+        surface === "hosted"
+          ? "hosted"
+          : m.style === "hosted"
+            ? "inline"
+            : m.style;
+      return { ...m, surface, style };
+    });
+  const setStyle = (style: FormStyleId) =>
+    onMeta((m) => ({ ...m, style, surface: surfaceForStyle(style) }));
+  const setType = (type: FormCaptureType) => onMeta((m) => ({ ...m, type }));
+
   return (
     <div className="space-y-3">
+      <div className="space-y-3 rounded-lg border border-border p-3">
+        <Field label="Form type">
+          <Select
+            value={meta.type}
+            onValueChange={(v) => setType(v as FormCaptureType)}
+          >
+            <SelectTrigger className="h-9" aria-label="Form type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="identity">
+                Identity capture - wallet + verified link
+              </SelectItem>
+              <SelectItem value="lead">
+                Lead capture - email, wallet optional
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Surface</Label>
+          <div className="grid grid-cols-2 gap-1 rounded-lg border border-border p-0.5">
+            {(
+              [
+                ["widget", "Embed widget"],
+                ["hosted", "Hosted page"],
+              ] as const
+            ).map(([s, label]) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSurface(s)}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                  meta.surface === s
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {meta.surface === "widget" ? (
+          <Field label="Widget style">
+            <Select
+              value={meta.style}
+              onValueChange={(v) => setStyle(v as FormStyleId)}
+            >
+              <SelectTrigger className="h-9" aria-label="Widget style">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {widgetStyles.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        ) : null}
+        <div className="space-y-1 rounded-md bg-muted/40 p-2.5 text-xs">
+          <p className="font-medium text-foreground">
+            This form makes contacts
+          </p>
+          <p
+            className={cn(
+              "flex items-center gap-1.5",
+              emailReachable ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            {emailReachable ? (
+              <CheckIcon className="size-3.5" aria-hidden="true" />
+            ) : (
+              <XMarkIcon className="size-3.5" aria-hidden="true" />
+            )}
+            Email-reachable{emailReachable ? "" : " - add an Email field"}
+          </p>
+          <p
+            className={cn(
+              "flex items-center gap-1.5",
+              pushReachable ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            {pushReachable ? (
+              <CheckIcon className="size-3.5" aria-hidden="true" />
+            ) : (
+              <XMarkIcon className="size-3.5" aria-hidden="true" />
+            )}
+            Push-reachable{pushReachable ? "" : " - add Connect wallet"}
+          </p>
+        </div>
+      </div>
       <Field label="Form name">
         <Input
           value={name}

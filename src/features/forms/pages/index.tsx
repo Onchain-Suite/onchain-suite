@@ -8,7 +8,6 @@ import { Button } from "@/ui/button";
 import { Card, CardContent } from "@/ui/card";
 import { Skeleton } from "@/ui/skeleton";
 
-import { CreateFormDialog } from "../components/create-form-dialog";
 import { FormCard } from "../components/form-card";
 import { FormStats } from "../components/form-stats";
 import { FormsTable } from "../components/forms-table";
@@ -17,8 +16,9 @@ import {
   FormsToolbar,
   type FormsViewMode,
 } from "../components/forms-toolbar";
+import { FormWizard } from "../components/wizard/form-wizard";
 import type { CaptureForm } from "../forms.service";
-import { useCreateForm, useFormsList } from "../hooks/use-forms";
+import { useFormsList } from "../hooks/use-forms";
 import { PageHeader } from "@/shared/components/page/page-header";
 
 /**
@@ -47,11 +47,6 @@ export function FormsPage() {
       );
     });
   }, [forms, search, status]);
-
-  const createMutation = useCreateForm((form) => {
-    setCreateOpen(false);
-    router.push(`/forms/${form.id}`);
-  });
 
   const openForm = useCallback(
     (form: CaptureForm) => router.push(`/forms/${form.id}`),
@@ -101,12 +96,7 @@ export function FormsPage() {
         <FormsTable forms={filteredForms} onOpen={openForm} />
       )}
 
-      <CreateFormDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        submitting={createMutation.isPending}
-        onCreate={(input) => createMutation.mutate(input)}
-      />
+      {createOpen ? <FormWizard onClose={() => setCreateOpen(false)} /> : null}
     </div>
   );
 }

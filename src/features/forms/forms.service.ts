@@ -3,6 +3,13 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import type {
+  FormCaptureType,
+  FormStyleId,
+  FormSurface,
+  FormTemplateId,
+} from "./forms.catalog";
+
 /**
  * Field kinds a capture form can collect. Wallet-first: `wallet` is the
  * identity (Connect wallet), the rest are optional channel handles / inputs.
@@ -256,4 +263,117 @@ export function writeDisplaySettings(
   display: FormDisplaySettings
 ): Record<string, unknown> {
   return { ...(settings ?? {}), display: { ...display } };
+}
+
+/** When an overlay/hosted form appears (widget timing rules). */
+export type FormTrigger = "load" | "delay" | "scroll" | "exit";
+
+export interface FormTiming {
+  /** Where the widget shows, e.g. "All pages" / "Homepage only". */
+  pages: string;
+  trigger: FormTrigger;
+  /** Seconds, for the `delay` trigger. */
+  delay: number;
+  /** Percent, for the `scroll` trigger. */
+  scroll: number;
+  /** Frequency cap, e.g. "Once per visitor". */
+  freq: string;
+}
+
+/**
+ * Style/template/surface + behaviour that isn't a first-class backend field.
+ * Stored under `settings.meta`; the backend round-trips it untouched.
+ */
+export interface FormMeta {
+  style: FormStyleId;
+  template: FormTemplateId | null;
+  type: FormCaptureType;
+  surface: FormSurface;
+  timing: FormTiming;
+}
+
+export const DEFAULT_TIMING: FormTiming = {
+  pages: "All pages",
+  trigger: "load",
+  delay: 5,
+  scroll: 50,
+  freq: "Once per visitor",
+};
+
+export const DEFAULT_META: FormMeta = {
+  style: "inline",
+  template: null,
+  type: "identity",
+  surface: "widget",
+  timing: { ...DEFAULT_TIMING },
+};
+
+const STYLE_IDS = new Set<FormStyleId>([
+  "inline",
+  "popup",
+  "hellobar",
+  "slidein",
+  "hosted",
+]);
+const TEMPLATE_IDS = new Set<FormTemplateId>([
+  "basic",
+  "waitlist",
+  "connect",
+  "airdrop",
+  "newsletter",
+]);
+const TRIGGERS = new Set<FormTrigger>(["load", "delay", "scroll", "exit"]);
+
+/** Read form meta out of `form.settings.meta`, filling defaults. */
+export function readFormMeta(
+  settings: Record<string, unknown> | undefined
+): FormMeta {
+  const meta = settings && isJsonObject(settings.meta) ? settings.meta : {};
+  const style = STYLE_IDS.has(meta.style as FormStyleId)
+    ? (meta.style as FormStyleId)
+    : DEFAULT_META.style;
+  const surface: FormSurface =
+    meta.surface === "hosted" || meta.surface === "widget"
+      ? meta.surface
+      : style === "hosted"
+        ? "hosted"
+        : "widget";
+  const rawTiming = isJsonObject(meta.timing) ? meta.timing : {};
+  return {
+    style,
+    template: TEMPLATE_IDS.has(meta.template as FormTemplateId)
+      ? (meta.template as FormTemplateId)
+      : null,
+    type: meta.type === "lead" ? "lead" : "identity",
+    surface,
+    timing: {
+      pages:
+        typeof rawTiming.pages === "string"
+          ? rawTiming.pages
+          : DEFAULT_TIMING.pages,
+      trigger: TRIGGERS.has(rawTiming.trigger as FormTrigger)
+        ? (rawTiming.trigger as FormTrigger)
+        : DEFAULT_TIMING.trigger,
+      delay:
+        typeof rawTiming.delay === "number"
+          ? rawTiming.delay
+          : DEFAULT_TIMING.delay,
+      scroll:
+        typeof rawTiming.scroll === "number"
+          ? rawTiming.scroll
+          : DEFAULT_TIMING.scroll,
+      freq:
+        typeof rawTiming.freq === "string"
+          ? rawTiming.freq
+          : DEFAULT_TIMING.freq,
+    },
+  };
+}
+
+/** Merge edited form meta back into the opaque settings blob. */
+export function writeFormMeta(
+  settings: Record<string, unknown> | undefined,
+  meta: FormMeta
+): Record<string, unknown> {
+  return { ...(settings ?? {}), meta: { ...meta, timing: { ...meta.timing } } };
 }

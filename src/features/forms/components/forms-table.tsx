@@ -1,25 +1,14 @@
 "use client";
 
-import { ClipboardIcon, LockClosedIcon } from "@heroicons/react/24/outline";
-import { formatDistanceToNow } from "date-fns";
-import { memo } from "react";
-import { toast } from "sonner";
+import { BoltIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { memo, useMemo } from "react";
 
-import { Badge } from "@/ui/badge";
-import { Button } from "@/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/ui/table";
+import { cn } from "@/lib/utils";
 
-import type { CaptureForm } from "../forms.service";
-import { statusBadgeVariant } from "./form-card";
+import { type CaptureForm, readFormMeta } from "../forms.service";
 
-/** Compact list view of forms; rows open the detail sheet. */
+/** The forms list table - mirrors the reference: type, surface, submissions,
+ *  conversion, the automation it enrols into, and status. Rows open the builder. */
 export const FormsTable = memo(function FormsTable({
   forms,
   onOpen,
@@ -27,95 +16,103 @@ export const FormsTable = memo(function FormsTable({
   forms: CaptureForm[];
   onOpen: (form: CaptureForm) => void;
 }) {
+  const rows = useMemo(
+    () =>
+      forms.map((form) => {
+        const meta = readFormMeta(form.settings);
+        return {
+          form,
+          type: meta.type === "identity" ? "Identity capture" : "Lead capture",
+          surface: meta.surface === "hosted" ? "Hosted" : "Widget",
+          enrolsInto: meta.afterSubmit.enrolAutomation
+            ? meta.afterSubmit.automationName
+            : null,
+        };
+      }),
+    [forms]
+  );
+
   return (
-    <div className="overflow-hidden rounded-lg border border-border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Submissions</TableHead>
-            <TableHead className="hidden md:table-cell">
-              Last submission
-            </TableHead>
-            <TableHead className="hidden sm:table-cell">Security</TableHead>
-            <TableHead className="w-[90px]" aria-label="Actions" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {forms.map((form) => (
-            <TableRow
-              key={form.id}
-              onClick={() => onOpen(form)}
-              className="cursor-pointer"
-            >
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-foreground">
-                    {form.name}
+    <div className="overflow-hidden rounded-2xl border border-border/60">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border/60 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <th className="px-5 py-3 font-medium">Form</th>
+            <th className="px-4 py-3 font-medium">Type</th>
+            <th className="px-4 py-3 font-medium">Surface</th>
+            <th className="px-4 py-3 text-right font-medium">Submissions</th>
+            <th className="px-4 py-3 font-medium">Conversion</th>
+            <th className="px-4 py-3 font-medium">Enrols into</th>
+            <th className="px-4 py-3 font-medium">Status</th>
+            <th className="w-10 px-4 py-3" aria-label="Open" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ form, type, surface, enrolsInto }) => {
+            const live = form.status === "active";
+            return (
+              <tr
+                key={form.id}
+                onClick={() => onOpen(form)}
+                className="group cursor-pointer border-b border-border/40 transition-colors last:border-0 hover:bg-muted/40"
+              >
+                <td className="px-5 py-3.5 font-medium text-foreground">
+                  {form.name}
+                </td>
+                <td className="px-4 py-3.5 text-muted-foreground">{type}</td>
+                <td className="px-4 py-3.5">
+                  <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    {surface}
                   </span>
-                  {form.tag ? (
-                    <Badge variant="secondary" className="text-[10px]">
-                      {form.tag}
-                    </Badge>
-                  ) : null}
-                </div>
-              </TableCell>
-              <TableCell>
-                <Badge variant={statusBadgeVariant(form.status)}>
-                  {form.status}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {form.submissionCount.toLocaleString()}
-              </TableCell>
-              <TableCell className="hidden text-muted-foreground md:table-cell">
-                {form.lastSubmissionAt
-                  ? formatDistanceToNow(new Date(form.lastSubmissionAt), {
-                      addSuffix: true,
-                    })
-                  : "-"}
-              </TableCell>
-              <TableCell className="hidden sm:table-cell">
-                <div className="flex gap-1">
-                  {form.zkEnabled ? (
-                    <Badge variant="outline" className="gap-1">
-                      <LockClosedIcon className="h-3 w-3" aria-hidden="true" />
-                      ZK
-                    </Badge>
+                </td>
+                <td className="px-4 py-3.5 text-right tabular-nums text-foreground">
+                  {form.submissionCount.toLocaleString()}
+                </td>
+                <td className="px-4 py-3.5">
+                  <span className="text-muted-foreground">—</span>
+                </td>
+                <td className="px-4 py-3.5">
+                  {enrolsInto ? (
+                    <span className="inline-flex items-center gap-1.5 text-foreground">
+                      <BoltIcon
+                        className="size-4 text-primary"
+                        aria-hidden="true"
+                      />
+                      {enrolsInto}
+                    </span>
                   ) : (
-                    <Badge variant="secondary">ZK off</Badge>
+                    <span className="text-muted-foreground">—</span>
                   )}
-                  {form.apiConnected ? (
-                    <Badge variant="outline">API</Badge>
-                  ) : null}
-                </div>
-              </TableCell>
-              <TableCell>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
-                  aria-label={`Copy embed code for ${form.name}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigator.clipboard
-                      .writeText(form.embedCode)
-                      .catch(() => undefined);
-                    toast.success("Embed code copied");
-                  }}
-                >
-                  <ClipboardIcon
-                    className="mr-1 h-3.5 w-3.5"
+                </td>
+                <td className="px-4 py-3.5">
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
+                      live
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "size-1.5 rounded-full",
+                        live ? "bg-emerald-500" : "bg-muted-foreground"
+                      )}
+                    />
+                    {live ? "Live" : "Draft"}
+                  </span>
+                </td>
+                <td className="px-4 py-3.5 text-right">
+                  <ChevronRightIcon
+                    className="ml-auto size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
                     aria-hidden="true"
                   />
-                  Embed
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 });

@@ -1,57 +1,60 @@
 "use client";
 
-import {
-  BoltIcon,
-  DocumentTextIcon,
-  InboxArrowDownIcon,
-  LockClosedIcon,
-} from "@heroicons/react/24/outline";
 import { useMemo } from "react";
-
-import { StatCard } from "@/ui/stat-card";
 
 import type { CaptureForm } from "../forms.service";
 
 /** Aggregate stats derived from the forms list - no extra fetches. */
 export function FormStats({ forms }: { forms: CaptureForm[] }) {
   const stats = useMemo(() => {
-    const total = forms.length;
-    const active = forms.filter((f) => f.status === "active").length;
-    const submissions = forms.reduce((sum, f) => sum + f.submissionCount, 0);
-    const zk = forms.filter((f) => f.zkEnabled).length;
-    return { total, active, submissions, zk };
+    const submissions = forms.reduce((s, f) => s + f.submissionCount, 0);
+    const live = forms.filter((f) => f.status === "active").length;
+    // "ZK-verified links": captures on ZK-enabled forms (verified wallet↔email).
+    const zkLinks = forms.reduce(
+      (s, f) => s + (f.zkEnabled ? f.submissionCount : 0),
+      0
+    );
+    // Avg conversion needs a views metric the API doesn't return yet -> "—".
+    return { submissions, live, zkLinks };
   }, [forms]);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <StatCard
-        title="Total forms"
-        value={stats.total}
-        icon={DocumentTextIcon}
-        variant="primary"
-        description={`${stats.active} active`}
-      />
-      <StatCard
-        title="Active"
-        value={stats.active}
-        icon={BoltIcon}
-        variant="teal"
-        description="Currently capturing"
-      />
-      <StatCard
-        title="Submissions"
+      <StatBox
+        label="Total submissions"
         value={stats.submissions.toLocaleString()}
-        icon={InboxArrowDownIcon}
-        variant="violet"
-        description="All-time captures"
       />
-      <StatCard
-        title="ZK-encrypted"
-        value={`${stats.zk}/${stats.total}`}
-        icon={LockClosedIcon}
-        variant="blue"
-        description="Emails encrypted at rest"
+      <StatBox label="Avg conversion" value="—" muted />
+      <StatBox
+        label="ZK-verified links"
+        value={stats.zkLinks.toLocaleString()}
       />
+      <StatBox label="Live forms" value={String(stats.live)} />
+    </div>
+  );
+}
+
+function StatBox({
+  label,
+  value,
+  muted,
+}: {
+  label: string;
+  value: string;
+  muted?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card/60 px-5 py-4">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p
+        className={
+          muted
+            ? "mt-1 text-3xl font-semibold text-muted-foreground"
+            : "mt-1 text-3xl font-semibold text-foreground"
+        }
+      >
+        {value}
+      </p>
     </div>
   );
 }

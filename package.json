@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "bun@1.3.14",
+  "//type": "Required by the PayloadCMS CLI: payload.config.ts pulls in @payloadcms/richtext-lexical, which is an ESM graph with top-level await, so it cannot be require()d. Safe here because the repo has no CJS .js files - every config is .mjs or .ts.",
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

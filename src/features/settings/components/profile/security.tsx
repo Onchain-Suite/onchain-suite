@@ -21,9 +21,9 @@ import SettingsSectionCard from "@/features/settings/components/settings-section
 import { Badge } from "@/shared/components/ui/badge";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
-// 2FA is disabled for now (product decision) - flip to true to restore the
-// enable/manage UI. The backend flows (/auth/two-factor/*) stay untouched.
-const TWO_FACTOR_ENABLED = false;
+// 2FA UI enabled to match the reference settings page: surfaces the 2FA status
+// row + enable/manage flow. The backend flows (/auth/two-factor/*) are unchanged.
+const TWO_FACTOR_ENABLED = true;
 
 const formatSecurityDate = (value?: string) => {
   if (!value) return null;

@@ -316,21 +316,25 @@ export function FormBuilder({ id }: { id: string }) {
 
   if (isLoading) {
     return (
-      <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
-        Loading form…
-      </div>
+      <Shell>
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+          Loading form…
+        </div>
+      </Shell>
     );
   }
   if (isError || !form) {
     return (
-      <div className="flex h-[60vh] flex-col items-center justify-center gap-3 text-center">
-        <p className="text-sm text-muted-foreground">
-          Couldn&apos;t load this form.
-        </p>
-        <Button asChild variant="outline">
-          <Link href="/forms">Back to forms</Link>
-        </Button>
-      </div>
+      <Shell>
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+          <p className="text-sm text-muted-foreground">
+            Couldn&apos;t load this form.
+          </p>
+          <Button asChild variant="outline">
+            <Link href="/forms">Back to forms</Link>
+          </Button>
+        </div>
+      </Shell>
     );
   }
 
@@ -338,9 +342,9 @@ export function FormBuilder({ id }: { id: string }) {
   const selectedField = fields.find((f) => f.key === selectedKey) ?? null;
 
   return (
-    <div className="flex min-h-[calc(100vh-2rem)] flex-col">
+    <Shell>
       {/* Header */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
         <div className="flex min-w-0 items-center gap-3">
           <Link
             href="/forms"
@@ -414,126 +418,140 @@ export function FormBuilder({ id }: { id: string }) {
         </div>
       </header>
 
-      {tab === "build" ? (
-        <div className="grid flex-1 grid-cols-1 gap-6 pt-6 lg:grid-cols-[320px_1fr]">
-          {/* Left config panel */}
-          <div className="space-y-4">
-            <div className="flex gap-4 border-b border-border">
-              {(["fields", "display", "settings"] as const).map((tt) => (
-                <button
-                  key={tt}
-                  type="button"
-                  onClick={() => setBuildTab(tt)}
-                  className={cn(
-                    "-mb-px border-b-2 pb-2.5 text-sm font-medium capitalize transition-colors",
-                    buildTab === tt
-                      ? "border-primary text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {tt}
-                </button>
-              ))}
-            </div>
+      <div className="flex min-h-0 flex-1">
+        {tab === "build" ? (
+          <>
+            {/* Left config panel */}
+            <aside className="flex w-80 shrink-0 flex-col border-r border-border">
+              <div className="flex gap-4 border-b border-border px-4">
+                {(["fields", "display", "settings"] as const).map((tt) => (
+                  <button
+                    key={tt}
+                    type="button"
+                    onClick={() => setBuildTab(tt)}
+                    className={cn(
+                      "-mb-px border-b-2 py-3 text-sm font-medium capitalize transition-colors",
+                      buildTab === tt
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {tt}
+                  </button>
+                ))}
+              </div>
 
-            {buildTab === "fields" ? (
-              <FieldsPanel
-                captureType={meta.type}
-                fields={fields}
-                selectedField={selectedField}
-                onAdd={addField}
-                onPatch={patchField}
-                onRemove={removeField}
-              />
-            ) : null}
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                {buildTab === "fields" ? (
+                  <FieldsPanel
+                    captureType={meta.type}
+                    fields={fields}
+                    selectedField={selectedField}
+                    onAdd={addField}
+                    onPatch={patchField}
+                    onRemove={removeField}
+                  />
+                ) : null}
 
-            {buildTab === "display" ? (
-              <TimingPanel
-                meta={meta}
-                onTiming={(timing) => setMeta((m) => ({ ...m, timing }))}
-              />
-            ) : null}
+                {buildTab === "display" ? (
+                  <TimingPanel
+                    meta={meta}
+                    onTiming={(timing) => setMeta((m) => ({ ...m, timing }))}
+                  />
+                ) : null}
 
-            {buildTab === "settings" ? (
-              <SettingsPanel
+                {buildTab === "settings" ? (
+                  <SettingsPanel
+                    name={name}
+                    tag={tag}
+                    origins={origins}
+                    listId={listId}
+                    lists={lists}
+                    automations={automations}
+                    display={display}
+                    meta={meta}
+                    fields={fields}
+                    onName={setName}
+                    onTag={setTag}
+                    onOrigins={setOrigins}
+                    onListId={setListId}
+                    onDisplay={setDisplay}
+                    onMeta={setMeta}
+                  />
+                ) : null}
+              </div>
+            </aside>
+
+            {/* Preview canvas */}
+            <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30 p-6">
+              <FormPreviewStage
                 name={name}
-                tag={tag}
-                origins={origins}
-                listId={listId}
-                lists={lists}
-                automations={automations}
-                display={display}
-                meta={meta}
                 fields={fields}
-                onName={setName}
-                onTag={setTag}
-                onOrigins={setOrigins}
-                onListId={setListId}
-                onDisplay={setDisplay}
-                onMeta={setMeta}
+                display={display}
+                appearance={meta.appearance}
+                submitLabel={submitLabelForType(meta.type)}
+                zkEnabled={zk}
+                style={meta.style}
+                surface={meta.surface}
+                device={device}
+                onDevice={setDevice}
+                onEditStyle={() => setBuildTab("settings")}
+                editing={{
+                  selectedKey,
+                  onSelect: selectField,
+                  onMove: moveField,
+                  onRemove: removeField,
+                }}
+                hostedUrl={publicUrl.replace(/^https?:\/\//, "")}
               />
-            ) : null}
+              <p className="mx-auto mt-4 max-w-md text-center text-xs text-muted-foreground">
+                {meta.surface === "hosted" ? (
+                  <>
+                    Live preview of the hosted page at{" "}
+                    <span className="font-mono">/f/{form.publicToken}</span>
+                  </>
+                ) : (
+                  <>
+                    Live preview of the{" "}
+                    {FORM_STYLES.find(
+                      (s) => s.id === meta.style
+                    )?.name.toLowerCase()}{" "}
+                    widget
+                  </>
+                )}
+              </p>
+            </div>
+          </>
+        ) : tab === "submissions" ? (
+          <div className="min-h-0 flex-1 overflow-y-auto p-6">
+            <div className="mx-auto max-w-5xl">
+              <SubmissionsTab
+                formId={id}
+                csvUrl={`/api/v1/forms/${id}/submissions/export.csv`}
+              />
+            </div>
           </div>
-
-          {/* Preview */}
-          <div className="rounded-2xl border border-border bg-muted/20 p-6">
-            <FormPreviewStage
-              name={name}
-              fields={fields}
-              display={display}
-              appearance={meta.appearance}
-              submitLabel={submitLabelForType(meta.type)}
-              zkEnabled={zk}
-              style={meta.style}
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto p-6">
+            <ShareTab
               surface={meta.surface}
-              device={device}
-              onDevice={setDevice}
-              onEditStyle={() => setBuildTab("settings")}
-              editing={{
-                selectedKey,
-                onSelect: selectField,
-                onMove: moveField,
-                onRemove: removeField,
-              }}
-              hostedUrl={publicUrl.replace(/^https?:\/\//, "")}
+              publicUrl={publicUrl}
+              embedCode={form.embedCode}
+              submitUrl={form.submitUrl}
             />
-            <p className="mx-auto mt-4 max-w-md text-center text-xs text-muted-foreground">
-              {meta.surface === "hosted" ? (
-                <>
-                  Live preview of the hosted page at{" "}
-                  <span className="font-mono">/f/{form.publicToken}</span>
-                </>
-              ) : (
-                <>
-                  Live preview of the{" "}
-                  {FORM_STYLES.find(
-                    (s) => s.id === meta.style
-                  )?.name.toLowerCase()}{" "}
-                  widget
-                </>
-              )}
-            </p>
           </div>
-        </div>
-      ) : null}
+        )}
+      </div>
+    </Shell>
+  );
+}
 
-      {tab === "submissions" ? (
-        <div className="flex-1 pt-6">
-          <SubmissionsTab
-            formId={id}
-            csvUrl={`/api/v1/forms/${id}/submissions/export.csv`}
-          />
-        </div>
-      ) : null}
-
-      {tab === "share" ? (
-        <ShareTab
-          surface={meta.surface}
-          publicUrl={publicUrl}
-          embedCode={form.embedCode}
-          submitUrl={form.submitUrl}
-        />
-      ) : null}
+/** Full-viewport overlay so the builder breaks out of the dashboard shell,
+ *  matching the email campaign editor. */
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      {children}
     </div>
   );
 }
@@ -1171,56 +1189,52 @@ function ShareTab({
   };
   if (surface === "hosted") {
     return (
-      <div className="flex-1 pt-6">
-        <div className="mx-auto max-w-xl space-y-4 rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-start gap-3">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+      <div className="mx-auto max-w-xl space-y-4 rounded-2xl border border-border bg-card p-5">
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Hosted page</p>
+            <p className="text-xs text-muted-foreground">
+              Share this link anywhere - no site needed. We host and secure the
+              page.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Input readOnly value={publicUrl} className="font-mono text-sm" />
+          <Button variant="outline" onClick={copy}>
+            Copy
+          </Button>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a href={publicUrl} target="_blank" rel="noreferrer">
               <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                Hosted page
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Share this link anywhere - no site needed. We host and secure
-                the page.
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Input readOnly value={publicUrl} className="font-mono text-sm" />
-            <Button variant="outline" onClick={copy}>
-              Copy
-            </Button>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <a href={publicUrl} target="_blank" rel="noreferrer">
-                <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
-                Open
-              </a>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                window.open(
-                  `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(publicUrl)}`,
-                  "_blank",
-                  "noopener,noreferrer"
-                )
-              }
-            >
-              <QrCodeIcon className="size-4" aria-hidden="true" />
-              QR code
-            </Button>
-          </div>
+              Open
+            </a>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              window.open(
+                `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(publicUrl)}`,
+                "_blank",
+                "noopener,noreferrer"
+              )
+            }
+          >
+            <QrCodeIcon className="size-4" aria-hidden="true" />
+            QR code
+          </Button>
         </div>
       </div>
     );
   }
   return (
-    <div className="flex-1 space-y-6 pt-6">
+    <div className="space-y-6">
       <div className="space-y-2">
         <Label>Public form link</Label>
         <div className="flex gap-2">

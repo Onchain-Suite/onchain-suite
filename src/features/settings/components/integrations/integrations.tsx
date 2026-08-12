@@ -13,6 +13,7 @@ import { fadeInUp } from "../../utils";
 import { SettingsCard, SettingsStepper } from "../settings-card";
 import { DeveloperApiCard } from "./developer-api";
 import InAppIntegration from "./inapp";
+import { PushCredentialsCard } from "./push-credentials";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -25,7 +26,6 @@ import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 
 const WEB_STEPS = ["Install the SDK", "We listen", "Connected"];
-const MOBILE_STEPS = ["Add your app", "Credentials & SDK", "Connected"];
 
 function normalizeOrigin(value: string) {
   const trimmed = value.trim().replace(/\/+$/, "");
@@ -48,10 +48,6 @@ export default function IntegrationsSettings() {
   // "Manage keys" (real API); this card is the first-mile install surface.
   const [dappOrigin, setDappOrigin] = useState("");
   const [snippet, setSnippet] = useState<string | null>(null);
-
-  // Mobile in-app push - no backend yet; capture the bundle id and flag it as
-  // coming soon rather than pretending to register.
-  const [bundleId, setBundleId] = useState("");
 
   const orgId = useMemo(() => getSelectedOrganizationId() ?? "your-org-id", []);
 
@@ -131,35 +127,7 @@ export default function IntegrationsSettings() {
         </div>
       </SettingsCard>
 
-      <SettingsCard
-        title="In-app push · Mobile"
-        description="A separate SDK and store credentials - the OS delivers these, so it sets the rules"
-      >
-        <SettingsStepper steps={MOBILE_STEPS} current={0} />
-        <div className="mt-6 max-w-xl space-y-2">
-          <Label htmlFor="bundle-id">Bundle identifier</Label>
-          <Input
-            id="bundle-id"
-            value={bundleId}
-            onChange={(e) => setBundleId(e.target.value)}
-            placeholder="com.yourcompany.app"
-          />
-          <p className="text-xs text-muted-foreground">
-            Must match the app you ship to the App Store and Play Store - the OS
-            rejects a token signed for anything else.
-          </p>
-        </div>
-        <div className="mt-4">
-          <Button
-            variant="secondary"
-            onClick={() =>
-              toast.info("Mobile in-app push is coming soon to your workspace.")
-            }
-          >
-            Register app
-          </Button>
-        </div>
-      </SettingsCard>
+      <PushCredentialsCard />
 
       <DeveloperApiCard />
 

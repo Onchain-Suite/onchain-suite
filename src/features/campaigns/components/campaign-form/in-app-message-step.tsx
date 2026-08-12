@@ -305,6 +305,11 @@ export function InAppMessageStep({
   const body = form.watch("pushBody") ?? "";
   const ctaLabel = form.watch("pushCtaLabel") ?? "";
   const ctaUrl = form.watch("pushCtaUrl") ?? "";
+  // Mirror the backend: reject dangerous URL schemes on the CTA (the backend
+  // refuses javascript:/data:/vbscript:/file:/blob: - 422 / dropped field).
+  const ctaUrlError = /^\s*(javascript|data|vbscript|file|blob):/i.test(ctaUrl)
+    ? "That link type isn't allowed. Use https://, a relative path (/settings), mailto:, or a deep link (myapp://…)."
+    : "";
   const accent = form.watch("pushAccent") ?? ACCENTS[0];
   const dismissible = form.watch("pushDismissible") ?? true;
   const frequency = (form.watch("pushFrequency") ??
@@ -409,9 +414,13 @@ export function InAppMessageStep({
                 placeholder="https://yourapp.com/page"
                 className="h-10 rounded-xl font-mono text-sm"
               />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Where the app opens when the notification is tapped.
-              </p>
+              {ctaUrlError ? (
+                <p className="mt-1 text-xs text-destructive">{ctaUrlError}</p>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Where the app opens when the notification is tapped.
+                </p>
+              )}
             </div>
           ) : (
             <>
@@ -434,6 +443,11 @@ export function InAppMessageStep({
                     placeholder="https://yourapp.com/page"
                     className="h-10 rounded-xl font-mono text-sm"
                   />
+                  {ctaUrlError ? (
+                    <p className="mt-1 text-xs text-destructive">
+                      {ctaUrlError}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 

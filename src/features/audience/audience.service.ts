@@ -488,6 +488,23 @@ export const audienceService = {
     );
   },
 
+  /**
+   * Delete EVERY contact in the org (`DELETE /audience/profiles`, OWNER/ADMIN).
+   * `confirmCount` must equal the current contact count or the backend returns
+   * 400 `CONTACT_COUNT_MISMATCH { expected, received }` so the UI can re-prompt
+   * with the real number - there is no undo.
+   */
+  deleteAllProfiles(confirmCount: number, orgId?: string) {
+    return request<{ deleted?: number }>(
+      {
+        method: "DELETE",
+        url: "/audience/profiles",
+        data: { confirmCount },
+      },
+      orgId
+    );
+  },
+
   listTags(orgId?: string) {
     return request<
       { items?: AudienceTag[]; data?: AudienceTag[] } | AudienceTag[]

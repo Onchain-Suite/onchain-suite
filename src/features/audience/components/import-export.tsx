@@ -15,6 +15,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -433,7 +434,33 @@ function FilePreviewTable({ table }: { table: PreviewTable }) {
   );
 }
 
+/** Turn an import failure into plain language - never a raw code or HTTP text. */
+function friendlyImportError(error: unknown): string {
+  const raw =
+    error instanceof Error
+      ? `${error.message} ${error.cause instanceof Error ? error.cause.message : ""}`
+      : String(error ?? "");
+  const text = raw.toUpperCase();
+  if (text.includes("IMPORT_LIST_REQUIRED"))
+    return "Choose a list for these contacts before importing.";
+  if (text.includes("IMPORT_LIST_NOT_FOUND"))
+    return "That list no longer exists. Pick another one or create a new list.";
+  if (text.includes("IMPORT_LIST_NOT_TAG_BACKED"))
+    return "That list can't receive imported contacts (it's a rule-based segment). Pick a simple list or create a new one.";
+  if (text.includes("UNSUPPORTED FILE") || text.includes("UNSUPPORTED_FILE"))
+    return "That file type isn't supported. Upload a .csv or .json file.";
+  if (text.includes("PLAN_LIMIT") || text.includes("402"))
+    return "This import would go over your plan's contact limit. Upgrade your plan or import fewer contacts.";
+  if (text.includes("HTTP 413") || text.includes("TOO LARGE"))
+    return "That file is too large to import here. Split it into smaller files (under 4MB) and try again.";
+  if (text.includes("HTTP 401") || text.includes("HTTP 403"))
+    return "Your session expired. Refresh the page and try the import again.";
+  // Keep a short, human message the user typed nothing wrong for.
+  return "We couldn't start the import. Please check your file and try again.";
+}
+
 export default function ImportExportPage() {
+  const router = useRouter();
   const [dragActive, setDragActive] = useState(false);
   const [importStep, setImportStep] = useState<ImportStep>("upload");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -455,6 +482,48 @@ export default function ImportExportPage() {
   // preset the backend applies via `?platform=` on the import POST.
   const [importPlatform, setImportPlatform] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // The backend requires every import to land in a list (400 IMPORT_LIST_REQUIRED
+  // otherwise), so the user must choose or create one before uploading; tags are
+  // recommended but optional (applied on top of the list's own tags).
+  const [selectedListId, setSelectedListId] = useState<string>("");
+  const [importTags, setImportTags] = useState<string>("");
+  const [newListName, setNewListName] = useState<string>("");
+
+  const listsQuery = useQuery({
+    queryKey: ["audience", "segments", "for-import"],
+    queryFn: () => audienceService.listSegments({ limit: 100 }),
+    staleTime: 60_000,
+  });
+  const importLists = useMemo(
+    () =>
+      (listsQuery.data ?? []).filter(
+        (s) => s.name.trim().toLowerCase() !== "suppressed"
+      ),
+    [listsQuery.data]
+  );
+  const createListMutation = useMutation({
+    mutationFn: (name: string) =>
+      audienceService.createSegment({ name, type: "static" }),
+    onSuccess: async (seg) => {
+      setSelectedListId(seg.id);
+      setNewListName("");
+      await listsQuery.refetch();
+      toast.success(`List "${seg.name}" created - contacts will land here.`);
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Couldn't create the list."),
+  });
+
+  const importTagList = useMemo(
+    () =>
+      importTags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .slice(0, 25),
+    [importTags]
+  );
 
   // Presets discovery is effectively static - cache it for the session and
   // degrade silently to the manual-only flow if it fails (no toast, no gate).
@@ -675,6 +744,7 @@ export default function ImportExportPage() {
   const importMutation = useMutation({
     mutationFn: async () => {
       if (!uploadedFile) throw new Error("No file selected");
+      if (!selectedListId) throw new Error("IMPORT_LIST_REQUIRED");
       const lower = uploadedFile.name.toLowerCase();
       const format: AudienceImportExportFormat | undefined = lower.endsWith(
         ".csv"
@@ -699,11 +769,15 @@ export default function ImportExportPage() {
         }
       }
 
-      const query = {
+      const query: Record<string, string | number | boolean | undefined> = {
         mode: "upsert",
         onConflict: "update",
         dedupeKey: "email",
         maxErrors: 10000,
+        // Backend-required: every import lands in a list. Tags (optional) ride
+        // as a comma-separated list on top of the list's own tags.
+        listId: selectedListId,
+        ...(importTagList.length > 0 ? { tags: importTagList.join(",") } : {}),
       };
 
       const orgId = getSelectedOrganizationId();
@@ -844,18 +918,14 @@ export default function ImportExportPage() {
         );
       }
       toast.success(
-        "Import started, you can keep using the platform. It runs in the background and we'll let you know when it's done.",
-        {
-          action: {
-            label: "Cancel",
-            onClick: () => cancelImportMutation.mutate(),
-          },
-        }
+        "Import started - it runs in the background. We'll bring you back to your audience so you can watch the progress."
       );
+      // Hand off to the audience page, which reads `?import=<jobId>` and shows a
+      // live progress banner (the job outlives this page's local state).
+      router.push(`/audience?import=${encodeURIComponent(jobId)}`);
     },
     onError: (e: unknown) => {
-      const message = e instanceof Error ? e.message : "Import failed";
-      toast.error(message);
+      toast.error(friendlyImportError(e));
     },
     onSettled: () => {
       setIsImporting(false);
@@ -900,25 +970,6 @@ export default function ImportExportPage() {
       return next;
     });
   }, [importJobId, importStatus]);
-
-  const cancelImportMutation = useMutation({
-    mutationFn: async () => {
-      if (!importJobId) return;
-      await audienceService.cancelImportJob(importJobId);
-    },
-    onSuccess: () => {
-      if (importJobId) {
-        setImportHistory((prev) =>
-          prev.map((x) =>
-            x.jobId === importJobId ? { ...x, status: "cancelled" } : x
-          )
-        );
-      }
-      toast.success("Import cancelled");
-    },
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Failed to cancel import"),
-  });
 
   const downloadImportErrorsMutation = useMutation({
     mutationFn: async () => {
@@ -986,10 +1037,17 @@ export default function ImportExportPage() {
       setExportHistory((prev) =>
         [entry, ...prev.filter((x) => x.jobId !== jobId)].slice(0, 50)
       );
-      toast.success("Export started");
+      toast.success(
+        "Export started - we'll take you back to your audience. Your download will be ready there in a moment."
+      );
+      router.push(`/audience?export=${encodeURIComponent(jobId)}`);
     },
     onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Export failed"),
+      toast.error(
+        e instanceof Error
+          ? "We couldn't start the export. Please try again."
+          : "We couldn't start the export. Please try again."
+      ),
   });
 
   const exportStatusQuery = useQuery({
@@ -1266,6 +1324,92 @@ export default function ImportExportPage() {
                   onChange={handleFileInput}
                   className="hidden"
                 />
+
+                {/* Required first step: contacts must land in a list. */}
+                <div className="mb-6 rounded-2xl border border-border bg-card p-5">
+                  <h3 className="text-sm font-medium text-foreground">
+                    Where should these contacts go?
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Every import lands in a list. Choose one, or create a new
+                    list for this batch.
+                  </p>
+                  <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        List <span className="text-destructive">*</span>
+                      </label>
+                      <Select
+                        value={selectedListId}
+                        onValueChange={setSelectedListId}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              listsQuery.isLoading
+                                ? "Loading lists…"
+                                : "Choose a list"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {importLists.map((l) => (
+                            <SelectItem key={l.id} value={l.id}>
+                              {l.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          value={newListName}
+                          onChange={(e) => setNewListName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && newListName.trim()) {
+                              e.preventDefault();
+                              createListMutation.mutate(newListName.trim());
+                            }
+                          }}
+                          placeholder="…or create a new list"
+                          className="h-9 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                        <button
+                          type="button"
+                          disabled={
+                            !newListName.trim() || createListMutation.isPending
+                          }
+                          onClick={() =>
+                            createListMutation.mutate(newListName.trim())
+                          }
+                          className="h-9 shrink-0 rounded-lg border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                        >
+                          {createListMutation.isPending
+                            ? "Creating…"
+                            : "Create"}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        Tags{" "}
+                        <span className="font-normal text-muted-foreground">
+                          (recommended)
+                        </span>
+                      </label>
+                      <input
+                        value={importTags}
+                        onChange={(e) => setImportTags(e.target.value)}
+                        placeholder="e.g. newsletter, q3-import"
+                        className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      />
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        Comma-separated. Tags make this batch easy to find and
+                        segment later - we recommend adding at least one.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                   <h3 className="text-sm font-medium text-foreground">
                     Upload contacts
@@ -1749,11 +1893,18 @@ export default function ImportExportPage() {
                 </button>
                 <button
                   onClick={handleImport}
+                  title={
+                    !selectedListId
+                      ? "Choose a list on the previous step first"
+                      : undefined
+                  }
                   disabled={
                     isImporting ||
                     importMutation.isPending ||
                     !uploadedFile ||
                     !selectedImportFormat ||
+                    // Backend requires a list for every import.
+                    !selectedListId ||
                     // A platform preset auto-maps headers server-side, so
                     // manual mapping is only required without one.
                     (selectedImportFormat === "csv" &&

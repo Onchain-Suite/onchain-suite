@@ -2216,11 +2216,10 @@ const CreateAutomationContent = () => {
               }
               className="min-w-0 max-w-[45vw] rounded-md bg-transparent px-1 text-base font-semibold tracking-tight text-foreground transition-colors hover:bg-muted/50 focus:bg-muted/50 focus:outline-none sm:max-w-none"
             />
-            {draftSaveMutation.isPending ? (
-              <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                Autosaving
-              </span>
-            ) : stepsNeedingSetup > 0 ? (
+            {/* Autosave runs silently in the background - the status badge
+                stays fixed on setup/ready so it never flickers between states
+                on every keystroke-triggered save. */}
+            {stepsNeedingSetup > 0 ? (
               <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
                 <span
                   aria-hidden="true"

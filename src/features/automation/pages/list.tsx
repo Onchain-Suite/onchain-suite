@@ -239,11 +239,11 @@ export function AutomationsListView() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border/60 bg-card">
+      <div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-[820px] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-border/60 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 <th className="px-5 py-3">Automation</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Entries · 30d</th>
@@ -262,7 +262,7 @@ export function AutomationsListView() {
                 return (
                   <tr
                     key={row.id}
-                    className="group border-b border-border/40 last:border-0 transition-colors hover:bg-muted/40"
+                    className="group border-b border-border last:border-0 transition-colors hover:bg-muted/40"
                   >
                     <td className="px-5 py-4">
                       <Link href={`/automations/${row.id}`} className="block">
@@ -314,7 +314,7 @@ export function AutomationsListView() {
         </div>
 
         {!listQuery.isLoading && visibleRows.length === 0 ? (
-          <div className="px-5 py-16 text-center">
+          <div className="rounded-xl border border-border px-5 py-16 text-center">
             <p className="text-sm font-semibold text-foreground">
               {search || filter !== "all"
                 ? "No matching automations"

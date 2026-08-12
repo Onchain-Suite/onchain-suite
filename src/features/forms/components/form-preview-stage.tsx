@@ -139,56 +139,64 @@ export function FormPreviewStage({
         </button>
       </div>
 
-      {/* Stage */}
-      {hosted ? (
-        <div className="overflow-hidden rounded-2xl border border-border bg-muted/20">
-          <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
-            <span className="flex gap-1.5" aria-hidden="true">
-              <span className="size-2.5 rounded-full bg-muted-foreground/30" />
-              <span className="size-2.5 rounded-full bg-muted-foreground/30" />
-              <span className="size-2.5 rounded-full bg-muted-foreground/30" />
-            </span>
-            <span className="truncate rounded-md bg-background px-2 py-1 text-xs text-muted-foreground">
-              {hostedUrl}
-            </span>
+      {/* Stage: constrained to a device-realistic width so it previews how the
+          deployed form renders, and never fills the whole canvas. */}
+      <div
+        className={cn(
+          "mx-auto w-full",
+          device === "desktop" ? "max-w-[680px]" : "max-w-[390px]"
+        )}
+      >
+        {hosted ? (
+          <div className="overflow-hidden rounded-2xl border border-border bg-muted/20">
+            <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
+              <span className="flex gap-1.5" aria-hidden="true">
+                <span className="size-2.5 rounded-full bg-muted-foreground/30" />
+                <span className="size-2.5 rounded-full bg-muted-foreground/30" />
+                <span className="size-2.5 rounded-full bg-muted-foreground/30" />
+              </span>
+              <span className="truncate rounded-md bg-background px-2 py-1 text-xs text-muted-foreground">
+                {hostedUrl}
+              </span>
+            </div>
+            <div className="flex justify-center px-4 py-10">{card}</div>
           </div>
-          <div className="flex justify-center px-4 py-10">{card}</div>
-        </div>
-      ) : (
-        <div className="relative min-h-[420px] overflow-hidden rounded-2xl border border-border bg-muted/20">
-          {style === "inline" ? (
-            <>
-              <MockPage />
-              <div className="flex justify-center px-4 pb-8">{card}</div>
-              <MockPage />
-            </>
-          ) : (
-            <>
-              <MockPage />
-              <MockPage />
-              {style === "popup" ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/60 p-4 backdrop-blur-[1px]">
-                  {card}
-                </div>
-              ) : style === "hellobar" ? (
-                <div className="absolute inset-x-0 top-0">{card}</div>
-              ) : (
-                // slide-in
-                <div
-                  className={cn(
-                    "absolute bottom-4",
-                    device === "mobile"
-                      ? "inset-x-4"
-                      : "right-4 w-full max-w-sm"
-                  )}
-                >
-                  {card}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
+        ) : (
+          <div className="relative min-h-[420px] overflow-hidden rounded-2xl border border-border bg-muted/20">
+            {style === "inline" ? (
+              <>
+                <MockPage />
+                <div className="flex justify-center px-4 pb-8">{card}</div>
+                <MockPage />
+              </>
+            ) : (
+              <>
+                <MockPage />
+                <MockPage />
+                {style === "popup" ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/60 p-4 backdrop-blur-[1px]">
+                    {card}
+                  </div>
+                ) : style === "hellobar" ? (
+                  <div className="absolute inset-x-0 top-0">{card}</div>
+                ) : (
+                  // slide-in
+                  <div
+                    className={cn(
+                      "absolute bottom-4",
+                      device === "mobile"
+                        ? "inset-x-4"
+                        : "right-4 w-full max-w-sm"
+                    )}
+                  >
+                    {card}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

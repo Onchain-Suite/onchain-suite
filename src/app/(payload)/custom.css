@@ -1,0 +1,12 @@
+/*
+ * Custom overrides for the Payload admin panel.
+ *
+ * This is deliberately a plain .css file rather than the template's
+ * custom.scss -- Next.js only compiles .scss when the `sass` package is
+ * installed, and nothing else in this repo needs Sass.
+ *
+ * The admin panel lives in the (payload) route group with its own root
+ * layout, so it does NOT inherit src/styles/globals.css, Tailwind, the five
+ * next/font families or the client provider tree from (frontend). Anything
+ * the admin needs has to be declared here.
+ */

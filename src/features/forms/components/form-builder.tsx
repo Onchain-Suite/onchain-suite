@@ -559,7 +559,7 @@ export function FormBuilder({ id }: { id: string }) {
           </div>
         ) : (
           <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto p-6">
-            <div className="mx-auto max-w-5xl">
+            <div className="mx-auto max-w-2xl">
               <ShareTab
                 surface={meta.surface}
                 publicUrl={publicUrl}

@@ -25,6 +25,14 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -36,7 +44,11 @@ import {
 
 import { cn, isJsonObject } from "@/lib/utils";
 
-import type { AudienceProfile, AudienceSegment } from "../audience.service";
+import type {
+  AudienceImportJobStatus,
+  AudienceProfile,
+  AudienceSegment,
+} from "../audience.service";
 import { audienceService } from "../audience.service";
 import { ApplyTagsPopover } from "../components/apply-tags-popover";
 import { AudienceListDetail } from "../components/audience-list-detail";
@@ -178,10 +190,34 @@ export function AudiencePages() {
   >("contacts");
   // Deep-link support: `/audience?tab=suppressed` opens that tab (read after
   // mount to avoid a hydration mismatch / Suspense requirement).
+  // An import/export started on the import page redirects here with its job id;
+  // pick it up so we can show a live progress banner (the job outlives that
+  // page's local state).
+  const [importJobId, setImportJobId] = useState<string | null>(null);
+  const [importBannerDismissed, setImportBannerDismissed] = useState(false);
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get("tab");
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("tab");
     if (t === "lists" || t === "tags" || t === "suppressed") setActiveTab(t);
+    const imp = params.get("import");
+    if (imp) {
+      setImportJobId(imp);
+      // Clean the URL so a refresh doesn't re-arm a finished job.
+      const next = new URLSearchParams(window.location.search);
+      next.delete("import");
+      const qs = next.toString();
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${qs ? `?${qs}` : ""}`
+      );
+    }
   }, []);
+
+  // Delete-all-contacts confirmation (OWNER/ADMIN; the backend requires the
+  // exact current count so it can't fire from a stale tab).
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -286,6 +322,55 @@ export function AudiencePages() {
   const pushReachable =
     num(overview?.pushReachable) ?? Math.round(total * 0.67);
   const suppressed = num(overview?.suppressed) ?? Math.round(total * 0.06);
+
+  // Live progress for an import that redirected here. Polls while the job is
+  // queued/processing, then stops; refreshes the audience on completion.
+  const importStatusQuery = useQuery({
+    queryKey: ["audience", "import-status", importJobId],
+    queryFn: () => audienceService.getImportJob(importJobId as string),
+    enabled: Boolean(importJobId) && !importBannerDismissed,
+    refetchInterval: (query) => {
+      const s = query.state.data?.state;
+      return s === "queued" || s === "processing" ? 1500 : false;
+    },
+    retry: false,
+  });
+  const importStatus = importStatusQuery.data;
+  useEffect(() => {
+    if (importStatus?.state === "completed") {
+      queryClient.invalidateQueries({ queryKey: ["audience"] });
+    }
+  }, [importStatus?.state, queryClient]);
+
+  const deleteAllMutation = useMutation({
+    mutationFn: () => audienceService.deleteAllProfiles(total),
+    onSuccess: (res) => {
+      setDeleteAllOpen(false);
+      setDeleteConfirmText("");
+      toast.success(`Deleted ${res?.deleted ?? total} contacts.`);
+      setSelectedIds([]);
+      queryClient.invalidateQueries({ queryKey: ["audience"] });
+    },
+    onError: (e) => {
+      const msg = e instanceof Error ? e.message : "";
+      if (/CONTACT_COUNT_MISMATCH/i.test(msg)) {
+        queryClient.invalidateQueries({ queryKey: ["audience", "overview"] });
+        setDeleteAllOpen(false);
+        setDeleteConfirmText("");
+        toast.error(
+          "Your contact count just changed. We've refreshed it - reopen the dialog to confirm the new number."
+        );
+        return;
+      }
+      if (/\b40[13]\b|FORBIDDEN|permission/i.test(msg)) {
+        toast.error(
+          "Only workspace owners and admins can delete all contacts."
+        );
+        return;
+      }
+      toast.error("We couldn't delete the contacts. Please try again.");
+    },
+  });
 
   // The suppression list is materialized server-side as a system segment + a
   // `suppressed-email` tag. It lives in the Suppressed tab only - keep it out of
@@ -508,6 +593,12 @@ export function AudiencePages() {
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
+      {importJobId && importStatus && !importBannerDismissed ? (
+        <ImportProgressBanner
+          status={importStatus}
+          onDismiss={() => setImportBannerDismissed(true)}
+        />
+      ) : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -546,6 +637,19 @@ export function AudiencePages() {
                 : "Syncing…"
               : "Sync wallets"}
           </Button>
+          {activeTab === "contacts" && total > 0 ? (
+            <Button
+              variant="outline"
+              className="rounded-xl border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => {
+                setDeleteConfirmText("");
+                setDeleteAllOpen(true);
+              }}
+            >
+              <TrashIcon className="mr-2 size-4" aria-hidden="true" />
+              Delete all
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -1120,6 +1224,127 @@ export function AudiencePages() {
         skippedCount={selectedIds.length - emailRecipients.length}
         onSent={() => setSelectedIds([])}
       />
+
+      <Dialog open={deleteAllOpen} onOpenChange={setDeleteAllOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Delete all {total.toLocaleString()} contacts?
+            </DialogTitle>
+            <DialogDescription>
+              This permanently removes every contact in this workspace, along
+              with their tags and list memberships. It can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label
+              htmlFor="delete-all-confirm"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Type <span className="font-semibold text-foreground">DELETE</span>{" "}
+              to confirm
+            </label>
+            <Input
+              id="delete-all-confirm"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteAllOpen(false)}
+              disabled={deleteAllMutation.isPending}
+            >
+              Keep my contacts
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={
+                deleteConfirmText.trim() !== "DELETE" ||
+                deleteAllMutation.isPending ||
+                total <= 0
+              }
+              onClick={() => deleteAllMutation.mutate()}
+            >
+              {deleteAllMutation.isPending
+                ? "Deleting…"
+                : `Delete ${total.toLocaleString()} contacts`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/** Live progress banner for an import that redirected to the audience page. */
+function ImportProgressBanner({
+  status,
+  onDismiss,
+}: {
+  status: AudienceImportJobStatus;
+  onDismiss: () => void;
+}) {
+  const state = String(status.state ?? "queued");
+  const done = state === "completed";
+  const failed = state === "failed" || state === "cancelled";
+  const pct = Math.min(
+    100,
+    Math.max(0, Math.round(Number(status.progress ?? 0)))
+  );
+  const processed = Number(status.processedRows ?? 0);
+  const totalRows = Number(status.totalRows ?? 0);
+
+  const tone = failed
+    ? "border-destructive/30 bg-destructive/5"
+    : done
+      ? "border-emerald-500/30 bg-emerald-500/5"
+      : "border-primary/30 bg-primary/5";
+
+  return (
+    <div className={cn("rounded-2xl border p-4", tone)}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">
+            {done
+              ? "Import complete"
+              : failed
+                ? "Import didn't finish"
+                : "Importing your contacts…"}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {done
+              ? `Added ${Number(status.createdCount ?? 0).toLocaleString()}, updated ${Number(
+                  status.updatedCount ?? 0
+                ).toLocaleString()}, skipped ${Number(
+                  status.skippedCount ?? 0
+                ).toLocaleString()}.`
+              : failed
+                ? "Some rows couldn't be imported. Open Import to download the error report."
+                : totalRows > 0
+                  ? `${processed.toLocaleString()} of ${totalRows.toLocaleString()} rows`
+                  : "Starting up…"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          Dismiss
+        </button>
+      </div>
+      {!done && !failed ? (
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

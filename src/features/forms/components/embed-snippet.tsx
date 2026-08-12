@@ -5,11 +5,69 @@ import {
   ClipboardIcon,
   LinkIcon,
 } from "@heroicons/react/24/outline";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/ui/button";
 import { Label } from "@/ui/label";
+
+/**
+ * Pretty-print a one-line `<script … ></script>` embed onto indented lines so
+ * it reads like something you'd hand-write. Anything that isn't a script tag is
+ * returned trimmed but untouched.
+ */
+function formatEmbed(code: string): string {
+  const trimmed = code.trim();
+  const match = /^<script\s+([\s\S]*?)\s*>\s*<\/script>$/i.exec(trimmed);
+  if (!match) return trimmed;
+  const attrs = match[1].match(/[\w-]+(?:="[^"]*")?/g) ?? [];
+  if (attrs.length === 0) return trimmed;
+  return `<script\n${attrs.map((a) => `  ${a}`).join("\n")}\n></script>`;
+}
+
+/** Light syntax highlighting for the script-tag embed, theme-token colored. */
+function HighlightedCode({ code }: { code: string }) {
+  const lines = useMemo(() => formatEmbed(code).split("\n"), [code]);
+  return (
+    <pre className="max-h-56 overflow-auto rounded-lg border border-border bg-muted/40 p-3.5 font-mono text-xs leading-6">
+      <code>
+        {lines.map((line, i) => {
+          // Static, never-reordered code lines - index key is correct here.
+          // eslint-disable-next-line react/no-array-index-key
+          return <div key={i}>{renderLine(line)}</div>;
+        })}
+      </code>
+    </pre>
+  );
+}
+
+/** Colorize one line: tag punctuation, attribute names, and string values. */
+function renderLine(line: string) {
+  // Tag open/close lines (e.g. "<script", "></script>").
+  if (/^\s*<\/?[\w>/]/.test(line) && !line.includes("=")) {
+    return <span className="text-muted-foreground">{line || " "}</span>;
+  }
+  // Attribute line: `  name="value"` or a bare `  async`.
+  const attr = /^(\s*)([\w-]+)(?:(=)("[^"]*"))?$/.exec(line);
+  if (attr) {
+    const [, indent, name, eq, value] = attr;
+    return (
+      <>
+        {indent}
+        <span className="text-sky-600 dark:text-sky-400">{name}</span>
+        {eq ? (
+          <>
+            <span className="text-muted-foreground">=</span>
+            <span className="text-emerald-600 dark:text-emerald-400">
+              {value}
+            </span>
+          </>
+        ) : null}
+      </>
+    );
+  }
+  return <span className="text-foreground">{line || " "}</span>;
+}
 
 /** Embed snippet + submit URL with copy affordances. */
 export function EmbedSnippet({
@@ -48,9 +106,7 @@ export function EmbedSnippet({
             Copy
           </Button>
         </div>
-        <pre className="max-h-52 overflow-auto rounded-md border border-border bg-muted/50 p-3 font-mono text-xs text-foreground">
-          {embedCode}
-        </pre>
+        <HighlightedCode code={embedCode} />
         <p className="text-xs text-muted-foreground">
           Drop this on any site to start capturing wallets.
         </p>
@@ -71,7 +127,7 @@ export function EmbedSnippet({
             Copy
           </Button>
         </div>
-        <code className="block truncate rounded-md border border-border bg-muted/50 p-3 font-mono text-xs text-foreground">
+        <code className="block truncate rounded-lg border border-border bg-muted/40 p-3 font-mono text-xs text-foreground">
           {submitUrl}
         </code>
       </div>

@@ -1415,7 +1415,7 @@ function Developer() {
                 early access
               </span>
               <span className="mono ml-auto text-[11px] t-muted2">
-                ESM · ~14 kB · MIT
+                ESM · ~30 kB · MIT
               </span>
             </div>
           </div>

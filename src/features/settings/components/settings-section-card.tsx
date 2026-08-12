@@ -58,12 +58,12 @@ export default function SettingsSectionCard({
       <Card
         id={id}
         className={cn(
-          "overflow-hidden rounded-3xl border-border/60 bg-card/70 shadow-sm",
+          "overflow-hidden rounded-2xl border-border/60 bg-card/70 shadow-sm",
           className
         )}
       >
         <CardHeader className="p-0">
-          <CollapsibleTrigger className="group w-full rounded-3xl text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/20">
+          <CollapsibleTrigger className="group w-full rounded-2xl text-left outline-none focus-visible:ring-2 focus-visible:ring-primary/20">
             <div className="flex items-start justify-between gap-3 px-4 py-3.5">
               <div className="flex min-w-0 items-start gap-2.5">
                 {icon ? (

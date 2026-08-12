@@ -260,7 +260,7 @@ export function AnalyticsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 p-4 md:p-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold text-foreground">Analytics</h1>
@@ -328,7 +328,7 @@ export function AnalyticsPage() {
         {kpis.map((k) => (
           <div
             key={k.label}
-            className="rounded-2xl border border-border/60 bg-card/60 p-4"
+            className="rounded-xl border border-border/60 bg-card/60 p-4"
           >
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               {k.label}
@@ -505,7 +505,7 @@ export function AnalyticsPage() {
           {TEMPLATES.map(({ Icon, name, desc, tag }) => (
             <div
               key={name}
-              className="flex flex-col rounded-2xl border border-border/60 bg-card/60 p-4"
+              className="flex flex-col rounded-xl border border-border/60 bg-card/60 p-4"
             >
               <div className="flex items-center justify-between">
                 <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -539,7 +539,7 @@ export function AnalyticsPage() {
         <h2 className="mb-3 text-sm font-semibold text-foreground">
           Pinned from Intelligence
         </h2>
-        <div className="overflow-hidden rounded-2xl border border-border/60">
+        <div className="overflow-hidden rounded-xl border border-border/60">
           {PINNED.map(([name, meta], i) => (
             <div
               key={name}
@@ -573,7 +573,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
+    <section className="rounded-xl border border-border/60 bg-card/60 p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         {right}

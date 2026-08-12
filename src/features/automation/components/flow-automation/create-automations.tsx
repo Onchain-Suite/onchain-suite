@@ -1376,7 +1376,7 @@ const CreateAutomationContent = () => {
   }, [statsEntriesQuery.data]);
 
   // "Messages in this flow" is derived from the flow's send steps. Per-message
-  // delivery counts have no backend endpoint yet, so metrics render as "—".
+  // delivery counts have no backend endpoint yet, so metrics render as "-".
   const messageRows = useMemo(() => {
     const sendTypes = new Set([
       "send_email",
@@ -3862,13 +3862,13 @@ const CreateAutomationContent = () => {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-right tabular-nums text-muted-foreground">
-                              —
+                              -
                             </td>
                             <td className="px-6 py-4 text-right tabular-nums text-muted-foreground">
-                              —
+                              -
                             </td>
                             <td className="px-6 py-4 text-right tabular-nums text-muted-foreground">
-                              —
+                              -
                             </td>
                           </tr>
                         ))

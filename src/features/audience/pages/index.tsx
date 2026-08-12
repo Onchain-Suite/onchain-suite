@@ -1281,7 +1281,7 @@ export function AudiencePages() {
               with their tags and list memberships. It can&apos;t be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <label
               htmlFor="delete-all-confirm"
               className="text-xs font-medium text-muted-foreground"

@@ -460,6 +460,13 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
           >
             Pricing
           </Link>
+          <Link
+            href="/blog"
+            onMouseEnter={() => setOpenMenu(null)}
+            className="rounded-full px-3 py-1.5 text-[13.5px] font-medium t-muted transition-colors hover:bg-[color:var(--acc-soft)] hover:text-[color:var(--acc)]"
+          >
+            Blog
+          </Link>
           <a
             href={DOCS_URL}
             target="_blank"
@@ -546,6 +553,13 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
                 className="btn btn-ghost w-full"
               >
                 Pricing
+              </Link>
+              <Link
+                href="/blog"
+                onClick={() => setMobileOpen(false)}
+                className="btn btn-ghost w-full"
+              >
+                Blog
               </Link>
               <a
                 href={DOCS_URL}
@@ -687,7 +701,7 @@ const FOOTER: { h: string; links: [string, string][] }[] = [
     h: "Company",
     links: [
       ["About", DOCS_URL],
-      ["Blog", DOCS_URL],
+      ["Blog", "/blog"],
       ["Careers", DOCS_URL],
     ],
   },
@@ -744,7 +758,10 @@ function FooterLink({
 export function Footer() {
   const year = new Date().getFullYear();
   return (
-    <footer className="border-t py-14" style={{ borderColor: "var(--line)" }}>
+    <footer
+      className="mt-auto border-t pb-14 pt-20"
+      style={{ borderColor: "var(--line)" }}
+    >
       {/* phones: link columns pair up 2×2 under the logo; md+: original 5-col row */}
       <div className="wrap grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-[1.5fr_repeat(4,1fr)] md:gap-10">
         <div className="col-span-2 md:col-span-1">
@@ -813,9 +830,9 @@ export function PageShell({
   navCtaWatchesHero?: boolean;
 }) {
   return (
-    <div className="ocs2 min-h-screen">
+    <div className="ocs2 flex min-h-screen flex-col">
       <Nav ctaWatchesHero={navCtaWatchesHero} />
-      <main>{children}</main>
+      <main className="flex-1">{children}</main>
       <Footer />
     </div>
   );

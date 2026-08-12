@@ -45,6 +45,7 @@ import {
 import { cn, isJsonObject } from "@/lib/utils";
 
 import type {
+  AudienceExportJobStatus,
   AudienceImportJobStatus,
   AudienceProfile,
   AudienceSegment,
@@ -195,16 +196,21 @@ export function AudiencePages() {
   // page's local state).
   const [importJobId, setImportJobId] = useState<string | null>(null);
   const [importBannerDismissed, setImportBannerDismissed] = useState(false);
+  const [exportJobId, setExportJobId] = useState<string | null>(null);
+  const [exportBannerDismissed, setExportBannerDismissed] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
     if (t === "lists" || t === "tags" || t === "suppressed") setActiveTab(t);
     const imp = params.get("import");
-    if (imp) {
-      setImportJobId(imp);
-      // Clean the URL so a refresh doesn't re-arm a finished job.
+    if (imp) setImportJobId(imp);
+    const exp = params.get("export");
+    if (exp) setExportJobId(exp);
+    // Clean the URL so a refresh doesn't re-arm a finished job.
+    if (imp || exp) {
       const next = new URLSearchParams(window.location.search);
       next.delete("import");
+      next.delete("export");
       const qs = next.toString();
       window.history.replaceState(
         null,
@@ -341,6 +347,37 @@ export function AudiencePages() {
       queryClient.invalidateQueries({ queryKey: ["audience"] });
     }
   }, [importStatus?.state, queryClient]);
+
+  // Live progress for an export that redirected here; polls until the file is
+  // ready, then the banner offers a download.
+  const exportStatusQuery = useQuery({
+    queryKey: ["audience", "export-status", exportJobId],
+    queryFn: () => audienceService.getExportJob(exportJobId as string),
+    enabled: Boolean(exportJobId) && !exportBannerDismissed,
+    refetchInterval: (query) => {
+      const s = query.state.data?.state;
+      return s === "queued" || s === "processing" ? 1500 : false;
+    },
+    retry: false,
+  });
+  const exportStatus = exportStatusQuery.data;
+
+  const downloadExportMutation = useMutation({
+    mutationFn: async () => {
+      if (!exportJobId) return;
+      const blob = await audienceService.downloadExport(exportJobId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audience-export.${exportStatus?.format ?? "csv"}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    },
+    onError: () =>
+      toast.error("We couldn't download the file. Please try again."),
+  });
 
   const deleteAllMutation = useMutation({
     mutationFn: () => audienceService.deleteAllProfiles(total),
@@ -597,6 +634,14 @@ export function AudiencePages() {
         <ImportProgressBanner
           status={importStatus}
           onDismiss={() => setImportBannerDismissed(true)}
+        />
+      ) : null}
+      {exportJobId && exportStatus && !exportBannerDismissed ? (
+        <ExportProgressBanner
+          status={exportStatus}
+          downloading={downloadExportMutation.isPending}
+          onDownload={() => downloadExportMutation.mutate()}
+          onDismiss={() => setExportBannerDismissed(true)}
         />
       ) : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1336,6 +1381,79 @@ function ImportProgressBanner({
         >
           Dismiss
         </button>
+      </div>
+      {!done && !failed ? (
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Live progress banner for an export that redirected here; offers the download
+ *  once the file is ready. */
+function ExportProgressBanner({
+  status,
+  downloading,
+  onDownload,
+  onDismiss,
+}: {
+  status: AudienceExportJobStatus;
+  downloading: boolean;
+  onDownload: () => void;
+  onDismiss: () => void;
+}) {
+  const state = String(status.state ?? "queued");
+  const done = state === "completed";
+  const failed = state === "failed" || state === "cancelled";
+  const pct = Math.min(
+    100,
+    Math.max(0, Math.round(Number(status.progress ?? 0)))
+  );
+  const tone = failed
+    ? "border-destructive/30 bg-destructive/5"
+    : done
+      ? "border-emerald-500/30 bg-emerald-500/5"
+      : "border-primary/30 bg-primary/5";
+
+  return (
+    <div className={cn("rounded-2xl border p-4", tone)}>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">
+            {done
+              ? "Your export is ready"
+              : failed
+                ? "Export didn't finish"
+                : "Preparing your export…"}
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {done
+              ? "Download the file below - the link expires after a while."
+              : failed
+                ? "Please try the export again."
+                : "This runs in the background - you can keep working."}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {done ? (
+            <Button size="sm" onClick={onDownload} disabled={downloading}>
+              <ArrowDownTrayIcon className="mr-2 size-4" aria-hidden="true" />
+              {downloading ? "Downloading…" : "Download"}
+            </Button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            Dismiss
+          </button>
+        </div>
       </div>
       {!done && !failed ? (
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">

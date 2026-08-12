@@ -971,25 +971,6 @@ export default function ImportExportPage() {
     });
   }, [importJobId, importStatus]);
 
-  const cancelImportMutation = useMutation({
-    mutationFn: async () => {
-      if (!importJobId) return;
-      await audienceService.cancelImportJob(importJobId);
-    },
-    onSuccess: () => {
-      if (importJobId) {
-        setImportHistory((prev) =>
-          prev.map((x) =>
-            x.jobId === importJobId ? { ...x, status: "cancelled" } : x
-          )
-        );
-      }
-      toast.success("Import cancelled");
-    },
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Failed to cancel import"),
-  });
-
   const downloadImportErrorsMutation = useMutation({
     mutationFn: async () => {
       if (!importJobId) throw new Error("Missing jobId");
@@ -1056,10 +1037,17 @@ export default function ImportExportPage() {
       setExportHistory((prev) =>
         [entry, ...prev.filter((x) => x.jobId !== jobId)].slice(0, 50)
       );
-      toast.success("Export started");
+      toast.success(
+        "Export started - we'll take you back to your audience. Your download will be ready there in a moment."
+      );
+      router.push(`/audience?export=${encodeURIComponent(jobId)}`);
     },
     onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Export failed"),
+      toast.error(
+        e instanceof Error
+          ? "We couldn't start the export. Please try again."
+          : "We couldn't start the export. Please try again."
+      ),
   });
 
   const exportStatusQuery = useQuery({

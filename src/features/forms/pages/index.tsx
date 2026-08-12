@@ -32,7 +32,7 @@ export function FormsPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 p-4 md:p-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeader
         title="Forms"
         description="Capture forms that turn visitors into ZK-verified contacts and enrol them into automations."
@@ -61,7 +61,7 @@ export function FormsPage() {
 
 function TableSkeleton() {
   return (
-    <div className="space-y-2 rounded-2xl border border-border/60 p-4">
+    <div className="space-y-2 rounded-xl border border-border/60 p-4">
       {["a", "b", "c", "d"].map((k) => (
         <Skeleton key={k} className="h-10 w-full rounded-lg" />
       ))}

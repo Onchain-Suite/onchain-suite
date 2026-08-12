@@ -43,6 +43,8 @@ export interface CaptureForm {
   apiConnected: boolean;
   zkEnabled: boolean;
   tag: string | null;
+  /** Audience list (segment) every capture is added to. */
+  listId: string | null;
   submissionCount: number;
   lastSubmissionAt: string | null;
   createdAt: string;
@@ -84,6 +86,8 @@ export interface SubmissionsPage {
 export interface CreateFormInput {
   name: string;
   tag?: string;
+  /** Audience list (segment) every capture joins; null/omit = unbound. */
+  listId?: string | null;
   allowedOrigins?: string[];
   fields?: CaptureFieldSpec[];
   settings?: Record<string, unknown>;
@@ -93,6 +97,7 @@ export interface CreateFormInput {
 export interface UpdateFormInput {
   name?: string;
   tag?: string | null;
+  listId?: string | null;
   allowedOrigins?: string[];
   fields?: CaptureFieldSpec[];
   settings?: Record<string, unknown>;
@@ -280,6 +285,30 @@ export interface FormTiming {
   freq: string;
 }
 
+/** Presentation of the form card (theme, corners, button style, hero). */
+export type FormBg = "surface" | "tint" | "dark";
+export type FormCorners = "sharp" | "md" | "pill";
+export type FormButton = "solid" | "outline";
+
+export interface FormAppearance {
+  accent: string;
+  bg: FormBg;
+  corners: FormCorners;
+  button: FormButton;
+  hero: boolean;
+}
+
+/** What happens after a visitor submits. */
+export type FormCompletion = "message" | "redirect" | "reveal";
+
+export interface FormAfterSubmit {
+  onCompletion: FormCompletion;
+  redirectUrl: string;
+  enrolAutomation: boolean;
+  automationId: string | null;
+  automationName: string | null;
+}
+
 /**
  * Style/template/surface + behaviour that isn't a first-class backend field.
  * Stored under `settings.meta`; the backend round-trips it untouched.
@@ -290,6 +319,10 @@ export interface FormMeta {
   type: FormCaptureType;
   surface: FormSurface;
   timing: FormTiming;
+  appearance: FormAppearance;
+  afterSubmit: FormAfterSubmit;
+  /** Lead forms only: send a confirmation email before subscribing. */
+  doubleOptIn: boolean;
 }
 
 export const DEFAULT_TIMING: FormTiming = {
@@ -300,12 +333,31 @@ export const DEFAULT_TIMING: FormTiming = {
   freq: "Once per visitor",
 };
 
+export const DEFAULT_APPEARANCE: FormAppearance = {
+  accent: "#FF6828",
+  bg: "dark",
+  corners: "md",
+  button: "solid",
+  hero: false,
+};
+
+export const DEFAULT_AFTER_SUBMIT: FormAfterSubmit = {
+  onCompletion: "message",
+  redirectUrl: "",
+  enrolAutomation: false,
+  automationId: null,
+  automationName: null,
+};
+
 export const DEFAULT_META: FormMeta = {
   style: "inline",
   template: null,
   type: "identity",
   surface: "widget",
   timing: { ...DEFAULT_TIMING },
+  appearance: { ...DEFAULT_APPEARANCE },
+  afterSubmit: { ...DEFAULT_AFTER_SUBMIT },
+  doubleOptIn: false,
 };
 
 const STYLE_IDS = new Set<FormStyleId>([
@@ -323,6 +375,17 @@ const TEMPLATE_IDS = new Set<FormTemplateId>([
   "newsletter",
 ]);
 const TRIGGERS = new Set<FormTrigger>(["load", "delay", "scroll", "exit"]);
+const BGS = new Set<FormBg>(["surface", "tint", "dark"]);
+const CORNERS = new Set<FormCorners>(["sharp", "md", "pill"]);
+const BUTTONS = new Set<FormButton>(["solid", "outline"]);
+const COMPLETIONS = new Set<FormCompletion>(["message", "redirect", "reveal"]);
+
+const pickStr = (v: unknown, fallback: string) =>
+  typeof v === "string" && v.length > 0 ? v : fallback;
+const pickNum = (v: unknown, fallback: number) =>
+  typeof v === "number" ? v : fallback;
+const pickBool = (v: unknown, fallback: boolean) =>
+  typeof v === "boolean" ? v : fallback;
 
 /** Read form meta out of `form.settings.meta`, filling defaults. */
 export function readFormMeta(
@@ -339,6 +402,8 @@ export function readFormMeta(
         ? "hosted"
         : "widget";
   const rawTiming = isJsonObject(meta.timing) ? meta.timing : {};
+  const rawApp = isJsonObject(meta.appearance) ? meta.appearance : {};
+  const rawAfter = isJsonObject(meta.afterSubmit) ? meta.afterSubmit : {};
   return {
     style,
     template: TEMPLATE_IDS.has(meta.template as FormTemplateId)
@@ -347,26 +412,49 @@ export function readFormMeta(
     type: meta.type === "lead" ? "lead" : "identity",
     surface,
     timing: {
-      pages:
-        typeof rawTiming.pages === "string"
-          ? rawTiming.pages
-          : DEFAULT_TIMING.pages,
+      pages: pickStr(rawTiming.pages, DEFAULT_TIMING.pages),
       trigger: TRIGGERS.has(rawTiming.trigger as FormTrigger)
         ? (rawTiming.trigger as FormTrigger)
         : DEFAULT_TIMING.trigger,
-      delay:
-        typeof rawTiming.delay === "number"
-          ? rawTiming.delay
-          : DEFAULT_TIMING.delay,
-      scroll:
-        typeof rawTiming.scroll === "number"
-          ? rawTiming.scroll
-          : DEFAULT_TIMING.scroll,
-      freq:
-        typeof rawTiming.freq === "string"
-          ? rawTiming.freq
-          : DEFAULT_TIMING.freq,
+      delay: pickNum(rawTiming.delay, DEFAULT_TIMING.delay),
+      scroll: pickNum(rawTiming.scroll, DEFAULT_TIMING.scroll),
+      freq: pickStr(rawTiming.freq, DEFAULT_TIMING.freq),
     },
+    appearance: {
+      accent: pickStr(rawApp.accent, DEFAULT_APPEARANCE.accent),
+      bg: BGS.has(rawApp.bg as FormBg)
+        ? (rawApp.bg as FormBg)
+        : DEFAULT_APPEARANCE.bg,
+      corners: CORNERS.has(rawApp.corners as FormCorners)
+        ? (rawApp.corners as FormCorners)
+        : DEFAULT_APPEARANCE.corners,
+      button: BUTTONS.has(rawApp.button as FormButton)
+        ? (rawApp.button as FormButton)
+        : DEFAULT_APPEARANCE.button,
+      hero: pickBool(rawApp.hero, DEFAULT_APPEARANCE.hero),
+    },
+    afterSubmit: {
+      onCompletion: COMPLETIONS.has(rawAfter.onCompletion as FormCompletion)
+        ? (rawAfter.onCompletion as FormCompletion)
+        : DEFAULT_AFTER_SUBMIT.onCompletion,
+      redirectUrl: pickStr(
+        rawAfter.redirectUrl,
+        DEFAULT_AFTER_SUBMIT.redirectUrl
+      ),
+      enrolAutomation: pickBool(
+        rawAfter.enrolAutomation,
+        DEFAULT_AFTER_SUBMIT.enrolAutomation
+      ),
+      automationId:
+        typeof rawAfter.automationId === "string"
+          ? rawAfter.automationId
+          : null,
+      automationName:
+        typeof rawAfter.automationName === "string"
+          ? rawAfter.automationName
+          : null,
+    },
+    doubleOptIn: pickBool(meta.doubleOptIn, DEFAULT_META.doubleOptIn),
   };
 }
 
@@ -375,5 +463,13 @@ export function writeFormMeta(
   settings: Record<string, unknown> | undefined,
   meta: FormMeta
 ): Record<string, unknown> {
-  return { ...(settings ?? {}), meta: { ...meta, timing: { ...meta.timing } } };
+  return {
+    ...(settings ?? {}),
+    meta: {
+      ...meta,
+      timing: { ...meta.timing },
+      appearance: { ...meta.appearance },
+      afterSubmit: { ...meta.afterSubmit },
+    },
+  };
 }

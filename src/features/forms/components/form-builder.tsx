@@ -3,18 +3,20 @@
 import {
   ArrowLeftIcon,
   ArrowUpTrayIcon,
+  AtSymbolIcon,
+  Bars3BottomLeftIcon,
   CheckIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   EnvelopeIcon,
   InformationCircleIcon,
   PauseIcon,
   PlayIcon,
-  PlusIcon,
-  TrashIcon,
+  QrCodeIcon,
+  ShieldCheckIcon,
+  SignalIcon,
   WalletIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -32,20 +34,29 @@ import {
 import { Switch } from "@/ui/switch";
 import { Textarea } from "@/ui/textarea";
 
-import { cn } from "@/lib/utils";
+import { cn, isJsonObject } from "@/lib/utils";
 
 import { FORMS_FARCASTER_ENABLED } from "../config";
 import {
+  ACCENT_SWATCHES,
+  BG_OPTIONS,
+  BUTTON_OPTIONS,
+  COMPLETION_OPTIONS,
+  CORNER_OPTIONS,
+  FIELD_CATALOG,
   FORM_STYLES,
   type FormCaptureType,
   type FormStyleId,
   type FormSurface,
+  submitLabelForType,
   surfaceForStyle,
   timingApplies,
 } from "../forms.catalog";
 import {
   type CaptureFieldSpec,
   type CaptureFieldType,
+  type FormAppearance,
+  type FormCompletion,
   type FormDisplaySettings,
   type FormMeta,
   type FormTiming,
@@ -59,15 +70,19 @@ import { useForm, useUpdateForm } from "../hooks/use-forms";
 import { EmbedSnippet } from "./embed-snippet";
 import { FormPreviewStage } from "./form-preview-stage";
 import { SubmissionsTab } from "./submissions-tab";
+import { audienceService } from "@/features/audience/audience.service";
+import { automationService } from "@/features/automation/automation.service";
 
 type Tab = "build" | "submissions" | "share";
 type BuildTab = "fields" | "display" | "settings";
 
+/** Palette of addable fields. Wallet + social are identity-only. */
 const FIELD_PALETTE: {
   type: CaptureFieldType;
   label: string;
   icon: typeof EnvelopeIcon;
   defaultLabel: string;
+  identityOnly?: boolean;
 }[] = [
   {
     type: "email",
@@ -78,28 +93,49 @@ const FIELD_PALETTE: {
   {
     type: "text",
     label: "Short text",
-    icon: PlusIcon,
+    icon: Bars3BottomLeftIcon,
     defaultLabel: "Your answer",
   },
-  { type: "x", label: "Link X", icon: PlusIcon, defaultLabel: "X (Twitter)" },
+  {
+    type: "x",
+    label: "Link X",
+    icon: AtSymbolIcon,
+    defaultLabel: "X (Twitter)",
+    identityOnly: true,
+  },
   {
     type: "farcaster",
     label: "Link Farcaster",
-    icon: PlusIcon,
+    icon: SignalIcon,
     defaultLabel: "Farcaster",
-  },
-  {
-    type: "consent",
-    label: "Consent",
-    icon: PlusIcon,
-    defaultLabel: "Consent",
+    identityOnly: true,
   },
   {
     type: "wallet",
     label: "Connect wallet",
     icon: WalletIcon,
     defaultLabel: "Wallet",
+    identityOnly: true,
   },
+];
+
+const PAGE_OPTIONS = [
+  "All pages",
+  "Homepage only",
+  "Specific paths…",
+  "Everywhere except checkout",
+];
+const FREQ_OPTIONS = [
+  "Once per visitor",
+  "Once per session",
+  "Every visit",
+  "Until submitted",
+];
+const TRIGGER_OPTIONS: { value: FormTrigger; label: string }[] = [
+  { value: "load", label: "On page load" },
+  { value: "delay", label: "After a delay" },
+  { value: "scroll", label: "On scroll depth" },
+  { value: "exit", label: "On exit intent" },
 ];
 
 const uniqueKey = (base: string, taken: Set<string>) => {
@@ -107,6 +143,30 @@ const uniqueKey = (base: string, taken: Set<string>) => {
   let n = 1;
   while (taken.has(key)) key = `${base}_${n++}`;
   return key;
+};
+
+type Named = { id: string; name: string };
+const normalizeNamed = (raw: unknown): Named[] => {
+  const arr = Array.isArray(raw)
+    ? raw
+    : isJsonObject(raw) && Array.isArray(raw.items)
+      ? raw.items
+      : isJsonObject(raw) && Array.isArray(raw.data)
+        ? raw.data
+        : [];
+  return arr
+    .map((e): Named | null => {
+      if (!isJsonObject(e)) return null;
+      const id = typeof e.id === "string" ? e.id : null;
+      const name =
+        typeof e.name === "string"
+          ? e.name
+          : typeof e.title === "string"
+            ? e.title
+            : null;
+      return id && name ? { id, name } : null;
+    })
+    .filter((x): x is Named => x !== null);
 };
 
 export function FormBuilder({ id }: { id: string }) {
@@ -117,13 +177,14 @@ export function FormBuilder({ id }: { id: string }) {
   const [tab, setTab] = useState<Tab>("build");
   const [buildTab, setBuildTab] = useState<BuildTab>("fields");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   // Staged edits, seeded from the loaded form.
   const [name, setName] = useState("");
   const [tag, setTag] = useState("");
   const [status, setStatus] = useState("active");
   const [origins, setOrigins] = useState("");
-  const [zk, setZk] = useState(false);
+  const [listId, setListId] = useState<string>("");
   const [fields, setFields] = useState<CaptureFieldSpec[]>([]);
   const [display, setDisplay] = useState<Required<FormDisplaySettings>>(
     readDisplaySettings(undefined)
@@ -136,17 +197,43 @@ export function FormBuilder({ id }: { id: string }) {
     setTag(form.tag ?? "");
     setStatus(form.status);
     setOrigins(form.allowedOrigins.join(", "));
-    setZk(form.zkEnabled);
+    setListId(form.listId ?? "");
     setFields(form.fields.length > 0 ? form.fields : []);
     setDisplay(readDisplaySettings(form.settings));
     setMeta(readFormMeta(form.settings));
   }, [form]);
+
+  // Lists + automations for the Settings dropdowns.
+  const listsQuery = useQuery({
+    queryKey: ["forms", "lists"],
+    queryFn: () => audienceService.listSegments({ limit: 100 }),
+    staleTime: 60_000,
+    retry: false,
+  });
+  const lists = useMemo(
+    () => (listsQuery.data ?? []).map((s) => ({ id: s.id, name: s.name })),
+    [listsQuery.data]
+  );
+  const automationsQuery = useQuery({
+    queryKey: ["forms", "automations"],
+    queryFn: () => automationService.listAutomations({ limit: 100 }),
+    staleTime: 60_000,
+    retry: false,
+    enabled: meta.afterSubmit.enrolAutomation,
+  });
+  const automations = useMemo(
+    () => normalizeNamed(automationsQuery.data),
+    [automationsQuery.data]
+  );
+
+  const zk = meta.type === "identity";
 
   const buildInput = () => ({
     name: name.trim() || "Untitled form",
     tag: tag.trim() || null,
     status,
     zkEnabled: zk,
+    listId: listId || null,
     fields: fields.filter((f) => f.key.trim().length > 0),
     allowedOrigins: origins
       .split(",")
@@ -178,12 +265,12 @@ export function FormBuilder({ id }: { id: string }) {
     );
   };
 
-  const hasWallet = fields.some((f) => (f.type ?? "text") === "wallet");
-  const hasConsent = fields.some((f) => (f.type ?? "text") === "consent");
+  const has = (type: CaptureFieldType) =>
+    fields.some((f) => (f.type ?? "text") === type);
 
   const addField = (type: CaptureFieldType, defaultLabel: string) => {
-    if (type === "wallet" && hasWallet) return;
-    if (type === "consent" && hasConsent) return;
+    if (meta.type === "lead" && type !== "email" && type !== "text") return;
+    if ((type === "wallet" || type === "consent") && has(type)) return;
     const taken = new Set(fields.map((f) => f.key));
     const key = uniqueKey(type, taken);
     setFields([
@@ -195,19 +282,30 @@ export function FormBuilder({ id }: { id: string }) {
         required: type === "wallet" || type === "consent" || type === "email",
       },
     ]);
-    setBuildTab("fields");
+    setSelectedKey(key);
   };
 
-  const patchField = (index: number, patch: Partial<CaptureFieldSpec>) =>
-    setFields(fields.map((f, i) => (i === index ? { ...f, ...patch } : f)));
-  const removeField = (index: number) =>
-    setFields(fields.filter((_, i) => i !== index));
-  const moveField = (index: number, dir: -1 | 1) => {
-    const j = index + dir;
-    if (j < 0 || j >= fields.length) return;
-    const next = [...fields];
-    [next[index], next[j]] = [next[j], next[index]];
-    setFields(next);
+  const patchField = (key: string, patch: Partial<CaptureFieldSpec>) =>
+    setFields((prev) =>
+      prev.map((f) => (f.key === key ? { ...f, ...patch } : f))
+    );
+  const removeField = (key: string) => {
+    setFields((prev) => prev.filter((f) => f.key !== key));
+    setSelectedKey((cur) => (cur === key ? null : cur));
+  };
+  const moveField = (key: string, dir: -1 | 1) =>
+    setFields((prev) => {
+      const i = prev.findIndex((f) => f.key === key);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+
+  const selectField = (key: string) => {
+    setSelectedKey(key);
+    setBuildTab("fields");
   };
 
   const publicUrl = useMemo(() => {
@@ -237,6 +335,7 @@ export function FormBuilder({ id }: { id: string }) {
   }
 
   const live = status === "active";
+  const selectedField = fields.find((f) => f.key === selectedKey) ?? null;
 
   return (
     <div className="flex min-h-[calc(100vh-2rem)] flex-col">
@@ -268,24 +367,24 @@ export function FormBuilder({ id }: { id: string }) {
                 live ? "bg-emerald-500" : "bg-muted-foreground"
               )}
             />
-            {live ? "Live" : "Paused"}
+            {live ? "Live" : "Draft"}
           </span>
         </div>
 
         <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
-          {(["build", "submissions", "share"] as const).map((t) => (
+          {(["build", "submissions", "share"] as const).map((tt) => (
             <button
-              key={t}
+              key={tt}
               type="button"
-              onClick={() => setTab(t)}
+              onClick={() => setTab(tt)}
               className={cn(
                 "rounded-md px-3 py-1 text-sm font-medium capitalize transition-colors",
-                tab === t
+                tab === tt
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {t}
+              {tt}
             </button>
           ))}
         </div>
@@ -305,7 +404,7 @@ export function FormBuilder({ id }: { id: string }) {
             ) : (
               <>
                 <PlayIcon className="size-4" aria-hidden="true" />
-                Go live
+                Publish
               </>
             )}
           </Button>
@@ -320,39 +419,36 @@ export function FormBuilder({ id }: { id: string }) {
           {/* Left config panel */}
           <div className="space-y-4">
             <div className="flex gap-4 border-b border-border">
-              {(["fields", "display", "settings"] as const).map((t) => (
+              {(["fields", "display", "settings"] as const).map((tt) => (
                 <button
-                  key={t}
+                  key={tt}
                   type="button"
-                  onClick={() => setBuildTab(t)}
+                  onClick={() => setBuildTab(tt)}
                   className={cn(
                     "-mb-px border-b-2 pb-2.5 text-sm font-medium capitalize transition-colors",
-                    buildTab === t
+                    buildTab === tt
                       ? "border-primary text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {t}
+                  {tt}
                 </button>
               ))}
             </div>
 
             {buildTab === "fields" ? (
               <FieldsPanel
+                captureType={meta.type}
                 fields={fields}
-                hasWallet={hasWallet}
-                hasConsent={hasConsent}
+                selectedField={selectedField}
                 onAdd={addField}
                 onPatch={patchField}
                 onRemove={removeField}
-                onMove={moveField}
               />
             ) : null}
 
             {buildTab === "display" ? (
-              <DisplayPanel
-                display={display}
-                onChange={setDisplay}
+              <TimingPanel
                 meta={meta}
                 onTiming={(timing) => setMeta((m) => ({ ...m, timing }))}
               />
@@ -362,16 +458,18 @@ export function FormBuilder({ id }: { id: string }) {
               <SettingsPanel
                 name={name}
                 tag={tag}
-                status={status}
                 origins={origins}
-                zk={zk}
+                listId={listId}
+                lists={lists}
+                automations={automations}
+                display={display}
                 meta={meta}
                 fields={fields}
                 onName={setName}
                 onTag={setTag}
-                onStatus={setStatus}
                 onOrigins={setOrigins}
-                onZk={setZk}
+                onListId={setListId}
+                onDisplay={setDisplay}
                 onMeta={setMeta}
               />
             ) : null}
@@ -383,12 +481,20 @@ export function FormBuilder({ id }: { id: string }) {
               name={name}
               fields={fields}
               display={display}
+              appearance={meta.appearance}
+              submitLabel={submitLabelForType(meta.type)}
               zkEnabled={zk}
               style={meta.style}
               surface={meta.surface}
               device={device}
               onDevice={setDevice}
               onEditStyle={() => setBuildTab("settings")}
+              editing={{
+                selectedKey,
+                onSelect: selectField,
+                onMove: moveField,
+                onRemove: removeField,
+              }}
               hostedUrl={publicUrl.replace(/^https?:\/\//, "")}
             />
             <p className="mx-auto mt-4 max-w-md text-center text-xs text-muted-foreground">
@@ -421,81 +527,49 @@ export function FormBuilder({ id }: { id: string }) {
       ) : null}
 
       {tab === "share" ? (
-        <div className="flex-1 space-y-6 pt-6">
-          <div className="space-y-2">
-            <Label>
-              {meta.surface === "hosted"
-                ? "Hosted page link"
-                : "Public form link"}
-            </Label>
-            <div className="flex gap-2">
-              <Input readOnly value={publicUrl} className="font-mono text-sm" />
-              <Button
-                variant="outline"
-                onClick={() => {
-                  navigator.clipboard
-                    .writeText(publicUrl)
-                    .then(() => toast.success("Link copied"))
-                    .catch(() => toast.error("Couldn't copy"));
-                }}
-              >
-                Copy
-              </Button>
-              <Button variant="outline" asChild>
-                <a href={publicUrl} target="_blank" rel="noreferrer">
-                  <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
-                  Open
-                </a>
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {meta.surface === "hosted"
-                ? "Send visitors straight to this page - we host it, no site changes needed."
-                : "Share this link, or embed the snippet below on your site."}
-            </p>
-          </div>
-          {meta.surface === "hosted" ? null : (
-            <EmbedSnippet
-              embedCode={form.embedCode}
-              submitUrl={form.submitUrl}
-            />
-          )}
-        </div>
+        <ShareTab
+          surface={meta.surface}
+          publicUrl={publicUrl}
+          embedCode={form.embedCode}
+          submitUrl={form.submitUrl}
+        />
       ) : null}
     </div>
   );
 }
 
+// ---------------------------------------------------------------- Fields tab
+
 function FieldsPanel({
+  captureType,
   fields,
-  hasWallet,
-  hasConsent,
+  selectedField,
   onAdd,
   onPatch,
   onRemove,
-  onMove,
 }: {
+  captureType: FormCaptureType;
   fields: CaptureFieldSpec[];
-  hasWallet: boolean;
-  hasConsent: boolean;
+  selectedField: CaptureFieldSpec | null;
   onAdd: (type: CaptureFieldType, defaultLabel: string) => void;
-  onPatch: (index: number, patch: Partial<CaptureFieldSpec>) => void;
-  onRemove: (index: number) => void;
-  onMove: (index: number, dir: -1 | 1) => void;
+  onPatch: (key: string, patch: Partial<CaptureFieldSpec>) => void;
+  onRemove: (key: string) => void;
 }) {
+  const isLead = captureType === "lead";
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Add a field
         </p>
         <div className="grid grid-cols-2 gap-2">
           {FIELD_PALETTE.filter(
             (f) => f.type !== "farcaster" || FORMS_FARCASTER_ENABLED
           ).map((item) => {
-            const disabled =
-              (item.type === "wallet" && hasWallet) ||
-              (item.type === "consent" && hasConsent);
+            const gated = Boolean(item.identityOnly) && isLead;
+            const dupe =
+              item.type === "wallet" && fields.some((f) => f.type === "wallet");
+            const disabled = gated || dupe;
             return (
               <button
                 key={item.type}
@@ -518,94 +592,94 @@ function FieldsPanel({
             );
           })}
         </div>
+        {isLead ? (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Wallet &amp; social fields are available on Identity capture forms.
+            Switch type under Settings.
+          </p>
+        ) : null}
       </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Fields ({fields.length})
+      {selectedField ? (
+        <FieldInspector
+          field={selectedField}
+          onPatch={onPatch}
+          onRemove={onRemove}
+        />
+      ) : (
+        <p className="rounded-lg border border-dashed border-border p-3 text-xs leading-relaxed text-muted-foreground">
+          Select a field in the preview to edit its label, mark it required, or
+          remove it. Reorder with the ↑↓ controls.
         </p>
-        {fields.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-            No fields yet - add Connect wallet + Email for a wallet-first form.
-          </p>
-        ) : (
-          fields.map((field, index) => (
-            <div
-              key={field.key}
-              className="space-y-2 rounded-lg border border-border bg-card p-2.5"
-            >
-              <div className="flex items-center gap-1.5">
-                <span className="flex-1 truncate text-xs font-medium capitalize text-muted-foreground">
-                  {field.type ?? "text"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onMove(index, -1)}
-                  disabled={index === 0}
-                  className="rounded p-1 text-muted-foreground hover:bg-muted disabled:opacity-30"
-                  aria-label="Move up"
-                >
-                  <ChevronUpIcon className="size-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onMove(index, 1)}
-                  disabled={index === fields.length - 1}
-                  className="rounded p-1 text-muted-foreground hover:bg-muted disabled:opacity-30"
-                  aria-label="Move down"
-                >
-                  <ChevronDownIcon className="size-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onRemove(index)}
-                  className="rounded p-1 text-destructive hover:bg-destructive/10"
-                  aria-label="Remove field"
-                >
-                  <TrashIcon className="size-3.5" />
-                </button>
-              </div>
-              {field.type !== "wallet" ? (
-                <Input
-                  value={field.label ?? ""}
-                  onChange={(e) => onPatch(index, { label: e.target.value })}
-                  placeholder="Label"
-                  className="h-8 text-xs"
-                />
-              ) : null}
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Switch
-                  checked={field.required ?? false}
-                  onCheckedChange={(v) => onPatch(index, { required: v })}
-                />
-                Required
-              </label>
-            </div>
-          ))
-        )}
-      </div>
+      )}
     </div>
   );
 }
 
-const PAGE_OPTIONS = [
-  "All pages",
-  "Homepage only",
-  "Specific paths…",
-  "Everywhere except checkout",
-];
-const FREQ_OPTIONS = [
-  "Once per visitor",
-  "Once per session",
-  "Every visit",
-  "Until submitted",
-];
-const TRIGGER_OPTIONS: { value: FormTrigger; label: string }[] = [
-  { value: "load", label: "On page load" },
-  { value: "delay", label: "After a delay" },
-  { value: "scroll", label: "On scroll depth" },
-  { value: "exit", label: "On exit intent" },
-];
+function FieldInspector({
+  field,
+  onPatch,
+  onRemove,
+}: {
+  field: CaptureFieldSpec;
+  onPatch: (key: string, patch: Partial<CaptureFieldSpec>) => void;
+  onRemove: (key: string) => void;
+}) {
+  const type = field.type ?? "text";
+  const entry = FIELD_CATALOG[type];
+  const isConsent = type === "consent";
+  return (
+    <div className="space-y-3 rounded-lg border border-border p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {entry?.name ?? type} field
+      </p>
+      {type !== "wallet" ? (
+        <Field label={isConsent ? "Consent copy" : "Label"}>
+          {isConsent ? (
+            <Textarea
+              rows={3}
+              value={field.label ?? ""}
+              onChange={(e) => onPatch(field.key, { label: e.target.value })}
+            />
+          ) : (
+            <Input
+              className="h-9"
+              value={field.label ?? ""}
+              onChange={(e) => onPatch(field.key, { label: e.target.value })}
+            />
+          )}
+        </Field>
+      ) : (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          The Connect wallet button is the identity anchor - it can&apos;t be
+          relabelled.
+        </p>
+      )}
+      {entry?.canRequire ? (
+        <label className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Required</span>
+          <Switch
+            checked={field.required ?? false}
+            onCheckedChange={(v) => onPatch(field.key, { required: v })}
+          />
+        </label>
+      ) : null}
+      {!entry?.fixed ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+          onClick={() => onRemove(field.key)}
+        >
+          <XMarkIcon className="size-4" aria-hidden="true" />
+          Remove field
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+// --------------------------------------------------------------- Display tab
 
 function TimingPanel({
   meta,
@@ -617,7 +691,6 @@ function TimingPanel({
   const t = meta.timing;
   const set = (patch: Partial<FormTiming>) => onTiming({ ...t, ...patch });
   const applies = timingApplies(meta.style, meta.surface);
-
   return (
     <div className="space-y-3">
       <Field label="Where it shows">
@@ -638,7 +711,6 @@ function TimingPanel({
           </SelectContent>
         </Select>
       </Field>
-
       <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
         <InformationCircleIcon
           className="mt-0.5 size-3.5 shrink-0"
@@ -648,7 +720,6 @@ function TimingPanel({
           ? "Hosted pages open from their own link - timing rules below don't apply."
           : "Inline forms show in place - timing rules apply to overlays (Pop-up, Slide-in, Hello bar)."}
       </p>
-
       {applies ? (
         <>
           <Field label="When it appears">
@@ -711,135 +782,53 @@ function TimingPanel({
   );
 }
 
-function DisplayPanel({
-  display,
-  onChange,
-  meta,
-  onTiming,
-}: {
-  display: Required<FormDisplaySettings>;
-  onChange: (next: Required<FormDisplaySettings>) => void;
-  meta: FormMeta;
-  onTiming: (t: FormTiming) => void;
-}) {
-  const set = (patch: Partial<FormDisplaySettings>) =>
-    onChange({ ...display, ...patch });
-  return (
-    <div className="space-y-3">
-      <TimingPanel meta={meta} onTiming={onTiming} />
-      <div className="border-t border-border pt-3">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Appearance
-        </p>
-      </div>
-      <Field label="Brand name">
-        <Input
-          value={display.brandName}
-          onChange={(e) => set({ brandName: e.target.value })}
-          placeholder="Vault77"
-          className="h-9"
-        />
-      </Field>
-      <Field label="Headline">
-        <Input
-          value={display.headline}
-          onChange={(e) => set({ headline: e.target.value })}
-          className="h-9"
-        />
-      </Field>
-      <Field label="Description">
-        <Textarea
-          value={display.description}
-          onChange={(e) => set({ description: e.target.value })}
-          rows={3}
-        />
-      </Field>
-      <Field label="Submit button label">
-        <Input
-          value={display.submitLabel}
-          onChange={(e) => set({ submitLabel: e.target.value })}
-          className="h-9"
-        />
-      </Field>
-      <Field label="Consent text">
-        <Textarea
-          value={display.consentLabel}
-          onChange={(e) => set({ consentLabel: e.target.value })}
-          rows={3}
-        />
-      </Field>
-      <Field label="Success message">
-        <Textarea
-          value={display.successMessage}
-          onChange={(e) => set({ successMessage: e.target.value })}
-          rows={2}
-        />
-      </Field>
-      <Field label="Accent color">
-        <div className="flex items-center gap-2">
-          <input
-            type="color"
-            value={display.accent}
-            onChange={(e) => set({ accent: e.target.value })}
-            className="h-9 w-12 cursor-pointer rounded border border-border bg-transparent"
-            aria-label="Accent color"
-          />
-          <Input
-            value={display.accent}
-            onChange={(e) => set({ accent: e.target.value })}
-            className="h-9 font-mono text-sm"
-          />
-        </div>
-      </Field>
-      <label className="flex items-center justify-between rounded-lg border border-border p-3 text-sm">
-        <span>
-          <span className="font-medium text-foreground">Show ZK note</span>
-          <span className="block text-xs text-muted-foreground">
-            Zero-knowledge reassurance line under the button.
-          </span>
-        </span>
-        <Switch
-          checked={display.showZkNote}
-          onCheckedChange={(v) => set({ showZkNote: v })}
-        />
-      </label>
-    </div>
-  );
-}
+// -------------------------------------------------------------- Settings tab
 
 function SettingsPanel({
   name,
   tag,
-  status,
   origins,
-  zk,
+  listId,
+  lists,
+  automations,
+  display,
   meta,
   fields,
   onName,
   onTag,
-  onStatus,
   onOrigins,
-  onZk,
+  onListId,
+  onDisplay,
   onMeta,
 }: {
   name: string;
   tag: string;
-  status: string;
   origins: string;
-  zk: boolean;
+  listId: string;
+  lists: Named[];
+  automations: Named[];
+  display: Required<FormDisplaySettings>;
   meta: FormMeta;
   fields: CaptureFieldSpec[];
   onName: (v: string) => void;
   onTag: (v: string) => void;
-  onStatus: (v: string) => void;
   onOrigins: (v: string) => void;
-  onZk: (v: boolean) => void;
+  onListId: (v: string) => void;
+  onDisplay: (d: Required<FormDisplaySettings>) => void;
   onMeta: (updater: (m: FormMeta) => FormMeta) => void;
 }) {
   const emailReachable = fields.some((f) => (f.type ?? "text") === "email");
   const pushReachable = fields.some((f) => (f.type ?? "text") === "wallet");
   const widgetStyles = FORM_STYLES.filter((s) => s.surface === "widget");
+  const app = meta.appearance;
+  const after = meta.afterSubmit;
 
+  const setApp = (patch: Partial<FormAppearance>) =>
+    onMeta((m) => ({ ...m, appearance: { ...m.appearance, ...patch } }));
+  const setAfter = (patch: Partial<typeof after>) =>
+    onMeta((m) => ({ ...m, afterSubmit: { ...m.afterSubmit, ...patch } }));
+  const setDisp = (patch: Partial<FormDisplaySettings>) =>
+    onDisplay({ ...display, ...patch });
   const setSurface = (surface: FormSurface) =>
     onMeta((m) => {
       const style: FormStyleId =
@@ -855,8 +844,9 @@ function SettingsPanel({
   const setType = (type: FormCaptureType) => onMeta((m) => ({ ...m, type }));
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-3 rounded-lg border border-border p-3">
+    <div className="space-y-4">
+      {/* Type + surface */}
+      <Section>
         <Field label="Form type">
           <Select
             value={meta.type}
@@ -875,31 +865,15 @@ function SettingsPanel({
             </SelectContent>
           </Select>
         </Field>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Surface</Label>
-          <div className="grid grid-cols-2 gap-1 rounded-lg border border-border p-0.5">
-            {(
-              [
-                ["widget", "Embed widget"],
-                ["hosted", "Hosted page"],
-              ] as const
-            ).map(([s, label]) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setSurface(s)}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                  meta.surface === s
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <Seg
+          label="Surface"
+          value={meta.surface}
+          options={[
+            ["widget", "Embed widget"],
+            ["hosted", "Hosted page"],
+          ]}
+          onChange={(v) => setSurface(v as FormSurface)}
+        />
         {meta.surface === "widget" ? (
           <Field label="Widget style">
             <Select
@@ -923,85 +897,370 @@ function SettingsPanel({
           <p className="font-medium text-foreground">
             This form makes contacts
           </p>
-          <p
-            className={cn(
-              "flex items-center gap-1.5",
-              emailReachable ? "text-primary" : "text-muted-foreground"
-            )}
-          >
-            {emailReachable ? (
-              <CheckIcon className="size-3.5" aria-hidden="true" />
-            ) : (
-              <XMarkIcon className="size-3.5" aria-hidden="true" />
-            )}
-            Email-reachable{emailReachable ? "" : " - add an Email field"}
-          </p>
-          <p
-            className={cn(
-              "flex items-center gap-1.5",
-              pushReachable ? "text-primary" : "text-muted-foreground"
-            )}
-          >
-            {pushReachable ? (
-              <CheckIcon className="size-3.5" aria-hidden="true" />
-            ) : (
-              <XMarkIcon className="size-3.5" aria-hidden="true" />
-            )}
-            Push-reachable{pushReachable ? "" : " - add Connect wallet"}
-          </p>
+          <Reach
+            on={emailReachable}
+            yes="Email-reachable"
+            no="Email-reachable - add an Email field"
+          />
+          <Reach
+            on={pushReachable}
+            yes="Push-reachable"
+            no="Push-reachable - add Connect wallet"
+          />
         </div>
-      </div>
-      <Field label="Form name">
-        <Input
-          value={name}
-          onChange={(e) => onName(e.target.value)}
-          className="h-9"
-        />
-      </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Tag">
+      </Section>
+
+      {/* Header */}
+      <Section title="Header">
+        <Field label="Brand name">
           <Input
-            value={tag}
-            onChange={(e) => onTag(e.target.value)}
-            placeholder="waitlist"
             className="h-9"
+            value={display.brandName}
+            placeholder="Vault77"
+            onChange={(e) => setDisp({ brandName: e.target.value })}
           />
         </Field>
-        <Field label="Status">
-          <Select value={status} onValueChange={onStatus}>
-            <SelectTrigger className="h-9" aria-label="Status">
-              <SelectValue />
+        <Field label="Title">
+          <Input
+            className="h-9"
+            value={display.headline}
+            onChange={(e) => setDisp({ headline: e.target.value })}
+          />
+        </Field>
+        <Field label="Subtitle">
+          <Textarea
+            rows={2}
+            value={display.description}
+            onChange={(e) => setDisp({ description: e.target.value })}
+          />
+        </Field>
+      </Section>
+
+      {/* Style */}
+      <Section title="Style">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Accent</Label>
+          <div className="flex gap-2">
+            {ACCENT_SWATCHES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-label={`Accent ${c}`}
+                onClick={() => setApp({ accent: c })}
+                style={{ backgroundColor: c }}
+                className={cn(
+                  "size-7 rounded-full ring-offset-2 ring-offset-background",
+                  app.accent === c
+                    ? "ring-2 ring-foreground"
+                    : "ring-1 ring-border"
+                )}
+              />
+            ))}
+          </div>
+        </div>
+        <Seg
+          label="Background"
+          value={app.bg}
+          options={BG_OPTIONS}
+          onChange={(v) => setApp({ bg: v as FormAppearance["bg"] })}
+        />
+        <Seg
+          label="Corners"
+          value={app.corners}
+          options={CORNER_OPTIONS}
+          onChange={(v) => setApp({ corners: v as FormAppearance["corners"] })}
+        />
+        <Seg
+          label="Button"
+          value={app.button}
+          options={BUTTON_OPTIONS}
+          onChange={(v) => setApp({ button: v as FormAppearance["button"] })}
+        />
+        <label className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Hero image</span>
+          <Switch
+            checked={app.hero}
+            onCheckedChange={(v) => setApp({ hero: v })}
+          />
+        </label>
+      </Section>
+
+      {/* Consent & verification */}
+      <Section title="Consent & verification">
+        {meta.type === "identity" ? (
+          <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+            <ShieldCheckIcon
+              className="mt-0.5 size-3.5 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+            Identity forms verify the wallet↔email link with a ZK proof at
+            submit - no extra confirmation email needed.
+          </p>
+        ) : (
+          <label className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              Double opt-in (email confirm)
+            </span>
+            <Switch
+              checked={meta.doubleOptIn}
+              onCheckedChange={(v) => onMeta((m) => ({ ...m, doubleOptIn: v }))}
+            />
+          </label>
+        )}
+      </Section>
+
+      {/* Where contacts land */}
+      <Section title="Where contacts land">
+        <Field label="Add subscribers to list">
+          <Select
+            value={listId || "none"}
+            onValueChange={(v) => onListId(v === "none" ? "" : v)}
+          >
+            <SelectTrigger className="h-9" aria-label="Add subscribers to list">
+              <SelectValue placeholder="No list" />
             </SelectTrigger>
             <SelectContent>
-              {["active", "paused", "archived"].map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
+              <SelectItem value="none">No list</SelectItem>
+              {lists.map((l) => (
+                <SelectItem key={l.id} value={l.id}>
+                  {l.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Field>
-      </div>
-      <Field label="Allowed origins">
-        <Input
-          value={origins}
-          onChange={(e) => onOrigins(e.target.value)}
-          placeholder="https://vault77.xyz"
-          className="h-9"
-        />
-        <p className="mt-1 text-xs text-muted-foreground">
-          Comma-separated. Leave empty to allow any origin.
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Everyone who submits joins this list. Use lists to target campaigns
+          and trigger automations.
         </p>
-      </Field>
-      <label className="flex items-center justify-between rounded-lg border border-border p-3 text-sm">
-        <span>
-          <span className="font-medium text-foreground">ZK encryption</span>
-          <span className="block text-xs text-muted-foreground">
-            Blind-index + encrypt captured PII at rest.
-          </span>
-        </span>
-        <Switch checked={zk} onCheckedChange={onZk} />
-      </label>
+        <Field label="Auto-tag new contacts">
+          <Input
+            className="h-9"
+            value={tag}
+            placeholder="season-2"
+            onChange={(e) => onTag(e.target.value)}
+          />
+        </Field>
+      </Section>
+
+      {/* After submit */}
+      <Section title="After submit">
+        <Field label="On completion">
+          <Select
+            value={after.onCompletion}
+            onValueChange={(v) =>
+              setAfter({ onCompletion: v as FormCompletion })
+            }
+          >
+            <SelectTrigger className="h-9" aria-label="On completion">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {COMPLETION_OPTIONS.map(([v, l]) => (
+                <SelectItem key={v} value={v}>
+                  {l}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        {after.onCompletion === "message" ? (
+          <Field label="Thank-you message">
+            <Textarea
+              rows={2}
+              value={display.successMessage}
+              onChange={(e) => setDisp({ successMessage: e.target.value })}
+            />
+          </Field>
+        ) : null}
+        {after.onCompletion === "redirect" ? (
+          <Field label="Redirect URL">
+            <Input
+              className="h-9"
+              value={after.redirectUrl}
+              placeholder="https://vault77.com/welcome"
+              onChange={(e) => setAfter({ redirectUrl: e.target.value })}
+            />
+          </Field>
+        ) : null}
+        {after.onCompletion === "reveal" ? (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            After verifying, the visitor sees whether their wallet is eligible
+            and, if so, their allowlist status - computed via ZK against your
+            contracts.
+          </p>
+        ) : null}
+        <label className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Enrol into automation</span>
+          <Switch
+            checked={after.enrolAutomation}
+            onCheckedChange={(v) => setAfter({ enrolAutomation: v })}
+          />
+        </label>
+        {after.enrolAutomation ? (
+          <Select
+            value={after.automationId ?? "none"}
+            onValueChange={(v) =>
+              setAfter({
+                automationId: v === "none" ? null : v,
+                automationName:
+                  automations.find((a) => a.id === v)?.name ?? null,
+              })
+            }
+          >
+            <SelectTrigger className="h-9" aria-label="Automation">
+              <SelectValue placeholder="Choose an automation" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              {automations.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+      </Section>
+
+      {/* Advanced */}
+      <Section title="Advanced">
+        <Field label="Form name">
+          <Input
+            className="h-9"
+            value={name}
+            onChange={(e) => onName(e.target.value)}
+          />
+        </Field>
+        {meta.surface === "widget" ? (
+          <Field label="Allowed origins">
+            <Input
+              className="h-9"
+              value={origins}
+              placeholder="https://vault77.xyz"
+              onChange={(e) => onOrigins(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Comma-separated. Leave empty to allow any origin.
+            </p>
+          </Field>
+        ) : null}
+      </Section>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ Share tab
+
+function ShareTab({
+  surface,
+  publicUrl,
+  embedCode,
+  submitUrl,
+}: {
+  surface: FormSurface;
+  publicUrl: string;
+  embedCode: string;
+  submitUrl: string;
+}) {
+  const copy = () => {
+    navigator.clipboard
+      .writeText(publicUrl)
+      .then(() => toast.success("Link copied"))
+      .catch(() => toast.error("Couldn't copy"));
+  };
+  if (surface === "hosted") {
+    return (
+      <div className="flex-1 pt-6">
+        <div className="mx-auto max-w-xl space-y-4 rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-start gap-3">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                Hosted page
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Share this link anywhere - no site needed. We host and secure
+                the page.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Input readOnly value={publicUrl} className="font-mono text-sm" />
+            <Button variant="outline" onClick={copy}>
+              Copy
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <a href={publicUrl} target="_blank" rel="noreferrer">
+                <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
+                Open
+              </a>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                window.open(
+                  `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(publicUrl)}`,
+                  "_blank",
+                  "noopener,noreferrer"
+                )
+              }
+            >
+              <QrCodeIcon className="size-4" aria-hidden="true" />
+              QR code
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex-1 space-y-6 pt-6">
+      <div className="space-y-2">
+        <Label>Public form link</Label>
+        <div className="flex gap-2">
+          <Input readOnly value={publicUrl} className="font-mono text-sm" />
+          <Button variant="outline" onClick={copy}>
+            Copy
+          </Button>
+          <Button variant="outline" asChild>
+            <a href={publicUrl} target="_blank" rel="noreferrer">
+              <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
+              Open
+            </a>
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Share this link, or embed the snippet below on your site.
+        </p>
+      </div>
+      <EmbedSnippet embedCode={embedCode} submitUrl={submitUrl} />
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------- atoms
+
+function Section({
+  title,
+  children,
+}: {
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-3 rounded-lg border border-border p-3">
+      {title ? (
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </p>
+      ) : null}
+      {children}
     </div>
   );
 }
@@ -1018,5 +1277,63 @@ function Field({
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>
+  );
+}
+
+function Seg({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: [string, string][];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div
+        className="grid gap-1 rounded-lg border border-border p-0.5"
+        style={{
+          gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`,
+        }}
+      >
+        {options.map(([v, l]) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => onChange(v)}
+            className={cn(
+              "rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
+              value === v
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Reach({ on, yes, no }: { on: boolean; yes: string; no: string }) {
+  return (
+    <p
+      className={cn(
+        "flex items-center gap-1.5",
+        on ? "text-primary" : "text-muted-foreground"
+      )}
+    >
+      {on ? (
+        <CheckIcon className="size-3.5" aria-hidden="true" />
+      ) : (
+        <XMarkIcon className="size-3.5" aria-hidden="true" />
+      )}
+      {on ? yes : no}
+    </p>
   );
 }

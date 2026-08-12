@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowDownTrayIcon,
   ArrowLeftIcon,
   ArrowUpTrayIcon,
   AtSymbolIcon,
@@ -19,10 +20,12 @@ import {
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "react-qr-code";
 import { toast } from "sonner";
 
 import { Button } from "@/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/dialog";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
 import {
@@ -1209,11 +1212,26 @@ function ShareTab({
   embedCode: string;
   submitUrl: string;
 }) {
+  const [qrOpen, setQrOpen] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
   const copy = () => {
     navigator.clipboard
       .writeText(publicUrl)
       .then(() => toast.success("Link copied"))
       .catch(() => toast.error("Couldn't copy"));
+  };
+  const downloadQr = () => {
+    const svg = qrRef.current?.querySelector("svg");
+    if (!svg) return;
+    const blob = new Blob([new XMLSerializer().serializeToString(svg)], {
+      type: "image/svg+xml",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "form-qr.svg";
+    a.click();
+    URL.revokeObjectURL(url);
   };
   if (surface === "hosted") {
     return (
@@ -1243,21 +1261,33 @@ function ShareTab({
               Open
             </a>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              window.open(
-                `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(publicUrl)}`,
-                "_blank",
-                "noopener,noreferrer"
-              )
-            }
-          >
+          <Button variant="outline" size="sm" onClick={() => setQrOpen(true)}>
             <QrCodeIcon className="size-4" aria-hidden="true" />
             QR code
           </Button>
         </div>
+
+        <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+          <DialogContent className="sm:max-w-xs">
+            <DialogHeader>
+              <DialogTitle>Scan to open the form</DialogTitle>
+            </DialogHeader>
+            <div
+              ref={qrRef}
+              className="mx-auto rounded-xl bg-white p-4"
+              style={{ width: "fit-content" }}
+            >
+              <QRCode value={publicUrl || " "} size={200} />
+            </div>
+            <p className="truncate text-center text-xs text-muted-foreground">
+              {publicUrl}
+            </p>
+            <Button variant="outline" size="sm" onClick={downloadQr}>
+              <ArrowDownTrayIcon className="size-4" aria-hidden="true" />
+              Download SVG
+            </Button>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }

@@ -367,9 +367,7 @@ export function AnalyticsPage() {
         }
       >
         <div className="mb-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <Legend color="var(--primary)">
-            Wallets reached · off-chain
-          </Legend>
+          <Legend color="var(--primary)">Wallets reached · off-chain</Legend>
           <Legend color="#f97316" dashed>
             On-chain conversions
           </Legend>
@@ -383,16 +381,8 @@ export function AnalyticsPage() {
         >
           <defs>
             <linearGradient id="an-grad" x1="0" y1="0" x2="0" y2="1">
-              <stop
-                offset="0"
-                stopColor="var(--primary)"
-                stopOpacity="0.18"
-              />
-              <stop
-                offset="1"
-                stopColor="var(--primary)"
-                stopOpacity="0"
-              />
+              <stop offset="0" stopColor="var(--primary)" stopOpacity="0.18" />
+              <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
             </linearGradient>
           </defs>
           <polygon
@@ -474,9 +464,7 @@ export function AnalyticsPage() {
                     style={{
                       width: `${pct}%`,
                       background:
-                        i === FUNNEL.length - 1
-                          ? "#f97316"
-                          : "var(--primary)",
+                        i === FUNNEL.length - 1 ? "#f97316" : "var(--primary)",
                     }}
                   />
                 </div>

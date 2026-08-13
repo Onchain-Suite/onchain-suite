@@ -40,7 +40,7 @@ const PLAN_FEATURE_CATALOG: Record<string, string[]> = {
     "Direct campaigns, Audience & Forms",
   ],
   launch: [
-    "2,500 contacts · 5,000 emails/mo",
+    "5,000 contacts · 50,000 emails/mo",
     "25,000 in-app pushes/mo",
     "Intelligence, Audience & Segments",
     "Direct campaigns",
@@ -89,7 +89,7 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
     price: 49,
     interval: "month",
     features: [
-      "2,500 contacts · 5,000 emails/mo",
+      "5,000 contacts · 50,000 emails/mo",
       "25,000 in-app pushes/mo",
       "Intelligence",
       "2 team seats",

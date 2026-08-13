@@ -225,8 +225,8 @@ const TIERS: Tier[] = [
     priceNote: "/mo",
     who: "A protocol getting started on email + wallet.",
     features: [
-      "2,500 contacts",
-      "5,000 emails/mo",
+      "5,000 contacts",
+      "50,000 emails/mo",
       "25,000 in-app pushes/mo",
       "1,000 on-chain credits/mo",
       "500 AI credits/mo",

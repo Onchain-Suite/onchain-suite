@@ -113,6 +113,13 @@ vi.mock("../campaigns.service", () => {
       ]),
       deleteCampaign: vi.fn(async () => undefined),
       cancelCampaign: vi.fn(async () => undefined),
+      // Each sent row fetches its own funnel for the open/click-rate columns.
+      // Resolve a small email funnel so those cells render real percentages.
+      getAnalytics: vi.fn(async () => ({
+        campaignId: "c",
+        email: { openRate: 51, clickRate: 12 },
+        inapp: {},
+      })),
     },
   };
 });
@@ -160,6 +167,19 @@ describe("CampaignsListsView", () => {
     expect(screen.getByText("Draft One")).toBeInTheDocument();
     expect(screen.queryByText("Welcome")).not.toBeInTheDocument();
     expect(screen.queryByText("Launch")).not.toBeInTheDocument();
+  });
+
+  it("renders per-campaign open/view and click rates for sent campaigns", async () => {
+    renderWithClient(<CampaignsListsView />);
+
+    const row = (await screen.findByText("Welcome")).closest("tr");
+    expect(row).not.toBeNull();
+    // The email funnel (openRate 51, clickRate 12) rounds to whole-number
+    // percents in the two new right-aligned rate columns.
+    expect(
+      await within(row as HTMLElement).findByText("51%")
+    ).toBeInTheDocument();
+    expect(within(row as HTMLElement).getByText("12%")).toBeInTheDocument();
   });
 
   it("opens the delete confirmation from a row's action menu", async () => {

@@ -7,6 +7,7 @@ import {
   NoSymbolIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
+import { useQuery } from "@tanstack/react-query";
 
 import {
   DropdownMenu,
@@ -17,6 +18,7 @@ import {
 
 import { cn } from "@/lib/utils";
 
+import { campaignsService } from "../campaigns.service";
 import type { Campaign, CampaignStatus } from "../types/campaign";
 
 const STATUS_META: Record<
@@ -64,6 +66,13 @@ const STATUS_META: Record<
 /** Statuses whose send can still be stopped via POST /campaigns/{id}/cancel. */
 const CANCELLABLE_STATUSES = new Set<CampaignStatus>(["scheduled", "sending"]);
 
+/**
+ * Statuses that have actually fanned out messages, so per-campaign engagement
+ * rates exist. `paused` is included because a paused send may already have
+ * delivered a batch; drafts/scheduled never have sends so we never fetch them.
+ */
+const HAS_SENDS_STATUSES = new Set<CampaignStatus>(["sent", "paused"]);
+
 const isPushChannel = (channel: string) =>
   channel === "inapp" || channel === "in-app-push" || channel === "push";
 
@@ -106,12 +115,127 @@ function ChannelIcon({ children }: { children: React.ReactNode }) {
   );
 }
 
+const isFiniteRate = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+/**
+ * Pick a rate for a campaign, honoring the channel it actually used: prefer the
+ * email funnel's value when the campaign sent email, else the in-app funnel's.
+ * Falls back to the other channel if the preferred one is missing so a valid
+ * rate still surfaces (tolerating the analytics payload's optional nesting).
+ */
+const pickRate = (
+  preferEmail: boolean,
+  emailRate: number | undefined,
+  inappRate: number | undefined
+): number | undefined => {
+  const primary = preferEmail ? emailRate : inappRate;
+  const secondary = preferEmail ? inappRate : emailRate;
+  if (isFiniteRate(primary)) return primary;
+  if (isFiniteRate(secondary)) return secondary;
+  return undefined;
+};
+
+/** Right-aligned rate cell: whole-number percent, `0%` distinct from not-sent. */
+function RateValueCell({ value }: { value: number | undefined }) {
+  return (
+    <td className="px-4 py-4 text-right tabular-nums text-foreground">
+      {isFiniteRate(value) ? (
+        `${Math.round(value)}%`
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      )}
+    </td>
+  );
+}
+
+/** Static muted dash for campaigns that never sent - no fetch, no fabrication. */
+function RateDashCell() {
+  return (
+    <td className="px-4 py-4 text-right tabular-nums text-muted-foreground">
+      -
+    </td>
+  );
+}
+
+/** Thin pulse while a sent row's analytics loads. */
+function RateLoadingCell() {
+  return (
+    <td className="px-4 py-4 text-right">
+      <span
+        className="ml-auto inline-block h-3 w-8 animate-pulse rounded bg-muted align-middle"
+        aria-hidden="true"
+      />
+    </td>
+  );
+}
+
+/**
+ * The Open/view-rate + Click-rate pair for one row. Rates aren't on the list
+ * response, so each sent row fetches its own funnel (GET /campaigns/{id}/
+ * analytics) via React Query - keyed per campaign so it caches, dedupes, and is
+ * bounded to the visible sent rows (no parent-side waterfall over the list).
+ */
+function RateCells({ campaign }: { campaign: Campaign }) {
+  const isSent = HAS_SENDS_STATUSES.has(campaign.status);
+
+  const analyticsQuery = useQuery({
+    queryKey: ["campaigns", campaign.id, "analytics"],
+    queryFn: () => campaignsService.getAnalytics(campaign.id),
+    enabled: isSent,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  // draft / scheduled: never sent, so show a plain dash and skip the fetch.
+  if (!isSent) {
+    return (
+      <>
+        <RateDashCell />
+        <RateDashCell />
+      </>
+    );
+  }
+
+  if (analyticsQuery.isLoading) {
+    return (
+      <>
+        <RateLoadingCell />
+        <RateLoadingCell />
+      </>
+    );
+  }
+
+  // On error the query data is undefined - pickRate yields undefined, which
+  // renders the muted "-" (never a fabricated number).
+  const analytics = analyticsQuery.data;
+  const usedEmail = channelsFor(campaign).email;
+  const openValue = pickRate(
+    usedEmail,
+    analytics?.email?.openRate,
+    analytics?.inapp?.viewRate
+  );
+  const clickValue = pickRate(
+    usedEmail,
+    analytics?.email?.clickRate,
+    analytics?.inapp?.clickRate
+  );
+
+  return (
+    <>
+      <RateValueCell value={openValue} />
+      <RateValueCell value={clickValue} />
+    </>
+  );
+}
+
 /**
  * Campaigns list table: name + channel glyphs, status pill, recipient count,
- * and the send/schedule time, with the whole row navigating to the campaign.
- * Open/click rates are per-campaign (GET /campaigns/{id}/analytics) and live in
- * the detail view, not the list response, so they are not columns here.
- * Campaign counts stay small
+ * open/view + click rates, and the send/schedule time, with the whole row
+ * navigating to the campaign. Open/click rates aren't on the list response, so
+ * each sent row fetches its own funnel (GET /campaigns/{id}/analytics) via a
+ * per-campaign React Query - see RateCells. Campaign counts stay small
  * (the list is capped at 200 server-side), so a plain table is fine here - no
  * virtualization needed.
  */
@@ -131,12 +255,16 @@ export function CampaignsReferenceTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-sm">
+      <table className="w-full min-w-[880px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-border text-left text-xs tracking-wide text-muted-foreground uppercase">
             <th className="py-3 pr-4 font-medium">Campaign</th>
             <th className="px-4 py-3 font-medium">Status</th>
             <th className="px-4 py-3 text-right font-medium">Recipients</th>
+            <th className="px-4 py-3 text-right font-medium">
+              Open / view rate
+            </th>
+            <th className="px-4 py-3 text-right font-medium">Click rate</th>
             <th className="px-4 py-3 font-medium">Sent / Scheduled</th>
             <th className="w-8 py-3" aria-label="Open" />
           </tr>
@@ -185,6 +313,7 @@ export function CampaignsReferenceTable({
                 <td className="px-4 py-4 text-right tabular-nums text-foreground">
                   {formatCount(campaign.recipients)}
                 </td>
+                <RateCells campaign={campaign} />
                 <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
                   {formatWhen(campaign)}
                 </td>

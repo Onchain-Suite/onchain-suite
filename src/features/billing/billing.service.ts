@@ -159,6 +159,162 @@ export const normalizeBillingPlans = (payload: unknown): BillingPlan[] => {
     .filter((plan): plan is BillingPlan => plan !== null);
 };
 
+/**
+ * Slider pricing (`GET /billing/contact-pricing?contacts=N` → `{ quote, anchors }`,
+ * docs/backend.md 2026-08-27). Interpolates between the named tiers so the space
+ * between anchors stops being a cliff: an org with 11,000 contacts gets Launch's
+ * features at 11,000 contacts instead of being pushed onto Growth. Read-only and
+ * cheap - safe to call on every drag. Entitlements come from the LOWER anchor.
+ */
+export interface ContactPricingQuote {
+  contacts: number;
+  monthlyPrice: number;
+  annualPrice: number | null;
+  /** Slug of the tier whose features apply (the lower anchor). */
+  plan: string;
+  planLabel: string;
+  /** True when `contacts` lands exactly on a named tier. */
+  isNamedTier: boolean;
+  /** The next tier up, for "unlock X at N contacts" hints. */
+  nextTier: ContactPricingAnchor | null;
+  /** $ per extra contact in the current band. */
+  marginalRate: number | null;
+}
+
+/** One tier stop for rendering the slider marks. */
+export interface ContactPricingAnchor {
+  plan: string;
+  planLabel: string;
+  contacts: number;
+  monthlyPrice: number;
+  annualPrice?: number | null;
+}
+
+export interface ContactPricing {
+  quote: ContactPricingQuote;
+  anchors: ContactPricingAnchor[];
+}
+
+const num = (v: unknown): number | null => {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const normalizeAnchor = (raw: unknown): ContactPricingAnchor | null => {
+  if (!isJsonObject(raw)) return null;
+  const contacts = num(raw.contacts ?? raw.limit ?? raw.size);
+  const monthlyPrice = num(raw.monthlyPrice ?? raw.price ?? raw.amount);
+  if (contacts === null || monthlyPrice === null) return null;
+  return {
+    plan:
+      pickPlanString(
+        raw.plan,
+        raw.slug,
+        raw.id,
+        raw.planLabel
+      )?.toLowerCase() ?? "",
+    planLabel:
+      pickPlanString(raw.planLabel, raw.label, raw.name, raw.plan) ?? "",
+    contacts,
+    monthlyPrice,
+    annualPrice: num(raw.annualPrice),
+  };
+};
+
+/** Normalize the contact-pricing payload defensively (tolerates missing fields). */
+export const normalizeContactPricing = (payload: unknown): ContactPricing => {
+  const root = isJsonObject(payload)
+    ? ((payload.data ?? payload) as Record<string, unknown>)
+    : {};
+  const q = isJsonObject(root.quote) ? root.quote : {};
+  const anchors = Array.isArray(root.anchors)
+    ? root.anchors
+        .map(normalizeAnchor)
+        .filter((a): a is ContactPricingAnchor => a !== null)
+    : [];
+  return {
+    quote: {
+      contacts: num(q.contacts) ?? 0,
+      monthlyPrice: num(q.monthlyPrice ?? q.price) ?? 0,
+      annualPrice: num(q.annualPrice),
+      plan: pickPlanString(q.plan, q.slug, q.planLabel)?.toLowerCase() ?? "",
+      planLabel: pickPlanString(q.planLabel, q.label, q.plan) ?? "",
+      isNamedTier: q.isNamedTier === true,
+      nextTier: normalizeAnchor(q.nextTier),
+      marginalRate: num(q.marginalRate),
+    },
+    anchors,
+  };
+};
+
+/**
+ * The documented slider curve (docs/backend.md 2026-08-27), used ONLY as a
+ * fallback when `GET /billing/contact-pricing` is not yet deployed on the
+ * connected backend. Interpolating these bands reproduces every named-tier
+ * price exactly - Launch $49 (+$0.015/contact) → Growth $349 (+$0.009) → Pro
+ * $799 (+$0.020) → Scale $2,299 - so an 11,000-contact org quotes $139. This is
+ * guidance only: the real endpoint wins the moment it exists, and the amount
+ * actually charged is always resolved by the backend at checkout.
+ */
+const FALLBACK_PRICING_ANCHORS: ContactPricingAnchor[] = [
+  { plan: "launch", planLabel: "Launch", contacts: 5_000, monthlyPrice: 49 },
+  { plan: "growth", planLabel: "Growth", contacts: 25_000, monthlyPrice: 349 },
+  { plan: "pro", planLabel: "Pro", contacts: 75_000, monthlyPrice: 799 },
+  { plan: "scale", planLabel: "Scale", contacts: 150_000, monthlyPrice: 2_299 },
+];
+// Marginal $/contact for each band (launch→growth, growth→pro, pro→scale); the
+// final rate continues above Scale rather than erroring.
+const FALLBACK_BAND_RATES = [0.015, 0.009, 0.02];
+
+export const computeFallbackContactPricing = (
+  contacts: number
+): ContactPricing => {
+  const anchors = FALLBACK_PRICING_ANCHORS;
+  const n = Math.max(0, Math.round(Number.isFinite(contacts) ? contacts : 0));
+  const isNamedTier = anchors.some((a) => a.contacts === n);
+  // Below the entry tier, the entry price applies (you cannot buy less).
+  if (n <= anchors[0].contacts) {
+    return {
+      quote: {
+        contacts: n,
+        monthlyPrice: anchors[0].monthlyPrice,
+        annualPrice: null,
+        plan: anchors[0].plan,
+        planLabel: anchors[0].planLabel,
+        isNamedTier: n === anchors[0].contacts,
+        nextTier: anchors[1] ?? null,
+        marginalRate: FALLBACK_BAND_RATES[0],
+      },
+      anchors,
+    };
+  }
+  let lowerIdx = anchors.length - 1;
+  for (let i = 0; i < anchors.length - 1; i += 1) {
+    if (n < anchors[i + 1].contacts) {
+      lowerIdx = i;
+      break;
+    }
+  }
+  const lower = anchors[lowerIdx];
+  const rate =
+    FALLBACK_BAND_RATES[Math.min(lowerIdx, FALLBACK_BAND_RATES.length - 1)];
+  const monthly = Math.round(lower.monthlyPrice + (n - lower.contacts) * rate);
+  return {
+    quote: {
+      contacts: n,
+      monthlyPrice: monthly,
+      annualPrice: null,
+      // Entitlements come from the LOWER anchor: at 11,000 you get Launch.
+      plan: lower.plan,
+      planLabel: lower.planLabel,
+      isNamedTier,
+      nextTier: anchors[lowerIdx + 1] ?? null,
+      marginalRate: rate,
+    },
+    anchors,
+  };
+};
+
 export interface UpgradeFiatRequest {
   plan: BillingPlanName;
 }
@@ -196,6 +352,13 @@ export interface PlanCheckoutRequest {
    * 400 FIAT_CHECKOUT_UNAVAILABLE when Stripe isn't configured.
    */
   paymentMethod?: "crypto" | "card";
+  /**
+   * Purchased contact capacity from the pricing slider. The backend stores it at
+   * `organization.metadata.billing.contactCapacity` (it only ever raises a limit)
+   * so an org can buy, e.g., 11,000 contacts on Launch instead of jumping to
+   * Growth. Omitted for a plain named-tier purchase.
+   */
+  desiredListSize?: number;
 }
 
 /**
@@ -515,6 +678,42 @@ export const billingService = {
     ).then((payload): BillingPlansResponse => ({
       plans: normalizeBillingPlans(payload),
     }));
+  },
+
+  /**
+   * Slider pricing quote for a contact count
+   * (`GET /billing/contact-pricing?contacts=N`). Read-only and cheap - meant to
+   * be called on every slider drag. Returns the interpolated quote plus the tier
+   * anchors for rendering slider marks. See {@link ContactPricing}.
+   */
+  getContactPricing(
+    contacts: number,
+    options?: BillingServiceOptions
+  ): Promise<ContactPricing> {
+    const safe = Math.max(
+      0,
+      Math.round(Number.isFinite(contacts) ? contacts : 0)
+    );
+    return (
+      billingRequest<unknown>(
+        {
+          method: "GET",
+          url: "/billing/contact-pricing",
+          params: { contacts: safe },
+        },
+        options
+      )
+        .then((payload) => {
+          const parsed = normalizeContactPricing(payload);
+          // Endpoint answered but with nothing usable (older backend): use the curve.
+          return parsed.anchors.length > 0 || parsed.quote.monthlyPrice > 0
+            ? parsed
+            : computeFallbackContactPricing(safe);
+        })
+        // The endpoint isn't on every backend yet (docs/backend.md 2026-08-27);
+        // degrade to the documented curve rather than leaving the slider dead.
+        .catch(() => computeFallbackContactPricing(safe))
+    );
   },
 
   /**

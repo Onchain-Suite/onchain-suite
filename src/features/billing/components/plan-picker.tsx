@@ -6,10 +6,11 @@ import {
   CheckIcon,
   CreditCardIcon,
   SparklesIcon,
+  UsersIcon,
   WalletIcon,
 } from "@heroicons/react/24/outline";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,52 @@ import { type BillingPlan, billingService } from "../billing.service";
 import { openCheckoutInNewTab, startPlanCheckout } from "../checkout";
 
 type PaymentMethod = "card" | "crypto";
+
+const usd = (n: number): string => `$${Math.round(n).toLocaleString("en-US")}`;
+
+const clamp = (n: number, lo: number, hi: number): number =>
+  Math.min(hi, Math.max(lo, n));
+
+/**
+ * Canonical feature lines per plan slug, so every card in the modal is fully
+ * populated even when GET /billing/plans returns limits-only rows. Backend
+ * features win when they are at least as detailed; otherwise these fill in.
+ */
+const PLAN_FEATURE_CATALOG: Record<string, string[]> = {
+  payg: [
+    "$5 trial credit to get started",
+    "1,000 contacts (cap) · 2 seats",
+    "Metered email, in-app, on-chain & AI",
+    "Direct campaigns, Audience & Forms",
+  ],
+  launch: [
+    "2,500 contacts · 5,000 emails/mo",
+    "25,000 in-app pushes/mo",
+    "Intelligence, Audience & Segments",
+    "Direct campaigns",
+    "2 team seats",
+  ],
+  growth: [
+    "25,000 contacts · 250,000 emails/mo",
+    "250,000 in-app pushes/mo",
+    "Forms + dedicated sending IP",
+    "Automations",
+    "4 team seats",
+  ],
+  pro: [
+    "75,000 contacts · 750,000 emails/mo",
+    "1,000,000 in-app pushes/mo",
+    "Intelligence at working scale",
+    "Priority support",
+    "7 team seats",
+  ],
+  scale: [
+    "150,000 contacts · 1.5M emails/mo",
+    "2,000,000 in-app pushes/mo",
+    "5 concierge hours/mo",
+    "SLA + custom team seats",
+  ],
+};
 
 const PAYG_PLAN = {
   name: "Pay as you go",
@@ -92,10 +139,20 @@ const priceLabel = (price: BillingPlan["price"]): string => {
   return "-";
 };
 
-const planFeatures = (plan: BillingPlan): string[] =>
-  Array.isArray(plan.features)
+const planSlugKey = (plan: BillingPlan): string =>
+  (typeof plan.slug === "string" && plan.slug
+    ? plan.slug
+    : (plan.name ?? "")
+  ).toLowerCase();
+
+const planFeatures = (plan: BillingPlan): string[] => {
+  const backend = Array.isArray(plan.features)
     ? plan.features.filter((f): f is string => typeof f === "string")
     : [];
+  const canonical = PLAN_FEATURE_CATALOG[planSlugKey(plan)] ?? [];
+  // Show whichever list is more complete so a card is never sparse.
+  return canonical.length > backend.length ? canonical : backend;
+};
 
 function PlanCard({
   name,
@@ -198,6 +255,162 @@ function PlanCard({
 }
 
 /**
+ * "Size your plan" slider. Quotes GET /billing/contact-pricing on every drag so
+ * an org sees the real price for its exact list size and keeps its tier's
+ * features between anchors (11,000 contacts stays on Launch, not Growth). When a
+ * quote resolves after the user drags, it selects the resolved tier and the
+ * chosen capacity in the parent so checkout charges for that many contacts.
+ */
+function PlanSizer({
+  onSizeSelected,
+}: {
+  onSizeSelected: (planLabel: string, contacts: number) => void;
+}) {
+  const [contacts, setContacts] = useState(11000);
+  const [debounced, setDebounced] = useState(11000);
+  const [touched, setTouched] = useState(false);
+
+  useEffect(() => {
+    const h = window.setTimeout(() => setDebounced(contacts), 250);
+    return () => window.clearTimeout(h);
+  }, [contacts]);
+
+  const pricingQuery = useQuery({
+    queryKey: ["billing", "contact-pricing", debounced],
+    queryFn: () => billingService.getContactPricing(debounced),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
+  });
+
+  const quote = pricingQuery.data?.quote;
+  const anchors = useMemo(
+    () => pricingQuery.data?.anchors ?? [],
+    [pricingQuery.data?.anchors]
+  );
+  const min = anchors[0]?.contacts ?? 500;
+  const max = anchors[anchors.length - 1]?.contacts ?? 200_000;
+  // A round step keeps the handle on tidy contact counts (5,000, 5,500, …);
+  // the number input is there for an exact figure.
+  const step = 500;
+
+  // Only drive the parent's selection after the user actually moves the handle,
+  // so mounting the sizer never clobbers a pre-selected plan.
+  const planLabel = quote?.planLabel;
+  const quoteContacts = quote?.contacts;
+  useEffect(() => {
+    if (touched && planLabel && typeof quoteContacts === "number") {
+      onSizeSelected(planLabel, quoteContacts);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [touched, planLabel, quoteContacts]);
+
+  const setContactsTouched = (n: number) => {
+    setTouched(true);
+    setContacts(clamp(Math.round(n) || 0, min, max));
+  };
+
+  return (
+    <div className="mb-6 rounded-2xl border border-border bg-card p-5">
+      <div className="flex items-center gap-2">
+        <UsersIcon aria-hidden="true" className="h-5 w-5 text-primary" />
+        <h3 className="text-base font-semibold text-foreground">
+          Size your plan
+        </h3>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        You only pay for the contacts you have. Slide to your list size - you
+        keep your tier&apos;s features without jumping to the next one.
+      </p>
+
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold tracking-tight text-foreground">
+              {quote ? usd(quote.monthlyPrice) : "…"}
+            </span>
+            <span className="text-sm text-muted-foreground">/mo</span>
+            {quote?.planLabel ? (
+              <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                {quote.planLabel}
+              </span>
+            ) : null}
+          </div>
+          {quote ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {quote.planLabel}&apos;s features with{" "}
+              <span className="font-medium text-foreground">
+                {contacts.toLocaleString()}
+              </span>{" "}
+              contacts
+              {quote.annualPrice ? ` · ${usd(quote.annualPrice)}/yr` : ""}
+            </p>
+          ) : null}
+        </div>
+        <label className="text-right">
+          <span className="mb-1 block text-xs text-muted-foreground">
+            Contacts
+          </span>
+          <input
+            type="number"
+            min={min}
+            max={max}
+            value={contacts}
+            onChange={(e) => setContactsTouched(Number(e.target.value))}
+            className="h-9 w-32 rounded-lg border border-border bg-background px-3 text-right text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          />
+        </label>
+      </div>
+
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={clamp(contacts, min, max)}
+        onChange={(e) => setContactsTouched(Number(e.target.value))}
+        aria-label="Contacts"
+        className="mt-4 w-full accent-[var(--primary)]"
+      />
+
+      {anchors.length > 0 ? (
+        <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
+          {anchors.map((a) => (
+            <button
+              key={a.plan || a.planLabel}
+              type="button"
+              onClick={() => setContactsTouched(a.contacts)}
+              className="transition-colors hover:text-foreground"
+            >
+              {a.planLabel}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {quote?.nextTier ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {quote.nextTier.planLabel} unlocks at{" "}
+          {quote.nextTier.contacts.toLocaleString()} contacts
+          {typeof quote.nextTier.monthlyPrice === "number"
+            ? ` (${usd(quote.nextTier.monthlyPrice)}/mo)`
+            : ""}
+          .
+        </p>
+      ) : null}
+
+      {pricingQuery.isError ? (
+        <p className="mt-3 text-xs text-amber-500">
+          Couldn&apos;t load live pricing right now - the plans below still
+          apply.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * The canonical plan picker, shared by onboarding and Settings > Billing.
  * Payment defaults to Stripe (card) with a crypto (USDC) fallback toggle.
  * PAYG starts the metered plan; paid plans open a hosted checkout in a new tab.
@@ -221,6 +434,13 @@ export function PlanPicker({
   const [selectedPlan, setSelectedPlan] = useState<string>(initialPlan ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Set only when the plan was chosen via the sizer slider (a capacity purchase);
+  // null means a plain named-tier purchase.
+  const [capacityContacts, setCapacityContacts] = useState<number | null>(null);
+  const selectPlanCard = (name: string) => {
+    setSelectedPlan(name);
+    setCapacityContacts(null);
+  };
 
   const plansQuery = useQuery({
     queryKey: ["billing", "plans"],
@@ -259,7 +479,7 @@ export function PlanPicker({
       const checkout = await startPlanCheckout(
         selected?.slug ?? selectedPlan,
         undefined,
-        { paymentMethod }
+        { paymentMethod, contacts: capacityContacts ?? undefined }
       );
       if (!checkout?.paymentUrl) {
         toast.error("Checkout did not return a payment link. Try again.");
@@ -348,6 +568,13 @@ export function PlanPicker({
         </div>
       </div>
 
+      <PlanSizer
+        onSizeSelected={(planLabel, contacts) => {
+          setSelectedPlan(planLabel);
+          setCapacityContacts(contacts);
+        }}
+      />
+
       {plansQuery.isLoading ? (
         <div
           className="grid animate-pulse gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
@@ -373,7 +600,7 @@ export function PlanPicker({
             isCurrent={
               currentName === "payg" || currentName === "pay as you go"
             }
-            onSelect={() => setSelectedPlan("payg")}
+            onSelect={() => selectPlanCard("payg")}
           />
           {paidPlans.map((plan, idx) => {
             const name =
@@ -397,7 +624,7 @@ export function PlanPicker({
                 isSelected={selectedPlan === name}
                 isCurrent={name.trim().toLowerCase() === currentName}
                 isRecommended={name === "Growth"}
-                onSelect={() => setSelectedPlan(name)}
+                onSelect={() => selectPlanCard(name)}
               />
             );
           })}

@@ -220,7 +220,7 @@ export interface StartPlanCheckoutResult {
 export async function startPlanCheckout(
   planName: string,
   organizationId?: string,
-  options?: { paymentMethod?: "crypto" | "card" }
+  options?: { paymentMethod?: "crypto" | "card"; contacts?: number }
 ): Promise<StartPlanCheckoutResult | null> {
   const slug = planCheckoutSlug(planName);
   if (!slug) return null;
@@ -228,12 +228,22 @@ export async function startPlanCheckout(
   const orgId = organizationId ?? getSelectedOrganizationId() ?? undefined;
   if (!orgId) throw new Error("No active organization selected.");
 
+  // A slider-sized purchase carries the chosen capacity so the backend charges
+  // for (and grants) exactly that many contacts on the resolved tier.
+  const desiredListSize =
+    typeof options?.contacts === "number" &&
+    Number.isFinite(options.contacts) &&
+    options.contacts > 0
+      ? Math.round(options.contacts)
+      : undefined;
+
   let res;
   try {
     res = await billingService.checkoutPlan({
       plan: slug,
       organizationId: orgId,
       billingCycle: "monthly",
+      ...(desiredListSize ? { desiredListSize } : {}),
       ...(options?.paymentMethod === "card"
         ? { paymentMethod: "card" as const }
         : {}),

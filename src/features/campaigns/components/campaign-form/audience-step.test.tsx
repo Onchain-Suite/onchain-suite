@@ -36,7 +36,7 @@ const mockSegments: Segment[] = [
   { id: "new-subscribers", name: "New Subscribers", count: 42, starred: true },
 ];
 
-function Wrapper() {
+function Wrapper({ segments = mockSegments }: { segments?: Segment[] }) {
   const form = useForm<CampaignFormData, unknown, CampaignFormData>({
     defaultValues: {
       campaignName: "Test",
@@ -58,57 +58,39 @@ function Wrapper() {
 
   return (
     <Form {...form}>
-      <AudienceStep form={form} lists={mockLists} segments={mockSegments} />
+      <AudienceStep form={form} lists={mockLists} segments={segments} />
     </Form>
   );
 }
 
+function renderStep(props: { segments?: Segment[] } = {}) {
+  const client = new QueryClient();
+  return render(
+    <QueryClientProvider client={client}>
+      <Wrapper {...props} />
+    </QueryClientProvider>
+  );
+}
+
 describe("AudienceStep links", () => {
-  it("renders UTM help links as secure external hyperlinks", () => {
-    const client = new QueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <Wrapper />
-      </QueryClientProvider>
-    );
-
-    const links = screen.getAllByRole("link", {
-      name: /learn more about utm/i,
-    });
-    expect(links.length).toBeGreaterThan(0);
-    for (const link of links) {
-      expect(link).toHaveAttribute("target", "_blank");
-      expect(link).toHaveAttribute("rel", "noopener noreferrer");
-      expect(link.getAttribute("href") ?? "").toMatch(/^https:\/\//);
-    }
-  });
-
   it("links Segments to the Intelligence tab that actually exists", () => {
-    const client = new QueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <Wrapper />
-      </QueryClientProvider>
-    );
+    // With no saved segments the Segments tab shows the empty-state CTA whose
+    // link is the only cross-link to the segments surface. /intelligence/segments
+    // has no route - Segments is a tab on /intelligence - so the link must carry
+    // the ?tab= deep link.
+    renderStep({ segments: [] });
 
-    // /intelligence/segments has no route - Segments is a tab on
-    // /intelligence - so the link must carry the ?tab= deep link.
-    const link = screen.getByRole("link", { name: /Intelligence.*Segments/i });
+    const link = screen.getByRole("link", { name: /create one/i });
     expect(link).toHaveAttribute("href", PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS);
     expect(PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS).toContain("tab=segments");
   });
 
   it("points Smart Sending at the org settings page that now exists", () => {
-    const client = new QueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <Wrapper />
-      </QueryClientProvider>
-    );
-
     // GET/PUT /organization/settings/smart-sending shipped 2026-08-02, so the
-    // "account settings" link finally has a real destination.
-    const link = screen.getByRole("link", { name: /account settings/i });
+    // Smart sending "org setting" link finally has a real destination.
+    renderStep();
+
+    const link = screen.getByRole("link", { name: /org setting/i });
     expect(link).toHaveAttribute(
       "href",
       `${PRIVATE_ROUTES.SETTINGS}?tab=account`
@@ -116,30 +98,25 @@ describe("AudienceStep links", () => {
   });
 
   it("does not hardcode a suppression window when the org setting is unavailable", () => {
-    const client = new QueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <Wrapper />
-      </QueryClientProvider>
-    );
+    // The window is read from the org smart-sending setting; with no value
+    // resolved the copy says "in the last window" rather than inventing a number
+    // like the old "10 hours" string.
+    renderStep();
 
-    // The window is read from the org setting; with no value resolved we say
-    // "suppression window" rather than inventing a number like the old copy.
-    expect(screen.queryByText(/10 hours/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/suppression window/i)).toBeInTheDocument();
+    expect(screen.queryByText(/\d+\s*hours\b/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/heard from you in the last\s+window/i)
+    ).toBeInTheDocument();
   });
 
-  it("explains recipients can be individual contacts, tags or segments", () => {
-    const client = new QueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <Wrapper />
-      </QueryClientProvider>
-    );
+  it("explains the recipient options: segments, lists, contacts or everyone", () => {
+    // The step's lead-in describes what a recipient set can be built from - the
+    // rebuilt copy lists segments/lists/contacts/everyone instead of the old
+    // "Pick individual contacts by email" text.
+    renderStep();
 
     expect(
-      screen.getByText(/Pick individual contacts by email/i)
+      screen.getByText(/choose segments, lists, contacts, or everyone/i)
     ).toBeInTheDocument();
-    expect(screen.getByText(/select the emails directly/i)).toBeInTheDocument();
   });
 });

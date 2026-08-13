@@ -1,73 +1,23 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CampaignsListsView } from "./list";
 
+// The reference table's row menu uses @/ui/dropdown-menu. This lightweight mock
+// renders the menu items inline (no portal/open state) so the row actions are
+// directly assertable.
 vi.mock("@/ui/dropdown-menu", async () => {
-  const ReactImport = await import("react");
-  const ReactNs = ReactImport.default ?? ReactImport;
-
-  type InjectedRadioGroupProps = {
-    __groupValue?: string;
-    __onGroupValueChange?: (value: string) => void;
-  };
-
   const DropdownMenu = ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   );
-
   const DropdownMenuTrigger = ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   );
-
   const DropdownMenuContent = ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   );
-
-  const DropdownMenuRadioGroup = ({
-    value,
-    onValueChange,
-    children,
-  }: {
-    value: string;
-    onValueChange: (value: string) => void;
-    children: React.ReactNode;
-  }) => (
-    <div>
-      {ReactNs.Children.map(children, (child) => {
-        if (!ReactNs.isValidElement(child)) return child;
-        return ReactNs.cloneElement(
-          child as React.ReactElement<InjectedRadioGroupProps>,
-          {
-            __groupValue: value,
-            __onGroupValueChange: onValueChange,
-          }
-        );
-      })}
-    </div>
-  );
-
-  const DropdownMenuRadioItem = ({
-    value,
-    children,
-    __groupValue,
-    __onGroupValueChange,
-  }: {
-    value: string;
-    children: React.ReactNode;
-  } & InjectedRadioGroupProps) => (
-    <button
-      type="button"
-      role="menuitemradio"
-      aria-checked={__groupValue === value}
-      onClick={() => __onGroupValueChange?.(value)}
-    >
-      {children}
-    </button>
-  );
-
   const DropdownMenuItem = ({
     children,
     onClick,
@@ -85,8 +35,6 @@ vi.mock("@/ui/dropdown-menu", async () => {
     DropdownMenuItem,
     DropdownMenuTrigger,
     DropdownMenuContent,
-    DropdownMenuRadioGroup,
-    DropdownMenuRadioItem,
   };
 });
 
@@ -113,25 +61,24 @@ vi.mock("next/navigation", () => {
   };
 });
 
-vi.mock("next/image", () => {
-  return {
-    default: ({ src, alt }: { src: unknown; alt: unknown }) => (
-      <div
-        data-testid="next-image"
-        data-src={String(src)}
-        data-alt={String(alt)}
-      />
-    ),
-  };
-});
-
 vi.mock("sonner", () => {
   return {
     toast: {
+      success: vi.fn(),
       error: vi.fn(),
     },
   };
 });
+
+// The analytics header and the detail drawer each fetch on their own; they are
+// not under test here, so stub them out to keep the list the sole focus.
+vi.mock("../components/analytics-overview", () => ({
+  CampaignsAnalyticsOverview: () => null,
+}));
+
+vi.mock("../components/campaign-detail-sheet", () => ({
+  CampaignDetailSheet: () => null,
+}));
 
 vi.mock("../campaigns.service", () => {
   return {
@@ -143,53 +90,30 @@ vi.mock("../campaigns.service", () => {
           subject: "Hello",
           status: "sent",
           type: "email-blast",
+          recipients: 100,
+          createdAt: new Date(),
+        },
+        {
+          id: "c_2",
+          name: "Launch",
+          subject: "Launch day",
+          status: "sent",
+          type: "email-blast",
+          recipients: 50,
+          createdAt: new Date(),
+        },
+        {
+          id: "c_3",
+          name: "Draft One",
+          subject: "WIP",
+          status: "draft",
+          type: "email-blast",
           createdAt: new Date(),
         },
       ]),
-      getCalendar: vi.fn(async () => [
-        {
-          id: "c_1",
-          name: "Welcome",
-          status: "sent",
-          scheduledFor: new Date().toISOString(),
-        },
-      ]),
-      createCampaign: vi.fn(async () => ({
-        id: "created_1",
-      })),
-      setTemplate: vi.fn(async () => undefined),
+      deleteCampaign: vi.fn(async () => undefined),
+      cancelCampaign: vi.fn(async () => undefined),
     },
-  };
-});
-
-vi.mock("@/features/templates/templates.service", () => {
-  return {
-    templatesService: {
-      list: vi.fn(async () => [
-        {
-          id: "t_1",
-          name: "Template A",
-          previewUrl: "/placeholder.svg",
-          updatedAt: new Date().toISOString(),
-        },
-      ]),
-    },
-  };
-});
-
-vi.mock("../../campaigns/components/table", () => {
-  return {
-    CampaignsTable: ({ data }: { data: unknown[] }) => (
-      <div data-testid="campaigns-table">rows:{data.length}</div>
-    ),
-  };
-});
-
-vi.mock("../../campaigns/components/calendar", () => {
-  return {
-    CampaignsCalendar: ({ campaigns }: { campaigns: unknown[] }) => (
-      <div data-testid="campaigns-calendar">events:{campaigns.length}</div>
-    ),
   };
 });
 
@@ -208,37 +132,50 @@ function renderWithClient(ui: React.ReactElement) {
 }
 
 describe("CampaignsListsView", () => {
-  it("switches between list, calendar, and library without losing filters", async () => {
+  it("filters campaigns by status and keeps the active filter across switches", async () => {
     renderWithClient(<CampaignsListsView />);
 
-    expect(await screen.findByTestId("campaigns-table")).toHaveTextContent(
-      "rows:1"
-    );
+    // All three campaigns render unfiltered, and the "All" tab starts active.
+    expect(await screen.findByText("Welcome")).toBeInTheDocument();
+    expect(screen.getByText("Launch")).toBeInTheDocument();
+    expect(screen.getByText("Draft One")).toBeInTheDocument();
 
-    const statusTrigger = screen.getByRole("button", { name: /status:/i });
-    expect(statusTrigger).toHaveTextContent(/status:\s*all status/i);
+    const allTab = screen.getByRole("tab", { name: /all/i });
+    expect(allTab).toHaveAttribute("aria-selected", "true");
 
-    fireEvent.click(statusTrigger);
-    fireEvent.click(await screen.findByRole("menuitemradio", { name: "Sent" }));
+    // Filtering to "Sent" drops the draft and marks the Sent tab active.
+    const sentTab = screen.getByRole("tab", { name: /sent/i });
+    fireEvent.click(sentTab);
+    expect(sentTab).toHaveAttribute("aria-selected", "true");
+    expect(allTab).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByText("Welcome")).toBeInTheDocument();
+    expect(screen.getByText("Launch")).toBeInTheDocument();
+    expect(screen.queryByText("Draft One")).not.toBeInTheDocument();
+
+    // Switching to "Draft" flips the filter and the active tab persists.
+    const draftTab = screen.getByRole("tab", { name: /^draft/i });
+    fireEvent.click(draftTab);
+    expect(draftTab).toHaveAttribute("aria-selected", "true");
+    expect(sentTab).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByText("Draft One")).toBeInTheDocument();
+    expect(screen.queryByText("Welcome")).not.toBeInTheDocument();
+    expect(screen.queryByText("Launch")).not.toBeInTheDocument();
+  });
+
+  it("opens the delete confirmation from a row's action menu", async () => {
+    renderWithClient(<CampaignsListsView />);
+
+    // Scope to the Draft One row so only its (single, non-cancellable) menu is
+    // in play, then trigger Delete from the row menu.
+    const row = (await screen.findByText("Draft One")).closest("tr");
+    expect(row).not.toBeNull();
+    const deleteItem = within(row as HTMLElement).getByRole("menuitem", {
+      name: /delete/i,
+    });
+    fireEvent.click(deleteItem);
+
     expect(
-      await screen.findByRole("button", { name: /status: sent/i })
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("tab", { name: "Calendar" }));
-    expect(await screen.findByTestId("campaigns-calendar")).toHaveTextContent(
-      "events:1"
-    );
-    expect(
-      screen.getByRole("button", { name: /status: sent/i })
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("tab", { name: /view library/i }));
-    expect(await screen.findByText("Template A")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("tab", { name: "List" }));
-    expect(await screen.findByTestId("campaigns-table")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /status: sent/i })
+      await screen.findByRole("heading", { name: /delete campaign/i })
     ).toBeInTheDocument();
   });
 });

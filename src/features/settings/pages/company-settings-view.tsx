@@ -8,6 +8,7 @@ import { ContractsCard } from "../components/account/contracts-card";
 import { ProjectCard } from "../components/account/project-card";
 import { SenderIdentitiesCard } from "../components/account/sender-identities-card";
 import { SenderVerificationCard } from "../components/account/sender-verification-card";
+import { SmartSendingCard } from "../components/account/smart-sending-card";
 import { TeamCard } from "../components/account/team-card";
 
 /** Deep-link target used by launch-error CTAs (?section=sender-verification). */
@@ -37,6 +38,7 @@ export default function CompanySettingsView() {
         <SenderVerificationCard />
       </div>
       <SenderIdentitiesCard />
+      <SmartSendingCard />
       <TeamCard />
     </div>
   );

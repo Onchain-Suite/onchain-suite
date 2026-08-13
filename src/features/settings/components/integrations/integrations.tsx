@@ -49,9 +49,15 @@ export default function IntegrationsSettings() {
   const [dappOrigin, setDappOrigin] = useState("");
   const [snippet, setSnippet] = useState<string | null>(null);
 
-  const orgId = useMemo(() => getSelectedOrganizationId() ?? "your-org-id", []);
+  const orgId = useMemo(() => getSelectedOrganizationId(), []);
 
   const generateSnippet = () => {
+    if (!orgId) {
+      toast.error(
+        "Select an organization first - the snippet needs a real org id."
+      );
+      return;
+    }
     const origin = normalizeOrigin(dappOrigin);
     if (!origin) {
       toast.error("Enter the domain your dApp runs on, e.g. app.yourdapp.com");
@@ -123,7 +129,14 @@ export default function IntegrationsSettings() {
           </div>
         ) : null}
         <div className="mt-4">
-          <Button onClick={generateSnippet}>Generate install snippet</Button>
+          <Button onClick={generateSnippet} disabled={!orgId}>
+            Generate install snippet
+          </Button>
+          {!orgId ? (
+            <p className="mt-2 text-xs text-amber-500">
+              Select an organization to generate a working install snippet.
+            </p>
+          ) : null}
         </div>
       </SettingsCard>
 

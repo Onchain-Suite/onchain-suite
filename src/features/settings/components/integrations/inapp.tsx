@@ -14,14 +14,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -33,7 +25,6 @@ import {
 } from "@/components/ui/select";
 
 import { authClient } from "@/lib/auth-client";
-import { formatDateTime } from "@/lib/date";
 import {
   getCookieValue,
   isJsonObject,
@@ -54,7 +45,6 @@ const CUSTOM_EVENTS_CURL = `curl -X POST https://api.onchainsuite.com/api/v1/eve
   }'`;
 
 type InAppEnvironment = "production" | "staging" | "development";
-type SecretKeyEnvironment = "live" | "test";
 
 type InAppOrigin = {
   id: string;
@@ -62,17 +52,8 @@ type InAppOrigin = {
   environment: InAppEnvironment;
 };
 
-type SecretKeyMeta = {
-  id: string;
-  environment: SecretKeyEnvironment;
-  name?: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
 type InAppStatus = {
   publishableKeys: { production?: string; test?: string };
-  secretKeys: SecretKeyMeta[];
   sessionCount: number | null;
   usage: Record<string, unknown> | null;
 };
@@ -93,7 +74,6 @@ const normalizeStatus = (input: unknown): InAppStatus => {
   if (!isJsonObject(input)) {
     return {
       publishableKeys: {},
-      secretKeys: [],
       sessionCount: null,
       usage: null,
     };
@@ -153,64 +133,6 @@ const normalizeStatus = (input: unknown): InAppStatus => {
     readString(inappKeysObj, "test") ||
     readString(publishableNested, "test");
 
-  let secretKeysRaw: unknown[] = [];
-  if (
-    isJsonObject(data.apiKeys) &&
-    Array.isArray((data.apiKeys as Record<string, unknown>).secretKeys)
-  ) {
-    secretKeysRaw = (data.apiKeys as Record<string, unknown>)
-      .secretKeys as unknown[];
-  } else if (isJsonObject(keys) && Array.isArray(keys.secretKeys)) {
-    secretKeysRaw = keys.secretKeys as unknown[];
-  } else if (
-    isJsonObject(data.apiKeys) &&
-    isJsonObject((data.apiKeys as Record<string, unknown>).secretKeys) &&
-    Array.isArray(
-      (
-        (data.apiKeys as Record<string, unknown>).secretKeys as Record<
-          string,
-          unknown
-        >
-      ).items
-    )
-  ) {
-    secretKeysRaw = (
-      (data.apiKeys as Record<string, unknown>).secretKeys as Record<
-        string,
-        unknown
-      >
-    ).items as unknown[];
-  } else if (Array.isArray((data as Record<string, unknown>).secretKeys)) {
-    secretKeysRaw = (data as Record<string, unknown>).secretKeys as unknown[];
-  }
-
-  const secretKeys: SecretKeyMeta[] = Array.isArray(secretKeysRaw)
-    ? secretKeysRaw
-        .map((row): SecretKeyMeta | null => {
-          if (!isJsonObject(row)) return null;
-          const r = row as Record<string, unknown>;
-          const idRaw = r.id ?? r.keyId ?? r.secretKeyId ?? r._id ?? "";
-          const id = typeof idRaw === "string" ? idRaw.trim() : String(idRaw);
-          if (!id) return null;
-          const envRaw = readString(r, "environment").toLowerCase();
-          const environment: SecretKeyEnvironment =
-            envRaw === "live" || envRaw === "test" ? envRaw : "live";
-          const createdAt =
-            readString(r, "createdAt") || readString(r, "created_at");
-          const updatedAt =
-            readString(r, "updatedAt") || readString(r, "updated_at");
-          const name = readString(r, "name");
-          return {
-            id,
-            environment,
-            createdAt,
-            updatedAt,
-            name: name || undefined,
-          };
-        })
-        .filter((v): v is SecretKeyMeta => Boolean(v))
-    : [];
-
   const sessionCount =
     readNumber(data, "sessionCount") ??
     readNumber(data, "sessions") ??
@@ -224,7 +146,7 @@ const normalizeStatus = (input: unknown): InAppStatus => {
   if (production) publishableKeys.production = production;
   if (test) publishableKeys.test = test;
 
-  return { publishableKeys, secretKeys, sessionCount, usage };
+  return { publishableKeys, sessionCount, usage };
 };
 
 const normalizeOrigins = (input: unknown): InAppOrigin[] => {
@@ -332,7 +254,7 @@ const InAppIntegration = () => {
 
   const queryClient = useQueryClient();
   const [showPublishable, setShowPublishable] = useState(false);
-  const [copiedKey, setCopiedKey] = useState<"pk" | "sk" | "curl" | null>(null);
+  const [copiedKey, setCopiedKey] = useState<"pk" | "curl" | null>(null);
   const [activePanel, setActivePanel] = useState<
     "keys" | "origins" | "test" | null
   >(null);
@@ -345,11 +267,6 @@ const InAppIntegration = () => {
   const [testBody, setTestBody] = useState("");
   const [testCtaLabel, setTestCtaLabel] = useState("");
   const [testCtaUrl, setTestCtaUrl] = useState("");
-
-  const [createSecretOpen, setCreateSecretOpen] = useState(false);
-  const [secretEnv, setSecretEnv] = useState<SecretKeyEnvironment>("live");
-  const [secretName, setSecretName] = useState("");
-  const [createdSecretToken, setCreatedSecretToken] = useState("");
 
   const statusQuery = useQuery({
     queryKey: ["integrations", "inapp", "status", orgId],
@@ -364,6 +281,8 @@ const InAppIntegration = () => {
     },
     retry: false,
     refetchOnWindowFocus: false,
+    // Poll so the connected indicator reflects live sessions (fix 2).
+    refetchInterval: 15_000,
   });
 
   const originsQuery = useQuery({
@@ -491,59 +410,7 @@ const InAppIntegration = () => {
     },
   });
 
-  const createSecretKeyMutation = useMutation({
-    mutationFn: async () => {
-      if (!orgId) throw new Error("No active organization");
-      const payload: Record<string, unknown> = { environment: secretEnv };
-      const trimmedName = secretName.trim();
-      if (trimmedName) payload.name = trimmedName;
-      return jsonRequest({
-        url: "/api/v1/integrations/keys/secret",
-        method: "POST",
-        orgId,
-        body: payload,
-      });
-    },
-    onSuccess: async (data) => {
-      const token =
-        isJsonObject(data) &&
-        typeof (data as Record<string, unknown>).token === "string"
-          ? String((data as Record<string, unknown>).token)
-          : isJsonObject(data) &&
-              isJsonObject((data as Record<string, unknown>).data) &&
-              typeof (
-                (data as Record<string, unknown>).data as Record<
-                  string,
-                  unknown
-                >
-              ).token === "string"
-            ? String(
-                (
-                  (data as Record<string, unknown>).data as Record<
-                    string,
-                    unknown
-                  >
-                ).token
-              )
-            : "";
-      if (!token) {
-        toast.error("Secret key created, but no token was returned");
-        return;
-      }
-      setCreatedSecretToken(token);
-      toast.success("Secret key created");
-      await queryClient.invalidateQueries({
-        queryKey: ["integrations", "inapp", "status", orgId],
-      });
-    },
-    onError: (err) => {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to create secret key"
-      );
-    },
-  });
-
-  const copyToClipboard = async (kind: "pk" | "sk" | "curl", value: string) => {
+  const copyToClipboard = async (kind: "pk" | "curl", value: string) => {
     if (!value) return;
     await navigator.clipboard.writeText(value);
     setCopiedKey(kind);
@@ -557,9 +424,13 @@ const InAppIntegration = () => {
         description="Configure SDK keys, approved origins, and test delivery."
         icon={<ShieldCheckIcon className="h-5 w-5" aria-hidden="true" />}
         badge={
-          orgId
-            ? `Active sessions: ${statusQuery.isLoading ? "Loading…" : (status.sessionCount ?? "-")}`
-            : "Select an organization"
+          !orgId
+            ? "Select an organization"
+            : statusQuery.isLoading
+              ? "Checking sessions…"
+              : (status.sessionCount ?? 0) > 0
+                ? `Connected · ${status.sessionCount} active session${status.sessionCount === 1 ? "" : "s"}`
+                : "No active sessions"
         }
         collapsedPreview={
           !orgId ? (
@@ -567,7 +438,7 @@ const InAppIntegration = () => {
               Select an organization to manage in-app integration.
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
                 <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                   Publishable keys
@@ -580,18 +451,6 @@ const InAppIntegration = () => {
                     "Configured"
                   ) : (
                     "Not available yet"
-                  )}
-                </div>
-              </div>
-              <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
-                <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                  Secret keys
-                </div>
-                <div className="mt-2 text-sm text-foreground">
-                  {statusQuery.isLoading ? (
-                    <Skeleton className="h-5 w-20" />
-                  ) : (
-                    `${status.secretKeys.length} created`
                   )}
                 </div>
               </div>
@@ -618,7 +477,7 @@ const InAppIntegration = () => {
             </div>
           ) : (
             <>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
                   <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                     Publishable keys
@@ -631,18 +490,6 @@ const InAppIntegration = () => {
                       "Configured"
                     ) : (
                       "Not available yet"
-                    )}
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
-                  <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                    Secret keys
-                  </div>
-                  <div className="mt-2 text-sm text-foreground">
-                    {statusQuery.isLoading ? (
-                      <Skeleton className="h-5 w-20" />
-                    ) : (
-                      `${status.secretKeys.length} created`
                     )}
                   </div>
                 </div>
@@ -664,17 +511,21 @@ const InAppIntegration = () => {
                 <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-background/60 p-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <h3 className="text-sm font-semibold text-foreground">
-                      Keys
+                      Publishable keys
                     </h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      View publishable keys and create server-side secret keys
-                      only when needed.
+                      Public keys the client SDK uses to initialize in-app
+                      sessions. Secret (`sk_*`) keys live in the Developer API
+                      card, never here.
                     </p>
                     <div className="mt-2 text-xs text-muted-foreground">
                       {statusQuery.isLoading ? (
                         <Skeleton className="h-4 w-56" />
+                      ) : status.publishableKeys.production ||
+                        status.publishableKeys.test ? (
+                        "Publishable keys configured"
                       ) : (
-                        `${status.publishableKeys.production || status.publishableKeys.test ? "Publishable keys configured" : "Publishable keys unavailable"} • ${status.secretKeys.length} secret key${status.secretKeys.length === 1 ? "" : "s"}`
+                        "Publishable keys unavailable"
                       )}
                     </div>
                   </div>
@@ -690,19 +541,6 @@ const InAppIntegration = () => {
                       }
                     >
                       {activePanel === "keys" ? "Hide keys" : "Manage keys"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="rounded-xl"
-                      onClick={() => {
-                        setCreatedSecretToken("");
-                        setSecretName("");
-                        setSecretEnv("live");
-                        setCreateSecretOpen(true);
-                      }}
-                      type="button"
-                    >
-                      Create secret key
                     </Button>
                   </div>
                 </div>
@@ -836,59 +674,6 @@ const InAppIntegration = () => {
                           )}
                         </code>
                       </div>
-                    </div>
-
-                    <div className="border-t border-border/50 pt-4">
-                      <h4 className="text-sm font-semibold text-foreground">
-                        Secret keys
-                      </h4>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Create `sk_*` tokens for secure server actions. Tokens
-                        are only shown once when created.
-                      </p>
-
-                      <div className="mt-4 space-y-3">
-                        {statusQuery.isLoading ? (
-                          <>
-                            <Skeleton className="h-16 w-full rounded-2xl" />
-                            <Skeleton className="h-16 w-full rounded-2xl" />
-                          </>
-                        ) : status.secretKeys.length === 0 ? (
-                          <div className="rounded-2xl border border-dashed border-border/70 bg-background/60 p-4 text-sm text-muted-foreground">
-                            No secret keys created yet.
-                          </div>
-                        ) : (
-                          status.secretKeys.slice(0, 3).map((k) => (
-                            <div
-                              key={k.id}
-                              className="rounded-2xl border border-border/60 bg-background/60 p-4"
-                            >
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-medium text-foreground">
-                                    {k.name ?? "Secret key"}
-                                  </div>
-                                  <div className="mt-1 text-xs text-muted-foreground">
-                                    {k.environment}
-                                    {formatDateTime(k.createdAt)
-                                      ? ` • Created ${formatDateTime(k.createdAt)}`
-                                      : ""}
-                                  </div>
-                                </div>
-                                <code className="break-all font-mono text-xs text-muted-foreground sm:shrink-0">
-                                  {k.id}
-                                </code>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-
-                      {status.secretKeys.length > 3 ? (
-                        <div className="mt-3 text-xs text-muted-foreground">
-                          {status.secretKeys.length - 3} more…
-                        </div>
-                      ) : null}
                     </div>
 
                     {statusQuery.isError ? (
@@ -1143,14 +928,12 @@ const InAppIntegration = () => {
                 !statusQuery.isLoading &&
                 !statusQuery.isError &&
                 !status.publishableKeys.production &&
-                !status.publishableKeys.test &&
-                status.secretKeys.length === 0 && (
+                !status.publishableKeys.test && (
                   <div className="rounded-2xl border border-dashed border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
-                    Keys are not available for this org yet. Confirm you are an
-                    org admin and that `GET /integrations/inapp/status` returns
-                    publishable keys. To mint a usable `sk_*`, create one via
-                    `POST /integrations/keys/secret` and save the returned token
-                    immediately.
+                    Publishable keys are not available for this org yet. Confirm
+                    you are an org admin and that `GET
+                    /integrations/inapp/status` returns publishable keys. Secret
+                    (`sk_*`) keys are managed in the Developer API card.
                   </div>
                 )}
             </>
@@ -1186,9 +969,9 @@ const InAppIntegration = () => {
             </div>
           </div>
           <p className="text-xs leading-5 text-muted-foreground">
-            Use a secret key from above (`sk_test_` keys dry-run - nothing
-            sends). Identify the contact by wallet, email, or externalId. Events
-            match automations with an{" "}
+            Authenticate with a secret key from the Developer API card
+            (`sk_test_` keys dry-run - nothing sends). Identify the contact by
+            wallet, email, or externalId. Events match automations with an{" "}
             <span className="font-medium">App event</span> trigger by name and
             appear in Intelligence as{" "}
             <code className="rounded bg-muted px-1">app_events</code>. Batch up
@@ -1197,100 +980,6 @@ const InAppIntegration = () => {
           </p>
         </div>
       </SettingsSectionCard>
-      <Dialog open={createSecretOpen} onOpenChange={setCreateSecretOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-light tracking-tight text-foreground">
-              Create secret key
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              This will return an `sk_*` token once. Store it immediately.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label className="text-sm font-medium text-foreground">
-                Environment
-              </Label>
-              <Select
-                value={secretEnv}
-                onValueChange={(v) => setSecretEnv(v as SecretKeyEnvironment)}
-              >
-                <SelectTrigger className="h-11 border-border/80">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="live">Live</SelectItem>
-                  <SelectItem value="test">Test</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label className="text-sm font-medium text-foreground">
-                Name (optional)
-              </Label>
-              <Input
-                value={secretName}
-                onChange={(e) => setSecretName(e.target.value)}
-                placeholder="Server integration"
-                className="h-11 border-border/80"
-              />
-            </div>
-
-            {createdSecretToken && (
-              <div className="rounded-xl border border-border/80 bg-muted/40 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-medium text-foreground">
-                    New secret token
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() =>
-                      copyToClipboard("sk", createdSecretToken).catch(
-                        () => undefined
-                      )
-                    }
-                    className="h-9 w-9 border-border/80 bg-transparent"
-                    aria-label="Copy new secret token"
-                  >
-                    {copiedKey === "sk" ? (
-                      <CheckIcon
-                        className="h-4 w-4 text-primary"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <ClipboardDocumentIcon
-                        className="h-4 w-4"
-                        aria-hidden="true"
-                      />
-                    )}
-                  </Button>
-                </div>
-                <code className="mt-2 block w-full break-all rounded-xl border border-border/80 bg-card px-3 py-2 font-mono text-xs text-foreground">
-                  {createdSecretToken}
-                </code>
-              </div>
-            )}
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setCreateSecretOpen(false)}
-              type="button"
-            >
-              Close
-            </Button>
-            <Button
-              onClick={() => createSecretKeyMutation.mutate()}
-              disabled={createSecretKeyMutation.isPending}
-              type="button"
-            >
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </motion.div>
   );
 };

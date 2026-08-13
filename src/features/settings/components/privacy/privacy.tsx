@@ -1,10 +1,5 @@
 "use client";
 
-import {
-  CheckIcon,
-  PencilSquareIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
 import { useState } from "react";
 
 import { DefinitionGrid, SettingsCard, StatusPill } from "../settings-card";
@@ -16,50 +11,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
 
 /**
  * Privacy & Identity settings - how wallets link to email/socials, how the
  * links are stored/retained, and what wallets consent to. These map to product
- * invariants (wallet-first, ZK-verified, GDPR-aligned) that don't yet have a
- * write API, so the retention control is local state pending the backend.
+ * invariants (wallet-first, ZK-verified, GDPR-aligned).
+ *
+ * There is no read/write API for these policies yet, so the cards are honest
+ * static descriptors of how the platform handles wallet&#8596;identity links,
+ * not per-org telemetry. When a policy API lands, these become live + editable.
  */
-const RETENTION_OPTIONS = [
-  { value: "until-opt-out", label: "Until opt-out" },
-  { value: "12-months", label: "12 months" },
-  { value: "24-months", label: "24 months" },
-  { value: "36-months", label: "36 months" },
-] as const;
+const RETENTION_LABEL = "Until opt-out";
 
 const CONSENT_COPY = `By linking your wallet you agree that OnchainSuite may associate this wallet address with the contact channels you verify (email, X, Farcaster) so the projects you opt into can message you.
 
 The link is stored off-chain and encrypted. Your wallet address is treated as personal data. You can withdraw consent at any time - a self-serve unsubscribe purges the link and stops all messaging on the affected channels.`;
 
 export default function PrivacyIdentitySettings() {
-  const [editingRetention, setEditingRetention] = useState(false);
-  const [retention, setRetention] =
-    useState<(typeof RETENTION_OPTIONS)[number]["value"]>("until-opt-out");
-  const [draftRetention, setDraftRetention] = useState(retention);
   const [consentOpen, setConsentOpen] = useState(false);
-
-  const retentionLabel =
-    RETENTION_OPTIONS.find((o) => o.value === retention)?.label ??
-    "Until opt-out";
-
-  const startEdit = () => {
-    setDraftRetention(retention);
-    setEditingRetention(true);
-  };
-  const saveEdit = () => {
-    setRetention(draftRetention);
-    setEditingRetention(false);
-  };
 
   return (
     <div className="space-y-6">
@@ -78,23 +47,18 @@ export default function PrivacyIdentitySettings() {
           className="mt-6"
           items={[
             {
-              label: "Verified links",
+              label: "Link verification",
               value: (
                 <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-base font-semibold tabular-nums">
-                    128,540
-                  </span>
+                  Zero-knowledge proof of opt-in
                   <StatusPill tone="success">ZK-verified</StatusPill>
                 </span>
               ),
             },
             {
-              label: "Proof method",
-              value: (
-                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-                  Groth16 · off-chain link store
-                </code>
-              ),
+              label: "Raw identity exposure",
+              value:
+                "Never - message a wallet without seeing the underlying identity",
             },
           ]}
         />
@@ -103,88 +67,33 @@ export default function PrivacyIdentitySettings() {
       <SettingsCard
         title="Data & retention"
         description="GDPR-aligned handling of wallet&#8596;email links"
-        action={
-          editingRetention ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditingRetention(false)}
-            >
-              <XMarkIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-              Cancel
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" onClick={startEdit}>
-              <PencilSquareIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-              Edit
-            </Button>
-          )
-        }
       >
-        {editingRetention ? (
-          <div className="max-w-md space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Retention window
-              </label>
-              <Select
-                value={draftRetention}
-                onValueChange={(v) =>
-                  setDraftRetention(
-                    v as (typeof RETENTION_OPTIONS)[number]["value"]
-                  )
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RETENTION_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEditingRetention(false)}
-              >
-                Cancel
-              </Button>
-              <Button size="sm" onClick={saveEdit}>
-                <CheckIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-                Save changes
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <DefinitionGrid
-            items={[
-              {
-                label: "Link storage",
-                value: "Off-chain, encrypted · deletable on request",
-              },
-              { label: "Retention window", value: retentionLabel },
-              {
-                label: "Wallet addresses = personal data",
-                value: (
-                  <span className="flex flex-wrap items-center gap-2">
-                    Treated as PII
-                    <StatusPill tone="success">Compliant</StatusPill>
-                  </span>
-                ),
-              },
-              {
-                label: "Right to erasure",
-                value: "Self-serve unsubscribe purges the link",
-              },
-            ]}
-          />
-        )}
+        <DefinitionGrid
+          items={[
+            {
+              label: "Link storage",
+              value: "Off-chain, encrypted · deletable on request",
+            },
+            { label: "Retention window", value: RETENTION_LABEL },
+            {
+              label: "Wallet addresses = personal data",
+              value: (
+                <span className="flex flex-wrap items-center gap-2">
+                  Treated as PII
+                  <StatusPill tone="success">Compliant</StatusPill>
+                </span>
+              ),
+            },
+            {
+              label: "Right to erasure",
+              value: "Self-serve unsubscribe purges the link",
+            },
+          ]}
+        />
+        <p className="mt-4 text-xs text-muted-foreground">
+          These policies are managed by the platform and aren&apos;t
+          configurable in-app yet.
+        </p>
       </SettingsCard>
 
       <SettingsCard

@@ -20,6 +20,7 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 
 const formatUsd = (value: number) =>
   value.toLocaleString("en-US", {
@@ -54,6 +55,58 @@ export function PaygWalletCard({ planName }: { planName: string }) {
   });
 
   const wallet = walletQuery.data;
+
+  // Loading and error are distinct from "no wallet": an org that must top up
+  // should see a skeleton or a retry, never a silent blank.
+  if (walletQuery.isLoading) {
+    return (
+      <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+        <div className="flex items-start gap-3">
+          <WalletIcon
+            className="mt-0.5 h-5 w-5 shrink-0 text-primary"
+            aria-hidden="true"
+          />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-24 rounded" />
+            <Skeleton className="h-8 w-32 rounded" />
+            <Skeleton className="h-3 w-full max-w-md rounded" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (walletQuery.isError) {
+    return (
+      <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <WalletIcon
+              className="mt-0.5 h-5 w-5 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+            <div>
+              <div className="text-sm font-medium text-foreground">
+                Usage wallet
+              </div>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Couldn&apos;t load your usage wallet balance.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            className="rounded-xl"
+            disabled={walletQuery.isFetching}
+            onClick={() => walletQuery.refetch()}
+          >
+            {walletQuery.isFetching ? "Retrying…" : "Retry"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!wallet) return null;
 
   const ledger = (wallet.ledger ?? []).slice(0, 5);

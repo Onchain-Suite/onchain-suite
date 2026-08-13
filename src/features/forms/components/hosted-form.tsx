@@ -49,6 +49,10 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  // Backend returns pendingConfirmation:true when double opt-in is on and the
+  // contact must click a confirmation link before they actually join. Telling
+  // someone they are subscribed when they are not is how that email gets ignored.
+  const [pendingConfirmation, setPendingConfirmation] = useState(false);
   const popupRef = useRef<Window | null>(null);
 
   // Listen for the OAuth callback popup posting back a linked channel.
@@ -194,8 +198,10 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
       );
       const payload = (await res.json().catch(() => ({}))) as {
         error?: string;
+        pendingConfirmation?: boolean;
       };
       if (!res.ok) throw new Error(payload.error ?? "Submission failed.");
+      setPendingConfirmation(payload.pendingConfirmation === true);
       setDone(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Submission failed.");
@@ -219,11 +225,23 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
           className="mx-auto size-12 text-emerald-400"
           aria-hidden="true"
         />
-        <h2 className="mt-4 text-xl font-bold">You&apos;re in</h2>
-        <p className="mt-2 text-sm text-white/60">
-          {config.display.successMessage ??
-            "Thanks - watch your inbox for what's next."}
-        </p>
+        {pendingConfirmation ? (
+          <>
+            <h2 className="mt-4 text-xl font-bold">Check your email</h2>
+            <p className="mt-2 text-sm text-white/60">
+              Almost there. Click the confirmation link we just emailed you to
+              finish subscribing.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="mt-4 text-xl font-bold">You&apos;re in</h2>
+            <p className="mt-2 text-sm text-white/60">
+              {config.display.successMessage ??
+                "Thanks - watch your inbox for what's next."}
+            </p>
+          </>
+        )}
       </div>
     );
   }

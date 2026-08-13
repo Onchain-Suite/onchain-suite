@@ -357,7 +357,11 @@ export const DEFAULT_META: FormMeta = {
   timing: { ...DEFAULT_TIMING },
   appearance: { ...DEFAULT_APPEARANCE },
   afterSubmit: { ...DEFAULT_AFTER_SUBMIT },
-  doubleOptIn: false,
+  // Confirmed opt-in is ON by default (matches the backend default). Withheld
+  // membership until the subscriber clicks the confirmation link is the only
+  // pre-send proof a mailbox is real on accept-all providers, so it protects
+  // sender reputation. Users can still turn it off in the builder.
+  doubleOptIn: true,
 };
 
 const STYLE_IDS = new Set<FormStyleId>([

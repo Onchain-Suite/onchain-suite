@@ -1,6 +1,11 @@
 "use client";
 
-import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowLeftIcon,
+  EllipsisHorizontalIcon,
+  PencilSquareIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 import {
   keepPreviousData,
   useMutation,
@@ -10,11 +15,35 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/ui/alert-dialog";
 import { Button } from "@/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/ui/dropdown-menu";
 import { Input } from "@/ui/input";
 
-import type { AudienceProfile } from "../audience.service";
-import { audienceService } from "../audience.service";
+import type { AudienceProfile, AudienceTag } from "../audience.service";
+import { audienceService, TagBacksListsError } from "../audience.service";
 import { MemberTable, toDetailMemberFromProfile } from "./member-table";
 
 const MEMBERS_PER_PAGE = 25;
@@ -53,6 +82,122 @@ export function AudienceTagsTab({
   const openTag = (tag: string) => {
     setSelectedTag(tag);
     setDetailPage(1);
+  };
+
+  // Rename/delete target a tag by its stable id (renaming by name would break
+  // the list criteria that point at the id), so resolve name → id from the tag
+  // objects the API returns.
+  const tagObjectsQuery = useQuery({
+    queryKey: ["audience", "tag-objects"],
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const res = await audienceService.listTags();
+      const items: AudienceTag[] = Array.isArray(res)
+        ? res
+        : (res.items ?? res.data ?? []);
+      return items;
+    },
+  });
+  const tagIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of tagObjectsQuery.data ?? []) {
+      if (typeof t.id === "string" && t.id && typeof t.name === "string") {
+        map.set(t.name, t.id);
+      }
+    }
+    return map;
+  }, [tagObjectsQuery.data]);
+
+  // Rename dialog + delete confirmations (two-step: plain confirm, then a
+  // second "delete anyway" when the tag backs lists).
+  const [renameTarget, setRenameTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [backedLists, setBackedLists] = useState<
+    { id: string; name: string }[] | null
+  >(null);
+
+  const invalidateTags = () => {
+    queryClient
+      .invalidateQueries({ queryKey: ["audience", "tags"] })
+      .catch(() => undefined);
+    queryClient
+      .invalidateQueries({ queryKey: ["audience", "tag-objects"] })
+      .catch(() => undefined);
+    queryClient
+      .invalidateQueries({ queryKey: ["audience", "tag-counts"] })
+      .catch(() => undefined);
+  };
+
+  const renameMutation = useMutation({
+    mutationFn: (input: { id: string; name: string }) =>
+      audienceService.renameTag(input.id, input.name),
+    onSuccess: () => {
+      setRenameTarget(null);
+      setRenameValue("");
+      toast.success("Tag renamed");
+      invalidateTags();
+    },
+    onError: (e) => {
+      const msg = e instanceof Error ? e.message : "";
+      if (/TAG_NAME_TAKEN|already exists/i.test(msg)) {
+        toast.error("A tag with that name already exists.");
+        return;
+      }
+      toast.error(msg || "Couldn't rename tag");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (input: { id: string; force?: boolean }) =>
+      audienceService.deleteTag(
+        input.id,
+        input.force ? { force: true } : undefined
+      ),
+    onSuccess: () => {
+      setDeleteTarget(null);
+      setBackedLists(null);
+      toast.success("Tag deleted");
+      invalidateTags();
+      queryClient
+        .invalidateQueries({ queryKey: ["audience", "segments"] })
+        .catch(() => undefined);
+    },
+    onError: (e) => {
+      // The tag defines one or more lists: surface them and offer a forced
+      // delete rather than silently failing or auto-retrying.
+      if (e instanceof TagBacksListsError) {
+        setBackedLists(e.lists);
+        return;
+      }
+      toast.error(e instanceof Error ? e.message : "Couldn't delete tag");
+    },
+  });
+
+  const startRename = (tag: string) => {
+    const id = tagIdByName.get(tag);
+    if (!id) {
+      toast.error("We couldn't resolve that tag. Refresh and try again.");
+      return;
+    }
+    setRenameTarget({ id, name: tag });
+    setRenameValue(tag);
+  };
+  const startDelete = (tag: string) => {
+    const id = tagIdByName.get(tag);
+    if (!id) {
+      toast.error("We couldn't resolve that tag. Refresh and try again.");
+      return;
+    }
+    setBackedLists(null);
+    setDeleteTarget({ id, name: tag });
   };
 
   const tagMembersQuery = useQuery({
@@ -277,6 +422,7 @@ export function AudienceTagsTab({
                 <th className="px-4 py-3 font-medium">Rule</th>
                 <th className="px-4 py-3 text-right font-medium">Contacts</th>
                 <th className="px-4 py-3 font-medium">Updated</th>
+                <th className="w-8 py-3" aria-hidden="true" />
               </tr>
             </thead>
             <tbody>
@@ -312,6 +458,50 @@ export function AudienceTagsTab({
                     <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
                       -
                     </td>
+                    <td className="py-4 pr-3 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={`Actions for ${tag}`}
+                            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
+                          >
+                            <EllipsisHorizontalIcon
+                              className="size-4"
+                              aria-hidden="true"
+                            />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              startRename(tag);
+                            }}
+                          >
+                            <PencilSquareIcon
+                              className="size-4"
+                              aria-hidden="true"
+                            />
+                            Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              startDelete(tag);
+                            }}
+                          >
+                            <TrashIcon className="size-4" aria-hidden="true" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
                   </tr>
                 );
               })}
@@ -319,6 +509,159 @@ export function AudienceTagsTab({
           </table>
         </div>
       ) : null}
+
+      {/* Rename a tag (in place - the id is stable). */}
+      <Dialog
+        open={renameTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !renameMutation.isPending) {
+            setRenameTarget(null);
+            setRenameValue("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rename tag</DialogTitle>
+            <DialogDescription>
+              This renames the tag everywhere it&apos;s used - lists built on it
+              keep working.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="rename-tag-name"
+              className="text-sm font-medium text-foreground"
+            >
+              Name
+            </label>
+            <Input
+              id="rename-tag-name"
+              autoFocus
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && renameTarget) {
+                  const next = renameValue.trim();
+                  if (next && next !== renameTarget.name) {
+                    renameMutation.mutate({ id: renameTarget.id, name: next });
+                  }
+                }
+              }}
+              className="h-10 rounded-lg"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={renameMutation.isPending}
+              onClick={() => {
+                setRenameTarget(null);
+                setRenameValue("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={
+                renameMutation.isPending ||
+                renameValue.trim().length === 0 ||
+                renameValue.trim() === renameTarget?.name
+              }
+              onClick={() => {
+                if (!renameTarget) return;
+                const next = renameValue.trim();
+                if (!next) return;
+                renameMutation.mutate({ id: renameTarget.id, name: next });
+              }}
+            >
+              {renameMutation.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete a tag - two-step: a plain confirm, then a second "delete
+          anyway" that names the lists the tag backs. */}
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) {
+            setDeleteTarget(null);
+            setBackedLists(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          {backedLists && backedLists.length > 0 ? (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  This tag defines who is in{" "}
+                  {backedLists.length === 1 ? "a list" : "some lists"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  “{deleteTarget?.name}” defines who is in:{" "}
+                  {backedLists.map((l) => l.name).join(", ")}. Deleting it
+                  empties{" "}
+                  {backedLists.length === 1 ? "that list" : "those lists"}.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleteMutation.isPending}>
+                  Keep the tag
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-white hover:bg-destructive/90"
+                  disabled={deleteMutation.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (deleteTarget) {
+                      deleteMutation.mutate({
+                        id: deleteTarget.id,
+                        force: true,
+                      });
+                    }
+                  }}
+                >
+                  {deleteMutation.isPending ? "Deleting…" : "Delete anyway"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          ) : (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Delete “{deleteTarget?.name}”?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This removes the tag from every contact that carries it. The
+                  contacts themselves stay in your audience.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleteMutation.isPending}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-white hover:bg-destructive/90"
+                  disabled={deleteMutation.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (deleteTarget) {
+                      deleteMutation.mutate({ id: deleteTarget.id });
+                    }
+                  }}
+                >
+                  {deleteMutation.isPending ? "Deleting…" : "Delete tag"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

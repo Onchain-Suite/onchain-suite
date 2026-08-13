@@ -6,10 +6,11 @@ import {
   ArrowUpTrayIcon,
   AtSymbolIcon,
   CheckIcon,
-  ChevronRightIcon,
   ClipboardDocumentIcon,
   DevicePhoneMobileIcon,
+  EllipsisHorizontalIcon,
   EnvelopeIcon,
+  PencilSquareIcon,
   PlusIcon,
   ShieldCheckIcon,
   TrashIcon,
@@ -24,6 +25,16 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,6 +44,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -250,6 +267,12 @@ export function AudiencePages() {
   const [selectedList, setSelectedList] = useState<AudienceSegment | null>(
     null
   );
+  // Rename/delete a list from its row action menu.
+  const [renameListTarget, setRenameListTarget] =
+    useState<AudienceSegment | null>(null);
+  const [renameListValue, setRenameListValue] = useState("");
+  const [deleteListTarget, setDeleteListTarget] =
+    useState<AudienceSegment | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   // Clicking a contact opens a slide-in detail panel (not a full-page nav).
@@ -496,6 +519,42 @@ export function AudiencePages() {
       setListName("");
       setListType("growing");
     },
+  });
+
+  const renameListMutation = useMutation({
+    mutationFn: (input: { id: string; name: string }) =>
+      audienceService.renameSegment(input.id, input.name),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ["audience", "segments"] });
+      // Keep an open detail view in sync with the new name.
+      setSelectedList((prev) =>
+        prev?.id === updated.id ? { ...prev, ...updated } : prev
+      );
+      setRenameListTarget(null);
+      setRenameListValue("");
+      toast.success("List renamed");
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Couldn't rename list"),
+  });
+
+  const deleteListMutation = useMutation({
+    mutationFn: (id: string) => audienceService.deleteSegment(id),
+    onSuccess: (res, id) => {
+      queryClient.invalidateQueries({ queryKey: ["audience", "segments"] });
+      setSelectedList((prev) => (prev?.id === id ? null : prev));
+      setDeleteListTarget(null);
+      const kept = num(res?.contactsKept);
+      toast.success(
+        typeof kept === "number"
+          ? `List deleted. ${kept.toLocaleString()} contact${
+              kept === 1 ? "" : "s"
+            } kept in your audience.`
+          : "List deleted. Your contacts were kept."
+      );
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Couldn't delete list"),
   });
 
   // "Sync wallets": enqueue (202) then poll GET /audience/sync for progress.
@@ -1255,10 +1314,52 @@ export function AudiencePages() {
                                 : "-"}
                             </td>
                             <td className="py-4 pr-3 text-right">
-                              <ChevronRightIcon
-                                className="size-4 text-muted-foreground"
-                                aria-hidden="true"
-                              />
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => e.stopPropagation()}
+                                    aria-label={`Actions for ${seg.name}`}
+                                    className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
+                                  >
+                                    <EllipsisHorizontalIcon
+                                      className="size-4"
+                                      aria-hidden="true"
+                                    />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <DropdownMenuItem
+                                    onSelect={(e) => {
+                                      e.preventDefault();
+                                      setRenameListTarget(seg);
+                                      setRenameListValue(seg.name);
+                                    }}
+                                  >
+                                    <PencilSquareIcon
+                                      className="size-4"
+                                      aria-hidden="true"
+                                    />
+                                    Rename
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onSelect={(e) => {
+                                      e.preventDefault();
+                                      setDeleteListTarget(seg);
+                                    }}
+                                  >
+                                    <TrashIcon
+                                      className="size-4"
+                                      aria-hidden="true"
+                                    />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </td>
                           </tr>
                         );
@@ -1356,6 +1457,126 @@ export function AudiencePages() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Rename a list. */}
+      <Dialog
+        open={renameListTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !renameListMutation.isPending) {
+            setRenameListTarget(null);
+            setRenameListValue("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rename list</DialogTitle>
+            <DialogDescription>
+              This renames the saved view. Its contacts and the tag behind it
+              are untouched.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="rename-list-name"
+              className="text-sm font-medium text-foreground"
+            >
+              Name
+            </label>
+            <Input
+              id="rename-list-name"
+              autoFocus
+              value={renameListValue}
+              onChange={(e) => setRenameListValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && renameListTarget) {
+                  const next = renameListValue.trim();
+                  if (next && next !== renameListTarget.name) {
+                    renameListMutation.mutate({
+                      id: renameListTarget.id,
+                      name: next,
+                    });
+                  }
+                }
+              }}
+              className="h-10 rounded-lg"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={renameListMutation.isPending}
+              onClick={() => {
+                setRenameListTarget(null);
+                setRenameListValue("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={
+                renameListMutation.isPending ||
+                renameListValue.trim().length === 0 ||
+                renameListValue.trim() === renameListTarget?.name
+              }
+              onClick={() => {
+                if (!renameListTarget) return;
+                const next = renameListValue.trim();
+                if (!next) return;
+                renameListMutation.mutate({
+                  id: renameListTarget.id,
+                  name: next,
+                });
+              }}
+            >
+              {renameListMutation.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete a list (saved view only - contacts stay in the audience). */}
+      <AlertDialog
+        open={deleteListTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteListMutation.isPending) {
+            setDeleteListTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this list?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the saved view “{deleteListTarget?.name}”.{" "}
+              {typeof deleteListTarget?.count === "number"
+                ? `The ${deleteListTarget.count.toLocaleString()} contact${
+                    deleteListTarget.count === 1 ? "" : "s"
+                  } in it stay in your audience.`
+                : "The contacts in it stay in your audience."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteListMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deleteListMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteListTarget) {
+                  deleteListMutation.mutate(deleteListTarget.id);
+                }
+              }}
+            >
+              {deleteListMutation.isPending ? "Deleting…" : "Delete list"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

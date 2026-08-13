@@ -72,9 +72,66 @@ export interface AudienceProfile {
 }
 
 export interface AudienceTag {
+  /** Stable tag id - renames/deletes target this, never the name. */
+  id?: string;
   name: string;
   [key: string]: unknown;
 }
+
+/** `{ id, name }` for a list a tag backs (carried on `TAG_BACKS_LISTS`). */
+export interface TagBackedList {
+  id: string;
+  name: string;
+}
+
+/** Success shape of `DELETE /audience/tags/{tagId}`. */
+export interface DeleteTagResult {
+  deleted?: boolean | number;
+  detachedFrom?: number;
+  listsAffected?: number;
+}
+
+/** Success shape of `DELETE /audience/segments/{id}` (a list is a saved view;
+ *  the backing tag and every contact are kept). */
+export interface DeleteSegmentResult {
+  deleted?: boolean | number;
+  contactsKept?: number;
+}
+
+/**
+ * Thrown by {@link audienceService.deleteTag} when the tag defines one or more
+ * lists (backend 400 `TAG_BACKS_LISTS`). Carries the affected `lists` so the UI
+ * can name them before offering a forced delete. `instanceof` this, or check
+ * `.code === "TAG_BACKS_LISTS"`.
+ */
+export class TagBacksListsError extends Error {
+  readonly code = "TAG_BACKS_LISTS" as const;
+  readonly lists: TagBackedList[];
+  constructor(lists: TagBackedList[], message?: string) {
+    super(message ?? "This tag defines one or more lists.");
+    this.name = "TagBacksListsError";
+    this.lists = lists;
+  }
+}
+
+/** Narrow an unknown payload into `{ id, name }[]` list rows. */
+const toTagBackedLists = (value: unknown): TagBackedList[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry): TagBackedList | null => {
+      if (!isJsonObject(entry)) return null;
+      const id =
+        typeof entry.id === "string"
+          ? entry.id
+          : typeof entry.id === "number"
+            ? String(entry.id)
+            : "";
+      const name = typeof entry.name === "string" ? entry.name : "";
+      if (!id && !name) return null;
+      return { id, name };
+    })
+    .filter((row): row is TagBackedList => row !== null);
+};
 
 export interface ListProfilesParams {
   page?: number;
@@ -497,6 +554,29 @@ export const audienceService = {
     );
   },
 
+  /** `PATCH /audience/segments/{id}` `{ name }` - rename a list. */
+  renameSegment(id: string, name: string, orgId?: string) {
+    return request<AudienceSegment>(
+      {
+        method: "PATCH",
+        url: `/audience/segments/${encodeURIComponent(id)}`,
+        data: { name },
+      },
+      orgId
+    );
+  },
+
+  /**
+   * `DELETE /audience/segments/{id}` - remove the saved view only. The backing
+   * tag and every contact are left alone; the response reports `contactsKept`.
+   */
+  deleteSegment(id: string, orgId?: string) {
+    return request<DeleteSegmentResult>(
+      { method: "DELETE", url: `/audience/segments/${encodeURIComponent(id)}` },
+      orgId
+    );
+  },
+
   createProfile(body: Record<string, unknown>, orgId?: string) {
     return request<AudienceProfile>(
       { method: "POST", url: "/audience/profiles", data: body },
@@ -553,6 +633,78 @@ export const audienceService = {
       { method: "POST", url: "/audience/tags", data: body },
       orgId
     );
+  },
+
+  /**
+   * `PATCH /audience/tags/{tagId}` `{ name }` - renames the tag IN PLACE (the
+   * id is stable, so a list's `criteria.tagIds` keeps pointing at it). Rejects
+   * with the friendly message on 400 `TAG_NAME_TAKEN`; callers key off it.
+   */
+  renameTag(tagId: string, name: string, orgId?: string) {
+    return request<AudienceTag>(
+      {
+        method: "PATCH",
+        url: `/audience/tags/${encodeURIComponent(tagId)}`,
+        data: { name },
+      },
+      orgId
+    );
+  },
+
+  /**
+   * `DELETE /audience/tags/{tagId}` (query `?force=true` only when forced).
+   * When the tag backs a list the backend refuses with 400 `TAG_BACKS_LISTS`
+   * and lists the affected lists in the body; the shared `request` helper would
+   * flatten that to a message, so this call talks to axios directly and rejects
+   * with a {@link TagBacksListsError} exposing `{ code, lists }`. Never pass
+   * `force` on the first try - surface the lists, confirm, then retry forced.
+   */
+  deleteTag(
+    tagId: string,
+    opts?: { force?: boolean },
+    orgId?: string
+  ): Promise<DeleteTagResult> {
+    const resolvedOrgId = pickOrgId(orgId);
+    const headers = {
+      ...(resolvedOrgId ? { "x-org-id": resolvedOrgId } : {}),
+      "x-onchain-silent-error": "1",
+    };
+    return apiClient
+      .request<unknown>({
+        method: "DELETE",
+        url: `/audience/tags/${encodeURIComponent(tagId)}`,
+        params: opts?.force ? { force: true } : undefined,
+        headers,
+      })
+      .then((res) => extractData<DeleteTagResult>(res.data))
+      .catch((e) => {
+        const err = e as AxiosError<unknown>;
+        const data = err.response?.data;
+        // The refusal body nests under `.error` (message/code/lists); some
+        // shapes put fields at the top level - read both.
+        const nested =
+          isJsonObject(data) && isJsonObject(data.error) ? data.error : null;
+        const codeSource = nested ?? (isJsonObject(data) ? data : null);
+        const code =
+          codeSource && typeof codeSource.code === "string"
+            ? codeSource.code
+            : undefined;
+        if (code === "TAG_BACKS_LISTS") {
+          const lists = toTagBackedLists(
+            nested?.lists ?? (isJsonObject(data) ? data.lists : undefined)
+          );
+          const message =
+            codeSource && typeof codeSource.message === "string"
+              ? codeSource.message
+              : undefined;
+          throw new TagBacksListsError(lists, message);
+        }
+        const message =
+          codeSource && typeof codeSource.message === "string"
+            ? codeSource.message
+            : (err.message ?? "Couldn't delete tag");
+        throw new Error(String(message), { cause: e });
+      });
   },
 
   addTagsToProfile(id: string, body: { tags: string[] }, orgId?: string) {

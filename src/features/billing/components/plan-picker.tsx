@@ -139,17 +139,23 @@ const priceLabel = (price: BillingPlan["price"]): string => {
   return "-";
 };
 
-const planSlugKey = (plan: BillingPlan): string =>
-  (typeof plan.slug === "string" && plan.slug
-    ? plan.slug
-    : (plan.name ?? "")
-  ).toLowerCase();
+// Match a plan to the canonical catalog by the tier keyword contained in its
+// name or slug, so features still fill in when the backend's slug/name isn't
+// exactly our key (e.g. "launch-monthly", "Launch Plan", or a UUID id). Order
+// matters: check the more specific keys first.
+const CATALOG_TIER_KEYS = ["scale", "pro", "growth", "launch", "payg"] as const;
+const featureCatalogFor = (plan: BillingPlan): string[] => {
+  const hay =
+    `${typeof plan.name === "string" ? plan.name : ""} ${typeof plan.slug === "string" ? plan.slug : ""}`.toLowerCase();
+  const key = CATALOG_TIER_KEYS.find((k) => hay.includes(k));
+  return key ? PLAN_FEATURE_CATALOG[key] : [];
+};
 
 const planFeatures = (plan: BillingPlan): string[] => {
   const backend = Array.isArray(plan.features)
     ? plan.features.filter((f): f is string => typeof f === "string")
     : [];
-  const canonical = PLAN_FEATURE_CATALOG[planSlugKey(plan)] ?? [];
+  const canonical = featureCatalogFor(plan);
   // Show whichever list is more complete so a card is never sparse.
   return canonical.length > backend.length ? canonical : backend;
 };

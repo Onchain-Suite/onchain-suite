@@ -18,11 +18,7 @@ import { Button } from "@/components/ui/button";
 import { cn, getSelectedOrganizationId } from "@/lib/utils";
 
 import { type BillingPlan, billingService } from "../billing.service";
-import {
-  openCheckoutInNewTab,
-  startCapacityCheckout,
-  startPlanCheckout,
-} from "../checkout";
+import { openCheckoutInNewTab, startPlanCheckout } from "../checkout";
 
 type PaymentMethod = "card" | "crypto";
 
@@ -487,22 +483,21 @@ export function PlanPicker({
 
       const selected = paidPlans.find((p) => p.name === selectedPlan);
       const planRef = selected?.slug ?? selectedPlan;
-      // A slider-sized purchase prices the exact contact count via the dynamic
-      // list-size (Blockradar) rail; a plain named tier uses the standard
-      // checkout with the chosen card/crypto method.
-      const checkout = capacityContacts
-        ? await startCapacityCheckout(planRef, capacityContacts)
-        : await startPlanCheckout(planRef, undefined, { paymentMethod });
+      // A slider-sized selection sends its contact count so checkout/plan prices
+      // by the same curve as the quote; a plain tier omits it. Both rails
+      // (card/crypto) accept the contact capacity.
+      const checkout = await startPlanCheckout(planRef, undefined, {
+        paymentMethod,
+        contacts: capacityContacts ?? undefined,
+      });
       if (!checkout?.paymentUrl) {
         toast.error("Checkout did not return a payment link. Try again.");
         return;
       }
       toast.success(
-        capacityContacts
-          ? "Opening checkout for your sized plan in a new tab…"
-          : paymentMethod === "card"
-            ? "Opening secure card checkout in a new tab…"
-            : "Opening crypto checkout in a new tab…"
+        paymentMethod === "card"
+          ? "Opening secure card checkout in a new tab…"
+          : "Opening crypto checkout in a new tab…"
       );
       onCompleted?.(planRef);
       if (!openCheckoutInNewTab(checkout.paymentUrl)) {

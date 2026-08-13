@@ -353,10 +353,16 @@ export interface PlanCheckoutRequest {
    * 400 FIAT_CHECKOUT_UNAVAILABLE when Stripe isn't configured.
    */
   paymentMethod?: "crypto" | "card";
+  /**
+   * Pricing-slider contact capacity (API_ENDPOINTS.md). Priced by the SAME curve
+   * as `GET /billing/contact-pricing`, so the charge equals the quote. Ignored at
+   * or below the tier's own contact limit; omit for a plain tier purchase. This
+   * field belongs on `checkout/plan` - NOT the legacy `/billing/upgrade*`
+   * endpoints, which price on a different one-time curve and grant no org
+   * capacity. On payment the backend writes `metadata.billing.contactCapacity`.
+   */
+  contacts?: number;
 }
-// NOTE: POST /billing/checkout/plan does NOT accept a contact capacity
-// (API_ENDPOINTS.md). Slider-sized ("dynamic list size") purchases go through
-// POST /billing/upgrade/blockradar instead - see billingService.upgradeBlockradar.
 
 /**
  * Response of POST /billing/checkout/plan - Blockradar crypto checkout.

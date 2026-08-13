@@ -4,7 +4,7 @@ import {
   ArrowPathIcon,
   ChatBubbleLeftRightIcon,
   CheckIcon,
-  CodeBracketIcon,
+  // CodeBracketIcon, // re-add when the hidden SQL tab is restored
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -178,10 +178,13 @@ export default function IntelligencePage() {
               </span>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="sql" className={TAB_TRIGGER_CLASS}>
+          {/* SQL surface is intentionally hidden until we finalize the direction.
+              The tab, routing (?tab=sql) and QueryTab sql surface below stay
+              wired so it can be re-enabled by restoring this trigger. */}
+          {/* <TabsTrigger value="sql" className={TAB_TRIGGER_CLASS}>
             <CodeBracketIcon aria-hidden="true" className="h-4 w-4" />
             SQL
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         {activeTab === "chat" || activeTab === "sql" ? (

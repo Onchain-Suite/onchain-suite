@@ -282,23 +282,7 @@ describe("InAppIntegration", () => {
     });
   });
 
-  it("creates a secret key and shows the returned token once", async () => {
-    render(wrap(<InAppIntegration />));
-
-    expandInAppSection();
-    fireEvent.click(screen.getByRole("button", { name: "Create secret key" }));
-    fireEvent.click(screen.getByRole("button", { name: "Create" }));
-
-    await waitFor(() => {
-      expect(vi.mocked(fetch)).toHaveBeenCalledWith(
-        "/api/v1/integrations/keys/secret",
-        expect.objectContaining({
-          method: "POST",
-          headers: expect.objectContaining({ "x-org-id": "org_123" }),
-        })
-      );
-    });
-
-    expect(screen.getByText("sk_live_abc123")).toBeInTheDocument();
-  });
+  // Secret-key (sk_) creation was intentionally removed from the SDK surface
+  // (leak risk); it now lives only in the Developer API card. No secret-key
+  // test belongs here.
 });

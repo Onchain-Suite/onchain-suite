@@ -321,7 +321,8 @@ export interface UpgradeFiatRequest {
 
 export interface UpgradeBlockradarRequest {
   desiredListSize: number;
-  plan?: BillingPlanName;
+  /** Catalog slug ("launch"…) or a billing_plans row id, per API_ENDPOINTS.md. */
+  plan?: BillingPlanName | (string & {});
 }
 
 export interface BillingUpgradeResponse {
@@ -352,14 +353,10 @@ export interface PlanCheckoutRequest {
    * 400 FIAT_CHECKOUT_UNAVAILABLE when Stripe isn't configured.
    */
   paymentMethod?: "crypto" | "card";
-  /**
-   * Purchased contact capacity from the pricing slider. The backend stores it at
-   * `organization.metadata.billing.contactCapacity` (it only ever raises a limit)
-   * so an org can buy, e.g., 11,000 contacts on Launch instead of jumping to
-   * Growth. Omitted for a plain named-tier purchase.
-   */
-  desiredListSize?: number;
 }
+// NOTE: POST /billing/checkout/plan does NOT accept a contact capacity
+// (API_ENDPOINTS.md). Slider-sized ("dynamic list size") purchases go through
+// POST /billing/upgrade/blockradar instead - see billingService.upgradeBlockradar.
 
 /**
  * Response of POST /billing/checkout/plan - Blockradar crypto checkout.

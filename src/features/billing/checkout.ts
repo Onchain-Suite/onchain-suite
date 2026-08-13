@@ -220,7 +220,7 @@ export interface StartPlanCheckoutResult {
 export async function startPlanCheckout(
   planName: string,
   organizationId?: string,
-  options?: { paymentMethod?: "crypto" | "card"; contacts?: number }
+  options?: { paymentMethod?: "crypto" | "card" }
 ): Promise<StartPlanCheckoutResult | null> {
   const slug = planCheckoutSlug(planName);
   if (!slug) return null;
@@ -228,22 +228,12 @@ export async function startPlanCheckout(
   const orgId = organizationId ?? getSelectedOrganizationId() ?? undefined;
   if (!orgId) throw new Error("No active organization selected.");
 
-  // A slider-sized purchase carries the chosen capacity so the backend charges
-  // for (and grants) exactly that many contacts on the resolved tier.
-  const desiredListSize =
-    typeof options?.contacts === "number" &&
-    Number.isFinite(options.contacts) &&
-    options.contacts > 0
-      ? Math.round(options.contacts)
-      : undefined;
-
   let res;
   try {
     res = await billingService.checkoutPlan({
       plan: slug,
       organizationId: orgId,
       billingCycle: "monthly",
-      ...(desiredListSize ? { desiredListSize } : {}),
       ...(options?.paymentMethod === "card"
         ? { paymentMethod: "card" as const }
         : {}),
@@ -307,4 +297,59 @@ export async function startPlanCheckout(
     amount,
     mode,
   };
+}
+
+/**
+ * Start a dynamic-list-size ("size your plan") checkout via
+ * `POST /billing/upgrade/blockradar` `{ desiredListSize, plan }`. The backend
+ * prices the exact contact count on the resolved tier and returns a hosted
+ * checkout link (this is the Blockradar dynamic-pricing rail; a plain named-tier
+ * purchase uses startPlanCheckout instead). `checkout/plan` cannot price a size.
+ */
+export async function startCapacityCheckout(
+  planName: string,
+  contacts: number,
+  organizationId?: string
+): Promise<StartPlanCheckoutResult | null> {
+  const slug = planCheckoutSlug(planName);
+  if (!slug) return null;
+
+  const orgId = organizationId ?? getSelectedOrganizationId() ?? undefined;
+  if (!orgId) throw new Error("No active organization selected.");
+  const desiredListSize = Math.max(1, Math.round(contacts));
+
+  let res;
+  try {
+    res = await billingService.upgradeBlockradar(
+      { desiredListSize, plan: slug },
+      { orgId }
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Couldn't start checkout.";
+    throw new Error(
+      `${message} If this keeps happening, checkout isn't configured for this environment yet - contact support or try again later.`,
+      { cause: error }
+    );
+  }
+
+  // The upgrade endpoints return `checkoutUrl`; tolerate a `paymentUrl` alias.
+  const paymentUrl =
+    (typeof res.checkoutUrl === "string" && res.checkoutUrl) ||
+    (typeof res.paymentUrl === "string" && (res.paymentUrl as string)) ||
+    "";
+  const reference = typeof res.reference === "string" ? res.reference : "";
+  if (!paymentUrl) {
+    throw new Error(
+      "Checkout did not return a payment link. Please try again."
+    );
+  }
+
+  writePendingCheckout({
+    reference,
+    plan: planName,
+    startedAt: Date.now(),
+    paymentMethod: "crypto",
+  });
+  return { paymentUrl, reference };
 }

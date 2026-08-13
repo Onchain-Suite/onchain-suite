@@ -467,8 +467,17 @@ export default function ImportExportPage() {
   const [csvColumns, setCsvColumns] = useState<CSVColumn[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
-    success: number;
+    processed: number;
+    created: number;
+    updated: number;
     failed: number;
+    verified: number | null;
+    undeliverable: number | null;
+    alreadySuppressed: number | null;
+    deepVerified: number | null;
+    capReached: boolean;
+    rejectedListAvailable: boolean;
+    suppressedListAvailable: boolean;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("import");
   const [importJobId, setImportJobId] = useState<string | null>(null);
@@ -1156,16 +1165,28 @@ export default function ImportExportPage() {
       const updated = importStatus.updatedCount ?? 0;
       const success = created + updated;
       const failed = importStatus.errorCount ?? 0;
-      setImportResult({ success, failed });
-      setImportStep("complete");
-
-      // One summary toast for the whole import (not one per contact): the row
-      // totals, plus how many bad emails the verifier auto-suppressed.
       const { verification } = importStatus;
       const processed =
         importStatus.processedRows ??
         importStatus.totalRows ??
         success + failed;
+      setImportResult({
+        processed,
+        created,
+        updated,
+        failed,
+        verified: verification?.good ?? null,
+        undeliverable: verification?.bad ?? null,
+        alreadySuppressed: verification?.suppressed ?? null,
+        deepVerified: verification?.deepVerified ?? null,
+        capReached: verification?.capReached === true,
+        rejectedListAvailable: verification?.rejectedListAvailable === true,
+        suppressedListAvailable: verification?.suppressedListAvailable === true,
+      });
+      setImportStep("complete");
+
+      // One summary toast for the whole import (not one per contact): the row
+      // totals, plus how many bad emails the verifier auto-suppressed.
       const parts = [
         `${processed.toLocaleString()} processed`,
         `${created.toLocaleString()} created`,
@@ -1922,43 +1943,163 @@ export default function ImportExportPage() {
           </div>
         )}
 
-        {importStep === "complete" && importResult && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <CheckCircleIcon
-              className="mb-6 h-16 w-16 text-primary"
-              aria-hidden="true"
-            />
-            <h2 className="text-2xl font-semibold">Import Complete</h2>
-            <p className="mt-3 text-(--color-text-muted)">
-              Successfully imported {importResult.success.toLocaleString()}{" "}
-              profiles
-              {importResult.failed > 0 && ` · ${importResult.failed} failed`}
-            </p>
-            <div className="mt-10 flex gap-3">
-              <button
-                onClick={resetImport}
-                className="rounded-xl border border-(--color-border) px-5 py-2.5 text-sm font-medium hover:bg-(--color-card)"
-              >
-                Import More
-              </button>
-              {importJobId && importResult.failed > 0 && (
-                <button
-                  onClick={() => downloadImportErrorsMutation.mutate()}
-                  disabled={downloadImportErrorsMutation.isPending}
-                  className="rounded-xl border border-(--color-border) px-5 py-2.5 text-sm font-medium hover:bg-(--color-card) disabled:opacity-50"
-                >
-                  Download errors
-                </button>
-              )}
-              <Link
-                href="/audience"
-                className="rounded-xl bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                View Audience
-              </Link>
-            </div>
-          </div>
-        )}
+        {importStep === "complete" &&
+          importResult &&
+          (() => {
+            const r = importResult;
+            const imported = r.created + r.updated;
+            const undeliverable = r.undeliverable ?? 0;
+            const alreadySuppressed = r.alreadySuppressed ?? 0;
+            const hasIssues = r.failed > 0 || undeliverable > 0 || r.capReached;
+            const toneClass = {
+              default: "text-foreground",
+              good: "text-emerald-500",
+              warn: "text-amber-500",
+              muted: "text-muted-foreground",
+              danger: "text-rose-500",
+            } as const;
+            const tiles: {
+              label: string;
+              value: number;
+              tone: keyof typeof toneClass;
+            }[] = [
+              { label: "Contacts imported", value: imported, tone: "default" },
+            ];
+            if (r.verified !== null)
+              tiles.push({
+                label: "Verified, deliverable",
+                value: r.verified,
+                tone: "good",
+              });
+            if (undeliverable > 0)
+              tiles.push({
+                label: "Undeliverable, suppressed",
+                value: undeliverable,
+                tone: "warn",
+              });
+            if (alreadySuppressed > 0)
+              tiles.push({
+                label: "Already suppressed",
+                value: alreadySuppressed,
+                tone: "muted",
+              });
+            if (r.failed > 0)
+              tiles.push({
+                label: "Rows with errors",
+                value: r.failed,
+                tone: "danger",
+              });
+
+            return (
+              <div className="mx-auto w-full max-w-2xl py-10">
+                <div className="rounded-2xl border border-border bg-card p-8">
+                  <div className="flex items-start gap-4">
+                    <span
+                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
+                        hasIssues
+                          ? "bg-amber-500/10 text-amber-500"
+                          : "bg-emerald-500/10 text-emerald-500"
+                      }`}
+                    >
+                      {hasIssues ? (
+                        <ExclamationCircleIcon
+                          className="h-6 w-6"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <CheckCircleIcon
+                          className="h-6 w-6"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="text-xl font-semibold text-foreground">
+                        {hasIssues
+                          ? "Import complete, with items to review"
+                          : "Import complete"}
+                      </h2>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {imported.toLocaleString()} contact
+                        {imported === 1 ? "" : "s"} added from{" "}
+                        {r.processed.toLocaleString()} row
+                        {r.processed === 1 ? "" : "s"}.
+                        {!hasIssues && r.verified !== null
+                          ? " Every address checked out - nothing to review."
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    {tiles.map((t) => (
+                      <div
+                        key={t.label}
+                        className="rounded-xl border border-border bg-background/40 p-4"
+                      >
+                        <div
+                          className={`text-2xl font-semibold tabular-nums ${toneClass[t.tone]}`}
+                        >
+                          {t.value.toLocaleString()}
+                        </div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          {t.label}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {r.capReached ? (
+                    <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400">
+                      <InformationCircleIcon
+                        className="mt-0.5 h-4 w-4 shrink-0"
+                        aria-hidden="true"
+                      />
+                      <p>
+                        Some rows exceeded your plan&apos;s contact limit and
+                        were held, unmailable, rather than dropped. Raise your
+                        plan capacity to release them.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <button
+                      onClick={resetImport}
+                      className="rounded-xl border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                    >
+                      Import more
+                    </button>
+                    {importJobId &&
+                    (r.rejectedListAvailable || undeliverable > 0) ? (
+                      <button
+                        onClick={() => downloadImportRejectedMutation.mutate()}
+                        disabled={downloadImportRejectedMutation.isPending}
+                        className="rounded-xl border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                      >
+                        Download suppressed emails
+                      </button>
+                    ) : null}
+                    {importJobId && r.failed > 0 ? (
+                      <button
+                        onClick={() => downloadImportErrorsMutation.mutate()}
+                        disabled={downloadImportErrorsMutation.isPending}
+                        className="rounded-xl border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                      >
+                        Download error report
+                      </button>
+                    ) : null}
+                    <Link
+                      href="/audience"
+                      className="rounded-xl bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                    >
+                      View audience
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
       </div>
     </motion.div>
   );

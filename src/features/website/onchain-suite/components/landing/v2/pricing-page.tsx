@@ -32,7 +32,7 @@ const METERS: { label: string; rate: string; note: string }[] = [
 ];
 
 function Calculator() {
-  const [email, setEmail] = useState(50000);
+  const [email, setEmail] = useState(5000);
   const [inapp, setInapp] = useState(50000);
   const [onchain, setOnchain] = useState(10000);
   const [ai, setAi] = useState(1000);
@@ -230,7 +230,7 @@ const TIERS: Tier[] = [
       "25,000 in-app pushes/mo",
       "1,000 on-chain credits/mo",
       "500 AI credits/mo",
-      "Intelligence (sample size)",
+      "Intelligence",
       "2 team seats",
     ],
     cta: "Get early access",

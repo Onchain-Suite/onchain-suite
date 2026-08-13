@@ -740,6 +740,51 @@ export const intelligenceService = {
     return normalizeSegmentPreview(payload);
   },
 
+  /**
+   * Natural-language -> structured segment rules. `POST /intelligence/segments/
+   * generate-rules` (EDITOR+). Returns the same `{ match, conditions }` shape the
+   * builder uses; the backend fails soft to an empty rule set (never 500), so an
+   * empty `conditions` array is a valid "couldn't parse - build by hand" result.
+   */
+  async generateSegmentRules(
+    prompt: string,
+    orgId?: string
+  ): Promise<{
+    match: "AND" | "OR";
+    conditions: { field: string; operator: string; value: string }[];
+  }> {
+    const payload = await request<unknown>(
+      {
+        method: "POST",
+        url: "/intelligence/segments/generate-rules",
+        data: { prompt },
+      },
+      orgId
+    );
+    const root = isJsonObject(payload) ? payload : {};
+    const match = root.match === "OR" ? "OR" : "AND";
+    const rawConditions = Array.isArray(root.conditions) ? root.conditions : [];
+    const conditions = rawConditions
+      .map((c) => {
+        if (!isJsonObject(c)) return null;
+        const field = typeof c.field === "string" ? c.field : "";
+        const operator = typeof c.operator === "string" ? c.operator : "";
+        if (!field || !operator) return null;
+        const value =
+          typeof c.value === "string"
+            ? c.value
+            : typeof c.value === "number"
+              ? String(c.value)
+              : "";
+        return { field, operator, value };
+      })
+      .filter(
+        (c): c is { field: string; operator: string; value: string } =>
+          c !== null
+      );
+    return { match, conditions };
+  },
+
   runQuery(body: { query: string }, orgId?: string) {
     return request<IntelligenceQueryRunResponse>(
       { method: "POST", url: "/intelligence/query/run", data: body },

@@ -175,6 +175,39 @@ export function SegmentsView() {
       ),
   });
 
+  // Natural language -> structured rules. The backend fails soft to an empty
+  // rule set, so treat that as "couldn't parse" rather than an error.
+  const generateMutation = useMutation({
+    mutationFn: (prompt: string) =>
+      intelligenceService.generateSegmentRules(prompt),
+    onSuccess: ({ match: nextMatch, conditions }) => {
+      if (conditions.length === 0) {
+        toast.info(
+          "Couldn't turn that into rules - try rephrasing, or build below by hand."
+        );
+        return;
+      }
+      setMatch(nextMatch);
+      setRules(conditions.map((c) => newRule(c.field, c.operator, c.value)));
+      toast.success(
+        `Generated ${conditions.length} rule${conditions.length === 1 ? "" : "s"} - edit anything below.`
+      );
+    },
+    onError: (err: unknown) =>
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't generate rules"
+      ),
+  });
+
+  const handleGenerate = () => {
+    const prompt = describe.trim();
+    if (!prompt) {
+      toast.info("Describe your audience first.");
+      return;
+    }
+    generateMutation.mutate(prompt);
+  };
+
   // Live preview: debounce the draft rules and ask the backend how many wallets
   // match. Guarded - if the preview endpoint isn't available the query rejects
   // and we fall back to the honest "computed on save" copy (no fabricated data).
@@ -271,15 +304,14 @@ export function SegmentsView() {
             />
             <button
               type="button"
-              onClick={() =>
-                toast.info(
-                  "Natural-language segment generation is coming soon - build with rules below for now."
-                )
+              onClick={handleGenerate}
+              disabled={
+                generateMutation.isPending || describe.trim().length === 0
               }
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               <SparklesIcon aria-hidden="true" className="h-4 w-4" />
-              Generate
+              {generateMutation.isPending ? "Generating…" : "Generate"}
             </button>
           </div>
           <p className="text-xs text-muted-foreground">

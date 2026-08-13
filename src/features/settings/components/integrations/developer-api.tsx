@@ -20,7 +20,7 @@ import { Label } from "@/shared/components/ui/label";
 // TODO(backend): keys + webhooks are frontend-only state for now - wire to the
 // management API when it ships (list/create/revoke keys, list/create/delete
 // webhook endpoints). See docs/campaign-inapp-backend-needs.md.
-const BASE_URL = "https://api.onchainsuite.com/v1";
+const BASE_URL = "https://api.onchainsuite.com/api/v1";
 const AUTH_HEADER = "Authorization: Bearer sk_live_…";
 
 const WEBHOOK_EVENTS = [

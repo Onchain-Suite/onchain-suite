@@ -32,7 +32,7 @@ const METERS: { label: string; rate: string; note: string }[] = [
 ];
 
 function Calculator() {
-  const [email, setEmail] = useState(5000);
+  const [email, setEmail] = useState(50000);
   const [inapp, setInapp] = useState(50000);
   const [onchain, setOnchain] = useState(10000);
   const [ai, setAi] = useState(1000);

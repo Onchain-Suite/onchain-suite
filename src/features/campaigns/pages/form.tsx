@@ -1149,6 +1149,18 @@ export function CreateCampaignPage() {
       window.removeEventListener("onchain:org-changed", syncSelectedOrgId);
   }, []);
 
+  // Deep-link from "Create campaign from segment": ?segment=<id> seeds the
+  // audience with that segment on a fresh campaign (ignored when editing one).
+  useEffect(() => {
+    const segmentId = searchParams?.get("segment");
+    const campaignId = searchParams?.get("campaign");
+    if (segmentId && !campaignId) {
+      form.setValue("selectedAudiences", [segmentId], { shouldDirty: false });
+    }
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const organizationId = useMemo(() => {
     const selected = selectedOrgId?.trim();
     if (selected) return selected;

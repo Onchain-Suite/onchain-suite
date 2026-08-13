@@ -208,6 +208,41 @@ export function SegmentsView() {
     generateMutation.mutate(prompt);
   };
 
+  // "Create campaign from segment": save the segment, then open the campaign
+  // builder with it pre-selected as the audience (form.tsx reads ?segment=).
+  const campaignFromSegmentMutation = useMutation({
+    mutationFn: async () => {
+      const trimmed = name.trim();
+      if (!trimmed) throw new Error("Name your segment first");
+      const complete = rules.filter((r) => r.value.trim().length > 0);
+      if (complete.length === 0)
+        throw new Error("Add at least one complete rule first");
+      return intelligenceService.createSegment({
+        name: trimmed,
+        rules: {
+          operator: match,
+          conditions: complete.map((r) => ({
+            field: r.field,
+            operator: r.operator,
+            value: r.value,
+          })),
+        },
+      });
+    },
+    onSuccess: async (res) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["intelligence", "segments"],
+      });
+      router.push(
+        `/campaigns/new?segment=${encodeURIComponent(res.segmentId)}`
+      );
+    },
+    onError: (err: unknown) =>
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't start the campaign"
+      ),
+  });
+
   // Live preview: debounce the draft rules and ask the backend how many wallets
   // match. Guarded - if the preview endpoint isn't available the query rejects
   // and we fall back to the honest "computed on save" copy (no fabricated data).
@@ -495,13 +530,14 @@ export function SegmentsView() {
           ) : null}
           <button
             type="button"
-            onClick={() =>
-              toast.info("Save the segment, then create a campaign from it.")
-            }
-            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80"
+            onClick={() => campaignFromSegmentMutation.mutate()}
+            disabled={campaignFromSegmentMutation.isPending}
+            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 disabled:opacity-50"
           >
             <MegaphoneIcon aria-hidden="true" className="h-4 w-4" />
-            Create campaign from segment
+            {campaignFromSegmentMutation.isPending
+              ? "Creating…"
+              : "Create campaign from segment"}
           </button>
         </div>
 

@@ -18,6 +18,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Skeleton } from "@/components/ui/skeleton";
+
 import { authClient } from "@/lib/auth-client";
 import { getSelectedOrganizationId } from "@/lib/utils";
 
@@ -348,11 +350,11 @@ export function useTaskCompletion(organizationId: string | null) {
 function TaskCardSkeleton() {
   return (
     <div className="flex flex-col rounded-xl border border-border bg-background p-5 md:p-6">
-      <div className="mb-4 h-12 w-12 animate-pulse rounded-xl bg-muted" />
-      <div className="mb-2 h-5 w-3/4 animate-pulse rounded bg-muted" />
-      <div className="mb-1 h-4 w-full animate-pulse rounded bg-muted" />
-      <div className="mb-4 h-4 w-2/3 animate-pulse rounded bg-muted" />
-      <div className="h-9 w-28 animate-pulse rounded-lg bg-muted" />
+      <Skeleton className="mb-4 h-12 w-12 rounded-xl" />
+      <Skeleton className="mb-2 h-5 w-3/4" />
+      <Skeleton className="mb-1 h-4 w-full" />
+      <Skeleton className="mb-4 h-4 w-2/3" />
+      <Skeleton className="h-9 w-28 rounded-lg" />
     </div>
   );
 }
@@ -506,9 +508,9 @@ export function GetStartedSection() {
             Get started
           </h2>
           {isChecklistLoading ? (
-            <span
+            <Skeleton
               aria-hidden="true"
-              className="h-5 w-20 animate-pulse rounded-full bg-muted md:w-24"
+              className="h-5 w-20 rounded-full md:w-24"
             />
           ) : (
             <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground md:px-2.5">

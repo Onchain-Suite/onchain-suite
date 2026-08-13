@@ -14,9 +14,12 @@ export default function AudienceLoading() {
           <Skeleton className="h-8 w-40" />
           <Skeleton className="h-4 w-72 max-w-full" />
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Skeleton className="h-9 w-28 rounded-lg" />
-          <Skeleton className="h-9 w-32 rounded-lg" />
+        {/* Import CSV, Export, Sync wallets, Delete all */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Skeleton className="h-9 w-28 rounded-xl" />
+          <Skeleton className="h-9 w-24 rounded-xl" />
+          <Skeleton className="h-9 w-32 rounded-xl" />
+          <Skeleton className="h-9 w-24 rounded-xl" />
         </div>
       </div>
 
@@ -25,19 +28,19 @@ export default function AudienceLoading() {
         {Array.from({ length: 4 }, (_, i) => i).map((i) => (
           <div
             key={`stat-${i}`}
-            className="space-y-3 rounded-2xl border border-border bg-card p-4"
+            className="rounded-xl border border-border bg-card p-5"
           >
             <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-7 w-20" />
-            <Skeleton className="h-3 w-28" />
+            <Skeleton className="mt-2 h-8 w-24" />
+            <Skeleton className="mt-2 h-3 w-28" />
           </div>
         ))}
       </div>
 
-      {/* Contacts / Lists / Tags / Suppressed tabs */}
-      <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-card p-1">
+      {/* Contacts / Lists / Tags / Suppressed tabs - wrapped chips */}
+      <div className="flex flex-wrap items-center gap-2">
         {Array.from({ length: 4 }, (_, i) => i).map((i) => (
-          <Skeleton key={`tab-${i}`} className="h-9 w-24 rounded-lg" />
+          <Skeleton key={`tab-${i}`} className="h-8 w-24 rounded-lg" />
         ))}
       </div>
 

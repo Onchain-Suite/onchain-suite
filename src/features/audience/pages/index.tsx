@@ -58,6 +58,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { cn, isJsonObject } from "@/lib/utils";
 
@@ -89,6 +90,7 @@ import {
   normalizeTags,
   readChannels,
 } from "../utils";
+import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const ITEMS_PER_PAGE = 10;
@@ -790,10 +792,7 @@ export function AudiencePages() {
                 {card.value.toLocaleString()}
               </p>
             ) : overviewQuery.isLoading ? (
-              <div
-                className="mt-2 h-8 w-24 animate-pulse rounded-md bg-muted"
-                aria-hidden="true"
-              />
+              <Skeleton className="mt-2 h-8 w-24" aria-hidden="true" />
             ) : (
               // Overview errored or omitted this count - show an honest "-",
               // never a fabricated fallback.
@@ -913,9 +912,7 @@ export function AudiencePages() {
               ) : null}
 
               {profilesQuery.isLoading ? (
-                <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-                  Loading contacts...
-                </div>
+                <TableSkeleton rows={8} />
               ) : profilesQuery.isError ? (
                 <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
                   Failed to load contacts.
@@ -1592,6 +1589,7 @@ function ImportProgressBanner({
   const state = String(status.state ?? "queued");
   const done = state === "completed";
   const failed = state === "failed" || state === "cancelled";
+  const queued = state === "queued";
   const pct = Math.min(
     100,
     Math.max(0, Math.round(Number(status.progress ?? 0)))
@@ -1599,11 +1597,45 @@ function ImportProgressBanner({
   const processed = Number(status.processedRows ?? 0);
   const totalRows = Number(status.totalRows ?? 0);
 
+  // Completion summary: the counts that keep this banner honest. `warnings`
+  // (rows imported without a usable wallet) and `quarantinedCount` (rows held
+  // over the plan cap) are NOT errors, but they are also not what the customer
+  // expects - so surface them next to created/updated/skipped/errors.
+  const warningCount = status.warnings?.length ?? 0;
+  const quarantined =
+    typeof status.quarantinedCount === "number"
+      ? status.quarantinedCount
+      : null;
+  const errorCount = Number(status.errorCount ?? 0);
+  const doneParts = [
+    `${Number(status.createdCount ?? 0).toLocaleString()} imported`,
+    `${Number(status.updatedCount ?? 0).toLocaleString()} updated`,
+    `${Number(status.skippedCount ?? 0).toLocaleString()} skipped`,
+  ];
+  if (errorCount > 0) {
+    doneParts.push(`${errorCount.toLocaleString()} errors`);
+  }
+  if (warningCount > 0) {
+    doneParts.push(`${warningCount.toLocaleString()} without a wallet`);
+  }
+  if (quarantined && quarantined > 0) {
+    doneParts.push(`${quarantined.toLocaleString()} awaiting capacity`);
+  }
+  // ORPHANED and other terminal failures carry a customer-facing sentence in
+  // errorSample[0].message - render it verbatim.
+  const failureMessage =
+    status.errorSample?.[0]?.message ??
+    "Some rows couldn't be imported. Open Import to download the error report.";
+  // A job with warnings/quarantine landed, but not cleanly - reflect that.
+  const doneWithNotes = done && (warningCount > 0 || (quarantined ?? 0) > 0);
+
   const tone = failed
     ? "border-destructive/30 bg-destructive/5"
-    : done
-      ? "border-emerald-500/30 bg-emerald-500/5"
-      : "border-primary/30 bg-primary/5";
+    : doneWithNotes
+      ? "border-amber-500/30 bg-amber-500/5"
+      : done
+        ? "border-emerald-500/30 bg-emerald-500/5"
+        : "border-primary/30 bg-primary/5";
 
   return (
     <div className={cn("rounded-2xl border p-4", tone)}>
@@ -1611,23 +1643,25 @@ function ImportProgressBanner({
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">
             {done
-              ? "Import complete"
+              ? doneWithNotes
+                ? "Import complete, with items to review"
+                : "Import complete"
               : failed
                 ? "Import didn't finish"
-                : "Importing your contacts…"}
+                : queued
+                  ? "Import queued…"
+                  : "Importing your contacts…"}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {done
-              ? `Added ${Number(status.createdCount ?? 0).toLocaleString()}, updated ${Number(
-                  status.updatedCount ?? 0
-                ).toLocaleString()}, skipped ${Number(
-                  status.skippedCount ?? 0
-                ).toLocaleString()}.`
+              ? `${doneParts.join(" · ")}.`
               : failed
-                ? "Some rows couldn't be imported. Open Import to download the error report."
-                : totalRows > 0
-                  ? `${processed.toLocaleString()} of ${totalRows.toLocaleString()} rows`
-                  : "Starting up…"}
+                ? failureMessage
+                : queued
+                  ? "Queued on the import worker - large files can take a few minutes. This keeps running if you leave."
+                  : totalRows > 0
+                    ? `${processed.toLocaleString()} of ${totalRows.toLocaleString()} rows`
+                    : "Starting up…"}
           </p>
         </div>
         <button

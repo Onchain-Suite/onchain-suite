@@ -186,12 +186,17 @@ export interface AudienceImportJobStatus {
   updatedCount?: number;
   skippedCount?: number;
   errorCount?: number;
-  errorSample?: Array<{
-    rowNumber?: number;
-    key?: string;
-    message?: string;
-    code?: string;
-  }>;
+  // Rows stored but held UNMAILABLE because they crossed the plan contact cap.
+  // Not errors, not lost - released when capacity frees up. `undefined` means
+  // the job predates quarantine; `0` means nothing was held (render these two
+  // differently).
+  quarantinedCount?: number;
+  errorSample?: AudienceImportIssue[];
+  // Rows that imported but with something missing (e.g. no resolvable wallet).
+  // Same shape as `errorSample`, but a different statement: the row LANDED.
+  // Codes include WALLET_UNRECOGNISED / WALLET_NAME_NOT_RESOLVED; `message` is
+  // written for the customer - render it verbatim.
+  warnings?: AudienceImportIssue[];
   // Present once the import verifier pass ran (absent on dry-run / pre-feature
   // jobs). `good` = imported + mailable, `bad` = newly suppressed this import
   // (undeliverable), `suppressed` = already suppressed before this import.
@@ -204,6 +209,17 @@ export interface AudienceImportJobStatus {
     rejectedListAvailable?: boolean;
     suppressedListAvailable?: boolean;
   };
+  // Opaque backend summary blob; some deployments nest warnings/counts here.
+  result?: Record<string, unknown>;
+}
+
+/** One per-row import issue - an error (row dropped) or a warning (row kept). */
+export interface AudienceImportIssue {
+  rowNumber?: number;
+  key?: string;
+  message?: string;
+  code?: string;
+  severity?: string;
 }
 
 export interface AudienceExportJobStatus {
@@ -1097,6 +1113,22 @@ export const audienceService = {
     const res = await apiClient.request<Blob>({
       method: "GET",
       url: `/audience/imports/${encodeURIComponent(jobId)}/rejected.csv`,
+      responseType: "blob",
+      headers: {
+        ...(resolvedOrgId ? { "x-org-id": resolvedOrgId } : {}),
+        "x-onchain-silent-error": "1",
+      },
+    });
+    return res.data;
+  },
+
+  // Addresses that were ALREADY suppressed before this import and so were kept
+  // out of it (distinct from rejected.csv, which is newly-suppressed bad rows).
+  async downloadImportSuppressed(jobId: string, orgId?: string) {
+    const resolvedOrgId = pickOrgId(orgId);
+    const res = await apiClient.request<Blob>({
+      method: "GET",
+      url: `/audience/imports/${encodeURIComponent(jobId)}/suppressed.csv`,
       responseType: "blob",
       headers: {
         ...(resolvedOrgId ? { "x-org-id": resolvedOrgId } : {}),

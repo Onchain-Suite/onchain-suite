@@ -23,6 +23,7 @@ import { CampaignsAnalyticsOverview } from "../components/analytics-overview";
 import { CampaignDetailSheet } from "../components/campaign-detail-sheet";
 import { CampaignsReferenceTable } from "../components/campaigns-reference-table";
 import type { Campaign, CampaignStatus } from "../types/campaign";
+import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const CAMPAIGN_TYPE_LABEL: Record<string, string> = {
@@ -249,9 +250,7 @@ export function CampaignsListsView() {
       </div>
 
       {campaignsQuery.isLoading ? (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-          Loading campaigns...
-        </div>
+        <TableSkeleton rows={6} />
       ) : filteredCampaigns.length > 0 ? (
         <CampaignsReferenceTable
           data={filteredCampaigns}

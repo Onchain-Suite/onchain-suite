@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { campaignsService } from "../campaigns.service";
 import { formatPercentage } from "../utils";
+import { StatCardsSkeleton } from "@/shared/components/page/page-skeleton";
 
 const formatCount = (value?: number | null) =>
   typeof value === "number" && Number.isFinite(value)
@@ -46,19 +47,7 @@ export function CampaignsAnalyticsOverview() {
   });
 
   if (overviewQuery.isLoading) {
-    return (
-      <div
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
-        aria-hidden="true"
-      >
-        {Array.from({ length: 4 }, (_, i) => (
-          <div
-            key={i}
-            className="h-28 animate-pulse rounded-xl border border-border bg-card"
-          />
-        ))}
-      </div>
-    );
+    return <StatCardsSkeleton withIcon={false} />;
   }
 
   const overview = overviewQuery.data;

@@ -33,11 +33,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
+import { cn, getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import {
   type AudienceExportJobStatus,
   type AudienceImportExportFormat,
+  type AudienceImportIssue,
   type AudienceImportJobStatus,
   type AudienceImportPreset,
   audienceService,
@@ -89,6 +90,8 @@ interface ImportHistoryItem {
   createdCount?: number;
   updatedCount?: number;
   errorCount?: number;
+  warningCount?: number;
+  quarantinedCount?: number;
 }
 
 interface ExportHistoryItem {
@@ -470,7 +473,13 @@ export default function ImportExportPage() {
     processed: number;
     created: number;
     updated: number;
+    skipped: number;
     failed: number;
+    // Rows kept but held over the plan cap. `null` = job predates quarantine
+    // (hide the line); `0` = none held (still show it, so the customer knows).
+    quarantined: number | null;
+    // Rows that imported with something missing (e.g. no resolvable wallet).
+    warnings: AudienceImportIssue[];
     verified: number | null;
     undeliverable: number | null;
     alreadySuppressed: number | null;
@@ -478,6 +487,12 @@ export default function ImportExportPage() {
     capReached: boolean;
     rejectedListAvailable: boolean;
     suppressedListAvailable: boolean;
+  } | null>(null);
+  // Set when a job ends in `failed` (incl. ORPHANED): the backend writes a
+  // customer-facing sentence in errorSample[0].message - we render it verbatim.
+  const [importFailure, setImportFailure] = useState<{
+    message: string;
+    code?: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("import");
   const [importJobId, setImportJobId] = useState<string | null>(null);
@@ -973,6 +988,11 @@ export default function ImportExportPage() {
           createdCount: importStatus.createdCount ?? x.createdCount,
           updatedCount: importStatus.updatedCount ?? x.updatedCount,
           errorCount: importStatus.errorCount ?? x.errorCount,
+          warningCount: importStatus.warnings?.length ?? x.warningCount,
+          quarantinedCount:
+            typeof importStatus.quarantinedCount === "number"
+              ? importStatus.quarantinedCount
+              : x.quarantinedCount,
         };
         return updated;
       });
@@ -1019,6 +1039,29 @@ export default function ImportExportPage() {
     onError: (e: unknown) =>
       toast.error(
         e instanceof Error ? e.message : "Failed to download bad emails"
+      ),
+  });
+
+  const downloadImportSuppressedMutation = useMutation({
+    mutationFn: async () => {
+      if (!importJobId) throw new Error("Missing jobId");
+      return audienceService.downloadImportSuppressed(importJobId);
+    },
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audience-import-already-suppressed-${importJobId ?? "job"}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+    },
+    onError: (e: unknown) =>
+      toast.error(
+        e instanceof Error
+          ? e.message
+          : "Failed to download already-suppressed emails"
       ),
   });
 
@@ -1149,6 +1192,7 @@ export default function ImportExportPage() {
     setUploadedFile(null);
     setCsvColumns([]);
     setImportResult(null);
+    setImportFailure(null);
     setImportJobId(null);
     setPreviewTable(null);
     setFilePreviewText("");
@@ -1163,9 +1207,20 @@ export default function ImportExportPage() {
     if (state === "completed") {
       const created = importStatus.createdCount ?? 0;
       const updated = importStatus.updatedCount ?? 0;
+      const skipped = importStatus.skippedCount ?? 0;
       const success = created + updated;
       const failed = importStatus.errorCount ?? 0;
       const { verification } = importStatus;
+      // `warnings` is new; some deployments nest it inside `result`.
+      const nestedWarnings = Array.isArray(importStatus.result?.warnings)
+        ? (importStatus.result?.warnings as AudienceImportIssue[])
+        : [];
+      const warnings = importStatus.warnings ?? nestedWarnings;
+      // Distinguish "no quarantine field" (old job) from "0 held".
+      const quarantined =
+        typeof importStatus.quarantinedCount === "number"
+          ? importStatus.quarantinedCount
+          : null;
       const processed =
         importStatus.processedRows ??
         importStatus.totalRows ??
@@ -1174,7 +1229,10 @@ export default function ImportExportPage() {
         processed,
         created,
         updated,
+        skipped,
         failed,
+        quarantined,
+        warnings,
         verified: verification?.good ?? null,
         undeliverable: verification?.bad ?? null,
         alreadySuppressed: verification?.suppressed ?? null,
@@ -1183,6 +1241,7 @@ export default function ImportExportPage() {
         rejectedListAvailable: verification?.rejectedListAvailable === true,
         suppressedListAvailable: verification?.suppressedListAvailable === true,
       });
+      setImportFailure(null);
       setImportStep("complete");
 
       // One summary toast for the whole import (not one per contact): the row
@@ -1192,7 +1251,14 @@ export default function ImportExportPage() {
         `${created.toLocaleString()} created`,
         `${updated.toLocaleString()} updated`,
       ];
+      if (skipped > 0) parts.push(`${skipped.toLocaleString()} skipped`);
       if (failed > 0) parts.push(`${failed.toLocaleString()} errors`);
+      if (warnings.length > 0)
+        parts.push(
+          `${warnings.length.toLocaleString()} imported without a wallet`
+        );
+      if (quarantined && quarantined > 0)
+        parts.push(`${quarantined.toLocaleString()} awaiting capacity`);
       if (verification?.bad)
         parts.push(
           `${verification.bad.toLocaleString()} bad emails suppressed`
@@ -1220,7 +1286,17 @@ export default function ImportExportPage() {
       return;
     }
     if (state === "failed") {
-      toast.error("Import failed");
+      // ORPHANED and other terminal failures carry a customer-facing sentence
+      // in errorSample[0].message - surface it verbatim rather than a generic
+      // "failed". (A job that merely sits in `queued` is NOT a failure.)
+      const first = importStatus.errorSample?.[0];
+      const message =
+        first?.message ??
+        "The import could not be completed. Please try uploading the file again.";
+      setImportFailure({ message, code: first?.code });
+      setImportResult(null);
+      setImportStep("complete");
+      toast.error(message);
     }
   }, [importStatus]);
 
@@ -1493,55 +1569,132 @@ export default function ImportExportPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {importHistory.slice(0, 10).map((item) => (
-                        <div
-                          key={item.jobId}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-(--color-border) bg-(--color-card) p-4"
-                        >
-                          <div className="flex min-w-0 items-center gap-3">
-                            {item.format === "json" ? (
-                              <CodeBracketIcon
-                                className="h-5 w-5 text-muted-foreground"
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <DocumentTextIcon
-                                className="h-5 w-5 text-muted-foreground"
-                                aria-hidden="true"
-                              />
-                            )}
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">
-                                {item.fileName}
-                              </p>
-                              <p className="mt-0.5 text-xs text-(--color-text-muted)">
-                                {formatShortDate(item.createdAt)} ·{" "}
-                                {String(item.status)}
-                                {typeof item.processedRows === "number"
-                                  ? ` · ${item.processedRows.toLocaleString()} processed`
-                                  : ""}
-                                {typeof item.errorCount === "number" &&
-                                item.errorCount > 0
-                                  ? ` · ${item.errorCount.toLocaleString()} errors`
-                                  : ""}
-                              </p>
+                      {importHistory.slice(0, 10).map((item) => {
+                        const warnings = item.warningCount ?? 0;
+                        const quarantined = item.quarantinedCount ?? 0;
+                        const errors = item.errorCount ?? 0;
+                        const isDone = item.status === "completed";
+                        const isFailed =
+                          item.status === "failed" ||
+                          item.status === "cancelled";
+                        const isPending =
+                          item.status === "queued" ||
+                          item.status === "processing";
+                        // A "completed" import that discarded wallets or held
+                        // rows landed, but not cleanly - flag it amber so the
+                        // history never shows a clean green check on a job the
+                        // customer needs to look at.
+                        const hasNotes =
+                          isDone &&
+                          (warnings > 0 || quarantined > 0 || errors > 0);
+                        const badge = isFailed
+                          ? {
+                              label:
+                                item.status === "cancelled"
+                                  ? "Cancelled"
+                                  : "Failed",
+                              className: "bg-destructive/10 text-destructive",
+                            }
+                          : hasNotes
+                            ? {
+                                label: "Completed with warnings",
+                                className:
+                                  "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                              }
+                            : isDone
+                              ? {
+                                  label: "Completed",
+                                  className:
+                                    "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                                }
+                              : {
+                                  label:
+                                    item.status === "queued"
+                                      ? "Queued"
+                                      : "Processing",
+                                  className: "bg-primary/10 text-primary",
+                                };
+                        const notes: string[] = [];
+                        if (typeof item.processedRows === "number") {
+                          notes.push(
+                            `${item.processedRows.toLocaleString()} processed`
+                          );
+                        }
+                        if (errors > 0) {
+                          notes.push(`${errors.toLocaleString()} errors`);
+                        }
+                        if (warnings > 0) {
+                          notes.push(
+                            `${warnings.toLocaleString()} without a wallet`
+                          );
+                        }
+                        if (quarantined > 0) {
+                          notes.push(
+                            `${quarantined.toLocaleString()} awaiting capacity`
+                          );
+                        }
+                        return (
+                          <div
+                            key={item.jobId}
+                            className="flex items-center justify-between gap-3 rounded-xl border border-(--color-border) bg-(--color-card) p-4"
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              {item.format === "json" ? (
+                                <CodeBracketIcon
+                                  className="h-5 w-5 text-muted-foreground"
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <DocumentTextIcon
+                                  className="h-5 w-5 text-muted-foreground"
+                                  aria-hidden="true"
+                                />
+                              )}
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">
+                                  {item.fileName}
+                                </p>
+                                <p className="mt-0.5 text-xs text-(--color-text-muted)">
+                                  {formatShortDate(item.createdAt)}
+                                  {notes.length > 0
+                                    ? ` · ${notes.join(" · ")}`
+                                    : ""}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.className}`}
+                              >
+                                {badge.label}
+                              </span>
+                              {isFailed ? (
+                                <ExclamationCircleIcon
+                                  className="h-5 w-5 text-destructive"
+                                  aria-hidden="true"
+                                />
+                              ) : hasNotes ? (
+                                <ExclamationCircleIcon
+                                  className="h-5 w-5 text-amber-500"
+                                  aria-hidden="true"
+                                />
+                              ) : isDone ? (
+                                <CheckCircleIcon
+                                  className="h-5 w-5 text-emerald-500"
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <div
+                                  className={cn(
+                                    "h-4 w-4 rounded-full border-2 border-primary/30 border-t-primary",
+                                    isPending && "animate-spin"
+                                  )}
+                                />
+                              )}
                             </div>
                           </div>
-                          {item.status === "completed" ? (
-                            <CheckCircleIcon
-                              className="h-5 w-5 shrink-0 text-primary"
-                              aria-hidden="true"
-                            />
-                          ) : item.status === "failed" ? (
-                            <ExclamationCircleIcon
-                              className="h-5 w-5 shrink-0 text-destructive"
-                              aria-hidden="true"
-                            />
-                          ) : (
-                            <div className="h-5 w-5 shrink-0 rounded-full bg-primary/10" />
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1902,7 +2055,7 @@ export default function ImportExportPage() {
                       }`
                     : importPlatform && selectedPreset
                       ? `Ready to import with the ${selectedPreset.label} preset`
-                      : "Map at least one column to continue"
+                      : "Ready to import - we'll match your columns automatically. Map any below to override."
                   : "Ready to import"}
               </p>
               <div className="flex gap-3">
@@ -1925,12 +2078,12 @@ export default function ImportExportPage() {
                     !uploadedFile ||
                     !selectedImportFormat ||
                     // Backend requires a list for every import.
-                    !selectedListId ||
-                    // A platform preset auto-maps headers server-side, so
-                    // manual mapping is only required without one.
-                    (selectedImportFormat === "csv" &&
-                      mappedCount === 0 &&
-                      !importPlatform)
+                    !selectedListId
+                    // Column mapping is optional: the backend alias-matches
+                    // headers (wallet, Wallet Address, address, Public Key, …)
+                    // case- and punctuation-insensitively, so an unmapped CSV
+                    // still imports. Explicit mapping still wins for bespoke
+                    // columns; it just no longer blocks the upload.
                   }
                   className="rounded-xl bg-primary px-6 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -1943,14 +2096,60 @@ export default function ImportExportPage() {
           </div>
         )}
 
+        {importStep === "complete" && importFailure ? (
+          <div className="mx-auto w-full max-w-2xl py-10">
+            <div className="rounded-2xl border border-rose-500/30 bg-card p-8">
+              <div className="flex items-start gap-4">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500">
+                  <ExclamationCircleIcon
+                    className="h-6 w-6"
+                    aria-hidden="true"
+                  />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="text-xl font-semibold text-foreground">
+                    Import failed
+                  </h2>
+                  {/* Backend writes a customer-facing sentence; render verbatim. */}
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {importFailure.message}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  onClick={resetImport}
+                  className="rounded-xl bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  Try again
+                </button>
+                <Link
+                  href="/audience"
+                  className="rounded-xl border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  Back to audience
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {importStep === "complete" &&
+          !importFailure &&
           importResult &&
           (() => {
             const r = importResult;
             const imported = r.created + r.updated;
             const undeliverable = r.undeliverable ?? 0;
             const alreadySuppressed = r.alreadySuppressed ?? 0;
-            const hasIssues = r.failed > 0 || undeliverable > 0 || r.capReached;
+            const warningCount = r.warnings.length;
+            const { quarantined } = r;
+            const hasIssues =
+              r.failed > 0 ||
+              undeliverable > 0 ||
+              r.capReached ||
+              warningCount > 0 ||
+              (quarantined ?? 0) > 0;
             const toneClass = {
               default: "text-foreground",
               good: "text-emerald-500",
@@ -1962,9 +2161,31 @@ export default function ImportExportPage() {
               label: string;
               value: number;
               tone: keyof typeof toneClass;
-            }[] = [
-              { label: "Contacts imported", value: imported, tone: "default" },
-            ];
+            }[] = [{ label: "Imported", value: r.created, tone: "default" }];
+            if (r.updated > 0)
+              tiles.push({ label: "Updated", value: r.updated, tone: "muted" });
+            if (r.skipped > 0)
+              tiles.push({ label: "Skipped", value: r.skipped, tone: "muted" });
+            if (r.failed > 0)
+              tiles.push({
+                label: "Errors",
+                value: r.failed,
+                tone: "danger",
+              });
+            // The two lines that stop this screen from lying: rows that landed
+            // without a wallet (warnings) and rows held over the plan cap.
+            if (warningCount > 0)
+              tiles.push({
+                label: "Imported without a wallet",
+                value: warningCount,
+                tone: "warn",
+              });
+            if (quarantined !== null)
+              tiles.push({
+                label: "Awaiting capacity",
+                value: quarantined,
+                tone: quarantined > 0 ? "warn" : "muted",
+              });
             if (r.verified !== null)
               tiles.push({
                 label: "Verified, deliverable",
@@ -1982,12 +2203,6 @@ export default function ImportExportPage() {
                 label: "Already suppressed",
                 value: alreadySuppressed,
                 tone: "muted",
-              });
-            if (r.failed > 0)
-              tiles.push({
-                label: "Rows with errors",
-                value: r.failed,
-                tone: "danger",
               });
 
             return (
@@ -2049,17 +2264,66 @@ export default function ImportExportPage() {
                     ))}
                   </div>
 
-                  {r.capReached ? (
+                  {r.capReached || (quarantined ?? 0) > 0 ? (
                     <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400">
                       <InformationCircleIcon
                         className="mt-0.5 h-4 w-4 shrink-0"
                         aria-hidden="true"
                       />
                       <p>
-                        Some rows exceeded your plan&apos;s contact limit and
-                        were held, unmailable, rather than dropped. Raise your
-                        plan capacity to release them.
+                        {(quarantined ?? 0) > 0
+                          ? `${quarantined?.toLocaleString()} row${
+                              quarantined === 1 ? "" : "s"
+                            } were stored but are held unmailable over your plan's contact limit. `
+                          : "Some rows exceeded your plan's contact limit and were held, unmailable, rather than dropped. "}
+                        Raise your plan capacity to release them.
                       </p>
+                    </div>
+                  ) : null}
+
+                  {warningCount > 0 ? (
+                    <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-4">
+                      <div className="flex items-start gap-2">
+                        <ExclamationCircleIcon
+                          className="mt-0.5 h-4 w-4 shrink-0 text-amber-500"
+                          aria-hidden="true"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">
+                            {warningCount.toLocaleString()} contact
+                            {warningCount === 1 ? "" : "s"} imported without a
+                            wallet
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            These rows were saved, but their wallet column could
+                            not be used:
+                          </p>
+                          <ul className="mt-2 space-y-1.5">
+                            {r.warnings.slice(0, 6).map((w, i) => (
+                              <li
+                                key={`${w.rowNumber ?? "row"}-${w.code ?? i}`}
+                                className="flex items-start gap-2 text-xs text-muted-foreground"
+                              >
+                                {typeof w.rowNumber === "number" ? (
+                                  <span className="shrink-0 tabular-nums text-muted-foreground/70">
+                                    Row {w.rowNumber.toLocaleString()}
+                                  </span>
+                                ) : null}
+                                <span className="min-w-0 text-foreground/80">
+                                  {w.message ??
+                                    w.code ??
+                                    "Wallet not recognised"}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                          {warningCount > 6 ? (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              + {(warningCount - 6).toLocaleString()} more
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                   ) : null}
 
@@ -2077,7 +2341,19 @@ export default function ImportExportPage() {
                         disabled={downloadImportRejectedMutation.isPending}
                         className="rounded-xl border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
                       >
-                        Download suppressed emails
+                        Download bad emails
+                      </button>
+                    ) : null}
+                    {importJobId &&
+                    (r.suppressedListAvailable || alreadySuppressed > 0) ? (
+                      <button
+                        onClick={() =>
+                          downloadImportSuppressedMutation.mutate()
+                        }
+                        disabled={downloadImportSuppressedMutation.isPending}
+                        className="rounded-xl border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                      >
+                        Download already-suppressed
                       </button>
                     ) : null}
                     {importJobId && r.failed > 0 ? (

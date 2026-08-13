@@ -1,15 +1,9 @@
 "use client";
 
-import {
-  BellIcon,
-  ChatBubbleLeftRightIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  SparklesIcon,
-} from "@heroicons/react/24/outline";
+import { BellIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,25 +14,84 @@ import {
 
 import { cn, isJsonObject } from "@/lib/utils";
 
-import type { Notification, NotificationType } from "@/types/notification";
-
+import {
+  NOTIFICATION_TONE_TILE,
+  resolveNotificationMeta,
+} from "@/features/notifications/notification-meta";
 import { notificationsService } from "@/features/notifications/notifications.service";
 
-/** Uniform indigo icon-tiles, one glyph per notification type (see reference). */
-const NOTIFICATION_ICON: Record<
-  NotificationType,
-  React.ComponentType<React.SVGProps<SVGSVGElement>>
-> = {
-  info: SparklesIcon,
-  success: CheckCircleIcon,
-  warning: ExclamationTriangleIcon,
-  message: ChatBubbleLeftRightIcon,
+/** Flattened, render-ready view of a backend notification row. */
+interface NotificationView {
+  id: string;
+  eventType: string | undefined;
+  title: string;
+  description: string;
+  time: Date;
+  read: boolean;
+  /** Rows sharing a key collapse into one grouped entry (imports, contacts). */
+  groupKey: string;
+}
+
+interface NotificationGroup {
+  key: string;
+  items: NotificationView[];
+}
+
+const readGroupId = (data: unknown): string | undefined => {
+  if (!isJsonObject(data)) return undefined;
+  const candidate =
+    data.groupKey ?? data.jobId ?? data.importId ?? data.importJobId;
+  return candidate !== null && candidate !== undefined
+    ? String(candidate)
+    : undefined;
 };
+
+/** Bucket a newest-first list into groups, preserving first-seen order. */
+const groupNotifications = (views: NotificationView[]): NotificationGroup[] => {
+  const groups: NotificationGroup[] = [];
+  const index = new Map<string, NotificationGroup>();
+  for (const view of views) {
+    const existing = index.get(view.groupKey);
+    if (existing) {
+      existing.items.push(view);
+    } else {
+      const group: NotificationGroup = { key: view.groupKey, items: [view] };
+      index.set(view.groupKey, group);
+      groups.push(group);
+    }
+  }
+  return groups;
+};
+
+function NotificationTile({
+  eventType,
+  className,
+}: {
+  eventType: string | undefined;
+  className?: string;
+}) {
+  const meta = resolveNotificationMeta(eventType);
+  const Icon = meta.icon;
+  return (
+    <span
+      className={cn(
+        "flex size-9 shrink-0 items-center justify-center rounded-lg",
+        NOTIFICATION_TONE_TILE[meta.tone],
+        className
+      )}
+      aria-hidden="true"
+    >
+      <Icon className="size-5" />
+    </span>
+  );
+}
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   const notificationsQueryKey = ["notifications", "list"] as const;
+
   const getCachedNotificationsArray = (
     current: unknown
   ): unknown[] | undefined => {
@@ -56,49 +109,60 @@ export function NotificationBell() {
     refetchOnWindowFocus: false,
   });
 
-  const notifications: Notification[] = notificationsQuery.isSuccess
-    ? notificationsQuery.data.map((n) => {
-        const type = (String(n.type ?? "info") as NotificationType) ?? "info";
-        return {
-          id: n.id,
-          title: String(n.title ?? "Notification"),
-          description: String(n.message ?? ""),
-          time: n.createdAt ? new Date(String(n.createdAt)) : new Date(),
-          read: Boolean(n.read ?? false),
-          type:
-            type === "info" ||
-            type === "success" ||
-            type === "warning" ||
-            type === "message"
-              ? type
-              : "info",
-        };
-      })
-    : [];
+  const views: NotificationView[] = useMemo(() => {
+    if (!notificationsQuery.isSuccess) return [];
+    return notificationsQuery.data.map((n) => {
+      const eventType = n.type ? String(n.type) : undefined;
+      const meta = resolveNotificationMeta(eventType);
+      const explicitGroupId = readGroupId(n.data);
+      const groupKey = explicitGroupId
+        ? `g:${explicitGroupId}`
+        : meta.group && eventType
+          ? `t:${eventType}`
+          : `i:${n.id}`;
+      return {
+        id: n.id,
+        eventType,
+        title: String(n.title ?? "Notification"),
+        description: String(n.message ?? ""),
+        time: n.createdAt ? new Date(String(n.createdAt)) : new Date(),
+        read: Boolean(n.read ?? false),
+        groupKey,
+      };
+    });
+  }, [notificationsQuery.isSuccess, notificationsQuery.data]);
 
-  const unreadCount = notifications.filter(
-    (notification) => !notification.read
-  ).length;
+  const groups = useMemo(() => groupNotifications(views), [views]);
+  const unreadCount = useMemo(
+    () => views.filter((view) => !view.read).length,
+    [views]
+  );
+
+  const patchCache = (mutate: (view: Record<string, unknown>) => boolean) => {
+    queryClient.setQueryData<unknown>(
+      notificationsQueryKey,
+      (current: unknown) => {
+        const arr = getCachedNotificationsArray(current);
+        if (!arr) return current;
+        return arr.map((n) => {
+          if (!isJsonObject(n)) return n;
+          return mutate(n) ? { ...n, read: true } : n;
+        });
+      }
+    );
+  };
 
   const markReadMutation = useMutation({
-    mutationFn: (id: string) => notificationsService.markRead(id),
-    onMutate: async (id) => {
+    mutationFn: (ids: string[]) =>
+      Promise.all(ids.map((id) => notificationsService.markRead(id))),
+    onMutate: async (ids) => {
       await queryClient.cancelQueries({ queryKey: notificationsQueryKey });
       const prev = queryClient.getQueryData<unknown>(notificationsQueryKey);
-      queryClient.setQueryData<unknown>(
-        notificationsQueryKey,
-        (current: unknown) => {
-          const arr = getCachedNotificationsArray(current);
-          if (!arr) return current;
-          return arr.map((n) => {
-            if (!isJsonObject(n)) return n;
-            return String(n.id ?? "") === id ? { ...n, read: true } : n;
-          });
-        }
-      );
+      const idSet = new Set(ids);
+      patchCache((n) => idSet.has(String(n.id ?? "")));
       return { prev };
     },
-    onError: (_err, _id, ctx) => {
+    onError: (_err, _ids, ctx) => {
       if (ctx?.prev !== undefined) {
         queryClient.setQueryData(notificationsQueryKey, ctx.prev);
       }
@@ -108,10 +172,43 @@ export function NotificationBell() {
     },
   });
 
-  const markAsRead = (id: string) => {
-    if (notificationsQuery.isSuccess) {
-      markReadMutation.mutate(id);
+  const markAllReadMutation = useMutation({
+    mutationFn: () => notificationsService.markAllRead(),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: notificationsQueryKey });
+      const prev = queryClient.getQueryData<unknown>(notificationsQueryKey);
+      patchCache(() => true);
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev !== undefined) {
+        queryClient.setQueryData(notificationsQueryKey, ctx.prev);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
+    },
+  });
+
+  const markRead = (ids: string[]) => {
+    const unread = ids.filter((id) =>
+      views.some((view) => view.id === id && !view.read)
+    );
+    if (unread.length > 0 && notificationsQuery.isSuccess) {
+      markReadMutation.mutate(unread);
     }
+  };
+
+  const toggleExpanded = (key: string) => {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
   };
 
   return (
@@ -134,54 +231,152 @@ export function NotificationBell() {
         sideOffset={8}
         className="w-88 overflow-hidden p-0"
       >
-        <div className="border-b border-border px-4 py-3">
+        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
           <p className="text-base font-semibold">Notifications</p>
+          {unreadCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => markAllReadMutation.mutate()}
+              className="text-xs font-medium text-primary transition-colors hover:text-primary/80"
+            >
+              Mark all read
+            </button>
+          ) : null}
         </div>
 
         <div className="max-h-96 overflow-y-auto">
-          {notifications.length > 0 ? (
+          {groups.length > 0 ? (
             <ul className="divide-y divide-border">
-              {notifications.map((notification) => {
-                const Icon =
-                  NOTIFICATION_ICON[notification.type] ?? SparklesIcon;
+              {groups.map((group) => {
+                const [rep] = group.items;
+                if (!rep) return null;
+                const count = group.items.length;
+                const groupUnread = group.items.filter(
+                  (item) => !item.read
+                ).length;
+
+                if (count === 1) {
+                  return (
+                    <li key={group.key}>
+                      <button
+                        type="button"
+                        onClick={() => markRead([rep.id])}
+                        className={cn(
+                          "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60",
+                          !rep.read && "bg-primary/[0.04]"
+                        )}
+                      >
+                        <NotificationTile
+                          eventType={rep.eventType}
+                          className="mt-0.5"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm leading-snug text-foreground">
+                            {rep.title}
+                          </span>
+                          {rep.description ? (
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                              {rep.description}
+                            </span>
+                          ) : null}
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            {formatDistanceToNow(rep.time, { addSuffix: true })}
+                          </span>
+                        </span>
+                        {!rep.read ? (
+                          <span
+                            className="mt-1.5 size-2 shrink-0 rounded-full bg-primary"
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                }
+
+                const meta = resolveNotificationMeta(rep.eventType);
+                const noun = meta.group?.many ?? "updates";
+                const isExpanded = expandedKeys.has(group.key);
                 return (
-                  <li key={notification.id}>
+                  <li key={group.key}>
                     <button
                       type="button"
-                      onClick={() => markAsRead(notification.id)}
+                      onClick={() => toggleExpanded(group.key)}
+                      aria-expanded={isExpanded}
                       className={cn(
                         "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60",
-                        !notification.read && "bg-primary/[0.04]"
+                        groupUnread > 0 && "bg-primary/[0.04]"
                       )}
                     >
-                      <span
-                        className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
-                        aria-hidden="true"
-                      >
-                        <Icon className="size-5" />
-                      </span>
+                      <NotificationTile
+                        eventType={rep.eventType}
+                        className="mt-0.5"
+                      />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm leading-snug text-foreground">
-                          {notification.title}
-                        </span>
-                        {notification.description ? (
-                          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                            {notification.description}
+                        <span className="flex items-center gap-2">
+                          <span className="text-sm font-medium leading-snug text-foreground">
+                            {count.toLocaleString()} {noun}
                           </span>
-                        ) : null}
+                          {groupUnread > 0 ? (
+                            <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                              {groupUnread} new
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          {rep.title}
+                        </span>
                         <span className="mt-1 block text-xs text-muted-foreground">
-                          {formatDistanceToNow(notification.time, {
-                            addSuffix: true,
-                          })}
+                          {formatDistanceToNow(rep.time, { addSuffix: true })}
                         </span>
                       </span>
-                      {!notification.read ? (
-                        <span
-                          className="mt-1.5 size-2 shrink-0 rounded-full bg-primary"
-                          aria-hidden="true"
-                        />
-                      ) : null}
+                      <ChevronDownIcon
+                        className={cn(
+                          "mt-1 size-4 shrink-0 text-muted-foreground transition-transform",
+                          isExpanded && "rotate-180"
+                        )}
+                        aria-hidden="true"
+                      />
                     </button>
+
+                    {isExpanded ? (
+                      <ul className="border-t border-border/60 bg-muted/30">
+                        {group.items.map((item) => (
+                          <li key={item.id}>
+                            <button
+                              type="button"
+                              onClick={() => markRead([item.id])}
+                              className={cn(
+                                "flex w-full items-start gap-3 py-2.5 pr-4 pl-14 text-left transition-colors hover:bg-muted/60",
+                                !item.read && "bg-primary/[0.04]"
+                              )}
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm leading-snug text-foreground">
+                                  {item.title}
+                                </span>
+                                {item.description ? (
+                                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                                    {item.description}
+                                  </span>
+                                ) : null}
+                                <span className="mt-1 block text-xs text-muted-foreground">
+                                  {formatDistanceToNow(item.time, {
+                                    addSuffix: true,
+                                  })}
+                                </span>
+                              </span>
+                              {!item.read ? (
+                                <span
+                                  className="mt-1.5 size-2 shrink-0 rounded-full bg-primary"
+                                  aria-hidden="true"
+                                />
+                              ) : null}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </li>
                 );
               })}

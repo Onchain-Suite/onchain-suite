@@ -1,6 +1,9 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { TableSkeleton } from "@/shared/components/page/page-skeleton";
+import {
+  StatCardsSkeleton,
+  TableSkeleton,
+} from "@/shared/components/page/page-skeleton";
 
 /**
  * Mirrors CampaignsListsView: header (title + Create) → 4 analytics stat cards
@@ -18,19 +21,8 @@ export default function CampaignsLoading() {
         <Skeleton className="h-10 w-40 rounded-xl" />
       </div>
 
-      {/* Analytics overview - four stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, i) => i).map((i) => (
-          <div
-            key={`stat-${i}`}
-            className="space-y-3 rounded-2xl border border-border bg-card p-4"
-          >
-            <Skeleton className="h-10 w-10 rounded-xl" />
-            <Skeleton className="h-7 w-24" />
-            <Skeleton className="h-4 w-28" />
-          </div>
-        ))}
-      </div>
+      {/* Analytics overview - four stat cards (label + value + hint) */}
+      <StatCardsSkeleton withIcon={false} />
 
       {/* Status filter chips */}
       <div className="flex flex-wrap items-center gap-2">

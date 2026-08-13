@@ -6,7 +6,6 @@ import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/ui/button";
 import { Card, CardContent } from "@/ui/card";
-import { Skeleton } from "@/ui/skeleton";
 
 import { FormStats } from "../components/form-stats";
 import { FormsTable } from "../components/forms-table";
@@ -14,6 +13,7 @@ import { FormWizard } from "../components/wizard/form-wizard";
 import type { CaptureForm } from "../forms.service";
 import { useFormsList } from "../hooks/use-forms";
 import { PageHeader } from "@/shared/components/page/page-header";
+import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 
 /**
  * Email-to-Wallet capture forms. Header + stats over a single table of forms;
@@ -47,7 +47,7 @@ export function FormsPage() {
       <FormStats forms={forms} />
 
       {formsQuery.isLoading ? (
-        <TableSkeleton />
+        <TableSkeleton rows={5} />
       ) : forms.length === 0 ? (
         <EmptyState onCreate={() => setCreateOpen(true)} />
       ) : (
@@ -55,16 +55,6 @@ export function FormsPage() {
       )}
 
       {createOpen ? <FormWizard onClose={() => setCreateOpen(false)} /> : null}
-    </div>
-  );
-}
-
-function TableSkeleton() {
-  return (
-    <div className="space-y-2 rounded-xl border border-border/60 p-4">
-      {["a", "b", "c", "d"].map((k) => (
-        <Skeleton key={k} className="h-10 w-full rounded-lg" />
-      ))}
     </div>
   );
 }

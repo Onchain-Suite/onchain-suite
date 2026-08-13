@@ -12,12 +12,18 @@ export function PageHeaderSkeleton({ className }: { className?: string }) {
   );
 }
 
-/** A row of metric/stat cards. */
+/**
+ * A row of metric/stat cards. `withIcon` (default true) draws the rounded
+ * icon tile some cards show; pass `withIcon={false}` for label + value + hint
+ * cards (e.g. campaigns analytics) so the skeleton matches the real layout.
+ */
 export function StatCardsSkeleton({
   count = 4,
+  withIcon = true,
   className,
 }: {
   count?: number;
+  withIcon?: boolean;
   className?: string;
 }) {
   return (
@@ -27,8 +33,8 @@ export function StatCardsSkeleton({
           key={`stat-${i}`}
           className="rounded-2xl border border-border bg-card p-4"
         >
-          <Skeleton className="h-10 w-10 rounded-xl" />
-          <Skeleton className="mt-4 h-7 w-24" />
+          {withIcon ? <Skeleton className="h-10 w-10 rounded-xl" /> : null}
+          <Skeleton className={cn("h-7 w-24", withIcon && "mt-4")} />
           <Skeleton className="mt-2 h-4 w-28" />
         </div>
       ))}

@@ -10,14 +10,24 @@ const formatCount = (value?: number | null) =>
     ? value.toLocaleString()
     : "-";
 
-/** First day of next month, e.g. "Aug 1" - the monthly allowance reset point. */
-const nextResetLabel = () => {
-  const now = new Date();
-  const reset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return new Intl.DateTimeFormat("en-US", {
+const formatResetDate = (date: Date) =>
+  new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
-  }).format(reset);
+  }).format(date);
+
+/**
+ * Allowance reset label. Prefers the backend's `allowance.resetsAt` (ISO); only
+ * when it is absent or unparseable does it fall back to the local "first of next
+ * month" assumption.
+ */
+const resetLabel = (resetsAt?: string) => {
+  if (resetsAt) {
+    const parsed = new Date(resetsAt);
+    if (!Number.isNaN(parsed.getTime())) return formatResetDate(parsed);
+  }
+  const now = new Date();
+  return formatResetDate(new Date(now.getFullYear(), now.getMonth() + 1, 1));
 };
 
 /**
@@ -82,7 +92,9 @@ export function CampaignsAnalyticsOverview() {
           ? `${formatCount(used)} / ${formatCount(limit)}`
           : formatCount(used),
       hint:
-        typeof limit === "number" ? `resets ${nextResetLabel()}` : "unlimited",
+        typeof limit === "number"
+          ? `resets ${resetLabel(allowance?.resetsAt)}`
+          : "unlimited",
     },
   ];
 

@@ -6,12 +6,46 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 export interface AudienceOverview {
   total?: number;
   withWallet?: number;
+  /** Contacts with a present, non-suppressed, non-risky email channel. */
+  emailReachable?: number;
+  /** Contacts reachable on in-app/wallet push (have a wallet). */
+  pushReachable?: number;
+  /** Contacts flagged `metadata.suppressed=true`. */
+  suppressed?: number;
+  /** Email-reachable contacts that have no wallet. */
+  emailOnly?: number;
   avgHealth?: number;
   activeCount?: number;
   coolingCount?: number;
   coldCount?: number;
   updatedAt?: string;
   [key: string]: unknown;
+}
+
+/**
+ * Per-channel reachability flags on a profile row (docs/backend.md 2026-08-12).
+ * Booleans set only from real signals (email/wallet presence, verified ZK
+ * social bindings) - never a heuristic.
+ */
+export interface AudienceChannels {
+  email?: boolean;
+  inapp?: boolean;
+  farcaster?: boolean;
+  x?: boolean;
+  telegram?: boolean;
+  discord?: boolean;
+}
+
+/**
+ * On-chain summary on a profile row. `portfolioValueUsd` is a cached USD value
+ * (no live fetch); `lifetimeEth` is always null server-side today (no native
+ * ETH balance is persisted). `lifetimeValueUsd` is accepted as an alias some
+ * responses use for the USD lifetime figure.
+ */
+export interface AudienceOnchain {
+  lifetimeEth?: number | null;
+  portfolioValueUsd?: number | null;
+  lifetimeValueUsd?: number | null;
 }
 
 export interface AudienceProfile {
@@ -31,6 +65,9 @@ export interface AudienceProfile {
   tags?: string[] | Array<Record<string, unknown>>;
   attributes?: Record<string, unknown>;
   lastAction?: Record<string, unknown>;
+  channels?: AudienceChannels;
+  zkProtected?: boolean;
+  onchain?: AudienceOnchain;
   [key: string]: unknown;
 }
 

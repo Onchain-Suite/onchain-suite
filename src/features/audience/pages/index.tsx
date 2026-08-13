@@ -65,10 +65,12 @@ import {
   extractSocialHandles,
   extractWalletFields,
   formatRelativeTime,
+  formatUsd,
   isAddressLike,
   isSyntheticWalletEmail,
+  lifetimeUsd,
   normalizeTags,
-  pseudoEth,
+  readChannels,
 } from "../utils";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
@@ -98,6 +100,7 @@ interface Row {
   verified: boolean;
   tags: string[];
   lastActive?: string;
+  lifetimeUsd?: number;
   reach: { email: boolean; push: boolean; x: boolean };
 }
 
@@ -122,6 +125,10 @@ const toRow = (p: AudienceProfile): Row => {
       ? (p.lastAction as Record<string, unknown>)
       : undefined;
   const lastActionAt = lastAction?.at ?? lastAction?.time;
+  const onchainUsd = lifetimeUsd(p);
+  // Prefer the server's real per-channel reachability; fall back to a heuristic
+  // only when the API didn't return a `channels` object.
+  const channels = readChannels(p);
 
   return {
     id: p.id,
@@ -136,14 +143,21 @@ const toRow = (p: AudienceProfile): Row => {
       typeof lastActionAt === "string" || typeof lastActionAt === "number"
         ? formatRelativeTime(new Date(lastActionAt))
         : undefined,
-    reach: {
-      // ZK-protected (verified wallet) contacts are email-reachable even without
-      // a plaintext email. push isn't modeled server-side yet - stubbed from the
-      // signals we have so the column reads like the reference.
-      email: Boolean(email) || (verified && Boolean(walletFull)),
-      push: Boolean(walletFull),
-      x: Boolean(socials.twitter),
-    },
+    lifetimeUsd: onchainUsd ?? undefined,
+    reach: channels
+      ? {
+          email: Boolean(channels.email),
+          push: Boolean(channels.inapp),
+          x: Boolean(channels.x),
+        }
+      : {
+          // Fallback (no `channels` in the response): ZK-protected (verified
+          // wallet) contacts are email-reachable even without a plaintext email;
+          // in-app push is inferred from wallet presence.
+          email: Boolean(email) || (verified && Boolean(walletFull)),
+          push: Boolean(walletFull),
+          x: Boolean(socials.twitter),
+        },
   };
 };
 
@@ -320,14 +334,13 @@ export function AudiencePages() {
 
   const total = num(overview?.total) ?? totalItems;
   const withWallet = num(overview?.withWallet) ?? 0;
-  const emailOnly = Math.max(0, total - withWallet);
-  // Stubs scale off the real total so the cards read like the reference until
-  // the overview endpoint exposes these counts.
-  const emailReachable =
-    num(overview?.emailReachable) ?? Math.round(total * 0.83);
-  const pushReachable =
-    num(overview?.pushReachable) ?? Math.round(total * 0.67);
-  const suppressed = num(overview?.suppressed) ?? Math.round(total * 0.06);
+  // Real overview counts. `emailOnly` falls back to the honest arithmetic
+  // (total - withWallet); the reachability/suppressed counts come only from the
+  // overview endpoint - when absent they render "-", never a fabricated value.
+  const emailOnly = num(overview?.emailOnly) ?? Math.max(0, total - withWallet);
+  const emailReachable = num(overview?.emailReachable);
+  const pushReachable = num(overview?.pushReachable);
+  const suppressed = num(overview?.suppressed);
 
   // Live progress for an import that redirected here. Polls while the job is
   // queued/processing, then stops; refreshes the audience on completion.
@@ -602,7 +615,11 @@ export function AudiencePages() {
     );
   };
 
-  const statCards = [
+  const statCards: Array<{
+    label: string;
+    value: number | undefined;
+    hint: string;
+  }> = [
     {
       label: "Total contacts",
       value: total,
@@ -621,11 +638,15 @@ export function AudiencePages() {
     { label: "Suppressed", value: suppressed, hint: "unsubscribed or bounced" },
   ];
 
-  const tabs = [
-    { key: "contacts" as const, label: "Contacts", count: total },
-    { key: "lists" as const, label: "Lists", count: segments.length },
-    { key: "tags" as const, label: "Tags", count: availableTags.length },
-    { key: "suppressed" as const, label: "Suppressed", count: suppressed },
+  const tabs: Array<{
+    key: "contacts" | "lists" | "tags" | "suppressed";
+    label: string;
+    count: number | string;
+  }> = [
+    { key: "contacts", label: "Contacts", count: total },
+    { key: "lists", label: "Lists", count: segments.length },
+    { key: "tags", label: "Tags", count: availableTags.length },
+    { key: "suppressed", label: "Suppressed", count: suppressed ?? "-" },
   ];
 
   return (
@@ -705,9 +726,22 @@ export function AudiencePages() {
             className="rounded-xl border border-border bg-card p-5"
           >
             <p className="text-sm text-muted-foreground">{card.label}</p>
-            <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
-              {card.value.toLocaleString()}
-            </p>
+            {typeof card.value === "number" ? (
+              <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
+                {card.value.toLocaleString()}
+              </p>
+            ) : overviewQuery.isLoading ? (
+              <div
+                className="mt-2 h-8 w-24 animate-pulse rounded-md bg-muted"
+                aria-hidden="true"
+              />
+            ) : (
+              // Overview errored or omitted this count - show an honest "-",
+              // never a fabricated fallback.
+              <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
+                -
+              </p>
+            )}
             <p className="mt-1 truncate text-xs text-muted-foreground">
               {card.hint}
             </p>
@@ -852,9 +886,10 @@ export function AudiencePages() {
                     <tbody>
                       {rows.map((row) => {
                         const selected = selectedIds.includes(row.id);
-                        const lifetime = row.walletFull
-                          ? `${pseudoEth(row.walletFull).toFixed(1)} ETH`
-                          : "-";
+                        const lifetime =
+                          typeof row.lifetimeUsd === "number"
+                            ? formatUsd(row.lifetimeUsd)
+                            : "-";
                         return (
                           <tr
                             key={row.id}

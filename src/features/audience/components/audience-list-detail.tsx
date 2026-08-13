@@ -90,6 +90,20 @@ export function AudienceListDetail({
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
           Loading members...
         </div>
+      ) : detailQuery.isError ? (
+        <div className="rounded-2xl border border-border bg-card p-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            We couldn&apos;t load this list&apos;s members.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-3 rounded-lg"
+            onClick={() => detailQuery.refetch()}
+          >
+            Try again
+          </Button>
+        </div>
       ) : members.length > 0 ? (
         <>
           <MemberTable members={members} />

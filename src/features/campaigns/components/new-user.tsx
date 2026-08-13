@@ -86,9 +86,11 @@ export const NewUserFlow = () => {
                       color: "bg-chart-4/10 border-chart-4/20",
                     },
                   ].map((template) => (
-                    <div
+                    <Link
                       key={template.title}
-                      className={`${template.color} border rounded-xl p-4 transition-all duration-300 ease-in-out hover:scale-[1.03] hover:shadow-md cursor-pointer`}
+                      href={PRIVATE_ROUTES.NEW_CAMPAIGN}
+                      aria-label={`Create campaign: ${template.title}`}
+                      className={`${template.color} border rounded-xl p-4 transition-all duration-300 ease-in-out hover:scale-[1.03] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
                     >
                       <div className="aspect-4/3 bg-background/50 rounded-lg mb-2 flex items-center justify-center">
                         <EnvelopeIcon
@@ -99,7 +101,7 @@ export const NewUserFlow = () => {
                       <p className="text-sm font-medium text-foreground text-center">
                         {template.title}
                       </p>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>

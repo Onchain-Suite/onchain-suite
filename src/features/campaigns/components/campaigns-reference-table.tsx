@@ -4,6 +4,7 @@ import {
   DevicePhoneMobileIcon,
   EllipsisVerticalIcon,
   EnvelopeIcon,
+  NoSymbolIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 
@@ -60,6 +61,9 @@ const STATUS_META: Record<
   },
 };
 
+/** Statuses whose send can still be stopped via POST /campaigns/{id}/cancel. */
+const CANCELLABLE_STATUSES = new Set<CampaignStatus>(["scheduled", "sending"]);
+
 const isPushChannel = (channel: string) =>
   channel === "inapp" || channel === "in-app-push" || channel === "push";
 
@@ -74,11 +78,6 @@ const channelsFor = (campaign: Campaign) => {
     push: used.some(isPushChannel),
   };
 };
-
-const formatRate = (value?: number) =>
-  typeof value === "number" && Number.isFinite(value)
-    ? `${Math.round(value)}%`
-    : "-";
 
 const formatCount = (value?: number) =>
   typeof value === "number" && Number.isFinite(value)
@@ -108,9 +107,11 @@ function ChannelIcon({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Campaigns list table, matched to the reference exactly: name + channel
- * glyphs, status pill, recipient/open/click stats, and the send/schedule time,
- * with the whole row navigating to the campaign. Campaign counts stay small
+ * Campaigns list table: name + channel glyphs, status pill, recipient count,
+ * and the send/schedule time, with the whole row navigating to the campaign.
+ * Open/click rates are per-campaign (GET /campaigns/{id}/analytics) and live in
+ * the detail view, not the list response, so they are not columns here.
+ * Campaign counts stay small
  * (the list is capped at 200 server-side), so a plain table is fine here - no
  * virtualization needed.
  */
@@ -118,12 +119,15 @@ export function CampaignsReferenceTable({
   data,
   onSelect,
   onDelete,
+  onCancel,
 }: {
   data: Campaign[];
   /** Row click - opens the campaign detail drawer. */
   onSelect: (campaign: Campaign) => void;
   /** Row menu - asks the list to confirm + delete the campaign. */
   onDelete: (campaign: Campaign) => void;
+  /** Row menu - asks the list to confirm + cancel an in-flight/scheduled send. */
+  onCancel: (campaign: Campaign) => void;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -133,8 +137,6 @@ export function CampaignsReferenceTable({
             <th className="py-3 pr-4 font-medium">Campaign</th>
             <th className="px-4 py-3 font-medium">Status</th>
             <th className="px-4 py-3 text-right font-medium">Recipients</th>
-            <th className="px-4 py-3 text-right font-medium">Open rate</th>
-            <th className="px-4 py-3 text-right font-medium">Click rate</th>
             <th className="px-4 py-3 font-medium">Sent / Scheduled</th>
             <th className="w-8 py-3" aria-label="Open" />
           </tr>
@@ -183,12 +185,6 @@ export function CampaignsReferenceTable({
                 <td className="px-4 py-4 text-right tabular-nums text-foreground">
                   {formatCount(campaign.recipients)}
                 </td>
-                <td className="px-4 py-4 text-right tabular-nums text-muted-foreground">
-                  {formatRate(campaign.openRate)}
-                </td>
-                <td className="px-4 py-4 text-right tabular-nums text-muted-foreground">
-                  {formatRate(campaign.clickRate)}
-                </td>
                 <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
                   {formatWhen(campaign)}
                 </td>
@@ -210,6 +206,12 @@ export function CampaignsReferenceTable({
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {CANCELLABLE_STATUSES.has(campaign.status) ? (
+                        <DropdownMenuItem onClick={() => onCancel(campaign)}>
+                          <NoSymbolIcon className="size-4" aria-hidden="true" />
+                          Cancel send
+                        </DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuItem
                         variant="destructive"
                         onClick={() => onDelete(campaign)}

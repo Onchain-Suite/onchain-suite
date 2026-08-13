@@ -49,6 +49,7 @@ export function CampaignsListsView() {
   );
   const [detailCampaign, setDetailCampaign] = useState<Campaign | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Campaign | null>(null);
   const queryClient = useQueryClient();
 
   const campaignsQuery = useQuery({
@@ -71,6 +72,21 @@ export function CampaignsListsView() {
     },
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Couldn't delete campaign"),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (id: string) =>
+      campaignsService.cancelCampaign(
+        id,
+        getSelectedOrganizationId() ?? undefined
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["campaigns", "list"] });
+      toast.success("Campaign canceled");
+      setCancelTarget(null);
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Couldn't cancel campaign"),
   });
 
   const campaigns = useMemo(
@@ -241,6 +257,7 @@ export function CampaignsListsView() {
           data={filteredCampaigns}
           onSelect={setDetailCampaign}
           onDelete={setDeleteTarget}
+          onCancel={setCancelTarget}
         />
       ) : campaigns.length > 0 ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
@@ -318,6 +335,46 @@ export function CampaignsListsView() {
               }}
             >
               {deleteMutation.isPending ? "Deleting…" : "Delete campaign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(cancelTarget)}
+        onOpenChange={(o) => {
+          if (!o && !cancelMutation.isPending) setCancelTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel campaign</DialogTitle>
+            <DialogDescription>
+              Stop sending{" "}
+              <span className="font-medium text-foreground">
+                {cancelTarget?.name ?? "this campaign"}
+              </span>
+              ? Messages already delivered can&apos;t be recalled.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => setCancelTarget(null)}
+              disabled={cancelMutation.isPending}
+            >
+              Keep sending
+            </Button>
+            <Button
+              variant="destructive"
+              className="rounded-xl"
+              disabled={cancelMutation.isPending}
+              onClick={() => {
+                if (cancelTarget) cancelMutation.mutate(cancelTarget.id);
+              }}
+            >
+              {cancelMutation.isPending ? "Canceling…" : "Cancel campaign"}
             </Button>
           </DialogFooter>
         </DialogContent>

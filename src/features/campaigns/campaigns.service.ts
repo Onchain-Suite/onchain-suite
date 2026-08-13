@@ -160,6 +160,8 @@ export interface CampaignAnalyticsOverview {
     limit?: number | null;
     used?: number;
     remaining?: number | null;
+    /** ISO timestamp when the monthly allowance next resets. */
+    resetsAt?: string;
   };
   [key: string]: unknown;
 }

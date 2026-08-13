@@ -12,9 +12,11 @@ import type {
 } from "../audience.service";
 import {
   extractWalletFields,
+  formatUsd,
   isAddressLike,
   isSyntheticWalletEmail,
-  pseudoEth,
+  lifetimeUsd,
+  readChannels,
 } from "../utils";
 
 /** Shared, normalized member shape for the tag/list detail member tables. */
@@ -26,6 +28,8 @@ export interface DetailMember {
   walletShort: string;
   emailReachable: boolean;
   pushReachable: boolean;
+  /** Real on-chain lifetime USD when the API returned it, else null. */
+  lifetimeUsd: number | null;
 }
 
 export function toDetailMemberFromProfile(p: AudienceProfile): DetailMember {
@@ -36,14 +40,20 @@ export function toDetailMemberFromProfile(p: AudienceProfile): DetailMember {
   const nameField = typeof p.name === "string" ? p.name.trim() : "";
   const name = nameField && !isAddressLike(nameField) ? nameField : undefined;
   const verified = p.status === "verified";
+  // Prefer the server's real per-channel reachability; fall back to a heuristic
+  // only when the API didn't return a `channels` object.
+  const channels = readChannels(p);
   return {
     id: p.id,
     name,
     email,
     walletFull,
     walletShort: wallet,
-    emailReachable: Boolean(email) || (verified && Boolean(walletFull)),
-    pushReachable: Boolean(walletFull),
+    emailReachable: channels
+      ? Boolean(channels.email)
+      : Boolean(email) || (verified && Boolean(walletFull)),
+    pushReachable: channels ? Boolean(channels.inapp) : Boolean(walletFull),
+    lifetimeUsd: lifetimeUsd(p),
   };
 }
 
@@ -65,6 +75,7 @@ export function toDetailMemberFromSegment(
     walletShort,
     emailReachable: Boolean(m.emailReachable) || Boolean(email),
     pushReachable: Boolean(m.pushReachable),
+    lifetimeUsd: lifetimeUsd(m),
   };
 }
 
@@ -140,8 +151,8 @@ export function MemberTable({ members }: { members: DetailMember[] }) {
                 </div>
               </td>
               <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                {m.walletFull
-                  ? `${pseudoEth(m.walletFull).toFixed(1)} ETH`
+                {typeof m.lifetimeUsd === "number"
+                  ? formatUsd(m.lifetimeUsd)
                   : "-"}
               </td>
             </tr>

@@ -22,11 +22,13 @@ import {
   deriveDisplayName,
   extractSocialHandles,
   extractWalletFields,
+  formatUsd,
   getChainMeta,
   isAddressLike,
   isSyntheticWalletEmail,
+  lifetimeUsd,
   normalizeTags,
-  pseudoEth,
+  readChannels,
 } from "../utils";
 import { ApplyTagsPopover } from "./apply-tags-popover";
 import {
@@ -111,6 +113,9 @@ export function ContactSlideOver({
       ? (profile.wallets.find((w) => w?.isPrimary) ?? profile.wallets[0])
       : undefined;
     const chain = getChainMeta(primaryWallet?.chain);
+    // Prefer the server's real per-channel reachability; fall back to a
+    // heuristic only when the API didn't return a `channels` object.
+    const channels = readChannels(profile);
     return {
       title: named ?? (walletFull ? wallet : deriveDisplayName(profile)),
       walletFull,
@@ -119,7 +124,11 @@ export function ContactSlideOver({
       verified,
       tags: normalizeTags(profile.tags),
       homeChain: chain?.name ?? primaryWallet?.chain ?? "-",
-      hasPush: Boolean(walletFull),
+      lifetimeUsd: lifetimeUsd(profile),
+      emailLinked: channels
+        ? Boolean(channels.email)
+        : Boolean(email) || verified,
+      hasPush: channels ? Boolean(channels.inapp) : Boolean(walletFull),
     };
   }, [profile]);
 
@@ -153,8 +162,8 @@ export function ContactSlideOver({
                     Lifetime value
                   </p>
                   <p className="mt-1 text-xl font-semibold text-foreground">
-                    {derived.walletFull
-                      ? `${pseudoEth(derived.walletFull).toFixed(1)} ETH`
+                    {typeof derived.lifetimeUsd === "number"
+                      ? formatUsd(derived.lifetimeUsd)
                       : "-"}
                   </p>
                 </div>
@@ -177,7 +186,7 @@ export function ContactSlideOver({
                     }
                     label="Email"
                     status={derived.email ?? "ZK-protected · identity hidden"}
-                    linked={Boolean(derived.email) || derived.verified}
+                    linked={derived.emailLinked}
                   />
                   <Channel
                     icon={

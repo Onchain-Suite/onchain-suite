@@ -149,6 +149,42 @@ export function CampaignDetailSheet({
   const opens = count(funnel?.uniqueOpens);
   const clicks = count(funnel?.uniqueClicks);
 
+  /**
+   * Engagement-rate cell for a sent campaign, kept distinct from a genuine 0%:
+   * a skeleton while analytics load, a Retry affordance on error, and only then
+   * the real rate. Not-yet-sent campaigns have no analytics, so they show "-".
+   */
+  const rateValue = (rate: string, detail?: string): React.ReactNode => {
+    if (!isSent) return "-";
+    if (analyticsQuery.isLoading) {
+      return (
+        <span
+          className="inline-block h-4 w-12 animate-pulse rounded bg-muted"
+          aria-label="Loading"
+        />
+      );
+    }
+    if (analyticsQuery.isError) {
+      return (
+        <button
+          type="button"
+          onClick={() => analyticsQuery.refetch()}
+          className="text-sm font-normal text-primary hover:underline"
+        >
+          Unavailable - retry
+        </button>
+      );
+    }
+    return (
+      <>
+        {rate}
+        {detail ? (
+          <span className="font-normal text-muted-foreground"> ({detail})</span>
+        ) : null}
+      </>
+    );
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -198,42 +234,8 @@ export function CampaignDetailSheet({
                 isScheduled ? campaign?.scheduledFor : campaign?.sentAt
               )}
             />
-            <Row
-              label="Open rate"
-              value={
-                isSent ? (
-                  <>
-                    {openRate}
-                    {opens ? (
-                      <span className="font-normal text-muted-foreground">
-                        {" "}
-                        ({opens})
-                      </span>
-                    ) : null}
-                  </>
-                ) : (
-                  "-"
-                )
-              }
-            />
-            <Row
-              label="Click rate"
-              value={
-                isSent ? (
-                  <>
-                    {clickRate}
-                    {clicks ? (
-                      <span className="font-normal text-muted-foreground">
-                        {" "}
-                        ({clicks})
-                      </span>
-                    ) : null}
-                  </>
-                ) : (
-                  "-"
-                )
-              }
-            />
+            <Row label="Open rate" value={rateValue(openRate, opens)} />
+            <Row label="Click rate" value={rateValue(clickRate, clicks)} />
           </div>
 
           {isScheduled ? (

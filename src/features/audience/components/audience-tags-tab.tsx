@@ -152,6 +152,20 @@ export function AudienceTagsTab({
           <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
             Loading contacts...
           </div>
+        ) : tagMembersQuery.isError ? (
+          <div className="rounded-2xl border border-border bg-card p-10 text-center">
+            <p className="text-sm text-muted-foreground">
+              We couldn&apos;t load contacts for this tag.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-3 rounded-lg"
+              onClick={() => tagMembersQuery.refetch()}
+            >
+              Try again
+            </Button>
+          </div>
         ) : tagMembers.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
             No contacts carry this tag yet.

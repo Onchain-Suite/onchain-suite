@@ -319,16 +319,54 @@ export function hashHue(input: string): number {
 }
 
 /**
- * Deterministic pseudo lifetime (ETH) derived from the wallet - a stub until the
- * API exposes on-chain balances (`onchain.lifetimeEth` is always null server-
- * side). Stable per wallet so it doesn't flicker between renders.
+ * Format a USD amount for compact table/summary cells. Whole dollars (no cents)
+ * to match the on-chain value cards elsewhere in the audience UI.
  */
-export function pseudoEth(seed: string): number {
-  let h = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    h = (h * 31 + seed.charCodeAt(i)) | 0;
+export function formatUsd(value: number): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `$${Math.round(value)}`;
   }
-  return Math.abs(h % 3400) / 100; // 0 - 34 ETH
+}
+
+/**
+ * Read a profile/member's real lifetime USD value from `onchain`
+ * (`portfolioValueUsd`, or the `lifetimeValueUsd` alias). Returns null when the
+ * API didn't return a value - callers render "-" rather than inventing one.
+ */
+export function lifetimeUsd(input: unknown): number | null {
+  if (!input || typeof input !== "object") return null;
+  const { onchain } = input as { onchain?: unknown };
+  if (!onchain || typeof onchain !== "object") return null;
+  const o = onchain as Record<string, unknown>;
+  const value = o.portfolioValueUsd ?? o.lifetimeValueUsd;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Read a profile row's real per-channel reachability object when present. The
+ * backend sets these booleans only from real signals; callers fall back to a
+ * heuristic only when the object is absent.
+ */
+export function readChannels(input: unknown): {
+  email?: boolean;
+  inapp?: boolean;
+  farcaster?: boolean;
+  x?: boolean;
+  telegram?: boolean;
+  discord?: boolean;
+} | null {
+  if (!input || typeof input !== "object") return null;
+  const { channels } = input as { channels?: unknown };
+  if (!channels || typeof channels !== "object" || Array.isArray(channels)) {
+    return null;
+  }
+  return channels as Record<string, boolean>;
 }
 
 const readString = (obj: Record<string, unknown> | null, key: string) => {

@@ -96,7 +96,9 @@ export function AudienceListDetail({
           {totalPages > 1 ? (
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>
-                Page {page} of {totalPages}
+                Showing {(page - 1) * MEMBERS_PER_PAGE + 1}–
+                {Math.min(page * MEMBERS_PER_PAGE, count)} of{" "}
+                {count.toLocaleString()}
               </span>
               <div className="flex items-center gap-2">
                 <Button

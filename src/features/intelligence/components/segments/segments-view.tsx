@@ -2,7 +2,6 @@
 
 import {
   CheckIcon,
-  ChevronDownIcon,
   ClipboardDocumentIcon,
   MegaphoneIcon,
   PlusIcon,
@@ -20,6 +19,13 @@ import { formatRelativeTime } from "@/lib/date";
 import { isJsonObject } from "@/lib/utils";
 
 import { intelligenceService } from "../../intelligence.service";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 
 interface Rule {
   id: string;
@@ -104,8 +110,9 @@ const newRule = (
   value,
 });
 
-// Styled native <select>: keeps native keyboard/a11y behaviour but renders a
-// custom chevron so it matches the rest of the intelligence surfaces.
+// Themed dropdown built on the Radix Select primitive so the menu matches the
+// app's dark surfaces (a native <select> renders the OS menu, which looks
+// out of place). Keyboard + a11y come from Radix.
 function RuleSelect({
   value,
   onChange,
@@ -120,23 +127,22 @@ function RuleSelect({
   ariaLabel: string;
 }) {
   return (
-    <div className={`relative ${className ?? ""}`}>
-      <select
-        aria-label={ariaLabel}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9 w-full cursor-pointer appearance-none rounded-lg border border-border bg-background pl-3 pr-8 text-sm text-foreground outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDownIcon
-        aria-hidden="true"
-        className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-      />
+    <div className={className}>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger
+          aria-label={ariaLabel}
+          className="h-9 w-full rounded-lg border-border bg-background"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

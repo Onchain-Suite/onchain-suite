@@ -3,7 +3,7 @@
 import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { isJsonObject } from "@/lib/utils";
 
@@ -112,6 +112,8 @@ const statusPill: Record<Status, string> = {
   draft: "text-muted-foreground",
 };
 
+const PER_PAGE = 10;
+
 export function AutomationsListView() {
   const [filter, setFilter] = useState<"all" | Status>("all");
   const [search, setSearch] = useState("");
@@ -174,6 +176,18 @@ export function AutomationsListView() {
       return true;
     });
   }, [rows, filter, search]);
+
+  // Client-side pagination, matching the Audience/Campaigns table convention.
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [filter, search]);
+  const totalPages = Math.max(1, Math.ceil(visibleRows.length / PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedRows = visibleRows.slice(
+    (currentPage - 1) * PER_PAGE,
+    currentPage * PER_PAGE
+  );
 
   const statCards = [
     { label: "Active flows", value: stats.activeFlows.toLocaleString() },
@@ -254,7 +268,7 @@ export function AutomationsListView() {
               </tr>
             </thead>
             <tbody>
-              {visibleRows.map((row) => {
+              {pagedRows.map((row) => {
                 const hasData = row.entries > 0;
                 const completion = hasData
                   ? `${((row.conversions / row.entries) * 100).toFixed(1)}%`
@@ -312,6 +326,36 @@ export function AutomationsListView() {
             </tbody>
           </table>
         </div>
+
+        {visibleRows.length > PER_PAGE ? (
+          <div className="flex items-center justify-between pt-4 text-sm text-muted-foreground">
+            <span>
+              Showing {(currentPage - 1) * PER_PAGE + 1}–
+              {Math.min(currentPage * PER_PAGE, visibleRows.length)} of{" "}
+              {visibleRows.length.toLocaleString()}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-lg"
+                disabled={currentPage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-lg"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         {!listQuery.isLoading && visibleRows.length === 0 ? (
           <div className="rounded-xl border border-border px-5 py-16 text-center">

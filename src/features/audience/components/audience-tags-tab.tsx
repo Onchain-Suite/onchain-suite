@@ -162,7 +162,9 @@ export function AudienceTagsTab({
             {totalPages > 1 ? (
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>
-                  Page {detailPage} of {totalPages}
+                  Showing {(detailPage - 1) * MEMBERS_PER_PAGE + 1}–
+                  {Math.min(detailPage * MEMBERS_PER_PAGE, total)} of{" "}
+                  {total.toLocaleString()}
                 </span>
                 <div className="flex items-center gap-2">
                   <Button

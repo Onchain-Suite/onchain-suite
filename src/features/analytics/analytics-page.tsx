@@ -5,8 +5,6 @@ import {
   ArrowTrendingDownIcon,
   ArrowTrendingUpIcon,
   BoltIcon,
-  CalendarIcon,
-  ChevronDownIcon,
   CursorArrowRaysIcon,
   EnvelopeOpenIcon,
   InformationCircleIcon,
@@ -14,164 +12,62 @@ import {
   PresentationChartLineIcon,
   UsersIcon,
 } from "@heroicons/react/24/outline";
-import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { cn } from "@/lib/utils";
 
+import {
+  analyticsService,
+  type DashboardMetric,
+  type DashboardMetricKey,
+  type DashboardOverview,
+  type DashboardSeriesPoint,
+  type MetricBacking,
+} from "./analytics.service";
+
 /**
- * Analytics dashboard, modeled on the reference. Figures are representative
- * sample data - the platform has no aggregate analytics endpoints yet, so the
- * period selector scales illustrative bases rather than querying. Swap the
- * consts below for a service call when the backend lands.
+ * Analytics dashboard. Every headline figure comes from the real
+ * GET /dashboard/overview endpoint (docs/backend.md 2026-08-13); `meta.backing`
+ * decides which cards may show a trend. Sections with no backing endpoint
+ * (off-chain CTR/unsubscribe, on-chain holders/swaps/retention, push delivery,
+ * pinned reports) render honest "not available yet" states rather than
+ * fabricated numbers. The report-template launcher is a static catalog.
  */
 
-type Period = { id: string; label: string; k: number; days: string };
-const PERIODS: Period[] = [
-  { id: "7d", label: "Last 7 days", k: 0.28, days: "Daily · last 7 days" },
-  { id: "30d", label: "Last 30 days", k: 1, days: "Daily · last 30 days" },
-  { id: "90d", label: "Last 90 days", k: 2.7, days: "Weekly · last 90 days" },
-];
-
-type Kpi = {
+type MetricConfig = {
+  key: DashboardMetricKey;
   label: string;
-  base: number;
-  suffix: string;
-  delta: string;
-  up: boolean;
-  flat?: boolean;
+  format: "count" | "percent";
   hint: string;
 };
-const KPIS: Kpi[] = [
+
+const METRICS: MetricConfig[] = [
   {
-    label: "Wallets reached",
-    base: 18204,
-    suffix: "",
-    delta: "+12.4%",
-    up: true,
-    hint: "Unique wallets sent at least one email or in-app push in the period.",
+    key: "messagesSent",
+    label: "Messages sent",
+    format: "count",
+    hint: "Emails and in-app pushes sent in the last 30 days, from delivery events.",
   },
   {
+    key: "openRate",
     label: "Email open rate",
-    base: 42.3,
-    suffix: "%",
-    flat: true,
-    delta: "+3.1pt",
-    up: true,
-    hint: "Share of delivered emails opened. Email only - in-app push is measured as view rate.",
+    format: "percent",
+    hint: "Share of delivered emails opened over the last 30 days. Email only - in-app push is measured as a view rate.",
   },
   {
-    label: "Push view rate",
-    base: 90.6,
-    suffix: "%",
-    flat: true,
-    delta: "+1.8pt",
-    up: true,
-    hint: "Share of delivered in-app pushes that were seen. High because a queued message waits for the wallet rather than competing in an inbox.",
-  },
-  {
+    key: "activeWallets",
     label: "Active wallets",
-    base: 9412,
-    suffix: "",
-    delta: "+8.6%",
-    up: true,
-    hint: "Wallets in your audience with at least one on-chain action in the period.",
+    format: "count",
+    hint: "Wallets in your audience active on-chain in the last 30 days. A point-in-time snapshot with no historical trend yet.",
   },
   {
+    key: "convertedOnchain",
     label: "On-chain conversions",
-    base: 1164,
-    suffix: "",
-    delta: "+22.8%",
-    up: true,
-    hint: "Wallets that took a target on-chain action within the attribution window after a message.",
+    format: "count",
+    hint: "On-chain conversions are only measured on demand per campaign goal, so there is no org-wide figure yet.",
   },
 ];
-
-type Bar = { name: string; value: string; pct: number; hint: string };
-const OFFCHAIN: Bar[] = [
-  {
-    name: "Email open rate",
-    value: "42.3%",
-    pct: 82,
-    hint: "Share of delivered emails that were opened.",
-  },
-  {
-    name: "Push view rate",
-    value: "38.6%",
-    pct: 74,
-    hint: "Share of delivered in-app pushes actually seen on screen.",
-  },
-  {
-    name: "Click-through rate (CTR)",
-    value: "11.8%",
-    pct: 28,
-    hint: "Share of delivered emails where someone clicked a link.",
-  },
-  {
-    name: "Unsubscribe rate",
-    value: "0.4%",
-    pct: 4,
-    hint: "Share of delivered emails that led to an opt-out. Above ~0.5% is worth investigating.",
-  },
-];
-const ONCHAIN: Bar[] = [
-  {
-    name: "New holders",
-    value: "1,204",
-    pct: 68,
-    hint: "Wallets that acquired the token or NFT for the first time this period.",
-  },
-  {
-    name: "Swaps",
-    value: "842",
-    pct: 48,
-    hint: "Token swaps made by wallets in your audience.",
-  },
-  {
-    name: "Post-message conversions",
-    value: "1,164",
-    pct: 66,
-    hint: "On-chain actions taken within the attribution window after receiving a message.",
-  },
-  {
-    name: "30d retention",
-    value: "54.2%",
-    pct: 54,
-    hint: "Share of wallets still active on-chain 30 days after their first tracked action.",
-  },
-];
-
-const FUNNEL = [
-  {
-    name: "Queued",
-    value: 24800,
-    hint: "Wallets the campaign was enqueued for.",
-  },
-  {
-    name: "Delivered",
-    value: 18120,
-    hint: "Fired when the wallet next connected.",
-  },
-  { name: "Viewed", value: 16420, hint: "Actually seen on screen." },
-  { name: "Clicked", value: 4980, hint: "Tapped the call to action." },
-];
-const FUNNEL_SECONDARY = [
-  {
-    name: "Still pending",
-    value: 4240,
-    tone: "info" as const,
-    hint: "Queued, not yet connected. Can still deliver.",
-  },
-  {
-    name: "Expired unseen",
-    value: 2440,
-    tone: "warn" as const,
-    hint: "TTL elapsed before the wallet returned.",
-  },
-];
-const MEDIAN_TTL = "1.4 days";
-
-const SERIES_REACH = [22, 30, 26, 38, 34, 46, 42, 55, 50, 63, 58, 72];
-const SERIES_CONV = [12, 16, 15, 20, 19, 26, 24, 30, 28, 36, 33, 42];
 
 const TEMPLATES = [
   {
@@ -211,40 +107,70 @@ const TEMPLATES = [
     tag: "Blended",
   },
 ];
-const PINNED: [string, string][] = [
-  ["Top $VAULT holders by chain", "Pinned Jul 22 · refreshes daily"],
-  ["Whale unstake watch", "Pinned Jul 20 · refreshes hourly"],
-  ["Season 2 buyer engagement", "Pinned Jul 19 · refreshes daily"],
-];
 
-const points = (d: number[], h = 200, w = 560) =>
-  d.map((v, i) => `${(i / (d.length - 1)) * w},${h - (v / 80) * h}`).join(" ");
+const numberFmt = new Intl.NumberFormat("en-US");
+
+const formatMetricValue = (
+  metric: DashboardMetric,
+  format: MetricConfig["format"]
+) =>
+  format === "percent"
+    ? `${metric.value.toFixed(1)}%`
+    : numberFmt.format(Math.round(metric.value));
+
+const formatDelta = (deltaPct: number) =>
+  `${deltaPct >= 0 ? "+" : ""}${deltaPct.toFixed(1)}%`;
+
+/** Sparkline / chart points scaled to the series' own min/max. */
+const seriesPoints = (
+  series: DashboardSeriesPoint[],
+  w: number,
+  h: number,
+  pad = 0
+) => {
+  if (series.length < 2) return "";
+  const values = series.map((p) => p.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const inner = h - pad * 2;
+  return series
+    .map((p, i) => {
+      const x = (i / (series.length - 1)) * w;
+      const y = pad + (inner - ((p.value - min) / range) * inner);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+};
 
 export function AnalyticsPage() {
-  const [period, setPeriod] = useState<Period>(PERIODS[1]);
-  const [open, setOpen] = useState(false);
+  const overviewQuery = useQuery({
+    queryKey: ["analytics", "dashboard", "overview"],
+    queryFn: () => analyticsService.getDashboardOverview(),
+    staleTime: 60_000,
+  });
 
-  const kpis = useMemo(
-    () =>
-      KPIS.map((k) => ({
-        ...k,
-        display: k.flat
-          ? `${k.base.toFixed(1)}${k.suffix}`
-          : Math.round(k.base * period.k).toLocaleString("en-US") + k.suffix,
-      })),
-    [period]
-  );
+  const overview = overviewQuery.data;
 
   const exportCsv = () => {
+    if (!overview) return;
     const rows: (string | number)[][] = [
-      ["Metric", "Value", "Period"],
-      ...kpis.map((k) => [k.label, k.display, period.label]),
-      [],
-      ["Off-chain engagement", "Value"],
-      ...OFFCHAIN.map((b) => [b.name, b.value]),
-      [],
-      ["On-chain activity", "Value"],
-      ...ONCHAIN.map((b) => [b.name, b.value]),
+      ["Metric", "Value", "Window", "Data source"],
+      ...METRICS.map((m) => {
+        const metric = overview[m.key];
+        const backing = overview.meta.backing[m.key];
+        const value =
+          backing === "none"
+            ? "Not measured yet"
+            : formatMetricValue(metric, m.format);
+        const source =
+          backing === "real"
+            ? "Real"
+            : backing === "value-only"
+              ? "Snapshot (no trend)"
+              : "Not measured";
+        return [m.label, value, "Last 30 days", source];
+      }),
     ];
     const csv = rows
       .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
@@ -254,7 +180,7 @@ export function AnalyticsPage() {
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = `onchainsuite-analytics-${period.id}.csv`;
+    a.download = "onchainsuite-analytics-30d.csv";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -265,57 +191,18 @@ export function AnalyticsPage() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold text-foreground">Analytics</h1>
         <div className="ml-auto flex items-center gap-2">
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setOpen((v) => !v)}
-              aria-haspopup="listbox"
-              aria-expanded={open}
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground"
-            >
-              <CalendarIcon
-                className="size-4 text-muted-foreground"
-                aria-hidden="true"
-              />
-              {period.label}
-              <ChevronDownIcon
-                className="size-4 text-muted-foreground"
-                aria-hidden="true"
-              />
-            </button>
-            {open ? (
-              <ul
-                role="listbox"
-                className="absolute right-0 z-10 mt-1 w-44 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-md"
-              >
-                {PERIODS.map((p) => (
-                  <li key={p.id}>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={p.id === period.id}
-                      onClick={() => {
-                        setPeriod(p);
-                        setOpen(false);
-                      }}
-                      className={cn(
-                        "block w-full px-3 py-1.5 text-left text-sm hover:bg-muted",
-                        p.id === period.id
-                          ? "font-medium text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      {p.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
+          <span
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground"
+            title="The overview reflects a rolling 30-day window. Custom ranges are not available yet."
+          >
+            Last 30 days
+            <Info hint="The overview reflects a rolling 30-day window. Custom ranges are not available yet." />
+          </span>
           <button
             type="button"
             onClick={exportCsv}
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+            disabled={!overview}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ArrowDownTrayIcon className="size-4" aria-hidden="true" />
             Export report
@@ -323,89 +210,97 @@ export function AnalyticsPage() {
         </div>
       </div>
 
+      {overviewQuery.isLoading ? (
+        <LoadingState />
+      ) : overviewQuery.isError || !overview ? (
+        <ErrorState onRetry={() => overviewQuery.refetch()} />
+      ) : (
+        <Content overview={overview} />
+      )}
+    </div>
+  );
+}
+
+function Content({ overview }: { overview: DashboardOverview }) {
+  const { backing, notes } = overview.meta;
+
+  const trendMetric = overview.messagesSent;
+  const trendChartable =
+    backing.messagesSent === "real" && trendMetric.series.length >= 2;
+
+  const trendPoints = useMemo(
+    () => seriesPoints(trendMetric.series, 560, 200, 8),
+    [trendMetric.series]
+  );
+
+  return (
+    <div className="space-y-6">
       {/* KPI strip */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {kpis.map((k) => (
-          <div
-            key={k.label}
-            className="rounded-xl border border-border/60 bg-card/60 p-4"
-          >
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              {k.label}
-              <Info hint={k.hint} />
-            </div>
-            <p className="mt-1.5 text-2xl font-semibold text-foreground">
-              {k.display}
-            </p>
-            <p
-              className={cn(
-                "mt-1 inline-flex items-center gap-1 text-xs font-medium",
-                k.up
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-rose-600 dark:text-rose-400"
-              )}
-            >
-              {k.up ? (
-                <ArrowTrendingUpIcon className="size-3.5" aria-hidden="true" />
-              ) : (
-                <ArrowTrendingDownIcon
-                  className="size-3.5"
-                  aria-hidden="true"
-                />
-              )}
-              {k.delta}
-            </p>
-          </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {METRICS.map((m) => (
+          <KpiCard
+            key={m.key}
+            config={m}
+            metric={overview[m.key]}
+            backing={backing[m.key]}
+          />
         ))}
       </div>
 
-      {/* Reach & conversions over time */}
+      {/* Messages sent over time - the only series-backed metric */}
       <Card
-        title="Reach & conversions over time"
+        title="Messages sent over time"
         right={
-          <span className="text-xs text-muted-foreground">{period.days}</span>
+          <span className="text-xs text-muted-foreground">
+            Daily · last 30 days
+          </span>
         }
       >
         <div className="mb-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <Legend color="var(--primary)">Wallets reached · off-chain</Legend>
-          <Legend color="#f97316" dashed>
-            On-chain conversions
-          </Legend>
+          <Legend color="var(--primary)">Messages sent</Legend>
         </div>
-        <svg
-          viewBox="0 0 560 200"
-          preserveAspectRatio="none"
-          className="h-48 w-full"
-          role="img"
-          aria-label="Reach and conversions trend"
-        >
-          <defs>
-            <linearGradient id="an-grad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="var(--primary)" stopOpacity="0.18" />
-              <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <polygon
-            fill="url(#an-grad)"
-            points={`0,200 ${points(SERIES_REACH)} 560,200`}
+        {trendChartable ? (
+          <svg
+            viewBox="0 0 560 200"
+            preserveAspectRatio="none"
+            className="h-48 w-full"
+            role="img"
+            aria-label="Messages sent trend over the last 30 days"
+          >
+            <defs>
+              <linearGradient id="an-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="0"
+                  stopColor="var(--primary)"
+                  stopOpacity="0.18"
+                />
+                <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <polygon
+              fill="url(#an-grad)"
+              points={`0,200 ${trendPoints} 560,200`}
+            />
+            <polyline
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth="2.5"
+              points={trendPoints}
+            />
+          </svg>
+        ) : (
+          <EmptyState
+            title="No trend for this period"
+            body="No messages were sent in the last 30 days, so there is nothing to chart yet."
           />
-          <polyline
-            fill="none"
-            stroke="var(--primary)"
-            strokeWidth="2.5"
-            points={points(SERIES_REACH)}
-          />
-          <polyline
-            fill="none"
-            stroke="#f97316"
-            strokeWidth="2.5"
-            strokeDasharray="4 4"
-            points={points(SERIES_CONV)}
-          />
-        </svg>
+        )}
+        <p className="mt-3 text-xs text-muted-foreground">
+          On-chain conversions are not charted here - they are only measured on
+          demand per campaign goal, so there is no org-wide time series yet.
+        </p>
       </Card>
 
-      {/* Off-chain + On-chain */}
+      {/* Off-chain + On-chain - no backing endpoint yet */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card
           title="Off-chain engagement"
@@ -413,10 +308,9 @@ export function AnalyticsPage() {
             <Info hint="Email and in-app push performance for messages you sent." />
           }
         >
-          <HBars
-            bars={OFFCHAIN}
-            color="var(--primary)"
-            legend="Messaging · % of delivered"
+          <EmptyState
+            title="Not available yet"
+            body="A per-channel breakdown of open, click, view and unsubscribe rates is not exposed by the API yet. See a campaign's own analytics for its funnel."
           />
         </Card>
         <Card
@@ -425,78 +319,22 @@ export function AnalyticsPage() {
             <Info hint="What wallets in your audience did on-chain over the period." />
           }
         >
-          <HBars
-            bars={ONCHAIN}
-            color="#f97316"
-            legend="Wallet activity · on-chain"
+          <EmptyState
+            title="Not available yet"
+            body="New holders, swaps and retention are not aggregated org-wide yet. Only per-wallet summaries exist today."
           />
         </Card>
       </div>
 
-      {/* Push delivery */}
-      <Card
-        title="In-app push delivery"
-        right={
-          <span className="text-xs text-muted-foreground">
-            Median time to view · {MEDIAN_TTL}
-          </span>
-        }
-      >
-        <div className="grid gap-3 sm:grid-cols-4">
-          {FUNNEL.map((f, i) => {
-            const pct = Math.round((f.value / FUNNEL[0].value) * 100);
-            return (
-              <div
-                key={f.name}
-                className="rounded-xl border border-border/60 p-3"
-                title={f.hint}
-              >
-                <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                  {f.name}
-                  <Info hint={f.hint} />
-                </p>
-                <p className="mt-1 text-lg font-semibold text-foreground">
-                  {f.value.toLocaleString()}
-                </p>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${pct}%`,
-                      background:
-                        i === FUNNEL.length - 1 ? "#f97316" : "var(--primary)",
-                    }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-3 flex flex-wrap gap-4 text-xs">
-          {FUNNEL_SECONDARY.map((s) => (
-            <span
-              key={s.name}
-              className="inline-flex items-center gap-1.5"
-              title={s.hint}
-            >
-              <span
-                className={cn(
-                  "size-2 rounded-full",
-                  s.tone === "warn" ? "bg-amber-500" : "bg-sky-500"
-                )}
-              />
-              <span className="text-muted-foreground">
-                {s.name} ·{" "}
-                <span className="font-medium text-foreground">
-                  {s.value.toLocaleString()}
-                </span>
-              </span>
-            </span>
-          ))}
-        </div>
+      {/* Push delivery - no backing endpoint yet */}
+      <Card title="In-app push delivery">
+        <EmptyState
+          title="Not available yet"
+          body="An org-wide queued / delivered / viewed / clicked funnel for in-app push is not exposed yet. A campaign's own analytics shows its in-app funnel."
+        />
       </Card>
 
-      {/* Report templates */}
+      {/* Report templates - static launcher catalog */}
       <div>
         <h2 className="mb-3 text-sm font-semibold text-foreground">
           Report templates
@@ -534,31 +372,153 @@ export function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Pinned from Intelligence */}
+      {/* Pinned from Intelligence - no real source yet */}
       <div>
         <h2 className="mb-3 text-sm font-semibold text-foreground">
           Pinned from Intelligence
         </h2>
         <div className="overflow-hidden rounded-xl border border-border/60">
-          {PINNED.map(([name, meta], i) => (
-            <div
-              key={name}
-              className={cn(
-                "flex items-center justify-between gap-3 px-4 py-3",
-                i > 0 && "border-t border-border/40"
-              )}
-            >
-              <div>
-                <p className="text-sm font-medium text-foreground">{name}</p>
-                <p className="text-xs text-muted-foreground">{meta}</p>
-              </div>
-              <button className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted">
-                Run report
-              </button>
-            </div>
-          ))}
+          <EmptyState
+            title="No pinned reports yet"
+            body="Pin a saved query from Intelligence to see it here."
+          />
         </div>
       </div>
+
+      {notes.length > 0 ? (
+        <p className="text-xs text-muted-foreground">{notes.join(" · ")}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function KpiCard({
+  config,
+  metric,
+  backing,
+}: {
+  config: MetricConfig;
+  metric: DashboardMetric;
+  backing: MetricBacking;
+}) {
+  const chartable = backing === "real" && metric.series.length >= 2;
+  const spark = useMemo(
+    () => (chartable ? seriesPoints(metric.series, 120, 32, 2) : ""),
+    [chartable, metric.series]
+  );
+  const up = metric.deltaPct >= 0;
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-card/60 p-4">
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        {config.label}
+        <Info hint={config.hint} />
+      </div>
+      {backing === "none" ? (
+        <p className="mt-1.5 text-lg font-medium text-muted-foreground">
+          Not measured yet
+        </p>
+      ) : (
+        <p className="mt-1.5 text-2xl font-semibold text-foreground">
+          {formatMetricValue(metric, config.format)}
+        </p>
+      )}
+
+      {backing === "real" ? (
+        <p
+          className={cn(
+            "mt-1 inline-flex items-center gap-1 text-xs font-medium",
+            up
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-rose-600 dark:text-rose-400"
+          )}
+        >
+          {up ? (
+            <ArrowTrendingUpIcon className="size-3.5" aria-hidden="true" />
+          ) : (
+            <ArrowTrendingDownIcon className="size-3.5" aria-hidden="true" />
+          )}
+          {formatDelta(metric.deltaPct)}
+          <span className="text-muted-foreground">vs prior 30d</span>
+        </p>
+      ) : backing === "value-only" ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Snapshot · no trend yet
+        </p>
+      ) : (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Not measured org-wide
+        </p>
+      )}
+
+      {chartable ? (
+        <svg
+          viewBox="0 0 120 32"
+          preserveAspectRatio="none"
+          className="mt-2 h-8 w-full"
+          role="img"
+          aria-label={`${config.label} trend`}
+        >
+          <polyline
+            fill="none"
+            stroke="var(--primary)"
+            strokeWidth="1.5"
+            points={spark}
+          />
+        </svg>
+      ) : null}
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="space-y-6" aria-hidden="true">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div
+            key={i}
+            className="h-28 animate-pulse rounded-xl border border-border/60 bg-card/60"
+          />
+        ))}
+      </div>
+      <div className="h-64 animate-pulse rounded-xl border border-border/60 bg-card/60" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="h-40 animate-pulse rounded-xl border border-border/60 bg-card/60" />
+        <div className="h-40 animate-pulse rounded-xl border border-border/60 bg-card/60" />
+      </div>
+    </div>
+  );
+}
+
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card/60 p-10 text-center">
+      <p className="text-sm font-medium text-foreground">
+        Could not load analytics
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        The dashboard overview could not be reached. Check your connection and
+        try again.
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-4 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/60 px-4 py-8 text-center">
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      <p className="mt-1 max-w-md text-xs leading-relaxed text-muted-foreground">
+        {body}
+      </p>
     </div>
   );
 }
@@ -580,43 +540,6 @@ function Card({
       </div>
       {children}
     </section>
-  );
-}
-
-function HBars({
-  bars,
-  color,
-  legend,
-}: {
-  bars: Bar[];
-  color: string;
-  legend: string;
-}) {
-  return (
-    <div>
-      <div className="mb-3">
-        <Legend color={color}>{legend}</Legend>
-      </div>
-      <div className="space-y-3.5">
-        {bars.map((b) => (
-          <div key={b.name}>
-            <div className="mb-1 flex items-center justify-between text-sm">
-              <span className="flex items-center gap-1 text-muted-foreground">
-                {b.name}
-                <Info hint={b.hint} />
-              </span>
-              <span className="font-medium text-foreground">{b.value}</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full"
-                style={{ width: `${b.pct}%`, background: color }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 

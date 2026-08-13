@@ -2,6 +2,7 @@
 
 import {
   CheckIcon,
+  ChevronDownIcon,
   ClipboardDocumentIcon,
   MegaphoneIcon,
   PlusIcon,
@@ -48,12 +49,49 @@ const FIELDS: { value: string; label: string }[] = [
   { value: "token_held", label: "Token held" },
 ];
 
-const OPERATORS: { value: string; label: string }[] = [
+// The backend only accepts numeric operators on count/amount fields and the
+// recency operator on `last_active`; any other combo 400s. Offer operators
+// per field so the builder can only produce valid rules.
+const NUMERIC_OPERATORS: { value: string; label: string }[] = [
   { value: "gt", label: "is greater than" },
   { value: "lt", label: "is less than" },
   { value: "eq", label: "equals" },
+];
+const RECENCY_OPERATORS: { value: string; label: string }[] = [
   { value: "within", label: "is within" },
 ];
+const FIELD_KIND: Record<string, "numeric" | "recency"> = {
+  wallet_balance: "numeric",
+  transaction_count: "numeric",
+  token_held: "numeric",
+  email_opened: "numeric",
+  last_active: "recency",
+};
+const operatorsForField = (field: string) =>
+  FIELD_KIND[field] === "recency" ? RECENCY_OPERATORS : NUMERIC_OPERATORS;
+
+// Rule values are free text ("10", "7 days") but the API needs numbers, so pull
+// the leading number out. Returns null for empty/non-numeric input.
+const toNumericValue = (raw: string): number | null => {
+  const found = raw.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
+  if (!found) return null;
+  const n = Number(found[0]);
+  return Number.isFinite(n) ? n : null;
+};
+
+const buildConditions = (
+  rs: Rule[]
+): { field: string; operator: string; value: number }[] =>
+  rs
+    .map((r) => {
+      const value = toNumericValue(r.value);
+      return value === null
+        ? null
+        : { field: r.field, operator: r.operator, value };
+    })
+    .filter(
+      (c): c is { field: string; operator: string; value: number } => c !== null
+    );
 
 const newRule = (
   field = "wallet_balance",
@@ -65,6 +103,43 @@ const newRule = (
   operator,
   value,
 });
+
+// Styled native <select>: keeps native keyboard/a11y behaviour but renders a
+// custom chevron so it matches the rest of the intelligence surfaces.
+function RuleSelect({
+  value,
+  onChange,
+  options,
+  className,
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  className?: string;
+  ariaLabel: string;
+}) {
+  return (
+    <div className={`relative ${className ?? ""}`}>
+      <select
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-9 w-full cursor-pointer appearance-none rounded-lg border border-border bg-background pl-3 pr-8 text-sm text-foreground outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDownIcon
+        aria-hidden="true"
+        className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+      />
+    </div>
+  );
+}
 
 const extractSegments = (res: unknown): SavedSegment[] => {
   const root: unknown = Array.isArray(res)
@@ -113,7 +188,7 @@ export function SegmentsView() {
   const [match, setMatch] = useState<"AND" | "OR">("AND");
   const [rules, setRules] = useState<Rule[]>([
     newRule("wallet_balance", "gt", "10"),
-    newRule("email_opened", "within", "7 days"),
+    newRule("last_active", "within", "7 days"),
   ]);
 
   const segmentsQuery = useQuery({
@@ -136,6 +211,19 @@ export function SegmentsView() {
 
   const updateRule = (id: string, key: keyof Rule, value: string) =>
     setRules((rs) => rs.map((r) => (r.id === id ? { ...r, [key]: value } : r)));
+  // Changing the field can invalidate the current operator (e.g. switching a
+  // numeric field to `last_active`), so snap to a valid operator for the field.
+  const changeField = (id: string, field: string) =>
+    setRules((rs) =>
+      rs.map((r) => {
+        if (r.id !== id) return r;
+        const ops = operatorsForField(field);
+        const operator = ops.some((o) => o.value === r.operator)
+          ? r.operator
+          : ops[0].value;
+        return { ...r, field, operator };
+      })
+    );
   const removeRule = (id: string) =>
     setRules((rs) => rs.filter((r) => r.id !== id));
 
@@ -150,16 +238,12 @@ export function SegmentsView() {
     mutationFn: async () => {
       const trimmed = name.trim();
       if (!trimmed) throw new Error("Segment name is required");
+      const conditions = buildConditions(rules);
+      if (conditions.length === 0)
+        throw new Error("Add at least one complete rule first");
       return intelligenceService.createSegment({
         name: trimmed,
-        rules: {
-          operator: match,
-          conditions: rules.map((r) => ({
-            field: r.field,
-            operator: r.operator,
-            value: r.value,
-          })),
-        },
+        rules: { match, conditions },
       });
     },
     onSuccess: async () => {
@@ -214,19 +298,12 @@ export function SegmentsView() {
     mutationFn: async () => {
       const trimmed = name.trim();
       if (!trimmed) throw new Error("Name your segment first");
-      const complete = rules.filter((r) => r.value.trim().length > 0);
-      if (complete.length === 0)
+      const conditions = buildConditions(rules);
+      if (conditions.length === 0)
         throw new Error("Add at least one complete rule first");
       return intelligenceService.createSegment({
         name: trimmed,
-        rules: {
-          operator: match,
-          conditions: complete.map((r) => ({
-            field: r.field,
-            operator: r.operator,
-            value: r.value,
-          })),
-        },
+        rules: { match, conditions },
       });
     },
     onSuccess: async (res) => {
@@ -247,35 +324,31 @@ export function SegmentsView() {
   // match. Guarded - if the preview endpoint isn't available the query rejects
   // and we fall back to the honest "computed on save" copy (no fabricated data).
   const [previewPayload, setPreviewPayload] = useState<{
-    operator: "AND" | "OR";
-    conditions: { field: string; operator: string; value: string }[];
+    match: "AND" | "OR";
+    conditions: { field: string; operator: string; value: number }[];
   } | null>(null);
 
   useEffect(() => {
-    const complete = rules.filter((r) => r.value.trim().length > 0);
-    if (complete.length === 0) {
+    const conditions = buildConditions(rules);
+    if (conditions.length === 0) {
       setPreviewPayload(null);
       return;
     }
     const handle = window.setTimeout(() => {
-      setPreviewPayload({
-        operator: match,
-        conditions: complete.map((r) => ({
-          field: r.field,
-          operator: r.operator,
-          value: r.value.trim(),
-        })),
-      });
+      setPreviewPayload({ match, conditions });
     }, 400);
     return () => window.clearTimeout(handle);
   }, [rules, match]);
 
   const previewQuery = useQuery({
     queryKey: ["intelligence", "segments", "preview", previewPayload],
-    queryFn: ({ signal }) =>
-      intelligenceService.previewSegment({ rules: previewPayload }, undefined, {
+    queryFn: ({ signal }) => {
+      // `enabled` guarantees a payload, but narrow explicitly for the type.
+      if (!previewPayload) throw new Error("No preview payload");
+      return intelligenceService.previewSegment(previewPayload, undefined, {
         signal,
-      }),
+      });
+    },
     enabled: previewPayload !== null,
     retry: false,
     staleTime: 30_000,
@@ -383,35 +456,25 @@ export function SegmentsView() {
               <span className="w-10 shrink-0 pl-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 {index === 0 ? "Where" : match}
               </span>
-              <select
+              <RuleSelect
+                ariaLabel="Rule field"
                 value={rule.field}
-                onChange={(e) => updateRule(rule.id, "field", e.target.value)}
-                className="min-w-36 flex-1 rounded-lg border border-border bg-background px-2 py-2 text-sm text-foreground"
-              >
-                {FIELDS.map((f) => (
-                  <option key={f.value} value={f.value}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
-              <select
+                onChange={(v) => changeField(rule.id, v)}
+                options={FIELDS}
+                className="min-w-36 flex-1"
+              />
+              <RuleSelect
+                ariaLabel="Rule operator"
                 value={rule.operator}
-                onChange={(e) =>
-                  updateRule(rule.id, "operator", e.target.value)
-                }
-                className="w-36 rounded-lg border border-border bg-background px-2 py-2 text-sm text-foreground"
-              >
-                {OPERATORS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => updateRule(rule.id, "operator", v)}
+                options={operatorsForField(rule.field)}
+                className="w-40"
+              />
               <input
                 value={rule.value}
                 onChange={(e) => updateRule(rule.id, "value", e.target.value)}
                 placeholder="Value"
-                className="min-w-24 flex-1 rounded-lg border border-border bg-background px-2 py-2 text-sm text-foreground outline-none"
+                className="h-9 min-w-24 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
               <button
                 type="button"
@@ -572,10 +635,7 @@ export function SegmentsView() {
                       {segment.name}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {segment.description ??
-                        (segment.updatedAt
-                          ? `synced ${formatRelativeTime(segment.updatedAt) ?? "recently"}`
-                          : "rule segment")}
+                      {segment.description ?? "Rule-based segment"}
                     </span>
                   </span>
                   <span className="shrink-0 text-right">

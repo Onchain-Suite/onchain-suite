@@ -724,7 +724,10 @@ export const intelligenceService = {
    * exist yet, in which case the caller treats a rejection as "no live count".
    */
   async previewSegment(
-    body: { rules?: unknown },
+    body: {
+      match: "AND" | "OR";
+      conditions: { field: string; operator: string; value: number }[];
+    },
     orgId?: string,
     options?: { signal?: AbortSignal }
   ): Promise<IntelligenceSegmentPreview> {

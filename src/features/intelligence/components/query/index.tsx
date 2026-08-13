@@ -4,7 +4,6 @@ import {
   ArrowPathIcon,
   ArrowUturnLeftIcon,
   BoltIcon,
-  ChatBubbleLeftRightIcon,
   CheckCircleIcon,
   CheckIcon,
   ChevronUpIcon,
@@ -203,18 +202,6 @@ const createStructuredRowKey = (
       ? seed
       : [scope, JSON.stringify(row)].filter(Boolean).join("|");
   return `${scope}-${hashString(fallbackSeed)}`;
-};
-
-const createStableLineKeys = (lines: string[], scope: string) => {
-  const seen = new Map<string, number>();
-  return lines.map((line) => {
-    const count = seen.get(line) ?? 0;
-    seen.set(line, count + 1);
-    return {
-      key: `${scope}-${hashString(line)}-${count}`,
-      line,
-    };
-  });
 };
 
 const collectObjectCandidates = (
@@ -627,17 +614,6 @@ interface ChatMessage {
   queryId?: string;
   structuredResult?: IntelligenceGoldrushMcpStructuredResult | null;
 }
-
-const MATRIX_GLYPHS =
-  "01ABCDEF0123456789<>[]{}$#@&*+-=/\\\\|::;._MCPCHAINQUERY";
-
-const buildMatrixFrame = (rows = 10, columns = 30) =>
-  Array.from({ length: rows }, () =>
-    Array.from({ length: columns }, () => {
-      if (Math.random() < 0.18) return " ";
-      return MATRIX_GLYPHS[Math.floor(Math.random() * MATRIX_GLYPHS.length)];
-    }).join("")
-  );
 
 const getFallbackReasoningActivity = (
   recovering: boolean,
@@ -2498,35 +2474,8 @@ export function QueryTab({
   return (
     <div className="space-y-4">
       {activeSurface === "chat" ? (
-        <div className="relative overflow-hidden rounded-[32px] border border-primary/15 bg-card shadow-[0_44px_140px_-72px_rgba(55,98,255,0.78)]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(88,123,255,0.2),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(46,164,255,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_24%,transparent_76%,rgba(255,255,255,0.02))]" />
-          <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(119,137,255,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(119,137,255,0.12)_1px,transparent_1px)] [background-size:28px_28px]" />
-          <div className="relative grid min-h-[560px] grid-rows-[auto_1fr_auto] md:min-h-[760px]">
-            <div className="flex items-start justify-between border-b border-border/70 px-5 py-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-primary/20 bg-primary/10 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                    <ChatBubbleLeftRightIcon
-                      className="h-4.5 w-4.5"
-                      aria-hidden="true"
-                    />
-                  </div>
-                  <div>
-                    <div className="mt-1 text-sm font-medium text-foreground">
-                      Intelligence Chat
-                    </div>
-                  </div>
-                </div>
-                {activeConversationId ? (
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full bg-muted/40 px-3 py-1.5 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                      Thread {truncateMiddle(activeConversationId, 6, 4)}
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="relative grid min-h-[520px] grid-rows-[1fr_auto] md:min-h-[640px]">
             <div className="overflow-y-auto px-5 py-6">
               <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
                 {chatMessages.length > 0 ? (
@@ -2838,17 +2787,6 @@ export function QueryTab({
                           </button>
                         );
                       })}
-                    </div>
-
-                    <div className="mt-6 w-full max-w-xl overflow-hidden rounded-xl border border-border bg-card px-3 py-2">
-                      <div className="ocs-anim-hash-flicker truncate font-mono text-[10px] leading-5 tracking-[0.12em] text-primary/60">
-                        {createStableLineKeys(
-                          buildMatrixFrame(1, 60),
-                          "empty-matrix"
-                        )
-                          .map(({ line }) => line)
-                          .join("")}
-                      </div>
                     </div>
                   </div>
                 )}

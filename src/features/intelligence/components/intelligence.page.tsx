@@ -147,8 +147,12 @@ export default function IntelligencePage() {
       ? segmentsMetricsQuery.data.segmentsCount
       : null;
 
+  // Left-aligned underline tabs. The shadcn TabsTrigger primitive bakes in
+  // `flex-1` + a boxed active fill/shadow, so we explicitly neutralize those
+  // (flex-none, transparent active bg in light AND dark, no shadow) and colour
+  // only the bottom border on the active tab.
   const TAB_TRIGGER_CLASS =
-    "relative gap-2 rounded-none border-b-2 border-transparent bg-transparent px-1 pb-2.5 text-sm font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground";
+    "relative h-auto flex-none gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-2.5 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-b-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:border-b-primary dark:data-[state=active]:bg-transparent";
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">

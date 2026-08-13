@@ -193,6 +193,28 @@ const eslintConfig = [
       "import/newline-after-import": "error",
       "import/no-duplicates": "error",
       "import/no-unresolved": "off",
+      // Guard against importing a package that is NOT declared in package.json
+      // (production deps for app code; devDeps allowed only in tests/config).
+      // This catches "installed locally but never committed to package.json" at
+      // lint time - the exact failure that broke a prod build (cloudinary was
+      // imported by the blog but only lived in a local node_modules), before it
+      // reaches a clean CI/Vercel install.
+      "import/no-extraneous-dependencies": [
+        "error",
+        {
+          devDependencies: [
+            "**/*.test.{ts,tsx}",
+            "**/*.spec.{ts,tsx}",
+            "**/*.config.{ts,mts,cts,mjs,cjs,js}",
+            "**/test/**",
+            "**/tests/**",
+            "eslint.config.mjs",
+            "vitest.config.ts",
+          ],
+          optionalDependencies: false,
+          peerDependencies: false,
+        },
+      ],
       "unused-imports/no-unused-imports": "error",
       "unused-imports/no-unused-vars": [
         "warn",

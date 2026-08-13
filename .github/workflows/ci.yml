@@ -31,18 +31,11 @@ jobs:
       - name: Typecheck
         run: bun run type-check
 
-      # Suites quarantined with pre-existing failures (MCP stream mocks, the
-      # in-app integration tab, and two suites that assert pre-redesign UI:
-      # the audience-step "links" copy and the campaigns list view before it
-      # moved to the reference table). Fix them, then remove the excludes so
-      # they gate again. New failures elsewhere still block.
+      # The whole suite gates now - the previously-quarantined suites (MCP
+      # stream mocks, the in-app integration tab, the audience-step links, and
+      # the campaigns list view) were fixed and pass. Any failure blocks.
       - name: Tests
-        run: >
-          bunx vitest run
-          --exclude "src/features/intelligence/components/query/index.test.tsx"
-          --exclude "src/features/settings/components/integrations/inapp.test.tsx"
-          --exclude "src/features/campaigns/components/campaign-form/audience-step.test.tsx"
-          --exclude "src/features/campaigns/pages/list.test.tsx"
+        run: bun run test:run
 
   build:
     name: Next build

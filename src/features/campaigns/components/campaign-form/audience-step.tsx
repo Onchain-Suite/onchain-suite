@@ -533,6 +533,12 @@ export function AudienceStep({
     typeof v === "number" && Number.isFinite(v) ? v : null;
   const suppressedCount = asCount(estimateBreakdown?.suppressed);
   const internalCount = asCount(estimateBreakdown?.internal);
+  // `missingEmail` = selected contacts with no email address at all (wallet-only
+  // contacts, which an email campaign can't reach). `totalWallets` is the whole
+  // selected audience, not a wallet count - so the copy says "recipients", and
+  // the banner only shows when someone is actually skipped (never "0 of N").
+  const missingEmailCount = asCount(estimateBreakdown?.missingEmail);
+  const totalRecipientCount = asCount(estimateBreakdown?.totalWallets);
   const exclusions = [
     {
       key: "suppressed",
@@ -789,18 +795,20 @@ export function AudienceStep({
           </p>
         ) : null}
 
-        {!isPush ? (
+        {!isPush &&
+        missingEmailCount !== null &&
+        missingEmailCount > 0 &&
+        totalRecipientCount !== null ? (
           <div className="flex gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-600 dark:text-amber-400">
             <ExclamationTriangleIcon
               className="size-5 shrink-0"
               aria-hidden="true"
             />
             <p>
-              {asCount(estimateBreakdown?.missingEmail) !== null &&
-              asCount(estimateBreakdown?.totalWallets) !== null
-                ? `${asCount(estimateBreakdown?.missingEmail)?.toLocaleString()} of ${asCount(estimateBreakdown?.totalWallets)?.toLocaleString()} wallets don't have a verified email and will be skipped. `
-                : "Wallets without a verified email are skipped on email campaigns - "}
-              switch to <span className="font-medium">In-app push</span> to
+              {`${missingEmailCount.toLocaleString()} of ${totalRecipientCount.toLocaleString()} recipient${
+                totalRecipientCount === 1 ? "" : "s"
+              } don't have an email address and will be skipped. `}
+              Switch to <span className="font-medium">In-app push</span> to
               reach more.
             </p>
           </div>

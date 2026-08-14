@@ -13,6 +13,13 @@ import {
   FormMessage,
 } from "@/ui/form";
 import { Input } from "@/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/ui/select";
 
 import type { CampaignFormData } from "../../validations";
 import { SubjectLineInput } from "./subject-line-input";
@@ -101,23 +108,29 @@ export function EmailMessageForm({
             <FormItem>
               <FormLabel className="text-sm font-medium">Send as</FormLabel>
               <FormControl>
-                <select
+                <Select
                   value={matchesVerifiedSender ? (field.value ?? "") : ""}
-                  onChange={(e) => pickSender(e.target.value)}
-                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  onValueChange={(value) => pickSender(value)}
                 >
-                  {!matchesVerifiedSender ? (
-                    <option value="" disabled>
-                      Select a verified sender
-                    </option>
-                  ) : null}
-                  {verifiedSenderIdentities.map((identity) => (
-                    <option key={identity.id} value={identity.email}>
-                      {identity.name} · {identity.email}
-                      {identity.isDefault ? " (Default)" : ""}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-10 w-full rounded-xl border-border bg-background text-sm">
+                    <SelectValue placeholder="Select a verified sender" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {verifiedSenderIdentities.map((identity) => (
+                      <SelectItem key={identity.id} value={identity.email}>
+                        <span className="flex flex-col text-left">
+                          <span className="text-sm font-medium text-foreground">
+                            {identity.name}
+                            {identity.isDefault ? " · Default" : ""}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {identity.email}
+                          </span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </FormControl>
               <FormDescription>
                 Verified senders only - manage them in{" "}

@@ -84,6 +84,8 @@ import {
   intelligenceService,
 } from "@/features/intelligence/intelligence.service";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
+import { LIBRARY_EMAIL_TEMPLATES } from "@/features/templates/library-templates";
+import { templatesService } from "@/features/templates/templates.service";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 import { useActiveTimezone } from "@/shared/hooks/client/use-timezones";
 
@@ -553,9 +555,21 @@ function CampaignPreviewStep({
       await campaignsService.sendTest(campaignId, { to });
       toast.success(`Test sent to ${to}.`);
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "Couldn't send the test email."
+      // Surface the backend reason without the technical "[HTTP nnn]" prefix,
+      // and translate the two most common rejections into an action.
+      const raw = (e instanceof Error ? e.message : "").replace(
+        /^\[HTTP \d+\]\s*/,
+        ""
       );
+      let friendly = raw || "Couldn't send the test email.";
+      if (/verified|SENDER_NOT_VERIFIED|fallback sender/i.test(raw)) {
+        friendly =
+          "Test not sent: choose a verified sender first (Settings → Sending). Test emails can't go from the platform fallback address.";
+      } else if (/content|empty|body|render|template/i.test(raw)) {
+        friendly =
+          "Test not sent: add email content or pick a template before sending a test.";
+      }
+      toast.error(friendly);
     } finally {
       setIsSendingTest(false);
     }
@@ -1187,6 +1201,16 @@ export function CreateCampaignPage() {
     retry: false,
     queryFn: () =>
       senderIdentitiesService.listSenderIdentities(organizationId ?? undefined),
+  });
+
+  // Saved templates, so the summary can show a template's NAME instead of its
+  // backend id (library templates resolve locally without a fetch).
+  const summaryTemplatesQuery = useQuery({
+    queryKey: ["templates", "list", "campaign-summary", organizationId],
+    enabled: Boolean(organizationId),
+    staleTime: 5 * 60_000,
+    retry: false,
+    queryFn: () => templatesService.list({}, organizationId ?? undefined),
   });
 
   const currentMemberAccessQuery = useQuery({
@@ -1993,6 +2017,20 @@ export function CreateCampaignPage() {
     return initials || "APP";
   }, [activeOrg?.name]);
   const wizTemplate = form.watch("selectedTemplate") ?? "";
+  const wizTemplateName = useMemo(() => {
+    if (!wizTemplate) return "";
+    const saved = (summaryTemplatesQuery.data ?? []).find(
+      (t) => t.id === wizTemplate
+    );
+    if (saved?.name) return saved.name;
+    const lib = LIBRARY_EMAIL_TEMPLATES.find((t) => t.id === wizTemplate);
+    if (lib?.name) return lib.name;
+    // Unknown id (list still loading or a deleted template): never print a raw
+    // backend id on the summary.
+    const looksLikeId =
+      !wizTemplate.includes(" ") && /^[a-z0-9]{16,}$/i.test(wizTemplate);
+    return looksLikeId ? "Selected template" : wizTemplate;
+  }, [wizTemplate, summaryTemplatesQuery.data]);
   const wizSummary = {
     campaignName: form.watch("campaignName") ?? "",
     channel: wizIsPush ? "In-app push" : "Email",
@@ -2002,7 +2040,7 @@ export function CreateCampaignPage() {
           .map((value) => (value ?? "").trim())
           .filter(Boolean)
           .join(" · ") || "-",
-    template: wizTemplate.length > 0 ? wizTemplate : "-",
+    template: wizTemplateName.length > 0 ? wizTemplateName : "-",
     delivery: sendOption === "schedule" ? "Scheduled" : "Send immediately",
   };
 

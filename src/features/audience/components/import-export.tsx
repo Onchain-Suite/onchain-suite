@@ -643,6 +643,86 @@ export default function ImportExportPage() {
     );
   }, [exportHistory]);
 
+  // Reconcile history rows that are still non-terminal. Import jobs outlive this
+  // page: if you start one and navigate away, the row is persisted as "queued"
+  // and nothing ever re-polls it, so it shows "Queued" forever even after the
+  // worker finished. On mount (and every few seconds while any row is pending)
+  // re-fetch each pending job and settle its row. The key is the set of pending
+  // ids, so the interval tears down once everything is terminal.
+  const pendingImportKey = useMemo(
+    () =>
+      importHistory
+        .filter((x) => x.status === "queued" || x.status === "processing")
+        .map((x) => x.jobId)
+        .join(","),
+    [importHistory]
+  );
+
+  useEffect(() => {
+    if (!pendingImportKey) return;
+    const ids = pendingImportKey.split(",").filter(Boolean);
+    if (ids.length === 0) return;
+    let cancelled = false;
+
+    const sig = (x: ImportHistoryItem) =>
+      [
+        x.status,
+        x.processedRows,
+        x.createdCount,
+        x.updatedCount,
+        x.errorCount,
+        x.warningCount,
+        x.quarantinedCount,
+      ].join("|");
+
+    const reconcile = async () => {
+      const results = await Promise.all(
+        ids.map(async (jobId) => {
+          try {
+            return { jobId, status: await audienceService.getImportJob(jobId) };
+          } catch {
+            return null;
+          }
+        })
+      );
+      if (cancelled) return;
+      setImportHistory((prev) => {
+        let changed = false;
+        const next = prev.map((x) => {
+          const hit = results.find((r) => r?.jobId === x.jobId);
+          if (!hit?.status) return x;
+          const s = hit.status;
+          const merged: ImportHistoryItem = {
+            ...x,
+            status: (String(s.state) as ImportHistoryStatus) || x.status,
+            processedRows: s.processedRows ?? x.processedRows,
+            totalRows: s.totalRows ?? x.totalRows,
+            createdCount: s.createdCount ?? x.createdCount,
+            updatedCount: s.updatedCount ?? x.updatedCount,
+            errorCount: s.errorCount ?? x.errorCount,
+            warningCount: s.warnings?.length ?? x.warningCount,
+            quarantinedCount:
+              typeof s.quarantinedCount === "number"
+                ? s.quarantinedCount
+                : x.quarantinedCount,
+          };
+          if (sig(merged) !== sig(x)) changed = true;
+          return merged;
+        });
+        return changed ? next : prev;
+      });
+    };
+
+    reconcile().catch(() => undefined);
+    const timer = window.setInterval(() => {
+      reconcile().catch(() => undefined);
+    }, 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [pendingImportKey]);
+
   const parseCSV = (text: string) => {
     const lines = text.trim().split("\n");
     const [headerLine] = lines;

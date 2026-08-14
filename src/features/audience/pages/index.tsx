@@ -443,6 +443,12 @@ export function AudiencePages() {
         );
         return;
       }
+      if (/\b404\b|not found/i.test(msg)) {
+        toast.error(
+          "Bulk delete isn't available on the connected API yet. Update the backend, then try again."
+        );
+        return;
+      }
       toast.error("We couldn't delete the contacts. Please try again.");
     },
   });

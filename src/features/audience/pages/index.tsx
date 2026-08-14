@@ -1613,6 +1613,13 @@ function ImportProgressBanner({
       ? status.quarantinedCount
       : null;
   const errorCount = Number(status.errorCount ?? 0);
+  // The import-time email verifier suppresses undeliverable addresses. `bad` =
+  // newly suppressed this import; `suppressed` = already on the suppression list
+  // before it. Both mean the row landed but is NOT email-reachable - the single
+  // most important thing to surface, since an all-suppressed import otherwise
+  // reads as a clean success while nobody is actually mailable.
+  const suppressedBad = Number(status.verification?.bad ?? 0);
+  const alreadySuppressed = Number(status.verification?.suppressed ?? 0);
   const doneParts = [
     `${Number(status.createdCount ?? 0).toLocaleString()} imported`,
     `${Number(status.updatedCount ?? 0).toLocaleString()} updated`,
@@ -1620,6 +1627,14 @@ function ImportProgressBanner({
   ];
   if (errorCount > 0) {
     doneParts.push(`${errorCount.toLocaleString()} errors`);
+  }
+  if (suppressedBad > 0) {
+    doneParts.push(
+      `${suppressedBad.toLocaleString()} suppressed (undeliverable)`
+    );
+  }
+  if (alreadySuppressed > 0) {
+    doneParts.push(`${alreadySuppressed.toLocaleString()} already suppressed`);
   }
   if (warningCount > 0) {
     doneParts.push(`${warningCount.toLocaleString()} without a wallet`);
@@ -1632,8 +1647,15 @@ function ImportProgressBanner({
   const failureMessage =
     status.errorSample?.[0]?.message ??
     "Some rows couldn't be imported. Open Import to download the error report.";
-  // A job with warnings/quarantine landed, but not cleanly - reflect that.
-  const doneWithNotes = done && (warningCount > 0 || (quarantined ?? 0) > 0);
+  // A job that suppressed / quarantined / dropped-wallet rows landed, but not
+  // cleanly - reflect that so the banner never reads as a clean success when
+  // none of the imported contacts are actually reachable.
+  const doneWithNotes =
+    done &&
+    (warningCount > 0 ||
+      (quarantined ?? 0) > 0 ||
+      suppressedBad > 0 ||
+      alreadySuppressed > 0);
 
   const tone = failed
     ? "border-destructive/30 bg-destructive/5"

@@ -9,6 +9,7 @@ import {
   DocumentTextIcon,
   ExclamationCircleIcon,
   InformationCircleIcon,
+  MinusCircleIcon,
   TableCellsIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -74,7 +75,14 @@ interface CSVColumn {
 }
 
 type ImportHistoryStatus =
-  "queued" | "processing" | "completed" | "failed" | "cancelled";
+  | "queued"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  // Client-only terminal state: the backend no longer knows this job (404 on
+  // poll - e.g. a job from an older backend/DB), so stop spinning "Queued".
+  | "expired";
 
 type ExportHistoryStatus =
   "queued" | "processing" | "completed" | "failed" | "cancelled";
@@ -679,9 +687,19 @@ export default function ImportExportPage() {
       const results = await Promise.all(
         ids.map(async (jobId) => {
           try {
-            return { jobId, status: await audienceService.getImportJob(jobId) };
-          } catch {
-            return null;
+            return {
+              jobId,
+              status: await audienceService.getImportJob(jobId),
+              notFound: false,
+            };
+          } catch (err) {
+            // Distinguish "job is gone" (404) from a transient/offline error:
+            // only the former is terminal. The service throws Error with the
+            // axios error as `cause`, so read the real HTTP status off that.
+            const httpStatus = (
+              err as { cause?: { response?: { status?: number } } }
+            )?.cause?.response?.status;
+            return { jobId, status: null, notFound: httpStatus === 404 };
           }
         })
       );
@@ -690,7 +708,16 @@ export default function ImportExportPage() {
         let changed = false;
         const next = prev.map((x) => {
           const hit = results.find((r) => r?.jobId === x.jobId);
-          if (!hit?.status) return x;
+          if (!hit) return x;
+          // Backend can't find the job anymore: settle the row as expired so it
+          // stops spinning "Queued" forever.
+          if (!hit.status) {
+            if (hit.notFound && x.status !== "expired") {
+              changed = true;
+              return { ...x, status: "expired" as ImportHistoryStatus };
+            }
+            return x;
+          }
           const s = hit.status;
           const merged: ImportHistoryItem = {
             ...x,
@@ -1660,6 +1687,7 @@ export default function ImportExportPage() {
                         const isPending =
                           item.status === "queued" ||
                           item.status === "processing";
+                        const isExpired = item.status === "expired";
                         // A "completed" import that discarded wallets or held
                         // rows landed, but not cleanly - flag it amber so the
                         // history never shows a clean green check on a job the
@@ -1675,25 +1703,30 @@ export default function ImportExportPage() {
                                   : "Failed",
                               className: "bg-destructive/10 text-destructive",
                             }
-                          : hasNotes
+                          : isExpired
                             ? {
-                                label: "Completed with warnings",
-                                className:
-                                  "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                                label: "No longer available",
+                                className: "bg-muted text-muted-foreground",
                               }
-                            : isDone
+                            : hasNotes
                               ? {
-                                  label: "Completed",
+                                  label: "Completed with warnings",
                                   className:
-                                    "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                                    "bg-amber-500/10 text-amber-600 dark:text-amber-400",
                                 }
-                              : {
-                                  label:
-                                    item.status === "queued"
-                                      ? "Queued"
-                                      : "Processing",
-                                  className: "bg-primary/10 text-primary",
-                                };
+                              : isDone
+                                ? {
+                                    label: "Completed",
+                                    className:
+                                      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                                  }
+                                : {
+                                    label:
+                                      item.status === "queued"
+                                        ? "Queued"
+                                        : "Processing",
+                                    className: "bg-primary/10 text-primary",
+                                  };
                         const notes: string[] = [];
                         if (typeof item.processedRows === "number") {
                           notes.push(
@@ -1751,6 +1784,11 @@ export default function ImportExportPage() {
                               {isFailed ? (
                                 <ExclamationCircleIcon
                                   className="h-5 w-5 text-destructive"
+                                  aria-hidden="true"
+                                />
+                              ) : isExpired ? (
+                                <MinusCircleIcon
+                                  className="h-5 w-5 text-muted-foreground"
                                   aria-hidden="true"
                                 />
                               ) : hasNotes ? (

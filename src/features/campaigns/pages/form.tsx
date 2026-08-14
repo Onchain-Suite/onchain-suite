@@ -1972,7 +1972,7 @@ export function CreateCampaignPage() {
     const at = email.indexOf("@");
     const host = at >= 0 ? email.slice(at + 1).trim() : "";
     if (host.length > 0) return host;
-    // The org's own simple-name domain (e.g. "vault77.com"), never our
+    // The org's own simple-name domain (e.g. "acme.com"), never our
     // platform host.
     const slug = (activeOrg?.slug ?? activeOrg?.name ?? "")
       .trim()

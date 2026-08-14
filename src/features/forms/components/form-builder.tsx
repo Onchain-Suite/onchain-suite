@@ -965,7 +965,7 @@ function SettingsPanel({
           <Input
             className="h-9"
             value={display.brandName}
-            placeholder="Vault77"
+            placeholder="Acme"
             onChange={(e) => setDisp({ brandName: e.target.value })}
           />
         </Field>
@@ -1127,7 +1127,7 @@ function SettingsPanel({
             <Input
               className="h-9"
               value={after.redirectUrl}
-              placeholder="https://vault77.com/welcome"
+              placeholder="https://acme.com/welcome"
               onChange={(e) => setAfter({ redirectUrl: e.target.value })}
             />
           </Field>
@@ -1186,7 +1186,7 @@ function SettingsPanel({
             <Input
               className="h-9"
               value={origins}
-              placeholder="https://vault77.xyz"
+              placeholder="https://acme.xyz"
               onChange={(e) => onOrigins(e.target.value)}
             />
             <p className="mt-1 text-xs text-muted-foreground">

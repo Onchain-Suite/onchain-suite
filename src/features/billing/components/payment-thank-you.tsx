@@ -64,7 +64,33 @@ export function PaymentThankYou() {
     (searchParams?.get("status") ?? "").trim().toLowerCase()
   );
 
-  const planName = pending?.plan ?? "";
+  // The pending checkout stores the plan as a backend id/slug (e.g.
+  // "cmrgnlkg500003oiszhyn1fvi"), never a display name - resolve it against the
+  // plans catalog so we never show a raw id on the receipt.
+  const plansQuery = useQuery({
+    queryKey: ["billing", "plans"],
+    queryFn: () => billingService.getPlans(),
+    staleTime: 5 * 60_000,
+  });
+
+  const rawPlan = (pending?.plan ?? "").trim();
+  const planName = useMemo(() => {
+    if (!rawPlan) return "";
+    const key = rawPlan.toLowerCase();
+    const match = (plansQuery.data?.plans ?? []).find((p) => {
+      const id = typeof p.id === "string" ? p.id.toLowerCase() : "";
+      const slug = typeof p.slug === "string" ? p.slug.toLowerCase() : "";
+      const name = typeof p.name === "string" ? p.name.toLowerCase() : "";
+      return key === id || key === slug || key === name;
+    });
+    if (typeof match?.name === "string" && match.name) return match.name;
+    // No catalog match: never render a raw backend id. A long id-like token
+    // (no spaces) collapses to empty so the copy falls back to "new plan".
+    const looksLikeId =
+      !rawPlan.includes(" ") && /^[a-z0-9]{16,}$/i.test(rawPlan);
+    return looksLikeId ? "" : rawPlan;
+  }, [plansQuery.data, rawPlan]);
+
   const providerLabel =
     pending?.paymentMethod === "card" ||
     pending?.mode?.toLowerCase().includes("stripe") === true

@@ -37,7 +37,7 @@ const readString = (source: unknown, keys: string[]): string => {
   return "";
 };
 
-/** "no-reply@vault777.com" → "vault777.com"; a bare domain passes through. */
+/** "no-reply@acme.com" → "acme.com"; a bare domain passes through. */
 export const domainFromSender = (sender: string): string => {
   const trimmed = sender.trim();
   if (trimmed.length === 0) return "";

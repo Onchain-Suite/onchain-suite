@@ -2,7 +2,7 @@
 
 import { ArrowLeftIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -44,6 +44,15 @@ export function EmbeddedEmailEditor({
   const queryClient = useQueryClient();
   const orgId = getSelectedOrganizationId() ?? undefined;
   const [ready, setReady] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // The builder calls the backend directly with the editor token, so it must hit
+  // the SAME backend that issued the token. Prefer our public backend; the
+  // builder falls back to its baked default if we can't supply one.
+  const apiBaseUrl = useMemo(() => {
+    const value = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").trim();
+    return /^https:\/\//i.test(value) ? value : "";
+  }, []);
 
   // A mutation (not a query) because minting a session writes a token hash onto
   // the campaign server-side; we want exactly one per editor open.
@@ -70,18 +79,22 @@ export function EmbeddedEmailEditor({
       parentOrigin: typeof window !== "undefined" ? window.location.origin : "",
     });
     if (orgId) params.set("orgId", orgId);
-    // The builder calls the backend directly with the token, so it must hit the
-    // SAME backend that issued it. Pass our public backend when configured;
-    // otherwise the builder falls back to its baked default.
-    const apiBase = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").trim();
-    if (/^https:\/\//i.test(apiBase)) params.set("apiBaseUrl", apiBase);
+    if (apiBaseUrl) params.set("apiBaseUrl", apiBaseUrl);
     return `${base}/?${params.toString()}`;
-  }, [session, campaignId, orgId]);
+  }, [session, campaignId, orgId, apiBaseUrl]);
 
   const allowedOrigin = useMemo(
     () => originOf(session?.editorUrl ?? ""),
     [session?.editorUrl]
   );
+
+  // The backend returns a placeholder editorUrl ("editor.example.com") when its
+  // EDITOR_URL env is unset - that host doesn't resolve, so the iframe would
+  // just show a broken frame. Detect it and tell the operator what to fix.
+  const editorConfigured = useMemo(() => {
+    const url = session?.editorUrl ?? "";
+    return url.length > 0 && !/(^|\.)example\.com/i.test(url);
+  }, [session?.editorUrl]);
 
   const leave = () => {
     // The builder persists via the editor token; refresh what the wizard reads.
@@ -91,6 +104,29 @@ export function EmbeddedEmailEditor({
     queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
     onBack();
   };
+
+  // The embedded builder does a handshake: on load it posts EDITOR_READY +
+  // REQUEST_HOST_CONFIG (retrying on an interval) and waits for the host to push
+  // its config back via a `HOST_CONFIG` message. URL params alone are ignored in
+  // embedded mode, so without this reply it errors "Missing campaignId. Host app
+  // must provide campaign via HOST_CONFIG."
+  const sendHostConfig = useCallback(() => {
+    const win = iframeRef.current?.contentWindow;
+    const token = session?.token;
+    if (!win || !allowedOrigin || !token) return;
+    const payload: Record<string, unknown> = {
+      type: "HOST_CONFIG",
+      campaignId,
+      campaign: campaignId,
+      token,
+    };
+    if (orgId) payload.orgId = orgId;
+    if (apiBaseUrl) {
+      payload.apiBaseUrl = apiBaseUrl;
+      payload.apiUrl = apiBaseUrl;
+    }
+    win.postMessage(payload, allowedOrigin);
+  }, [allowedOrigin, session?.token, campaignId, orgId, apiBaseUrl]);
 
   useEffect(() => {
     if (!allowedOrigin) return;
@@ -105,6 +141,12 @@ export function EmbeddedEmailEditor({
             : "";
       if (type === "EDITOR_READY" || type === "ready") {
         setReady(true);
+        sendHostConfig();
+      } else if (
+        type === "REQUEST_HOST_CONFIG" ||
+        type === "INIT_EMAIL_BUILDER"
+      ) {
+        sendHostConfig();
       } else if (type === "close") {
         leave();
       }
@@ -113,7 +155,7 @@ export function EmbeddedEmailEditor({
     return () => window.removeEventListener("message", onMessage);
     // `leave` is stable enough for this lifecycle; re-binding per render is fine.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowedOrigin, campaignId]);
+  }, [allowedOrigin, campaignId, sendHostConfig]);
 
   return (
     <div className="flex h-full flex-col">
@@ -154,7 +196,22 @@ export function EmbeddedEmailEditor({
               </Button>
             </div>
           </div>
-        ) : iframeSrc ? (
+        ) : session && !editorConfigured ? (
+          <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+            <p className="max-w-md text-sm text-muted-foreground">
+              The email editor isn&apos;t configured yet. Point the
+              backend&apos;s{" "}
+              <span className="font-mono text-foreground">EDITOR_URL</span> at{" "}
+              <span className="font-mono text-foreground">
+                https://editor.onchainsuite.com
+              </span>{" "}
+              (it currently returns a placeholder host), then reopen the editor.
+            </p>
+            <Button variant="outline" onClick={onBack}>
+              Back to campaign
+            </Button>
+          </div>
+        ) : iframeSrc && editorConfigured ? (
           <>
             {!ready ? (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -165,8 +222,15 @@ export function EmbeddedEmailEditor({
               </div>
             ) : null}
             <iframe
+              ref={iframeRef}
               title="Email editor"
               src={iframeSrc}
+              onLoad={() => {
+                setReady(true);
+                // Proactive first push in case the builder's REQUEST_HOST_CONFIG
+                // fired before our listener attached; it also retries on its own.
+                sendHostConfig();
+              }}
               className="h-full w-full border-0"
               allow="clipboard-write"
             />

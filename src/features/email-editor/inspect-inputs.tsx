@@ -8,6 +8,14 @@ import {
 } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import { cn } from "@/lib/utils";
 
 import {
@@ -218,26 +226,26 @@ export function FontFamilySelect({
 }) {
   return (
     <Field label={label}>
-      <select
+      <Select
         value={value ?? "__inherit__"}
-        onChange={(e) =>
-          onChange(
-            e.target.value === "__inherit__"
-              ? null
-              : (e.target.value as FontFamily)
-          )
+        onValueChange={(v) =>
+          onChange(v === "__inherit__" ? null : (v as FontFamily))
         }
-        className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
       >
-        {allowInherit ? (
-          <option value="__inherit__">Match email settings</option>
-        ) : null}
-        {FONT_FAMILIES.map((f) => (
-          <option key={f.key} value={f.key}>
-            {f.label}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger className="h-9 w-full rounded-lg text-sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {allowInherit ? (
+            <SelectItem value="__inherit__">Match email settings</SelectItem>
+          ) : null}
+          {FONT_FAMILIES.map((f) => (
+            <SelectItem key={f.key} value={f.key}>
+              {f.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </Field>
   );
 }

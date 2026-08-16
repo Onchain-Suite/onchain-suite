@@ -3,6 +3,7 @@
 import { ArrowLeftIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
@@ -147,6 +148,20 @@ export function EmbeddedEmailEditor({
         type === "INIT_EMAIL_BUILDER"
       ) {
         sendHostConfig();
+      } else if (type === "EMAIL_SAVED") {
+        // The builder emits EMAIL_SAVED after a successful save (it never emits
+        // `close`). This is the signal to persist-and-return: refresh the
+        // campaign's saved content and go back so the user can send.
+        toast.success("Email saved.");
+        leave();
+      } else if (type === "EMAIL_AUTH_REQUIRED") {
+        // The builder's own API call to the backend was rejected (expired token,
+        // or the API doesn't allow the editor origin via CORS). Surface it so a
+        // silent no-save is explained, and stop the loading spinner.
+        setReady(true);
+        toast.error(
+          "The editor couldn't save: its session was rejected by the API. Reopen the editor and try again."
+        );
       } else if (type === "close") {
         leave();
       }

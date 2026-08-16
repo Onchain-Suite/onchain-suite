@@ -13,6 +13,20 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // PayloadCMS loads `sharp` on every getPayload() call (blog reads + admin).
+  // `withPayload` marks sharp as a server-external package, so Next traces the
+  // sharp JS - but sharp `dlopen`s its native libvips from the SEPARATE
+  // `@img/sharp-libvips-linux-x64` package at runtime, which the tracer can't
+  // follow. Without these the Vercel (linux-x64) function ships the sharp
+  // loader but not `libvips-cpp.so`, so /blog 500s with ERR_DLOPEN_FAILED.
+  // Force both linux-x64 native packages into every server function's trace.
+  // Globs that match nothing (e.g. a local macOS build) are a safe no-op.
+  outputFileTracingIncludes: {
+    "/**": [
+      "./node_modules/@img/sharp-linux-x64/**",
+      "./node_modules/@img/sharp-libvips-linux-x64/**",
+    ],
+  },
   images: {
     remotePatterns: [
       {

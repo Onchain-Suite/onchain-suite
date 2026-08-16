@@ -51,5 +51,29 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # Guard the production /blog 500 (ERR_DLOPEN_FAILED: libvips-cpp.so).
+      # PayloadCMS dlopens sharp's native libvips at runtime, so next.config.ts
+      # must trace the linux sharp packages into the server functions, AND sharp
+      # must actually load + run on linux-x64 (Vercel's runtime = this runner).
+      # This fails if the trace fix is removed, the linux binaries drop out of
+      # the lockfile, or sharp/libvips can't load on linux.
+      - name: Guard sharp/libvips native load (Vercel /blog)
+        run: |
+          node -e '
+            const fs = require("fs");
+            const cfg = fs.readFileSync("next.config.ts", "utf8");
+            if (!cfg.includes("sharp-libvips-linux-x64")) {
+              console.error("next.config.ts no longer traces @img/sharp-libvips-linux-x64 - /blog will 500 on Vercel (ERR_DLOPEN_FAILED). Restore outputFileTracingIncludes.");
+              process.exit(1);
+            }
+            let sharp;
+            try { sharp = require("sharp"); }
+            catch (e) { console.error("sharp failed to load on linux-x64:", e.message); process.exit(1); }
+            sharp({ create: { width: 1, height: 1, channels: 3, background: { r: 0, g: 0, b: 0 } } })
+              .png().toBuffer()
+              .then(() => console.log("OK: sharp + libvips load and run on linux-x64."))
+              .catch((e) => { console.error("sharp/libvips runtime failure on linux:", e.message); process.exit(1); });
+          '
+
       - name: Build
         run: bun run build

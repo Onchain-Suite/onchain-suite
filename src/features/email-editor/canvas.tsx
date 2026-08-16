@@ -70,10 +70,15 @@ function toCss(style: BlockStyle | undefined, keys: StyleKey[]): CSSProperties {
     else if (k === "borderColor") s.border = `1px solid ${v}`;
     else if (k === "borderRadius") s.borderRadius = `${v}px`;
     else if (k === "fontFamily") {
+      if (style.fontStack) continue; // fontStack wins over the preset
       const css = fontFamilyToCss(v as FontFamily);
       if (css) s.fontFamily = css;
-    } else if (k === "fontSize") s.fontSize = `${v}px`;
+    } else if (k === "fontStack") s.fontFamily = v as string;
+    else if (k === "fontSize") s.fontSize = `${v}px`;
     else if (k === "fontWeight") s.fontWeight = v as "bold" | "normal";
+    else if (k === "letterSpacing") s.letterSpacing = `${v}px`;
+    else if (k === "textTransform")
+      s.textTransform = v as CSSProperties["textTransform"];
     else if (k === "textAlign") s.textAlign = v as CSSProperties["textAlign"];
     else if (k === "padding") {
       const p = v as {
@@ -430,6 +435,14 @@ function BlockInner({
               padding: "10px 18px",
               fontWeight: 600,
               textAlign: "center",
+              ...toCss(node.data.style, [
+                "fontFamily",
+                "fontStack",
+                "fontSize",
+                "fontWeight",
+                "letterSpacing",
+                "textTransform",
+              ]),
             }}
           >
             {resolveSampleTags(p.text) || "Button"}

@@ -10,9 +10,12 @@ import { Button } from "@/components/ui/button";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import { campaignsService } from "@/features/campaigns/campaigns.service";
+import { templatesService } from "@/features/templates/templates.service";
 
 interface EmbeddedEmailEditorProps {
   campaignId: string;
+  /** When editing an existing saved template, saves update it in place. */
+  templateId?: string;
   title?: string;
   onBack: () => void;
 }
@@ -39,6 +42,7 @@ function originOf(url: string): string {
  */
 export function EmbeddedEmailEditor({
   campaignId,
+  templateId,
   title,
   onBack,
 }: EmbeddedEmailEditorProps) {
@@ -46,6 +50,11 @@ export function EmbeddedEmailEditor({
   const orgId = getSelectedOrganizationId() ?? undefined;
   const [ready, setReady] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  // The template this design maps to in "Email Saved": the one being edited, or
+  // the one we create on first save. Re-saves in the same session update it so
+  // we don't spawn a new template per save.
+  const savedTemplateIdRef = useRef<string>((templateId ?? "").trim());
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   // The builder calls the backend directly with the editor token, so it must hit
   // the SAME backend that issued the token. Prefer our public backend; the
@@ -106,6 +115,47 @@ export function EmbeddedEmailEditor({
     onBack();
   };
 
+  // The builder saves the design onto the CAMPAIGN. To make it a reusable
+  // "Email Saved" template the user can reselect, also materialize it as a
+  // /templates row (update the one being edited, else create one) and link it
+  // to the campaign so the wizard shows it selected and sendable.
+  const persistAsTemplate = useCallback(
+    async (payload: Record<string, unknown>) => {
+      const html = typeof payload.html === "string" ? payload.html : "";
+      const json = payload.document ?? payload.json;
+      const textVersion =
+        typeof payload.textVersion === "string" ? payload.textVersion : "";
+      const name = (title ?? "").trim() || "Untitled email";
+      const content = { html, json, textVersion, source: "email-builder" };
+      setSavingTemplate(true);
+      try {
+        let id = savedTemplateIdRef.current;
+        if (id) {
+          await templatesService.update(id, { name, content }, orgId);
+        } else {
+          const created = await templatesService.create(
+            { name, content },
+            orgId
+          );
+          id = typeof created?.id === "string" ? created.id.trim() : "";
+          savedTemplateIdRef.current = id;
+        }
+        if (id) {
+          await campaignsService
+            .setTemplate(campaignId, { templateId: id }, orgId)
+            .catch(() => undefined);
+        }
+        queryClient.invalidateQueries({ queryKey: ["templates"] });
+        return id.length > 0;
+      } catch {
+        return false;
+      } finally {
+        setSavingTemplate(false);
+      }
+    },
+    [title, orgId, campaignId, queryClient]
+  );
+
   // The embedded builder does a handshake: on load it posts EDITOR_READY +
   // REQUEST_HOST_CONFIG (retrying on an interval) and waits for the host to push
   // its config back via a `HOST_CONFIG` message. URL params alone are ignored in
@@ -150,10 +200,22 @@ export function EmbeddedEmailEditor({
         sendHostConfig();
       } else if (type === "EMAIL_SAVED") {
         // The builder emits EMAIL_SAVED after a successful save (it never emits
-        // `close`). This is the signal to persist-and-return: refresh the
-        // campaign's saved content and go back so the user can send.
-        toast.success("Email saved.");
-        leave();
+        // `close`). It already saved onto the campaign; also materialize it as a
+        // reusable "Email Saved" template, link it, then return so the user can
+        // select it and send.
+        const payload = isJsonObject(data)
+          ? isJsonObject(data.payload)
+            ? data.payload
+            : data
+          : {};
+        persistAsTemplate(payload).then((asTemplate) => {
+          toast.success(
+            asTemplate
+              ? "Saved to Email Saved. You can select it and send."
+              : "Email saved to this campaign."
+          );
+          leave();
+        });
       } else if (type === "EMAIL_AUTH_REQUIRED") {
         // The builder's own API call to the backend was rejected (expired token,
         // or the API doesn't allow the editor origin via CORS). Surface it so a
@@ -170,7 +232,7 @@ export function EmbeddedEmailEditor({
     return () => window.removeEventListener("message", onMessage);
     // `leave` is stable enough for this lifecycle; re-binding per render is fine.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowedOrigin, campaignId, sendHostConfig]);
+  }, [allowedOrigin, campaignId, sendHostConfig, persistAsTemplate]);
 
   return (
     <div className="flex h-full flex-col">
@@ -194,6 +256,15 @@ export function EmbeddedEmailEditor({
       </div>
 
       <div className="relative flex-1 bg-muted/30">
+        {savingTemplate ? (
+          <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-background/70 text-sm text-muted-foreground backdrop-blur-sm">
+            <ArrowPathIcon
+              className="h-5 w-5 animate-spin"
+              aria-hidden="true"
+            />
+            Saving template…
+          </div>
+        ) : null}
         {sessionMutation.isError ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
             <p className="max-w-sm text-sm text-muted-foreground">

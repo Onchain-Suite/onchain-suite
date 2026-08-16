@@ -21,6 +21,9 @@ function EditorScreen() {
 
   const campaignId = (searchParams?.get("campaign") ?? "").trim();
   const returnTo = (searchParams?.get("returnTo") ?? "").trim();
+  // Present when editing an existing saved template - saves update it in place
+  // instead of creating a new one.
+  const templateId = (searchParams?.get("template") ?? "").trim();
   const title = (
     searchParams?.get("templateName") ??
     searchParams?.get("subject") ??
@@ -64,6 +67,7 @@ function EditorScreen() {
     <FullScreen>
       <EmbeddedEmailEditor
         campaignId={campaignId}
+        templateId={templateId}
         title={title}
         onBack={goBack}
       />

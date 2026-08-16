@@ -83,6 +83,14 @@ export function EmbeddedEmailEditor({
     [session?.editorUrl]
   );
 
+  // The backend returns a placeholder editorUrl ("editor.example.com") when its
+  // EDITOR_URL env is unset - that host doesn't resolve, so the iframe would
+  // just show a broken frame. Detect it and tell the operator what to fix.
+  const editorConfigured = useMemo(() => {
+    const url = session?.editorUrl ?? "";
+    return url.length > 0 && !/(^|\.)example\.com/i.test(url);
+  }, [session?.editorUrl]);
+
   const leave = () => {
     // The builder persists via the editor token; refresh what the wizard reads.
     queryClient.invalidateQueries({
@@ -154,7 +162,22 @@ export function EmbeddedEmailEditor({
               </Button>
             </div>
           </div>
-        ) : iframeSrc ? (
+        ) : session && !editorConfigured ? (
+          <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+            <p className="max-w-md text-sm text-muted-foreground">
+              The email editor isn&apos;t configured yet. Point the
+              backend&apos;s{" "}
+              <span className="font-mono text-foreground">EDITOR_URL</span> at{" "}
+              <span className="font-mono text-foreground">
+                https://editor.onchainsuite.com
+              </span>{" "}
+              (it currently returns a placeholder host), then reopen the editor.
+            </p>
+            <Button variant="outline" onClick={onBack}>
+              Back to campaign
+            </Button>
+          </div>
+        ) : iframeSrc && editorConfigured ? (
           <>
             {!ready ? (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -167,6 +190,7 @@ export function EmbeddedEmailEditor({
             <iframe
               title="Email editor"
               src={iframeSrc}
+              onLoad={() => setReady(true)}
               className="h-full w-full border-0"
               allow="clipboard-write"
             />

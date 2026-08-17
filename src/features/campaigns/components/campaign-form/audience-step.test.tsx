@@ -109,14 +109,14 @@ describe("AudienceStep links", () => {
     ).toBeInTheDocument();
   });
 
-  it("explains the recipient options: segments, lists, contacts or everyone", () => {
+  it("explains the recipient options: segments, lists, tags, contacts or everyone", () => {
     // The step's lead-in describes what a recipient set can be built from - the
-    // rebuilt copy lists segments/lists/contacts/everyone instead of the old
+    // rebuilt copy lists segments/lists/tags/contacts/everyone instead of the old
     // "Pick individual contacts by email" text.
     renderStep();
 
     expect(
-      screen.getByText(/choose segments, lists, contacts, or everyone/i)
+      screen.getByText(/choose segments, lists, tags, contacts, or everyone/i)
     ).toBeInTheDocument();
   });
 });

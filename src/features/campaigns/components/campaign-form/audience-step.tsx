@@ -77,7 +77,7 @@ const getEstimatedRecipientsValue = (estimate: CampaignAudienceEstimate) => {
   return null;
 };
 
-type SendTab = "segments" | "lists" | "contacts" | "everyone";
+type SendTab = "segments" | "lists" | "tags" | "contacts" | "everyone";
 
 export function AudienceStep({
   form,
@@ -506,21 +506,26 @@ export function AudienceStep({
       ? segments.length
       : sendTab === "lists"
         ? lists.length
-        : sendTab === "contacts"
-          ? contacts.length
-          : 0;
+        : sendTab === "tags"
+          ? tags.length
+          : sendTab === "contacts"
+            ? contacts.length
+            : 0;
   const tabSelected =
     sendTab === "segments"
       ? segments.filter((s) => isSelected(s.id)).length
       : sendTab === "lists"
         ? lists.filter((l) => isSelected(l.id)).length
-        : sendTab === "contacts"
-          ? contacts.filter((c) => isSelected(c.id)).length
-          : 0;
+        : sendTab === "tags"
+          ? tags.filter((t) => isSelected(t.id)).length
+          : sendTab === "contacts"
+            ? contacts.filter((c) => isSelected(c.id)).length
+            : 0;
 
   const SEND_TABS: { key: SendTab; label: string }[] = [
     { key: "segments", label: "Segments" },
     { key: "lists", label: "Lists" },
+    { key: "tags", label: "Tags" },
     { key: "contacts", label: "Contacts" },
     { key: "everyone", label: "Everyone" },
   ];
@@ -563,8 +568,8 @@ export function AudienceStep({
           Who gets this?
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pick the campaign type, then choose segments, lists, contacts, or
-          everyone.
+          Pick the campaign type, then choose segments, lists, tags, contacts,
+          or everyone.
         </p>
       </div>
 
@@ -698,6 +703,29 @@ export function AudienceStep({
               }))}
               searchPlaceholder="Search lists…"
               emptyText="No lists yet - save a segment or tag to reuse it."
+              isSelected={isSelected}
+              onToggle={toggleSelection}
+            />
+          ) : sendTab === "tags" ? (
+            <SelectList
+              rows={tags.map((t) => ({
+                id: t.id,
+                title: t.name,
+                count: t.count,
+              }))}
+              searchPlaceholder="Search tags…"
+              emptyText={
+                <>
+                  No tags yet. Tag a contact in{" "}
+                  <Link
+                    href={PRIVATE_ROUTES.AUDIENCE}
+                    className="text-primary underline"
+                  >
+                    Audience
+                  </Link>{" "}
+                  to make it pickable here.
+                </>
+              }
               isSelected={isSelected}
               onToggle={toggleSelection}
             />

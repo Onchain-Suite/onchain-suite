@@ -1,9 +1,16 @@
 "use client";
 
-import { PencilSquareIcon } from "@heroicons/react/24/outline";
+import {
+  CheckIcon,
+  ChevronUpDownIcon,
+  PencilSquareIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+
+import { cn } from "@/lib/utils";
 
 import { DefinitionGrid, SettingsCard } from "../settings-card";
 import { useAccountOrg } from "./use-account-org";
@@ -12,8 +19,21 @@ import {
   projectSettingsService,
 } from "@/features/settings/project-settings.service";
 import { Button } from "@/shared/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/shared/components/ui/command";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/shared/components/ui/popover";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 /** Shared query keys so Project + Contracts read one cached fetch. */
@@ -51,10 +71,12 @@ export function ProjectCard() {
     return (slug: string) => map.get(slug) ?? slug;
   }, [chains]);
 
+  const [chainsOpen, setChainsOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
     tokenTicker: "",
     email: "",
+    address: "",
     primaryChains: [] as string[],
   });
 
@@ -64,9 +86,19 @@ export function ProjectCard() {
       name: settings.name ?? "",
       tokenTicker: settings.tokenTicker ?? "",
       email: settings.email ?? "",
+      address: settings.address ?? "",
       primaryChains: settings.primaryChains ?? [],
     });
   }, [settings]);
+
+  const mainnetChains = useMemo(
+    () => chains.filter((c) => !c.testnet),
+    [chains]
+  );
+  const testnetChains = useMemo(
+    () => chains.filter((c) => c.testnet),
+    [chains]
+  );
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -76,6 +108,7 @@ export function ProjectCard() {
         name: form.name.trim(),
         tokenTicker: form.tokenTicker.trim(),
         email: form.email.trim(),
+        address: form.address.trim(),
         primaryChains: form.primaryChains,
       };
       return projectSettingsService.saveProjectSettings(
@@ -108,6 +141,7 @@ export function ProjectCard() {
         name: settings.name ?? "",
         tokenTicker: settings.tokenTicker ?? "",
         email: settings.email ?? "",
+        address: settings.address ?? "",
         primaryChains: settings.primaryChains ?? [],
       });
     setEditing(false);
@@ -178,27 +212,124 @@ export function ProjectCard() {
             </div>
           </div>
           <div className="space-y-2">
+            <Label htmlFor="project-address">Billing address</Label>
+            <Input
+              id="project-address"
+              value={form.address}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, address: e.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
             <Label>Primary chains</Label>
-            <div className="flex flex-wrap gap-2">
-              {chains.map((chain) => {
-                const active = form.primaryChains.includes(chain.slug);
-                return (
-                  <button
-                    key={chain.slug}
-                    type="button"
-                    onClick={() => toggleChain(chain.slug)}
-                    aria-pressed={active}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                      active
-                        ? "border-primary/40 bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    }`}
+            <Popover open={chainsOpen} onOpenChange={setChainsOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded={chainsOpen}
+                  className="flex h-10 w-full items-center justify-between rounded-lg border border-border bg-background px-3 text-sm text-foreground transition-colors hover:bg-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span
+                    className={cn(
+                      form.primaryChains.length === 0 && "text-muted-foreground"
+                    )}
                   >
-                    {chain.label}
-                  </button>
-                );
-              })}
-            </div>
+                    {form.primaryChains.length === 0
+                      ? "Select chains"
+                      : form.primaryChains.length === 1
+                        ? chainLabel(form.primaryChains[0])
+                        : `${form.primaryChains.length} chains selected`}
+                  </span>
+                  <ChevronUpDownIcon
+                    aria-hidden="true"
+                    className="ml-2 h-4 w-4 shrink-0 text-muted-foreground"
+                  />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-(--radix-popover-trigger-width) p-0"
+              >
+                <Command>
+                  <CommandInput placeholder="Search chains…" />
+                  <CommandList>
+                    <CommandEmpty>No chains found.</CommandEmpty>
+                    {mainnetChains.length > 0 ? (
+                      <CommandGroup heading="Mainnet">
+                        {mainnetChains.map((chain) => {
+                          const active = form.primaryChains.includes(
+                            chain.slug
+                          );
+                          return (
+                            <CommandItem
+                              key={chain.slug}
+                              value={`${chain.label} ${chain.slug}`}
+                              onSelect={() => toggleChain(chain.slug)}
+                            >
+                              <CheckIcon
+                                aria-hidden="true"
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  active ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {chain.label}
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    ) : null}
+                    {testnetChains.length > 0 ? (
+                      <CommandGroup heading="Testnet">
+                        {testnetChains.map((chain) => {
+                          const active = form.primaryChains.includes(
+                            chain.slug
+                          );
+                          return (
+                            <CommandItem
+                              key={chain.slug}
+                              value={`${chain.label} ${chain.slug}`}
+                              onSelect={() => toggleChain(chain.slug)}
+                            >
+                              <CheckIcon
+                                aria-hidden="true"
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  active ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {chain.label}
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    ) : null}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            {form.primaryChains.length > 0 ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {form.primaryChains.map((slug) => (
+                  <span
+                    key={slug}
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
+                  >
+                    {chainLabel(slug)}
+                    <button
+                      type="button"
+                      onClick={() => toggleChain(slug)}
+                      aria-label={`Remove ${chainLabel(slug)}`}
+                      className="rounded-full transition-colors hover:text-foreground"
+                    >
+                      <XMarkIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={cancel}>
@@ -226,6 +357,7 @@ export function ProjectCard() {
                   : dash,
             },
             { label: "Billing email", value: settings?.email ?? dash },
+            { label: "Billing address", value: settings?.address ?? dash },
           ]}
         />
       )}

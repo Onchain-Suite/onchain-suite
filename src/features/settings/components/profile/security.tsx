@@ -13,12 +13,11 @@ import { Label } from "@/components/ui/label";
 
 import { authClient } from "@/lib/auth-client";
 
-import { fadeInUp, staggerContainer } from "../../utils";
+import { fadeInUp } from "../../utils";
+import { DefinitionGrid, SettingsCard, StatusPill } from "../settings-card";
 import TwoFactorAuthModal from "../two-factor-auth-modal";
 import PasskeysSection from "./passkeys-section";
 import { useUserProfile } from "./use-user-profile";
-import SettingsSectionCard from "@/features/settings/components/settings-section-card";
-import { Badge } from "@/shared/components/ui/badge";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 // 2FA UI enabled to match the reference settings page: surfaces the 2FA status
@@ -73,73 +72,46 @@ const Security = () => {
     }
   };
 
-  const toggleTwoFA = () => {
+  const openTwoFA = () => {
     setShowTwoFAModal(true);
   };
 
+  const canShowActions =
+    !profileQuery.isPending && !profileQuery.isError && !isEditing;
+
   return (
-    <motion.div variants={staggerContainer} initial="initial" animate="animate">
+    <>
       {TWO_FACTOR_ENABLED ? (
         <TwoFactorAuthModal
           open={showTwoFAModal}
           onOpenChange={setShowTwoFAModal}
         />
       ) : null}
-      <SettingsSectionCard
+      <SettingsCard
         title="Security"
-        description="Update your password and manage your sign-in protection."
-        icon={<ShieldCheckIcon className="h-5 w-5" aria-hidden="true" />}
-        badge={
-          TWO_FACTOR_ENABLED
-            ? twoFactorEnabled
-              ? "2FA enabled"
-              : "2FA not enabled"
-            : "Password & passkeys"
-        }
-        collapsedPreview={
-          TWO_FACTOR_ENABLED ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                  Two-factor authentication
-                </p>
-                <p className="mt-1 text-sm text-foreground">
-                  {twoFactorEnabled ? "Enabled" : "Disabled"}
-                </p>
-              </div>
-              <Badge
-                variant={twoFactorEnabled ? "default" : "outline"}
-                className="w-fit rounded-full"
-              >
-                {twoFactorEnabled ? "Protected" : "Needs setup"}
-              </Badge>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Manage your password and passkeys.
-            </p>
-          )
+        description="Password and sign-in protection"
+        action={
+          canShowActions && TWO_FACTOR_ENABLED ? (
+            <Button size="sm" onClick={openTwoFA} className="gap-2">
+              <ShieldCheckIcon className="h-4 w-4" aria-hidden="true" />
+              {twoFactorEnabled ? "Manage 2FA" : "Set up 2FA"}
+            </Button>
+          ) : null
         }
       >
         {profileQuery.isPending ? (
-          <motion.div variants={fadeInUp} className="space-y-6">
-            <div className="flex items-center justify-end">
-              <Skeleton className="h-8 w-20 rounded-md" />
+          <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-40" />
+              <Skeleton className="h-5 w-24 rounded-full" />
             </div>
-            <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-5 w-48" />
-              </div>
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-5 w-20 rounded-full" />
-                <Skeleton className="h-4 w-44" />
-              </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-5 w-48" />
             </div>
-          </motion.div>
+          </div>
         ) : profileQuery.isError ? (
-          <motion.div variants={fadeInUp} className="space-y-3">
+          <div className="space-y-3">
             <div className="rounded-2xl border border-dashed border-border/60 bg-card p-6 text-sm text-muted-foreground">
               Live security details are temporarily unavailable. Please retry in
               a moment.
@@ -154,7 +126,7 @@ const Security = () => {
                 Retry
               </Button>
             </div>
-          </motion.div>
+          </div>
         ) : isEditing ? (
           <motion.div variants={fadeInUp} className="space-y-6">
             <div className="space-y-3">
@@ -193,7 +165,7 @@ const Security = () => {
                   </div>
                   <Button
                     variant="outline"
-                    onClick={toggleTwoFA}
+                    onClick={openTwoFA}
                     className="rounded-xl border-border/80 text-foreground hover:bg-muted hover:text-foreground"
                   >
                     {twoFactorEnabled ? "Manage 2FA" : "Enable 2FA"}
@@ -225,57 +197,60 @@ const Security = () => {
             </div>
           </motion.div>
         ) : (
-          <motion.div variants={fadeInUp} className="space-y-6">
-            <div className="flex items-center justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditing(true)}
-                className="gap-2"
-              >
-                <PencilIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                Edit
-              </Button>
-            </div>
-
-            <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
-              <div>
-                <p className="mb-1 text-sm font-medium text-muted-foreground">
-                  Password
-                </p>
-                <p className="text-base text-foreground">
-                  {passwordChangedLabel
-                    ? `Last changed ${passwordChangedLabel}`
-                    : "Password managed securely"}
-                </p>
-              </div>
-              {TWO_FACTOR_ENABLED ? (
-                <div>
-                  <p className="mb-1 text-sm font-medium text-muted-foreground">
-                    Two-factor authentication
-                  </p>
-                  <div className="space-y-2">
-                    <Badge
-                      variant={twoFactorEnabled ? "default" : "outline"}
-                      className="rounded-full"
-                    >
-                      {twoFactorEnabled ? "Enabled" : "Disabled"}
-                    </Badge>
-                    <p className="text-sm text-muted-foreground">
-                      {twoFactorEnabled
-                        ? "Using authenticator app"
-                        : "Authenticator app not configured"}
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+          <div className="space-y-6">
+            <DefinitionGrid
+              items={[
+                ...(TWO_FACTOR_ENABLED
+                  ? [
+                      {
+                        label: "Two-factor authentication",
+                        value: (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>
+                              {twoFactorEnabled ? "Enabled" : "Disabled"}
+                            </span>
+                            <StatusPill
+                              tone={twoFactorEnabled ? "success" : "pending"}
+                            >
+                              {twoFactorEnabled ? "Protected" : "Needs setup"}
+                            </StatusPill>
+                          </div>
+                        ),
+                      },
+                    ]
+                  : []),
+                {
+                  label: "Password",
+                  value: (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span>
+                        {passwordChangedLabel
+                          ? `Last changed ${passwordChangedLabel}`
+                          : "Password managed securely"}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsEditing(true)}
+                        className="gap-2"
+                      >
+                        <PencilIcon
+                          className="h-3.5 w-3.5"
+                          aria-hidden="true"
+                        />
+                        Edit
+                      </Button>
+                    </div>
+                  ),
+                },
+              ]}
+            />
 
             <PasskeysSection />
-          </motion.div>
+          </div>
         )}
-      </SettingsSectionCard>
-    </motion.div>
+      </SettingsCard>
+    </>
   );
 };
 

@@ -1,11 +1,22 @@
 "use client";
 
-import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowUpTrayIcon,
+  PlusIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 import axios from "axios";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 import { authClient } from "@/lib/auth-client";
@@ -18,8 +29,11 @@ import type {
   ColumnsContainerNode,
   EmailLayoutNode,
   FontFamily,
+  MenuNode,
+  SocialNode,
+  SocialPlatform,
 } from "./blocks";
-import { resolveColumnWidths, STYLE_KEYS } from "./blocks";
+import { resolveColumnWidths, SOCIAL_PLATFORMS, STYLE_KEYS } from "./blocks";
 import {
   ColorInput,
   Field,
@@ -452,6 +466,14 @@ export function InspectPanel({
         </>
       ) : null}
 
+      {node.type === "Social" ? (
+        <SocialProps node={node} onChange={onChange} />
+      ) : null}
+
+      {node.type === "Menu" ? (
+        <MenuProps node={node} onChange={onChange} />
+      ) : null}
+
       {node.type === "ColumnsContainer" ? (
         <>
           <ToggleGroup
@@ -521,6 +543,198 @@ export function InspectPanel({
         />
       ) : null}
     </div>
+  );
+}
+
+function RowAddButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+    >
+      <PlusIcon className="size-4" aria-hidden="true" />
+      {label}
+    </button>
+  );
+}
+
+function RowRemoveButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+      aria-label="Remove"
+    >
+      <XMarkIcon className="size-4" />
+    </button>
+  );
+}
+
+function SocialProps({
+  node,
+  onChange,
+}: {
+  node: SocialNode;
+  onChange: (n: BlockNode) => void;
+}) {
+  const p = node.data.props;
+  const setProps = (patch: Partial<SocialNode["data"]["props"]>) =>
+    onChange({ ...node, data: { ...node.data, props: { ...p, ...patch } } });
+  const setLink = (
+    i: number,
+    patch: Partial<SocialNode["data"]["props"]["links"][number]>
+  ) =>
+    setProps({
+      links: p.links.map((l, idx) => (idx === i ? { ...l, ...patch } : l)),
+    });
+  return (
+    <>
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-muted-foreground">
+          Links
+        </label>
+        {p.links.map((link, i) => (
+          // eslint-disable-next-line react/no-array-index-key
+          <div key={i} className="flex items-center gap-1.5">
+            <Select
+              value={link.platform}
+              onValueChange={(platform) =>
+                setLink(i, { platform: platform as SocialPlatform })
+              }
+            >
+              <SelectTrigger className="h-9 w-32 shrink-0 rounded-lg">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SOCIAL_PLATFORMS.map((pl) => (
+                  <SelectItem key={pl.key} value={pl.key}>
+                    {pl.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              value={link.url}
+              onChange={(e) => setLink(i, { url: e.target.value })}
+              placeholder="https://"
+              className="h-9 rounded-lg font-mono text-xs"
+            />
+            <RowRemoveButton
+              onClick={() =>
+                setProps({ links: p.links.filter((_, idx) => idx !== i) })
+              }
+            />
+          </div>
+        ))}
+        <RowAddButton
+          label="Add link"
+          onClick={() =>
+            setProps({
+              links: [...p.links, { platform: "website", url: "https://" }],
+            })
+          }
+        />
+      </div>
+      <ToggleGroup
+        label="Icon style"
+        value={p.iconVariant}
+        onChange={(iconVariant) => setProps({ iconVariant })}
+        options={[
+          { value: "dark", label: "Dark" },
+          { value: "light", label: "Light" },
+        ]}
+      />
+      <SliderInput
+        label="Icon size"
+        min={16}
+        max={40}
+        step={2}
+        value={p.iconSize}
+        onChange={(iconSize) => setProps({ iconSize })}
+      />
+      <SliderInput
+        label="Spacing"
+        min={0}
+        max={32}
+        step={2}
+        value={p.gap}
+        onChange={(gap) => setProps({ gap })}
+      />
+    </>
+  );
+}
+
+function MenuProps({
+  node,
+  onChange,
+}: {
+  node: MenuNode;
+  onChange: (n: BlockNode) => void;
+}) {
+  const p = node.data.props;
+  const setProps = (patch: Partial<MenuNode["data"]["props"]>) =>
+    onChange({ ...node, data: { ...node.data, props: { ...p, ...patch } } });
+  const setItem = (
+    i: number,
+    patch: Partial<MenuNode["data"]["props"]["items"][number]>
+  ) =>
+    setProps({
+      items: p.items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)),
+    });
+  return (
+    <>
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-muted-foreground">
+          Links
+        </label>
+        {p.items.map((item, i) => (
+          // eslint-disable-next-line react/no-array-index-key
+          <div key={i} className="flex items-center gap-1.5">
+            <Input
+              value={item.label}
+              onChange={(e) => setItem(i, { label: e.target.value })}
+              placeholder="Label"
+              className="h-9 w-28 shrink-0 rounded-lg"
+            />
+            <Input
+              value={item.url}
+              onChange={(e) => setItem(i, { url: e.target.value })}
+              placeholder="https://"
+              className="h-9 rounded-lg font-mono text-xs"
+            />
+            <RowRemoveButton
+              onClick={() =>
+                setProps({ items: p.items.filter((_, idx) => idx !== i) })
+              }
+            />
+          </div>
+        ))}
+        <RowAddButton
+          label="Add link"
+          onClick={() =>
+            setProps({
+              items: [...p.items, { label: "Link", url: "https://" }],
+            })
+          }
+        />
+      </div>
+      <Field label="Separator">
+        <Input
+          value={p.separator}
+          onChange={(e) => setProps({ separator: e.target.value })}
+          placeholder="·"
+          className="h-9 w-20 rounded-lg text-center"
+        />
+      </Field>
+    </>
   );
 }
 

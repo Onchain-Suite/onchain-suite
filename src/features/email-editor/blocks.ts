@@ -186,6 +186,19 @@ export const STYLE_KEYS: Record<string, StyleKey[]> = {
     "textAlign",
     "padding",
   ],
+  Social: ["backgroundColor", "textAlign", "padding"],
+  Menu: [
+    "color",
+    "backgroundColor",
+    "fontFamily",
+    "fontStack",
+    "fontSize",
+    "fontWeight",
+    "letterSpacing",
+    "textTransform",
+    "textAlign",
+    "padding",
+  ],
   ColumnsContainer: ["backgroundColor", "padding"],
   Container: ["backgroundColor", "borderColor", "borderRadius", "padding"],
 };
@@ -263,6 +276,89 @@ export interface ListNode {
     style: BlockStyle;
   };
 }
+export type SocialPlatform =
+  | "x"
+  | "farcaster"
+  | "discord"
+  | "telegram"
+  | "instagram"
+  | "youtube"
+  | "github"
+  | "tiktok"
+  | "reddit"
+  | "medium"
+  | "lens"
+  | "website"
+  | "email";
+export interface SocialLink {
+  platform: SocialPlatform;
+  url: string;
+}
+export interface SocialNode {
+  type: "Social";
+  data: {
+    props: {
+      links: SocialLink[];
+      /** Which hosted icon variant to embed (dark marks vs white marks). */
+      iconVariant: "dark" | "light";
+      iconSize: number;
+      gap: number;
+    };
+    style: BlockStyle;
+  };
+}
+export interface MenuItem {
+  label: string;
+  url: string;
+}
+export interface MenuNode {
+  type: "Menu";
+  data: {
+    props: { items: MenuItem[]; separator: string };
+    style: BlockStyle;
+  };
+}
+
+/** Social platforms with a hosted icon in `public/email-assets/social/`. */
+export const SOCIAL_PLATFORMS: { key: SocialPlatform; label: string }[] = [
+  { key: "x", label: "X" },
+  { key: "farcaster", label: "Farcaster" },
+  { key: "discord", label: "Discord" },
+  { key: "telegram", label: "Telegram" },
+  { key: "instagram", label: "Instagram" },
+  { key: "youtube", label: "YouTube" },
+  { key: "github", label: "GitHub" },
+  { key: "tiktok", label: "TikTok" },
+  { key: "reddit", label: "Reddit" },
+  { key: "medium", label: "Medium" },
+  { key: "lens", label: "Lens" },
+  { key: "website", label: "Website" },
+  { key: "email", label: "Email" },
+];
+const platformLabel = (p: SocialPlatform): string =>
+  SOCIAL_PLATFORMS.find((x) => x.key === p)?.label ?? p;
+
+/** App origin used to build absolute asset URLs for the sent email. */
+const EMAIL_ASSET_BASE = (
+  process.env.NEXT_PUBLIC_APP_URL?.trim()
+    ? process.env.NEXT_PUBLIC_APP_URL
+    : "https://onchainsuite.com"
+).replace(/\/$/, "");
+/** Same-origin relative path (works in the in-app canvas preview). */
+export function socialIconPath(
+  platform: SocialPlatform,
+  variant: "dark" | "light"
+): string {
+  const suffix = variant === "light" ? "-light" : "";
+  return `/email-assets/social/${platform}${suffix}.png`;
+}
+/** Absolute URL embedded in the sent email HTML (relative URLs don't resolve). */
+export function socialIconUrl(
+  platform: SocialPlatform,
+  variant: "dark" | "light"
+): string {
+  return `${EMAIL_ASSET_BASE}${socialIconPath(platform, variant)}`;
+}
 export interface ContainerNode {
   type: "Container";
   data: { props: { childrenIds: string[] }; style: BlockStyle };
@@ -307,6 +403,8 @@ export type BlockNode =
   | SpacerNode
   | HtmlNode
   | ListNode
+  | SocialNode
+  | MenuNode
   | ContainerNode
   | ColumnsContainerNode
   | EmailLayoutNode;
@@ -691,6 +789,42 @@ export function createNode(type: InsertableType): BlockNode {
           style: { padding: PAD(4, 16, 24, 24) },
         },
       };
+    case "Social":
+      return {
+        type,
+        data: {
+          props: {
+            links: [
+              { platform: "x", url: "https://" },
+              { platform: "farcaster", url: "https://" },
+              { platform: "discord", url: "https://" },
+            ],
+            iconVariant: "dark",
+            iconSize: 24,
+            gap: 12,
+          },
+          style: { padding: PAD(8, 16, 24, 24), textAlign: "center" },
+        },
+      };
+    case "Menu":
+      return {
+        type,
+        data: {
+          props: {
+            items: [
+              { label: "Home", url: "https://" },
+              { label: "About", url: "https://" },
+              { label: "Contact", url: "https://" },
+            ],
+            separator: "·",
+          },
+          style: {
+            padding: PAD(8, 16, 24, 24),
+            textAlign: "center",
+            color: "#8a9099",
+          },
+        },
+      };
     case "Container":
       return {
         type,
@@ -733,6 +867,8 @@ export const BLOCK_BUTTONS: {
   { type: "Divider", label: "Divider", group: "block" },
   { type: "Spacer", label: "Spacer", group: "block" },
   { type: "List", label: "List", group: "block" },
+  { type: "Social", label: "Social", group: "block" },
+  { type: "Menu", label: "Menu", group: "block" },
   { type: "Html", label: "Html", group: "block" },
   { type: "ColumnsContainer", label: "Columns", group: "layout" },
   { type: "Container", label: "Container", group: "layout" },
@@ -1153,6 +1289,34 @@ function renderNode(id: string, doc: EmailDocument): string {
         .join("");
       return `<div style="line-height:1.6;${wrapCss}"><${tag} style="margin:0;padding:0 0 0 24px;">${items}</${tag}></div>`;
     }
+    case "Social": {
+      const p = node.data.props;
+      const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Social);
+      const size = p.iconSize;
+      const half = Math.round(p.gap / 2);
+      const cells = p.links
+        .filter((l) => l.url.trim() && l.url.trim() !== "https://")
+        .map(
+          (l) =>
+            `<a href="${esc(l.url.trim())}" target="_blank" rel="noopener" style="display:inline-block;margin:0 ${half}px;text-decoration:none;"><img src="${socialIconUrl(l.platform, p.iconVariant)}" width="${size}" height="${size}" alt="${esc(platformLabel(l.platform))}" style="border:0;display:inline-block;width:${size}px;height:${size}px;" /></a>`
+        )
+        .join("");
+      return `<div style="${wrapCss}">${cells}</div>`;
+    }
+    case "Menu": {
+      const p = node.data.props;
+      const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Menu);
+      const color = node.data.style.color ?? "#8a9099";
+      const sep = ` <span style="opacity:0.5;">${esc(p.separator || "·")}</span> `;
+      const rendered = p.items
+        .filter((it) => it.label.trim())
+        .map(
+          (it) =>
+            `<a href="${esc(it.url.trim() || "#")}" target="_blank" style="color:${color};text-decoration:none;">${esc(it.label.trim())}</a>`
+        )
+        .join(sep);
+      return `<div style="line-height:1.8;${wrapCss}">${rendered}</div>`;
+    }
     case "Container": {
       const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Container);
       const inner = node.data.props.childrenIds
@@ -1377,6 +1541,20 @@ export function renderDocumentToText(doc: EmailDocument): string {
             lines.push(
               `${node.data.props.ordered ? `${i + 1}.` : "-"} ${it.trim()}`
             )
+          );
+        break;
+      case "Social":
+        node.data.props.links
+          .filter((l) => l.url.trim() && l.url.trim() !== "https://")
+          .forEach((l) =>
+            lines.push(`${platformLabel(l.platform)}: ${l.url.trim()}`)
+          );
+        break;
+      case "Menu":
+        node.data.props.items
+          .filter((it) => it.label.trim())
+          .forEach((it) =>
+            lines.push(`${it.label.trim()}: ${it.url.trim() || "#"}`)
           );
         break;
       case "Container":

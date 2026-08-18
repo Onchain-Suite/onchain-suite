@@ -32,6 +32,7 @@ import {
   resolveColumnWidths,
   resolveSampleTags,
   sanitizeEmailHtml,
+  socialIconPath,
   STYLE_KEYS,
   type StyleKey,
 } from "./blocks";
@@ -584,6 +585,54 @@ function BlockInner({
               ))}
             </ul>
           )}
+        </div>
+      );
+    }
+    case "Social": {
+      const p = node.data.props;
+      return (
+        <div style={toCss(node.data.style, STYLE_KEYS.Social)}>
+          {p.links.map((l, i) => (
+            <span
+              // Positional link rows - index is the stable identity here.
+              // eslint-disable-next-line react/no-array-index-key
+              key={i}
+              style={{ display: "inline-block", margin: `0 ${p.gap / 2}px` }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={socialIconPath(l.platform, p.iconVariant)}
+                width={p.iconSize}
+                height={p.iconSize}
+                alt={l.platform}
+                style={{ display: "inline-block" }}
+              />
+            </span>
+          ))}
+        </div>
+      );
+    }
+    case "Menu": {
+      const p = node.data.props;
+      const color = node.data.style.color ?? undefined;
+      return (
+        <div
+          style={{
+            lineHeight: 1.8,
+            ...toCss(node.data.style, STYLE_KEYS.Menu),
+          }}
+        >
+          {p.items.map((it, i) => (
+            // eslint-disable-next-line react/no-array-index-key
+            <span key={i}>
+              {i > 0 ? (
+                <span style={{ opacity: 0.5, margin: "0 6px" }}>
+                  {p.separator || "·"}
+                </span>
+              ) : null}
+              <span style={{ color, textDecoration: "none" }}>{it.label}</span>
+            </span>
+          ))}
         </div>
       );
     }

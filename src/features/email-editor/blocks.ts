@@ -265,6 +265,8 @@ export interface EmailLayoutNode {
     borderRadius: number;
     fontFamily: FontFamily;
     textColor: string;
+    /** Inbox preview text (hidden in the body). */
+    preheader?: string;
     childrenIds: string[];
   };
 }
@@ -554,6 +556,20 @@ export function newBlockId(): string {
   return `blk_${idCounter}_${Math.floor(idCounter * 2654435761) % 100000}`;
 }
 
+/**
+ * Advance the id counter past any `blk_N_*` ids already in a loaded document,
+ * so freshly inserted blocks can't collide with existing ones (the counter
+ * otherwise restarts at 0 each session).
+ */
+function reseedIdCounter(ids: Iterable<string>): void {
+  let max = idCounter;
+  for (const id of ids) {
+    const m = /^blk_(\d+)_/.exec(id);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  idCounter = max;
+}
+
 const PAD = (t: number, b: number, l: number, r: number): Padding => ({
   top: t,
   bottom: b,
@@ -788,6 +804,7 @@ export function parseDocument(raw: unknown): EmailDocument | null {
   ) {
     const blocks = raw.blocks as Record<string, BlockNode>;
     if (!blocks.root) return null;
+    reseedIdCounter(Object.keys(blocks));
     return { version: 2, root: "root", blocks, footer };
   }
 
@@ -873,6 +890,21 @@ const esc = (value: string) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 const escMultiline = (value: string) => esc(value).replace(/\n/g, "<br />");
+
+/**
+ * Strip active content from an Html block: <script>/<style> blocks, inline
+ * event handlers, and javascript: URLs. Email clients strip these anyway, and
+ * it prevents XSS in the editor's live preview.
+ */
+export function sanitizeEmailHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
+    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "")
+    .replace(/(href|src)\s*=\s*(["'])\s*javascript:[^"']*\2/gi, '$1="#"');
+}
 
 const paddingToCss = (p?: Padding | null) =>
   p ? `${p.top}px ${p.right}px ${p.bottom}px ${p.left}px` : undefined;
@@ -976,12 +1008,24 @@ function renderNode(id: string, doc: EmailDocument): string {
         "letterSpacing",
         "textTransform",
       ]);
+      const href = esc(p.url || "#");
+      const label = esc(p.text);
+      const bg = esc(p.buttonBackgroundColor);
+      const fg = esc(p.buttonTextColor);
+      const fontSize = node.data.style.fontSize ?? 15;
+      // Bulletproof button: VML roundrect keeps the padded, coloured, rounded
+      // pill in Outlook (the Word engine drops padding/bg/radius on a bare <a>).
+      const height = Math.round(fontSize * 1.35 + vy * 2);
+      const arcsize =
+        radius > 0 ? Math.min(50, Math.round((radius / height) * 100)) : 0;
+      const vmlWidth = p.fullWidth
+        ? "mso-width-percent:1000;"
+        : `width:${Math.round(p.text.length * fontSize * 0.62 + vx * 2)}px;`;
+      const vml = `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:${height}px;v-text-anchor:middle;${vmlWidth}" arcsize="${arcsize}%" stroke="f" fillcolor="${bg}"><w:anchorlock/><center style="color:${fg};font-family:sans-serif;font-size:${fontSize}px;font-weight:600;">${label}</center></v:roundrect><![endif]-->`;
       const width = p.fullWidth ? "width:100%;" : "";
       const display = p.fullWidth ? "block" : "inline-block";
-      const anchor = `<a href="${esc(p.url || "#")}" target="_blank" style="${width}display:${display};padding:${vy}px ${vx}px;background-color:${esc(
-        p.buttonBackgroundColor
-      )};color:${esc(p.buttonTextColor)};border-radius:${radius}px;text-decoration:none;text-align:center;font-weight:600;${fontCss}">${esc(p.text)}</a>`;
-      return `<div style="${wrapCss}">${anchor}</div>`;
+      const anchor = `<!--[if !mso]><!--><a href="${href}" target="_blank" rel="noopener" style="${width}display:${display};padding:${vy}px ${vx}px;background-color:${bg};color:${fg};border-radius:${radius}px;text-decoration:none;text-align:center;font-weight:600;${fontCss}">${label}</a><!--<![endif]-->`;
+      return `<div style="${wrapCss}">${vml}${anchor}</div>`;
     }
     case "Image": {
       const p = node.data.props;
@@ -993,11 +1037,13 @@ function renderNode(id: string, doc: EmailDocument): string {
           : p.contentAlignment === "bottom"
             ? "bottom"
             : "middle";
+      const wAttr = `width="${p.width ?? 600}"`;
+      const hAttr = p.height ? ` height="${p.height}"` : "";
       const img = p.url
-        ? `<img src="${esc(p.url)}" alt="${esc(p.alt)}" style="display:inline-block;border:0;outline:none;vertical-align:${va};${dims}" />`
+        ? `<img src="${esc(p.url)}" alt="${esc(p.alt)}" ${wAttr}${hAttr} style="display:block;border:0;outline:none;vertical-align:${va};${dims}" />`
         : `<div style="padding:40px;background:#f2f3f5;color:#9aa0a6;font-size:13px;text-align:center;border-radius:8px;">Image</div>`;
       const linked = p.linkHref
-        ? `<a href="${esc(p.linkHref)}" target="_blank">${img}</a>`
+        ? `<a href="${esc(p.linkHref)}" target="_blank" rel="noopener">${img}</a>`
         : img;
       return `<div style="${wrapCss}">${linked}</div>`;
     }
@@ -1026,7 +1072,7 @@ function renderNode(id: string, doc: EmailDocument): string {
     }
     case "Html": {
       const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Html);
-      return `<div style="${wrapCss}">${node.data.props.contents}</div>`;
+      return `<div style="${wrapCss}">${sanitizeEmailHtml(node.data.props.contents)}</div>`;
     }
     case "Container": {
       const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Container);
@@ -1053,7 +1099,7 @@ function renderNode(id: string, doc: EmailDocument): string {
         const padL = i === 0 ? 0 : gap / 2;
         const padR = i === count - 1 ? 0 : gap / 2;
         cells.push(
-          `<td width="${Math.floor(100 / count)}%" valign="${va}" style="padding-left:${padL}px;padding-right:${padR}px;">${inner}</td>`
+          `<td class="ocs-col" width="${Math.floor(100 / count)}%" valign="${va}" style="padding-left:${padL}px;padding-right:${padR}px;">${inner}</td>`
         );
       }
       return `<div style="${wrapCss}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed;"><tr>${cells.join("")}</tr></table></div>`;
@@ -1162,6 +1208,14 @@ export function renderDocumentToHtml(doc: EmailDocument): string {
   const fontsLink = fontsHref
     ? `<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="${fontsHref}" rel="stylesheet" />`
     : "";
+  // Hidden inbox preview text + entity padding so scraped body copy can't leak
+  // in after it.
+  const preheaderText = (layout.preheader ?? "").trim();
+  const preheader = preheaderText
+    ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${layout.backdropColor};opacity:0;">${escMultiline(
+        preheaderText
+      )}${"&#8199;&#65279;".repeat(80)}</div>`
+    : "";
   return minifyEmailHtml(`<!doctype html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -1169,6 +1223,7 @@ export function renderDocumentToHtml(doc: EmailDocument): string {
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="color-scheme" content="light dark" />
+<meta name="supported-color-schemes" content="light dark" />
 <!--[if mso]>
 <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
 <![endif]-->
@@ -1179,14 +1234,18 @@ ${fontsLink}
   table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
   img{-ms-interpolation-mode:bicubic;border:0;line-height:100%;outline:none;text-decoration:none;}
   a{text-decoration:none;}
-  @media only screen and (max-width:600px){.ocs-container{width:100%!important;}}
+  @media only screen and (max-width:600px){
+    .ocs-container{width:100%!important;}
+    .ocs-col{display:block!important;width:100%!important;padding:0 0 16px 0!important;}
+  }
 </style>
 </head>
 <body style="margin:0;padding:0;background:${layout.backdropColor};color:${layout.textColor};font-family:${font};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${layout.backdropColor};">
+${preheader}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${layout.backdropColor}" style="background:${layout.backdropColor};">
 <tr><td align="center" style="padding:32px 12px;">
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
-<table role="presentation" class="ocs-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background:${layout.canvasColor};${canvasBorder}border-radius:${layout.borderRadius}px;color:${layout.textColor};font-family:${font};">
+<table role="presentation" class="ocs-container" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${layout.canvasColor}" style="width:600px;max-width:600px;background:${layout.canvasColor};${canvasBorder}border-radius:${layout.borderRadius}px;color:${layout.textColor};font-family:${font};">
 <tr><td>
 ${body}
 </td></tr>

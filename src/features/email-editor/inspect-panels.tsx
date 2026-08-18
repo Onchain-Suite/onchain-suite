@@ -591,6 +591,14 @@ export function StylesPanel({
       <p className="border-l-2 border-primary pl-2 text-sm font-semibold text-foreground">
         Email styles
       </p>
+      <Field label="Preview text">
+        <Input
+          value={d.preheader ?? ""}
+          onChange={(e) => set({ preheader: e.target.value })}
+          placeholder="Shown in the inbox after the subject line"
+          className="h-9 rounded-lg"
+        />
+      </Field>
       <ColorInput
         label="Backdrop color"
         value={d.backdropColor}

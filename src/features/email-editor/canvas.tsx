@@ -29,6 +29,7 @@ import {
   fontFamilyToCss,
   type InsertableType,
   resolveSampleTags,
+  sanitizeEmailHtml,
   STYLE_KEYS,
   type StyleKey,
 } from "./blocks";
@@ -528,7 +529,9 @@ function BlockInner({
           style={toCss(node.data.style, STYLE_KEYS.Html)}
           // Html block: authoring an email's raw HTML is the block's purpose.
           // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: node.data.props.contents }}
+          dangerouslySetInnerHTML={{
+            __html: sanitizeEmailHtml(node.data.props.contents),
+          }}
         />
       );
     case "Container":

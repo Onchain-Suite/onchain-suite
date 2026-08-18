@@ -106,8 +106,14 @@ export interface BlockStyle {
   borderColor?: string | null;
   borderRadius?: number | null;
   fontFamily?: FontFamily | null;
+  /** Raw CSS font-family (e.g. custom fonts carried in from Import HTML). When
+   *  set it wins over the `fontFamily` preset. */
+  fontStack?: string | null;
   fontSize?: number | null;
   fontWeight?: "bold" | "normal" | null;
+  /** Extra tracking, in px (supports fractional values). */
+  letterSpacing?: number | null;
+  textTransform?: "none" | "uppercase" | "lowercase" | "capitalize" | null;
   textAlign?: "left" | "center" | "right" | null;
   padding?: Padding | null;
 }
@@ -120,7 +126,10 @@ export const STYLE_KEYS: Record<string, StyleKey[]> = {
     "color",
     "backgroundColor",
     "fontFamily",
+    "fontStack",
     "fontWeight",
+    "letterSpacing",
+    "textTransform",
     "textAlign",
     "padding",
   ],
@@ -128,16 +137,22 @@ export const STYLE_KEYS: Record<string, StyleKey[]> = {
     "color",
     "backgroundColor",
     "fontFamily",
+    "fontStack",
     "fontSize",
     "fontWeight",
+    "letterSpacing",
+    "textTransform",
     "textAlign",
     "padding",
   ],
   Button: [
     "backgroundColor",
     "fontFamily",
+    "fontStack",
     "fontSize",
     "fontWeight",
+    "letterSpacing",
+    "textTransform",
     "textAlign",
     "padding",
   ],
@@ -148,7 +163,10 @@ export const STYLE_KEYS: Record<string, StyleKey[]> = {
     "color",
     "backgroundColor",
     "fontFamily",
+    "fontStack",
     "fontSize",
+    "letterSpacing",
+    "textTransform",
     "textAlign",
     "padding",
   ],
@@ -880,15 +898,25 @@ function styleToCss(style: BlockStyle | undefined, keys: StyleKey[]): string {
         out.push(`border-radius:${v}px`);
         break;
       case "fontFamily": {
+        if (style.fontStack) break; // fontStack (raw) wins over the preset
         const css = fontFamilyToCss(v as FontFamily);
         if (css) out.push(`font-family:${css}`);
         break;
       }
+      case "fontStack":
+        out.push(`font-family:${v}`);
+        break;
       case "fontSize":
         out.push(`font-size:${v}px`);
         break;
       case "fontWeight":
         out.push(`font-weight:${v}`);
+        break;
+      case "letterSpacing":
+        out.push(`letter-spacing:${v}px`);
+        break;
+      case "textTransform":
+        out.push(`text-transform:${v}`);
         break;
       case "textAlign":
         out.push(`text-align:${v}`);
@@ -942,8 +970,11 @@ function renderNode(id: string, doc: EmailDocument): string {
       ]);
       const fontCss = styleToCss(node.data.style, [
         "fontFamily",
+        "fontStack",
         "fontSize",
         "fontWeight",
+        "letterSpacing",
+        "textTransform",
       ]);
       const width = p.fullWidth ? "width:100%;" : "";
       const display = p.fullWidth ? "block" : "inline-block";
@@ -1065,6 +1096,57 @@ function minifyEmailHtml(html: string): string {
   return html.replace(/>[ \t\r\n]*\n[ \t\r\n]*</g, "><").trim();
 }
 
+/** First real font name in a CSS font-family stack (drops quotes + generics). */
+function firstFontFamily(stack: string): string | null {
+  const first = stack
+    .split(",")[0]
+    ?.trim()
+    .replace(/^['"]|['"]$/g, "");
+  if (!first) return null;
+  const generic = [
+    "sans-serif",
+    "serif",
+    "monospace",
+    "cursive",
+    "fantasy",
+    "system-ui",
+    "ui-sans-serif",
+    "ui-serif",
+    "ui-monospace",
+    "-apple-system",
+    "blinkmacsystemfont",
+    "inherit",
+  ];
+  return generic.includes(first.toLowerCase()) ? null : first;
+}
+
+/** Distinct custom font families used across the document (via `fontStack`). */
+export function customFontFamilies(doc: EmailDocument): string[] {
+  const names = new Set<string>();
+  for (const node of Object.values(doc.blocks)) {
+    if (node.type === "Spacer" || node.type === "EmailLayout") continue;
+    const fs = node.data.style?.fontStack;
+    if (typeof fs === "string") {
+      const n = firstFontFamily(fs);
+      if (n) names.add(n);
+    }
+  }
+  return [...names];
+}
+
+/** Google Fonts stylesheet URL for the document's custom fonts (or ""). */
+export function googleFontsHref(doc: EmailDocument): string {
+  const names = customFontFamilies(doc);
+  if (names.length === 0) return "";
+  const families = names
+    .map(
+      (n) =>
+        `family=${encodeURIComponent(n).replace(/%20/g, "+")}:wght@400;500;600;700;800`
+    )
+    .join("&");
+  return `https://fonts.googleapis.com/css2?${families}&display=swap`;
+}
+
 /** Render the full document to email-safe HTML (MSO fallbacks + footer). */
 export function renderDocumentToHtml(doc: EmailDocument): string {
   const root = doc.blocks[doc.root];
@@ -1076,6 +1158,10 @@ export function renderDocumentToHtml(doc: EmailDocument): string {
     ? `border:1px solid ${layout.borderColor};`
     : "";
   const footer = renderFooterRow(doc.footer ?? DEFAULT_FOOTER);
+  const fontsHref = googleFontsHref(doc);
+  const fontsLink = fontsHref
+    ? `<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="${fontsHref}" rel="stylesheet" />`
+    : "";
   return minifyEmailHtml(`<!doctype html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -1086,6 +1172,7 @@ export function renderDocumentToHtml(doc: EmailDocument): string {
 <!--[if mso]>
 <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
 <![endif]-->
+${fontsLink}
 <style>
   html,body{margin:0!important;padding:0!important;width:100%!important;}
   *{-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;}
@@ -1271,6 +1358,22 @@ export function parseHtmlToDocument(html: string): EmailDocument {
     const m = v.match(/-?\d+(\.\d+)?/);
     return m ? Math.round(parseFloat(m[0])) : undefined;
   };
+  const pxFloat = (v?: string): number | undefined => {
+    if (!v) return undefined;
+    const m = v.match(/-?\d+(\.\d+)?/);
+    return m ? Math.round(parseFloat(m[0]) * 100) / 100 : undefined;
+  };
+  const transformOf = (v?: string): BlockStyle["textTransform"] => {
+    const t = (v ?? "").trim().toLowerCase();
+    return t === "uppercase" || t === "lowercase" || t === "capitalize"
+      ? t
+      : undefined;
+  };
+  /** A usable font-family declaration (ignore bare "inherit"). */
+  const fontOf = (v?: string): string | undefined => {
+    const f = (v ?? "").trim();
+    return f && f.toLowerCase() !== "inherit" ? f : undefined;
+  };
   const inheritedAlign = (
     el: Element
   ): "left" | "center" | "right" | undefined => {
@@ -1296,6 +1399,9 @@ export function parseHtmlToDocument(html: string): EmailDocument {
         if (w === "bold" || (pxOf(w) ?? 0) >= 600) style.fontWeight = "bold";
       }
       style.fontSize ??= pxOf(s["font-size"]);
+      style.fontStack ??= fontOf(s["font-family"]);
+      style.letterSpacing ??= pxFloat(s["letter-spacing"]);
+      style.textTransform ??= transformOf(s["text-transform"]);
       for (const c of Array.from(n.children)) collect(c);
     };
     collect(el);
@@ -1373,6 +1479,12 @@ export function parseHtmlToDocument(html: string): EmailDocument {
     if (radius !== undefined)
       node.data.props.buttonStyle =
         radius === 0 ? "rectangle" : radius >= 40 ? "pill" : "rounded";
+    // Carry the label's typography so uppercase/tracked-out buttons survive.
+    node.data.style.fontStack ??= fontOf(s["font-family"]);
+    node.data.style.letterSpacing ??= pxFloat(s["letter-spacing"]);
+    node.data.style.textTransform ??= transformOf(s["text-transform"]);
+    const sz = pxOf(s["font-size"]);
+    if (sz !== undefined) node.data.style.fontSize = sz;
     return register(node);
   };
   const buildDivider = (hr: Element): string => {
@@ -1415,6 +1527,17 @@ export function parseHtmlToDocument(html: string): EmailDocument {
         const node = createNode("ColumnsContainer") as ColumnsContainerNode;
         node.data.props.columnsCount = (cols.length >= 3 ? 3 : 2) as 2 | 3;
         node.data.props.columns = cols;
+        // Carry the card's panel background (e.g. a table with a bg colour)
+        // onto the columns so the card keeps its fill instead of going blank.
+        const rowBg = bgOf(table) ?? bgOf(tr);
+        if (
+          rowBg &&
+          !isWhitish(rowBg) &&
+          !sameColor(rowBg, backdropColor) &&
+          !sameColor(rowBg, canvasColor)
+        ) {
+          node.data.style.backgroundColor = rowBg;
+        }
         out.push(register(node));
       } else if (cells.length === 1) {
         parseCellInto(cells[0], out);

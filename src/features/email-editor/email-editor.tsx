@@ -37,6 +37,7 @@ import {
   type EmailDocument,
   type EmailFooter,
   type EmailLayoutNode,
+  googleFontsHref,
   type InsertableType,
   MERGE_TAGS,
   newBlockId,
@@ -161,6 +162,20 @@ export function EmailEditor({
   const selectedNode = selectedId ? doc.blocks[selectedId] : null;
   const complianceIssues = useMemo(() => documentComplianceIssues(doc), [doc]);
   const compliant = complianceIssues.length === 0;
+
+  // Load any custom fonts the document uses (e.g. from Import HTML) so the
+  // canvas previews them, mirroring the sent email's Google Fonts <link>.
+  const fontsHref = useMemo(() => googleFontsHref(doc), [doc]);
+  useEffect(() => {
+    if (!fontsHref) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = fontsHref;
+    document.head.appendChild(link);
+    return () => {
+      link.remove();
+    };
+  }, [fontsHref]);
 
   // Auto-populate the compliance footer with the org's company name, address
   // and logo on first load. Only fills blanks, so saved values and user edits

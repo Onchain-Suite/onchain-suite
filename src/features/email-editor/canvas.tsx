@@ -29,6 +29,7 @@ import {
   type FontFamily,
   fontFamilyToCss,
   type InsertableType,
+  PLAY_BUTTON_PATH,
   resolveColumnWidths,
   resolveSampleTags,
   sanitizeEmailHtml,
@@ -636,9 +637,59 @@ function BlockInner({
         </div>
       );
     }
-    case "Container":
+    case "Video": {
+      const p = node.data.props;
       return (
-        <div style={toCss(node.data.style, STYLE_KEYS.Container)}>
+        <div style={toCss(node.data.style, STYLE_KEYS.Video)}>
+          {p.thumbnailUrl.trim() ? (
+            <span style={{ position: "relative", display: "inline-block" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={p.thumbnailUrl}
+                width={p.width ?? 560}
+                alt={p.alt || "Video thumbnail"}
+                style={{ display: "block", maxWidth: "100%", height: "auto" }}
+              />
+              {p.showPlayButton ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={PLAY_BUTTON_PATH}
+                  width={64}
+                  height={64}
+                  alt="Play"
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%,-50%)",
+                  }}
+                />
+              ) : null}
+            </span>
+          ) : (
+            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border/60 text-xs text-muted-foreground">
+              Add a thumbnail image and video link in Inspect
+            </div>
+          )}
+        </div>
+      );
+    }
+    case "Container": {
+      const bg = node.data.props.backgroundImage?.trim();
+      return (
+        <div
+          style={{
+            ...(bg
+              ? {
+                  backgroundImage: `url('${bg}')`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                }
+              : {}),
+            ...toCss(node.data.style, STYLE_KEYS.Container),
+          }}
+        >
           <ChildList
             ids={node.data.props.childrenIds}
             location={{ parentId: id }}
@@ -647,6 +698,7 @@ function BlockInner({
           />
         </div>
       );
+    }
     case "ColumnsContainer": {
       const p = node.data.props;
       const widths = resolveColumnWidths(p.columnsCount, p.columnWidths);

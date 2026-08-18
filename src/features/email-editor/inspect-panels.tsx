@@ -27,11 +27,13 @@ import type {
   BlockStyle,
   ButtonNode,
   ColumnsContainerNode,
+  ContainerNode,
   EmailLayoutNode,
   FontFamily,
   MenuNode,
   SocialNode,
   SocialPlatform,
+  VideoNode,
 } from "./blocks";
 import { resolveColumnWidths, SOCIAL_PLATFORMS, STYLE_KEYS } from "./blocks";
 import {
@@ -474,6 +476,14 @@ export function InspectPanel({
         <MenuProps node={node} onChange={onChange} />
       ) : null}
 
+      {node.type === "Video" ? (
+        <VideoProps node={node} onChange={onChange} />
+      ) : null}
+
+      {node.type === "Container" ? (
+        <ContainerProps node={node} onChange={onChange} />
+      ) : null}
+
       {node.type === "ColumnsContainer" ? (
         <>
           <ToggleGroup
@@ -734,6 +744,105 @@ function MenuProps({
           className="h-9 w-20 rounded-lg text-center"
         />
       </Field>
+    </>
+  );
+}
+
+function VideoProps({
+  node,
+  onChange,
+}: {
+  node: VideoNode;
+  onChange: (n: BlockNode) => void;
+}) {
+  const p = node.data.props;
+  const setProps = (patch: Partial<VideoNode["data"]["props"]>) =>
+    onChange({ ...node, data: { ...node.data, props: { ...p, ...patch } } });
+  return (
+    <>
+      <Field label="Thumbnail URL">
+        <Input
+          value={p.thumbnailUrl}
+          onChange={(e) => setProps({ thumbnailUrl: e.target.value })}
+          placeholder="https://…/poster.jpg"
+          className="h-9 rounded-lg font-mono text-xs"
+        />
+      </Field>
+      <ImageUploadButton
+        label="Upload thumbnail"
+        onUploaded={(url) => setProps({ thumbnailUrl: url })}
+      />
+      <Field label="Video link">
+        <Input
+          value={p.videoUrl}
+          onChange={(e) => setProps({ videoUrl: e.target.value })}
+          placeholder="https://youtube.com/watch?v=…"
+          className="h-9 rounded-lg font-mono text-xs"
+        />
+      </Field>
+      <Field label="Alt text">
+        <Input
+          value={p.alt}
+          onChange={(e) => setProps({ alt: e.target.value })}
+          placeholder="Describe the video"
+          className="h-9 rounded-lg"
+        />
+      </Field>
+      <ToggleGroup
+        label="Play button"
+        value={p.showPlayButton ? "on" : "off"}
+        onChange={(v) => setProps({ showPlayButton: v === "on" })}
+        options={[
+          { value: "on", label: "Show" },
+          { value: "off", label: "Hide" },
+        ]}
+      />
+    </>
+  );
+}
+
+function ContainerProps({
+  node,
+  onChange,
+}: {
+  node: ContainerNode;
+  onChange: (n: BlockNode) => void;
+}) {
+  const setProps = (patch: Partial<ContainerNode["data"]["props"]>) =>
+    onChange({
+      ...node,
+      data: { ...node.data, props: { ...node.data.props, ...patch } },
+    });
+  const bg = node.data.props.backgroundImage ?? "";
+  return (
+    <>
+      <Field label="Background image URL">
+        <Input
+          value={bg}
+          onChange={(e) =>
+            setProps({ backgroundImage: e.target.value || null })
+          }
+          placeholder="https://…/bg.jpg"
+          className="h-9 rounded-lg font-mono text-xs"
+        />
+      </Field>
+      <ImageUploadButton
+        label="Upload background"
+        onUploaded={(url) => setProps({ backgroundImage: url })}
+      />
+      {bg ? (
+        <button
+          type="button"
+          onClick={() => setProps({ backgroundImage: null })}
+          className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          Remove background image
+        </button>
+      ) : null}
+      <p className="text-xs text-muted-foreground">
+        Outlook desktop shows the background colour instead of the image; set
+        both so every client has a readable section.
+      </p>
     </>
   );
 }

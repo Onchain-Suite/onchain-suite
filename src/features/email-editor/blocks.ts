@@ -274,6 +274,9 @@ export interface ColumnsContainerNode {
       columnsCount: 2 | 3;
       columnsGap: number;
       contentAlignment: "top" | "middle" | "bottom";
+      /** Per-column width percentages (must match columnsCount and sum ~100).
+       *  Omitted/mismatched falls back to equal columns. */
+      columnWidths?: number[] | null;
       columns: { childrenIds: string[] }[];
     };
     style: BlockStyle;
@@ -785,6 +788,30 @@ export function defaultDocument(): EmailDocument {
 
 /* --------------------------------------------------------------- children */
 
+/**
+ * Resolve per-column width percentages for a columns block. Falls back to equal
+ * widths when none are set or the array doesn't match the column count; always
+ * returns exactly `count` integers that sum to 100 (last cell absorbs rounding).
+ */
+export function resolveColumnWidths(
+  count: number,
+  widths?: number[] | null
+): number[] {
+  const valid =
+    Array.isArray(widths) &&
+    widths.length === count &&
+    widths.every((w) => typeof w === "number" && w > 0);
+  const base = valid
+    ? (widths as number[])
+    : Array.from({ length: count }, () => 100 / count);
+  const total = base.reduce((a, b) => a + b, 0) || 1;
+  const out = base.map((w) => Math.round((w / total) * 100));
+  // Correct rounding drift so the row always sums to exactly 100.
+  const drift = 100 - out.reduce((a, b) => a + b, 0);
+  out[out.length - 1] += drift;
+  return out;
+}
+
 /** All child-id arrays a container-like node owns (flattened, in order). */
 export function childListsOf(node: BlockNode): string[][] {
   if (node.type === "EmailLayout") return [node.data.childrenIds];
@@ -1144,6 +1171,7 @@ function renderNode(id: string, doc: EmailDocument): string {
           : p.contentAlignment === "bottom"
             ? "bottom"
             : "middle";
+      const widths = resolveColumnWidths(count, p.columnWidths);
       const cells: string[] = [];
       for (let i = 0; i < count; i += 1) {
         const col = p.columns[i]?.childrenIds ?? [];
@@ -1151,7 +1179,7 @@ function renderNode(id: string, doc: EmailDocument): string {
         const padL = i === 0 ? 0 : gap / 2;
         const padR = i === count - 1 ? 0 : gap / 2;
         cells.push(
-          `<td class="ocs-col" width="${Math.floor(100 / count)}%" valign="${va}" style="padding-left:${padL}px;padding-right:${padR}px;">${inner}</td>`
+          `<td class="ocs-col" width="${widths[i]}%" valign="${va}" style="width:${widths[i]}%;padding-left:${padL}px;padding-right:${padR}px;">${inner}</td>`
         );
       }
       return `<div style="${wrapCss}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed;"><tr>${cells.join("")}</tr></table></div>`;

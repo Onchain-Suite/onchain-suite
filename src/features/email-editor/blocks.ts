@@ -175,6 +175,17 @@ export const STYLE_KEYS: Record<string, StyleKey[]> = {
     "textAlign",
     "padding",
   ],
+  List: [
+    "color",
+    "backgroundColor",
+    "fontFamily",
+    "fontStack",
+    "fontSize",
+    "fontWeight",
+    "lineHeight",
+    "textAlign",
+    "padding",
+  ],
   ColumnsContainer: ["backgroundColor", "padding"],
   Container: ["backgroundColor", "borderColor", "borderRadius", "padding"],
 };
@@ -245,6 +256,13 @@ export interface HtmlNode {
   type: "Html";
   data: { props: { contents: string }; style: BlockStyle };
 }
+export interface ListNode {
+  type: "List";
+  data: {
+    props: { ordered: boolean; items: string[] };
+    style: BlockStyle;
+  };
+}
 export interface ContainerNode {
   type: "Container";
   data: { props: { childrenIds: string[] }; style: BlockStyle };
@@ -285,6 +303,7 @@ export type BlockNode =
   | DividerNode
   | SpacerNode
   | HtmlNode
+  | ListNode
   | ContainerNode
   | ColumnsContainerNode
   | EmailLayoutNode;
@@ -658,6 +677,17 @@ export function createNode(type: InsertableType): BlockNode {
           style: { padding: PAD(16, 16, 24, 24) },
         },
       };
+    case "List":
+      return {
+        type,
+        data: {
+          props: {
+            ordered: false,
+            items: ["First item", "Second item", "Third item"],
+          },
+          style: { padding: PAD(4, 16, 24, 24) },
+        },
+      };
     case "Container":
       return {
         type,
@@ -699,6 +729,7 @@ export const BLOCK_BUTTONS: {
   { type: "Avatar", label: "Avatar", group: "block" },
   { type: "Divider", label: "Divider", group: "block" },
   { type: "Spacer", label: "Spacer", group: "block" },
+  { type: "List", label: "List", group: "block" },
   { type: "Html", label: "Html", group: "block" },
   { type: "ColumnsContainer", label: "Columns", group: "layout" },
   { type: "Container", label: "Container", group: "layout" },
@@ -1082,6 +1113,19 @@ function renderNode(id: string, doc: EmailDocument): string {
       const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Html);
       return `<div style="${wrapCss}">${sanitizeEmailHtml(node.data.props.contents)}</div>`;
     }
+    case "List": {
+      const p = node.data.props;
+      const wrapCss = styleToCss(node.data.style, STYLE_KEYS.List);
+      const tag = p.ordered ? "ol" : "ul";
+      const items = p.items
+        .filter((it) => it.trim().length > 0)
+        .map(
+          (it) =>
+            `<li style="margin:0 0 6px 0;mso-line-height-rule:exactly;">${escMultiline(it)}</li>`
+        )
+        .join("");
+      return `<div style="line-height:1.6;${wrapCss}"><${tag} style="margin:0;padding:0 0 0 24px;">${items}</${tag}></div>`;
+    }
     case "Container": {
       const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Container);
       const inner = node.data.props.childrenIds
@@ -1297,6 +1341,15 @@ export function renderDocumentToText(doc: EmailDocument): string {
             .replace(/\s+/g, " ")
             .trim()
         );
+        break;
+      case "List":
+        node.data.props.items
+          .filter((it) => it.trim())
+          .forEach((it, i) =>
+            lines.push(
+              `${node.data.props.ordered ? `${i + 1}.` : "-"} ${it.trim()}`
+            )
+          );
         break;
       case "Container":
         node.data.props.childrenIds.forEach(walk);

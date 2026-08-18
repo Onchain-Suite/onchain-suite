@@ -187,6 +187,7 @@ export const STYLE_KEYS: Record<string, StyleKey[]> = {
     "padding",
   ],
   Social: ["backgroundColor", "textAlign", "padding"],
+  Video: ["backgroundColor", "textAlign", "padding"],
   Menu: [
     "color",
     "backgroundColor",
@@ -318,6 +319,22 @@ export interface MenuNode {
     style: BlockStyle;
   };
 }
+export interface VideoNode {
+  type: "Video";
+  data: {
+    props: {
+      /** Poster/thumbnail image (hosted URL). */
+      thumbnailUrl: string;
+      /** Where the play button links (YouTube/Vimeo/hosted watch page). */
+      videoUrl: string;
+      alt: string;
+      width: number | null;
+      /** Overlay a play badge on the thumbnail. */
+      showPlayButton: boolean;
+    };
+    style: BlockStyle;
+  };
+}
 
 /** Social platforms with a hosted icon in `public/email-assets/social/`. */
 export const SOCIAL_PLATFORMS: { key: SocialPlatform; label: string }[] = [
@@ -359,9 +376,19 @@ export function socialIconUrl(
 ): string {
   return `${EMAIL_ASSET_BASE}${socialIconPath(platform, variant)}`;
 }
+/** Play-badge overlay asset (relative for canvas, absolute for the email). */
+export const PLAY_BUTTON_PATH = "/email-assets/play-button.png";
+export const PLAY_BUTTON_URL = `${EMAIL_ASSET_BASE}${PLAY_BUTTON_PATH}`;
 export interface ContainerNode {
   type: "Container";
-  data: { props: { childrenIds: string[] }; style: BlockStyle };
+  data: {
+    props: {
+      childrenIds: string[];
+      /** Optional section background image (hosted URL). */
+      backgroundImage?: string | null;
+    };
+    style: BlockStyle;
+  };
 }
 export interface ColumnsContainerNode {
   type: "ColumnsContainer";
@@ -405,6 +432,7 @@ export type BlockNode =
   | ListNode
   | SocialNode
   | MenuNode
+  | VideoNode
   | ContainerNode
   | ColumnsContainerNode
   | EmailLayoutNode;
@@ -825,6 +853,20 @@ export function createNode(type: InsertableType): BlockNode {
           },
         },
       };
+    case "Video":
+      return {
+        type,
+        data: {
+          props: {
+            thumbnailUrl: "",
+            videoUrl: "",
+            alt: "",
+            width: null,
+            showPlayButton: true,
+          },
+          style: { padding: PAD(16, 16, 24, 24), textAlign: "center" },
+        },
+      };
     case "Container":
       return {
         type,
@@ -869,6 +911,7 @@ export const BLOCK_BUTTONS: {
   { type: "List", label: "List", group: "block" },
   { type: "Social", label: "Social", group: "block" },
   { type: "Menu", label: "Menu", group: "block" },
+  { type: "Video", label: "Video", group: "block" },
   { type: "Html", label: "Html", group: "block" },
   { type: "ColumnsContainer", label: "Columns", group: "layout" },
   { type: "Container", label: "Container", group: "layout" },
@@ -1317,12 +1360,32 @@ function renderNode(id: string, doc: EmailDocument): string {
         .join(sep);
       return `<div style="line-height:1.8;${wrapCss}">${rendered}</div>`;
     }
+    case "Video": {
+      const p = node.data.props;
+      const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Video);
+      if (!p.thumbnailUrl.trim()) return `<div style="${wrapCss}"></div>`;
+      const w = p.width ?? 560;
+      const href = p.videoUrl.trim() || "#";
+      const alt = esc(p.alt || "Watch video");
+      const badge = p.showPlayButton
+        ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);"><img src="${PLAY_BUTTON_URL}" width="64" height="64" alt="Play" style="border:0;display:block;width:64px;height:64px;" /></div>`
+        : "";
+      // A relatively-positioned wrapper overlays the play badge for modern
+      // clients; Outlook ignores the overlay but still shows the linked poster.
+      return `<div style="${wrapCss}"><a href="${esc(href)}" target="_blank" rel="noopener" style="display:inline-block;position:relative;text-decoration:none;"><img src="${esc(p.thumbnailUrl.trim())}" width="${w}" alt="${alt}" style="border:0;display:block;width:${w}px;max-width:100%;height:auto;" />${badge}</a></div>`;
+    }
     case "Container": {
       const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Container);
+      const bg = node.data.props.backgroundImage?.trim();
+      // CSS background for modern clients; the section's backgroundColor stays
+      // the Outlook-desktop fallback (Outlook ignores CSS background images).
+      const bgCss = bg
+        ? `background-image:url('${esc(bg)}');background-size:cover;background-position:center;background-repeat:no-repeat;`
+        : "";
       const inner = node.data.props.childrenIds
         .map((c) => renderNode(c, doc))
         .join("");
-      return `<div style="${wrapCss}">${inner}</div>`;
+      return `<div style="${bgCss}${wrapCss}">${inner}</div>`;
     }
     case "ColumnsContainer": {
       const p = node.data.props;
@@ -1555,6 +1618,12 @@ export function renderDocumentToText(doc: EmailDocument): string {
           .filter((it) => it.label.trim())
           .forEach((it) =>
             lines.push(`${it.label.trim()}: ${it.url.trim() || "#"}`)
+          );
+        break;
+      case "Video":
+        if (node.data.props.videoUrl.trim())
+          lines.push(
+            `${node.data.props.alt || "Watch video"}: ${node.data.props.videoUrl.trim()}`
           );
         break;
       case "Container":

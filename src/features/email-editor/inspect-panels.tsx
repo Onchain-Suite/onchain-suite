@@ -415,6 +415,42 @@ export function InspectPanel({
         />
       ) : null}
 
+      {node.type === "List" ? (
+        <>
+          <ToggleGroup
+            label="List style"
+            value={node.data.props.ordered ? "ordered" : "bullet"}
+            onChange={(v) =>
+              onChange({
+                ...node,
+                data: {
+                  ...node.data,
+                  props: { ...node.data.props, ordered: v === "ordered" },
+                },
+              })
+            }
+            options={[
+              { value: "bullet", label: "Bulleted" },
+              { value: "ordered", label: "Numbered" },
+            ]}
+          />
+          <ContentField
+            label="Items (one per line)"
+            rows={6}
+            value={node.data.props.items.join("\n")}
+            onChange={(text) =>
+              onChange({
+                ...node,
+                data: {
+                  ...node.data,
+                  props: { ...node.data.props, items: text.split("\n") },
+                },
+              })
+            }
+          />
+        </>
+      ) : null}
+
       {node.type === "ColumnsContainer" ? (
         <>
           <ToggleGroup

@@ -550,6 +550,42 @@ function BlockInner({
           }}
         />
       );
+    case "List": {
+      const p = node.data.props;
+      const items = p.items.filter((it) => it.trim().length > 0);
+      const listStyle: CSSProperties = {
+        margin: 0,
+        paddingLeft: 24,
+        lineHeight: 1.6,
+        // Preflight resets list markers; restore them for the preview.
+        listStyleType: p.ordered ? "decimal" : "disc",
+        listStylePosition: "outside",
+      };
+      return (
+        <div style={toCss(node.data.style, STYLE_KEYS.List)}>
+          {p.ordered ? (
+            <ol style={listStyle}>
+              {items.map((it, i) => (
+                // Positional list items - index is the stable identity here.
+                // eslint-disable-next-line react/no-array-index-key
+                <li key={i} style={{ marginBottom: 6 }}>
+                  {resolveSampleTags(it)}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <ul style={listStyle}>
+              {items.map((it, i) => (
+                // eslint-disable-next-line react/no-array-index-key
+                <li key={i} style={{ marginBottom: 6 }}>
+                  {resolveSampleTags(it)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    }
     case "Container":
       return (
         <div style={toCss(node.data.style, STYLE_KEYS.Container)}>

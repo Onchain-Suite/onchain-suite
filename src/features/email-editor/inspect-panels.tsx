@@ -15,10 +15,11 @@ import type {
   BlockNode,
   BlockStyle,
   ButtonNode,
+  ColumnsContainerNode,
   EmailLayoutNode,
   FontFamily,
 } from "./blocks";
-import { STYLE_KEYS } from "./blocks";
+import { resolveColumnWidths, STYLE_KEYS } from "./blocks";
 import {
   ColorInput,
   Field,
@@ -490,6 +491,7 @@ export function InspectPanel({
               })
             }
           />
+          <ColumnWidthControl node={node} onChange={onChange} />
           <ToggleGroup
             label="Content alignment"
             value={node.data.props.contentAlignment}
@@ -519,6 +521,51 @@ export function InspectPanel({
         />
       ) : null}
     </div>
+  );
+}
+
+function ColumnWidthControl({
+  node,
+  onChange,
+}: {
+  node: ColumnsContainerNode;
+  onChange: (n: BlockNode) => void;
+}) {
+  const count = node.data.props.columnsCount;
+  const presets =
+    count === 2
+      ? [
+          { key: "even", label: "50 / 50", widths: [50, 50] },
+          { key: "left", label: "67 / 33", widths: [67, 33] },
+          { key: "right", label: "33 / 67", widths: [33, 67] },
+        ]
+      : [
+          { key: "even", label: "Even", widths: [34, 33, 33] },
+          { key: "center", label: "25 / 50 / 25", widths: [25, 50, 25] },
+        ];
+  const cur = resolveColumnWidths(count, node.data.props.columnWidths);
+  const match = presets.find(
+    (p) =>
+      p.widths.length === cur.length &&
+      p.widths.every((w, i) => Math.abs(w - cur[i]) <= 1)
+  );
+  return (
+    <ToggleGroup
+      label="Column widths"
+      value={match?.key ?? "even"}
+      onChange={(key) => {
+        const preset = presets.find((p) => p.key === key);
+        if (!preset) return;
+        onChange({
+          ...node,
+          data: {
+            ...node.data,
+            props: { ...node.data.props, columnWidths: preset.widths },
+          },
+        });
+      }}
+      options={presets.map((p) => ({ value: p.key, label: p.label }))}
+    />
   );
 }
 

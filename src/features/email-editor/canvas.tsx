@@ -29,6 +29,7 @@ import {
   type FontFamily,
   fontFamilyToCss,
   type InsertableType,
+  resolveColumnWidths,
   resolveSampleTags,
   sanitizeEmailHtml,
   STYLE_KEYS,
@@ -599,6 +600,7 @@ function BlockInner({
       );
     case "ColumnsContainer": {
       const p = node.data.props;
+      const widths = resolveColumnWidths(p.columnsCount, p.columnWidths);
       return (
         <div style={toCss(node.data.style, STYLE_KEYS.ColumnsContainer)}>
           <div className="flex" style={{ gap: p.columnsGap }}>
@@ -607,7 +609,12 @@ function BlockInner({
                 // Columns are fixed positional slots - index is the identity.
                 // eslint-disable-next-line react/no-array-index-key
                 key={i}
-                className="min-w-0 flex-1 rounded border border-dashed border-border/50"
+                className="min-w-0 rounded border border-dashed border-border/50"
+                style={{
+                  flex: `0 0 calc(${widths[i]}% - ${
+                    (p.columnsGap * (p.columnsCount - 1)) / p.columnsCount
+                  }px)`,
+                }}
               >
                 <ChildList
                   ids={p.columns[i]?.childrenIds ?? []}

@@ -4,6 +4,7 @@ import {
   ArrowsUpDownIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  DocumentDuplicateIcon,
   PhotoIcon,
   PlusIcon,
   TrashIcon,
@@ -47,6 +48,8 @@ interface CanvasHandlers {
   onInsert: (loc: InsertLocation, index: number, type: InsertableType) => void;
   onMove: (id: string, dir: -1 | 1) => void;
   onRemove: (id: string) => void;
+  /** Clone a block (and its descendants) directly after itself. */
+  onDuplicate: (id: string) => void;
   /** Commit an edited block (inline text editing). */
   onUpdate: (id: string, node: BlockNode) => void;
   /** Move an existing block to a container location at a given index. */
@@ -288,6 +291,18 @@ function BlockView({ id, handlers }: { id: string; handlers: CanvasHandlers }) {
             aria-label="Move down"
           >
             <ChevronDownIcon className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handlers.onDuplicate(id);
+            }}
+            className="rounded p-1 text-muted-foreground hover:bg-muted"
+            aria-label="Duplicate block"
+            title="Duplicate (⌘D)"
+          >
+            <DocumentDuplicateIcon className="size-4" />
           </button>
           <button
             type="button"

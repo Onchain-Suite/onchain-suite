@@ -80,6 +80,7 @@ function toCss(style: BlockStyle | undefined, keys: StyleKey[]): CSSProperties {
     else if (k === "letterSpacing") s.letterSpacing = `${v}px`;
     else if (k === "textTransform")
       s.textTransform = v as CSSProperties["textTransform"];
+    else if (k === "lineHeight") s.lineHeight = v as number;
     else if (k === "textAlign") s.textAlign = v as CSSProperties["textAlign"];
     else if (k === "padding") {
       const p = v as {
@@ -363,10 +364,10 @@ function BlockInner({
             ? 20
             : 24;
       const style: CSSProperties = {
-        ...toCss(node.data.style, STYLE_KEYS.Heading),
-        fontSize: size,
         fontWeight: "bold",
         lineHeight: 1.25,
+        ...toCss(node.data.style, STYLE_KEYS.Heading),
+        fontSize: size,
       };
       if (selected) {
         return (
@@ -391,8 +392,8 @@ function BlockInner({
     }
     case "Text": {
       const style: CSSProperties = {
-        ...toCss(node.data.style, STYLE_KEYS.Text),
         lineHeight: 1.6,
+        ...toCss(node.data.style, STYLE_KEYS.Text),
       };
       if (selected) {
         return (

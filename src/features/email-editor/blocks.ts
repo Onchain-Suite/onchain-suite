@@ -114,6 +114,8 @@ export interface BlockStyle {
   /** Extra tracking, in px (supports fractional values). */
   letterSpacing?: number | null;
   textTransform?: "none" | "uppercase" | "lowercase" | "capitalize" | null;
+  /** Unitless line-height multiplier (e.g. 1.6). */
+  lineHeight?: number | null;
   textAlign?: "left" | "center" | "right" | null;
   padding?: Padding | null;
 }
@@ -130,6 +132,7 @@ export const STYLE_KEYS: Record<string, StyleKey[]> = {
     "fontWeight",
     "letterSpacing",
     "textTransform",
+    "lineHeight",
     "textAlign",
     "padding",
   ],
@@ -142,6 +145,7 @@ export const STYLE_KEYS: Record<string, StyleKey[]> = {
     "fontWeight",
     "letterSpacing",
     "textTransform",
+    "lineHeight",
     "textAlign",
     "padding",
   ],
@@ -167,6 +171,7 @@ export const STYLE_KEYS: Record<string, StyleKey[]> = {
     "fontSize",
     "letterSpacing",
     "textTransform",
+    "lineHeight",
     "textAlign",
     "padding",
   ],
@@ -950,6 +955,9 @@ function styleToCss(style: BlockStyle | undefined, keys: StyleKey[]): string {
       case "textTransform":
         out.push(`text-transform:${v}`);
         break;
+      case "lineHeight":
+        out.push(`line-height:${v}`);
+        break;
       case "textAlign":
         out.push(`text-align:${v}`);
         break;
@@ -1368,16 +1376,68 @@ export function parseHtmlToDocument(html: string): EmailDocument {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const rootEl = doc.body ?? doc.documentElement;
 
-  /* ---------------------------------------------------------- style helpers */
-  const styleOf = (el: Element): Record<string, string> => {
-    const out: Record<string, string> = {};
-    for (const decl of (el.getAttribute("style") ?? "").split(";")) {
+  /* ------------------------------------------- <style> sheet resolution */
+  // ESP exports (Mailchimp, HubSpot, Beefree, …) frequently keep typography and
+  // colours in class rules inside <style> rather than inline. Collect the simple
+  // class/id/tag rules once so those styles survive import instead of vanishing.
+  const sheet = {
+    cls: new Map<string, string>(),
+    id: new Map<string, string>(),
+    tag: new Map<string, string>(),
+  };
+  const mergeRule = (map: Map<string, string>, key: string, decls: string) => {
+    const prev = map.get(key);
+    map.set(key, prev ? `${prev};${decls}` : decls);
+  };
+  for (const styleEl of Array.from(doc.querySelectorAll("style"))) {
+    const css = (styleEl.textContent ?? "")
+      .replace(/\/\*[\s\S]*?\*\//g, "") // strip comments
+      .replace(/@media[^{]*\{[\s\S]*?\}\s*\}/g, ""); // desktop base only
+    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const decls = m[2].trim();
+      if (!decls) continue;
+      for (const sel of m[1].split(",")) {
+        // Only the trailing simple selector - ignore descendant combinators.
+        const last = (sel.trim().split(/\s+/).pop() ?? "").trim();
+        let mm: RegExpMatchArray | null;
+        if ((mm = last.match(/^([a-z0-9]+)?\.([\w-]+)$/i)))
+          mergeRule(sheet.cls, mm[2].toLowerCase(), decls);
+        else if ((mm = last.match(/^#([\w-]+)$/)))
+          mergeRule(sheet.id, mm[1].toLowerCase(), decls);
+        else if ((mm = last.match(/^([a-z0-9]+)$/i)))
+          mergeRule(sheet.tag, mm[1].toLowerCase(), decls);
+      }
+    }
+  }
+  const parseDecls = (decls: string, out: Record<string, string>) => {
+    for (const decl of decls.split(";")) {
       const i = decl.indexOf(":");
       if (i === -1) continue;
       const k = decl.slice(0, i).trim().toLowerCase();
-      const v = decl.slice(i + 1).trim();
+      const v = decl
+        .slice(i + 1)
+        .replace(/!important/i, "")
+        .trim();
       if (k && v) out[k] = v;
     }
+  };
+
+  /* ---------------------------------------------------------- style helpers */
+  // Cascade tag < class < id < inline (inline wins), so class-based sheets fill
+  // in what inline styles omit without ever clobbering an explicit inline value.
+  const styleOf = (el: Element): Record<string, string> => {
+    const out: Record<string, string> = {};
+    const tag = el.tagName.toLowerCase();
+    const tagRule = sheet.tag.get(tag);
+    if (tagRule) parseDecls(tagRule, out);
+    for (const cls of Array.from(el.classList)) {
+      const rule = sheet.cls.get(cls.toLowerCase());
+      if (rule) parseDecls(rule, out);
+    }
+    const id = el.getAttribute("id");
+    const idRule = id ? sheet.id.get(id.toLowerCase()) : undefined;
+    if (idRule) parseDecls(idRule, out);
+    parseDecls(el.getAttribute("style") ?? "", out);
     return out;
   };
   const normColor = (v?: string): string | undefined => {
@@ -1433,6 +1493,73 @@ export function parseHtmlToDocument(html: string): EmailDocument {
     const f = (v ?? "").trim();
     return f && f.toLowerCase() !== "inherit" ? f : undefined;
   };
+  /** Normalise line-height to a unitless multiplier (accepts number/px/%). */
+  const lineHeightOf = (v?: string, fontSize?: number): number | undefined => {
+    const t = (v ?? "").trim().toLowerCase();
+    if (!t || t === "normal") return undefined;
+    if (/^[\d.]+$/.test(t)) {
+      const n = parseFloat(t);
+      return n > 0 && n < 4 ? Math.round(n * 100) / 100 : undefined;
+    }
+    if (t.endsWith("%")) {
+      const n = parseFloat(t);
+      return n ? Math.round(n) / 100 : undefined;
+    }
+    const px = pxFloat(t);
+    if (px !== undefined && fontSize)
+      return Math.round((px / fontSize) * 100) / 100;
+    return undefined;
+  };
+  /** One padding/margin side, resolving CSS shorthand (1/2/3/4 values). */
+  const sideOf = (
+    s: Record<string, string>,
+    base: "padding" | "margin",
+    dir: "top" | "right" | "bottom" | "left"
+  ): number | undefined => {
+    const long = pxOf(s[`${base}-${dir}`]);
+    if (long !== undefined) return long;
+    const sh = s[base];
+    if (!sh) return undefined;
+    const p = sh
+      .trim()
+      .split(/\s+/)
+      .map((x) => pxOf(x) ?? 0);
+    const four =
+      p.length === 1
+        ? [p[0], p[0], p[0], p[0]]
+        : p.length === 2
+          ? [p[0], p[1], p[0], p[1]]
+          : p.length === 3
+            ? [p[0], p[1], p[2], p[1]]
+            : [p[0], p[1], p[2], p[3]];
+    const idx =
+      dir === "top" ? 0 : dir === "right" ? 1 : dir === "bottom" ? 2 : 3;
+    return four[idx];
+  };
+  /**
+   * Capture the source element's vertical spacing without disturbing the canvas
+   * gutter: an imported block may add breathing room (top/bottom) but never gets
+   * more cramped than the default rhythm, and horizontal padding stays the inset.
+   */
+  const withSourceVPad = (el: Element, fallback: Padding): Padding => {
+    const s = styleOf(el);
+    const top = sideOf(s, "padding", "top") ?? sideOf(s, "margin", "top");
+    const bottom =
+      sideOf(s, "padding", "bottom") ?? sideOf(s, "margin", "bottom");
+    return {
+      ...fallback,
+      top: top !== undefined ? Math.max(fallback.top, top) : fallback.top,
+      bottom:
+        bottom !== undefined
+          ? Math.max(fallback.bottom, bottom)
+          : fallback.bottom,
+    };
+  };
+  /** Paragraph/heading that carries inline formatting worth preserving. */
+  const hasInlineRich = (el: Element): boolean =>
+    el.querySelector(
+      "a[href], strong, b, em, i, u, s, strike, sub, sup, mark, code"
+    ) !== null;
   const inheritedAlign = (
     el: Element
   ): "left" | "center" | "right" | undefined => {
@@ -1449,7 +1576,7 @@ export function parseHtmlToDocument(html: string): EmailDocument {
   };
   /** Pull color/align/size/weight from an element (and its styled children). */
   const textStyle = (el: Element): BlockStyle => {
-    const style: BlockStyle = { padding: PAD(0, 16, 24, 24) };
+    const style: BlockStyle = {};
     const collect = (n: Element) => {
       const s = styleOf(n);
       style.color ??= normColor(s["color"]);
@@ -1461,10 +1588,12 @@ export function parseHtmlToDocument(html: string): EmailDocument {
       style.fontStack ??= fontOf(s["font-family"]);
       style.letterSpacing ??= pxFloat(s["letter-spacing"]);
       style.textTransform ??= transformOf(s["text-transform"]);
+      style.lineHeight ??= lineHeightOf(s["line-height"], style.fontSize);
       for (const c of Array.from(n.children)) collect(c);
     };
     collect(el);
     style.textAlign = inheritedAlign(el);
+    style.padding = withSourceVPad(el, PAD(0, 16, 24, 24));
     return style;
   };
   const textFromBr = (el: Element): string =>
@@ -1555,6 +1684,30 @@ export function parseHtmlToDocument(html: string): EmailDocument {
       const [lineColor] = m;
       node.data.props.lineColor = lineColor;
     }
+    return register(node);
+  };
+  /**
+   * Preserve inline formatting (links, bold/italic/underline, lists) as one Html
+   * block so imported anchors keep their href and rich runs survive - a plain
+   * Text block would flatten them and silently drop link targets.
+   */
+  const buildRichText = (
+    el: Element,
+    style: BlockStyle,
+    outer = false
+  ): string => {
+    const node = createNode("Html") as HtmlNode;
+    // Lists keep their <ul>/<ol> wrapper (outerHTML); inline runs keep innerHTML.
+    node.data.props.contents = normalizeBracketTags(
+      sanitizeEmailHtml(outer ? el.outerHTML : el.innerHTML)
+        .replace(/&nbsp;/gi, " ")
+        .trim()
+    );
+    node.data.style = {
+      ...node.data.style,
+      ...style,
+      padding: style.padding ?? PAD(0, 16, 24, 24),
+    };
     return register(node);
   };
 
@@ -1676,13 +1829,17 @@ export function parseHtmlToDocument(html: string): EmailDocument {
       if (!text) return;
       const level = tag === "h1" ? "h1" : tag === "h2" ? "h2" : ("h3" as const);
       const style = textStyle(el);
-      style.padding = PAD(16, 8, 24, 24);
+      style.padding = withSourceVPad(el, PAD(16, 8, 24, 24));
       out.push(
         register({ type: "Heading", data: { props: { text, level }, style } })
       );
       return;
     }
     if (tag === "p") {
+      if (hasInlineRich(el)) {
+        out.push(buildRichText(el, textStyle(el)));
+        return;
+      }
       const text = textFromBr(el);
       if (text)
         out.push(
@@ -1691,6 +1848,11 @@ export function parseHtmlToDocument(html: string): EmailDocument {
             data: { props: { text }, style: textStyle(el) },
           })
         );
+      return;
+    }
+    if (tag === "ul" || tag === "ol") {
+      if ((el.textContent ?? "").trim())
+        out.push(buildRichText(el, textStyle(el), true));
       return;
     }
     if (tag === "img") {
@@ -1709,6 +1871,11 @@ export function parseHtmlToDocument(html: string): EmailDocument {
       }
       if (isButtonLike(el)) {
         out.push(buildButton(el));
+        return;
+      }
+      // Plain inline link: keep the anchor (href survives) as a rich Html block.
+      if ((el.getAttribute("href") ?? "").trim() && textFromBr(el)) {
+        out.push(buildRichText(el, textStyle(el)));
         return;
       }
       const text = textFromBr(el);
@@ -1736,8 +1903,13 @@ export function parseHtmlToDocument(html: string): EmailDocument {
       return;
     }
     // div/span/section/etc: recurse if it holds block content, else emit text.
-    if (el.querySelector("h1,h2,h3,h4,h5,h6,p,img,hr,table,a")) {
+    if (el.querySelector("h1,h2,h3,h4,h5,h6,p,img,hr,table,ul,ol,a")) {
       parseCellInto(el, out);
+      return;
+    }
+    // Inline formatting with no block content: keep it rich (bold/italic/…).
+    if (hasInlineRich(el)) {
+      out.push(buildRichText(el, textStyle(el)));
       return;
     }
     const text = textFromBr(el);

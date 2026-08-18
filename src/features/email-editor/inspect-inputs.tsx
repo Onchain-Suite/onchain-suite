@@ -473,6 +473,18 @@ export function StyleControls({
                 ]}
               />
             );
+          case "lineHeight":
+            return (
+              <SliderInput
+                key={k}
+                label="Line height"
+                min={1}
+                max={2.5}
+                step={0.1}
+                value={style.lineHeight ?? 1.5}
+                onChange={(lineHeight) => set({ lineHeight })}
+              />
+            );
           case "textAlign":
             return (
               <TextAlignToggle

@@ -2,6 +2,8 @@
 
 import {
   ArrowLeftIcon,
+  ArrowUturnLeftIcon,
+  ArrowUturnRightIcon,
   CodeBracketIcon,
   ComputerDesktopIcon,
   DevicePhoneMobileIcon,
@@ -51,6 +53,7 @@ import { Field } from "./inspect-inputs";
 import { ImageUploadButton, InspectPanel, StylesPanel } from "./inspect-panels";
 import { TemplatesTab } from "./templates-tab";
 import { useFooterDefaults } from "./use-footer-defaults";
+import { useUndoable } from "./use-undoable";
 
 type Tab = "blocks" | "templates" | "styles" | "inspect";
 
@@ -151,7 +154,14 @@ export function EmailEditor({
   onSave,
   saving = false,
 }: EmailEditorProps) {
-  const [doc, setDoc] = useState<EmailDocument>(initialDoc);
+  const {
+    state: doc,
+    set: setDoc,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useUndoable<EmailDocument>(initialDoc);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("blocks");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
@@ -204,7 +214,7 @@ export function EmailEditor({
         next.logoUrl === f.logoUrl;
       return unchanged ? prev : { ...prev, footer: next };
     });
-  }, [footerDefaults.data, footerSeeded]);
+  }, [footerDefaults.data, footerSeeded, setDoc]);
 
   const selectBlock = (id: string) => {
     setSelectedId(id);
@@ -304,6 +314,73 @@ export function EmailEditor({
     if (selectedId && toDelete.has(selectedId)) setSelectedId(null);
   };
 
+  /** Deep-clone a block and all its descendants into `blocks` with fresh ids. */
+  const cloneSubtree = (
+    srcId: string,
+    blocks: Record<string, BlockNode>
+  ): string => {
+    const copy = structuredClone(doc.blocks[srcId]);
+    const newId = newBlockId();
+    for (const list of childListsOf(copy)) {
+      for (let i = 0; i < list.length; i += 1) {
+        list[i] = cloneSubtree(list[i], blocks);
+      }
+    }
+    blocks[newId] = copy;
+    return newId;
+  };
+
+  const duplicateBlock = (id: string) => {
+    if (id === doc.root) return;
+    const loc = locate(doc, id);
+    if (!loc) return;
+    const blocks = { ...doc.blocks };
+    const newId = cloneSubtree(id, blocks);
+    const next = withChildList(
+      { ...doc, blocks },
+      { parentId: loc.parentId, columnIndex: loc.columnIndex },
+      (ids) => {
+        const at = ids.indexOf(id);
+        return at === -1
+          ? [...ids, newId]
+          : [...ids.slice(0, at + 1), newId, ...ids.slice(at + 1)];
+      }
+    );
+    setDoc(next);
+    setSelectedId(newId);
+    setTab("inspect");
+  };
+
+  // Keyboard shortcuts read the latest handlers via a ref, so the listener can
+  // mount once without capturing stale closures over doc/selection.
+  const kbdRef = useRef({ undo, redo, duplicateBlock, selectedId });
+  kbdRef.current = { undo, redo, duplicateBlock, selectedId };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const t = e.target as HTMLElement | null;
+      const typing =
+        t?.tagName === "INPUT" ||
+        t?.tagName === "TEXTAREA" ||
+        t?.isContentEditable === true;
+      const key = e.key.toLowerCase();
+      const k = kbdRef.current;
+      if (key === "z" && !typing) {
+        e.preventDefault();
+        if (e.shiftKey) k.redo();
+        else k.undo();
+      } else if (key === "y" && !typing) {
+        e.preventDefault();
+        k.redo();
+      } else if (key === "d" && !typing && k.selectedId) {
+        e.preventDefault();
+        k.duplicateBlock(k.selectedId);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const loadDocument = (next: EmailDocument) => {
     setDoc(next);
     setSelectedId(null);
@@ -367,6 +444,7 @@ export function EmailEditor({
       onInsert: insertBlock,
       onMove: moveBlock,
       onRemove: removeBlock,
+      onDuplicate: duplicateBlock,
       onUpdate: updateNode,
       onReorder: reorderBlock,
     }),
@@ -391,6 +469,29 @@ export function EmailEditor({
           <span className="truncate text-sm font-semibold text-foreground">
             {title || "Untitled email"}
           </span>
+        </div>
+
+        <div className="hidden items-center gap-0.5 md:flex">
+          <button
+            type="button"
+            onClick={undo}
+            disabled={!canUndo}
+            title="Undo (⌘Z)"
+            aria-label="Undo"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+          >
+            <ArrowUturnLeftIcon className="size-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={redo}
+            disabled={!canRedo}
+            title="Redo (⌘⇧Z)"
+            aria-label="Redo"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+          >
+            <ArrowUturnRightIcon className="size-4" aria-hidden="true" />
+          </button>
         </div>
 
         <div className="hidden items-center gap-1 rounded-lg border border-border p-0.5 md:flex">

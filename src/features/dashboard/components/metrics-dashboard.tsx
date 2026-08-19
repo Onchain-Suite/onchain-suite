@@ -3,9 +3,8 @@
 import {
   BoltIcon,
   ChevronRightIcon,
-  DevicePhoneMobileIcon,
-  EnvelopeIcon,
   MegaphoneIcon,
+  Squares2X2Icon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
@@ -15,80 +14,24 @@ import { Sparkline } from "@/components/ui/sparkline";
 
 import { cn } from "@/lib/utils";
 
-import { campaignsService } from "@/features/campaigns/campaigns.service";
+import {
+  analyticsService,
+  type DashboardMetric,
+  type MetricBacking,
+} from "@/features/analytics/analytics.service";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
-const formatCount = (value?: number | null) =>
-  typeof value === "number" && Number.isFinite(value)
-    ? value.toLocaleString()
-    : "-";
-
-const formatPercent = (value?: number | null) =>
-  typeof value === "number" && Number.isFinite(value)
-    ? `${value.toFixed(1)}%`
-    : "-";
-
-// Trend deltas and spark series aren't exposed by the overview endpoint yet, so
-// the shape of the line is illustrative - the headline values below are live.
-const SPARKS = {
-  wallets: [12, 14, 13, 16, 18, 17, 21, 24, 23, 27, 30],
-  messages: [30, 26, 34, 28, 33, 38, 31, 40, 37, 44, 48],
-  opens: [40, 44, 38, 47, 42, 49, 45, 52, 48, 56, 60],
-  converted: [8, 10, 9, 13, 12, 16, 15, 20, 22, 26, 30],
-} as const;
+const formatCount = (value: number) => value.toLocaleString();
+const formatPercent = (value: number) =>
+  `${Math.min(100, Math.max(0, value)).toFixed(1)}%`;
 
 interface Metric {
   label: string;
   value: string;
-  delta: string;
-  spark: readonly number[];
+  deltaPct: number;
+  backing: MetricBacking;
+  series: readonly number[];
 }
-
-interface ActivityRow {
-  id: string;
-  type: string;
-  detail: string;
-  chain: string;
-  time: string;
-  dot: string;
-}
-
-// Recent on-chain activity is a curated sample (no first-party feed endpoint
-// yet) - mirrors the reference so the surface reads end-to-end.
-const ACTIVITY: ActivityRow[] = [
-  {
-    id: "swap",
-    type: "Swap",
-    detail: "0x24e6…2dae swapped 4.2 ETH → USDC",
-    chain: "Base",
-    time: "14:36 UTC",
-    dot: "bg-emerald-500",
-  },
-  {
-    id: "unstake",
-    type: "Unstake",
-    detail: "0x3310…a087 unstaked 12 ETH from the vault",
-    chain: "Ethereum",
-    time: "14:12 UTC",
-    dot: "bg-orange-500",
-  },
-  {
-    id: "mint",
-    type: "Mint",
-    detail: "0x783a…f45e minted 3 items from Zora drop",
-    chain: "Base",
-    time: "13:58 UTC",
-    dot: "bg-blue-500",
-  },
-  {
-    id: "deposit",
-    type: "Deposit",
-    detail: "0x9188…b68d first deposit of $1,840 USDC",
-    chain: "Base",
-    time: "13:30 UTC",
-    dot: "bg-emerald-500",
-  },
-];
 
 const QUICK_LINKS = [
   {
@@ -108,7 +51,11 @@ const QUICK_LINKS = [
   },
 ];
 
-function MetricCard({ label, value, delta, spark }: Metric) {
+function MetricCard({ label, value, deltaPct, backing, series }: Metric) {
+  const up = deltaPct > 0;
+  const down = deltaPct < 0;
+  // Only "real"-backed metrics carry enough history to chart a trend line.
+  const showSpark = backing === "real" && series.length >= 2;
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <p className="text-sm text-muted-foreground">{label}</p>
@@ -117,17 +64,33 @@ function MetricCard({ label, value, delta, spark }: Metric) {
       </p>
       <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
         vs last 30d
-        <span className="font-medium text-primary">▲ {delta}</span>
+        {deltaPct !== 0 ? (
+          <span
+            className={cn(
+              "font-medium",
+              up && "text-emerald-600 dark:text-emerald-400",
+              down && "text-rose-600 dark:text-rose-400"
+            )}
+          >
+            {up ? "▲" : "▼"} {Math.abs(deltaPct).toFixed(1)}%
+          </span>
+        ) : (
+          <span className="font-medium text-muted-foreground">no change</span>
+        )}
       </p>
-      <Sparkline data={[...spark]} className="mt-4 text-primary" />
+      {showSpark ? (
+        <Sparkline data={[...series]} className="mt-4 text-primary" />
+      ) : (
+        <div className="mt-4 h-8" aria-hidden="true" />
+      )}
     </div>
   );
 }
 
 export function MetricsDashboard() {
   const overviewQuery = useQuery({
-    queryKey: ["campaigns", "analytics", "overview", 30],
-    queryFn: () => campaignsService.getAnalyticsOverview(30),
+    queryKey: ["dashboard", "overview"],
+    queryFn: () => analyticsService.getDashboardOverview(),
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: 60_000,
@@ -135,31 +98,50 @@ export function MetricsDashboard() {
 
   const overview = overviewQuery.data;
 
+  const toMetric = (
+    label: string,
+    m: DashboardMetric | undefined,
+    backing: MetricBacking,
+    kind: "count" | "percent"
+  ): Metric => ({
+    label,
+    value:
+      m && typeof m.value === "number"
+        ? kind === "percent"
+          ? formatPercent(m.value)
+          : formatCount(m.value)
+        : "-",
+    deltaPct: m?.deltaPct ?? 0,
+    backing,
+    series: (m?.series ?? []).map((p) => p.value),
+  });
+
+  const backing = overview?.meta?.backing;
   const metrics: Metric[] = [
-    {
-      label: "Active wallets",
-      value: "128,540",
-      delta: "12.4%",
-      spark: SPARKS.wallets,
-    },
-    {
-      label: "Messages sent",
-      value: formatCount(overview?.totals?.messagesSent ?? 12480),
-      delta: "4.1%",
-      spark: SPARKS.messages,
-    },
-    {
-      label: "Open rate",
-      value: formatPercent(overview?.email?.openRate ?? 42.3),
-      delta: "2.7%",
-      spark: SPARKS.opens,
-    },
-    {
-      label: "Converted on-chain",
-      value: "3,921",
-      delta: "22.7%",
-      spark: SPARKS.converted,
-    },
+    toMetric(
+      "Active wallets",
+      overview?.activeWallets,
+      backing?.activeWallets ?? "none",
+      "count"
+    ),
+    toMetric(
+      "Messages sent",
+      overview?.messagesSent,
+      backing?.messagesSent ?? "none",
+      "count"
+    ),
+    toMetric(
+      "Open rate",
+      overview?.openRate,
+      backing?.openRate ?? "none",
+      "percent"
+    ),
+    toMetric(
+      "Converted on-chain",
+      overview?.convertedOnchain,
+      backing?.convertedOnchain ?? "none",
+      "count"
+    ),
   ];
 
   return (
@@ -175,32 +157,19 @@ export function MetricsDashboard() {
           <h2 className="mb-3 text-lg font-semibold text-foreground">
             Recent on-chain activity
           </h2>
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <ul className="divide-y divide-border">
-              {ACTIVITY.map((row) => (
-                <li
-                  key={row.id}
-                  className="flex items-center gap-3 px-4 py-3.5"
-                >
-                  <span
-                    className={cn("size-2 shrink-0 rounded-full", row.dot)}
-                    aria-hidden="true"
-                  />
-                  <span className="min-w-0 flex-1 truncate text-sm">
-                    <span className="font-medium text-foreground">
-                      {row.type}
-                    </span>{" "}
-                    <span className="text-muted-foreground">{row.detail}</span>
-                  </span>
-                  <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                    {row.chain}
-                  </span>
-                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                    {row.time}
-                  </span>
-                </li>
-              ))}
-            </ul>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 py-14 text-center">
+            <Squares2X2Icon
+              className="size-8 text-muted-foreground/50"
+              aria-hidden="true"
+            />
+            <p className="mt-3 text-sm font-medium text-foreground">
+              On-chain activity feed coming soon
+            </p>
+            <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+              A live feed of swaps, mints, stakes and deposits across your
+              audience wallets will show here once the on-chain activity API is
+              available.
+            </p>
           </div>
         </section>
 
@@ -228,24 +197,26 @@ export function MetricsDashboard() {
               </Link>
             ))}
 
-            <div className="rounded-xl border border-border bg-card p-4">
+            <Link
+              href={PRIVATE_ROUTES.AUTOMATIONS}
+              className="block rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-muted/40"
+            >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Re-engage whales
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                  <span className="size-1.5 rounded-full bg-emerald-500" />
-                  Active
-                </span>
+                <ChevronRightIcon
+                  className="size-4 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
               </div>
-              <div className="mt-2 flex items-center gap-1.5 text-muted-foreground">
-                <EnvelopeIcon className="size-4" aria-hidden="true" />
-                <DevicePhoneMobileIcon className="size-4" aria-hidden="true" />
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                48,920 sent · 12,480 engaged · 3,921 converted
+              <p className="mt-2 text-sm font-medium text-foreground">
+                Automate a win-back for your highest-value wallets
               </p>
-            </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Build a multi-channel automation from a template.
+              </p>
+            </Link>
           </div>
         </section>
       </div>

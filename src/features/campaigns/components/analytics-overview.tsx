@@ -58,6 +58,26 @@ export function CampaignsAnalyticsOverview() {
   const used = allowance?.used ?? 0;
   const limit = allowance?.limit ?? null;
 
+  // Engagement rates. The backend's `openRate`/`clickRate` count TOTAL opens/
+  // clicks against `delivered`, so a heavy re-opener can push them over 100%.
+  // Prefer a unique-based rate (uniqueOpens / delivered), which is bounded by
+  // 100%; fall back to the raw rate clamped to [0, 100] so an impossible
+  // "106.7%" can never render.
+  const { email } = overview;
+  const denom = email?.delivered ?? email?.sent ?? 0;
+  const clampPct = (value?: number) =>
+    typeof value === "number" && Number.isFinite(value)
+      ? Math.min(100, Math.max(0, value))
+      : undefined;
+  const openRatePct =
+    typeof email?.uniqueOpens === "number" && denom > 0
+      ? Math.min(100, (email.uniqueOpens / denom) * 100)
+      : clampPct(email?.openRate);
+  const clickRatePct =
+    typeof email?.uniqueClicks === "number" && denom > 0
+      ? Math.min(100, (email.uniqueClicks / denom) * 100)
+      : clampPct(email?.clickRate);
+
   const cards = [
     {
       label: `Messages sent (${rangeDays}d)`,
@@ -66,20 +86,28 @@ export function CampaignsAnalyticsOverview() {
     },
     {
       label: "Open rate",
-      value: formatPercentage(overview.email?.openRate),
+      value: formatPercentage(openRatePct),
       // hint: `${formatCount(overview.email?.uniqueOpens)} unique opens`,
     },
     {
       label: "Click rate",
-      value: formatPercentage(overview.email?.clickRate),
+      value: formatPercentage(clickRatePct),
       // hint: `${formatCount(overview.email?.uniqueClicks)} unique clicks`,
     },
     {
       label: "Monthly allowance",
       value:
-        typeof limit === "number"
-          ? `${formatCount(used)} / ${formatCount(limit)}`
-          : formatCount(used),
+        typeof limit === "number" ? (
+          <>
+            {formatCount(used)}
+            <span className="text-lg font-normal text-muted-foreground">
+              {" "}
+              / {formatCount(limit)}
+            </span>
+          </>
+        ) : (
+          formatCount(used)
+        ),
       hint:
         typeof limit === "number"
           ? `resets ${resetLabel(allowance?.resetsAt)}`

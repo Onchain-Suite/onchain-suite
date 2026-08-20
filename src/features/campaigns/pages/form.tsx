@@ -86,6 +86,10 @@ import {
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
 import { LIBRARY_EMAIL_TEMPLATES } from "@/features/templates/library-templates";
 import { templatesService } from "@/features/templates/templates.service";
+import {
+  type SendConfirmDetail,
+  SendConfirmDialog,
+} from "@/shared/components/common/send-confirm-dialog";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 import { useActiveTimezone } from "@/shared/hooks/client/use-timezones";
 
@@ -947,6 +951,17 @@ function CampaignPreviewStep({
                 placeholder="you@example.com"
                 value={testRecipient}
                 onChange={(e) => setTestRecipient(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter here means "send the test", never "submit the wizard".
+                  // Without this, Enter bubbles to the form's submit button and
+                  // pops the send-campaign confirmation instead.
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (isLikelyEmail(testRecipient) && !isSendingTest) {
+                      handleSendTest();
+                    }
+                  }
+                }}
                 disabled={!normalizedCampaignId || isSendingTest}
                 className="h-9 flex-1 rounded-lg"
               />
@@ -1100,6 +1115,10 @@ export function CreateCampaignPage() {
 
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  // Pre-send guard: the submit button opens this; the real launch only fires
+  // once the user confirms. `isLaunching` drives the dialog's confirm spinner.
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
+  const [isLaunching, setIsLaunching] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   // Lifted from AudienceStep so the summary rail shows the estimate on every step.
   const [wizEstimate, setWizEstimate] = useState<number | null>(null);
@@ -1854,7 +1873,21 @@ export function CreateCampaignPage() {
     }
   };
 
-  const onSubmit = async (_data: CampaignFormData) => {
+  // RHF validation gates opening the confirm dialog; the real send only fires
+  // from the dialog's confirm action (performLaunch below).
+  const onSubmit = (_data: CampaignFormData) => {
+    if (!campaignId) {
+      toast.error("Missing campaign id.");
+      return;
+    }
+    if (!canLaunchCampaigns) {
+      toast.error("Your role cannot launch campaigns for this organization.");
+      return;
+    }
+    setShowSendConfirm(true);
+  };
+
+  const performLaunch = async () => {
     if (!campaignId) {
       toast.error("Missing campaign id.");
       return;
@@ -1864,6 +1897,7 @@ export function CreateCampaignPage() {
       return;
     }
 
+    setIsLaunching(true);
     try {
       const data = form.getValues();
 
@@ -1957,6 +1991,9 @@ export function CreateCampaignPage() {
       const message =
         e instanceof Error ? e.message : "Failed to launch campaign";
       toast.error(message);
+    } finally {
+      setIsLaunching(false);
+      setShowSendConfirm(false);
     }
   };
 
@@ -2071,8 +2108,98 @@ export function CreateCampaignPage() {
       ]
     : undefined;
 
+  // Minimal "what's about to happen" summary for the pre-send guard.
+  const sendConfirmDetails: SendConfirmDetail[] = useMemo(() => {
+    const recipients =
+      wizEstimate !== null
+        ? `${wizEstimate.toLocaleString()} ${
+            wizIsPush
+              ? wizEstimate === 1
+                ? "wallet"
+                : "wallets"
+              : wizEstimate === 1
+                ? "recipient"
+                : "recipients"
+          }`
+        : wizIsPush
+          ? "Wallet-reachable contacts"
+          : "Your selected audience";
+
+    let delivery = "Immediately";
+    if (!wizIsPush && sendOption === "schedule") {
+      const date = form.getValues("scheduleDate");
+      const time = form.getValues("scheduleTime");
+      if (date && time) {
+        const { hour, minute } = parseTimeOfDay(time);
+        const utc = zonedWallTimeToUtcDate(
+          {
+            year: date.getFullYear(),
+            month: date.getMonth() + 1,
+            day: date.getDate(),
+            hour,
+            minute,
+          },
+          activeTimezone
+        );
+        delivery = `${new Intl.DateTimeFormat("en-US", {
+          timeZone: activeTimezone,
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        }).format(utc)} ${activeTimezone}`;
+      } else {
+        delivery = "Scheduled";
+      }
+    }
+
+    return [
+      {
+        label: "Campaign",
+        value: wizSummary.campaignName.trim() || "Untitled campaign",
+      },
+      { label: "Channel", value: wizSummary.channel },
+      { label: "Recipients", value: recipients },
+      { label: "Delivery", value: delivery },
+    ];
+  }, [
+    wizEstimate,
+    wizIsPush,
+    wizSummary.campaignName,
+    wizSummary.channel,
+    sendOption,
+    form,
+    activeTimezone,
+  ]);
+
   return (
     <div className="min-h-screen bg-background font-sans -mt-[20px] z-2">
+      <SendConfirmDialog
+        open={showSendConfirm}
+        onOpenChange={setShowSendConfirm}
+        title={
+          !wizIsPush && sendOption === "schedule"
+            ? "Schedule this campaign?"
+            : "Send this campaign?"
+        }
+        description={
+          wizIsPush
+            ? "This delivers an in-app push to the wallets below."
+            : sendOption === "schedule"
+              ? "It will send automatically at the scheduled time."
+              : "This sends to the recipients below right away."
+        }
+        details={sendConfirmDetails}
+        confirmLabel={
+          !wizIsPush && sendOption === "schedule" ? "Schedule" : "Send now"
+        }
+        confirmingLabel={
+          !wizIsPush && sendOption === "schedule" ? "Scheduling…" : "Sending…"
+        }
+        confirming={isLaunching}
+        onConfirm={performLaunch}
+      />
       {/* Header - Campaigns link · editable name · saved status + Save & exit */}
       <div className="bg-background">
         <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8 max-w-[1600px]">

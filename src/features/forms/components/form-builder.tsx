@@ -76,6 +76,7 @@ import { FormPreviewStage } from "./form-preview-stage";
 import { SubmissionsTab } from "./submissions-tab";
 import { audienceService } from "@/features/audience/audience.service";
 import { automationService } from "@/features/automation/automation.service";
+import { SendConfirmDialog } from "@/shared/components/common/send-confirm-dialog";
 
 type Tab = "build" | "submissions" | "share";
 type BuildTab = "fields" | "display" | "settings";
@@ -183,6 +184,8 @@ export function FormBuilder({ id }: { id: string }) {
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
+  // Guard shown before a form goes live and starts collecting contacts.
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
 
   // Staged edits, seeded from the loaded form.
   const [name, setName] = useState("");
@@ -258,16 +261,27 @@ export function FormBuilder({ id }: { id: string }) {
     saveMutation.mutate({ id, input: buildInput() });
   };
 
-  const toggleLive = () => {
-    const next = status === "active" ? "paused" : "active";
+  const setLive = (next: "active" | "paused") => {
     setStatus(next);
     statusMutation.mutate(
       { id, input: { ...buildInput(), status: next } },
       {
-        onSuccess: () =>
-          toast.success(next === "active" ? "Form is live" : "Form paused"),
+        onSuccess: () => {
+          toast.success(next === "active" ? "Form is live" : "Form paused");
+          setShowPublishConfirm(false);
+        },
+        onError: () => setShowPublishConfirm(false),
       }
     );
+  };
+
+  const toggleLive = () => {
+    // Pausing is safe and instant; publishing (going live) asks first.
+    if (status === "active") {
+      setLive("paused");
+      return;
+    }
+    setShowPublishConfirm(true);
   };
 
   const has = (type: CaptureFieldType) =>
@@ -346,8 +360,34 @@ export function FormBuilder({ id }: { id: string }) {
   const live = status === "active";
   const selectedField = fields.find((f) => f.key === selectedKey) ?? null;
 
+  const publishDestination =
+    lists.find((l) => l.id === listId)?.name ?? "Default audience";
+  const publishFieldCount = fields.filter(
+    (f) => f.key.trim().length > 0
+  ).length;
+
   return (
     <Shell>
+      <SendConfirmDialog
+        open={showPublishConfirm}
+        onOpenChange={setShowPublishConfirm}
+        title="Publish this form?"
+        description="Once live, anyone with the link or embed can submit and become a contact."
+        details={[
+          { label: "Form", value: name.trim() || "Untitled form" },
+          {
+            label: "Fields",
+            value: `${publishFieldCount} ${
+              publishFieldCount === 1 ? "field" : "fields"
+            }`,
+          },
+          { label: "Contacts land in", value: publishDestination },
+        ]}
+        confirmLabel="Publish"
+        confirmingLabel="Publishing…"
+        confirming={statusMutation.isPending}
+        onConfirm={() => setLive("active")}
+      />
       {/* Header */}
       <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
         <div className="flex min-w-0 items-center gap-3">

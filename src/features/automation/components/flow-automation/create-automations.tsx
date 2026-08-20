@@ -115,6 +115,7 @@ import {
 } from "@/features/automation/utils/contracts";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
+import { SendConfirmDialog } from "@/shared/components/common/send-confirm-dialog";
 
 // This is a known benign error with ReactFlow that can be safely ignored
 if (typeof window === "undefined") {
@@ -893,6 +894,8 @@ const CreateAutomationContent = () => {
   >({});
   const [nodeSearch, setNodeSearch] = useState("");
   const [showTriggerPicker, setShowTriggerPicker] = useState(false);
+  // Guard before an automation goes live and starts enrolling contacts.
+  const [showActivateConfirm, setShowActivateConfirm] = useState(false);
 
   // On phones the node library renders as an overlay covering the canvas, so
   // start it closed there (post-mount to stay SSR/hydration safe). Desktop
@@ -2172,6 +2175,27 @@ const CreateAutomationContent = () => {
     },
   });
 
+  // Turn a ready draft/paused automation on. Drafts publish first, then flip to
+  // active; paused ones activate directly. Fired from the confirm dialog.
+  const activateAutomation = () => {
+    const finish = () => setShowActivateConfirm(false);
+    if (automationData.status === "draft") {
+      publishMutation.mutate(undefined, {
+        onSuccess: () =>
+          statusToggleMutation.mutate("active", {
+            onSuccess: finish,
+            onError: finish,
+          }),
+        onError: finish,
+      });
+    } else {
+      statusToggleMutation.mutate("active", {
+        onSuccess: finish,
+        onError: finish,
+      });
+    }
+  };
+
   const builderNodeCount = nodes.length;
   const builderErrorCount = pickArray(
     isJsonObject(validateMutation.data)
@@ -2197,6 +2221,39 @@ const CreateAutomationContent = () => {
       className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-3"
     >
       <Confetti show={!showConfetti} />
+
+      <SendConfirmDialog
+        open={showActivateConfirm}
+        onOpenChange={setShowActivateConfirm}
+        icon={BoltIcon}
+        title="Turn this automation on?"
+        description="It will start enrolling contacts that match its trigger."
+        details={[
+          {
+            label: "Automation",
+            value: automationData.name.trim() || "Untitled automation",
+          },
+          {
+            label: "Steps",
+            value: `${builderNodeCount} ${
+              builderNodeCount === 1 ? "step" : "steps"
+            }`,
+          },
+        ]}
+        note={
+          stepsNeedingSetup > 0
+            ? `${stepsNeedingSetup} ${
+                stepsNeedingSetup === 1
+                  ? "step still needs"
+                  : "steps still need"
+              } setup and may block sending.`
+            : undefined
+        }
+        confirmLabel="Turn on"
+        confirmingLabel="Turning on…"
+        confirming={statusToggleMutation.isPending || publishMutation.isPending}
+        onConfirm={activateAutomation}
+      />
 
       {/* Header */}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-1">
@@ -2280,14 +2337,11 @@ const CreateAutomationContent = () => {
                 publishMutation.isPending
               }
               onClick={() => {
+                // Pausing is safe and instant; going live asks first.
                 if (automationData.status === "active") {
                   statusToggleMutation.mutate("paused");
-                } else if (automationData.status === "draft") {
-                  publishMutation.mutate(undefined, {
-                    onSuccess: () => statusToggleMutation.mutate("active"),
-                  });
                 } else {
-                  statusToggleMutation.mutate("active");
+                  setShowActivateConfirm(true);
                 }
               }}
               className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${

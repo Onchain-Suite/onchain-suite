@@ -1,9 +1,16 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { campaignsService } from "../campaigns.service";
 import { formatPercentage } from "../utils";
+import {
+  campaignRates,
+  campaignRateWeight,
+  SENT_STATUSES,
+  weightedAverageRate,
+} from "../utils/rates";
 import { StatCardsSkeleton } from "@/shared/components/page/page-skeleton";
 
 const formatCount = (value?: number | null) =>
@@ -46,6 +53,59 @@ export function CampaignsAnalyticsOverview() {
     staleTime: 60_000,
   });
 
+  // The org-wide open/click rates are the recipient-weighted pool of every
+  // campaign's own rate (Σ opens / Σ delivered), i.e. the industry-standard
+  // rate - NOT the backend's aggregate opens/delivered, which over-counts
+  // re-opens and clamps to a misleading 100%. Reuses the same list +
+  // per-campaign analytics queries the table already runs, so React Query
+  // dedupes them (no extra requests).
+  const campaignsQuery = useQuery({
+    queryKey: ["campaigns", "list"],
+    queryFn: () => campaignsService.listCampaigns({ page: 1, limit: 200 }),
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const sentCampaigns = useMemo(
+    () =>
+      (campaignsQuery.data ?? []).filter((campaign) =>
+        SENT_STATUSES.has(campaign.status)
+      ),
+    [campaignsQuery.data]
+  );
+
+  const analyticsResults = useQueries({
+    queries: sentCampaigns.map((campaign) => ({
+      queryKey: ["campaigns", campaign.id, "analytics"],
+      queryFn: () => campaignsService.getAnalytics(campaign.id),
+      staleTime: 5 * 60 * 1000,
+      retry: false,
+      refetchOnWindowFocus: false,
+    })),
+  });
+
+  const { avgOpenRate, avgClickRate } = useMemo(() => {
+    const openEntries: Array<{
+      rate: number | undefined;
+      weight: number | undefined;
+    }> = [];
+    const clickEntries: Array<{
+      rate: number | undefined;
+      weight: number | undefined;
+    }> = [];
+    sentCampaigns.forEach((campaign, index) => {
+      const analytics = analyticsResults[index]?.data;
+      const { open, click } = campaignRates(campaign, analytics);
+      const weight = campaignRateWeight(campaign, analytics);
+      openEntries.push({ rate: open, weight });
+      clickEntries.push({ rate: click, weight });
+    });
+    return {
+      avgOpenRate: weightedAverageRate(openEntries),
+      avgClickRate: weightedAverageRate(clickEntries),
+    };
+  }, [sentCampaigns, analyticsResults]);
+
   if (overviewQuery.isLoading) {
     return <StatCardsSkeleton withIcon={false} />;
   }
@@ -58,26 +118,6 @@ export function CampaignsAnalyticsOverview() {
   const used = allowance?.used ?? 0;
   const limit = allowance?.limit ?? null;
 
-  // Engagement rates. The backend's `openRate`/`clickRate` count TOTAL opens/
-  // clicks against `delivered`, so a heavy re-opener can push them over 100%.
-  // Prefer a unique-based rate (uniqueOpens / delivered), which is bounded by
-  // 100%; fall back to the raw rate clamped to [0, 100] so an impossible
-  // "106.7%" can never render.
-  const { email } = overview;
-  const denom = email?.delivered ?? email?.sent ?? 0;
-  const clampPct = (value?: number) =>
-    typeof value === "number" && Number.isFinite(value)
-      ? Math.min(100, Math.max(0, value))
-      : undefined;
-  const openRatePct =
-    typeof email?.uniqueOpens === "number" && denom > 0
-      ? Math.min(100, (email.uniqueOpens / denom) * 100)
-      : clampPct(email?.openRate);
-  const clickRatePct =
-    typeof email?.uniqueClicks === "number" && denom > 0
-      ? Math.min(100, (email.uniqueClicks / denom) * 100)
-      : clampPct(email?.clickRate);
-
   const cards = [
     {
       label: `Messages sent (${rangeDays}d)`,
@@ -86,13 +126,19 @@ export function CampaignsAnalyticsOverview() {
     },
     {
       label: "Open rate",
-      value: formatPercentage(openRatePct),
-      // hint: `${formatCount(overview.email?.uniqueOpens)} unique opens`,
+      value: formatPercentage(avgOpenRate),
+      hint:
+        sentCampaigns.length > 0
+          ? `across ${sentCampaigns.length} sent`
+          : undefined,
     },
     {
       label: "Click rate",
-      value: formatPercentage(clickRatePct),
-      // hint: `${formatCount(overview.email?.uniqueClicks)} unique clicks`,
+      value: formatPercentage(avgClickRate),
+      hint:
+        sentCampaigns.length > 0
+          ? `across ${sentCampaigns.length} sent`
+          : undefined,
     },
     {
       label: "Monthly allowance",

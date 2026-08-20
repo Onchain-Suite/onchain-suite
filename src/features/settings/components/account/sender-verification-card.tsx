@@ -88,7 +88,8 @@ export function SenderVerificationCard() {
   const domains = useMemo(() => domainsQuery.data ?? [], [domainsQuery.data]);
   const currentStep = useMemo(() => {
     if (domains.length === 0) return 0;
-    if (domains.every((d) => d.status === "verified")) return 2;
+    // Past the last step so "Verified" renders as a completed check, not "3".
+    if (domains.every((d) => d.status === "verified")) return STEPS.length;
     return 1;
   }, [domains]);
 
@@ -266,21 +267,32 @@ export function SenderVerificationCard() {
                       />
                     </span>
                   </button>
-                  {domain.status !== "verified" ? (
-                    <button
-                      type="button"
-                      onClick={() => deleteMutation.mutate(domain.id)}
-                      disabled={
-                        deleteMutation.isPending &&
-                        deleteMutation.variables === domain.id
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Removing a verified domain stops branded sending from it,
+                      // so confirm that one; pending/failed delete outright.
+                      if (
+                        domain.status === "verified" &&
+                        typeof window !== "undefined" &&
+                        !window.confirm(
+                          `Remove ${domain.domain}? Branded sending from this domain will stop until it is re-verified.`
+                        )
+                      ) {
+                        return;
                       }
-                      aria-label={`Remove ${domain.domain}`}
-                      title="Remove domain"
-                      className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-                    >
-                      <TrashIcon aria-hidden="true" className="h-4 w-4" />
-                    </button>
-                  ) : null}
+                      deleteMutation.mutate(domain.id);
+                    }}
+                    disabled={
+                      deleteMutation.isPending &&
+                      deleteMutation.variables === domain.id
+                    }
+                    aria-label={`Remove ${domain.domain}`}
+                    title="Remove domain"
+                    className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                  >
+                    <TrashIcon aria-hidden="true" className="h-4 w-4" />
+                  </button>
                 </div>
 
                 {open ? (
@@ -296,7 +308,7 @@ export function SenderVerificationCard() {
                             Verified - sending is live
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            SES authentication passed for this domain. There are
+                            DNS authentication passed for this domain. There are
                             no DNS records left to publish.
                           </p>
                         </div>

@@ -421,12 +421,68 @@ export function StyleControls({
                 onChange={(fontSize) => set({ fontSize })}
               />
             );
+          case "fontStack":
+            return style.fontStack ? (
+              <Field key={k} label="Custom font (imported)">
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
+                    {style.fontStack}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => set({ fontStack: null })}
+                    className="shrink-0 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </Field>
+            ) : null;
           case "fontWeight":
             return (
               <FontWeightToggle
                 key={k}
                 value={style.fontWeight}
                 onChange={(fontWeight) => set({ fontWeight })}
+              />
+            );
+          case "letterSpacing":
+            return (
+              <SliderInput
+                key={k}
+                label="Letter spacing"
+                min={-1}
+                max={12}
+                step={0.5}
+                value={style.letterSpacing ?? 0}
+                onChange={(letterSpacing) => set({ letterSpacing })}
+              />
+            );
+          case "textTransform":
+            return (
+              <ToggleGroup
+                key={k}
+                label="Text case"
+                value={style.textTransform ?? "none"}
+                onChange={(textTransform) => set({ textTransform })}
+                options={[
+                  { value: "none", label: "None" },
+                  { value: "uppercase", label: "UPPER" },
+                  { value: "lowercase", label: "lower" },
+                  { value: "capitalize", label: "Title" },
+                ]}
+              />
+            );
+          case "lineHeight":
+            return (
+              <SliderInput
+                key={k}
+                label="Line height"
+                min={1}
+                max={2.5}
+                step={0.1}
+                value={style.lineHeight ?? 1.5}
+                onChange={(lineHeight) => set({ lineHeight })}
               />
             );
           case "textAlign":

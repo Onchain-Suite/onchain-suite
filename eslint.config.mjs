@@ -76,6 +76,9 @@ const eslintConfig = [
       "src/app/(payload)/**",
       "src/payload-types.ts",
       "src/migrations/**",
+      // Build-time Node scripts (e.g. asset generation). Plain .mjs run with
+      // node, outside tsconfig's project, so the typed parser can't lint them.
+      "scripts/**",
     ],
   },
 

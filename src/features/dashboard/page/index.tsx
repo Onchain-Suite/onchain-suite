@@ -4,6 +4,10 @@ import { useMemo } from "react";
 
 import { CommandBar } from "../components/command-bar";
 import {
+  DashboardMetricsSkeleton,
+  DashboardOnboardingSkeleton,
+} from "../components/dashboard-skeletons";
+import {
   GetStartedSection,
   useOrganizationId,
   useTaskCompletion,
@@ -23,6 +27,12 @@ interface UserData {
 
 interface MainDashboardProps {
   userData: UserData;
+  /**
+   * Server-read `onchain.onboardingComplete` cookie. Picks the initial skeleton
+   * (stats vs setup checklist) while the task-completion query resolves, so it
+   * matches loading.tsx and the final view - one skeleton, not two.
+   */
+  onboardingHint?: boolean;
 }
 
 function getGreeting(tz?: string) {
@@ -47,7 +57,10 @@ function getGreeting(tz?: string) {
   return "evening";
 }
 
-export function MainDashboard({ userData }: MainDashboardProps) {
+export function MainDashboard({
+  userData,
+  onboardingHint = false,
+}: MainDashboardProps) {
   const greeting = getGreeting(userData.timezone);
   const name = userData.fullName ?? "there";
 
@@ -74,10 +87,18 @@ export function MainDashboard({ userData }: MainDashboardProps) {
 
       <CommandBar />
 
-      {isLoading || !onboardingComplete ? (
-        <GetStartedSection />
-      ) : (
+      {isLoading ? (
+        // One onboarding-aware skeleton (matches loading.tsx via the cookie
+        // hint) instead of flashing the checklist while onboarding state loads.
+        onboardingHint ? (
+          <DashboardMetricsSkeleton />
+        ) : (
+          <DashboardOnboardingSkeleton />
+        )
+      ) : onboardingComplete ? (
         <MetricsDashboard />
+      ) : (
+        <GetStartedSection />
       )}
     </div>
   );

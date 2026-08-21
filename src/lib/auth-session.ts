@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 
+import { fetchWithTimeout } from "@/lib/server-fetch";
 import { isJsonObject } from "@/lib/utils";
 
 const normalizeSessionResponse = (payload: unknown) => {
@@ -71,8 +72,10 @@ export async function getSession() {
     const appClean = appBase.replace(/\/$/, "");
 
     try {
-      // 1) Prefer local proxy so it can inject Authorization from onchain.token
-      const sessionResponse = await fetch(
+      // 1) Prefer local proxy so it can inject Authorization from onchain.token.
+      // Bounded + retried once: a stalled session fetch must not hang the whole
+      // server render (which leaves the dashboard stuck on its skeleton).
+      const sessionResponse = await fetchWithTimeout(
         `${appClean}/api/v1/auth/get-session`,
         {
           headers: {
@@ -82,7 +85,8 @@ export async function getSession() {
               : {}),
           },
           cache: "no-store",
-        }
+        },
+        { timeoutMs: 8000, retries: 1 }
       );
 
       if (sessionResponse.ok) {
@@ -112,15 +116,19 @@ export async function getSession() {
       }
 
       // 2) Fallback to profile check directly if get-session failed or didn't return a user
-      const profileResponse = await fetch(`${appClean}/api/v1/user/profile`, {
-        headers: {
-          Cookie: cookie,
-          ...(shouldSendApiBearer
-            ? { Authorization: `Bearer ${apiToken}` }
-            : {}),
+      const profileResponse = await fetchWithTimeout(
+        `${appClean}/api/v1/user/profile`,
+        {
+          headers: {
+            Cookie: cookie,
+            ...(shouldSendApiBearer
+              ? { Authorization: `Bearer ${apiToken}` }
+              : {}),
+          },
+          cache: "no-store",
         },
-        cache: "no-store",
-      });
+        { timeoutMs: 8000, retries: 1 }
+      );
 
       if (!profileResponse.ok) {
         if (profileResponse.status !== 404 && profileResponse.status !== 401) {

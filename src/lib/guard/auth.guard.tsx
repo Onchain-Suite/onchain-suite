@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { type ReactNode } from "react";
 
 import { getSession } from "@/lib/auth-session";
+import { fetchWithTimeout } from "@/lib/server-fetch";
 
 import { AUTH_ROUTES } from "@/shared/config/app-routes";
 
@@ -79,10 +80,16 @@ export async function AuthGuard({
     const appClean = appBase.replace(/\/$/, "");
 
     try {
-      const orgRes = await fetch(`${appClean}/api/v1/organization/list`, {
-        headers: { Cookie: cookie },
-        cache: "no-store",
-      });
+      // Bounded so a slow org lookup can't hang the dashboard render; on
+      // timeout we skip the onboarding redirect (same as the catch below).
+      const orgRes = await fetchWithTimeout(
+        `${appClean}/api/v1/organization/list`,
+        {
+          headers: { Cookie: cookie },
+          cache: "no-store",
+        },
+        { timeoutMs: 6000 }
+      );
 
       if (orgRes.ok) {
         const orgJson = await orgRes.json();

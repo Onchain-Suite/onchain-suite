@@ -10,6 +10,7 @@ import {
   LockClosedIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -54,6 +55,7 @@ import { ImageUploadButton, InspectPanel, StylesPanel } from "./inspect-panels";
 import { TemplatesTab } from "./templates-tab";
 import { useFooterDefaults } from "./use-footer-defaults";
 import { useUndoable } from "./use-undoable";
+import { SETTINGS_ACCOUNT_HREF } from "@/features/templates/variable-sources";
 
 type Tab = "blocks" | "templates" | "styles" | "inspect";
 
@@ -717,6 +719,46 @@ function BlocksTab({ onAdd }: { onAdd: (type: InsertableType) => void }) {
   );
 }
 
+/**
+ * Points the user at the exact settings that fill the footer's org tokens when
+ * they're blank - so `{{ sender_name }}` / `{{ postal_address }}` read as "add
+ * this in Settings → Account" instead of an unresolved token / generic error.
+ */
+function FooterSettingsNotice({ footer }: { footer: EmailFooter }) {
+  const missing: string[] = [];
+  if (!footer.companyName?.trim()) missing.push("sender name");
+  if (!footer.companyAddress?.trim()) missing.push("postal address");
+  if (missing.length === 0) return null;
+
+  const label =
+    missing.length === 2
+      ? "sender name and postal address"
+      : missing[0] === "sender name"
+        ? "sender name"
+        : "postal address";
+
+  return (
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+      Your {label} {missing.length === 2 ? "are" : "is"} blank, so{" "}
+      {missing.includes("sender name") ? (
+        <code className="font-mono">{"{{ sender_name }}"}</code>
+      ) : null}
+      {missing.length === 2 ? " and " : null}
+      {missing.includes("postal address") ? (
+        <code className="font-mono">{"{{ postal_address }}"}</code>
+      ) : null}{" "}
+      won&apos;t resolve.{" "}
+      <Link
+        href={SETTINGS_ACCOUNT_HREF}
+        className="font-medium underline underline-offset-2 hover:text-amber-800 dark:hover:text-amber-200"
+      >
+        Add {missing.length === 2 ? "them" : "it"} in Settings → Account
+      </Link>{" "}
+      (or type {missing.length === 2 ? "them" : "it"} into the footer text).
+    </div>
+  );
+}
+
 function FooterControls({
   doc,
   setDoc,
@@ -762,6 +804,8 @@ function FooterControls({
 
       {footer.enabled ? (
         <>
+          <FooterSettingsNotice footer={footer} />
+
           <Field label="Logo">
             {footer.logoUrl?.trim() ? (
               <div className="mb-2 flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-2">

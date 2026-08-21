@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { intelligenceService } from "../intelligence.service";
 import { QueryTab } from "./query";
 import { SegmentsView } from "./segments/segments-view";
+import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 
 /** Tab ids that `/intelligence?tab=` accepts, so deep links can't land nowhere. */
 const TAB_IDS = new Set(["chat", "segments", "sql"]);
@@ -162,6 +163,8 @@ export default function IntelligencePage() {
         </h1>
         <EnrichmentStatus />
       </div>
+
+      <ContractAddressNudge context="intelligence" />
 
       <Tabs
         value={activeTab}

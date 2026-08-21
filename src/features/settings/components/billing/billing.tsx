@@ -3,7 +3,8 @@
 import { motion } from "framer-motion";
 
 import { fadeInUp } from "../../utils";
-import InvoiceHistory from "./invoice-history";
+import { BillingInvoicesCard } from "./billing-invoices-card";
+import { CardOnFileCard } from "./card-on-file-card";
 import PlanUsage from "./plan-usage";
 
 export default function BillingSettings() {
@@ -16,11 +17,13 @@ export default function BillingSettings() {
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
-      {/* Payment methods are intentionally not shown - payments run through
-          the Blockradar crypto checkout, so there is nothing to save here. */}
       <PlanUsage />
 
-      <InvoiceHistory />
+      {/* Card on file drives auto-charge on renewal; invoices can also be paid
+          by hosted card (payUrl) or crypto (wallet). */}
+      <CardOnFileCard />
+
+      <BillingInvoicesCard />
     </motion.div>
   );
 }

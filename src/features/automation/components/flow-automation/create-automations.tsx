@@ -113,6 +113,7 @@ import {
   buildTriggerContractPatch,
   resolveContractCatalog,
 } from "@/features/automation/utils/contracts";
+import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
 import { SendConfirmDialog } from "@/shared/components/common/send-confirm-dialog";
@@ -2196,6 +2197,24 @@ const CreateAutomationContent = () => {
     }
   };
 
+  // Onchain triggers fire off enriched wallet activity, which needs a saved
+  // contract; surface the contract nudge only when such a trigger is in the flow.
+  const hasOnchainTrigger = useMemo(
+    () =>
+      nodes.some((n) => {
+        if (n.type !== "trigger") return false;
+        const triggerType = isJsonObject(n.data)
+          ? asString(n.data.triggerType)
+          : "";
+        return (
+          triggerType.length > 0 && !NON_ONCHAIN_TRIGGER_TYPES.has(triggerType)
+        );
+      }),
+    [nodes]
+  );
+  const hasSavedContracts =
+    (projectSettingsQuery.data?.contractAddresses?.length ?? 0) > 0;
+
   const builderNodeCount = nodes.length;
   const builderErrorCount = pickArray(
     isJsonObject(validateMutation.data)
@@ -2377,6 +2396,13 @@ const CreateAutomationContent = () => {
           </button>
         </div>
       </header>
+
+      {activeTab === "builder" && hasOnchainTrigger ? (
+        <ContractAddressNudge
+          context="automation"
+          hasContracts={hasSavedContracts}
+        />
+      ) : null}
 
       {/* Main Content */}
       <div

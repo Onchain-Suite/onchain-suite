@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { isJsonObject } from "@/lib/utils";
 
 import { automationService } from "../automation.service";
+import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 import { PageHeader } from "@/shared/components/page/page-header";
 import { Button } from "@/shared/components/ui/button";
 
@@ -212,6 +213,8 @@ export function AutomationsListView() {
           </Button>
         }
       />
+
+      <ContractAddressNudge context="automation" />
 
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-4">
         {statCards.map((card) => (

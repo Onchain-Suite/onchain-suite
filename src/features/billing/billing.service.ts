@@ -423,6 +423,47 @@ export interface InvoiceDownloadResponse {
   [key: string]: unknown;
 }
 
+/**
+ * Customer-facing invoice row from `GET /billing/invoices?organizationId=`
+ * (OWNER, membership-checked). `payUrl` is the Stripe hosted card page; crypto
+ * invoices are paid from the wallet. Admin-only fields (reminders, charge
+ * errors, Stripe ids) are never exposed here.
+ */
+export interface CustomerInvoice {
+  number: string;
+  description: string;
+  amountUsd: number;
+  status: InvoiceStatus;
+  dueAt?: string | null;
+  paidAt?: string | null;
+  payUrl?: string | null;
+}
+
+/** The org's saved card from `GET /billing/card?organizationId=`. */
+export interface CardOnFile {
+  hasCard: boolean;
+  brand?: string | null;
+  last4?: string | null;
+  since?: string | null;
+}
+
+/**
+ * `POST /billing/card/setup-intent`. In the hosted flow the backend returns a
+ * Stripe-hosted setup page `url` to redirect to; the embedded (Elements) flow
+ * would instead return `clientSecret`. We normalise the many possible URL field
+ * names in {@link billingService.startCardSetup}.
+ */
+export interface CardSetupResponse {
+  url?: string;
+  setupUrl?: string;
+  paymentUrl?: string;
+  hostedUrl?: string;
+  redirectUrl?: string;
+  clientSecret?: string;
+  customerId?: string;
+  [key: string]: unknown;
+}
+
 export type PaymentMethodType = "card" | "crypto";
 
 export interface BillingPaymentMethod {
@@ -854,6 +895,79 @@ export const billingService = {
       { method: "GET", url: `/billing/invoices/${invoiceId}/download` },
       options
     );
+  },
+
+  /**
+   * Customer-facing invoice list (`GET /billing/invoices`) - OWNER,
+   * membership-checked. Returns {@link CustomerInvoice} rows with a hosted
+   * `payUrl`. Tolerates an array or an `{ items }` / `{ data }` envelope.
+   */
+  getBillingInvoices(organizationId?: string, options?: BillingServiceOptions) {
+    const orgId = organizationId ?? pickOrgId(options);
+    return billingRequest<
+      | CustomerInvoice[]
+      | { items?: CustomerInvoice[]; data?: CustomerInvoice[] }
+    >(
+      {
+        method: "GET",
+        url: "/billing/invoices",
+        params: orgId ? { organizationId: orgId } : undefined,
+      },
+      { orgId: orgId ?? undefined }
+    );
+  },
+
+  /**
+   * The org's card on file (`GET /billing/card`) for the "Visa ****4242 / Add
+   * card" UI.
+   */
+  getCardOnFile(organizationId?: string, options?: BillingServiceOptions) {
+    const orgId = organizationId ?? pickOrgId(options);
+    return billingRequest<CardOnFile>(
+      {
+        method: "GET",
+        url: "/billing/card",
+        params: orgId ? { organizationId: orgId } : undefined,
+      },
+      { orgId: orgId ?? undefined }
+    );
+  },
+
+  /**
+   * Start the hosted card-save flow (`POST /billing/card/setup-intent`) and
+   * return the Stripe-hosted setup page URL to redirect the user to. Once they
+   * save a card there, Stripe's `setup_intent.succeeded` webhook stores the
+   * org's `CardOnFile`, which is what lets auto-charge-on-expiry fire.
+   */
+  async startCardSetup(
+    args?: { successUrl?: string; cancelUrl?: string; organizationId?: string },
+    options?: BillingServiceOptions
+  ): Promise<{ url: string | null; clientSecret: string | null }> {
+    const orgId = args?.organizationId ?? pickOrgId(options);
+    // successUrl/cancelUrl override Stripe's default redirect so the user lands
+    // back on our billing tab (?tab=billing) rather than /settings/billing.
+    const data: Record<string, unknown> = {};
+    if (orgId) data.organizationId = orgId;
+    if (args?.successUrl) data.successUrl = args.successUrl;
+    if (args?.cancelUrl) data.cancelUrl = args.cancelUrl;
+    const res = await billingRequest<CardSetupResponse>(
+      { method: "POST", url: "/billing/card/setup-intent", data },
+      { orgId: orgId ?? undefined }
+    );
+    const url =
+      res.url ??
+      res.setupUrl ??
+      res.paymentUrl ??
+      res.hostedUrl ??
+      res.redirectUrl ??
+      null;
+    return {
+      url: typeof url === "string" && url.length > 0 ? url : null,
+      clientSecret:
+        typeof res.clientSecret === "string" && res.clientSecret.length > 0
+          ? res.clientSecret
+          : null,
+    };
   },
 
   /**

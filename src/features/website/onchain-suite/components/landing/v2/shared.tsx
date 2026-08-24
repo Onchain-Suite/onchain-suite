@@ -868,7 +868,7 @@ function FooterLink({
 export function Footer() {
   return (
     <footer
-      className="mt-auto overflow-hidden border-t pt-16"
+      className="mt-auto overflow-hidden border-t pt-14"
       style={{ borderColor: "var(--line)" }}
     >
       {/* Ask the docs */}
@@ -890,7 +890,7 @@ export function Footer() {
 
       {/* Link columns - Compare is wider and its links sit in a 2-col sub-grid */}
       <div
-        className="wrap mt-14 grid grid-cols-2 gap-x-8 gap-y-10 border-t pt-12 md:grid-cols-[1fr_1fr_1fr_1.5fr] md:gap-10"
+        className="wrap mt-16 grid grid-cols-2 gap-x-8 gap-y-10 border-t pt-14 md:grid-cols-[1fr_1fr_1fr_1.5fr] md:gap-10"
         style={{ borderColor: "var(--line)" }}
       >
         {FOOTER.map((col) => (

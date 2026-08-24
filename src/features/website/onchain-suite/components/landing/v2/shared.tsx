@@ -910,97 +910,103 @@ function FooterLink({
 }
 
 export function Footer() {
+  const line = { borderColor: "var(--line)" };
   return (
     <footer
-      className="mt-auto overflow-hidden border-t pt-14"
-      style={{ borderColor: "var(--line)" }}
+      className="mt-auto overflow-hidden border-t pt-16 pb-12"
+      style={line}
     >
-      {/* Ask the docs */}
-      <div className="wrap grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
-        <div>
-          <div className="mono mb-3 text-[11px] uppercase tracking-[0.16em] t-muted2">
-            Ask the docs
-          </div>
-          <h2 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-[30px]">
-            Ask anything about OnchainSuite
-          </h2>
-          <p className="mt-3 max-w-md text-[14px] leading-relaxed t-muted">
-            Answers drawn from our docs, changelog and comparison pages. Cited,
-            never invented.
-          </p>
-        </div>
-        <AskDocs />
-      </div>
-
-      {/* Link columns - Compare is wider and its links sit in a 2-col sub-grid */}
-      <div
-        className="wrap mt-16 grid grid-cols-2 gap-x-8 gap-y-10 border-t pt-14 md:grid-cols-[1fr_1fr_1fr_1.5fr] md:gap-10"
-        style={{ borderColor: "var(--line)" }}
-      >
-        {FOOTER.map((col) => (
-          <div key={col.h}>
-            <div className="mono mb-3 text-[11px] uppercase tracking-[0.14em] t-muted2">
-              {col.h}
+      {/* One fitted container; per-section spacing lives on inner elements,
+          because .wrap-fit's margin/padding shorthand would override the
+          Tailwind mt/pt utilities on the container element itself. */}
+      <div className="wrap-fit">
+        {/* Ask the docs */}
+        <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
+          <div>
+            <div className="mono mb-3 text-[11px] uppercase tracking-[0.16em] t-muted2">
+              Ask the docs
             </div>
-            <ul
-              className={
-                col.twoCol ? "grid grid-cols-2 gap-x-6 gap-y-2" : "space-y-2"
-              }
-            >
-              {col.links.map((item) => (
-                <li key={item.label}>
-                  <FooterLink
-                    href={item.href}
-                    className={
-                      item.accent
-                        ? "text-[13.5px] font-medium text-[color:var(--acc)] transition-colors hover:opacity-80"
-                        : "text-[13.5px] t-muted transition-colors hover:text-[color:var(--acc)]"
-                    }
-                  >
-                    {item.label}
-                  </FooterLink>
-                </li>
-              ))}
-            </ul>
+            <h2 className="text-[28px] font-semibold leading-tight tracking-tight sm:text-[32px]">
+              Ask anything about OnchainSuite
+            </h2>
+            <p className="mt-3 max-w-md text-[15px] leading-relaxed t-muted">
+              Answers drawn from our docs, changelog and comparison pages.
+              Cited, never invented.
+            </p>
           </div>
-        ))}
-      </div>
-
-      {/* Legal bar */}
-      <div
-        className="wrap mt-12 flex flex-col gap-4 border-t pt-8 sm:flex-row sm:items-center sm:justify-between"
-        style={{ borderColor: "var(--line)" }}
-      >
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-          <Logo height={22} />
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px] t-muted2">
-            {LEGAL_LINKS.map(([label, href]) => (
-              <Link
-                key={label}
-                href={href}
-                className="transition-colors hover:text-[color:var(--acc)]"
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
+          <AskDocs />
         </div>
-        <span className="mono flex items-center gap-2 text-[12px] t-muted2">
-          <span
-            aria-hidden="true"
-            className="h-2 w-2 rounded-full"
-            style={{ background: "#22c55e" }}
-          />
-          All systems operational
-        </span>
-      </div>
 
-      <p className="wrap mt-6 max-w-3xl text-[12.5px] leading-relaxed t-muted2">
-        OnchainSuite Ltd is registered in England and Wales, company number
-        17370357, registered office 31 Nash Square, Birmingham, United Kingdom,
-        B42 2EX. OnchainSuite reads public blockchain data; it never holds
-        custody of funds or private keys.
-      </p>
+        {/* Link columns - Compare is wider, links in a 2-col sub-grid */}
+        <div
+          className="mt-20 grid grid-cols-2 gap-x-8 gap-y-10 border-t pt-14 md:grid-cols-[1fr_1fr_1fr_1.5fr] md:gap-10"
+          style={line}
+        >
+          {FOOTER.map((col) => (
+            <div key={col.h}>
+              <div className="mono mb-3 text-[11px] uppercase tracking-[0.14em] t-muted2">
+                {col.h}
+              </div>
+              <ul
+                className={
+                  col.twoCol ? "grid grid-cols-2 gap-x-6 gap-y-2" : "space-y-2"
+                }
+              >
+                {col.links.map((item) => (
+                  <li key={item.label}>
+                    <FooterLink
+                      href={item.href}
+                      className={
+                        item.accent
+                          ? "text-[13.5px] font-medium text-[color:var(--acc)] transition-colors hover:opacity-80"
+                          : "text-[13.5px] t-muted transition-colors hover:text-[color:var(--acc)]"
+                      }
+                    >
+                      {item.label}
+                    </FooterLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        {/* Legal bar */}
+        <div
+          className="mt-16 flex flex-col gap-4 border-t pt-10 sm:flex-row sm:items-center sm:justify-between"
+          style={line}
+        >
+          <div className="flex flex-wrap items-center gap-x-7 gap-y-3">
+            <Logo height={30} />
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] t-muted2">
+              {LEGAL_LINKS.map(([label, href]) => (
+                <Link
+                  key={label}
+                  href={href}
+                  className="transition-colors hover:text-[color:var(--acc)]"
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+          </div>
+          <span className="mono flex items-center gap-2 text-[12.5px] t-muted2">
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 rounded-full"
+              style={{ background: "#22c55e" }}
+            />
+            All systems operational
+          </span>
+        </div>
+
+        <p className="mt-8 text-[13.5px] leading-relaxed t-muted2">
+          OnchainSuite Ltd is registered in England and Wales, company number
+          17370357, registered office 31 Nash Square, Birmingham, United
+          Kingdom, B42 2EX. OnchainSuite reads public blockchain data; it never
+          holds custody of funds or private keys.
+        </p>
+      </div>
 
       {/* Oversized wordmark, clipped at the bottom edge (decorative). */}
       <div

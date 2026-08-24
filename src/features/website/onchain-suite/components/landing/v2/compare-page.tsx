@@ -5,12 +5,16 @@ import {
   CheckIcon,
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
+import Image from "next/image";
 import Link from "next/link";
 
 import "./landing-v2.css";
+import { BrandLogo } from "./brand-logo";
 import {
   CAPABILITIES,
+  COMPARE_BRAND,
   COMPARE_CTA,
+  COMPARE_LOGOS,
   type Comparison,
   COMPARISON_FAQS,
   COMPARISON_SLUGS,
@@ -20,6 +24,10 @@ import {
 } from "./compare-data";
 import { Reveal } from "./primitives";
 import { Heading, PageShell, SIGNUP } from "./shared";
+
+/** Light (reversed) OnchainSuite wordmark, for the dark card panel. */
+const ONCHAIN_LIGHT_LOGO =
+  "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761095267/full_logo_horizontal_coloured_light_kl0irx.png";
 
 const monogram = (name: string) =>
   name
@@ -60,6 +68,9 @@ export function ComparePage({ data }: { data: Comparison }) {
           <div className="max-w-3xl">
             <Reveal>
               <span className="eyebrow">{data.eyebrow}</span>
+            </Reveal>
+            <Reveal delay={0.04} className="mt-5">
+              <BrandLogo slug={data.slug} name={name} height={34} maxW={180} />
             </Reveal>
             <Reveal delay={0.05}>
               <h1
@@ -298,29 +309,69 @@ export function ComparePage({ data }: { data: Comparison }) {
             eyebrow="More comparisons"
             title="Compare OnchainSuite to more tools"
           />
-          <div className="mt-10 grid gap-4 sm:grid-cols-2">
-            {others.map((c) => (
-              <Link
-                key={c.slug}
-                href={`/compare/${c.slug}`}
-                className="card group flex items-center gap-3 p-4 transition-colors hover:border-[color:var(--acc)]"
-              >
-                <span
-                  className="flex size-10 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold"
-                  style={{ background: "var(--acc-soft)", color: "var(--acc)" }}
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {others.map((c) => {
+              const brand = COMPARE_BRAND[c.slug] ?? "var(--acc)";
+              return (
+                <Link
+                  key={c.slug}
+                  href={`/compare/${c.slug}`}
+                  className="card group block p-5 transition-colors hover:border-[color:var(--acc)]"
                 >
-                  {monogram(c.name)}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[14px] font-semibold t-ink">
-                    OnchainSuite vs {c.name}
-                  </span>
-                  <span className="block truncate text-[12px] t-muted2">
-                    {c.eyebrow.replace(/^Compare · /, "")}
-                  </span>
-                </span>
-              </Link>
-            ))}
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="min-w-0 flex-1 text-[15px] font-semibold leading-snug t-ink">
+                      OnchainSuite vs {c.name}
+                    </span>
+                    <span className="w-[36%] shrink-0 pt-0.5 text-right text-[11px] leading-snug t-muted2">
+                      {c.eyebrow.replace(/^Compare · /, "")}
+                    </span>
+                  </div>
+                  <div
+                    className="mt-4 grid grid-cols-2 overflow-hidden rounded-xl border"
+                    style={{ borderColor: "var(--line)" }}
+                  >
+                    <div
+                      className="flex items-center justify-center px-4 py-8"
+                      style={{ background: "#0b1533" }}
+                    >
+                      <Image
+                        src={ONCHAIN_LIGHT_LOGO}
+                        alt="OnchainSuite"
+                        width={150}
+                        height={28}
+                        className="h-6 w-auto max-w-full object-contain"
+                      />
+                    </div>
+                    <div
+                      className="flex items-center justify-center px-4 py-8"
+                      style={{
+                        background: `color-mix(in oklab, ${brand} 8%, var(--surface))`,
+                      }}
+                    >
+                      {COMPARE_LOGOS[c.slug] ? (
+                        <span className="relative block h-8 w-[78%]">
+                          <Image
+                            src={COMPARE_LOGOS[c.slug]}
+                            alt={`${c.name} logo`}
+                            fill
+                            sizes="130px"
+                            className="object-contain"
+                          />
+                        </span>
+                      ) : (
+                        <span
+                          className="flex h-14 w-14 items-center justify-center rounded-2xl text-[16px] font-bold text-white"
+                          style={{ background: brand }}
+                          aria-hidden="true"
+                        >
+                          {monogram(c.name)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>

@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
+
 import "./landing-v2.css";
 import { Reveal } from "./primitives";
-import { Heading, PageShell, PartnerLogos } from "./shared";
+import { PageShell, PARTNERS } from "./shared";
 
 const FOUNDERS = [
   {
@@ -37,15 +39,28 @@ export function TeamPage() {
     <PageShell>
       <section className="py-20 sm:py-28">
         <div className="wrap-fit">
-          <Heading
-            eyebrow="Team"
-            title={
-              <>
-                The people building <span className="grad">OnchainSuite.</span>
-              </>
-            }
-            sub="A small team of blockchain data and growth people building the retention layer Web3 never had, so protocols can keep the users they work so hard to win."
-          />
+          {/* Left-aligned hero, matching the demo /team layout. */}
+          <Reveal>
+            <span className="eyebrow">Team</span>
+          </Reveal>
+          <Reveal delay={0.05}>
+            <h1
+              className="mt-5 max-w-3xl font-semibold tracking-tight t-ink"
+              style={{
+                fontSize: "clamp(2.2rem, 5vw, 3.6rem)",
+                lineHeight: 1.05,
+              }}
+            >
+              The people building <span className="grad">OnchainSuite.</span>
+            </h1>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <p className="mt-5 max-w-2xl text-[17px] leading-relaxed t-muted">
+              A small team of blockchain data and growth people building the
+              retention layer Web3 never had, so protocols can keep the users
+              they work so hard to win.
+            </p>
+          </Reveal>
 
           <div className="mono mb-6 mt-16 text-[11px] uppercase tracking-[0.16em] t-muted2">
             Founders
@@ -53,24 +68,22 @@ export function TeamPage() {
           <div className="grid gap-5 md:grid-cols-3">
             {FOUNDERS.map((f) => (
               <Reveal key={f.name}>
-                <div className="card h-full p-6">
+                <div className="card h-full p-7 sm:p-8">
                   <div
-                    className="flex h-12 w-12 items-center justify-center rounded-xl text-[15px] font-semibold text-white"
-                    style={{ background: "var(--acc)" }}
+                    className="flex h-16 w-16 items-center justify-center rounded-full text-[17px] font-bold"
+                    style={{
+                      background: "var(--acc-soft)",
+                      color: "var(--acc)",
+                    }}
                     aria-hidden="true"
                   >
                     {f.initials}
                   </div>
-                  <div className="mt-4 text-[17px] font-semibold t-ink">
+                  <div className="mt-5 text-[20px] font-semibold t-ink">
                     {f.name}
                   </div>
-                  <div
-                    className="text-[13px] font-medium"
-                    style={{ color: "var(--acc)" }}
-                  >
-                    {f.role}
-                  </div>
-                  <p className="mt-3 text-[14px] leading-relaxed t-muted">
+                  {/* <div className="mono mt-1 text-[12.5px] t-acc">{f.role}</div> */}
+                  <p className="mt-4 text-[15px] leading-relaxed t-muted">
                     {f.bio}
                   </p>
                 </div>
@@ -78,25 +91,39 @@ export function TeamPage() {
             ))}
           </div>
 
-          <Reveal className="mt-20 text-center">
-            <p className="mono text-[11px] uppercase tracking-[0.16em] t-muted2">
-              Trusted by teams building on-chain
-            </p>
-            <div className="mt-6">
-              <PartnerLogos />
-            </div>
+          {/* Trusted-by: logo tile + name, left-aligned, like the demo. */}
+          <div className="mono mb-6 mt-20 text-[11px] uppercase tracking-[0.16em] t-muted2">
+            Trusted by teams building on-chain
+          </div>
+          <Reveal className="flex flex-wrap items-center gap-x-9 gap-y-5">
+            {PARTNERS.map((p) => (
+              <div key={p.name} className="flex items-center gap-3">
+                <div
+                  className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border"
+                  style={{ borderColor: "var(--line)" }}
+                >
+                  <Image
+                    src={p.src}
+                    alt={p.name}
+                    fill
+                    sizes="44px"
+                    className="object-cover"
+                  />
+                </div>
+                <span className="text-[14.5px] font-medium t-ink2">
+                  {p.name}
+                </span>
+              </div>
+            ))}
           </Reveal>
 
+          {/* Company facts: plain columns under a hairline, not a boxed grid. */}
           <div
-            className="mt-16 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border md:grid-cols-4"
-            style={{ borderColor: "var(--line)", background: "var(--line)" }}
+            className="mt-16 grid grid-cols-2 gap-x-8 gap-y-8 border-t pt-10 sm:grid-cols-4"
+            style={{ borderColor: "var(--line)" }}
           >
             {FACTS.map(([k, v]) => (
-              <div
-                key={k}
-                className="bg-[color:var(--surface)] px-5 py-5"
-                style={{ background: "var(--surface, #fff)" }}
-              >
+              <div key={k}>
                 <div className="mono text-[10.5px] uppercase tracking-[0.14em] t-muted2">
                   {k}
                 </div>

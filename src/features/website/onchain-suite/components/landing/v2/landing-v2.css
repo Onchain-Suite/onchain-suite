@@ -572,6 +572,33 @@
   }
 }
 
+/* ----- print (legal "Download PDF" -> Save as PDF) -----
+   Strip the app chrome so the printed/saved PDF is just the document. */
+@media print {
+  .ocs2 {
+    background: #fff !important;
+  }
+  .ocs2 header,
+  .ocs2 footer,
+  .ocs2 .no-print {
+    display: none !important;
+  }
+  .ocs2 .wrap-fit,
+  .ocs2 .wrap-compare,
+  .ocs2 .wrap {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .ocs2 section {
+    padding: 0 !important;
+  }
+  .ocs2 .t-muted,
+  .ocs2 .t-muted2,
+  .ocs2 .t-ink2 {
+    color: #1a1a17 !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* kill every landing animation, not just a subset */
   .ocs2 *,

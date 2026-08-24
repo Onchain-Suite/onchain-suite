@@ -547,3 +547,194 @@ export const COMPARISONS: Record<string, Comparison> = {
 };
 
 export const COMPARISON_SLUGS = Object.keys(COMPARISONS);
+
+/* ---------------------------------------------------------------------------
+   /compare index page (crawled 1:1 from the demo). Each card carries its own
+   category eyebrow, badge, filter group and short blurb. The filter tabs match
+   a card's `group` exactly - some cards (Customer.io, SendGrid, Brevo) sit in
+   groups with no tab, so they only appear under "All", matching the demo.
+   ------------------------------------------------------------------------- */
+
+export interface CompareCard {
+  slug: string;
+  name: string;
+  /** Small category eyebrow above the title. */
+  category: string;
+  /** Corner badge (Head to head / Enterprise / Budget / Infrastructure / …). */
+  badge: string;
+  /** Filter group; the tab bar shows a card when the active tab === group. */
+  group: string;
+  /** One-line card description. */
+  blurb: string;
+}
+
+export const COMPARE_CARDS: CompareCard[] = [
+  {
+    slug: "customer-io",
+    name: "Customer.io",
+    category: "Lifecycle messaging",
+    badge: "Head to head",
+    group: "Lifecycle messaging",
+    blurb:
+      "Strong event-driven messaging for web2 apps. We compare its event pipeline against native wallet triggers.",
+  },
+  {
+    slug: "braze",
+    name: "Braze",
+    category: "Enterprise CRM",
+    badge: "Enterprise",
+    group: "Enterprise",
+    blurb:
+      "Enterprise scale and price. Where Braze needs a data team to see onchain behaviour, we index it for you.",
+  },
+  {
+    slug: "dotdigital",
+    name: "Dotdigital",
+    category: "Email marketing",
+    badge: "Head to head",
+    group: "Email marketing",
+    blurb:
+      "Mature ecommerce email suite. The gap shows the moment your audience is a wallet, not a customer record.",
+  },
+  {
+    slug: "emailoctopus",
+    name: "EmailOctopus",
+    category: "Email marketing",
+    badge: "Budget",
+    group: "Email marketing",
+    blurb:
+      "Cheap broadcast email. Fine for a newsletter, no segmentation on anything that happens onchain.",
+  },
+  {
+    slug: "sendgrid",
+    name: "SendGrid",
+    category: "Email infrastructure",
+    badge: "Infrastructure",
+    group: "Email infrastructure",
+    blurb:
+      "A delivery API, not a marketing platform. Many teams keep it underneath us rather than instead of us.",
+  },
+  {
+    slug: "brevo",
+    name: "Brevo",
+    category: "SMB suite",
+    badge: "Budget",
+    group: "SMB suite",
+    blurb:
+      "Email, SMS and chat in one SMB bundle. We compare its automation ceiling with onchain automations.",
+  },
+  {
+    slug: "formo",
+    name: "Formo",
+    category: "Web3 analytics",
+    badge: "Web3 native",
+    group: "Web3 native",
+    blurb:
+      "Onchain product analytics with forms. Strong at measurement, thinner once you need to act on a segment.",
+  },
+  {
+    slug: "addressable",
+    name: "Addressable",
+    category: "Web3 growth",
+    badge: "Web3 native",
+    group: "Web3 native",
+    blurb:
+      "Wallet-to-social targeting for paid acquisition. Different job: they buy attention, we own the relationship.",
+  },
+  {
+    slug: "galxe",
+    name: "Galxe",
+    category: "Quests and rewards",
+    badge: "Web3 native",
+    group: "Web3 native",
+    blurb:
+      "Quests, credentials and campaigns. We compare one-off incentive spikes against retained, messaged users.",
+  },
+];
+
+/** Competitor logos, keyed by slug (Cloudinary). Used on compare cards + pages. */
+export const COMPARE_LOGOS: Record<string, string> = {
+  braze:
+    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787608717/Braze_idbqGpQ8ss_1_kumqcl.png",
+  brevo:
+    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787608705/Brevo_idgQGSgZ6E_1_slz5hz.png",
+  "customer-io":
+    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787608696/Customer-io_Logo_1_ircnlc.png",
+  emailoctopus:
+    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787608681/logo-land-purple_hvs0gj.png",
+  dotdigital:
+    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787608680/DD_logo_close_crop_DD_Full_colourclose_crop_osfnls.png",
+  addressable:
+    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787608681/idYzvVdO_4_logos_vxelrw.jpg",
+  galxe:
+    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787608680/idiXUsqDvE_logos_cvpwju.jpg",
+  formo:
+    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787608681/idoG7Dz5FO_logos_pfrvcm.png",
+  sendgrid:
+    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787608666/twilio-sendgrid-seeklogo_zoxlif.png",
+};
+
+/** Competitor brand colours (monogram tile) for the "More comparisons" cards. */
+export const COMPARE_BRAND: Record<string, string> = {
+  "customer-io": "#6c5ce7",
+  braze: "#8236f5",
+  dotdigital: "#00b2a9",
+  emailoctopus: "#1e6fd9",
+  sendgrid: "#1a82e2",
+  brevo: "#0b996e",
+  addressable: "#e5326e",
+  galxe: "#16182b",
+  formo: "#10b981",
+};
+
+/** Filter tabs on the /compare index (a subset of the card groups + All). */
+export const COMPARE_FILTERS = [
+  "All",
+  "Email marketing",
+  "Web3 native",
+  "Enterprise",
+] as const;
+
+export const COMPARE_INDEX = {
+  eyebrow: "Compare",
+  title: "Every tool your team already considered.",
+  sub: "Honest, current comparisons between OnchainSuite and the email platforms, web3 CRMs and airdrop tools teams evaluate alongside us. We name the cases where the other one wins.",
+  meta: [
+    "9 comparisons",
+    "Updated April 2026",
+    "Pricing verified from public pages",
+  ],
+};
+
+/** "At a glance" table - the four questions that decide most evaluations. */
+export const AT_A_GLANCE = {
+  title: "At a glance",
+  sub: "The four questions that decide most evaluations.",
+  cols: [
+    "Platform",
+    "Wallet triggers",
+    "Identity resolution",
+    "Email + push",
+    "Entry price",
+  ],
+  rows: [
+    [
+      "OnchainSuite",
+      "Native",
+      "Wallet + email + push",
+      "Both",
+      "$0 to 5k wallets",
+    ],
+    ["Customer.io", "Via custom events", "Email only", "Both", "$100/mo"],
+    ["Braze", "Via data team", "Email only", "Both", "Quote only"],
+    ["Dotdigital", "None", "Email only", "Email", "$150/mo"],
+    ["Formo", "Read-only", "Wallet only", "Neither", "$0 to 10k events"],
+    ["Galxe", "Quest-based", "Wallet only", "Neither", "Rev share"],
+  ] as string[][],
+  note: "Sourced from public pricing and documentation, April 2026. Tell us if something here is out of date and we will correct it.",
+};
+
+export const COMPARE_INDEX_CTA = {
+  title: "Still comparing? Bring your stack.",
+  body: "Send us the tools you run today. We will map what stays, what OnchainSuite replaces, and what migration actually costs you in a 30-minute session.",
+};

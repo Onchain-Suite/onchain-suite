@@ -4,9 +4,16 @@
  * item; consecutive `li` render as one list). Bracketed `[...]` notes are the
  * source docs' own legal-review placeholders - left as-is, edit with counsel.
  */
+export interface LegalTable {
+  cols: string[];
+  rows: string[][];
+}
 export interface LegalBlock {
-  t: "h" | "p" | "li";
-  x: string;
+  t: "h" | "p" | "li" | "table";
+  /** Text for h / p / li blocks. */
+  x?: string;
+  /** Present only for `t: "table"` blocks. */
+  table?: LegalTable;
 }
 export interface LegalDoc {
   slug: string;
@@ -387,6 +394,56 @@ export const LEGAL_DOCS: Record<string, LegalDoc> = {
       {
         t: "p",
         x: "OnchainSuite engages the categories of sub-processor below to deliver the service, as permitted under our Data Processing Agreement. We list them by category; the specific vendors within each category are available to customers on request under NDA. Transfers outside the UK are safeguarded as described on our International Data Transfers page.",
+      },
+      {
+        t: "table",
+        table: {
+          cols: ["Category", "Purpose", "Location", "Transfer safeguard"],
+          rows: [
+            [
+              "Cloud infrastructure",
+              "Application hosting, database and cache",
+              "United States",
+              "UK IDTA / SCCs",
+            ],
+            [
+              "Website hosting",
+              "Marketing website and CDN",
+              "United States",
+              "EU-US DPF (UK Extension) / SCCs",
+            ],
+            [
+              "Email delivery",
+              "Transactional and campaign email sending",
+              "United States",
+              "EU-US DPF (UK Extension) / SCCs",
+            ],
+            [
+              "Email verification",
+              "List hygiene and deliverability checks",
+              "United States",
+              "UK IDTA / SCCs",
+            ],
+            [
+              "Blockchain data",
+              "Wallet and on-chain data indexing",
+              "United States",
+              "UK IDTA / SCCs",
+            ],
+            [
+              "AI / LLM providers",
+              "Intelligence: embeddings and natural-language querying",
+              "United States, China",
+              "UK IDTA / SCCs with supplementary measures",
+            ],
+            [
+              "Payments",
+              "Billing and payment processing",
+              "United States",
+              "EU-US DPF (UK Extension) / SCCs",
+            ],
+          ],
+        },
       },
       { t: "h", x: "Changes & notifications" },
       {

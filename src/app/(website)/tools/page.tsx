@@ -1,19 +1,13 @@
 import type { Metadata } from "next";
 
-import { ComingSoonPage } from "@/onchain-suite-website/components/landing/v2/coming-soon-page";
+import { ToolsIndexPage } from "@/onchain-suite-website/components/landing/v2/tools-index-page";
 
 export const metadata: Metadata = {
   title: "Free tools · OnchainSuite",
   description:
-    "Free on-chain growth tools from OnchainSuite: cost per acquisition, dormant wallet reactivation, wallet reachability and churn.",
+    "Free on-chain growth calculators: cost per acquisition, dormant wallet reactivation, wallet reachability and churn. No signup, no email gate, every formula on the page.",
 };
 
 export default function Page() {
-  return (
-    <ComingSoonPage
-      eyebrow="Free tools"
-      title="On-chain growth tools"
-      sub="The cost-per-acquisition calculator is live now; dormant wallet reactivation, reachability and churn tools are on the way."
-    />
-  );
+  return <ToolsIndexPage />;
 }

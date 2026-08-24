@@ -379,9 +379,23 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
   // prop so the first paint is correct on both the landing page and pages
   // without a hero (pricing, legal, …).
   const [heroInView, setHeroInView] = useState(ctaWatchesHero);
+  // Toggle the "scrolled" chrome (subtle background + hairline) with hysteresis
+  // and rAF batching, so a scroll that stops near the threshold cannot flip the
+  // state back and forth - that flip-flop was the visible nav "glitch".
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    onScroll();
+    let ticking = false;
+    const update = () => {
+      const y = window.scrollY;
+      setScrolled((prev) => (prev ? y > 6 : y > 28));
+      ticking = false;
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+    update();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -436,16 +450,19 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
       onMouseLeave={() => setOpenMenu(null)}
       style={{
         paddingTop: scrolled ? 12 : 0,
-        transition: "padding .35s cubic-bezier(.2,.7,.2,1)",
+        transition: "padding .2s cubic-bezier(.2,.7,.2,1)",
       }}
     >
+      {/* The bar collapses into a floating pill on scroll. Transitions are kept
+          short (.2s) and the scrolled flag has hysteresis (see effect above) so
+          the morph plays once and cannot flip-flop into a glitch mid-scroll. */}
       <nav
         className="relative z-10 mx-auto flex items-center gap-4 md:gap-7"
         style={{
           // min() keeps the scrolled pill inset from the viewport edges on
           // phones (the max-width transition falls back to a snap there).
           maxWidth: scrolled ? "min(940px, calc(100% - 24px))" : 1320,
-          height: scrolled ? 64 : 86,
+          height: scrolled ? 62 : 82,
           padding: scrolled ? "0 14px 0 18px" : "0 28px",
           background: scrolled
             ? "color-mix(in oklab, var(--surface) 88%, transparent)"
@@ -458,7 +475,7 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
             ? "0 10px 40px -16px rgba(26,24,20,0.22)"
             : "none",
           transition:
-            "max-width .35s cubic-bezier(.2,.7,.2,1), height .35s cubic-bezier(.2,.7,.2,1), padding .35s, background .35s, border-color .35s, border-radius .35s, box-shadow .35s",
+            "max-width .2s cubic-bezier(.2,.7,.2,1), height .2s cubic-bezier(.2,.7,.2,1), padding .2s, background .2s, border-color .2s, border-radius .2s, box-shadow .2s",
         }}
       >
         <Link
@@ -519,15 +536,6 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
           >
             Blog
           </Link>
-          <a
-            href={DOCS_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            onMouseEnter={() => setOpenMenu(null)}
-            className="rounded-full px-3 py-1.5 text-[13.5px] font-medium t-muted transition-colors hover:bg-[color:var(--acc-soft)] hover:text-[color:var(--acc)]"
-          >
-            Docs
-          </a>
         </div>
         <div className="ml-auto flex items-center gap-2.5">
           {/* Sign in - temporarily hidden, functionality preserved.
@@ -620,19 +628,6 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
               >
                 Blog
               </Link>
-              <a
-                href={DOCS_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setMobileOpen(false)}
-                className="btn btn-ghost w-full"
-              >
-                Docs
-                <ArrowTopRightOnSquareIcon
-                  className="h-3.5 w-3.5"
-                  aria-hidden="true"
-                />
-              </a>
             </div>
             <Link
               href={SIGNUP}
@@ -778,8 +773,10 @@ const FOOTER: FooterColumn[] = [
       l("API reference", DOCS_URL),
       l("Webhooks", DOCS_URL),
       l("SDKs", DOCS_URL),
-      l("Changelog", "/blog"),
-      l("Status", DOCS_URL),
+      // Changelog & Status hidden until they have real destinations - no
+      // changelog feed or status page exists yet. Restore with their URLs.
+      // l("Changelog", "/changelog"),
+      // l("Status", "https://status.onchainsuite.com"),
     ],
   },
   {

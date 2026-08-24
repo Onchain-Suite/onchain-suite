@@ -912,10 +912,7 @@ function FooterLink({
 export function Footer() {
   const line = { borderColor: "var(--line)" };
   return (
-    <footer
-      className="mt-auto overflow-hidden border-t pt-16 pb-12"
-      style={line}
-    >
+    <footer className="mt-auto overflow-hidden border-t pt-16" style={line}>
       {/* One fitted container; per-section spacing lives on inner elements,
           because .wrap-fit's margin/padding shorthand would override the
           Tailwind mt/pt utilities on the container element itself. */}
@@ -1000,7 +997,7 @@ export function Footer() {
           </span>
         </div>
 
-        <p className="mt-3 text-[13.5px] leading-relaxed t-muted2">
+        <p className="mt-8 text-[13.5px] leading-relaxed t-muted2">
           OnchainSuite Ltd is registered in England and Wales, company number
           17370357, registered office 31 Nash Square, Birmingham, United
           Kingdom, B42 2EX. OnchainSuite reads public blockchain data; it never

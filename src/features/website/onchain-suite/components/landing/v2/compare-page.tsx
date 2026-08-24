@@ -29,6 +29,19 @@ import { Heading, PageShell, SIGNUP } from "./shared";
 const ONCHAIN_LIGHT_LOGO =
   "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761095267/full_logo_horizontal_coloured_light_kl0irx.png";
 
+// Per-brand logo box (height in px, width as a % of the panel). Some assets have
+// heavy internal whitespace or are landscape/icon shaped, so they need a bigger
+// box to read at a comparable size in the "More comparisons" cards.
+const LOGO_BOX: Record<string, { h: number; w: string }> = {
+  "customer-io": { h: 52, w: "94%" },
+  emailoctopus: { h: 52, w: "98%" },
+  addressable: { h: 56, w: "74%" },
+  galxe: { h: 48, w: "64%" },
+  dotdigital: { h: 46, w: "90%" },
+  sendgrid: { h: 46, w: "88%" },
+};
+const DEFAULT_LOGO_BOX = { h: 40, w: "84%" };
+
 const monogram = (name: string) =>
   name
     .replace(/[^a-zA-Z]/g, "")
@@ -302,9 +315,10 @@ export function ComparePage({ data }: { data: Comparison }) {
         </section>
       ) : null}
 
-      {/* More comparisons */}
+      {/* More comparisons - a wider container than the reading column so the
+          split-panel logos render at a comfortable size. */}
       <section className="py-14">
-        <div className="wrap-compare">
+        <div className="wrap-fit">
           <Heading
             eyebrow="More comparisons"
             title="Compare OnchainSuite to more tools"
@@ -312,6 +326,7 @@ export function ComparePage({ data }: { data: Comparison }) {
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {others.map((c) => {
               const brand = COMPARE_BRAND[c.slug] ?? "var(--acc)";
+              const box = LOGO_BOX[c.slug] ?? DEFAULT_LOGO_BOX;
               return (
                 <Link
                   key={c.slug}
@@ -331,30 +346,33 @@ export function ComparePage({ data }: { data: Comparison }) {
                     style={{ borderColor: "var(--line)" }}
                   >
                     <div
-                      className="flex items-center justify-center px-4 py-8"
+                      className="flex h-[132px] items-center justify-center px-4"
                       style={{ background: "#0b1533" }}
                     >
                       <Image
                         src={ONCHAIN_LIGHT_LOGO}
                         alt="OnchainSuite"
-                        width={150}
-                        height={28}
-                        className="h-6 w-auto max-w-full object-contain"
+                        width={240}
+                        height={44}
+                        className="h-11 w-auto max-w-full object-contain"
                       />
                     </div>
                     <div
-                      className="flex items-center justify-center px-4 py-8"
+                      className="flex h-[132px] items-center justify-center px-4"
                       style={{
                         background: `color-mix(in oklab, ${brand} 8%, var(--surface))`,
                       }}
                     >
                       {COMPARE_LOGOS[c.slug] ? (
-                        <span className="relative block h-8 w-[78%]">
+                        <span
+                          className="relative block"
+                          style={{ height: box.h, width: box.w }}
+                        >
                           <Image
                             src={COMPARE_LOGOS[c.slug]}
                             alt={`${c.name} logo`}
                             fill
-                            sizes="130px"
+                            sizes="200px"
                             className="object-contain"
                           />
                         </span>

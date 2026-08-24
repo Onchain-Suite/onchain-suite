@@ -5,8 +5,8 @@ import { useMemo } from "react";
 
 import { campaignsService } from "../campaigns.service";
 import {
-  campaignRateWeight,
   campaignRates,
+  campaignRateWeight,
   SENT_STATUSES,
   weightedAverageRate,
 } from "../utils/rates";

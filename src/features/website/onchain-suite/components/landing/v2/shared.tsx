@@ -911,33 +911,41 @@ function FooterLink({
 
 export function Footer() {
   const line = { borderColor: "var(--line)" };
+  // "Ask the docs" is hidden until a docs-QA backend endpoint exists to answer.
+  // Flip to true to bring the panel (and its search box) back.
+  const SHOW_ASK_DOCS: boolean = false;
   return (
     <footer className="mt-auto overflow-hidden border-t pt-16" style={line}>
       {/* One fitted container; per-section spacing lives on inner elements,
           because .wrap-fit's margin/padding shorthand would override the
           Tailwind mt/pt utilities on the container element itself. */}
       <div className="wrap-fit">
-        {/* Ask the docs */}
-        <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
-          <div>
-            <div className="mono mb-3 text-[11px] uppercase tracking-[0.16em] t-muted2">
-              Ask the docs
+        {/* Ask the docs - hidden until the docs-QA backend endpoint exists. */}
+        {SHOW_ASK_DOCS ? (
+          <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
+            <div>
+              <div className="mono mb-3 text-[11px] uppercase tracking-[0.16em] t-muted2">
+                Ask the docs
+              </div>
+              <h2 className="text-[28px] font-semibold leading-tight tracking-tight sm:text-[32px]">
+                Ask anything about OnchainSuite
+              </h2>
+              <p className="mt-3 max-w-md text-[15px] leading-relaxed t-muted">
+                Answers drawn from our docs, changelog and comparison pages.
+                Cited, never invented.
+              </p>
             </div>
-            <h2 className="text-[28px] font-semibold leading-tight tracking-tight sm:text-[32px]">
-              Ask anything about OnchainSuite
-            </h2>
-            <p className="mt-3 max-w-md text-[15px] leading-relaxed t-muted">
-              Answers drawn from our docs, changelog and comparison pages.
-              Cited, never invented.
-            </p>
+            <AskDocs />
           </div>
-          <AskDocs />
-        </div>
+        ) : null}
 
-        {/* Link columns - Compare is wider, links in a 2-col sub-grid */}
+        {/* Link columns - Compare is wider, links in a 2-col sub-grid. When the
+            Ask panel is hidden this is the top section, so drop its separator. */}
         <div
-          className="mt-20 grid grid-cols-2 gap-x-8 gap-y-10 border-t pt-14 md:grid-cols-[1fr_1fr_1fr_1.5fr] md:gap-10"
-          style={line}
+          className={`grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-[1fr_1fr_1fr_1.5fr] md:gap-10${
+            SHOW_ASK_DOCS ? " mt-20 border-t pt-14" : ""
+          }`}
+          style={SHOW_ASK_DOCS ? line : undefined}
         >
           {FOOTER.map((col) => (
             <div key={col.h}>

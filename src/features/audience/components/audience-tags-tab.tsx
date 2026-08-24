@@ -59,11 +59,92 @@ function totalFromMeta(res: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// A tag object may carry its contact count and last-updated timestamp under a
+// few different field names depending on the backend build; read defensively.
+const TAG_COUNT_FIELDS = [
+  "contactCount",
+  "contactsCount",
+  "memberCount",
+  "membersCount",
+  "profileCount",
+  "profilesCount",
+  "count",
+  "size",
+];
+const TAG_UPDATED_FIELDS = [
+  "updatedAt",
+  "updated_at",
+  "lastUpdated",
+  "lastUsedAt",
+  "modifiedAt",
+  "createdAt",
+  "created_at",
+];
+
+function readNumberField(
+  obj: Record<string, unknown>,
+  fields: string[]
+): number | null {
+  for (const f of fields) {
+    const v = obj[f];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (
+      typeof v === "string" &&
+      v.trim() !== "" &&
+      Number.isFinite(Number(v))
+    ) {
+      return Number(v);
+    }
+  }
+  return null;
+}
+function readStringField(
+  obj: Record<string, unknown>,
+  fields: string[]
+): string | undefined {
+  for (const f of fields) {
+    const v = obj[f];
+    if (typeof v === "string" && v) return v;
+  }
+  return undefined;
+}
+
+/** Human-readable "updated" label: relative when recent, a date when older. */
+function formatUpdated(iso?: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const diff = Date.now() - d.getTime();
+  const MIN = 60_000;
+  const HR = 3_600_000;
+  const DAY = 86_400_000;
+  const asDate = () =>
+    d.toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  if (diff < MIN && diff >= 0) return "just now";
+  if (diff < HR && diff >= 0) {
+    const m = Math.floor(diff / MIN);
+    return `${m} min${m === 1 ? "" : "s"} ago`;
+  }
+  if (diff < DAY && diff >= 0) {
+    const h = Math.floor(diff / HR);
+    return `${h} hour${h === 1 ? "" : "s"} ago`;
+  }
+  if (diff < 7 * DAY && diff >= 0) {
+    const dd = Math.floor(diff / DAY);
+    return `${dd} day${dd === 1 ? "" : "s"} ago`;
+  }
+  return asDate();
+}
+
 /**
- * Tags tab: a table of tags with real per-tag contact counts (each resolved via
- * `listProfiles({ tag }).meta`), plus an inline "New tag" create. Tags in this
- * app are applied manually (via the contacts tag popover), so the rule reads
- * "Manual"; per-tag "updated" isn't exposed by the API yet.
+ * Tags tab: a table of tags with per-tag contact counts and last-updated time.
+ * Counts and timestamps come from the tag objects when the API supplies them,
+ * and the count falls back to `listProfiles({ tag }).meta`. Tags in this app are
+ * applied manually (via the contacts tag popover), so the rule reads "Manual".
  */
 export function AudienceTagsTab({
   tags,
@@ -105,6 +186,20 @@ export function AudienceTagsTab({
       if (typeof t.id === "string" && t.id && typeof t.name === "string") {
         map.set(t.name, t.id);
       }
+    }
+    return map;
+  }, [tagObjectsQuery.data]);
+
+  // Contact count + last-updated time carried on each tag object (when present).
+  const tagMetaByName = useMemo(() => {
+    const map = new Map<string, { count: number | null; updatedAt?: string }>();
+    for (const t of tagObjectsQuery.data ?? []) {
+      if (typeof t.name !== "string") continue;
+      const obj = t as Record<string, unknown>;
+      map.set(t.name, {
+        count: readNumberField(obj, TAG_COUNT_FIELDS),
+        updatedAt: readStringField(obj, TAG_UPDATED_FIELDS),
+      });
     }
     return map;
   }, [tagObjectsQuery.data]);
@@ -427,7 +522,11 @@ export function AudienceTagsTab({
             </thead>
             <tbody>
               {tags.map((tag) => {
-                const count = counts[tag];
+                const meta = tagMetaByName.get(tag);
+                const objCount = meta?.count;
+                const count =
+                  typeof objCount === "number" ? objCount : counts[tag];
+                const updated = formatUpdated(meta?.updatedAt);
                 return (
                   <tr
                     key={tag}
@@ -449,14 +548,20 @@ export function AudienceTagsTab({
                       </span>
                     </td>
                     <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                      {countsQuery.isLoading
-                        ? "…"
-                        : typeof count === "number"
-                          ? count.toLocaleString()
+                      {typeof count === "number"
+                        ? count.toLocaleString()
+                        : countsQuery.isLoading || tagObjectsQuery.isLoading
+                          ? "…"
                           : "-"}
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
-                      -
+                      {updated ? (
+                        <span title={meta?.updatedAt}>{updated}</span>
+                      ) : tagObjectsQuery.isLoading ? (
+                        "…"
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td className="py-4 pr-3 text-right">
                       <DropdownMenu>

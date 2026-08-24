@@ -3,10 +3,7 @@
 import { useMemo } from "react";
 
 import { CommandBar } from "../components/command-bar";
-import {
-  DashboardMetricsSkeleton,
-  DashboardOnboardingSkeleton,
-} from "../components/dashboard-skeletons";
+import { DashboardOnboardingSkeleton } from "../components/dashboard-skeletons";
 import {
   GetStartedSection,
   useOrganizationId,
@@ -87,14 +84,14 @@ export function MainDashboard({
 
       <CommandBar />
 
-      {isLoading ? (
-        // One onboarding-aware skeleton (matches loading.tsx via the cookie
-        // hint) instead of flashing the checklist while onboarding state loads.
-        onboardingHint ? (
-          <DashboardMetricsSkeleton />
-        ) : (
-          <DashboardOnboardingSkeleton />
-        )
+      {onboardingHint ? (
+        // Onboarded (the cookie is set): render the live metrics straight away.
+        // It owns its own loading via /dashboard/overview, so we never gate the
+        // whole dashboard on the setup-checklist queries - a single stalled one
+        // used to freeze the skeleton here until a manual reload.
+        <MetricsDashboard />
+      ) : isLoading ? (
+        <DashboardOnboardingSkeleton />
       ) : onboardingComplete ? (
         <MetricsDashboard />
       ) : (

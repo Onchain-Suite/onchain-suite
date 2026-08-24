@@ -55,9 +55,25 @@
   margin: 0 auto;
   padding: 0 28px;
 }
+/* Fitted container (subpages: team, tools). Caps at ~1200px and never widens on
+   big monitors, so these pages read like the marketing demo instead of
+   spreading to the homepage's wide `.wrap`. */
+.ocs2 .wrap-fit {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+/* Comparison pages: narrower reading column (matches the demo's 860px). */
+.ocs2 .wrap-compare {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
 /* phones: tighter gutters so cards keep usable width at ~360-430px */
 @media (max-width: 640px) {
-  .ocs2 .wrap {
+  .ocs2 .wrap,
+  .ocs2 .wrap-fit,
+  .ocs2 .wrap-compare {
     padding: 0 20px;
   }
 }
@@ -553,6 +569,33 @@
 @keyframes ocs2-skel {
   100% {
     transform: translateX(100%);
+  }
+}
+
+/* ----- print (legal "Download PDF" -> Save as PDF) -----
+   Strip the app chrome so the printed/saved PDF is just the document. */
+@media print {
+  .ocs2 {
+    background: #fff !important;
+  }
+  .ocs2 header,
+  .ocs2 footer,
+  .ocs2 .no-print {
+    display: none !important;
+  }
+  .ocs2 .wrap-fit,
+  .ocs2 .wrap-compare,
+  .ocs2 .wrap {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .ocs2 section {
+    padding: 0 !important;
+  }
+  .ocs2 .t-muted,
+  .ocs2 .t-muted2,
+  .ocs2 .t-ink2 {
+    color: #1a1a17 !important;
   }
 }
 

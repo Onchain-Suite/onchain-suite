@@ -1,16 +1,10 @@
 "use client";
 
-import { useQueries, useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { campaignsService } from "../campaigns.service";
+import { useCampaignEngagement } from "../hooks/use-campaign-engagement";
 import { formatPercentage } from "../utils";
-import {
-  campaignRates,
-  campaignRateWeight,
-  SENT_STATUSES,
-  weightedAverageRate,
-} from "../utils/rates";
 import { StatCardsSkeleton } from "@/shared/components/page/page-skeleton";
 
 const formatCount = (value?: number | null) =>
@@ -54,57 +48,13 @@ export function CampaignsAnalyticsOverview() {
   });
 
   // The org-wide open/click rates are the recipient-weighted pool of every
-  // campaign's own rate (Σ opens / Σ delivered), i.e. the industry-standard
-  // rate - NOT the backend's aggregate opens/delivered, which over-counts
-  // re-opens and clamps to a misleading 100%. Reuses the same list +
-  // per-campaign analytics queries the table already runs, so React Query
-  // dedupes them (no extra requests).
-  const campaignsQuery = useQuery({
-    queryKey: ["campaigns", "list"],
-    queryFn: () => campaignsService.listCampaigns({ page: 1, limit: 200 }),
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const sentCampaigns = useMemo(
-    () =>
-      (campaignsQuery.data ?? []).filter((campaign) =>
-        SENT_STATUSES.has(campaign.status)
-      ),
-    [campaignsQuery.data]
-  );
-
-  const analyticsResults = useQueries({
-    queries: sentCampaigns.map((campaign) => ({
-      queryKey: ["campaigns", campaign.id, "analytics"],
-      queryFn: () => campaignsService.getAnalytics(campaign.id),
-      staleTime: 5 * 60 * 1000,
-      retry: false,
-      refetchOnWindowFocus: false,
-    })),
-  });
-
-  const { avgOpenRate, avgClickRate } = useMemo(() => {
-    const openEntries: Array<{
-      rate: number | undefined;
-      weight: number | undefined;
-    }> = [];
-    const clickEntries: Array<{
-      rate: number | undefined;
-      weight: number | undefined;
-    }> = [];
-    sentCampaigns.forEach((campaign, index) => {
-      const analytics = analyticsResults[index]?.data;
-      const { open, click } = campaignRates(campaign, analytics);
-      const weight = campaignRateWeight(campaign, analytics);
-      openEntries.push({ rate: open, weight });
-      clickEntries.push({ rate: click, weight });
-    });
-    return {
-      avgOpenRate: weightedAverageRate(openEntries),
-      avgClickRate: weightedAverageRate(clickEntries),
-    };
-  }, [sentCampaigns, analyticsResults]);
+  // campaign's own rate - the SAME hook the Dashboard uses, so both surfaces
+  // always show the same number.
+  const {
+    avgOpenRate,
+    avgClickRate,
+    sentCount: sentCampaignCount,
+  } = useCampaignEngagement();
 
   if (overviewQuery.isLoading) {
     return <StatCardsSkeleton withIcon={false} />;
@@ -128,17 +78,13 @@ export function CampaignsAnalyticsOverview() {
       label: "Open rate",
       value: formatPercentage(avgOpenRate),
       hint:
-        sentCampaigns.length > 0
-          ? `across ${sentCampaigns.length} sent`
-          : undefined,
+        sentCampaignCount > 0 ? `across ${sentCampaignCount} sent` : undefined,
     },
     {
       label: "Click rate",
       value: formatPercentage(avgClickRate),
       hint:
-        sentCampaigns.length > 0
-          ? `across ${sentCampaigns.length} sent`
-          : undefined,
+        sentCampaignCount > 0 ? `across ${sentCampaignCount} sent` : undefined,
     },
     {
       label: "Monthly allowance",

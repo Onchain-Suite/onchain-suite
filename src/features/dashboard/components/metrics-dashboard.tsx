@@ -19,6 +19,7 @@ import {
   type DashboardMetric,
   type MetricBacking,
 } from "@/features/analytics/analytics.service";
+import { useCampaignEngagement } from "@/features/campaigns/hooks/use-campaign-engagement";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const formatCount = (value: number) => value.toLocaleString();
@@ -98,6 +99,11 @@ export function MetricsDashboard() {
 
   const overview = overviewQuery.data;
 
+  // Open rate comes from the SAME pooled calc as the Campaigns page (via the
+  // shared hook) so the two surfaces never disagree, instead of the backend's
+  // separate /dashboard/overview.openRate.
+  const { avgOpenRate } = useCampaignEngagement();
+
   const toMetric = (
     label: string,
     m: DashboardMetric | undefined,
@@ -130,12 +136,13 @@ export function MetricsDashboard() {
       backing?.messagesSent ?? "none",
       "count"
     ),
-    toMetric(
-      "Open rate",
-      overview?.openRate,
-      backing?.openRate ?? "none",
-      "percent"
-    ),
+    {
+      label: "Open rate",
+      value: typeof avgOpenRate === "number" ? formatPercent(avgOpenRate) : "-",
+      deltaPct: 0,
+      backing: "none" as MetricBacking,
+      series: [],
+    },
     toMetric(
       "Converted on-chain",
       overview?.convertedOnchain,

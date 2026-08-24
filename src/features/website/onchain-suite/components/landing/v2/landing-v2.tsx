@@ -37,7 +37,7 @@ import {
   IntelligenceAskCard,
   ProductWindow,
 } from "./product-window";
-import { DOCS_URL, Heading, PageShell, SIGNUP } from "./shared";
+import { DOCS_URL, Heading, PageShell, PartnerLogos, SIGNUP } from "./shared";
 
 /* ───────────────────────── Hero ───────────────────────── */
 
@@ -301,6 +301,23 @@ function Networks() {
       <p className="mt-6 text-center text-[12px] mono t-muted2">
         Supported networks · more added every release
       </p>
+    </section>
+  );
+}
+
+/* ───────────────────────── Trusted by ───────────────────────── */
+
+function TrustedBy() {
+  return (
+    <section className="py-10">
+      <Reveal className="wrap text-center">
+        <p className="mono text-[11px] uppercase tracking-[0.18em] t-muted2">
+          Trusted by
+        </p>
+        <div className="mt-6">
+          <PartnerLogos />
+        </div>
+      </Reveal>
     </section>
   );
 }
@@ -1663,6 +1680,7 @@ export function LandingV2() {
     <PageShell navCtaWatchesHero>
       <Hero />
       <Networks />
+      <TrustedBy />
       <Problem />
       <Monitor />
       <FeatureSplit

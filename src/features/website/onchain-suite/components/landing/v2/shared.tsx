@@ -10,6 +10,7 @@ import {
   CodeBracketIcon,
   CreditCardIcon,
   LinkIcon,
+  MagnifyingGlassIcon,
   PaperAirplaneIcon,
   RocketLaunchIcon,
   RssIcon,
@@ -51,6 +52,50 @@ export function Logo({
       className={className ? `${className} w-auto` : "w-auto"}
       style={className ? { width: "auto" } : { height, width: "auto" }}
     />
+  );
+}
+
+/** Design-partner logos, shown in the landing "Trusted by" row and on /team. */
+export const PARTNERS: { name: string; src: string }[] = [
+  {
+    name: "Yaugahaus",
+    src: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/yauga_k75ki2.jpg",
+  },
+  {
+    name: "Vault777",
+    src: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/vault777_c3ceoc.jpg",
+  },
+  {
+    name: "W3GM",
+    src: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/w3gm_lomrj0.jpg",
+  },
+  {
+    name: "Surgence",
+    src: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/surgence_e1nmnh.jpg",
+  },
+];
+
+/** The partner logo row (contained, rounded so any logo background reads as a tile). */
+export function PartnerLogos() {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-5 sm:gap-x-12">
+      {PARTNERS.map((p) => (
+        <div
+          key={p.name}
+          className="relative h-11 w-11 overflow-hidden rounded-xl border sm:h-12 sm:w-12"
+          style={{ borderColor: "var(--line)" }}
+          title={p.name}
+        >
+          <Image
+            src={p.src}
+            alt={p.name}
+            fill
+            sizes="48px"
+            className="object-cover"
+          />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -334,9 +379,23 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
   // prop so the first paint is correct on both the landing page and pages
   // without a hero (pricing, legal, …).
   const [heroInView, setHeroInView] = useState(ctaWatchesHero);
+  // Toggle the "scrolled" chrome (subtle background + hairline) with hysteresis
+  // and rAF batching, so a scroll that stops near the threshold cannot flip the
+  // state back and forth - that flip-flop was the visible nav "glitch".
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    onScroll();
+    let ticking = false;
+    const update = () => {
+      const y = window.scrollY;
+      setScrolled((prev) => (prev ? y > 6 : y > 28));
+      ticking = false;
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+    update();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -391,16 +450,19 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
       onMouseLeave={() => setOpenMenu(null)}
       style={{
         paddingTop: scrolled ? 12 : 0,
-        transition: "padding .35s cubic-bezier(.2,.7,.2,1)",
+        transition: "padding .2s cubic-bezier(.2,.7,.2,1)",
       }}
     >
+      {/* The bar collapses into a floating pill on scroll. Transitions are kept
+          short (.2s) and the scrolled flag has hysteresis (see effect above) so
+          the morph plays once and cannot flip-flop into a glitch mid-scroll. */}
       <nav
         className="relative z-10 mx-auto flex items-center gap-4 md:gap-7"
         style={{
           // min() keeps the scrolled pill inset from the viewport edges on
           // phones (the max-width transition falls back to a snap there).
           maxWidth: scrolled ? "min(940px, calc(100% - 24px))" : 1320,
-          height: scrolled ? 64 : 86,
+          height: scrolled ? 62 : 82,
           padding: scrolled ? "0 14px 0 18px" : "0 28px",
           background: scrolled
             ? "color-mix(in oklab, var(--surface) 88%, transparent)"
@@ -413,7 +475,7 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
             ? "0 10px 40px -16px rgba(26,24,20,0.22)"
             : "none",
           transition:
-            "max-width .35s cubic-bezier(.2,.7,.2,1), height .35s cubic-bezier(.2,.7,.2,1), padding .35s, background .35s, border-color .35s, border-radius .35s, box-shadow .35s",
+            "max-width .2s cubic-bezier(.2,.7,.2,1), height .2s cubic-bezier(.2,.7,.2,1), padding .2s, background .2s, border-color .2s, border-radius .2s, box-shadow .2s",
         }}
       >
         <Link
@@ -461,21 +523,19 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
             Pricing
           </Link>
           <Link
+            href="/team"
+            onMouseEnter={() => setOpenMenu(null)}
+            className="rounded-full px-3 py-1.5 text-[13.5px] font-medium t-muted transition-colors hover:bg-[color:var(--acc-soft)] hover:text-[color:var(--acc)]"
+          >
+            Team
+          </Link>
+          <Link
             href="/blog"
             onMouseEnter={() => setOpenMenu(null)}
             className="rounded-full px-3 py-1.5 text-[13.5px] font-medium t-muted transition-colors hover:bg-[color:var(--acc-soft)] hover:text-[color:var(--acc)]"
           >
             Blog
           </Link>
-          <a
-            href={DOCS_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            onMouseEnter={() => setOpenMenu(null)}
-            className="rounded-full px-3 py-1.5 text-[13.5px] font-medium t-muted transition-colors hover:bg-[color:var(--acc-soft)] hover:text-[color:var(--acc)]"
-          >
-            Docs
-          </a>
         </div>
         <div className="ml-auto flex items-center gap-2.5">
           {/* Sign in - temporarily hidden, functionality preserved.
@@ -555,25 +615,19 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
                 Pricing
               </Link>
               <Link
+                href="/team"
+                onClick={() => setMobileOpen(false)}
+                className="btn btn-ghost w-full"
+              >
+                Team
+              </Link>
+              <Link
                 href="/blog"
                 onClick={() => setMobileOpen(false)}
                 className="btn btn-ghost w-full"
               >
                 Blog
               </Link>
-              <a
-                href={DOCS_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setMobileOpen(false)}
-                className="btn btn-ghost w-full"
-              >
-                Docs
-                <ArrowTopRightOnSquareIcon
-                  className="h-3.5 w-3.5"
-                  aria-hidden="true"
-                />
-              </a>
             </div>
             <Link
               href={SIGNUP}
@@ -681,49 +735,146 @@ export function Heading({
   );
 }
 
-const X_URL = "https://x.com/0nchainSuite";
-const LINKEDIN_URL = "https://www.linkedin.com/company/onchainsuite/";
-const EMAIL_URL = "mailto:onchainsuite@gmail.com";
+interface FooterLinkDef {
+  label: string;
+  href: string;
+  /** Renders in the accent colour, like the demo's "All tools" / "All comparisons". */
+  accent?: boolean;
+}
+interface FooterColumn {
+  h: string;
+  /** Compare renders its links in a 2-column sub-grid, matching the demo. */
+  twoCol?: boolean;
+  links: FooterLinkDef[];
+}
 
-const FOOTER: { h: string; links: [string, string][] }[] = [
+const l = (label: string, href: string, accent?: boolean): FooterLinkDef => ({
+  label,
+  href,
+  accent,
+});
+
+const FOOTER: FooterColumn[] = [
   {
-    h: "Product",
+    h: "Platform",
     links: [
-      ["Campaigns", "/campaigns"],
-      ["Automations", "/automations"],
-      ["Audience", "/audience"],
-      ["Intelligence", "/intelligence"],
-      ["Integrations", "/settings?tab=integrations"],
-      ["Pricing", "/pricing"],
+      l("Segments", "/intelligence"),
+      l("Campaigns", "/campaigns"),
+      l("Automations", "/automations"),
+      l("Onchain analytics", "/intelligence"),
+      l("Identity resolution", DOCS_URL),
+      l("Deliverability", DOCS_URL),
     ],
   },
   {
-    h: "Company",
+    h: "Developers",
     links: [
-      ["About", DOCS_URL],
-      ["Blog", "/blog"],
-      ["Careers", DOCS_URL],
+      l("Documentation", DOCS_URL),
+      l("API reference", DOCS_URL),
+      l("Webhooks", DOCS_URL),
+      l("SDKs", DOCS_URL),
+      // Changelog & Status hidden until they have real destinations - no
+      // changelog feed or status page exists yet. Restore with their URLs.
+      // l("Changelog", "/changelog"),
+      // l("Status", "https://status.onchainsuite.com"),
     ],
   },
   {
-    h: "Resources",
+    h: "Free tools",
     links: [
-      ["Docs", DOCS_URL],
-      ["API", DOCS_URL],
-      ["SDK", DOCS_URL],
-      ["Changelog", DOCS_URL],
+      l("Cost per acquisition", "/tools/cost-per-acquisition"),
+      l("Dormant wallet reactivation", "/tools/dormant-wallet-reactivation"),
+      l("Wallet reachability score", "/tools/wallet-reachability-score"),
+      l("Wallet churn rate", "/tools/wallet-churn-rate"),
+      l("All tools", "/tools", true),
     ],
   },
   {
-    h: "Connect",
+    h: "Compare",
+    twoCol: true,
     links: [
-      ["X", X_URL],
-      ["LinkedIn", LINKEDIN_URL],
-      ["Discord", DOCS_URL],
-      ["Email", EMAIL_URL],
+      l("vs Customer.io", "/compare/customer-io"),
+      l("vs Braze", "/compare/braze"),
+      l("vs Dotdigital", "/compare/dotdigital"),
+      l("vs EmailOctopus", "/compare/emailoctopus"),
+      l("vs SendGrid", "/compare/sendgrid"),
+      l("vs Brevo", "/compare/brevo"),
+      l("vs Formo", "/compare/formo"),
+      l("vs Addressable", "/compare/addressable"),
+      l("vs Galxe", "/compare/galxe"),
+      l("All comparisons", "/compare", true),
     ],
   },
 ];
+
+const LEGAL_LINKS: [string, string][] = [
+  ["Privacy", "/privacy"],
+  ["Terms", "/terms"],
+  ["DPA", "/dpa"],
+  ["Security", "/security"],
+  ["Subprocessors", "/subprocessors"],
+];
+
+/** Ask-the-docs search box: hands the query to the docs site in a new tab. */
+function AskDocs() {
+  const [query, setQuery] = useState("");
+  const ask = (q: string) => {
+    const value = q.trim();
+    const target = value
+      ? `${DOCS_URL}/?q=${encodeURIComponent(value)}`
+      : DOCS_URL;
+    if (typeof window !== "undefined")
+      window.open(target, "_blank", "noopener,noreferrer");
+  };
+  return (
+    <div className="card w-full max-w-xl p-4 sm:p-5">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          ask(query);
+        }}
+        className="flex items-center gap-2 rounded-xl border px-3 py-2"
+        style={{ borderColor: "var(--line)" }}
+      >
+        <MagnifyingGlassIcon
+          className="h-4 w-4 shrink-0 t-muted2"
+          aria-hidden="true"
+        />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="How do I trigger a message on a swap?"
+          aria-label="Ask the docs"
+          className="min-w-0 flex-1 bg-transparent text-[14px] text-[color:var(--ink)] outline-none placeholder:t-muted2"
+        />
+        <button
+          type="submit"
+          className="shrink-0 rounded-lg px-3 py-1.5 text-[13px] font-medium text-white transition-colors"
+          style={{ background: "var(--acc)" }}
+        >
+          Ask
+        </button>
+      </form>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {[
+          "Which chains do you index?",
+          "How is identity resolved?",
+          "Do you replace my ESP?",
+        ].map((chip) => (
+          <button
+            key={chip}
+            type="button"
+            onClick={() => ask(chip)}
+            className="rounded-lg border px-2.5 py-1.5 text-[12.5px] t-muted transition-colors hover:text-[color:var(--acc)]"
+            style={{ borderColor: "var(--line)" }}
+          >
+            {chip}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /** Renders an internal Link or an external anchor depending on the href. */
 function FooterLink({
@@ -756,65 +907,123 @@ function FooterLink({
 }
 
 export function Footer() {
-  const year = new Date().getFullYear();
+  const line = { borderColor: "var(--line)" };
+  // "Ask the docs" is hidden until a docs-QA backend endpoint exists to answer.
+  // Flip to true to bring the panel (and its search box) back.
+  const SHOW_ASK_DOCS: boolean = false;
   return (
-    <footer
-      className="mt-auto border-t pb-14 pt-20"
-      style={{ borderColor: "var(--line)" }}
-    >
-      {/* phones: link columns pair up 2×2 under the logo; md+: original 5-col row */}
-      <div className="wrap grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-[1.5fr_repeat(4,1fr)] md:gap-10">
-        <div className="col-span-2 md:col-span-1">
-          <Logo height={50} />
-          <p className="mt-3 max-w-xs text-[13px] leading-relaxed t-muted">
-            The behavior-triggered retention platform for Web3.
-          </p>
-        </div>
-        {FOOTER.map((col) => (
-          <div key={col.h}>
-            <div className="mono mb-3 text-[11px] uppercase tracking-[0.14em] t-muted2">
-              {col.h}
+    <footer className="mt-auto overflow-hidden border-t pt-16" style={line}>
+      {/* One fitted container; per-section spacing lives on inner elements,
+          because .wrap-fit's margin/padding shorthand would override the
+          Tailwind mt/pt utilities on the container element itself. */}
+      <div className="wrap-fit">
+        {/* Ask the docs - hidden until the docs-QA backend endpoint exists. */}
+        {SHOW_ASK_DOCS ? (
+          <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
+            <div>
+              <div className="mono mb-3 text-[11px] uppercase tracking-[0.16em] t-muted2">
+                Ask the docs
+              </div>
+              <h2 className="text-[28px] font-semibold leading-tight tracking-tight sm:text-[32px]">
+                Ask anything about OnchainSuite
+              </h2>
+              <p className="mt-3 max-w-md text-[15px] leading-relaxed t-muted">
+                Answers drawn from our docs, changelog and comparison pages.
+                Cited, never invented.
+              </p>
             </div>
-            <ul className="space-y-2">
-              {col.links.map(([label, href]) => (
-                <li key={label}>
-                  <FooterLink
-                    href={href}
-                    className="text-[13.5px] t-muted transition-colors hover:text-[color:var(--acc)]"
-                  >
-                    {label}
-                  </FooterLink>
-                </li>
-              ))}
-            </ul>
+            <AskDocs />
           </div>
-        ))}
-      </div>
-      <div
-        className="wrap mt-10 flex flex-col items-center justify-between gap-3 border-t pt-8 text-[12.5px] t-muted2 sm:flex-row"
-        style={{ borderColor: "var(--line)" }}
-      >
-        <span>© {year} OnchainSuite Incorporated</span>
-        <div className="flex items-center gap-5">
-          <Link
-            href="/legal#privacy"
-            className="transition-colors hover:text-[color:var(--acc)]"
-          >
-            Privacy
-          </Link>
-          <Link
-            href="/legal#terms"
-            className="transition-colors hover:text-[color:var(--acc)]"
-          >
-            Terms
-          </Link>
-          <Link
-            href="/legal#compliance"
-            className="transition-colors hover:text-[color:var(--acc)]"
-          >
-            Compliance
-          </Link>
+        ) : null}
+
+        {/* Link columns - Compare is wider, links in a 2-col sub-grid. When the
+            Ask panel is hidden this is the top section, so drop its separator. */}
+        <div
+          className={`grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-[1fr_1fr_1fr_1.5fr] md:gap-10${
+            SHOW_ASK_DOCS ? " mt-20 border-t pt-14" : ""
+          }`}
+          style={SHOW_ASK_DOCS ? line : undefined}
+        >
+          {FOOTER.map((col) => (
+            <div key={col.h}>
+              <div className="mono mb-3 text-[11px] uppercase tracking-[0.14em] t-muted2">
+                {col.h}
+              </div>
+              <ul
+                className={
+                  col.twoCol ? "grid grid-cols-2 gap-x-6 gap-y-2" : "space-y-2"
+                }
+              >
+                {col.links.map((item) => (
+                  <li key={item.label}>
+                    <FooterLink
+                      href={item.href}
+                      className={
+                        item.accent
+                          ? "text-[13.5px] font-medium text-[color:var(--acc)] transition-colors hover:opacity-80"
+                          : "text-[13.5px] t-muted transition-colors hover:text-[color:var(--acc)]"
+                      }
+                    >
+                      {item.label}
+                    </FooterLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
+
+        {/* Legal bar */}
+        <div
+          className="mt-16 flex flex-col gap-4 border-t pt-10 sm:flex-row sm:items-center sm:justify-between"
+          style={line}
+        >
+          <div className="flex flex-wrap items-center gap-x-7 gap-y-3">
+            <Logo height={38} />
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] t-muted2">
+              {LEGAL_LINKS.map(([label, href]) => (
+                <Link
+                  key={label}
+                  href={href}
+                  className="transition-colors hover:text-[color:var(--acc)]"
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+          </div>
+          <span className="mono flex items-center gap-2 text-[12.5px] t-muted2">
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 rounded-full"
+              style={{ background: "#22c55e" }}
+            />
+            All systems operational
+          </span>
+        </div>
+
+        <p className="mt-8 text-[13.5px] leading-relaxed t-muted2">
+          OnchainSuite Ltd is registered in England and Wales, company number
+          17370357, registered office 31 Nash Square, Birmingham, United
+          Kingdom, B42 2EX. OnchainSuite reads public blockchain data; it never
+          holds custody of funds or private keys.
+        </p>
+      </div>
+
+      {/* Oversized wordmark, clipped at the bottom edge (decorative). */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none mt-10 flex max-h-[13vw] items-start justify-center overflow-hidden select-none sm:max-h-40"
+      >
+        <span
+          className="whitespace-nowrap font-semibold leading-none tracking-tight"
+          style={{
+            fontSize: "clamp(4rem, 17vw, 15rem)",
+            color: "color-mix(in oklab, var(--ink) 7%, transparent)",
+          }}
+        >
+          OnchainSuite
+        </span>
       </div>
     </footer>
   );

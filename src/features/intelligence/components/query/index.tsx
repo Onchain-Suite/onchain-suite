@@ -669,6 +669,29 @@ const isRawToolDump = (text: string) => {
 };
 
 /**
+ * The AI agent returns Markdown, but the chat surface renders plain text, so the
+ * raw syntax (**bold**, ## headings, `code`, [links](…), - bullets) leaked
+ * through. Strip it to clean prose - keep the words, drop the markup, and
+ * normalise list markers to a real bullet.
+ */
+const stripMarkdown = (input: string): string => {
+  if (!input) return input;
+  return input
+    .replace(/```[a-zA-Z0-9]*\n?([\s\S]*?)```/g, "$1") // fenced code -> inner
+    .replace(/`([^`]+)`/g, "$1") // inline code
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // images -> alt
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // links -> text
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "") // headings
+    .replace(/^\s{0,3}>\s?/gm, "") // blockquotes
+    .replace(/^\s*([-*_])\1{2,}\s*$/gm, "") // horizontal rules
+    .replace(/^\s*[-*+]\s+/gm, "• ") // bullet markers
+    .replace(/(\*\*|__)(.*?)\1/g, "$2") // bold
+    .replace(/(\*|_)(.*?)\1/g, "$2") // italic
+    .replace(/[ \t]+\n/g, "\n") // trailing spaces
+    .trim();
+};
+
+/**
  * API envelope/pagination fields that sometimes leak through as "rows"
  * (e.g. a single row of { updated_at, cursor_after, quote_currency, items }
  * when a lookup returns no items). Rows with only these columns carry no
@@ -2530,8 +2553,10 @@ export function QueryTab({
                                         const prose = !isRawToolDump(
                                           message.content
                                         )
-                                          ? message.content.trim()
-                                          : (structured.summary?.trim() ?? "");
+                                          ? stripMarkdown(message.content)
+                                          : stripMarkdown(
+                                              structured.summary ?? ""
+                                            );
                                         return (
                                           <>
                                             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2548,7 +2573,7 @@ export function QueryTab({
                                               ) : null}
                                             </div>
                                             {prose.length > 0 ? (
-                                              <p className="mt-3 text-sm leading-6 text-foreground/90">
+                                              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/90">
                                                 {prose}
                                               </p>
                                             ) : null}
@@ -2580,8 +2605,8 @@ export function QueryTab({
                                       : null}
                                   </div>
                                 ) : message.content.trim().length > 0 ? (
-                                  <div className="text-[15px] leading-7 text-foreground/95">
-                                    {message.content}
+                                  <div className="whitespace-pre-wrap text-[15px] leading-7 text-foreground/95">
+                                    {stripMarkdown(message.content)}
                                   </div>
                                 ) : null}
 

@@ -5,10 +5,12 @@ import {
   DevicePhoneMobileIcon,
   DocumentDuplicateIcon,
   EnvelopeIcon,
+  PencilIcon,
   PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -123,6 +125,39 @@ export function CampaignDetailSheet({
   });
   const funnel = analyticsQuery.data?.email;
 
+  // Inline title rename - the only edit allowed on a sent campaign (content is
+  // locked once sent), and a quick rename for any other status. Persists via
+  // PUT /campaigns/{id} { name } and refreshes the list so it reflects.
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  useEffect(() => {
+    setDisplayName(null);
+    setIsRenaming(false);
+  }, [campaign?.id]);
+  const currentName = displayName ?? campaign?.name ?? "Campaign";
+
+  const renameMutation = useMutation({
+    mutationFn: (name: string) => campaignsService.updateCampaign(id, { name }),
+    onSuccess: (_res, name) => {
+      setDisplayName(name);
+      setIsRenaming(false);
+      queryClient.invalidateQueries({ queryKey: ["campaigns", "list"] });
+      toast.success("Campaign renamed");
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Couldn't rename campaign"),
+  });
+
+  const submitRename = () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || trimmed === currentName) {
+      setIsRenaming(false);
+      return;
+    }
+    renameMutation.mutate(trimmed);
+  };
+
   const duplicateMutation = useMutation({
     mutationFn: () => campaignsService.duplicateCampaign(id),
     onSuccess: (created) => {
@@ -192,8 +227,37 @@ export function CampaignDetailSheet({
         className="flex w-full flex-col gap-0 sm:max-w-md"
       >
         <SheetHeader className="border-b border-border">
-          <SheetTitle className="truncate pr-6 text-lg">
-            {campaign?.name ?? "Campaign"}
+          <SheetTitle className="pr-6 text-lg">
+            {isRenaming ? (
+              <input
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onBlur={submitRename}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitRename();
+                  else if (e.key === "Escape") setIsRenaming(false);
+                }}
+                disabled={renameMutation.isPending}
+                aria-label="Campaign name"
+                className="w-full border-b border-primary bg-transparent text-lg font-semibold outline-none"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setNameDraft(currentName);
+                  setIsRenaming(true);
+                }}
+                className="group flex min-w-0 items-center gap-2 text-left"
+              >
+                <span className="truncate">{currentName}</span>
+                <PencilIcon
+                  aria-hidden="true"
+                  className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+                />
+              </button>
+            )}
           </SheetTitle>
         </SheetHeader>
 
@@ -268,6 +332,8 @@ export function CampaignDetailSheet({
               </Button>
             </>
           ) : isSent ? (
+            // Sent: content is locked - only the title can be edited (via the
+            // pencil on the name above). Offer Duplicate to re-send a copy.
             <Button
               variant="outline"
               className="rounded-lg"

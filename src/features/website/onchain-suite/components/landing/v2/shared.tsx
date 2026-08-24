@@ -977,7 +977,7 @@ export function Footer() {
           style={line}
         >
           <div className="flex flex-wrap items-center gap-x-7 gap-y-3">
-            <Logo height={30} />
+            <Logo height={38} />
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] t-muted2">
               {LEGAL_LINKS.map(([label, href]) => (
                 <Link
@@ -1000,7 +1000,7 @@ export function Footer() {
           </span>
         </div>
 
-        <p className="mt-8 text-[13.5px] leading-relaxed t-muted2">
+        <p className="mt-3 text-[13.5px] leading-relaxed t-muted2">
           OnchainSuite Ltd is registered in England and Wales, company number
           17370357, registered office 31 Nash Square, Birmingham, United
           Kingdom, B42 2EX. OnchainSuite reads public blockchain data; it never

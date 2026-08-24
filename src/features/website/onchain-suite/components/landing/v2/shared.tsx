@@ -811,11 +811,11 @@ const FOOTER: FooterColumn[] = [
 ];
 
 const LEGAL_LINKS: [string, string][] = [
-  ["Privacy", "/legal#privacy"],
-  ["Terms", "/legal#terms"],
-  ["DPA", "/legal#compliance"],
+  ["Privacy", "/privacy"],
+  ["Terms", "/terms"],
+  ["DPA", "/dpa"],
   ["Security", "/security"],
-  ["Subprocessors", "/legal#compliance"],
+  ["Subprocessors", "/subprocessors"],
 ];
 
 /** Ask-the-docs search box: hands the query to the docs site in a new tab. */

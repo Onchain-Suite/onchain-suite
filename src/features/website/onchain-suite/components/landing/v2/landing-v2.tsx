@@ -305,6 +305,32 @@ function Networks() {
   );
 }
 
+/* ───────────────────────── Trusted by ───────────────────────── */
+
+const PARTNERS = ["Yaugahaus", "Vault777", "W3GM", "Surgence"];
+
+function TrustedBy() {
+  return (
+    <section className="py-10">
+      <Reveal className="wrap text-center">
+        <p className="mono text-[11px] uppercase tracking-[0.18em] t-muted2">
+          Trusted by
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-6 sm:gap-x-16">
+          {PARTNERS.map((name) => (
+            <span
+              key={name}
+              className="text-[18px] font-semibold tracking-tight t-muted transition-colors hover:text-[color:var(--ink)] sm:text-[20px]"
+            >
+              {name}
+            </span>
+          ))}
+        </div>
+      </Reveal>
+    </section>
+  );
+}
+
 /* ───────────────────────── Problem ───────────────────────── */
 
 function Problem() {
@@ -1663,6 +1689,7 @@ export function LandingV2() {
     <PageShell navCtaWatchesHero>
       <Hero />
       <Networks />
+      <TrustedBy />
       <Problem />
       <Monitor />
       <FeatureSplit

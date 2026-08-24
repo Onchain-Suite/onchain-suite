@@ -10,6 +10,7 @@ import {
   CodeBracketIcon,
   CreditCardIcon,
   LinkIcon,
+  MagnifyingGlassIcon,
   PaperAirplaneIcon,
   RocketLaunchIcon,
   RssIcon,
@@ -461,6 +462,13 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
             Pricing
           </Link>
           <Link
+            href="/team"
+            onMouseEnter={() => setOpenMenu(null)}
+            className="rounded-full px-3 py-1.5 text-[13.5px] font-medium t-muted transition-colors hover:bg-[color:var(--acc-soft)] hover:text-[color:var(--acc)]"
+          >
+            Team
+          </Link>
+          <Link
             href="/blog"
             onMouseEnter={() => setOpenMenu(null)}
             className="rounded-full px-3 py-1.5 text-[13.5px] font-medium t-muted transition-colors hover:bg-[color:var(--acc-soft)] hover:text-[color:var(--acc)]"
@@ -553,6 +561,13 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
                 className="btn btn-ghost w-full"
               >
                 Pricing
+              </Link>
+              <Link
+                href="/team"
+                onClick={() => setMobileOpen(false)}
+                className="btn btn-ghost w-full"
+              >
+                Team
               </Link>
               <Link
                 href="/blog"
@@ -681,49 +696,144 @@ export function Heading({
   );
 }
 
-const X_URL = "https://x.com/0nchainSuite";
-const LINKEDIN_URL = "https://www.linkedin.com/company/onchainsuite/";
-const EMAIL_URL = "mailto:onchainsuite@gmail.com";
+interface FooterLinkDef {
+  label: string;
+  href: string;
+  /** Renders in the accent colour, like the demo's "All tools" / "All comparisons". */
+  accent?: boolean;
+}
+interface FooterColumn {
+  h: string;
+  /** Compare renders its links in a 2-column sub-grid, matching the demo. */
+  twoCol?: boolean;
+  links: FooterLinkDef[];
+}
 
-const FOOTER: { h: string; links: [string, string][] }[] = [
+const l = (label: string, href: string, accent?: boolean): FooterLinkDef => ({
+  label,
+  href,
+  accent,
+});
+
+const FOOTER: FooterColumn[] = [
   {
-    h: "Product",
+    h: "Platform",
     links: [
-      ["Campaigns", "/campaigns"],
-      ["Automations", "/automations"],
-      ["Audience", "/audience"],
-      ["Intelligence", "/intelligence"],
-      ["Integrations", "/settings?tab=integrations"],
-      ["Pricing", "/pricing"],
+      l("Segments", "/intelligence"),
+      l("Campaigns", "/campaigns"),
+      l("Automations", "/automations"),
+      l("Onchain analytics", "/intelligence"),
+      l("Identity resolution", DOCS_URL),
+      l("Deliverability", DOCS_URL),
     ],
   },
   {
-    h: "Company",
+    h: "Developers",
     links: [
-      ["About", DOCS_URL],
-      ["Blog", "/blog"],
-      ["Careers", DOCS_URL],
+      l("Documentation", DOCS_URL),
+      l("API reference", DOCS_URL),
+      l("Webhooks", DOCS_URL),
+      l("SDKs", DOCS_URL),
+      l("Changelog", "/blog"),
+      l("Status", DOCS_URL),
     ],
   },
   {
-    h: "Resources",
+    h: "Free tools",
     links: [
-      ["Docs", DOCS_URL],
-      ["API", DOCS_URL],
-      ["SDK", DOCS_URL],
-      ["Changelog", DOCS_URL],
+      l("Cost per acquisition", "/tools/cost-per-acquisition"),
+      l("Dormant wallet reactivation", "/tools/dormant-wallet-reactivation"),
+      l("Wallet reachability score", "/tools/wallet-reachability-score"),
+      l("Wallet churn rate", "/tools/wallet-churn-rate"),
+      l("All tools", "/tools", true),
     ],
   },
   {
-    h: "Connect",
+    h: "Compare",
+    twoCol: true,
     links: [
-      ["X", X_URL],
-      ["LinkedIn", LINKEDIN_URL],
-      ["Discord", DOCS_URL],
-      ["Email", EMAIL_URL],
+      l("vs Customer.io", "/compare/customer-io"),
+      l("vs Braze", "/compare/braze"),
+      l("vs Dotdigital", "/compare/dotdigital"),
+      l("vs EmailOctopus", "/compare/emailoctopus"),
+      l("vs SendGrid", "/compare/sendgrid"),
+      l("vs Brevo", "/compare/brevo"),
+      l("vs Formo", "/compare/formo"),
+      l("vs Addressable", "/compare/addressable"),
+      l("vs Galxe", "/compare/galxe"),
+      l("All comparisons", "/compare", true),
     ],
   },
 ];
+
+const LEGAL_LINKS: [string, string][] = [
+  ["Privacy", "/legal#privacy"],
+  ["Terms", "/legal#terms"],
+  ["DPA", "/legal#compliance"],
+  ["Security", "/security"],
+  ["Subprocessors", "/legal#compliance"],
+];
+
+/** Ask-the-docs search box: hands the query to the docs site in a new tab. */
+function AskDocs() {
+  const [query, setQuery] = useState("");
+  const ask = (q: string) => {
+    const value = q.trim();
+    const target = value
+      ? `${DOCS_URL}/?q=${encodeURIComponent(value)}`
+      : DOCS_URL;
+    if (typeof window !== "undefined")
+      window.open(target, "_blank", "noopener,noreferrer");
+  };
+  return (
+    <div className="card w-full max-w-xl p-4 sm:p-5">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          ask(query);
+        }}
+        className="flex items-center gap-2 rounded-xl border px-3 py-2"
+        style={{ borderColor: "var(--line)" }}
+      >
+        <MagnifyingGlassIcon
+          className="h-4 w-4 shrink-0 t-muted2"
+          aria-hidden="true"
+        />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="How do I trigger a message on a swap?"
+          aria-label="Ask the docs"
+          className="min-w-0 flex-1 bg-transparent text-[14px] text-[color:var(--ink)] outline-none placeholder:t-muted2"
+        />
+        <button
+          type="submit"
+          className="shrink-0 rounded-lg px-3 py-1.5 text-[13px] font-medium text-white transition-colors"
+          style={{ background: "var(--acc)" }}
+        >
+          Ask
+        </button>
+      </form>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {[
+          "Which chains do you index?",
+          "How is identity resolved?",
+          "Do you replace my ESP?",
+        ].map((chip) => (
+          <button
+            key={chip}
+            type="button"
+            onClick={() => ask(chip)}
+            className="rounded-lg border px-2.5 py-1.5 text-[12.5px] t-muted transition-colors hover:text-[color:var(--acc)]"
+            style={{ borderColor: "var(--line)" }}
+          >
+            {chip}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /** Renders an internal Link or an external anchor depending on the href. */
 function FooterLink({
@@ -756,33 +866,54 @@ function FooterLink({
 }
 
 export function Footer() {
-  const year = new Date().getFullYear();
   return (
     <footer
-      className="mt-auto border-t pb-14 pt-20"
+      className="mt-auto overflow-hidden border-t pt-16"
       style={{ borderColor: "var(--line)" }}
     >
-      {/* phones: link columns pair up 2×2 under the logo; md+: original 5-col row */}
-      <div className="wrap grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-[1.5fr_repeat(4,1fr)] md:gap-10">
-        <div className="col-span-2 md:col-span-1">
-          <Logo height={50} />
-          <p className="mt-3 max-w-xs text-[13px] leading-relaxed t-muted">
-            The behavior-triggered retention platform for Web3.
+      {/* Ask the docs */}
+      <div className="wrap grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
+        <div>
+          <div className="mono mb-3 text-[11px] uppercase tracking-[0.16em] t-muted2">
+            Ask the docs
+          </div>
+          <h2 className="text-[26px] font-semibold leading-tight tracking-tight sm:text-[30px]">
+            Ask anything about OnchainSuite
+          </h2>
+          <p className="mt-3 max-w-md text-[14px] leading-relaxed t-muted">
+            Answers drawn from our docs, changelog and comparison pages. Cited,
+            never invented.
           </p>
         </div>
+        <AskDocs />
+      </div>
+
+      {/* Link columns - Compare is wider and its links sit in a 2-col sub-grid */}
+      <div
+        className="wrap mt-14 grid grid-cols-2 gap-x-8 gap-y-10 border-t pt-12 md:grid-cols-[1fr_1fr_1fr_1.5fr] md:gap-10"
+        style={{ borderColor: "var(--line)" }}
+      >
         {FOOTER.map((col) => (
           <div key={col.h}>
             <div className="mono mb-3 text-[11px] uppercase tracking-[0.14em] t-muted2">
               {col.h}
             </div>
-            <ul className="space-y-2">
-              {col.links.map(([label, href]) => (
-                <li key={label}>
+            <ul
+              className={
+                col.twoCol ? "grid grid-cols-2 gap-x-6 gap-y-2" : "space-y-2"
+              }
+            >
+              {col.links.map((item) => (
+                <li key={item.label}>
                   <FooterLink
-                    href={href}
-                    className="text-[13.5px] t-muted transition-colors hover:text-[color:var(--acc)]"
+                    href={item.href}
+                    className={
+                      item.accent
+                        ? "text-[13.5px] font-medium text-[color:var(--acc)] transition-colors hover:opacity-80"
+                        : "text-[13.5px] t-muted transition-colors hover:text-[color:var(--acc)]"
+                    }
                   >
-                    {label}
+                    {item.label}
                   </FooterLink>
                 </li>
               ))}
@@ -790,31 +921,57 @@ export function Footer() {
           </div>
         ))}
       </div>
+
+      {/* Legal bar */}
       <div
-        className="wrap mt-10 flex flex-col items-center justify-between gap-3 border-t pt-8 text-[12.5px] t-muted2 sm:flex-row"
+        className="wrap mt-12 flex flex-col gap-4 border-t pt-8 sm:flex-row sm:items-center sm:justify-between"
         style={{ borderColor: "var(--line)" }}
       >
-        <span>© {year} OnchainSuite Incorporated</span>
-        <div className="flex items-center gap-5">
-          <Link
-            href="/legal#privacy"
-            className="transition-colors hover:text-[color:var(--acc)]"
-          >
-            Privacy
-          </Link>
-          <Link
-            href="/legal#terms"
-            className="transition-colors hover:text-[color:var(--acc)]"
-          >
-            Terms
-          </Link>
-          <Link
-            href="/legal#compliance"
-            className="transition-colors hover:text-[color:var(--acc)]"
-          >
-            Compliance
-          </Link>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <Logo height={22} />
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[12.5px] t-muted2">
+            {LEGAL_LINKS.map(([label, href]) => (
+              <Link
+                key={label}
+                href={href}
+                className="transition-colors hover:text-[color:var(--acc)]"
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
         </div>
+        <span className="mono flex items-center gap-2 text-[12px] t-muted2">
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 rounded-full"
+            style={{ background: "#22c55e" }}
+          />
+          All systems operational
+        </span>
+      </div>
+
+      <p className="wrap mt-6 max-w-3xl text-[12.5px] leading-relaxed t-muted2">
+        OnchainSuite Ltd is registered in England and Wales, company number
+        17370357, registered office 31 Nash Square, Birmingham, United Kingdom,
+        B42 2EX. OnchainSuite reads public blockchain data; it never holds
+        custody of funds or private keys.
+      </p>
+
+      {/* Oversized wordmark, clipped at the bottom edge (decorative). */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none mt-10 flex max-h-[13vw] items-start justify-center overflow-hidden select-none sm:max-h-40"
+      >
+        <span
+          className="whitespace-nowrap font-semibold leading-none tracking-tight"
+          style={{
+            fontSize: "clamp(4rem, 17vw, 15rem)",
+            color: "color-mix(in oklab, var(--ink) 7%, transparent)",
+          }}
+        >
+          OnchainSuite
+        </span>
       </div>
     </footer>
   );

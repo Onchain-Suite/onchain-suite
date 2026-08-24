@@ -12,7 +12,7 @@ import {
   PencilIcon,
 } from "@heroicons/react/24/outline";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1102,6 +1102,8 @@ export function CreateCampaignPage() {
   );
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
+  const queryClient = useQueryClient();
+
   const initialStep = useMemo(() => {
     const raw = Number(safeSearchParams.get("step") ?? "1");
     if (!Number.isFinite(raw)) return 1;
@@ -2013,6 +2015,25 @@ export function CreateCampaignPage() {
     toast.error("Please complete the required fields before sending.");
   };
 
+  // Persist the campaign name the moment the user finishes editing it (rather
+  // than waiting on the 15s autosave), and refresh the campaigns list so the
+  // rename reflects there immediately - works whatever the campaign's status.
+  const lastPersistedNameRef = useRef<string | null>(null);
+  const persistCampaignName = () => {
+    if (!campaignId) return;
+    const name = (form.getValues("campaignName") ?? "").trim();
+    if (!name || name === lastPersistedNameRef.current) return;
+    lastPersistedNameRef.current = name;
+    campaignsService
+      .updateCampaign(campaignId, { name })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["campaigns", "list"] });
+      })
+      .catch(() => {
+        lastPersistedNameRef.current = null;
+      });
+  };
+
   const sendOption = form.watch("sendOption");
   const scheduleDate = form.watch("scheduleDate");
   const scheduleTime = form.watch("scheduleTime");
@@ -2223,9 +2244,15 @@ export function CreateCampaignPage() {
                     shouldDirty: true,
                   })
                 }
-                onBlur={() => setIsEditingName(false)}
+                onBlur={() => {
+                  setIsEditingName(false);
+                  persistCampaignName();
+                }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === "Escape") {
+                  if (e.key === "Enter") {
+                    setIsEditingName(false);
+                    persistCampaignName();
+                  } else if (e.key === "Escape") {
                     setIsEditingName(false);
                   }
                 }}

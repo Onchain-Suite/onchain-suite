@@ -268,18 +268,27 @@ export function CampaignDetailSheet({
               </Button>
             </>
           ) : isSent ? (
-            <Button
-              variant="outline"
-              className="rounded-lg"
-              disabled={duplicateMutation.isPending}
-              onClick={() => duplicateMutation.mutate()}
-            >
-              <DocumentDuplicateIcon
-                className="mr-1.5 size-4"
-                aria-hidden="true"
-              />
-              Duplicate
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                className="rounded-lg"
+                disabled={duplicateMutation.isPending}
+                onClick={() => duplicateMutation.mutate()}
+              >
+                <DocumentDuplicateIcon
+                  className="mr-1.5 size-4"
+                  aria-hidden="true"
+                />
+                Duplicate
+              </Button>
+              <Button className="rounded-lg" onClick={() => openWizard()}>
+                <PencilSquareIcon
+                  className="mr-1.5 size-4"
+                  aria-hidden="true"
+                />
+                Edit campaign
+              </Button>
+            </>
           ) : (
             <Button className="rounded-lg" onClick={() => openWizard()}>
               <PencilSquareIcon className="mr-1.5 size-4" aria-hidden="true" />

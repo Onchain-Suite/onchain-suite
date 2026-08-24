@@ -135,7 +135,7 @@ export function CpaCalculatorPage() {
   return (
     <PageShell>
       <section className="py-16 sm:py-24">
-        <div className="wrap">
+        <div className="wrap-fit">
           <div className="mono mb-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] t-muted2">
             <Link href="/tools" className="hover:text-[color:var(--acc)]">
               Tools

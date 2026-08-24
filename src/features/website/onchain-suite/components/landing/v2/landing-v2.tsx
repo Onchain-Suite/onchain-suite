@@ -37,7 +37,7 @@ import {
   IntelligenceAskCard,
   ProductWindow,
 } from "./product-window";
-import { DOCS_URL, Heading, PageShell, SIGNUP } from "./shared";
+import { DOCS_URL, Heading, PageShell, PartnerLogos, SIGNUP } from "./shared";
 
 /* ───────────────────────── Hero ───────────────────────── */
 
@@ -307,8 +307,6 @@ function Networks() {
 
 /* ───────────────────────── Trusted by ───────────────────────── */
 
-const PARTNERS = ["Yaugahaus", "Vault777", "W3GM", "Surgence"];
-
 function TrustedBy() {
   return (
     <section className="py-10">
@@ -316,15 +314,8 @@ function TrustedBy() {
         <p className="mono text-[11px] uppercase tracking-[0.18em] t-muted2">
           Trusted by
         </p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-6 sm:gap-x-16">
-          {PARTNERS.map((name) => (
-            <span
-              key={name}
-              className="text-[18px] font-semibold tracking-tight t-muted transition-colors hover:text-[color:var(--ink)] sm:text-[20px]"
-            >
-              {name}
-            </span>
-          ))}
+        <div className="mt-6">
+          <PartnerLogos />
         </div>
       </Reveal>
     </section>

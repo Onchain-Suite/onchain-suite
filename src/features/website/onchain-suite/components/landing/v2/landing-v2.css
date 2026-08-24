@@ -55,9 +55,18 @@
   margin: 0 auto;
   padding: 0 28px;
 }
+/* Fitted container (subpages: team, comparisons, tools). Caps at ~1200px and
+   never widens on big monitors, so these pages read like the marketing demo
+   instead of spreading to the homepage's wide `.wrap`. */
+.ocs2 .wrap-fit {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
 /* phones: tighter gutters so cards keep usable width at ~360-430px */
 @media (max-width: 640px) {
-  .ocs2 .wrap {
+  .ocs2 .wrap,
+  .ocs2 .wrap-fit {
     padding: 0 20px;
   }
 }

@@ -2,7 +2,7 @@
 
 import "./landing-v2.css";
 import { Reveal } from "./primitives";
-import { Heading, PageShell } from "./shared";
+import { Heading, PageShell, PartnerLogos } from "./shared";
 
 const FOUNDERS = [
   {
@@ -25,8 +25,6 @@ const FOUNDERS = [
   },
 ];
 
-const PARTNERS = ["Yaugahaus", "Vault777", "W3GM", "Surgence"];
-
 const FACTS: [string, string][] = [
   ["Company", "OnchainSuite Ltd"],
   ["Registered", "England & Wales · 17370357"],
@@ -38,7 +36,7 @@ export function TeamPage() {
   return (
     <PageShell>
       <section className="py-20 sm:py-28">
-        <div className="wrap">
+        <div className="wrap-fit">
           <Heading
             eyebrow="Team"
             title={
@@ -84,15 +82,8 @@ export function TeamPage() {
             <p className="mono text-[11px] uppercase tracking-[0.16em] t-muted2">
               Trusted by teams building on-chain
             </p>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-6 sm:gap-x-16">
-              {PARTNERS.map((name) => (
-                <span
-                  key={name}
-                  className="text-[18px] font-semibold tracking-tight t-muted transition-colors hover:text-[color:var(--ink)] sm:text-[20px]"
-                >
-                  {name}
-                </span>
-              ))}
+            <div className="mt-6">
+              <PartnerLogos />
             </div>
           </Reveal>
 

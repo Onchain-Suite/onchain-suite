@@ -55,6 +55,50 @@ export function Logo({
   );
 }
 
+/** Design-partner logos, shown in the landing "Trusted by" row and on /team. */
+export const PARTNERS: { name: string; src: string }[] = [
+  {
+    name: "Yaugahaus",
+    src: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/yauga_k75ki2.jpg",
+  },
+  {
+    name: "Vault777",
+    src: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/vault777_c3ceoc.jpg",
+  },
+  {
+    name: "W3GM",
+    src: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/w3gm_lomrj0.jpg",
+  },
+  {
+    name: "Surgence",
+    src: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/surgence_e1nmnh.jpg",
+  },
+];
+
+/** The partner logo row (contained, rounded so any logo background reads as a tile). */
+export function PartnerLogos() {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-5 sm:gap-x-12">
+      {PARTNERS.map((p) => (
+        <div
+          key={p.name}
+          className="relative h-11 w-11 overflow-hidden rounded-xl border sm:h-12 sm:w-12"
+          style={{ borderColor: "var(--line)" }}
+          title={p.name}
+        >
+          <Image
+            src={p.src}
+            alt={p.name}
+            fill
+            sizes="48px"
+            className="object-cover"
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 type IconType = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 
 function MenuItem({

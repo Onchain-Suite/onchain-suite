@@ -12,7 +12,7 @@ export function CompareIndexPage() {
   return (
     <PageShell>
       <section className="py-20 sm:py-28">
-        <div className="wrap">
+        <div className="wrap-fit">
           <Heading
             eyebrow="Compare"
             title={

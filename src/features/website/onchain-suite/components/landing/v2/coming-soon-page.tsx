@@ -23,7 +23,7 @@ export function ComingSoonPage({
   return (
     <PageShell>
       <section className="py-24 sm:py-32">
-        <div className="wrap mx-auto max-w-2xl text-center">
+        <div className="mx-auto w-full max-w-2xl px-7 text-center">
           <Reveal>
             <span className="eyebrow">{eyebrow}</span>
           </Reveal>

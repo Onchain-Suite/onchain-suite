@@ -38,43 +38,45 @@ export function ComparePage({ data }: { data: Comparison }) {
     <PageShell>
       {/* Hero */}
       <section className="pt-16 pb-8 sm:pt-24">
-        <div className="wrap max-w-3xl">
-          <Reveal>
-            <span className="eyebrow">{data.eyebrow}</span>
-          </Reveal>
-          <Reveal delay={0.05}>
-            <h1
-              className="mt-4 font-semibold tracking-tight t-ink"
-              style={{ fontSize: "clamp(2rem, 4vw, 3rem)", lineHeight: 1.08 }}
-            >
-              OnchainSuite vs <span className="grad">{name}</span>
-            </h1>
-          </Reveal>
-          <Reveal delay={0.1}>
-            <p className="mt-5 text-[17px] leading-relaxed t-muted">
-              {data.intro}
-            </p>
-          </Reveal>
-          <Reveal delay={0.15}>
-            <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Link href={SIGNUP} className="btn btn-primary">
-                Connect with sales
-              </Link>
-              <Link
-                href="/tools/wallet-churn-rate"
-                className="btn btn-ghost inline-flex items-center gap-1.5"
+        <div className="wrap-fit">
+          <div className="max-w-3xl">
+            <Reveal>
+              <span className="eyebrow">{data.eyebrow}</span>
+            </Reveal>
+            <Reveal delay={0.05}>
+              <h1
+                className="mt-4 font-semibold tracking-tight t-ink"
+                style={{ fontSize: "clamp(2rem, 4vw, 3rem)", lineHeight: 1.08 }}
               >
-                Size up churn cost
-                <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            </div>
-          </Reveal>
+                OnchainSuite vs <span className="grad">{name}</span>
+              </h1>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <p className="mt-5 text-[17px] leading-relaxed t-muted">
+                {data.intro}
+              </p>
+            </Reveal>
+            <Reveal delay={0.15}>
+              <div className="mt-7 flex flex-wrap items-center gap-3">
+                <Link href={SIGNUP} className="btn btn-primary">
+                  Connect with sales
+                </Link>
+                <Link
+                  href="/tools/wallet-churn-rate"
+                  className="btn btn-ghost inline-flex items-center gap-1.5"
+                >
+                  Size up churn cost
+                  <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </div>
+            </Reveal>
+          </div>
         </div>
       </section>
 
       {/* Why OnchainSuite */}
       <section className="py-14">
-        <div className="wrap">
+        <div className="wrap-fit">
           <Reveal>
             <h2 className="max-w-2xl text-[24px] font-semibold tracking-tight t-ink sm:text-[28px]">
               Why teams pick OnchainSuite over {name}
@@ -104,7 +106,7 @@ export function ComparePage({ data }: { data: Comparison }) {
 
       {/* Feature table */}
       <section className="py-14">
-        <div className="wrap">
+        <div className="wrap-fit">
           <Heading
             eyebrow="Feature by feature"
             title={
@@ -164,7 +166,7 @@ export function ComparePage({ data }: { data: Comparison }) {
 
       {/* Where competitor is strong + when it's the better call */}
       <section className="py-14">
-        <div className="wrap grid gap-8 lg:grid-cols-2">
+        <div className="wrap-fit grid gap-8 lg:grid-cols-2">
           <Reveal>
             <div className="card h-full p-6">
               <div className="mono mb-4 text-[10.5px] uppercase tracking-[0.14em] t-muted2">
@@ -211,7 +213,7 @@ export function ComparePage({ data }: { data: Comparison }) {
 
       {/* Switching over */}
       <section className="py-14">
-        <div className="wrap">
+        <div className="wrap-fit">
           <Heading eyebrow="Switching over" title="Live in an afternoon" />
           <div className="mt-10 grid gap-5 md:grid-cols-3">
             {SWITCH_STEPS.map((step) => (

@@ -1,17 +1,31 @@
 "use client";
 
-import { ArrowRightIcon, CheckIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowRightIcon,
+  CheckIcon,
+  ChevronDownIcon,
+} from "@heroicons/react/24/outline";
 import Link from "next/link";
 
 import "./landing-v2.css";
 import {
   CAPABILITIES,
+  COMPARE_CTA,
   type Comparison,
+  COMPARISON_FAQS,
+  COMPARISON_SLUGS,
+  COMPARISONS,
   SWITCH_STEPS,
   WHY_CARDS,
 } from "./compare-data";
 import { Reveal } from "./primitives";
 import { Heading, PageShell, SIGNUP } from "./shared";
+
+const monogram = (name: string) =>
+  name
+    .replace(/[^a-zA-Z]/g, "")
+    .slice(0, 2)
+    .toUpperCase();
 
 /** One comparison-table cell: Yes -> check, No -> dash, anything else -> text. */
 function Cell({ value, strong }: { value: string; strong?: boolean }) {
@@ -34,11 +48,15 @@ function Cell({ value, strong }: { value: string; strong?: boolean }) {
 
 export function ComparePage({ data }: { data: Comparison }) {
   const { name } = data;
+  const faqs = COMPARISON_FAQS[data.slug] ?? [];
+  const others = COMPARISON_SLUGS.filter((slug) => slug !== data.slug).map(
+    (slug) => COMPARISONS[slug]
+  );
   return (
     <PageShell>
       {/* Hero */}
       <section className="pt-16 pb-8 sm:pt-24">
-        <div className="wrap-fit">
+        <div className="wrap-compare">
           <div className="max-w-3xl">
             <Reveal>
               <span className="eyebrow">{data.eyebrow}</span>
@@ -76,7 +94,7 @@ export function ComparePage({ data }: { data: Comparison }) {
 
       {/* Why OnchainSuite */}
       <section className="py-14">
-        <div className="wrap-fit">
+        <div className="wrap-compare">
           <Reveal>
             <h2 className="max-w-2xl text-[24px] font-semibold tracking-tight t-ink sm:text-[28px]">
               Why teams pick OnchainSuite over {name}
@@ -106,7 +124,7 @@ export function ComparePage({ data }: { data: Comparison }) {
 
       {/* Feature table */}
       <section className="py-14">
-        <div className="wrap-fit">
+        <div className="wrap-compare">
           <Heading
             eyebrow="Feature by feature"
             title={
@@ -166,7 +184,7 @@ export function ComparePage({ data }: { data: Comparison }) {
 
       {/* Where competitor is strong + when it's the better call */}
       <section className="py-14">
-        <div className="wrap-fit grid gap-8 lg:grid-cols-2">
+        <div className="wrap-compare grid gap-8 lg:grid-cols-2">
           <Reveal>
             <div className="card h-full p-6">
               <div className="mono mb-4 text-[10.5px] uppercase tracking-[0.14em] t-muted2">
@@ -213,7 +231,7 @@ export function ComparePage({ data }: { data: Comparison }) {
 
       {/* Switching over */}
       <section className="py-14">
-        <div className="wrap-fit">
+        <div className="wrap-compare">
           <Heading eyebrow="Switching over" title="Live in an afternoon" />
           <div className="mt-10 grid gap-5 md:grid-cols-3">
             {SWITCH_STEPS.map((step) => (
@@ -235,11 +253,98 @@ export function ComparePage({ data }: { data: Comparison }) {
               </Reveal>
             ))}
           </div>
+        </div>
+      </section>
 
-          <Reveal className="mt-12 text-center">
-            <Link href={SIGNUP} className="btn btn-primary">
-              Connect with sales
-            </Link>
+      {/* FAQ */}
+      {faqs.length > 0 ? (
+        <section className="py-14">
+          <div className="wrap-compare">
+            <Heading
+              eyebrow="FAQ"
+              title={
+                <>
+                  OnchainSuite vs {name}, <span className="grad">answered</span>
+                </>
+              }
+            />
+            <div
+              className="mt-10 divide-y divide-border overflow-hidden rounded-2xl border"
+              style={{ borderColor: "var(--line)" }}
+            >
+              {faqs.map((f) => (
+                <details key={f.q} className="group px-5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-4 text-[15px] font-medium t-ink">
+                    {f.q}
+                    <ChevronDownIcon
+                      className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                      aria-hidden="true"
+                    />
+                  </summary>
+                  <p className="pb-4 text-[14px] leading-relaxed t-muted">
+                    {f.a}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* More comparisons */}
+      <section className="py-14">
+        <div className="wrap-compare">
+          <Heading
+            eyebrow="More comparisons"
+            title="Compare OnchainSuite to more tools"
+          />
+          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+            {others.map((c) => (
+              <Link
+                key={c.slug}
+                href={`/compare/${c.slug}`}
+                className="card group flex items-center gap-3 p-4 transition-colors hover:border-[color:var(--acc)]"
+              >
+                <span
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold"
+                  style={{ background: "var(--acc-soft)", color: "var(--acc)" }}
+                >
+                  {monogram(c.name)}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[14px] font-semibold t-ink">
+                    OnchainSuite vs {c.name}
+                  </span>
+                  <span className="block truncate text-[12px] t-muted2">
+                    {c.eyebrow.replace(/^Compare · /, "")}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Closing CTA */}
+      <section className="py-16">
+        <div className="wrap-compare">
+          <Reveal>
+            <div className="card p-8 text-center sm:p-12">
+              <h2 className="mx-auto max-w-xl text-[26px] font-semibold leading-tight tracking-tight t-ink sm:text-[30px]">
+                {COMPARE_CTA.title}
+              </h2>
+              <p className="mx-auto mt-3 max-w-lg text-[15px] leading-relaxed t-muted">
+                {COMPARE_CTA.body}
+              </p>
+              <div className="mt-6">
+                <Link href={SIGNUP} className="btn btn-primary">
+                  Connect with sales
+                </Link>
+              </div>
+              <p className="mono mt-4 text-[12px] t-muted2">
+                {COMPARE_CTA.note}
+              </p>
+            </div>
           </Reveal>
         </div>
       </section>

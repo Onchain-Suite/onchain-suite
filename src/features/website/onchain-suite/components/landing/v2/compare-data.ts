@@ -59,6 +59,11 @@ export const SWITCH_STEPS: { n: string; title: string; body: string }[] = [
   },
 ];
 
+export interface FaqItem {
+  q: string;
+  a: string;
+}
+
 export interface Comparison {
   slug: string;
   name: string;
@@ -71,6 +76,159 @@ export interface Comparison {
   betterCall: string;
   runningBoth: string;
 }
+
+/** Per-competitor FAQ, keyed by slug (crawled from the demo). */
+export const COMPARISON_FAQS: Record<string, FaqItem[]> = {
+  "customer-io": [
+    {
+      q: "Does Customer.io read wallet data?",
+      a: "No. It fires on events you send it. On-chain activity would be yours to capture and forward; OnchainSuite does that for you.",
+    },
+    {
+      q: "Is OnchainSuite as flexible?",
+      a: "For on-chain retention, yes, with wallet identity and prebuilt Plays. Customer.io stays broader for generic Web2 lifecycle messaging.",
+    },
+    {
+      q: "Can I message wallets with no email?",
+      a: "Yes, by in-app push. Customer.io needs a known Web2 identifier and channel.",
+    },
+    {
+      q: "How long is setup?",
+      a: "Add the SDK and you are live in minutes. Chains are read into triggers automatically.",
+    },
+  ],
+  braze: [
+    {
+      q: "Can Braze message wallets?",
+      a: "Not on its own. Braze targets known users on channels tied to Web2 identifiers. OnchainSuite reaches wallets directly with in-app push.",
+    },
+    {
+      q: "Is OnchainSuite cheaper?",
+      a: "Usually. Suite starts at $0 (PAYG) or $27 a month on Launch, with no enterprise minimum, versus Braze's contact-sales model.",
+    },
+    {
+      q: "Does it scale for large protocols?",
+      a: "Yes. Pricing scales with tracked wallets and subscribers, and the largest volumes move to custom.",
+    },
+    {
+      q: "How is on-chain data handled?",
+      a: "We read cross-chain activity into clean events and segments, so you skip the data engineering.",
+    },
+  ],
+  dotdigital: [
+    {
+      q: "Does Dotdigital support wallets or crypto?",
+      a: "No. It has no blockchain source and no wallet-native channel.",
+    },
+    {
+      q: "Why pick OnchainSuite?",
+      a: "Because your key moments are on-chain and your audience is wallets, neither of which Dotdigital can reach.",
+    },
+    {
+      q: "Can OnchainSuite send email too?",
+      a: "Yes, to wallets that opt in, alongside in-app push for those without one.",
+    },
+    {
+      q: "Is migration hard?",
+      a: "No. You add an SDK and we read your chains. There is no pipeline to build.",
+    },
+  ],
+  emailoctopus: [
+    {
+      q: "Can EmailOctopus trigger on behaviour?",
+      a: "Only basic list automations. There is no product-event or on-chain triggering.",
+    },
+    {
+      q: "Is OnchainSuite overkill next to it?",
+      a: "If you only send newsletters, EmailOctopus is fine. If you want to retain wallets on on-chain behaviour, the two are not comparable.",
+    },
+    {
+      q: "Does it cost a lot more?",
+      a: "Suite starts at $0 (PAYG) or $27 a month, more than a newsletter tool because it does far more. For email only, Send is $6 a month plus $2.60 per 1,000 subscribers.",
+    },
+  ],
+  sendgrid: [
+    {
+      q: "Is SendGrid a competitor?",
+      a: "Only on the delivery slice. OnchainSuite can sit on top of it and adds the triggers, segments, and in-app push SendGrid does not do.",
+    },
+    {
+      q: "Can I use SendGrid with OnchainSuite?",
+      a: "Yes. SendGrid can be the delivery layer while OnchainSuite drives the logic.",
+    },
+    {
+      q: "Does OnchainSuite handle deliverability?",
+      a: "We send to opted-in wallets. Teams with strict deliverability needs can pair us with their provider.",
+    },
+  ],
+  brevo: [
+    {
+      q: "Does Brevo work for Web3?",
+      a: "Only as a generic email and SMS tool. It cannot see or act on on-chain behaviour.",
+    },
+    {
+      q: "Why choose OnchainSuite?",
+      a: "Because your customers are wallets and your triggers are on-chain, neither of which Brevo supports.",
+    },
+    {
+      q: "Can it fully replace Brevo?",
+      a: "For Web3 retention, yes. If you also need generic SMS marketing, keep a tool like Brevo alongside.",
+    },
+  ],
+  formo: [
+    {
+      q: "Is Formo a direct competitor?",
+      a: "They overlap on onchain data, but Formo leans analytics and OnchainSuite leans messaging. They fit together well.",
+    },
+    {
+      q: "Can Formo message wallets?",
+      a: "No. Formo is analytics. OnchainSuite provides the in-app push and email that acts on the insight.",
+    },
+    {
+      q: "Should we run both?",
+      a: "Often yes. Formo for insight, OnchainSuite to act on it.",
+    },
+    {
+      q: "Does OnchainSuite have analytics?",
+      a: "Basic dashboards for retention and campaigns. Deep product analytics is Formo's strength.",
+    },
+  ],
+  addressable: [
+    {
+      q: "Which do I need?",
+      a: "Different halves of the funnel. Addressable acquires wallets through ads; OnchainSuite retains and re-engages them.",
+    },
+    {
+      q: "Does Addressable send retention messages?",
+      a: "No. It handles acquisition and attribution. OnchainSuite owns owned-channel retention.",
+    },
+    {
+      q: "Can they work together?",
+      a: "Yes. Acquire with Addressable, retain with OnchainSuite.",
+    },
+  ],
+  galxe: [
+    {
+      q: "Can I use both?",
+      a: "Yes. Run quests on Galxe and let OnchainSuite retain those wallets automatically.",
+    },
+    {
+      q: "Is Galxe a retention tool?",
+      a: "It drives campaign engagement. OnchainSuite provides the always-on retention between campaigns.",
+    },
+    {
+      q: "Does OnchainSuite run quests?",
+      a: "No. It focuses on behaviour-triggered messaging. Pair it with a quest platform like Galxe.",
+    },
+  ],
+};
+
+/** Closing CTA shared across comparison pages. */
+export const COMPARE_CTA = {
+  title: "Start acting on what your users do on-chain.",
+  body: "Write your first rule today. It fires the moment a wallet acts, day or night, until you pause it.",
+  note: "Suite from $0 · Send email-only · founding rates for early teams",
+};
 
 export const COMPARISONS: Record<string, Comparison> = {
   "customer-io": {

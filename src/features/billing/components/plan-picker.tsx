@@ -3,10 +3,8 @@
 import {
   ArrowLeftIcon,
   ArrowPathIcon,
-  CheckIcon,
   CreditCardIcon,
-  SparklesIcon,
-  UsersIcon,
+  ExclamationTriangleIcon,
   WalletIcon,
 } from "@heroicons/react/24/outline";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -17,391 +15,101 @@ import { Button } from "@/components/ui/button";
 
 import { cn, getSelectedOrganizationId } from "@/lib/utils";
 
-import { type BillingPlan, billingService } from "../billing.service";
+import {
+  billingService,
+  SEND_MIN_SUBSCRIBERS,
+  SUITE_TIER_ANCHORS,
+} from "../billing.service";
 import { openCheckoutInNewTab, startPlanCheckout } from "../checkout";
 
 type PaymentMethod = "card" | "crypto";
+type Selection = "suite" | "send" | "payg";
 
 const usd = (n: number): string => `$${Math.round(n).toLocaleString("en-US")}`;
-
 const clamp = (n: number, lo: number, hi: number): number =>
   Math.min(hi, Math.max(lo, n));
 
 /**
- * Canonical feature lines per plan slug, so every card in the modal is fully
- * populated even when GET /billing/plans returns limits-only rows. Backend
- * features win when they are at least as detailed; otherwise these fill in.
+ * Fixed per-tier allowances (SSOT docs/pricing.md §4). Suite allowances do NOT
+ * move with the slider - only the price and the resolved tier do - so this is
+ * what a customer "gets" at whichever band the contact slider lands in.
  */
-const PLAN_FEATURE_CATALOG: Record<string, string[]> = {
-  payg: [
-    "$5 trial credit to get started",
-    "1,000 contacts (cap) · 2 seats",
-    "Metered email, in-app, on-chain & AI",
-    "Direct campaigns, Audience & Forms",
-  ],
+// Contacts is what the slider sizes (shown in the header), so it is not repeated
+// here; these are the FIXED allowances the tier carries at any size.
+const TIER_ALLOWANCES: Record<string, [string, string][]> = {
   launch: [
-    "2,500 contacts · 50,000 emails/mo",
-    "25,000 in-app pushes/mo",
-    "1,000 on-chain · 500 AI credits",
-    "Intelligence, Audience & Segments",
-    "2 team seats",
+    ["Emails / mo", "50,000"],
+    ["In-app push / mo", "25,000"],
+    ["On-chain credits", "1,000"],
+    ["AI credits", "500"],
+    ["ONS+ verifications", "250"],
+    ["Team seats", "2"],
   ],
   growth: [
-    "25,000 contacts · 250,000 emails/mo",
-    "250,000 in-app pushes/mo",
-    "Forms + dedicated sending IP",
-    "Automations",
-    "4 team seats",
+    ["Emails / mo", "250,000"],
+    ["In-app push / mo", "250,000"],
+    ["On-chain credits", "10,000"],
+    ["AI credits", "8,000"],
+    ["ONS+ verifications", "2,500"],
+    ["Dedicated IP", "1"],
+    ["Team seats", "4"],
   ],
   pro: [
-    "75,000 contacts · 750,000 emails/mo",
-    "1,000,000 in-app pushes/mo",
-    "Intelligence at working scale",
-    "Priority support",
-    "7 team seats",
+    ["Emails / mo", "750,000"],
+    ["In-app push / mo", "1,000,000"],
+    ["On-chain credits", "25,000"],
+    ["AI credits", "16,000"],
+    ["ONS+ verifications", "7,500"],
+    ["Dedicated IP", "1"],
+    ["Team seats", "7"],
   ],
 };
-
-const PAYG_PLAN = {
-  name: "Pay as you go",
-  slug: "payg",
-  description: "For small teams - no monthly fee, pay only for what you use",
-  features: [
-    "$5 trial credit to get started",
-    "1,000 contacts (cap) · 2 seats",
-    "Metered email, in-app, on-chain & AI",
-    "Direct campaigns, Audience & Forms",
-  ],
-};
-
-/** v4.2 catalogue (docs/pricing.md SSOT). Shown only when the backend plan list
- *  is unavailable; the charged price always comes from the backend at checkout. */
-const FALLBACK_PAID_PLANS: BillingPlan[] = [
-  {
-    name: "Launch",
-    slug: "launch",
-    price: 39,
-    interval: "month",
-    features: [
-      "2,500 contacts · 50,000 emails/mo",
-      "25,000 in-app pushes/mo",
-      "Intelligence",
-      "2 team seats",
-    ],
-  },
-  {
-    name: "Growth",
-    slug: "growth",
-    price: 349,
-    interval: "month",
-    features: [
-      "25,000 contacts · 250,000 emails/mo",
-      "250,000 in-app pushes/mo",
-      "Forms + dedicated IP",
-      "4 team seats",
-    ],
-  },
-  {
-    name: "Pro",
-    slug: "pro",
-    price: 1622,
-    interval: "month",
-    features: [
-      "75,000 contacts · 750,000 emails/mo",
-      "1,000,000 in-app pushes/mo",
-      "Intelligence at working scale",
-      "7 team seats",
-    ],
-  },
+const SEND_INCLUDED: [string, string][] = [
+  ["Line", "Email only"],
+  ["List protection", "ONS+ at upload"],
+  ["Team seats", "2"],
+];
+const PAYG_INCLUDED: [string, string][] = [
+  ["Contacts", "1,000"],
+  ["Automations", "3 max"],
+  ["Team seats", "2"],
+  ["Metered at", "list price"],
 ];
 
-const priceLabel = (price: BillingPlan["price"]): string => {
-  if (typeof price === "number") return `$${price.toLocaleString()}`;
-  if (typeof price === "string" && price.trim().length > 0) return price;
-  return "-";
-};
+const SUITE_MIN = 0;
+const SUITE_MAX = 150_000;
+const SEND_MAX = 100_000;
 
-// Match a plan to the canonical catalog by the tier keyword contained in its
-// name or slug, so features still fill in when the backend's slug/name isn't
-// exactly our key (e.g. "launch-monthly", "Launch Plan", or a UUID id). Order
-// matters: check the more specific keys first.
-const CATALOG_TIER_KEYS = ["pro", "growth", "launch", "payg"] as const;
-const featureCatalogFor = (plan: BillingPlan): string[] => {
-  const hay =
-    `${typeof plan.name === "string" ? plan.name : ""} ${typeof plan.slug === "string" ? plan.slug : ""}`.toLowerCase();
-  const key = CATALOG_TIER_KEYS.find((k) => hay.includes(k));
-  return key ? PLAN_FEATURE_CATALOG[key] : [];
-};
+const LINES: { id: Selection; name: string; sub: string }[] = [
+  { id: "suite", name: "Suite", sub: "Wallet + email" },
+  { id: "send", name: "Send", sub: "Email only" },
+  { id: "payg", name: "Pay as you go", sub: "$0 + usage" },
+];
 
-const planFeatures = (plan: BillingPlan): string[] => {
-  const backend = Array.isArray(plan.features)
-    ? plan.features.filter((f): f is string => typeof f === "string")
-    : [];
-  const canonical = featureCatalogFor(plan);
-  // Show whichever list is more complete so a card is never sparse.
-  return canonical.length > backend.length ? canonical : backend;
-};
-
-function PlanCard({
-  name,
-  description,
-  priceText,
-  interval,
-  features,
-  isSelected,
-  isCurrent,
-  isRecommended,
-  onSelect,
-}: {
-  name: string;
-  description?: string;
-  priceText: string;
-  interval?: string;
-  features: string[];
-  isSelected: boolean;
-  isCurrent?: boolean;
-  isRecommended?: boolean;
-  onSelect: () => void;
-}) {
+/** Allowance rows: label left, mono value right. */
+function IncludedRows({ rows }: { rows: [string, string][] }) {
   return (
-    <div
-      role="radio"
-      aria-checked={isSelected}
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onSelect();
-        }
-      }}
-      className={cn(
-        "relative flex h-full cursor-pointer flex-col rounded-2xl border-2 bg-card p-5 text-left transition-colors",
-        isSelected
-          ? "border-primary shadow-lg"
-          : "border-border hover:border-muted-foreground/40"
-      )}
-    >
-      {isRecommended ? (
-        <span className="absolute -top-3 left-5 inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-semibold text-primary-foreground">
-          <SparklesIcon aria-hidden="true" className="h-3 w-3" />
-          Popular
-        </span>
-      ) : null}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2 text-base font-semibold text-foreground">
-            {name}
-            {isCurrent ? (
-              <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                Current
-              </span>
-            ) : null}
-          </div>
-          {description ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        <span
-          aria-hidden="true"
-          className={cn(
-            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
-            isSelected
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border bg-background"
-          )}
+    <dl className="grid gap-1.5 text-sm sm:grid-cols-2">
+      {rows.map(([label, value]) => (
+        <div
+          key={label}
+          className="flex items-baseline justify-between gap-3 border-b border-border/60 py-1.5"
         >
-          {isSelected ? <CheckIcon className="h-3 w-3" /> : null}
-        </span>
-      </div>
-      <div className="mt-4 flex items-baseline gap-1">
-        <span className="text-3xl font-bold tracking-tight text-foreground">
-          {priceText}
-        </span>
-        {interval ? (
-          <span className="text-sm text-muted-foreground">/{interval}</span>
-        ) : null}
-      </div>
-      <ul className="mt-4 space-y-2">
-        {features.map((feature) => (
-          <li
-            key={feature}
-            className="flex items-start gap-2 text-sm text-muted-foreground"
-          >
-            <CheckIcon
-              aria-hidden="true"
-              className="mt-0.5 h-4 w-4 shrink-0 text-primary"
-            />
-            {feature}
-          </li>
-        ))}
-      </ul>
-    </div>
+          <dt className="text-muted-foreground">{label}</dt>
+          <dd className="font-medium tabular-nums text-foreground">{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
 /**
- * "Size your plan" slider. Quotes GET /billing/contact-pricing on every drag so
- * an org sees the real price for its exact list size and keeps its tier's
- * features between anchors (11,000 contacts stays on Launch, not Growth). When a
- * quote resolves after the user drags, it selects the resolved tier and the
- * chosen capacity in the parent so checkout charges for that many contacts.
- */
-function PlanSizer({
-  onSizeSelected,
-}: {
-  onSizeSelected: (planLabel: string, contacts: number) => void;
-}) {
-  const [contacts, setContacts] = useState(11000);
-  const [debounced, setDebounced] = useState(11000);
-  const [touched, setTouched] = useState(false);
-
-  useEffect(() => {
-    const h = window.setTimeout(() => setDebounced(contacts), 250);
-    return () => window.clearTimeout(h);
-  }, [contacts]);
-
-  const pricingQuery = useQuery({
-    queryKey: ["billing", "contact-pricing", debounced],
-    queryFn: () => billingService.getContactPricing(debounced),
-    retry: false,
-    refetchOnWindowFocus: false,
-    staleTime: 5 * 60 * 1000,
-    placeholderData: keepPreviousData,
-  });
-
-  const quote = pricingQuery.data?.quote;
-  const anchors = useMemo(
-    () => pricingQuery.data?.anchors ?? [],
-    [pricingQuery.data?.anchors]
-  );
-  const min = anchors[0]?.contacts ?? 500;
-  const max = anchors[anchors.length - 1]?.contacts ?? 200_000;
-  // A round step keeps the handle on tidy contact counts (5,000, 5,500, …);
-  // the number input is there for an exact figure.
-  const step = 500;
-
-  // Only drive the parent's selection after the user actually moves the handle,
-  // so mounting the sizer never clobbers a pre-selected plan.
-  const planLabel = quote?.planLabel;
-  const quoteContacts = quote?.contacts;
-  useEffect(() => {
-    if (touched && planLabel && typeof quoteContacts === "number") {
-      onSizeSelected(planLabel, quoteContacts);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [touched, planLabel, quoteContacts]);
-
-  const setContactsTouched = (n: number) => {
-    setTouched(true);
-    setContacts(clamp(Math.round(n) || 0, min, max));
-  };
-
-  return (
-    <div className="mb-6 rounded-2xl border border-border bg-card p-5">
-      <div className="flex items-center gap-2">
-        <UsersIcon aria-hidden="true" className="h-5 w-5 text-primary" />
-        <h3 className="text-base font-semibold text-foreground">
-          Size your plan
-        </h3>
-      </div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        You only pay for the contacts you have. Slide to your list size - you
-        keep your tier&apos;s features without jumping to the next one.
-      </p>
-
-      <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold tracking-tight text-foreground">
-              {quote ? usd(quote.monthlyPrice) : "…"}
-            </span>
-            <span className="text-sm text-muted-foreground">/mo</span>
-            {quote?.planLabel ? (
-              <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                {quote.planLabel}
-              </span>
-            ) : null}
-          </div>
-          {quote ? (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {quote.planLabel}&apos;s features with{" "}
-              <span className="font-medium text-foreground">
-                {contacts.toLocaleString()}
-              </span>{" "}
-              contacts
-              {quote.annualPrice ? ` · ${usd(quote.annualPrice)}/yr` : ""}
-            </p>
-          ) : null}
-        </div>
-        <label className="text-right">
-          <span className="mb-1 block text-xs text-muted-foreground">
-            Contacts
-          </span>
-          <input
-            type="number"
-            min={min}
-            max={max}
-            value={contacts}
-            onChange={(e) => setContactsTouched(Number(e.target.value))}
-            className="h-9 w-32 rounded-lg border border-border bg-background px-3 text-right text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-          />
-        </label>
-      </div>
-
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={clamp(contacts, min, max)}
-        onChange={(e) => setContactsTouched(Number(e.target.value))}
-        aria-label="Contacts"
-        className="mt-4 w-full accent-[var(--primary)]"
-      />
-
-      {anchors.length > 0 ? (
-        <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
-          {anchors.map((a) => (
-            <button
-              key={a.plan || a.planLabel}
-              type="button"
-              onClick={() => setContactsTouched(a.contacts)}
-              className="transition-colors hover:text-foreground"
-            >
-              {a.planLabel}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {quote?.nextTier ? (
-        <p className="mt-3 text-xs text-muted-foreground">
-          {quote.nextTier.planLabel} unlocks at{" "}
-          {quote.nextTier.contacts.toLocaleString()} contacts
-          {typeof quote.nextTier.monthlyPrice === "number"
-            ? ` (${usd(quote.nextTier.monthlyPrice)}/mo)`
-            : ""}
-          .
-        </p>
-      ) : null}
-
-      {pricingQuery.isError ? (
-        <p className="mt-3 text-xs text-amber-500">
-          Couldn&apos;t load live pricing right now - the plans below still
-          apply.
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * The canonical plan picker, shared by onboarding and Settings > Billing.
- * Payment defaults to Stripe (card) with a crypto (USDC) fallback toggle.
- * PAYG starts the metered plan; paid plans open a hosted checkout in a new tab.
+ * The canonical plan picker, shared by onboarding and Settings > Billing. It is
+ * slider-first per docs/pricing.md v4.2: one slider per line, and the contact
+ * count DECIDES the Suite tier (Launch 0-24,999, Growth 25,000-74,999, Pro
+ * 75,000+) - there is no tier picker. The quote comes from GET /billing/quote,
+ * whose public equivalent matches the charge exactly, so the shown price is what
+ * is billed. Payment defaults to Stripe (card) with a crypto (USDC) fallback.
  */
 export function PlanPicker({
   initialPlan,
@@ -412,47 +120,74 @@ export function PlanPicker({
 }: {
   /** Slug/name pre-selected on mount. */
   initialPlan?: string;
-  /** The org's current plan name (marks its card and disables re-buying it). */
+  /** The org's current plan name (marks it and disables re-buying it). */
   currentPlan?: string;
   submitLabel?: string;
-  /** Fired after PAYG start / checkout launch (onboarding advances, dialog closes). */
+  /** Fired after PAYG start / checkout launch. */
   onCompleted?: (planSlug: string) => void;
   onBack?: () => void;
 }) {
-  const [selectedPlan, setSelectedPlan] = useState<string>(initialPlan ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
+  const [selection, setSelection] = useState<Selection>(() => {
+    const p = (initialPlan ?? "").trim().toLowerCase();
+    if (p === "payg" || p === "pay as you go") return "payg";
+    if (p === "send") return "send";
+    return "suite";
+  });
+  const [contacts, setContacts] = useState(11_000);
+  const [subscribers, setSubscribers] = useState(10_000);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Set only when the plan was chosen via the sizer slider (a capacity purchase);
-  // null means a plain named-tier purchase.
-  const [capacityContacts, setCapacityContacts] = useState<number | null>(null);
-  const selectPlanCard = (name: string) => {
-    setSelectedPlan(name);
-    setCapacityContacts(null);
-  };
 
-  const plansQuery = useQuery({
-    queryKey: ["billing", "plans"],
-    queryFn: () => billingService.getPlans(),
+  const units = selection === "send" ? subscribers : contacts;
+  const [debouncedUnits, setDebouncedUnits] = useState(units);
+  useEffect(() => {
+    const h = window.setTimeout(() => setDebouncedUnits(units), 250);
+    return () => window.clearTimeout(h);
+  }, [units]);
+
+  const quoteQuery = useQuery({
+    queryKey: ["billing", "line-quote", selection, debouncedUnits],
+    queryFn: () =>
+      billingService.getLineQuote(
+        selection === "send" ? "send" : "suite",
+        debouncedUnits
+      ),
+    enabled: selection !== "payg",
     retry: false,
     refetchOnWindowFocus: false,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
+  const quote = quoteQuery.data;
 
-  const fetched = plansQuery.data?.plans;
-  const paidPlans =
-    Array.isArray(fetched) && fetched.length > 0
-      ? fetched
-      : FALLBACK_PAID_PLANS;
+  // An empty Suite list is free: 0 contacts is pay-as-you-go, not a $0 tier.
+  const isEmptySuite = selection === "suite" && contacts <= 0;
+  const resolvedPlan =
+    selection === "payg" || isEmptySuite
+      ? "payg"
+      : selection === "send"
+        ? "send"
+        : (quote?.plan ?? "launch");
 
   const currentName = (currentPlan ?? "").trim().toLowerCase();
-  const isPaid = selectedPlan.length > 0 && selectedPlan !== "payg";
+  const isCurrent = resolvedPlan === currentName;
+
+  // Warn as the handle nears a tier boundary (the price is a real cliff there).
+  const nearCliff = useMemo(() => {
+    if (selection !== "suite" || !quote?.nextTier) return null;
+    const boundary = quote.nextTier.units;
+    if (boundary <= 0) return null;
+    return contacts >= boundary * 0.85 && contacts < boundary
+      ? quote.nextTier
+      : null;
+  }, [selection, quote?.nextTier, contacts]);
 
   const handleContinue = async () => {
-    if (!selectedPlan || isSubmitting) return;
+    if (isSubmitting || isCurrent) return;
     setIsSubmitting(true);
     try {
-      if (selectedPlan === "payg") {
-        const orgId = getSelectedOrganizationId();
+      const orgId = getSelectedOrganizationId();
+      if (selection === "payg" || isEmptySuite) {
         if (orgId) {
           await billingService
             .startPayg(orgId, { orgId })
@@ -462,15 +197,11 @@ export function PlanPicker({
         onCompleted?.("payg");
         return;
       }
-
-      const selected = paidPlans.find((p) => p.name === selectedPlan);
-      const planRef = selected?.slug ?? selectedPlan;
-      // A slider-sized selection sends its contact count so checkout/plan prices
-      // by the same curve as the quote; a plain tier omits it. Both rails
-      // (card/crypto) accept the contact capacity.
+      const planRef = selection === "send" ? "send" : (quote?.plan ?? "launch");
+      const unitsToBuy = selection === "send" ? subscribers : contacts;
       const checkout = await startPlanCheckout(planRef, undefined, {
         paymentMethod,
-        contacts: capacityContacts ?? undefined,
+        contacts: unitsToBuy,
       });
       if (!checkout?.paymentUrl) {
         toast.error("Checkout did not return a payment link. Try again.");
@@ -488,7 +219,6 @@ export function PlanPicker({
     } catch (e) {
       const message =
         e instanceof Error ? e.message : "Couldn't start checkout.";
-      // Card unavailable in this environment - nudge to crypto and switch.
       if (message.toLowerCase().includes("card payments aren't available")) {
         setPaymentMethod("crypto");
         toast.error("Card checkout isn't available yet - switched to crypto.");
@@ -499,6 +229,16 @@ export function PlanPicker({
       setIsSubmitting(false);
     }
   };
+
+  const sliderMin = selection === "send" ? SEND_MIN_SUBSCRIBERS : SUITE_MIN;
+  const sliderMax = selection === "send" ? SEND_MAX : SUITE_MAX;
+  const sliderPct = ((units - sliderMin) / (sliderMax - sliderMin)) * 100;
+
+  const priceText = isEmptySuite
+    ? "Free"
+    : quote
+      ? usd(quote.monthlyPrice)
+      : "…";
 
   return (
     <div>
@@ -559,66 +299,186 @@ export function PlanPicker({
         </div>
       </div>
 
-      <PlanSizer
-        onSizeSelected={(planLabel, contacts) => {
-          setSelectedPlan(planLabel);
-          setCapacityContacts(contacts);
-        }}
-      />
+      {/* Line chooser: Suite / Send / PAYG. */}
+      <div
+        role="radiogroup"
+        aria-label="Plan line"
+        className="grid gap-2 sm:grid-cols-3"
+      >
+        {LINES.map((l) => {
+          const active = selection === l.id;
+          return (
+            <button
+              key={l.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => setSelection(l.id)}
+              className={cn(
+                "rounded-xl border-2 bg-card px-4 py-3 text-left transition-colors",
+                active
+                  ? "border-primary shadow-sm"
+                  : "border-border hover:border-muted-foreground/40"
+              )}
+            >
+              <span
+                className={cn(
+                  "block text-[15px] font-semibold",
+                  active ? "text-primary" : "text-foreground"
+                )}
+              >
+                {l.name}
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                {l.sub}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-      {plansQuery.isLoading ? (
-        <div
-          className="grid animate-pulse gap-4 sm:grid-cols-2 lg:grid-cols-4"
-          aria-hidden="true"
-        >
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="h-72 rounded-2xl bg-muted" />
-          ))}
+      {/* Sized plan (Suite / Send): one slider that decides the tier. */}
+      {selection !== "payg" ? (
+        <div className="mt-5 rounded-2xl border border-border bg-card p-5">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold tracking-tight text-foreground">
+                  {priceText}
+                </span>
+                {!isEmptySuite ? (
+                  <span className="text-sm text-muted-foreground">/mo</span>
+                ) : null}
+                {!isEmptySuite && quote ? (
+                  <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                    {quote.planLabel}
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {isEmptySuite ? (
+                  "Free until you import contacts - you start on pay-as-you-go."
+                ) : (
+                  <>
+                    {quote?.planLabel ?? "…"} with{" "}
+                    <span className="font-medium text-foreground">
+                      {units.toLocaleString()}
+                    </span>{" "}
+                    {selection === "send" ? "subscribers" : "contacts"}
+                    {quote?.annualPrice
+                      ? ` · ${usd(quote.annualPrice)}/yr`
+                      : ""}
+                  </>
+                )}
+              </p>
+            </div>
+            <label className="text-right">
+              <span className="mb-1 block text-xs text-muted-foreground">
+                {selection === "send" ? "Subscribers" : "Contacts"}
+              </span>
+              <input
+                type="number"
+                min={sliderMin}
+                max={sliderMax}
+                value={units}
+                onChange={(e) => {
+                  const v = clamp(
+                    Math.round(Number(e.target.value) || 0),
+                    sliderMin,
+                    sliderMax
+                  );
+                  if (selection === "send") setSubscribers(v);
+                  else setContacts(v);
+                }}
+                className="h-9 w-32 rounded-lg border border-border bg-background px-3 text-right text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              />
+            </label>
+          </div>
+
+          <input
+            type="range"
+            min={sliderMin}
+            max={sliderMax}
+            step={selection === "send" ? 1000 : 500}
+            value={clamp(units, sliderMin, sliderMax)}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (selection === "send") setSubscribers(v);
+              else setContacts(v);
+            }}
+            aria-label={selection === "send" ? "Subscribers" : "Contacts"}
+            className="mt-4 w-full"
+            style={{
+              accentColor: "var(--primary)",
+              background: `linear-gradient(90deg, var(--primary) ${sliderPct}%, var(--border) ${sliderPct}%)`,
+            }}
+          />
+
+          {/* Suite tier stops. */}
+          {selection === "suite" ? (
+            <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
+              {SUITE_TIER_ANCHORS.map((a) => (
+                <button
+                  key={a.plan}
+                  type="button"
+                  onClick={() => setContacts(a.contacts)}
+                  className="transition-colors hover:text-foreground"
+                >
+                  {a.planLabel}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {/* Cliff warning near a tier boundary. */}
+          {nearCliff ? (
+            <p className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+              <ExclamationTriangleIcon
+                aria-hidden="true"
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              Crossing {nearCliff.units.toLocaleString()} contacts moves you to{" "}
+              {nearCliff.label}, about {usd(nearCliff.stepUp)}/mo more.
+            </p>
+          ) : null}
+
+          {/* What you get at this size. */}
+          <div className="mt-5 border-t border-border pt-4">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {isEmptySuite
+                ? "Pay-as-you-go includes"
+                : `${quote?.planLabel ?? "This plan"} includes`}
+            </p>
+            <IncludedRows
+              rows={
+                isEmptySuite
+                  ? PAYG_INCLUDED
+                  : selection === "send"
+                    ? SEND_INCLUDED
+                    : (TIER_ALLOWANCES[resolvedPlan] ?? TIER_ALLOWANCES.launch)
+              }
+            />
+          </div>
         </div>
       ) : (
-        <div
-          role="radiogroup"
-          aria-label="Billing plan"
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          <PlanCard
-            name={PAYG_PLAN.name}
-            description={PAYG_PLAN.description}
-            priceText="$0"
-            interval="mo + usage"
-            features={PAYG_PLAN.features}
-            isSelected={selectedPlan === "payg"}
-            isCurrent={
-              currentName === "payg" || currentName === "pay as you go"
-            }
-            onSelect={() => selectPlanCard("payg")}
-          />
-          {paidPlans.map((plan, idx) => {
-            const name =
-              typeof plan.name === "string" && plan.name.trim().length > 0
-                ? plan.name
-                : `Plan ${idx + 1}`;
-            return (
-              <PlanCard
-                key={name}
-                name={name}
-                description={
-                  typeof plan.description === "string"
-                    ? plan.description
-                    : undefined
-                }
-                priceText={priceLabel(plan.price)}
-                interval={
-                  typeof plan.interval === "string" ? plan.interval : "month"
-                }
-                features={planFeatures(plan)}
-                isSelected={selectedPlan === name}
-                isCurrent={name.trim().toLowerCase() === currentName}
-                isRecommended={name === "Growth"}
-                onSelect={() => selectPlanCard(name)}
-              />
-            );
-          })}
+        // Pay-as-you-go: the metered $0 entry, no sizing.
+        <div className="mt-5 rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold tracking-tight text-foreground">
+              $0
+            </span>
+            <span className="text-sm text-muted-foreground">/mo + usage</span>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Every capability, metered at list price. Prepaid wallet, $10 minimum
+            top-up. Free until you import contacts.
+          </p>
+          <div className="mt-5 border-t border-border pt-4">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Pay-as-you-go includes
+            </p>
+            <IncludedRows rows={PAYG_INCLUDED} />
+          </div>
         </div>
       )}
 
@@ -627,11 +487,7 @@ export function PlanPicker({
           type="button"
           size="lg"
           onClick={handleContinue}
-          disabled={
-            !selectedPlan ||
-            isSubmitting ||
-            selectedPlan.trim().toLowerCase() === currentName
-          }
+          disabled={isSubmitting || isCurrent}
           className="w-full rounded-xl px-8 sm:w-auto"
         >
           {isSubmitting ? (
@@ -642,20 +498,24 @@ export function PlanPicker({
               />
               Setting things up…
             </>
-          ) : selectedPlan.trim().toLowerCase() === currentName ? (
+          ) : isCurrent ? (
             "Current plan"
-          ) : isPaid ? (
-            `${submitLabel ?? "Continue with"} ${selectedPlan}`
+          ) : selection === "payg" || isEmptySuite ? (
+            submitLabel ? (
+              `${submitLabel} pay-as-you-go`
+            ) : (
+              "Start free"
+            )
           ) : (
-            (submitLabel ?? "Continue")
+            `${submitLabel ?? "Continue with"} ${quote?.planLabel ?? (selection === "send" ? "Send" : "Suite")}`
           )}
         </Button>
         <p className="text-center text-xs text-muted-foreground">
-          {isPaid
-            ? paymentMethod === "card"
-              ? "You'll complete payment on a secure Stripe checkout page."
-              : "You'll pay in USDC on a hosted crypto checkout page."
-            : "No credit card required. Upgrade anytime."}
+          {selection === "payg" || isEmptySuite
+            ? "No credit card required. Upgrade anytime."
+            : paymentMethod === "card"
+              ? "You'll complete payment on a secure Stripe checkout page. The price shown is what you're billed."
+              : "You'll pay in USDC on a hosted crypto checkout page. The price shown is what you're billed."}
         </p>
       </div>
     </div>

@@ -545,6 +545,16 @@ const toCampaign = (raw: unknown): Campaign => {
     subject: String(obj.subject ?? ""),
     audience: toAudienceLabels(obj),
     recipients: toRecipientCount(obj, status),
+    delivered: toFiniteNumber(obj.delivered),
+    // Rates are already percentages; map every variant the row may carry. The
+    // deprecated openRate/clickRate are aliases of the of-audience pair, so fall
+    // back to them for the of-audience fields.
+    openRateOfAudience:
+      toFiniteNumber(obj.openRateOfAudience) ?? toFiniteNumber(obj.openRate),
+    clickRateOfAudience:
+      toFiniteNumber(obj.clickRateOfAudience) ?? toFiniteNumber(obj.clickRate),
+    openRateOfDelivered: toFiniteNumber(obj.openRateOfDelivered),
+    clickRateOfDelivered: toFiniteNumber(obj.clickRateOfDelivered),
     openRate: obj.openRate !== undefined ? Number(obj.openRate) : undefined,
     clickRate: obj.clickRate !== undefined ? Number(obj.clickRate) : undefined,
     channelsUsed: Array.isArray(obj.channelsUsed)

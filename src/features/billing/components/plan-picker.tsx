@@ -3,6 +3,7 @@
 import {
   ArrowLeftIcon,
   ArrowPathIcon,
+  CheckIcon,
   CreditCardIcon,
   ExclamationTriangleIcon,
   WalletIcon,
@@ -85,6 +86,45 @@ const LINES: { id: Selection; name: string; sub: string }[] = [
   { id: "send", name: "Send", sub: "Email only" },
   { id: "payg", name: "Pay as you go", sub: "$0 + usage" },
 ];
+
+/**
+ * Capabilities on EVERY Suite tier including PAYG (SSOT docs/pricing.md §4: "no
+ * capability is gated inside Suite"). Tiers differ only on allowance depth,
+ * seats and the dedicated IP - so Forms ships on every tier, not just Growth.
+ */
+const CORE_CAPABILITIES = [
+  "Campaigns (direct + in-app)",
+  "Automations",
+  "Audience & segments",
+  "Forms",
+  "Intelligence",
+  "ONS+ list protection",
+];
+
+/** The "included on every tier" capability list (Forms among them). */
+function CoreCapabilities() {
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Included on every tier
+      </p>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1.5">
+        {CORE_CAPABILITIES.map((c) => (
+          <li
+            key={c}
+            className="flex items-center gap-1.5 text-xs text-foreground"
+          >
+            <CheckIcon
+              aria-hidden="true"
+              className="h-3.5 w-3.5 shrink-0 text-primary"
+            />
+            {c}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 /** Allowance rows: label left, mono value right. */
 function IncludedRows({ rows }: { rows: [string, string][] }) {
@@ -458,6 +498,7 @@ export function PlanPicker({
                     : (TIER_ALLOWANCES[resolvedPlan] ?? TIER_ALLOWANCES.launch)
               }
             />
+            {selection !== "send" ? <CoreCapabilities /> : null}
           </div>
         </div>
       ) : (
@@ -478,6 +519,7 @@ export function PlanPicker({
               Pay-as-you-go includes
             </p>
             <IncludedRows rows={PAYG_INCLUDED} />
+            <CoreCapabilities />
           </div>
         </div>
       )}

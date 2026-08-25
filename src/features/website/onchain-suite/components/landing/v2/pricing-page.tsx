@@ -110,15 +110,11 @@ const CORE_CAPABILITIES = [
 const PRICING_FAQ: [string, string][] = [
   [
     "What is the difference between Suite and Send?",
-    "Suite is for teams with an on-chain audience: it pairs the wallet channel (in-app push) with email and comes in four tiers. Send is email only, for teams with no on-chain audience, the same email engine with the wallet channel switched off, priced as a simple per-subscriber curve.",
+    "Suite is for teams with an on-chain audience: it pairs the wallet channel (in-app push) with email and comes in four tiers. Send is email only, for teams with no on-chain audience, the same email engine with the wallet channel switched off, one plan sized to your list.",
   ],
   [
     "How do the Suite tiers work?",
     "Four tiers: PAYG ($0 plus usage), Launch ($39), Growth ($349) and Pro ($1,622) a month. Every paid tier includes campaigns, automations, audience, ONS+ and Intelligence; Forms and a dedicated IP start on Growth. Tiers otherwise differ on allowance depth and team seats.",
-  ],
-  [
-    "How is Send priced?",
-    "One plan, no tiers: $6 a month plus $3.95 per 1,000 subscribers, billed on your list size and assuming around six sends per subscriber. A 10,000-subscriber list is $46 a month, a 50,000-subscriber list is $204.",
   ],
   [
     "What is PAYG?",
@@ -229,8 +225,7 @@ function SendView() {
       </h2>
       <p className="mt-3 max-w-2xl text-[15px] leading-relaxed t-muted">
         For teams with no on-chain audience, the same email engine with the
-        wallet channel switched off. One plan, no tiers: $6 a month plus $3.95
-        per 1,000 subscribers.
+        wallet channel switched off. One plan, no tiers, sized to your list.
       </p>
       <div className="card mt-8 p-6 sm:p-8">
         <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
@@ -283,8 +278,8 @@ function SendView() {
           style={{ borderColor: "var(--line)" }}
         >
           Send is the email-only line for teams with no on-chain audience. One
-          flat rate, no tiers, assuming around six sends per subscriber a month.
-          Need the wallet channel too? See the Suite tiers above.
+          plan, no tiers, sized to your list. Need the wallet channel too? See
+          the Suite tiers above.
         </p>
       </div>
     </div>

@@ -248,23 +248,25 @@ export const normalizeContactPricing = (payload: unknown): ContactPricing => {
 };
 
 /**
- * The documented slider curve (docs/backend.md 2026-08-27), used ONLY as a
- * fallback when `GET /billing/contact-pricing` is not yet deployed on the
- * connected backend. Interpolating these bands reproduces every named-tier
- * price exactly - Launch $49 (+$0.015/contact) → Growth $349 (+$0.009) → Pro
- * $799 (+$0.020) → Scale $2,299 - so an 11,000-contact org quotes $139. This is
- * guidance only: the real endpoint wins the moment it exists, and the amount
- * actually charged is always resolved by the backend at checkout.
+ * The Suite contact curve (docs/pricing.md v4.2, SSOT), used ONLY as a fallback
+ * when `GET /billing/contact-pricing` is not yet deployed on the connected
+ * backend. Suite = ($16 + $13.30 x contacts/1,000) x tier multiplier
+ * (Launch 0.79 / Growth 1.00 / Pro 1.60), so each tier at its reference contact
+ * count reproduces its shelf price - Launch $39 @ 2,500, Growth $349 @ 25,000,
+ * Pro $1,622 @ 75,000. Within a band the price scales at the tier's marginal
+ * rate ($13.30/1,000 x multiplier) and entitlements come from the lower tier
+ * (11,000 contacts stays on Launch). Guidance only: the real endpoint wins the
+ * moment it exists, and the charged amount is always resolved at checkout.
  */
 const FALLBACK_PRICING_ANCHORS: ContactPricingAnchor[] = [
-  { plan: "launch", planLabel: "Launch", contacts: 5_000, monthlyPrice: 49 },
+  { plan: "launch", planLabel: "Launch", contacts: 2_500, monthlyPrice: 39 },
   { plan: "growth", planLabel: "Growth", contacts: 25_000, monthlyPrice: 349 },
-  { plan: "pro", planLabel: "Pro", contacts: 75_000, monthlyPrice: 799 },
-  { plan: "scale", planLabel: "Scale", contacts: 150_000, monthlyPrice: 2_299 },
+  { plan: "pro", planLabel: "Pro", contacts: 75_000, monthlyPrice: 1_622 },
 ];
-// Marginal $/contact for each band (launch→growth, growth→pro, pro→scale); the
-// final rate continues above Scale rather than erroring.
-const FALLBACK_BAND_RATES = [0.015, 0.009, 0.02];
+// Marginal $/contact per band = $13.30/1,000 x tier multiplier:
+// Launch (0.79) -> 0.0105, Growth (1.00) -> 0.0133, Pro (1.60, continues above
+// its reference) -> 0.0213.
+const FALLBACK_BAND_RATES = [0.0105, 0.0133, 0.0213];
 
 export const computeFallbackContactPricing = (
   contacts: number
@@ -336,9 +338,9 @@ export interface BillingUpgradeResponse {
 
 /** Catalog slugs accepted by POST /billing/checkout/plan (docs/backend.md). */
 /**
- * Sellable lineup per docs/backend.md 2026-07-25: Launch $29 · Growth $199 ·
- * Pro $499 (PAYG is the signup default, not a checkout slug). `starter` and
- * `pro_plus` were retired - checkout now 404s on them.
+ * Sellable lineup per docs/pricing.md v4.2: Launch $39 · Growth $349 ·
+ * Pro $1,622 (PAYG is the signup default, not a checkout slug). `starter`,
+ * `scale` and `pro_plus` are not sellable tiers - checkout 404s on them.
  */
 export type PlanCheckoutSlug = "launch" | "growth" | "pro";
 

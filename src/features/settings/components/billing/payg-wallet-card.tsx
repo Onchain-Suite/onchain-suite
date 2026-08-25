@@ -161,7 +161,7 @@ export function PaygWalletCard({ planName }: { planName: string }) {
             </div>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {isPayg
-                ? "Your plan is usage-based - sends, on-chain reads, and AI are metered from this balance ($1/1k messages · $1/10k on-chain · $5/1k AI)."
+                ? "Your plan is usage-based - sends, on-chain reads, and AI are metered from this balance ($1/1k messages · $10/10k on-chain · $6/1k AI)."
                 : "When your monthly plan allowance runs out, usage continues from this wallet at pay-as-you-go rates instead of stopping."}
             </p>
             {lowBalance ? (

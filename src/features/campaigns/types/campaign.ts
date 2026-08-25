@@ -15,9 +15,27 @@ export interface Campaign {
   status: CampaignStatus;
   subject: string;
   audience: string[];
-  /** Recipient count when the backend provides one; undefined renders as "-". */
+  /** Recipient count (full audience) when the backend provides one; undefined renders as "-". */
   recipients?: number;
+  /**
+   * Provider-confirmed deliveries so far. A campaign is `sent` when fully
+   * enqueued, not delivered, so `delivered` climbs from 0 as a waved send
+   * progresses - render it alongside `recipients` to make an in-flight send
+   * legible as in-flight.
+   */
+  delivered?: number;
+  // Engagement rates from GET /campaigns. All are ALREADY percentages
+  // (4.64 means 4.64%) - never multiply by 100. clickRateOfDelivered can exceed
+  // 100% legitimately (multi-click + scanner prefetch) - never clamp it.
+  /** Rate over the full audience (`recipients`) - climbs from 0 during a waved send. */
+  openRateOfAudience?: number;
+  clickRateOfAudience?: number;
+  /** Rate over what actually delivered - the only honest rate mid-send. */
+  openRateOfDelivered?: number;
+  clickRateOfDelivered?: number;
+  /** @deprecated Alias of {@link openRateOfAudience}; the name never stated its denominator. */
   openRate?: number;
+  /** @deprecated Alias of {@link clickRateOfAudience}. */
   clickRate?: number;
   /** Delivery channels the campaign uses, e.g. ["email", "inapp"]. */
   channelsUsed?: string[];

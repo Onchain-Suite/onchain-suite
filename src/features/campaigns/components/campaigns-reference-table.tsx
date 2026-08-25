@@ -118,30 +118,36 @@ function ChannelIcon({ children }: { children: React.ReactNode }) {
 const isFiniteRate = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
-/**
- * Pick a rate for a campaign, honoring the channel it actually used: prefer the
- * email funnel's value when the campaign sent email, else the in-app funnel's.
- * Falls back to the other channel if the preferred one is missing so a valid
- * rate still surfaces (tolerating the analytics payload's optional nesting).
- */
-const pickRate = (
-  preferEmail: boolean,
-  emailRate: number | undefined,
-  inappRate: number | undefined
-): number | undefined => {
-  const primary = preferEmail ? emailRate : inappRate;
-  const secondary = preferEmail ? inappRate : emailRate;
-  if (isFiniteRate(primary)) return primary;
-  if (isFiniteRate(secondary)) return secondary;
-  return undefined;
+/** Rate as a percent with up to 1 dp (never x100, never clamped). */
+const formatRate = (value: number) => {
+  const r = Math.round(value * 10) / 10;
+  return `${Number.isInteger(r) ? r : r.toFixed(1)}%`;
 };
+/** "of N delivered / sent" denominator label, or undefined when unknown. */
+const denomLabel = (n: number | undefined, kind: string) =>
+  typeof n === "number" && Number.isFinite(n)
+    ? `of ${n.toLocaleString()} ${kind}`
+    : undefined;
 
-/** Right-aligned rate cell: whole-number percent, `0%` distinct from not-sent. */
-function RateValueCell({ value }: { value: number | undefined }) {
+/**
+ * Right-aligned rate cell. `title` states the denominator (the rate is
+ * meaningless without it). Rates are already percentages - not clamped, so a
+ * click rate above 100% (multi-click + scanner prefetch) shows honestly.
+ */
+function RateValueCell({
+  value,
+  title,
+}: {
+  value: number | undefined;
+  title?: string;
+}) {
   return (
-    <td className="px-4 py-4 text-right tabular-nums text-foreground">
+    <td
+      className="px-4 py-4 text-right tabular-nums text-foreground"
+      title={title}
+    >
       {isFiniteRate(value) ? (
-        `${Math.round(value)}%`
+        formatRate(value)
       ) : (
         <span className="text-muted-foreground">-</span>
       )}
@@ -171,18 +177,32 @@ function RateLoadingCell() {
 }
 
 /**
- * The Open/view-rate + Click-rate pair for one row. Rates aren't on the list
- * response, so each sent row fetches its own funnel (GET /campaigns/{id}/
- * analytics) via React Query - keyed per campaign so it caches, dedupes, and is
- * bounded to the visible sent rows (no parent-side waterfall over the list).
+ * The Open/view-rate + Click-rate pair for one row. The honest rate mid-send is
+ * over what actually delivered, so we prefer the list row's `*OfDelivered`
+ * fields (present on every `GET /campaigns` row - no fetch), fall back to the
+ * of-audience fields, and only then fetch the per-campaign funnel (needed for
+ * in-app view rate and legacy rows). The denominator rides along as a tooltip;
+ * the Recipients column also shows `N delivered`.
  */
 function RateCells({ campaign }: { campaign: Campaign }) {
   const isSent = HAS_SENDS_STATUSES.has(campaign.status);
+  const usedEmail = channelsFor(campaign).email;
+
+  const openDelivered = campaign.openRateOfDelivered;
+  const clickDelivered = campaign.clickRateOfDelivered;
+  const openAudience = campaign.openRateOfAudience ?? campaign.openRate;
+  const clickAudience = campaign.clickRateOfAudience ?? campaign.clickRate;
+  const hasListRates =
+    isFiniteRate(openDelivered) ||
+    isFiniteRate(clickDelivered) ||
+    isFiniteRate(openAudience) ||
+    isFiniteRate(clickAudience);
 
   const analyticsQuery = useQuery({
     queryKey: ["campaigns", campaign.id, "analytics"],
     queryFn: () => campaignsService.getAnalytics(campaign.id),
-    enabled: isSent,
+    // Only fetch when the row didn't already carry rates (in-app / legacy rows).
+    enabled: isSent && !hasListRates,
     staleTime: 5 * 60 * 1000,
     retry: false,
     refetchOnWindowFocus: false,
@@ -198,7 +218,7 @@ function RateCells({ campaign }: { campaign: Campaign }) {
     );
   }
 
-  if (analyticsQuery.isLoading) {
+  if (!hasListRates && analyticsQuery.isLoading) {
     return (
       <>
         <RateLoadingCell />
@@ -207,25 +227,47 @@ function RateCells({ campaign }: { campaign: Campaign }) {
     );
   }
 
-  // On error the query data is undefined - pickRate yields undefined, which
-  // renders the muted "-" (never a fabricated number).
   const analytics = analyticsQuery.data;
-  const usedEmail = channelsFor(campaign).email;
-  const openValue = pickRate(
-    usedEmail,
-    analytics?.email?.openRate,
-    analytics?.inapp?.viewRate
+  const funnel = usedEmail ? analytics?.email : analytics?.inapp;
+  const funnelBase = funnel?.delivered ?? funnel?.sent;
+  const funnelKind = funnel?.delivered !== undefined ? "delivered" : "sent";
+
+  // of-delivered (honest) -> of-audience -> per-campaign funnel.
+  const resolve = (
+    ofDelivered: number | undefined,
+    ofAudience: number | undefined,
+    funnelRate: number | undefined
+  ): { value: number | undefined; title: string | undefined } => {
+    if (isFiniteRate(ofDelivered)) {
+      return {
+        value: ofDelivered,
+        title: denomLabel(campaign.delivered, "delivered"),
+      };
+    }
+    if (isFiniteRate(ofAudience)) {
+      return {
+        value: ofAudience,
+        title: denomLabel(campaign.recipients, "sent"),
+      };
+    }
+    return { value: funnelRate, title: denomLabel(funnelBase, funnelKind) };
+  };
+
+  const open = resolve(
+    openDelivered,
+    openAudience,
+    usedEmail ? analytics?.email?.openRate : analytics?.inapp?.viewRate
   );
-  const clickValue = pickRate(
-    usedEmail,
-    analytics?.email?.clickRate,
-    analytics?.inapp?.clickRate
+  const click = resolve(
+    clickDelivered,
+    clickAudience,
+    usedEmail ? analytics?.email?.clickRate : analytics?.inapp?.clickRate
   );
 
   return (
     <>
-      <RateValueCell value={openValue} />
-      <RateValueCell value={clickValue} />
+      <RateValueCell value={open.value} title={open.title} />
+      <RateValueCell value={click.value} title={click.title} />
     </>
   );
 }
@@ -273,6 +315,17 @@ export function CampaignsReferenceTable({
           {data.map((campaign) => {
             const status = STATUS_META[campaign.status] ?? STATUS_META.draft;
             const channels = channelsFor(campaign);
+            // A send is enqueued (status "sent") before it's fully delivered, so
+            // show "N delivered" while delivered trails the audience - the row
+            // reads as in-flight instead of finished at a misleading rate.
+            const started = ["sending", "sent", "paused", "failed"].includes(
+              campaign.status
+            );
+            const showDelivered =
+              started &&
+              typeof campaign.delivered === "number" &&
+              (typeof campaign.recipients !== "number" ||
+                campaign.delivered < campaign.recipients);
             return (
               <tr
                 key={campaign.id}
@@ -311,7 +364,12 @@ export function CampaignsReferenceTable({
                   </span>
                 </td>
                 <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                  {formatCount(campaign.recipients)}
+                  <div>{formatCount(campaign.recipients)}</div>
+                  {showDelivered ? (
+                    <div className="text-[11px] font-normal text-muted-foreground">
+                      {campaign.delivered?.toLocaleString()} delivered
+                    </div>
+                  ) : null}
                 </td>
                 <RateCells campaign={campaign} />
                 <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">

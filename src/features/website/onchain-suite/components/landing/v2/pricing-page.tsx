@@ -343,18 +343,20 @@ function CoreCapabilities() {
   return (
     <section className="py-16">
       <div className="wrap-fit">
-        <div className="mono text-[11px] uppercase tracking-[0.16em] t-muted2">
-          Every Suite tier
+        <div className="mx-auto max-w-2xl text-center">
+          <div className="mono text-[11px] uppercase tracking-[0.16em] t-muted2">
+            Every Suite tier
+          </div>
+          <h2 className="mt-3 text-[26px] font-semibold tracking-tight t-ink sm:text-[32px]">
+            The core platform, on every tier.
+          </h2>
+          <p className="mt-3 text-[15px] leading-relaxed t-muted">
+            Every paid tier includes the capabilities below. Forms and a
+            dedicated IP start on Growth; higher tiers add allowance depth, team
+            seats and scale.
+          </p>
         </div>
-        <h2 className="mt-3 text-[26px] font-semibold tracking-tight t-ink sm:text-[32px]">
-          The core platform, on every tier.
-        </h2>
-        <p className="mt-3 max-w-2xl text-[15px] leading-relaxed t-muted">
-          Every paid tier includes the capabilities below. Forms and a dedicated
-          IP start on Growth; higher tiers add allowance depth, team seats and
-          scale.
-        </p>
-        <div className="mt-8 grid gap-3 sm:grid-cols-2">
+        <div className="mx-auto mt-8 grid max-w-3xl gap-3 sm:grid-cols-2">
           {CORE_CAPABILITIES.map((cap) => (
             <Reveal key={cap}>
               <div className="card flex items-start gap-3 p-4">
@@ -380,13 +382,15 @@ function PricingFaq() {
   return (
     <section className="pb-20">
       <div className="wrap-fit">
-        <div className="mono text-[11px] uppercase tracking-[0.16em] t-muted2">
-          Pricing FAQ
+        <div className="mx-auto max-w-2xl text-center">
+          <div className="mono text-[11px] uppercase tracking-[0.16em] t-muted2">
+            Pricing FAQ
+          </div>
+          <h2 className="mt-3 text-[26px] font-semibold tracking-tight t-ink sm:text-[32px]">
+            Pricing, explained.
+          </h2>
         </div>
-        <h2 className="mt-3 text-[26px] font-semibold tracking-tight t-ink sm:text-[32px]">
-          Pricing, explained.
-        </h2>
-        <div className="mt-8 max-w-2xl space-y-3">
+        <div className="mx-auto mt-8 max-w-2xl space-y-3">
           {PRICING_FAQ.map(([q, a], i) => {
             const isOpen = open === i;
             return (

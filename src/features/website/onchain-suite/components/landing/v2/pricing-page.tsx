@@ -94,6 +94,9 @@ const SUITE_TIERS: SuiteTier[] = [
 
 const SEND_BASE = 6; // $/mo
 const SEND_RATE = 3.95; // $ per 1,000 subscribers
+// The backend bills whole dollars (never cents) and public quotes match the
+// authenticated charge exactly, so the estimate must round the same way -
+// $45.50 shown but $46 charged would be "shown one number, charged another".
 
 const CORE_CAPABILITIES = [
   "In-app push via a drop-in SDK, wallet address only",
@@ -115,7 +118,7 @@ const PRICING_FAQ: [string, string][] = [
   ],
   [
     "How is Send priced?",
-    "One plan, no tiers: $6 a month plus $3.95 per 1,000 subscribers, billed on your list size and assuming around six sends per subscriber. A 10,000-subscriber list is $45.50 a month, a 50,000-subscriber list is $203.50.",
+    "One plan, no tiers: $6 a month plus $3.95 per 1,000 subscribers, billed on your list size and assuming around six sends per subscriber. A 10,000-subscriber list is $46 a month, a 50,000-subscriber list is $204.",
   ],
   [
     "What is PAYG?",
@@ -269,12 +272,9 @@ function SendView() {
                 className="font-semibold tracking-tight t-ink"
                 style={{ fontSize: "clamp(2rem, 5vw, 2.6rem)" }}
               >
-                ${price.toFixed(2)}
+                ${Math.round(price).toLocaleString()}
               </span>
               <span className="text-[13px] t-muted">/mo</span>
-            </div>
-            <div className="mt-1 text-[11.5px] t-muted2">
-              $6/mo + $3.95 per 1,000
             </div>
           </div>
         </div>

@@ -40,10 +40,10 @@ const PLAN_FEATURE_CATALOG: Record<string, string[]> = {
     "Direct campaigns, Audience & Forms",
   ],
   launch: [
-    "5,000 contacts · 50,000 emails/mo",
+    "2,500 contacts · 50,000 emails/mo",
     "25,000 in-app pushes/mo",
+    "1,000 on-chain · 500 AI credits",
     "Intelligence, Audience & Segments",
-    "Direct campaigns",
     "2 team seats",
   ],
   growth: [
@@ -60,12 +60,6 @@ const PLAN_FEATURE_CATALOG: Record<string, string[]> = {
     "Priority support",
     "7 team seats",
   ],
-  scale: [
-    "150,000 contacts · 1.5M emails/mo",
-    "2,000,000 in-app pushes/mo",
-    "5 concierge hours/mo",
-    "SLA + custom team seats",
-  ],
 };
 
 const PAYG_PLAN = {
@@ -80,16 +74,16 @@ const PAYG_PLAN = {
   ],
 };
 
-/** v4 catalogue (docs/pricing.md). Shown only when the backend plan list is
- *  unavailable; the charged price always comes from the backend at checkout. */
+/** v4.2 catalogue (docs/pricing.md SSOT). Shown only when the backend plan list
+ *  is unavailable; the charged price always comes from the backend at checkout. */
 const FALLBACK_PAID_PLANS: BillingPlan[] = [
   {
     name: "Launch",
     slug: "launch",
-    price: 49,
+    price: 39,
     interval: "month",
     features: [
-      "5,000 contacts · 50,000 emails/mo",
+      "2,500 contacts · 50,000 emails/mo",
       "25,000 in-app pushes/mo",
       "Intelligence",
       "2 team seats",
@@ -110,25 +104,13 @@ const FALLBACK_PAID_PLANS: BillingPlan[] = [
   {
     name: "Pro",
     slug: "pro",
-    price: 799,
+    price: 1622,
     interval: "month",
     features: [
       "75,000 contacts · 750,000 emails/mo",
       "1,000,000 in-app pushes/mo",
       "Intelligence at working scale",
       "7 team seats",
-    ],
-  },
-  {
-    name: "Scale",
-    slug: "scale",
-    price: 2299,
-    interval: "month",
-    features: [
-      "150,000 contacts · 1.5M emails/mo",
-      "2,000,000 in-app pushes/mo",
-      "5 concierge hours/mo",
-      "Custom team seats",
     ],
   },
 ];
@@ -143,7 +125,7 @@ const priceLabel = (price: BillingPlan["price"]): string => {
 // name or slug, so features still fill in when the backend's slug/name isn't
 // exactly our key (e.g. "launch-monthly", "Launch Plan", or a UUID id). Order
 // matters: check the more specific keys first.
-const CATALOG_TIER_KEYS = ["scale", "pro", "growth", "launch", "payg"] as const;
+const CATALOG_TIER_KEYS = ["pro", "growth", "launch", "payg"] as const;
 const featureCatalogFor = (plan: BillingPlan): string[] => {
   const hay =
     `${typeof plan.name === "string" ? plan.name : ""} ${typeof plan.slug === "string" ? plan.slug : ""}`.toLowerCase();
@@ -586,10 +568,10 @@ export function PlanPicker({
 
       {plansQuery.isLoading ? (
         <div
-          className="grid animate-pulse gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+          className="grid animate-pulse gap-4 sm:grid-cols-2 lg:grid-cols-4"
           aria-hidden="true"
         >
-          {Array.from({ length: 5 }, (_, i) => (
+          {Array.from({ length: 4 }, (_, i) => (
             <div key={i} className="h-72 rounded-2xl bg-muted" />
           ))}
         </div>
@@ -597,7 +579,7 @@ export function PlanPicker({
         <div
           role="radiogroup"
           aria-label="Billing plan"
-          className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
         >
           <PlanCard
             name={PAYG_PLAN.name}

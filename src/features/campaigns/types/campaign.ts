@@ -33,6 +33,20 @@ export interface Campaign {
   /** Rate over what actually delivered - the only honest rate mid-send. */
   openRateOfDelivered?: number;
   clickRateOfDelivered?: number;
+  /** Unique openers so far. */
+  opens?: number;
+  /**
+   * Unique clickers so far. CHANGED: this was click *events*; it is now unique
+   * clickers. For total click volume use {@link totalClicks} - rendering this as
+   * "total clicks" now undercounts.
+   */
+  clicks?: number;
+  /**
+   * Total click events. `totalClicks / clicks` is clicks-per-clicker; a ratio
+   * well above 1 is security-scanner link prefetch, isolated here so it no longer
+   * inflates the click rate.
+   */
+  totalClicks?: number;
   /** @deprecated Alias of {@link openRateOfAudience}; the name never stated its denominator. */
   openRate?: number;
   /** @deprecated Alias of {@link clickRateOfAudience}. */

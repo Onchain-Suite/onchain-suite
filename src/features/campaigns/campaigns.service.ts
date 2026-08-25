@@ -555,6 +555,10 @@ const toCampaign = (raw: unknown): Campaign => {
       toFiniteNumber(obj.clickRateOfAudience) ?? toFiniteNumber(obj.clickRate),
     openRateOfDelivered: toFiniteNumber(obj.openRateOfDelivered),
     clickRateOfDelivered: toFiniteNumber(obj.clickRateOfDelivered),
+    opens: toFiniteNumber(obj.opens),
+    // `clicks` is now unique clickers; `totalClicks` is event volume.
+    clicks: toFiniteNumber(obj.clicks),
+    totalClicks: toFiniteNumber(obj.totalClicks),
     openRate: obj.openRate !== undefined ? Number(obj.openRate) : undefined,
     clickRate: obj.clickRate !== undefined ? Number(obj.clickRate) : undefined,
     channelsUsed: Array.isArray(obj.channelsUsed)

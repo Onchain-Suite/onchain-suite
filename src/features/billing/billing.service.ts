@@ -317,6 +317,138 @@ export const computeFallbackContactPricing = (
   };
 };
 
+/* ---------- v4.2 unified line quote (GET /billing/quote?plan=&units=) ----------
+   One slider per line; the contact count DECIDES the Suite tier (bands), and the
+   public quote matches the authenticated charge exactly, so shown == charged. */
+
+const SEND_BASE_FEE = 6; // $/mo
+const SEND_RATE_PER_1K = 3.95; // $ per 1,000 subscribers
+export const SEND_MIN_SUBSCRIBERS = 1000;
+/** SSOT contact stops for the Suite slider (Launch/Growth/Pro references). */
+export const SUITE_TIER_ANCHORS = FALLBACK_PRICING_ANCHORS;
+
+export interface LineQuote {
+  line: "suite" | "send";
+  /** Tier slug for Suite (launch/growth/pro), or "send". */
+  plan: string;
+  planLabel: string;
+  /** "contacts" (Suite) or "subscribers" (Send). */
+  unitLabel: string;
+  units: number;
+  /** Whole dollars, never cents. */
+  monthlyPrice: number;
+  annualPrice: number | null;
+  /** Send: true when at/below the minimum subscribers. */
+  atMinimum?: boolean;
+  /** Suite: the contact band this size falls in. */
+  band?: { from: number; to: number | null };
+  /** The next tier up + the $ jump crossing into it (the price cliff). */
+  nextTier?: {
+    plan: string;
+    label: string;
+    units: number;
+    monthlyPrice: number;
+    stepUp: number;
+  } | null;
+}
+
+const suiteFallbackLineQuote = (contacts: number): LineQuote => {
+  const { quote } = computeFallbackContactPricing(contacts);
+  const next = quote.nextTier;
+  // Cliff = the jump crossing the boundary: price just under the boundary on the
+  // current band vs the next tier's reference price (+$74 at 25k, +$609 at 75k).
+  let stepUp = 0;
+  if (next) {
+    const belowBoundary = computeFallbackContactPricing(next.contacts - 1).quote
+      .monthlyPrice;
+    stepUp = Math.max(0, next.monthlyPrice - belowBoundary);
+  }
+  return {
+    line: "suite",
+    plan: quote.plan || "launch",
+    planLabel: quote.planLabel || "Launch",
+    unitLabel: "contacts",
+    units: quote.contacts,
+    monthlyPrice: quote.monthlyPrice,
+    annualPrice: quote.annualPrice ?? quote.monthlyPrice * 12,
+    nextTier: next
+      ? {
+          plan: next.plan,
+          label: next.planLabel,
+          units: next.contacts,
+          monthlyPrice: next.monthlyPrice,
+          stepUp,
+        }
+      : null,
+  };
+};
+
+export const computeFallbackSendPricing = (subscribers: number): LineQuote => {
+  const n = Math.max(
+    SEND_MIN_SUBSCRIBERS,
+    Math.round(Number.isFinite(subscribers) ? subscribers : 0)
+  );
+  const monthly = Math.round(SEND_BASE_FEE + SEND_RATE_PER_1K * (n / 1000));
+  return {
+    line: "send",
+    plan: "send",
+    planLabel: "Send",
+    unitLabel: "subscribers",
+    units: n,
+    monthlyPrice: monthly,
+    annualPrice: monthly * 12,
+    atMinimum: subscribers <= SEND_MIN_SUBSCRIBERS,
+    nextTier: null,
+  };
+};
+
+const normalizeLineQuote = (
+  payload: unknown,
+  line: "suite" | "send",
+  requested: number
+): LineQuote => {
+  const root = isJsonObject(payload)
+    ? ((payload.data ?? payload) as Record<string, unknown>)
+    : {};
+  const monthly = num(root.monthlyPrice ?? root.price);
+  if (monthly === null || monthly < 0) {
+    return line === "send"
+      ? computeFallbackSendPricing(requested)
+      : suiteFallbackLineQuote(requested);
+  }
+  const nt = isJsonObject(root.nextTier) ? root.nextTier : null;
+  const band = isJsonObject(root.band) ? root.band : undefined;
+  return {
+    line,
+    plan:
+      pickPlanString(root.plan, root.slug, root.planLabel)?.toLowerCase() ??
+      (line === "send" ? "send" : "launch"),
+    planLabel:
+      pickPlanString(root.planLabel, root.label, root.plan) ??
+      (line === "send" ? "Send" : "Launch"),
+    unitLabel:
+      typeof root.unitLabel === "string"
+        ? root.unitLabel
+        : line === "send"
+          ? "subscribers"
+          : "contacts",
+    units: num(root.units ?? root.contacts ?? root.subscribers) ?? requested,
+    monthlyPrice: monthly,
+    annualPrice: num(root.annualPrice) ?? monthly * 12,
+    atMinimum: root.atMinimum === true,
+    band: band ? { from: num(band.from) ?? 0, to: num(band.to) } : undefined,
+    nextTier: nt
+      ? {
+          plan: pickPlanString(nt.plan, nt.slug, nt.label)?.toLowerCase() ?? "",
+          label: pickPlanString(nt.label, nt.planLabel, nt.plan) ?? "",
+          units: num(nt.contacts ?? nt.units ?? nt.subscribers) ?? 0,
+          monthlyPrice: num(nt.monthlyPrice ?? nt.price) ?? 0,
+          stepUp: num(nt.stepUp) ?? 0,
+        }
+      : null,
+  };
+};
+
 export interface UpgradeFiatRequest {
   plan: BillingPlanName;
 }
@@ -760,6 +892,35 @@ export const billingService = {
         // degrade to the documented curve rather than leaving the slider dead.
         .catch(() => computeFallbackContactPricing(safe))
     );
+  },
+
+  /**
+   * v4.2 unified quote (`GET /billing/quote?plan=<suite|send>&units=<n>`). One
+   * slider per line; the count decides the Suite tier. The public quote matches
+   * this exactly, so the displayed price equals the charge. Falls back to the
+   * SSOT curve when the endpoint is unavailable. See {@link LineQuote}.
+   */
+  getLineQuote(
+    line: "suite" | "send",
+    units: number,
+    options?: BillingServiceOptions
+  ): Promise<LineQuote> {
+    const min = line === "send" ? SEND_MIN_SUBSCRIBERS : 0;
+    const safe = Math.max(min, Math.round(Number.isFinite(units) ? units : 0));
+    return billingRequest<unknown>(
+      {
+        method: "GET",
+        url: "/billing/quote",
+        params: { plan: line, units: safe },
+      },
+      options
+    )
+      .then((payload) => normalizeLineQuote(payload, line, safe))
+      .catch(() =>
+        line === "send"
+          ? computeFallbackSendPricing(safe)
+          : suiteFallbackLineQuote(safe)
+      );
   },
 
   /**

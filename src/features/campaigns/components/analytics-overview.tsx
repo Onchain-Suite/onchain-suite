@@ -50,11 +50,7 @@ export function CampaignsAnalyticsOverview() {
   // The org-wide open/click rates are the recipient-weighted pool of every
   // campaign's own rate - the SAME hook the Dashboard uses, so both surfaces
   // always show the same number.
-  const {
-    avgOpenRate,
-    avgClickRate,
-    sentCount: sentCampaignCount,
-  } = useCampaignEngagement();
+  const { avgOpenRate, avgClickRate, ratedCount } = useCampaignEngagement();
 
   if (overviewQuery.isLoading) {
     return <StatCardsSkeleton withIcon={false} />;
@@ -77,33 +73,23 @@ export function CampaignsAnalyticsOverview() {
     {
       label: "Open rate",
       value: formatPercentage(avgOpenRate),
-      hint:
-        sentCampaignCount > 0 ? `across ${sentCampaignCount} sent` : undefined,
+      // Caption the pooled rate with the campaigns that actually contributed to
+      // it (not every sent campaign), so a rate over 8 doesn't claim 11.
+      hint: ratedCount > 0 ? `across ${ratedCount} sent` : undefined,
     },
     {
       label: "Click rate",
       value: formatPercentage(avgClickRate),
-      hint:
-        sentCampaignCount > 0 ? `across ${sentCampaignCount} sent` : undefined,
+      hint: ratedCount > 0 ? `across ${ratedCount} sent` : undefined,
     },
     {
+      // The big number is the allowance (limit, or "Unlimited"); usage rides in
+      // the hint. `limit: null` means unlimited - it is not a usage number.
       label: "Monthly allowance",
-      value:
-        typeof limit === "number" ? (
-          <>
-            {formatCount(used)}
-            <span className="text-lg font-normal text-muted-foreground">
-              {" "}
-              / {formatCount(limit)}
-            </span>
-          </>
-        ) : (
-          formatCount(used)
-        ),
-      hint:
-        typeof limit === "number"
-          ? `resets ${resetLabel(allowance?.resetsAt)}`
-          : "unlimited",
+      value: limit === null ? "Unlimited" : formatCount(limit),
+      hint: allowance?.resetsAt
+        ? `${formatCount(used)} used · resets ${resetLabel(allowance.resetsAt)}`
+        : `${formatCount(used)} used`,
     },
   ];
 

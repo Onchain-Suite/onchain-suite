@@ -7,6 +7,7 @@ import { campaignsService } from "../campaigns.service";
 import {
   campaignRates,
   campaignRateWeight,
+  isFiniteRate,
   SENT_STATUSES,
   weightedAverageRate,
 } from "../utils/rates";
@@ -44,7 +45,7 @@ export function useCampaignEngagement() {
     })),
   });
 
-  const { avgOpenRate, avgClickRate } = useMemo(() => {
+  const { avgOpenRate, avgClickRate, ratedCount } = useMemo(() => {
     const openEntries: Array<{
       rate: number | undefined;
       weight: number | undefined;
@@ -53,23 +54,31 @@ export function useCampaignEngagement() {
       rate: number | undefined;
       weight: number | undefined;
     }> = [];
+    let rated = 0;
     sentCampaigns.forEach((campaign, index) => {
       const analytics = analyticsResults[index]?.data;
       const { open, click } = campaignRates(campaign, analytics);
       const weight = campaignRateWeight(campaign, analytics);
       openEntries.push({ rate: open, weight });
       clickEntries.push({ rate: click, weight });
+      // Only campaigns that actually contribute a rate belong in the "across N
+      // sent" caption - a rate averaged over 8 campaigns must not claim 11.
+      if (isFiniteRate(open) || isFiniteRate(click)) rated += 1;
     });
     return {
       avgOpenRate: weightedAverageRate(openEntries),
       avgClickRate: weightedAverageRate(clickEntries),
+      ratedCount: rated,
     };
   }, [sentCampaigns, analyticsResults]);
 
   return {
     avgOpenRate,
     avgClickRate,
+    /** Total campaigns in a sent-like state. */
     sentCount: sentCampaigns.length,
+    /** Campaigns that contributed a rate to the pooled averages. */
+    ratedCount,
     isLoading: campaignsQuery.isLoading,
   };
 }

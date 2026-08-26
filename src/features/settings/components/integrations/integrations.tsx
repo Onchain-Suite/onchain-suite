@@ -1,6 +1,7 @@
 "use client";
 
 import { KeyIcon } from "@heroicons/react/24/outline";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -40,6 +41,48 @@ function normalizeOrigin(value: string) {
   }
 }
 
+// DX GOAL: the install snippet must be COPY-PASTE-AND-DONE. That means (1) the real
+// publishable key is baked in — no "replace with your key" step — and (2) the
+// entered origin is allow-listed server-side on generate, so the pasted tag
+// actually connects (the SDK is rejected on any origin the org hasn't allowed).
+// The SDK reads ONLY `data-key`; `data-org`/`data-origin` were inert, so they're
+// gone — one attribute, nothing to fill in.
+
+/** The org's publishable key (prod preferred, else test) from the in-app status. */
+async function fetchPublishableKey(orgId: string): Promise<string> {
+  try {
+    const res = await fetch("/api/v1/integrations/inapp/status", {
+      headers: { "x-org-id": orgId },
+    });
+    const json: unknown = await res.json().catch(() => null);
+    if (!res.ok || !json || typeof json !== "object") return "";
+    const root = json as Record<string, unknown>;
+    const d = (root.data ?? root) as Record<string, unknown>;
+    const pk = (d.publishableKeys ?? d.publishable ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const prod = typeof pk.production === "string" ? pk.production : "";
+    const test = typeof pk.test === "string" ? pk.test : "";
+    return prod || test || "";
+  } catch {
+    return "";
+  }
+}
+
+/** Allow-list an origin so the pasted snippet connects. Best-effort (idempotent). */
+async function allowlistOrigin(orgId: string, origin: string): Promise<void> {
+  try {
+    await fetch("/api/v1/integrations/inapp/origins", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-org-id": orgId },
+      body: JSON.stringify({ origin, environment: "production" }),
+    });
+  } catch {
+    /* a duplicate/existing origin is fine — don't block the snippet on it */
+  }
+}
+
 export default function IntegrationsSettings() {
   const [manageKeysOpen, setManageKeysOpen] = useState(false);
 
@@ -48,10 +91,19 @@ export default function IntegrationsSettings() {
   // "Manage keys" (real API); this card is the first-mile install surface.
   const [dappOrigin, setDappOrigin] = useState("");
   const [snippet, setSnippet] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   const orgId = useMemo(() => getSelectedOrganizationId(), []);
 
-  const generateSnippet = () => {
+  // Pre-load the publishable key so we can bake it straight into the snippet.
+  const keyQuery = useQuery({
+    queryKey: ["integrations", "inapp", "status", orgId],
+    enabled: !!orgId,
+    queryFn: () => fetchPublishableKey(orgId as string),
+  });
+  const publishableKey = keyQuery.data ?? "";
+
+  const generateSnippet = async () => {
     if (!orgId) {
       toast.error(
         "Select an organization first - the snippet needs a real org id."
@@ -63,16 +115,28 @@ export default function IntegrationsSettings() {
       toast.error("Enter the domain your dApp runs on, e.g. app.yourdapp.com");
       return;
     }
-    setSnippet(
-      [
-        `<script`,
-        `  src="https://cdn.onchainsuite.com/inapp.js"`,
-        `  data-org="${orgId}"`,
-        `  data-origin="${origin}"`,
-        `  async`,
-        `></script>`,
-      ].join("\n")
-    );
+    if (!publishableKey) {
+      toast.error("Create a publishable key first - open Manage keys.");
+      setManageKeysOpen(true);
+      return;
+    }
+    setGenerating(true);
+    try {
+      // Allow-list the origin so the pasted tag connects immediately.
+      await allowlistOrigin(orgId, origin);
+      setSnippet(
+        [
+          `<script`,
+          `  src="https://cdn.onchainsuite.com/inapp.js"`,
+          `  data-key="${publishableKey}"`,
+          `  async`,
+          `></script>`,
+        ].join("\n")
+      );
+      toast.success(`Snippet ready - ${origin} is now an allowed origin.`);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   return (
@@ -111,8 +175,9 @@ export default function IntegrationsSettings() {
             placeholder="app.yourdapp.com"
           />
           <p className="text-xs text-muted-foreground">
-            The domain your dApp runs on. The SDK is rejected anywhere else, so
-            a stolen key can&apos;t render messages on another site.
+            The domain your dApp runs on. Generating the snippet allow-lists it,
+            so the SDK is rejected anywhere else - a stolen key can&apos;t
+            render messages on another site.
           </p>
         </div>
         {snippet ? (
@@ -126,12 +191,23 @@ export default function IntegrationsSettings() {
             <pre className="overflow-x-auto rounded-xl border border-border/60 bg-muted/40 p-3 text-xs leading-5 text-foreground">
               <code>{snippet}</code>
             </pre>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Paste this once, anywhere on your site - your publishable key is
+              already in it. Nothing else to install.
+            </p>
           </div>
         ) : null}
         <div className="mt-4">
-          <Button onClick={generateSnippet} disabled={!orgId}>
-            Generate install snippet
+          <Button onClick={generateSnippet} disabled={!orgId || generating}>
+            {generating ? "Generating…" : "Generate install snippet"}
           </Button>
+          {orgId && !publishableKey && !keyQuery.isLoading ? (
+            <p className="mt-2 text-xs text-amber-500">
+              No publishable key yet - open{" "}
+              <span className="font-medium">Manage keys</span> to create one,
+              then generate.
+            </p>
+          ) : null}
           {!orgId ? (
             <p className="mt-2 text-xs text-amber-500">
               Select an organization to generate a working install snippet.

@@ -48,6 +48,14 @@ function normalizeOrigin(value: string) {
 // The SDK reads ONLY `data-key`; `data-org`/`data-origin` were inert, so they're
 // gone — one attribute, nothing to fill in.
 
+// Serve the IIFE (`dist/inapp.js`) from unpkg, PINNED to a version. Why not
+// `cdn.onchainsuite.com`: that host isn't wired to DNS, so the tag 404s. unpkg
+// serves the published npm package today, no infra. Pin the version — an
+// unpinned URL would silently swap what every embedded tag loads on the next
+// release. Bump this in lockstep with a stable SDK release.
+const SDK_VERSION = "0.3.0";
+const SDK_INAPP_URL = `https://unpkg.com/@onchainsuite/sdk@${SDK_VERSION}/dist/inapp.js`;
+
 /** The org's publishable key (prod preferred, else test) from the in-app status. */
 async function fetchPublishableKey(orgId: string): Promise<string> {
   try {
@@ -127,7 +135,7 @@ export default function IntegrationsSettings() {
       setSnippet(
         [
           `<script`,
-          `  src="https://cdn.onchainsuite.com/inapp.js"`,
+          `  src="${SDK_INAPP_URL}"`,
           `  data-key="${publishableKey}"`,
           `  async`,
           `></script>`,

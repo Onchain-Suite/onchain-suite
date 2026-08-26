@@ -1,15 +1,12 @@
 "use client";
 
 import {
-  BoltIcon,
   CheckIcon,
   ClipboardDocumentIcon,
   EyeIcon,
   EyeSlashIcon,
-  ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -26,12 +23,12 @@ import {
 
 import { authClient } from "@/lib/auth-client";
 import {
+  cn,
   getCookieValue,
   isJsonObject,
   ORG_SELECTION_COOKIE,
 } from "@/lib/utils";
 
-import SettingsSectionCard from "@/features/settings/components/settings-section-card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 const CUSTOM_EVENTS_CURL = `curl -X POST https://api.onchainsuite.com/api/v1/events \\
@@ -418,28 +415,40 @@ const InAppIntegration = () => {
   };
 
   return (
-    <motion.div className="space-y-6">
-      <SettingsSectionCard
-        title="In-app push"
-        description="Configure SDK keys, approved origins, and test delivery."
-        icon={<ShieldCheckIcon className="h-5 w-5" aria-hidden="true" />}
-        badge={
-          !orgId
+    <div className="space-y-6">
+      {/* The modal header already titles this panel ("In-app push keys &
+          origins"), so we surface only the live session state here - no nested
+          collapsible card chrome. */}
+      <div className="flex items-center gap-2 text-sm">
+        <span
+          className={cn(
+            "inline-flex h-2 w-2 shrink-0 rounded-full",
+            (status.sessionCount ?? 0) > 0
+              ? "bg-emerald-500"
+              : "bg-muted-foreground/40"
+          )}
+          aria-hidden="true"
+        />
+        <span className="text-muted-foreground">
+          {!orgId
             ? "Select an organization"
             : statusQuery.isLoading
               ? "Checking sessions…"
               : (status.sessionCount ?? 0) > 0
                 ? `Connected · ${status.sessionCount} active session${status.sessionCount === 1 ? "" : "s"}`
-                : "No active sessions"
-        }
-        collapsedPreview={
-          !orgId ? (
-            <div className="text-sm text-muted-foreground">
-              Select an organization to manage in-app integration.
-            </div>
-          ) : (
+                : "No active sessions"}
+        </span>
+      </div>
+
+      <div className="space-y-5">
+        {!orgId ? (
+          <div className="rounded-xl border border-border/60 bg-muted/50 p-4 text-sm text-muted-foreground">
+            Select an organization to manage in-app integration.
+          </div>
+        ) : (
+          <>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+              <div className="rounded-xl border border-border/60 bg-background/60 p-4">
                 <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                   Publishable keys
                 </div>
@@ -454,7 +463,7 @@ const InAppIntegration = () => {
                   )}
                 </div>
               </div>
-              <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
+              <div className="rounded-xl border border-border/60 bg-background/60 p-4">
                 <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                   Allowed origins
                 </div>
@@ -467,492 +476,452 @@ const InAppIntegration = () => {
                 </div>
               </div>
             </div>
-          )
-        }
-      >
-        <div className="space-y-5">
-          {!orgId ? (
-            <div className="rounded-2xl border border-border/80 bg-muted/50 p-4 text-sm text-muted-foreground">
-              Select an organization to manage in-app integration.
-            </div>
-          ) : (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
-                  <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+
+            <div className="space-y-3 border-t border-border/60 pt-6">
+              <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-background/60 p-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-foreground">
                     Publishable keys
-                  </div>
-                  <div className="mt-2 text-sm text-foreground">
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Public keys the client SDK uses to initialize in-app
+                    sessions. Secret (`sk_*`) keys live in the Developer API
+                    card, never here.
+                  </p>
+                  <div className="mt-2 text-xs text-muted-foreground">
                     {statusQuery.isLoading ? (
-                      <Skeleton className="h-5 w-24" />
+                      <Skeleton className="h-4 w-56" />
                     ) : status.publishableKeys.production ||
                       status.publishableKeys.test ? (
-                      "Configured"
+                      "Publishable keys configured"
                     ) : (
-                      "Not available yet"
+                      "Publishable keys unavailable"
                     )}
                   </div>
                 </div>
-                <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
-                  <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                    Allowed origins
-                  </div>
-                  <div className="mt-2 text-sm text-foreground">
-                    {originsQuery.isLoading ? (
-                      <Skeleton className="h-5 w-16" />
-                    ) : (
-                      `${origins.length} added`
-                    )}
-                  </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    type="button"
+                    onClick={() =>
+                      setActivePanel((current) =>
+                        current === "keys" ? null : "keys"
+                      )
+                    }
+                  >
+                    {activePanel === "keys" ? "Hide keys" : "Manage keys"}
+                  </Button>
                 </div>
               </div>
 
-              <div className="space-y-3 border-t border-border/50 pt-5">
-                <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-background/60 p-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Publishable keys
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Public keys the client SDK uses to initialize in-app
-                      sessions. Secret (`sk_*`) keys live in the Developer API
-                      card, never here.
+              {activePanel === "keys" ? (
+                <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      Use these in client environments that only need public
+                      access.
                     </p>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      {statusQuery.isLoading ? (
-                        <Skeleton className="h-4 w-56" />
-                      ) : status.publishableKeys.production ||
-                        status.publishableKeys.test ? (
-                        "Publishable keys configured"
-                      ) : (
-                        "Publishable keys unavailable"
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
-                      className="rounded-xl"
+                      size="icon"
+                      onClick={() => setShowPublishable((v) => !v)}
+                      className="shrink-0"
+                      aria-label="Toggle publishable key visibility"
                       type="button"
-                      onClick={() =>
-                        setActivePanel((current) =>
-                          current === "keys" ? null : "keys"
-                        )
-                      }
                     >
-                      {activePanel === "keys" ? "Hide keys" : "Manage keys"}
+                      {showPublishable ? (
+                        <EyeSlashIcon className="h-4 w-4" aria-hidden="true" />
+                      ) : (
+                        <EyeIcon className="h-4 w-4" aria-hidden="true" />
+                      )}
                     </Button>
                   </div>
-                </div>
 
-                {activePanel === "keys" ? (
-                  <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/20 p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <h4 className="text-sm font-semibold text-foreground">
-                          Publishable keys
-                        </h4>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          Use these in client environments that only need public
-                          access.
-                        </p>
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <Label className="text-sm font-medium text-foreground">
+                            Production
+                          </Label>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Recommended for live traffic.
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() =>
+                            copyToClipboard(
+                              "pk",
+                              status.publishableKeys.production ?? ""
+                            ).catch(() => undefined)
+                          }
+                          className="shrink-0"
+                          aria-label="Copy production publishable key"
+                          type="button"
+                        >
+                          {copiedKey === "pk" ? (
+                            <CheckIcon
+                              className="h-4 w-4 text-primary"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <ClipboardDocumentIcon
+                              className="h-4 w-4"
+                              aria-hidden="true"
+                            />
+                          )}
+                        </Button>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setShowPublishable((v) => !v)}
-                        className="h-9 w-9 rounded-xl border-border/80"
-                        aria-label="Toggle publishable key visibility"
-                        type="button"
-                      >
-                        {showPublishable ? (
-                          <EyeSlashIcon
-                            className="h-4 w-4"
-                            aria-hidden="true"
-                          />
+                      <code className="mt-3 block w-full break-all rounded-xl border border-border/60 bg-card px-3 py-3 font-mono text-xs text-foreground">
+                        {statusQuery.isLoading ? (
+                          <Skeleton className="h-4 w-44" />
+                        ) : showPublishable ? (
+                          (status.publishableKeys.production ?? "-")
+                        ) : status.publishableKeys.production ? (
+                          maskKey(status.publishableKeys.production)
                         ) : (
-                          <EyeIcon className="h-4 w-4" aria-hidden="true" />
+                          "-"
                         )}
+                      </code>
+                    </div>
+
+                    <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <Label className="text-sm font-medium text-foreground">
+                            Test
+                          </Label>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Use this while validating non-production flows.
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() =>
+                            copyToClipboard(
+                              "pk",
+                              status.publishableKeys.test ?? ""
+                            ).catch(() => undefined)
+                          }
+                          className="shrink-0"
+                          aria-label="Copy test publishable key"
+                          type="button"
+                        >
+                          {copiedKey === "pk" ? (
+                            <CheckIcon
+                              className="h-4 w-4 text-primary"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <ClipboardDocumentIcon
+                              className="h-4 w-4"
+                              aria-hidden="true"
+                            />
+                          )}
+                        </Button>
+                      </div>
+                      <code className="mt-3 block w-full break-all rounded-xl border border-border/60 bg-card px-3 py-3 font-mono text-xs text-foreground">
+                        {statusQuery.isLoading ? (
+                          <Skeleton className="h-4 w-44" />
+                        ) : showPublishable ? (
+                          (status.publishableKeys.test ?? "-")
+                        ) : status.publishableKeys.test ? (
+                          maskKey(status.publishableKeys.test)
+                        ) : (
+                          "-"
+                        )}
+                      </code>
+                    </div>
+                  </div>
+
+                  {statusQuery.isError ? (
+                    <div className="text-sm text-destructive">
+                      Failed to load status
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="space-y-3 border-t border-border/60 pt-6">
+              <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-background/60 p-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Allowed origins
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Approve the frontends that can initialize in-app sessions
+                    and request delivery.
+                  </p>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {originsQuery.isLoading ? (
+                      <Skeleton className="h-4 w-36" />
+                    ) : (
+                      `${origins.length} origin${origins.length === 1 ? "" : "s"} configured`
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  type="button"
+                  onClick={() =>
+                    setActivePanel((current) =>
+                      current === "origins" ? null : "origins"
+                    )
+                  }
+                >
+                  {activePanel === "origins"
+                    ? "Hide origin manager"
+                    : "Manage origins"}
+                </Button>
+              </div>
+
+              {activePanel === "origins" ? (
+                <div className="space-y-6 rounded-xl border border-border/60 bg-muted/20 p-4">
+                  <form
+                    className="grid gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_auto]"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      addOriginMutation.mutate();
+                    }}
+                  >
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-foreground">
+                        Origin
+                      </Label>
+                      <Input
+                        value={originInput}
+                        onChange={(e) => setOriginInput(e.target.value)}
+                        placeholder="https://app.example.com"
+                        className="h-10"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-foreground">
+                        Environment
+                      </Label>
+                      <Select
+                        value={originEnv}
+                        onValueChange={(v) =>
+                          setOriginEnv(v as InAppEnvironment)
+                        }
+                      >
+                        <SelectTrigger className="h-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="production">Production</SelectItem>
+                          <SelectItem value="staging">Staging</SelectItem>
+                          <SelectItem value="development">
+                            Development
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2 lg:self-end">
+                      <Button
+                        type="submit"
+                        className="h-10 w-full sm:w-auto sm:px-6"
+                        disabled={addOriginMutation.isPending}
+                      >
+                        Add
                       </Button>
                     </div>
+                  </form>
 
-                    <div className="space-y-4">
-                      <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <Label className="text-sm font-medium text-foreground">
-                              Production
-                            </Label>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              Recommended for live traffic.
-                            </p>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() =>
-                              copyToClipboard(
-                                "pk",
-                                status.publishableKeys.production ?? ""
-                              ).catch(() => undefined)
-                            }
-                            className="h-9 w-9 rounded-xl border-border/80 bg-transparent"
-                            aria-label="Copy production publishable key"
-                            type="button"
-                          >
-                            {copiedKey === "pk" ? (
-                              <CheckIcon
-                                className="h-4 w-4 text-primary"
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <ClipboardDocumentIcon
-                                className="h-4 w-4"
-                                aria-hidden="true"
-                              />
-                            )}
-                          </Button>
-                        </div>
-                        <code className="mt-3 block w-full break-all rounded-xl border border-border/80 bg-card px-3 py-3 font-mono text-xs text-foreground">
-                          {statusQuery.isLoading ? (
-                            <Skeleton className="h-4 w-44" />
-                          ) : showPublishable ? (
-                            (status.publishableKeys.production ?? "-")
-                          ) : status.publishableKeys.production ? (
-                            maskKey(status.publishableKeys.production)
-                          ) : (
-                            "-"
-                          )}
-                        </code>
-                      </div>
-
-                      <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <Label className="text-sm font-medium text-foreground">
-                              Test
-                            </Label>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              Use this while validating non-production flows.
-                            </p>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() =>
-                              copyToClipboard(
-                                "pk",
-                                status.publishableKeys.test ?? ""
-                              ).catch(() => undefined)
-                            }
-                            className="h-9 w-9 rounded-xl border-border/80 bg-transparent"
-                            aria-label="Copy test publishable key"
-                            type="button"
-                          >
-                            {copiedKey === "pk" ? (
-                              <CheckIcon
-                                className="h-4 w-4 text-primary"
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <ClipboardDocumentIcon
-                                className="h-4 w-4"
-                                aria-hidden="true"
-                              />
-                            )}
-                          </Button>
-                        </div>
-                        <code className="mt-3 block w-full break-all rounded-xl border border-border/80 bg-card px-3 py-3 font-mono text-xs text-foreground">
-                          {statusQuery.isLoading ? (
-                            <Skeleton className="h-4 w-44" />
-                          ) : showPublishable ? (
-                            (status.publishableKeys.test ?? "-")
-                          ) : status.publishableKeys.test ? (
-                            maskKey(status.publishableKeys.test)
-                          ) : (
-                            "-"
-                          )}
-                        </code>
-                      </div>
-                    </div>
-
-                    {statusQuery.isError ? (
+                  <div className="space-y-3">
+                    {originsQuery.isLoading ? (
+                      <>
+                        <Skeleton className="h-16 w-full rounded-xl" />
+                        <Skeleton className="h-16 w-full rounded-xl" />
+                      </>
+                    ) : originsQuery.isError ? (
                       <div className="text-sm text-destructive">
-                        Failed to load status
+                        Failed to load origins
                       </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-background/60 p-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Allowed origins
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Approve the frontends that can initialize in-app sessions
-                      and request delivery.
-                    </p>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      {originsQuery.isLoading ? (
-                        <Skeleton className="h-4 w-36" />
-                      ) : (
-                        `${origins.length} origin${origins.length === 1 ? "" : "s"} configured`
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="rounded-xl"
-                    type="button"
-                    onClick={() =>
-                      setActivePanel((current) =>
-                        current === "origins" ? null : "origins"
-                      )
-                    }
-                  >
-                    {activePanel === "origins"
-                      ? "Hide origin manager"
-                      : "Manage origins"}
-                  </Button>
-                </div>
-
-                {activePanel === "origins" ? (
-                  <div className="space-y-6 rounded-2xl border border-border/60 bg-muted/20 p-4">
-                    <form
-                      className="grid gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_auto]"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        addOriginMutation.mutate();
-                      }}
-                    >
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-foreground">
-                          Origin
-                        </Label>
-                        <Input
-                          value={originInput}
-                          onChange={(e) => setOriginInput(e.target.value)}
-                          placeholder="https://app.example.com"
-                          className="h-11 border-border/80"
-                        />
+                    ) : origins.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-border/70 bg-background/60 p-4 text-sm text-muted-foreground">
+                        No origins configured.
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-foreground">
-                          Environment
-                        </Label>
-                        <Select
-                          value={originEnv}
-                          onValueChange={(v) =>
-                            setOriginEnv(v as InAppEnvironment)
-                          }
+                    ) : (
+                      origins.map((o) => (
+                        <div
+                          key={o.id}
+                          className="flex flex-col gap-3 rounded-xl border border-border/60 bg-background/60 p-4 sm:flex-row sm:items-center sm:justify-between"
                         >
-                          <SelectTrigger className="h-11 border-border/80">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="production">
-                              Production
-                            </SelectItem>
-                            <SelectItem value="staging">Staging</SelectItem>
-                            <SelectItem value="development">
-                              Development
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2 lg:self-end">
-                        <Button
-                          type="submit"
-                          className="h-11 w-full rounded-xl px-6"
-                          disabled={addOriginMutation.isPending}
-                        >
-                          Add
-                        </Button>
-                      </div>
-                    </form>
-
-                    <div className="space-y-3">
-                      {originsQuery.isLoading ? (
-                        <>
-                          <Skeleton className="h-16 w-full rounded-2xl" />
-                          <Skeleton className="h-16 w-full rounded-2xl" />
-                        </>
-                      ) : originsQuery.isError ? (
-                        <div className="text-sm text-destructive">
-                          Failed to load origins
-                        </div>
-                      ) : origins.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-border/70 bg-background/60 p-4 text-sm text-muted-foreground">
-                          No origins configured.
-                        </div>
-                      ) : (
-                        origins.map((o) => (
-                          <div
-                            key={o.id}
-                            className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-background/60 p-4 sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div className="min-w-0">
-                              <div className="truncate font-mono text-sm text-foreground">
-                                {o.origin}
-                              </div>
-                              <div className="mt-1 text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                                {o.environment}
-                              </div>
+                          <div className="min-w-0">
+                            <div className="truncate font-mono text-sm text-foreground">
+                              {o.origin}
                             </div>
-                            <Button
-                              variant="outline"
-                              className="rounded-xl border-border/80"
-                              disabled={removeOriginMutation.isPending}
-                              onClick={() => removeOriginMutation.mutate(o.id)}
-                              type="button"
-                            >
-                              Remove
-                            </Button>
+                            <div className="mt-1 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                              {o.environment}
+                            </div>
                           </div>
-                        ))
-                      )}
-                    </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0"
+                            disabled={removeOriginMutation.isPending}
+                            onClick={() => removeOriginMutation.mutate(o.id)}
+                            type="button"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ))
+                    )}
                   </div>
-                ) : null}
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-background/60 p-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Test push
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Send a single in-app message to a wallet to validate
-                      delivery, content, and CTA behavior.
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="rounded-xl"
-                    type="button"
-                    onClick={() =>
-                      setActivePanel((current) =>
-                        current === "test" ? null : "test"
-                      )
-                    }
-                  >
-                    {activePanel === "test"
-                      ? "Hide test composer"
-                      : "Compose test push"}
-                  </Button>
                 </div>
+              ) : null}
+            </div>
 
-                {activePanel === "test" ? (
-                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                    <form
-                      className="grid gap-4 lg:grid-cols-2"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        testPushMutation.mutate();
-                      }}
-                    >
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-foreground">
-                          Wallet address
-                        </Label>
-                        <Input
-                          value={testWalletAddress}
-                          onChange={(e) => setTestWalletAddress(e.target.value)}
-                          placeholder="0x…"
-                          className="h-11 border-border/80"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-foreground">
-                          Title
-                        </Label>
-                        <Input
-                          value={testTitle}
-                          onChange={(e) => setTestTitle(e.target.value)}
-                          placeholder="New notification"
-                          className="h-11 border-border/80"
-                        />
-                      </div>
-                      <div className="space-y-2 lg:col-span-2">
-                        <Label className="text-sm font-medium text-foreground">
-                          Body
-                        </Label>
-                        <Input
-                          value={testBody}
-                          onChange={(e) => setTestBody(e.target.value)}
-                          placeholder="Hello from OnchainSuite"
-                          className="h-11 border-border/80"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-foreground">
-                          CTA label (optional)
-                        </Label>
-                        <Input
-                          value={testCtaLabel}
-                          onChange={(e) => setTestCtaLabel(e.target.value)}
-                          placeholder="View"
-                          className="h-11 border-border/80"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-foreground">
-                          CTA URL (optional)
-                        </Label>
-                        <Input
-                          value={testCtaUrl}
-                          onChange={(e) => setTestCtaUrl(e.target.value)}
-                          placeholder="https://…"
-                          className="h-11 border-border/80"
-                        />
-                      </div>
-                      <div className="lg:col-span-2">
-                        <Button
-                          type="submit"
-                          className="h-11 w-full rounded-xl sm:w-fit sm:px-6"
-                          disabled={testPushMutation.isPending}
-                        >
-                          Send test push
-                        </Button>
-                      </div>
-                    </form>
-                  </div>
-                ) : null}
+            <div className="space-y-3 border-t border-border/60 pt-6">
+              <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-background/60 p-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Test push
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Send a single in-app message to a wallet to validate
+                    delivery, content, and CTA behavior.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  type="button"
+                  onClick={() =>
+                    setActivePanel((current) =>
+                      current === "test" ? null : "test"
+                    )
+                  }
+                >
+                  {activePanel === "test"
+                    ? "Hide test composer"
+                    : "Compose test push"}
+                </Button>
               </div>
 
-              {statusQuery.isSuccess &&
-                !statusQuery.isLoading &&
-                !statusQuery.isError &&
-                !status.publishableKeys.production &&
-                !status.publishableKeys.test && (
-                  <div className="rounded-2xl border border-dashed border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
-                    Publishable keys are not available for this org yet. Confirm
-                    you are an org admin and that `GET
-                    /integrations/inapp/status` returns publishable keys. Secret
-                    (`sk_*`) keys are managed in the Developer API card.
-                  </div>
-                )}
-            </>
-          )}
-        </div>
-      </SettingsSectionCard>
+              {activePanel === "test" ? (
+                <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                  <form
+                    className="grid gap-4 lg:grid-cols-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      testPushMutation.mutate();
+                    }}
+                  >
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-foreground">
+                        Wallet address
+                      </Label>
+                      <Input
+                        value={testWalletAddress}
+                        onChange={(e) => setTestWalletAddress(e.target.value)}
+                        placeholder="0x…"
+                        className="h-10"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-foreground">
+                        Title
+                      </Label>
+                      <Input
+                        value={testTitle}
+                        onChange={(e) => setTestTitle(e.target.value)}
+                        placeholder="New notification"
+                        className="h-10"
+                      />
+                    </div>
+                    <div className="space-y-2 lg:col-span-2">
+                      <Label className="text-sm font-medium text-foreground">
+                        Body
+                      </Label>
+                      <Input
+                        value={testBody}
+                        onChange={(e) => setTestBody(e.target.value)}
+                        placeholder="Hello from OnchainSuite"
+                        className="h-10"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-foreground">
+                        CTA label (optional)
+                      </Label>
+                      <Input
+                        value={testCtaLabel}
+                        onChange={(e) => setTestCtaLabel(e.target.value)}
+                        placeholder="View"
+                        className="h-10"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-foreground">
+                        CTA URL (optional)
+                      </Label>
+                      <Input
+                        value={testCtaUrl}
+                        onChange={(e) => setTestCtaUrl(e.target.value)}
+                        placeholder="https://…"
+                        className="h-10"
+                      />
+                    </div>
+                    <div className="lg:col-span-2">
+                      <Button
+                        type="submit"
+                        className="h-10 w-full sm:w-auto sm:px-6"
+                        disabled={testPushMutation.isPending}
+                      >
+                        Send test push
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              ) : null}
+            </div>
 
+            {statusQuery.isSuccess &&
+              !statusQuery.isLoading &&
+              !statusQuery.isError &&
+              !status.publishableKeys.production &&
+              !status.publishableKeys.test && (
+                <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
+                  Publishable keys are not available for this org yet. Confirm
+                  you are an org admin and that `GET /integrations/inapp/status`
+                  returns publishable keys. Secret (`sk_*`) keys are managed in
+                  the Developer API card.
+                </div>
+              )}
+          </>
+        )}
+      </div>
       {/* Custom Events API - ingestion is fully backend-abstracted
           (POST /events, secret-key auth); the dashboard only documents the
           call. Events fire app_event automation triggers and land in
           Intelligence SQL (app_events). */}
-      <SettingsSectionCard
-        title="Custom Events"
-        description="Send product events from your backend - they trigger automations and power in-app messaging."
-        icon={<BoltIcon className="h-5 w-5" aria-hidden="true" />}
-        badge="POST /events · secret-key auth"
-      >
+      <section className="space-y-3 border-t border-border/60 pt-6">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">
+            Custom Events
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Send product events from your backend - they trigger automations and
+            power in-app messaging.
+          </p>
+          <div className="mt-1.5 font-mono text-xs text-muted-foreground">
+            POST /events · secret-key auth
+          </div>
+        </div>
         <div className="space-y-3">
-          <div className="rounded-2xl border border-border/60 bg-background/60 p-3">
+          <div className="rounded-xl border border-border/60 bg-background/60 p-3">
             <div className="flex items-start justify-between gap-2">
               <pre className="min-w-0 flex-1 overflow-x-auto whitespace-pre rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-foreground">
                 {CUSTOM_EVENTS_CURL}
@@ -960,7 +929,7 @@ const InAppIntegration = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 shrink-0 rounded-full text-xs"
+                className="shrink-0"
                 type="button"
                 onClick={() => copyToClipboard("curl", CUSTOM_EVENTS_CURL)}
               >
@@ -979,8 +948,8 @@ const InAppIntegration = () => {
             <code className="rounded bg-muted px-1">/events/batch</code>.
           </p>
         </div>
-      </SettingsSectionCard>
-    </motion.div>
+      </section>
+    </div>
   );
 };
 

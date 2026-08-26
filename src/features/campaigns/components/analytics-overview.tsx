@@ -50,7 +50,13 @@ export function CampaignsAnalyticsOverview() {
   // The org-wide open/click rates are the recipient-weighted pool of every
   // campaign's own rate - the SAME hook the Dashboard uses, so both surfaces
   // always show the same number.
-  const { avgOpenRate, avgClickRate, ratedCount } = useCampaignEngagement();
+  const {
+    avgOpenRate,
+    avgClickRate,
+    ratedCount,
+    sentCount,
+    totalMessagesSent,
+  } = useCampaignEngagement();
 
   if (overviewQuery.isLoading) {
     return <StatCardsSkeleton withIcon={false} />;
@@ -59,16 +65,22 @@ export function CampaignsAnalyticsOverview() {
   const overview = overviewQuery.data;
   if (overviewQuery.isError || !overview) return null;
 
-  const rangeDays = overview.rangeDays ?? 30;
   const { allowance } = overview;
   const used = allowance?.used ?? 0;
   const limit = allowance?.limit ?? null;
 
   const cards = [
     {
-      label: `Messages sent (${rangeDays}d)`,
-      value: formatCount(overview.totals?.messagesSent),
-      // hint: "Email + in-app push",  // hidden until engagement tracking lands
+      // All-time total messages sent (the overview endpoint is capped at 30-90
+      // days, so it can never total this - the engagement hook sums each
+      // campaign's dispatched count instead).
+      label: "Messages sent",
+      value:
+        totalMessagesSent > 0
+          ? formatCount(totalMessagesSent)
+          : sentCount > 0
+            ? "…"
+            : formatCount(0),
     },
     {
       label: "Open rate",

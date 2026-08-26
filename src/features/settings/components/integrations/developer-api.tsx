@@ -335,7 +335,7 @@ function CreateKeyDialog({
                 </RadioGroup>
               </div>
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
@@ -501,7 +501,7 @@ function RollKeyDialog({
                 </span>
               </label>
             </RadioGroup>
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
@@ -685,7 +685,7 @@ function CreateWebhookDialog({
                 </p>
               </div>
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
@@ -717,17 +717,11 @@ function KeyRow({
   onRevoke: (key: DeveloperKey) => void;
   revoking: boolean;
 }) {
-  const revoked = keyRow.status === "revoked";
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-background/40 px-4 py-3">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "text-sm font-medium text-foreground",
-              revoked && "line-through"
-            )}
-          >
+          <span className="text-sm font-medium text-foreground">
             {keyRow.name || "Unnamed key"}
           </span>
           <EnvironmentBadge environment={keyRow.environment} />
@@ -751,28 +745,27 @@ function KeyRow({
           ) : null}
         </div>
       </div>
-      <div className="ml-auto flex items-center gap-2.5">
+      <div className="ml-auto flex items-center gap-2">
         <KeyStatusPill status={keyRow.status} />
-        {!revoked ? (
-          <>
-            <button
-              type="button"
-              onClick={() => onRoll(keyRow)}
-              className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:underline"
-            >
-              <ArrowPathIcon aria-hidden="true" className="h-3.5 w-3.5" />
-              Roll
-            </button>
-            <button
-              type="button"
-              onClick={() => onRevoke(keyRow)}
-              disabled={revoking}
-              className="text-sm font-medium text-destructive hover:underline disabled:opacity-50"
-            >
-              Revoke
-            </button>
-          </>
-        ) : null}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onRoll(keyRow)}
+          type="button"
+        >
+          <ArrowPathIcon aria-hidden="true" className="h-3.5 w-3.5" />
+          Roll
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onRevoke(keyRow)}
+          disabled={revoking}
+          type="button"
+          className="text-destructive hover:text-destructive"
+        >
+          Revoke
+        </Button>
       </div>
     </div>
   );
@@ -823,31 +816,35 @@ function WebhookRow({
         </div>
         <WebhookStatusPill status={hook.status} />
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => onTest(hook.id)}
             disabled={busy}
-            className="text-sm font-medium text-foreground hover:underline disabled:opacity-50"
+            type="button"
           >
             Send test
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => onToggleStatus(hook)}
             disabled={busy}
-            className="text-sm font-medium text-foreground hover:underline disabled:opacity-50"
+            type="button"
           >
             {hook.status === "paused" ? "Resume" : "Pause"}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => onDelete(hook.id)}
             disabled={busy}
-            className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive disabled:opacity-50"
+            type="button"
+            className="text-muted-foreground hover:text-destructive"
             aria-label="Delete endpoint"
           >
             <TrashIcon className="h-4 w-4" aria-hidden="true" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -923,7 +920,9 @@ export function DeveloperApiCard() {
       ),
   });
 
-  const keys = keysQuery.data ?? [];
+  // A revoked key is dead - drop it from the list entirely rather than showing
+  // a struck-through row.
+  const keys = (keysQuery.data ?? []).filter((key) => key.status !== "revoked");
   const webhooks = webhooksQuery.data ?? [];
   const catalog = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
 

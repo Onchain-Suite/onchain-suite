@@ -523,6 +523,67 @@ function RollKeyDialog({
   );
 }
 
+// --- Revoke secret key modal ------------------------------------------------
+
+/**
+ * Revoking is destructive and immediate, so it goes through a confirm dialog -
+ * a stray click should never kill a live key. For zero-downtime rotation the
+ * copy points the user at Roll instead.
+ */
+function RevokeKeyDialog({
+  keyRow,
+  onOpenChange,
+}: {
+  keyRow: DeveloperKey | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (id: string) => developerService.revokeKey(id),
+    onSuccess: () => {
+      toast.success("Key revoked.");
+      queryClient.invalidateQueries({ queryKey: KEYS_QUERY_KEY });
+      onOpenChange(false);
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Couldn't revoke key."),
+  });
+
+  return (
+    <Dialog open={keyRow !== null} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            Revoke {keyRow?.name ? `"${keyRow.name}"` : "this key"}?
+          </DialogTitle>
+          <DialogDescription>
+            Any server still authenticating with this key stops working
+            immediately, and this can&apos;t be undone. To rotate without
+            downtime, use Roll instead.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={mutation.isPending}
+          >
+            Keep it
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={mutation.isPending}
+            onClick={() => keyRow && mutation.mutate(keyRow.id)}
+          >
+            {mutation.isPending ? "Revoking…" : "Revoke key"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // --- Create webhook modal ---------------------------------------------------
 
 function CreateWebhookDialog({
@@ -710,12 +771,10 @@ function KeyRow({
   keyRow,
   onRoll,
   onRevoke,
-  revoking,
 }: {
   keyRow: DeveloperKey;
   onRoll: (key: DeveloperKey) => void;
   onRevoke: (key: DeveloperKey) => void;
-  revoking: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-background/40 px-4 py-3">
@@ -760,7 +819,6 @@ function KeyRow({
           variant="ghost"
           size="sm"
           onClick={() => onRevoke(keyRow)}
-          disabled={revoking}
           type="button"
           className="text-destructive hover:text-destructive"
         >
@@ -858,6 +916,7 @@ export function DeveloperApiCard() {
 
   const [createKeyOpen, setCreateKeyOpen] = useState(false);
   const [rollTarget, setRollTarget] = useState<DeveloperKey | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<DeveloperKey | null>(null);
   const [addWebhookOpen, setAddWebhookOpen] = useState(false);
 
   const keysQuery = useQuery({
@@ -873,16 +932,6 @@ export function DeveloperApiCard() {
   const eventsQuery = useQuery({
     queryKey: WEBHOOK_EVENTS_QUERY_KEY,
     queryFn: () => developerService.listWebhookEvents(),
-  });
-
-  const revokeMutation = useMutation({
-    mutationFn: (id: string) => developerService.revokeKey(id),
-    onSuccess: () => {
-      toast.success("Key revoked.");
-      queryClient.invalidateQueries({ queryKey: KEYS_QUERY_KEY });
-    },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Couldn't revoke key."),
   });
 
   const testWebhookMutation = useMutation({
@@ -985,8 +1034,7 @@ export function DeveloperApiCard() {
                 key={key.id}
                 keyRow={key}
                 onRoll={setRollTarget}
-                onRevoke={(k) => revokeMutation.mutate(k.id)}
-                revoking={revokeMutation.isPending}
+                onRevoke={setRevokeTarget}
               />
             ))
           )}
@@ -1107,6 +1155,12 @@ export function DeveloperApiCard() {
         keyRow={rollTarget}
         onOpenChange={(open) => {
           if (!open) setRollTarget(null);
+        }}
+      />
+      <RevokeKeyDialog
+        keyRow={revokeTarget}
+        onOpenChange={(open) => {
+          if (!open) setRevokeTarget(null);
         }}
       />
       <CreateWebhookDialog

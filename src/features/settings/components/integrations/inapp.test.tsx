@@ -91,17 +91,9 @@ const wrap = (ui: ReactNode) => {
 };
 
 describe("InAppIntegration", () => {
-  /**
-   * The section renders inside a collapsed SettingsSectionCard accordion, so
-   * the inner controls are not in the DOM until the header trigger is clicked.
-   * The trigger's accessible name is the full header text; match it via the
-   * card description.
-   */
-  const expandInAppSection = () => {
-    fireEvent.click(
-      screen.getByRole("button", { name: /configure sdk keys/i })
-    );
-  };
+  // The panel renders as embedded modal content (no outer collapsible card),
+  // so every section is in the DOM immediately - its "Manage" toggles reveal
+  // the inner controls.
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -220,13 +212,10 @@ describe("InAppIntegration", () => {
   it("renders keys and allows toggling key visibility", async () => {
     render(wrap(<InAppIntegration />));
 
-    expect(screen.getByText("In-app push")).toBeInTheDocument();
-
     await waitFor(() => {
       expect(screen.getByText(/active sessions/i)).toBeInTheDocument();
     });
 
-    expandInAppSection();
     fireEvent.click(screen.getByRole("button", { name: "Manage keys" }));
     fireEvent.click(screen.getByLabelText("Toggle publishable key visibility"));
 
@@ -237,7 +226,6 @@ describe("InAppIntegration", () => {
   it("submits add origin request", async () => {
     render(wrap(<InAppIntegration />));
 
-    expandInAppSection();
     fireEvent.click(screen.getByRole("button", { name: "Manage origins" }));
     const input = await screen.findByPlaceholderText("https://app.example.com");
     fireEvent.change(input, { target: { value: "app.test.dev" } });
@@ -257,7 +245,6 @@ describe("InAppIntegration", () => {
   it("submits test push request", async () => {
     render(wrap(<InAppIntegration />));
 
-    expandInAppSection();
     fireEvent.click(screen.getByRole("button", { name: "Compose test push" }));
     fireEvent.change(screen.getByPlaceholderText("0x…"), {
       target: { value: "0xabc" },

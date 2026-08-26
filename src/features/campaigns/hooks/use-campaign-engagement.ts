@@ -45,32 +45,48 @@ export function useCampaignEngagement() {
     })),
   });
 
-  const { avgOpenRate, avgClickRate, ratedCount } = useMemo(() => {
-    const openEntries: Array<{
-      rate: number | undefined;
-      weight: number | undefined;
-    }> = [];
-    const clickEntries: Array<{
-      rate: number | undefined;
-      weight: number | undefined;
-    }> = [];
-    let rated = 0;
-    sentCampaigns.forEach((campaign, index) => {
-      const analytics = analyticsResults[index]?.data;
-      const { open, click } = campaignRates(campaign, analytics);
-      const weight = campaignRateWeight(campaign, analytics);
-      openEntries.push({ rate: open, weight });
-      clickEntries.push({ rate: click, weight });
-      // Only campaigns that actually contribute a rate belong in the "across N
-      // sent" caption - a rate averaged over 8 campaigns must not claim 11.
-      if (isFiniteRate(open) || isFiniteRate(click)) rated += 1;
-    });
-    return {
-      avgOpenRate: weightedAverageRate(openEntries),
-      avgClickRate: weightedAverageRate(clickEntries),
-      ratedCount: rated,
-    };
-  }, [sentCampaigns, analyticsResults]);
+  const { avgOpenRate, avgClickRate, ratedCount, totalMessagesSent } =
+    useMemo(() => {
+      const openEntries: Array<{
+        rate: number | undefined;
+        weight: number | undefined;
+      }> = [];
+      const clickEntries: Array<{
+        rate: number | undefined;
+        weight: number | undefined;
+      }> = [];
+      let rated = 0;
+      let totalSent = 0;
+      sentCampaigns.forEach((campaign, index) => {
+        const analytics = analyticsResults[index]?.data;
+        const { open, click } = campaignRates(campaign, analytics);
+        const weight = campaignRateWeight(campaign, analytics);
+        openEntries.push({ rate: open, weight });
+        clickEntries.push({ rate: click, weight });
+        // Only campaigns that actually contribute a rate belong in the "across N
+        // sent" caption - a rate averaged over 8 campaigns must not claim 11.
+        if (isFiniteRate(open) || isFiniteRate(click)) rated += 1;
+        // All-time messages sent: each campaign's dispatched count (the overview
+        // endpoint only covers 30-90 days, so it can't total this). Prefer the
+        // analytics totals, then per-channel sent, then delivered from the row.
+        const a = analytics;
+        let msgs = a?.totals?.messagesSent;
+        if (typeof msgs !== "number") {
+          msgs = (a?.email?.sent ?? 0) + (a?.inapp?.sent ?? 0);
+        }
+        if (!msgs && typeof campaign.delivered === "number") {
+          msgs = campaign.delivered;
+        }
+        totalSent +=
+          typeof msgs === "number" && Number.isFinite(msgs) ? msgs : 0;
+      });
+      return {
+        avgOpenRate: weightedAverageRate(openEntries),
+        avgClickRate: weightedAverageRate(clickEntries),
+        ratedCount: rated,
+        totalMessagesSent: totalSent,
+      };
+    }, [sentCampaigns, analyticsResults]);
 
   return {
     avgOpenRate,
@@ -79,6 +95,8 @@ export function useCampaignEngagement() {
     sentCount: sentCampaigns.length,
     /** Campaigns that contributed a rate to the pooled averages. */
     ratedCount,
+    /** All-time messages dispatched across every sent campaign. */
+    totalMessagesSent,
     isLoading: campaignsQuery.isLoading,
   };
 }

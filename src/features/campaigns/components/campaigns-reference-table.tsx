@@ -315,17 +315,6 @@ export function CampaignsReferenceTable({
           {data.map((campaign) => {
             const status = STATUS_META[campaign.status] ?? STATUS_META.draft;
             const channels = channelsFor(campaign);
-            // A send is enqueued (status "sent") before it's fully delivered, so
-            // show "N delivered" while delivered trails the audience - the row
-            // reads as in-flight instead of finished at a misleading rate.
-            const started = ["sending", "sent", "paused", "failed"].includes(
-              campaign.status
-            );
-            const showDelivered =
-              started &&
-              typeof campaign.delivered === "number" &&
-              (typeof campaign.recipients !== "number" ||
-                campaign.delivered < campaign.recipients);
             return (
               <tr
                 key={campaign.id}
@@ -364,12 +353,7 @@ export function CampaignsReferenceTable({
                   </span>
                 </td>
                 <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                  <div>{formatCount(campaign.recipients)}</div>
-                  {showDelivered ? (
-                    <div className="text-[11px] font-normal text-muted-foreground">
-                      {campaign.delivered?.toLocaleString()} delivered
-                    </div>
-                  ) : null}
+                  {formatCount(campaign.recipients)}
                 </td>
                 <RateCells campaign={campaign} />
                 <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">

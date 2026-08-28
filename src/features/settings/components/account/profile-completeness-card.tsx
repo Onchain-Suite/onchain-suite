@@ -60,7 +60,7 @@ function CompletionRing({ percent }: { percent: number }) {
 function CompletionRow({ item }: { item: CompletenessItem }) {
   if (item.done) {
     return (
-      <li className="flex items-center gap-2 py-1.5">
+      <li className="flex items-center gap-2.5 py-3">
         <CheckCircleIcon
           aria-hidden="true"
           className="size-5 shrink-0 text-emerald-500"
@@ -73,7 +73,7 @@ function CompletionRow({ item }: { item: CompletenessItem }) {
   }
 
   return (
-    <li className="py-1.5">
+    <li className="py-3">
       <Link
         href={item.href}
         className="group flex items-start gap-2 rounded-md"
@@ -131,27 +131,10 @@ export function ProfileCompletenessCard() {
     );
   }
 
-  // Everything filled: a compact confirmation instead of a full checklist.
+  // Once every detail is filled the card has served its purpose, so it drops
+  // out of the Account tab entirely rather than lingering as a "100%" banner.
   if (isComplete) {
-    return (
-      <SettingsCard
-        title="Profile completeness"
-        description="Everything a sender needs is filled."
-      >
-        <div className="flex items-center gap-4">
-          <CompletionRing percent={100} />
-          <div className="flex items-center gap-2">
-            <CheckCircleIcon
-              aria-hidden="true"
-              className="size-5 text-emerald-500"
-            />
-            <p className="text-sm font-medium text-foreground">
-              All {total} details complete - you&apos;re ready to send.
-            </p>
-          </div>
-        </div>
-      </SettingsCard>
-    );
+    return null;
   }
 
   return (

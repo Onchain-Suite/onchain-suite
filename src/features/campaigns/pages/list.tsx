@@ -3,6 +3,7 @@
 import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -20,7 +21,6 @@ import { cn, getSelectedOrganizationId } from "@/lib/utils";
 
 import { campaignsService } from "../campaigns.service";
 import { CampaignsAnalyticsOverview } from "../components/analytics-overview";
-import { CampaignDetailSheet } from "../components/campaign-detail-sheet";
 import { CampaignsReferenceTable } from "../components/campaigns-reference-table";
 import type { Campaign, CampaignStatus } from "../types/campaign";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
@@ -51,10 +51,13 @@ export function CampaignsListsView() {
     "all"
   );
   const [page, setPage] = useState(1);
-  const [detailCampaign, setDetailCampaign] = useState<Campaign | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Campaign | null>(null);
   const queryClient = useQueryClient();
+  const router = useRouter();
+
+  const openDetail = (c: Campaign) =>
+    router.push(`${PRIVATE_ROUTES.CAMPAIGNS}/${c.id}`);
 
   const campaignsQuery = useQuery({
     queryKey: ["campaigns", "list"],
@@ -196,7 +199,7 @@ export function CampaignsListsView() {
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => setDetailCampaign(c)}
+                  onClick={() => openDetail(c)}
                   className="flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
                 >
                   {badge ? (
@@ -274,7 +277,7 @@ export function CampaignsListsView() {
         <>
           <CampaignsReferenceTable
             data={pagedCampaigns}
-            onSelect={setDetailCampaign}
+            onSelect={openDetail}
             onDelete={setDeleteTarget}
             onCancel={setCancelTarget}
           />
@@ -341,13 +344,6 @@ export function CampaignsListsView() {
           </div>
         </div>
       )}
-
-      <CampaignDetailSheet
-        campaign={detailCampaign}
-        onOpenChange={(o) => {
-          if (!o) setDetailCampaign(null);
-        }}
-      />
 
       <Dialog
         open={Boolean(deleteTarget)}

@@ -237,15 +237,6 @@ function Content({ overview }: { overview: DashboardOverview }) {
   // no sent campaigns to pool.
   const { avgOpenRate } = useCampaignEngagement();
 
-  const trendMetric = overview.messagesSent;
-  const trendChartable =
-    backing.messagesSent === "real" && trendMetric.series.length >= 2;
-
-  const trendPoints = useMemo(
-    () => seriesPoints(trendMetric.series, 560, 200, 8),
-    [trendMetric.series]
-  );
-
   return (
     <div className="space-y-6">
       {/* KPI strip */}
@@ -269,59 +260,6 @@ function Content({ overview }: { overview: DashboardOverview }) {
           );
         })}
       </div>
-
-      {/* Messages sent over time - the only series-backed metric */}
-      <Card
-        title="Messages sent over time"
-        right={
-          <span className="text-xs text-muted-foreground">
-            Daily · last 30 days
-          </span>
-        }
-      >
-        <div className="mb-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <Legend color="var(--primary)">Messages sent</Legend>
-        </div>
-        {trendChartable ? (
-          <svg
-            viewBox="0 0 560 200"
-            preserveAspectRatio="none"
-            className="h-48 w-full"
-            role="img"
-            aria-label="Messages sent trend over the last 30 days"
-          >
-            <defs>
-              <linearGradient id="an-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="0"
-                  stopColor="var(--primary)"
-                  stopOpacity="0.18"
-                />
-                <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <polygon
-              fill="url(#an-grad)"
-              points={`0,200 ${trendPoints} 560,200`}
-            />
-            <polyline
-              fill="none"
-              stroke="var(--primary)"
-              strokeWidth="2.5"
-              points={trendPoints}
-            />
-          </svg>
-        ) : (
-          <EmptyState
-            title="No trend for this period"
-            body="No messages were sent in the last 30 days, so there is nothing to chart yet."
-          />
-        )}
-        <p className="mt-3 text-xs text-muted-foreground">
-          On-chain conversions are not charted here - they are only measured on
-          demand per campaign goal, so there is no org-wide time series yet.
-        </p>
-      </Card>
 
       {/* Off-chain + On-chain - no backing endpoint yet */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -498,18 +436,33 @@ function KpiCard({
 function LoadingState() {
   return (
     <div className="space-y-6" aria-hidden="true">
+      {/* KPI strip */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }, (_, i) => (
+        {["k1", "k2", "k3", "k4"].map((k) => (
           <div
-            key={i}
+            key={k}
             className="h-28 animate-pulse rounded-xl border border-border/60 bg-card/60"
           />
         ))}
       </div>
-      <div className="h-64 animate-pulse rounded-xl border border-border/60 bg-card/60" />
+      {/* Off-chain + On-chain */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="h-40 animate-pulse rounded-xl border border-border/60 bg-card/60" />
-        <div className="h-40 animate-pulse rounded-xl border border-border/60 bg-card/60" />
+        <div className="h-44 animate-pulse rounded-xl border border-border/60 bg-card/60" />
+        <div className="h-44 animate-pulse rounded-xl border border-border/60 bg-card/60" />
+      </div>
+      {/* In-app push delivery */}
+      <div className="h-40 animate-pulse rounded-xl border border-border/60 bg-card/60" />
+      {/* Report templates */}
+      <div className="space-y-3">
+        <div className="h-4 w-32 animate-pulse rounded bg-card/60" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {["t1", "t2", "t3", "t4", "t5", "t6"].map((k) => (
+            <div
+              key={k}
+              className="h-36 animate-pulse rounded-xl border border-border/60 bg-card/60"
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -567,36 +520,27 @@ function Card({
   );
 }
 
-function Legend({
-  color,
-  dashed,
-  children,
-}: {
-  color: string;
-  dashed?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span
-        className="inline-block h-0.5 w-4 rounded-full"
-        style={
-          dashed
-            ? {
-                backgroundImage: `repeating-linear-gradient(90deg, ${color} 0 4px, transparent 4px 8px)`,
-              }
-            : { background: color }
-        }
-      />
-      {children}
-    </span>
-  );
-}
-
+/**
+ * Inline help tooltip. Uses a CSS-only hover/focus bubble (styled with popover
+ * tokens) instead of the browser's native `title`, which is unstyled and only
+ * appears after a ~1s delay. This shows instantly and is keyboard-reachable.
+ */
 function Info({ hint }: { hint: string }) {
   return (
-    <span title={hint} className="cursor-help text-muted-foreground/70">
-      <InformationCircleIcon className="size-3.5" aria-hidden="true" />
+    <span className="group/info relative inline-flex align-middle">
+      <button
+        type="button"
+        aria-label={hint}
+        className="inline-flex cursor-help rounded-full text-muted-foreground/70 transition-colors hover:text-foreground focus:outline-none focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+      >
+        <InformationCircleIcon className="size-3.5" aria-hidden="true" />
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 w-max max-w-[16rem] -translate-x-1/2 rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs font-normal normal-case leading-snug tracking-normal text-popover-foreground opacity-0 shadow-md transition-opacity duration-100 group-hover/info:opacity-100 group-focus-within/info:opacity-100"
+      >
+        {hint}
+      </span>
     </span>
   );
 }

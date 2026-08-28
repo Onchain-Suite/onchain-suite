@@ -460,6 +460,48 @@ export const automationService = {
     );
   },
 
+  triggerListJoined(
+    body: {
+      segmentId: string;
+      contactId?: string;
+      email?: string;
+      walletAddress?: string;
+      sourceEventId?: string;
+      payload?: Record<string, unknown>;
+    },
+    orgId?: string
+  ) {
+    return request<AutomationRuntimeTriggerResponse>(
+      {
+        method: "POST",
+        url: "/automations/runtime/triggers/list-joined",
+        data: body,
+      },
+      orgId
+    );
+  },
+
+  triggerFormSubmitted(
+    body: {
+      formId: string;
+      contactId?: string;
+      email?: string;
+      walletAddress?: string;
+      sourceEventId?: string;
+      payload?: Record<string, unknown>;
+    },
+    orgId?: string
+  ) {
+    return request<AutomationRuntimeTriggerResponse>(
+      {
+        method: "POST",
+        url: "/automations/runtime/triggers/form-submitted",
+        data: body,
+      },
+      orgId
+    );
+  },
+
   triggerOnchainEvent(
     body: {
       chain: string;

@@ -840,20 +840,13 @@ function FlowSettingsPanel() {
       </h3>
       <div className="mt-6 space-y-5">
         <div className="flex items-center justify-between gap-3">
-          <label htmlFor="flow-reentry" className="text-sm text-foreground">
-            Re-entry
-          </label>
-          <select
-            id="flow-reentry"
+          <span className="text-sm text-foreground">Re-entry</span>
+          <PropertySelect
             value={reentry}
-            onChange={(e) => setReentry(e.target.value)}
-            className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
-          >
-            <option value="never">Never</option>
-            <option value="daily">Once per day</option>
-            <option value="weekly">Once per week</option>
-            <option value="always">Always</option>
-          </select>
+            onChange={setReentry}
+            className="w-40"
+            options={REENTRY_OPTIONS}
+          />
         </div>
         <FlowToggle
           label="Exit on goal"
@@ -1788,6 +1781,16 @@ const CreateAutomationContent = () => {
     if (nodeType.includes("segment") || label.includes("segment")) {
       return "segment_entered" as const;
     }
+    if (nodeType.includes("form") || label.includes("form")) {
+      return "form_submitted" as const;
+    }
+    if (
+      nodeType.includes("list_joined") ||
+      nodeType.includes("joined") ||
+      label.includes("joined a list")
+    ) {
+      return "list_joined" as const;
+    }
     if (nodeType.includes("email") || label.includes("email")) {
       return "email_opened" as const;
     }
@@ -1815,6 +1818,23 @@ const CreateAutomationContent = () => {
           return automationService.triggerSegmentEntered({
             segmentId:
               asString(selectedNodeData.segmentId) || "preview-segment",
+            email: "preview@onchainsuite.com",
+            sourceEventId,
+            payload: sharedPayload,
+          });
+        case "list_joined":
+          return automationService.triggerListJoined({
+            segmentId:
+              asString(selectedNodeData.segmentId) ||
+              asString(selectedNodeData.listId) ||
+              "preview-segment",
+            email: "preview@onchainsuite.com",
+            sourceEventId,
+            payload: sharedPayload,
+          });
+        case "form_submitted":
+          return automationService.triggerFormSubmitted({
+            formId: asString(selectedNodeData.formId) || "preview-form",
             email: "preview@onchainsuite.com",
             sourceEventId,
             payload: sharedPayload,

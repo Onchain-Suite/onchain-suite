@@ -20,7 +20,11 @@ import { cn } from "@/lib/utils";
 
 import { type CampaignAnalytics, campaignsService } from "../campaigns.service";
 import type { Campaign, CampaignStatus } from "../types/campaign";
-import { campaignRates, SENT_STATUSES } from "../utils/rates";
+import {
+  campaignRates,
+  campaignUsesEmail,
+  SENT_STATUSES,
+} from "../utils/rates";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -129,7 +133,46 @@ export function CampaignDetailPage({ id }: { id: string }) {
     retry: false,
     refetchOnWindowFocus: false,
   });
-  const campaign = campaignQuery.data;
+
+  const listQuery = useQuery({
+    queryKey: ["campaigns", "list"],
+    queryFn: () => campaignsService.listCampaigns({ page: 1, limit: 200 }),
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  // The single-campaign endpoint can omit the audience/timestamp/rate fields
+  // that the list rows carry, so recipients + sent time render as "-". Fill
+  // them from this campaign's list row when the detail response is missing them.
+  const listRow = useMemo(
+    () => (listQuery.data ?? []).find((c) => c.id === id),
+    [listQuery.data, id]
+  );
+  const campaign: Campaign | undefined = useMemo(() => {
+    const base = campaignQuery.data;
+    if (!base) return listRow;
+    if (!listRow) return base;
+    return {
+      ...base,
+      recipients: base.recipients ?? listRow.recipients,
+      delivered: base.delivered ?? listRow.delivered,
+      sentAt: base.sentAt ?? listRow.sentAt,
+      scheduledFor: base.scheduledFor ?? listRow.scheduledFor,
+      channelsUsed: base.channelsUsed ?? listRow.channelsUsed,
+      openRateOfDelivered:
+        base.openRateOfDelivered ?? listRow.openRateOfDelivered,
+      clickRateOfDelivered:
+        base.clickRateOfDelivered ?? listRow.clickRateOfDelivered,
+      openRateOfAudience: base.openRateOfAudience ?? listRow.openRateOfAudience,
+      clickRateOfAudience:
+        base.clickRateOfAudience ?? listRow.clickRateOfAudience,
+      openRate: base.openRate ?? listRow.openRate,
+      clickRate: base.clickRate ?? listRow.clickRate,
+      opens: base.opens ?? listRow.opens,
+      clicks: base.clicks ?? listRow.clicks,
+    };
+  }, [campaignQuery.data, listRow]);
+
   const status = (campaign?.status ?? "draft") as CampaignStatus;
   const isSent =
     status === "sent" || status === "sending" || status === "paused";
@@ -143,17 +186,13 @@ export function CampaignDetailPage({ id }: { id: string }) {
   });
   const analytics = analyticsQuery.data;
 
-  const eventsQuery = useQuery({
-    queryKey: ["campaigns", "detail", id, "events"],
-    queryFn: () => campaignsService.getEvents(id),
+  // Per-recipient engagement feed for this campaign (see getActivity). Returns
+  // [] until the backend endpoint ships, so the section shows an empty state
+  // rather than the campaign lifecycle events.
+  const activityQuery = useQuery({
+    queryKey: ["campaigns", "detail", id, "activity"],
+    queryFn: () => campaignsService.getActivity(id),
     enabled: Boolean(campaign) && isSent,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const listQuery = useQuery({
-    queryKey: ["campaigns", "list"],
-    queryFn: () => campaignsService.listCampaigns({ page: 1, limit: 200 }),
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -211,7 +250,21 @@ export function CampaignDetailPage({ id }: { id: string }) {
     prevSameMix ? rowRates(prevSameMix).click : undefined
   );
 
-  if (campaignQuery.isLoading) {
+  // Only surface the channels this campaign actually uses - never an in-app row
+  // on an email-only send, or vice versa.
+  const channels = useMemo(() => {
+    const chans = campaign?.channelsUsed ?? [];
+    if (chans.length > 0) {
+      return {
+        email: chans.includes("email"),
+        inapp: chans.some((c) => c !== "email"),
+      };
+    }
+    const usesEmail = campaign ? campaignUsesEmail(campaign) : true;
+    return { email: usesEmail, inapp: !usesEmail };
+  }, [campaign]);
+
+  if (campaignQuery.isLoading && !campaign) {
     return (
       <div className="mx-auto w-full max-w-7xl space-y-6" aria-hidden="true">
         <div className="h-8 w-64 animate-pulse rounded bg-card/60" />
@@ -224,7 +277,7 @@ export function CampaignDetailPage({ id }: { id: string }) {
     );
   }
 
-  if (campaignQuery.isError || !campaign) {
+  if (!campaign) {
     return (
       <div className="mx-auto w-full max-w-3xl space-y-4 py-16 text-center">
         <p className="text-sm text-muted-foreground">
@@ -333,14 +386,15 @@ export function CampaignDetailPage({ id }: { id: string }) {
           <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
             <PerformanceByChannel
               analytics={analytics}
+              channels={channels}
               loading={analyticsQuery.isLoading}
               error={analyticsQuery.isError}
               onRetry={() => analyticsQuery.refetch()}
             />
             <RecentActivity
-              events={eventsQuery.data}
-              loading={eventsQuery.isLoading}
-              error={eventsQuery.isError}
+              events={activityQuery.data}
+              loading={activityQuery.isLoading}
+              error={activityQuery.isError}
             />
           </div>
 
@@ -393,11 +447,13 @@ function Stat({
 
 function PerformanceByChannel({
   analytics,
+  channels,
   loading,
   error,
   onRetry,
 }: {
   analytics: CampaignAnalytics | undefined;
+  channels: { email: boolean; inapp: boolean };
   loading: boolean;
   error: boolean;
   onRetry: () => void;
@@ -409,33 +465,29 @@ function PerformanceByChannel({
     label: string;
     icon: typeof EnvelopeIcon;
     sent?: number;
-    engaged?: number;
     engagedRate?: number;
-    clicked?: number;
     clickRate?: number;
   }[] = [];
-  if (email && (isNum(email.sent) || isNum(email.uniqueOpens))) {
+  // Gate on the channels the campaign actually uses, NOT on funnel presence -
+  // so an email-only send never shows a zeroed in-app row (and vice versa).
+  if (channels.email) {
     rows.push({
       key: "email",
       label: "Email",
       icon: EnvelopeIcon,
-      sent: email.sent,
-      engaged: email.uniqueOpens,
-      engagedRate: email.openRate,
-      clicked: email.uniqueClicks,
-      clickRate: email.clickRate,
+      sent: email?.sent,
+      engagedRate: email?.openRate,
+      clickRate: email?.clickRate,
     });
   }
-  if (inapp && (isNum(inapp.sent) || isNum(inapp.viewed))) {
+  if (channels.inapp) {
     rows.push({
       key: "inapp",
       label: "In-app push",
       icon: DevicePhoneMobileIcon,
-      sent: inapp.sent,
-      engaged: inapp.viewed,
-      engagedRate: inapp.viewRate,
-      clicked: inapp.clicked,
-      clickRate: inapp.clickRate,
+      sent: inapp?.sent,
+      engagedRate: inapp?.viewRate,
+      clickRate: inapp?.clickRate,
     });
   }
 

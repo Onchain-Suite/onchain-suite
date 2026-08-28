@@ -299,6 +299,20 @@ const ON_CHAIN_TRIGGER_TYPES = new Set([
   "approval_intent",
 ]);
 
+/**
+ * The only on-chain triggers where the user picks the raw contract event
+ * themselves. The business presets ("Token acquired", "Swap completed", …) have
+ * an IMPLIED event: the runtime maps the preset type onto the concrete
+ * event(s) + payload filters, so the builder hides the event picker for them
+ * and asks for nothing but the contract. Keeps the common case ("notify me when
+ * a wallet acquires my token") down to a single input.
+ */
+const GENERIC_ONCHAIN_TRIGGER_TYPES = new Set([
+  "onchain",
+  "trigger",
+  "onchain_event",
+]);
+
 /** The exact triggers offered in the builder library + "Add trigger" grid.
  *  Config schemas are still fetched per type; this only scopes the palette. */
 const FIXED_TRIGGERS: { type: string; label: string; description: string }[] = [
@@ -1086,8 +1100,8 @@ const CreateAutomationContent = () => {
     [senderIdentitiesQuery.data]
   );
 
-  // Builder-scoped contract list from the backend (GoldRush-supported project
-  // contracts); project settings then the static list are fallbacks only.
+  // Builder-scoped contract list from the backend (indexed project contracts);
+  // project settings then the static list are fallbacks only.
   const builderContractsQuery = useQuery({
     queryKey: ["automations", "builder", "project-contracts"],
     queryFn: () => automationService.getBuilderProjectContracts(),
@@ -1096,8 +1110,8 @@ const CreateAutomationContent = () => {
     staleTime: 60_000,
   });
 
-  // GoldRush event catalog - backend-recommended source of truth for the
-  // event picker (normalized EVM + Solana definitions).
+  // On-chain event catalog - backend source of truth for the event picker
+  // (normalized EVM + Solana definitions).
   const onchainCatalogQuery = useQuery({
     queryKey: ["automations", "builder", "onchain-catalog"],
     queryFn: () => automationService.getOnchainCatalog(),
@@ -1169,9 +1183,10 @@ const CreateAutomationContent = () => {
     return options;
   }, [onchainCatalogQuery.data?.definitions, eventsCatalogQuery.data]);
 
-  // Selecting a catalog event persists its GoldRush identifiers on the node,
-  // per the backend recommendation (goldrushEventId, eventStandard, topic0,
-  // programId, instructionName drive efficient runtime matching).
+  // Selecting a catalog event persists its runtime match identifiers on the
+  // node (goldrushEventId, eventStandard, topic0, programId, instructionName
+  // drive efficient runtime matching). These are internal wire keys, never
+  // surfaced in the UI.
   const eventDefinitionByValue = useMemo(() => {
     const map = new Map<string, OnchainCatalogDefinition>();
     for (const def of onchainCatalogQuery.data?.definitions ?? []) {
@@ -1505,6 +1520,15 @@ const CreateAutomationContent = () => {
       ),
     [selectedNodeData, selectedNodeDetails?.type]
   );
+  // On-chain triggers ask for a contract; only the GENERIC on-chain trigger
+  // ("On-chain event") also asks for a raw event. Business presets imply their
+  // event, so their panel is just the contract (+ optional chain). Off-chain
+  // triggers (segment/list/form/email) need neither.
+  const selectedTriggerIsOnchain =
+    selectedIsTrigger && ON_CHAIN_TRIGGER_TYPES.has(selectedNodeSchemaType);
+  const selectedTriggerHasImpliedEvent =
+    selectedTriggerIsOnchain &&
+    !GENERIC_ONCHAIN_TRIGGER_TYPES.has(selectedNodeSchemaType);
   const selectedNodeSchemaQuery = useQuery({
     queryKey: [
       "automations",
@@ -2785,75 +2809,99 @@ const CreateAutomationContent = () => {
                       {/* Specific fields */}
                       {selectedIsTrigger && (
                         <>
-                          <div className="space-y-2">
-                            <label className={PROPERTY_LABEL_CLASS}>
-                              Contract
-                            </label>
-                            <PropertySelect
-                              placeholder="Select contract"
-                              value={
-                                asString(selectedNodeData.contractAddress) ||
-                                asString(selectedNodeData.contract)
-                              }
-                              options={contractCatalog.map((c) => ({
-                                value: c.address,
-                                label: c.name,
-                                hint: `(${c.chain})`,
-                              }))}
-                              onChange={(next) => {
-                                updateSelectedNodeData(
-                                  buildTriggerContractPatch(
-                                    next,
-                                    contractCatalog
-                                  )
-                                );
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className={PROPERTY_LABEL_CLASS}>
-                              Event
-                            </label>
-                            <PropertySelect
-                              placeholder="Select event"
-                              value={asString(selectedNodeData.event)}
-                              options={eventOptions}
-                              onChange={(next) => {
-                                const def = eventDefinitionByValue.get(next);
-                                updateSelectedNodeData({
-                                  event: next,
-                                  ...(def
-                                    ? {
-                                        goldrushEventId: def.id,
-                                        eventStandard: def.standard,
-                                        chainFamily: def.chainFamily,
-                                        topic0: def.topic0,
-                                        programId: def.programIds?.[0],
-                                        instructionName:
-                                          def.instructionNames?.[0],
-                                      }
-                                    : {}),
-                                });
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className={PROPERTY_LABEL_CLASS}>
-                              Chain
-                            </label>
-                            <PropertySelect
-                              placeholder="All chains"
-                              value={asString(selectedNodeData.chain)}
-                              options={CHAIN_OPTIONS}
-                              onChange={(next) =>
-                                updateSelectedNodeData({ chain: next })
-                              }
-                            />
-                            <p className={PROPERTY_HINT_CLASS}>
-                              Restrict this trigger to one network, or leave on
-                              all chains.
-                            </p>
-                          </div>
+                          {/* Contract — only on-chain triggers watch a
+                              contract. Off-chain triggers (segment/list/form/
+                              email) need nothing here. */}
+                          {selectedTriggerIsOnchain && (
+                            <div className="space-y-2">
+                              <label className={PROPERTY_LABEL_CLASS}>
+                                Token or contract
+                              </label>
+                              <PropertySelect
+                                placeholder="Select contract"
+                                value={
+                                  asString(selectedNodeData.contractAddress) ||
+                                  asString(selectedNodeData.contract)
+                                }
+                                options={contractCatalog.map((c) => ({
+                                  value: c.address,
+                                  label: c.name,
+                                  hint: `(${c.chain})`,
+                                }))}
+                                onChange={(next) => {
+                                  updateSelectedNodeData(
+                                    buildTriggerContractPatch(
+                                      next,
+                                      contractCatalog
+                                    )
+                                  );
+                                }}
+                              />
+                              {selectedTriggerHasImpliedEvent && (
+                                <p className={PROPERTY_HINT_CLASS}>
+                                  That&rsquo;s all this trigger needs — it fires
+                                  automatically on the matching on-chain
+                                  activity for this contract.
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          {/* Event — only the generic "On-chain event" trigger
+                              asks for a raw event. Presets imply their event
+                              (mapped server-side from the trigger type), so the
+                              picker is hidden for them. */}
+                          {selectedTriggerIsOnchain &&
+                            !selectedTriggerHasImpliedEvent && (
+                              <div className="space-y-2">
+                                <label className={PROPERTY_LABEL_CLASS}>
+                                  Event
+                                </label>
+                                <PropertySelect
+                                  placeholder="Select event"
+                                  value={asString(selectedNodeData.event)}
+                                  options={eventOptions}
+                                  onChange={(next) => {
+                                    const def =
+                                      eventDefinitionByValue.get(next);
+                                    updateSelectedNodeData({
+                                      event: next,
+                                      ...(def
+                                        ? {
+                                            // Wire key the runtime matches on;
+                                            // internal, never shown in the UI.
+                                            goldrushEventId: def.id,
+                                            eventStandard: def.standard,
+                                            chainFamily: def.chainFamily,
+                                            topic0: def.topic0,
+                                            programId: def.programIds?.[0],
+                                            instructionName:
+                                              def.instructionNames?.[0],
+                                          }
+                                        : {}),
+                                    });
+                                  }}
+                                />
+                              </div>
+                            )}
+                          {selectedTriggerIsOnchain && (
+                            <div className="space-y-2">
+                              <label className={PROPERTY_LABEL_CLASS}>
+                                Chain
+                              </label>
+                              <PropertySelect
+                                placeholder="All chains"
+                                value={asString(selectedNodeData.chain)}
+                                options={CHAIN_OPTIONS}
+                                onChange={(next) =>
+                                  updateSelectedNodeData({ chain: next })
+                                }
+                              />
+                              <p className={PROPERTY_HINT_CLASS}>
+                                Restrict this trigger to one network, or leave
+                                on all chains.
+                              </p>
+                            </div>
+                          )}
                           {!isNew ? (
                             <div className="rounded-2xl border border-primary/15 bg-primary/5 p-3.5">
                               <div className="flex items-center justify-between gap-3">

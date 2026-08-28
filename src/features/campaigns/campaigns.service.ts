@@ -808,6 +808,29 @@ export const campaignsService = {
     ).then((d) => extractList(d));
   },
 
+  /**
+   * Per-recipient engagement activity for THIS campaign - the "Recent activity"
+   * feed (who opened/clicked/unsubscribed/bounced). Distinct from getEvents,
+   * which is the campaign lifecycle timeline. BACKEND: needs a read endpoint
+   * `GET /campaigns/{id}/activity?page=&limit=` returning
+   * `{ data: [{ contact: { walletAddress?, ens?, email? }, type:
+   * "opened"|"clicked"|"unsubscribed"|"bounced", channel, at }], meta }`.
+   * Swallows errors (returns []) so the feed shows an empty state until it
+   * ships rather than surfacing a 404.
+   */
+  getActivity(
+    id: string,
+    params?: { page?: number; limit?: number },
+    orgId?: string
+  ) {
+    return request<unknown>(
+      { method: "GET", url: `/campaigns/${id}/activity`, params },
+      orgId
+    )
+      .then((d) => extractList(d))
+      .catch(() => [] as unknown[]);
+  },
+
   launchCampaign(id: string, orgId?: string) {
     return request<{ success?: boolean }>(
       { method: "POST", url: `/campaigns/${id}/launch` },

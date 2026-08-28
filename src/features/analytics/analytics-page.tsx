@@ -25,6 +25,7 @@ import {
   type DashboardSeriesPoint,
   type MetricBacking,
 } from "./analytics.service";
+import { useCampaignEngagement } from "@/features/campaigns/hooks/use-campaign-engagement";
 
 /**
  * Analytics dashboard. Every headline figure comes from the real
@@ -53,7 +54,7 @@ const METRICS: MetricConfig[] = [
     key: "openRate",
     label: "Email open rate",
     format: "percent",
-    hint: "Share of delivered emails opened over the last 30 days. Email only - in-app push is measured as a view rate.",
+    hint: "Share of delivered emails opened, pooled across your sent campaigns - the same figure the Campaigns page and Dashboard show. Email only; in-app push is measured as a view rate.",
   },
   {
     key: "activeWallets",
@@ -75,36 +76,42 @@ const TEMPLATES = [
     name: "Holder distribution",
     desc: "Balances, concentration and top wallets by token.",
     tag: "On-chain",
+    hint: "How a token's supply spreads across wallets - concentration, top holders, and the long tail. Tells you whether a few wallets hold most of the supply or it's widely distributed.",
   },
   {
     Icon: PresentationChartLineIcon,
     name: "Retention cohorts",
     desc: "Weekly wallet retention since first interaction.",
     tag: "On-chain",
+    hint: "Group wallets by the week they first interacted, then track how many stay active in the following weeks - your on-chain retention curve.",
   },
   {
     Icon: EnvelopeOpenIcon,
     name: "Engagement by segment",
     desc: "Open, click and push-view rates per audience.",
     tag: "Off-chain",
+    hint: "Open, click and in-app view rates broken down per audience segment, so you can see which cohorts actually engage with your messages.",
   },
   {
     Icon: CursorArrowRaysIcon,
     name: "Conversion attribution",
     desc: "On-chain actions mapped back to campaigns and flows.",
     tag: "Blended",
+    hint: "Links on-chain actions (swaps, mints, deposits) back to the campaign or automation that drove them, so you can see what actually converted.",
   },
   {
     Icon: MegaphoneIcon,
     name: "Campaign report",
     desc: "Delivery, engagement and conversion per campaign.",
     tag: "Off-chain",
+    hint: "Per-campaign delivery, engagement and on-chain conversion in one exportable summary.",
   },
   {
     Icon: BoltIcon,
     name: "Automation performance",
     desc: "Entries, completion and conversion by flow.",
     tag: "Blended",
+    hint: "For each automation flow: how many wallets entered, how many completed it, and how many converted.",
   },
 ];
 
@@ -224,6 +231,12 @@ export function AnalyticsPage() {
 function Content({ overview }: { overview: DashboardOverview }) {
   const { backing, notes } = overview.meta;
 
+  // Reconcile the open rate with the Campaigns page + Dashboard: they all read
+  // the same recipient-weighted pool of every sent campaign, so this surface
+  // never disagrees with them. Falls back to the backend figure when there are
+  // no sent campaigns to pool.
+  const { avgOpenRate } = useCampaignEngagement();
+
   const trendMetric = overview.messagesSent;
   const trendChartable =
     backing.messagesSent === "real" && trendMetric.series.length >= 2;
@@ -237,14 +250,24 @@ function Content({ overview }: { overview: DashboardOverview }) {
     <div className="space-y-6">
       {/* KPI strip */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {METRICS.map((m) => (
-          <KpiCard
-            key={m.key}
-            config={m}
-            metric={overview[m.key]}
-            backing={backing[m.key]}
-          />
-        ))}
+        {METRICS.map((m) => {
+          // Swap in the pooled campaign open rate (no historical series, so it
+          // renders as a value-only snapshot rather than a fabricated trend).
+          const usePooledOpen =
+            m.key === "openRate" && typeof avgOpenRate === "number";
+          const metric = usePooledOpen
+            ? { ...overview.openRate, value: avgOpenRate, series: [] }
+            : overview[m.key];
+          const cardBacking = usePooledOpen ? "value-only" : backing[m.key];
+          return (
+            <KpiCard
+              key={m.key}
+              config={m}
+              metric={metric}
+              backing={cardBacking}
+            />
+          );
+        })}
       </div>
 
       {/* Messages sent over time - the only series-backed metric */}
@@ -340,7 +363,7 @@ function Content({ overview }: { overview: DashboardOverview }) {
           Report templates
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {TEMPLATES.map(({ Icon, name, desc, tag }) => (
+          {TEMPLATES.map(({ Icon, name, desc, tag, hint }) => (
             <div
               key={name}
               className="flex flex-col rounded-xl border border-border/60 bg-card/60 p-4"
@@ -353,8 +376,9 @@ function Content({ overview }: { overview: DashboardOverview }) {
                   {tag}
                 </span>
               </div>
-              <p className="mt-3 text-sm font-semibold text-foreground">
+              <p className="mt-3 flex items-center gap-1 text-sm font-semibold text-foreground">
                 {name}
+                <Info hint={hint} />
               </p>
               <p className="mt-1 flex-1 text-xs leading-relaxed text-muted-foreground">
                 {desc}

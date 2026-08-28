@@ -1084,16 +1084,31 @@ export const billingService = {
    * The org's card on file (`GET /billing/card`) for the "Visa ****4242 / Add
    * card" UI.
    */
-  getCardOnFile(organizationId?: string, options?: BillingServiceOptions) {
+  async getCardOnFile(
+    organizationId?: string,
+    options?: BillingServiceOptions
+  ): Promise<CardOnFile> {
     const orgId = organizationId ?? pickOrgId(options);
-    return billingRequest<CardOnFile>(
-      {
-        method: "GET",
-        url: "/billing/card",
-        params: orgId ? { organizationId: orgId } : undefined,
-      },
-      { orgId: orgId ?? undefined }
-    );
+    try {
+      return await billingRequest<CardOnFile>(
+        {
+          method: "GET",
+          url: "/billing/card",
+          params: orgId ? { organizationId: orgId } : undefined,
+        },
+        { orgId: orgId ?? undefined }
+      );
+    } catch (error) {
+      // A brand-new org has no Stripe customer yet, so the card lookup can 404
+      // (or 400 "billing not available") before any card exists. That is "no
+      // card on file", not a failure - resolve to an empty CardOnFile so the UI
+      // shows the Add-card state instead of a red-herring error.
+      const status = (error as { cause?: AxiosError }).cause?.response?.status;
+      if (status === 404 || status === 400) {
+        return { hasCard: false };
+      }
+      throw error;
+    }
   },
 
   /**

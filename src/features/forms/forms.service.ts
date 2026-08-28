@@ -149,8 +149,67 @@ const extractItems = <T>(payload: unknown): T[] => {
   const root = extractData<unknown>(payload);
   if (Array.isArray(root)) return root as T[];
   if (isJsonObject(root) && Array.isArray(root.items)) return root.items as T[];
+  if (isJsonObject(root) && Array.isArray(root.submissions))
+    return root.submissions as T[];
   if (isJsonObject(root) && Array.isArray(root.data)) return root.data as T[];
   return [];
+};
+
+// Field keys that represent a reachable channel (vs a plain profile field), so
+// we can derive the submission's channel chips when the backend doesn't send an
+// explicit `channels` array.
+const CHANNEL_FIELD_KEYS = new Set([
+  "email",
+  "x",
+  "twitter",
+  "farcaster",
+  "telegram",
+  "discord",
+]);
+
+/**
+ * Normalize one raw submission row into `FormSubmission`. The backend contract
+ * (forms-endpoints.md #7) returns `{ values, walletVerified }`; older/assumed
+ * shapes used `{ data, verified, channels }`. Accept either, and derive
+ * `channels` from the captured field keys when absent.
+ */
+const normalizeSubmission = (
+  raw: unknown,
+  fallbackFormId: string
+): FormSubmission | null => {
+  if (!isJsonObject(raw)) return null;
+  const id = typeof raw.id === "string" ? raw.id : null;
+  if (!id) return null;
+
+  const values = isJsonObject(raw.values)
+    ? (raw.values as Record<string, unknown>)
+    : isJsonObject(raw.data)
+      ? (raw.data as Record<string, unknown>)
+      : {};
+
+  const verified =
+    typeof raw.walletVerified === "boolean"
+      ? raw.walletVerified
+      : typeof raw.verified === "boolean"
+        ? raw.verified
+        : false;
+
+  const channels = Array.isArray(raw.channels)
+    ? raw.channels.filter((c): c is string => typeof c === "string")
+    : Object.keys(values).filter((k) =>
+        CHANNEL_FIELD_KEYS.has(k.toLowerCase())
+      );
+
+  return {
+    id,
+    formId: typeof raw.formId === "string" ? raw.formId : fallbackFormId,
+    walletAddress:
+      typeof raw.walletAddress === "string" ? raw.walletAddress : null,
+    data: values,
+    channels,
+    verified,
+    createdAt: typeof raw.createdAt === "string" ? raw.createdAt : "",
+  };
 };
 
 /** Typed client for the Email-to-Wallet capture-forms API. */
@@ -208,7 +267,9 @@ export const formsService = {
       },
       orgId
     ).then((payload): SubmissionsPage => {
-      const items = extractItems<FormSubmission>(payload);
+      const items = extractItems<unknown>(payload)
+        .map((raw) => normalizeSubmission(raw, id))
+        .filter((s): s is FormSubmission => s !== null);
       const root = extractData<unknown>(payload);
       const total =
         isJsonObject(root) && typeof root.total === "number"

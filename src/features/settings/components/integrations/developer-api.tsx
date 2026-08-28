@@ -152,11 +152,17 @@ function RevealSecret({ value, helper }: { value: string; helper?: string }) {
   return (
     <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
       <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-        <ShieldCheckIcon aria-hidden="true" className="h-4 w-4 text-primary" />
+        <ShieldCheckIcon
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-primary"
+        />
         Copy this now - you will not see it again.
       </p>
-      <div className="mt-2 flex items-center gap-2">
-        <code className="min-w-0 flex-1 truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs text-foreground ring-1 ring-border">
+      {/* Wrap the full secret (break-all) rather than truncating it, so the
+          whole one-time value is visible on any width. Copy stays pinned to
+          the top-right as the code grows to multiple lines. */}
+      <div className="mt-2 flex items-start gap-2">
+        <code className="min-w-0 flex-1 break-all rounded-md bg-background px-2 py-1.5 font-mono text-xs leading-5 text-foreground ring-1 ring-border">
           {value}
         </code>
         <CopyButton value={value} label="Copy secret" />
@@ -257,7 +263,7 @@ function CreateKeyDialog({
                   onValueChange={(v) =>
                     setEnvironment(v as CreateKeyInput["environment"])
                   }
-                  className="grid grid-cols-2 gap-2"
+                  className="grid grid-cols-1 gap-2 sm:grid-cols-2"
                 >
                   {(
                     [

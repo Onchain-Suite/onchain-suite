@@ -937,10 +937,10 @@ export function AudiencePages() {
                         <th className="px-4 py-3 font-medium">Reachable via</th>
                         <th className="px-4 py-3 font-medium">Email</th>
                         <th className="px-4 py-3 font-medium">Tags</th>
-                        <th className="px-4 py-3 text-right font-medium">
+                        <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
                           Lifetime
                         </th>
-                        <th className="px-4 py-3 text-right font-medium">
+                        <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
                           Last active
                         </th>
                       </tr>
@@ -1054,7 +1054,10 @@ export function AudiencePages() {
                             </td>
                             <td className="px-4 py-3.5">
                               {row.email ? (
-                                <span className="font-mono text-xs text-foreground">
+                                <span
+                                  className="block max-w-[240px] truncate font-mono text-xs text-foreground"
+                                  title={row.email}
+                                >
                                   {row.email}
                                 </span>
                               ) : row.walletFull && row.verified ? (

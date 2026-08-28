@@ -121,15 +121,17 @@ export function normalizeTags(input: unknown): NormalizedTag[] {
 }
 
 /**
- * Wallet-only contacts are stored with a synthetic placeholder email
- * (`…@wallet.onchainsuite.local`). Treat those as "no email channel" -
- * wallets with zero channels are valid and must not be rendered as
- * email-reachable.
+ * Wallet-only contacts are stored with a synthetic placeholder email on the
+ * internal `.onchainsuite.local` domain (`…@wallet.onchainsuite.local` for
+ * wallet-only rows, `zk_…@contact.onchainsuite.local` for ZK-linked ones).
+ * `.local` is a reserved TLD that can never be a real public address, so we
+ * treat ANY `*.onchainsuite.local` email as synthetic - "no visible email
+ * channel" - rather than leaking the raw hash into the UI.
  */
 export function isSyntheticWalletEmail(email: unknown): boolean {
   return (
     typeof email === "string" &&
-    email.trim().toLowerCase().endsWith("@wallet.onchainsuite.local")
+    email.trim().toLowerCase().endsWith(".onchainsuite.local")
   );
 }
 

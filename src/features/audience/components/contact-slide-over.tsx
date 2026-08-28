@@ -51,13 +51,16 @@ function Channel({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3.5 py-3">
-      <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
         {icon}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-      </div>
-      <span className="text-xs text-muted-foreground">{status}</span>
+      <p className="shrink-0 text-sm font-medium text-foreground">{label}</p>
+      <span
+        className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground"
+        title={status}
+      >
+        {status}
+      </span>
       {linked ? (
         <CheckCircleIcon
           className="size-5 shrink-0 text-emerald-500"

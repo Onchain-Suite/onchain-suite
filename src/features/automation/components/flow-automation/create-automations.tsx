@@ -3393,9 +3393,16 @@ const CreateAutomationContent = () => {
                         </div>
                       )}
 
-                      {selectedNodeSchemaQuery.isFetching ||
-                      selectedNodeSchemaFields.length > 0 ||
-                      selectedNodeSchemaQuery.error instanceof Error ? (
+                      {/* The schema-driven CONFIGURATION section is the low-level
+                          field dump (event source, standard, topic0, filters…).
+                          Preset on-chain triggers imply all of that from their
+                          type, so the simplified panel above is all they need —
+                          hide this section for them. The generic "On-chain event"
+                          trigger and actions still render it. */}
+                      {!selectedTriggerHasImpliedEvent &&
+                      (selectedNodeSchemaQuery.isFetching ||
+                        selectedNodeSchemaFields.length > 0 ||
+                        selectedNodeSchemaQuery.error instanceof Error) ? (
                         <div className="space-y-4 rounded-[20px] border border-border bg-card p-4">
                           <div className="flex items-center justify-between gap-3">
                             <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">

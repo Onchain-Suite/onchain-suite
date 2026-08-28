@@ -198,8 +198,9 @@
      app/layout.tsx, with the literal family + generic as fallbacks. ────── */
   --font-sans: var(--font-instrument-sans, "Instrument Sans"), sans-serif;
   --font-serif: "Lora", serif;
-  --font-mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, "SF Mono",
-    Menlo, monospace;
+  --font-mono:
+    var(--font-geist-mono, "Geist Mono"), ui-monospace, "SF Mono", Menlo,
+    monospace;
 
   /* Type scale - size / line / weight / tracking (DESIGN.md §4). Exposed as
      `text-*` utilities in the @theme inline block below. */
@@ -947,7 +948,9 @@ body {
   min-height: 100vh;
   background: var(--b-paper);
   color: var(--foreground);
-  font-family: var(--font-inter, "Inter", system-ui, sans-serif);
+  /* Brand typeface (Instrument Sans) - was Inter. */
+  font-family:
+    var(--font-instrument-sans, "Instrument Sans"), system-ui, sans-serif;
 }
 
 .os-auth-grid {
@@ -1006,7 +1009,11 @@ body {
   right: -140px;
   bottom: -160px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(47, 148, 255, 0.55), transparent 60%);
+  background: radial-gradient(
+    circle,
+    rgba(47, 148, 255, 0.55),
+    transparent 60%
+  );
   filter: blur(18px);
   pointer-events: none;
 }
@@ -1064,8 +1071,11 @@ body {
   margin-bottom: 16px;
 }
 .os-auth-title {
-  font-family: var(--font-outfit, "Outfit", system-ui, sans-serif);
-  font-weight: 800;
+  /* Brand typeface (Instrument Sans) - was Outfit. Instrument Sans tops out at
+     700, so use that rather than 800. */
+  font-family:
+    var(--font-instrument-sans, "Instrument Sans"), system-ui, sans-serif;
+  font-weight: 700;
   letter-spacing: -0.03em;
   font-size: 2.15rem;
   line-height: 1.1;
@@ -1084,6 +1094,18 @@ body {
 }
 .os-auth input {
   border-radius: 0.7rem;
+}
+/* Uniform field height across the auth forms - the shared Input defaults to
+   h-9 while PasswordField hard-codes h-12, so email and password came out
+   different heights. Pin every text field to one height (leaves checkboxes /
+   radios alone). */
+.os-auth input[type="text"],
+.os-auth input[type="email"],
+.os-auth input[type="password"],
+.os-auth input[type="tel"],
+.os-auth input[type="search"],
+.os-auth input[type="number"] {
+  height: 2.75rem;
 }
 .os-auth input:focus,
 .os-auth input:focus-visible {
@@ -1121,14 +1143,22 @@ body {
     linear-gradient(rgba(0, 229, 255, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 229, 255, 0.05) 1px, transparent 1px);
   background-size: 30px 30px;
-  mask-image: radial-gradient(ellipse 70% 70% at 50% 45%, black, transparent 75%);
+  mask-image: radial-gradient(
+    ellipse 70% 70% at 50% 45%,
+    black,
+    transparent 75%
+  );
   pointer-events: none;
 }
 .os-404::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 50% 45% at 50% 40%, rgba(0, 229, 255, 0.08), transparent 65%);
+  background: radial-gradient(
+    ellipse 50% 45% at 50% 40%,
+    rgba(0, 229, 255, 0.08),
+    transparent 65%
+  );
   pointer-events: none;
 }
 .os-404-inner {
@@ -1172,9 +1202,15 @@ body {
   border-radius: 50%;
   display: block;
 }
-.os-404-term-bar i:nth-child(1) { background: #ff5f57; }
-.os-404-term-bar i:nth-child(2) { background: #febc2e; }
-.os-404-term-bar i:nth-child(3) { background: #28c840; }
+.os-404-term-bar i:nth-child(1) {
+  background: #ff5f57;
+}
+.os-404-term-bar i:nth-child(2) {
+  background: #febc2e;
+}
+.os-404-term-bar i:nth-child(3) {
+  background: #28c840;
+}
 .os-404-term-bar span {
   margin-left: auto;
   font-family: var(--t-mono);
@@ -1187,10 +1223,18 @@ body {
   font-size: 0.82rem;
   line-height: 1.8;
 }
-.os-404-term-body .p { color: var(--t-accent); }
-.os-404-term-body .c { color: #4ade80; }
-.os-404-term-body .e { color: #f87171; }
-.os-404-term-body .s { color: #9ca3af; }
+.os-404-term-body .p {
+  color: var(--t-accent);
+}
+.os-404-term-body .c {
+  color: #4ade80;
+}
+.os-404-term-body .e {
+  color: #f87171;
+}
+.os-404-term-body .s {
+  color: #9ca3af;
+}
 .os-404-cursor {
   display: inline-block;
   width: 8px;

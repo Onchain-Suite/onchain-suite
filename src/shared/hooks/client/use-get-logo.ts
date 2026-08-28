@@ -67,10 +67,12 @@ export const defaultLogos = {
     "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761093444/onchain_suite_bf926w.png",
   darkIcon:
     "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761094220/onchain_light_wylceb.png",
+  // Full horizontal wordmark. OS-light = dark ink (for light surfaces),
+  // OS-dark = white (for dark surfaces). Current brand typeface.
   lightFull:
-    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761095341/full_logo_horizontal_coloured_dark_kpiv6u.png",
+    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787936849/OS-light_srclgr.png",
   darkFull:
-    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761095267/full_logo_horizontal_coloured_light_kl0irx.png",
+    "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787936849/OS-dark_wdb06l.png",
 };
 
 export const useGetLogo = (): LogoSet => {

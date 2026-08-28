@@ -828,6 +828,13 @@ function FlowToggle({
  * the three guardrails are org-wide sending caps; local state until the builder
  * settings contract lands.
  */
+const REENTRY_OPTIONS: PropertySelectOption[] = [
+  { value: "never", label: "Never" },
+  { value: "daily", label: "Once per day" },
+  { value: "weekly", label: "Once per week" },
+  { value: "always", label: "Always" },
+];
+
 function FlowSettingsPanel() {
   const [reentry, setReentry] = useState("never");
   const [exitOnGoal, setExitOnGoal] = useState(true);

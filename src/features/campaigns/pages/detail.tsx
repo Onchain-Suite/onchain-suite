@@ -334,20 +334,24 @@ export function CampaignDetailPage({ id }: { id: string }) {
             {TYPE_LABEL[campaign.type] ?? "Email"}
           </span>
         </div>
-        {isSent ? (
-          <Button
-            variant="outline"
-            className="rounded-xl"
-            disabled={duplicateMutation.isPending}
-            onClick={() => duplicateMutation.mutate()}
-          >
-            <DocumentDuplicateIcon
-              className="mr-1.5 size-4"
-              aria-hidden="true"
-            />
-            Duplicate
-          </Button>
-        ) : (
+        <div className="flex items-center gap-2">
+          {isSent ? (
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              disabled={duplicateMutation.isPending}
+              onClick={() => duplicateMutation.mutate()}
+            >
+              <DocumentDuplicateIcon
+                className="mr-1.5 size-4"
+                aria-hidden="true"
+              />
+              Duplicate
+            </Button>
+          ) : null}
+          {/* Editing stays available after send - the editor has no lock and
+              autosave persists changes without re-sending (launch is a separate
+              explicit action). */}
           <Button
             className="rounded-xl"
             onClick={() =>
@@ -357,7 +361,7 @@ export function CampaignDetailPage({ id }: { id: string }) {
             <PencilSquareIcon className="mr-1.5 size-4" aria-hidden="true" />
             Edit campaign
           </Button>
-        )}
+        </div>
       </div>
 
       {/* Stat cards */}

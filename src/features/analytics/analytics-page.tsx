@@ -2,6 +2,7 @@
 
 import {
   ArrowDownTrayIcon,
+  ArrowRightIcon,
   ArrowTrendingDownIcon,
   ArrowTrendingUpIcon,
   BoltIcon,
@@ -13,6 +14,7 @@ import {
   UsersIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useMemo } from "react";
 
 import { cn } from "@/lib/utils";
@@ -25,7 +27,10 @@ import {
   type DashboardSeriesPoint,
   type MetricBacking,
 } from "./analytics.service";
+import { AnalyticsSkeleton } from "./analytics-skeleton";
 import { useCampaignEngagement } from "@/features/campaigns/hooks/use-campaign-engagement";
+import { intelligenceService } from "@/features/intelligence/intelligence.service";
+import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 /**
  * Analytics dashboard. Every headline figure comes from the real
@@ -114,6 +119,36 @@ const TEMPLATES = [
     hint: "For each automation flow: how many wallets entered, how many completed it, and how many converted.",
   },
 ];
+
+// Where each report template opens - the live surface that already holds that
+// report's data. On-chain reports open the Intelligence query builder; the
+// off-chain/blended ones open the page that owns their funnel.
+const TEMPLATE_LINKS: Record<string, { href: string; cta: string }> = {
+  "Holder distribution": {
+    href: PRIVATE_ROUTES.INTELLIGENCE,
+    cta: "Open in Intelligence",
+  },
+  "Retention cohorts": {
+    href: PRIVATE_ROUTES.INTELLIGENCE,
+    cta: "Open in Intelligence",
+  },
+  "Engagement by segment": {
+    href: PRIVATE_ROUTES.AUDIENCE,
+    cta: "Open in Audience",
+  },
+  "Conversion attribution": {
+    href: PRIVATE_ROUTES.INTELLIGENCE,
+    cta: "Open in Intelligence",
+  },
+  "Campaign report": {
+    href: PRIVATE_ROUTES.CAMPAIGNS,
+    cta: "Open in Campaigns",
+  },
+  "Automation performance": {
+    href: PRIVATE_ROUTES.AUTOMATIONS,
+    cta: "Open in Automations",
+  },
+};
 
 const numberFmt = new Intl.NumberFormat("en-US");
 
@@ -218,7 +253,7 @@ export function AnalyticsPage() {
       </div>
 
       {overviewQuery.isLoading ? (
-        <LoadingState />
+        <AnalyticsSkeleton />
       ) : overviewQuery.isError || !overview ? (
         <ErrorState onRetry={() => overviewQuery.refetch()} />
       ) : (
@@ -321,30 +356,27 @@ function Content({ overview }: { overview: DashboardOverview }) {
               <p className="mt-1 flex-1 text-xs leading-relaxed text-muted-foreground">
                 {desc}
               </p>
-              <div className="mt-3 flex gap-2">
-                <button className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
-                  Run report
-                </button>
-                <button className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted">
-                  Export
-                </button>
+              <div className="mt-3">
+                <Link
+                  href={
+                    TEMPLATE_LINKS[name]?.href ?? PRIVATE_ROUTES.INTELLIGENCE
+                  }
+                  className="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  {TEMPLATE_LINKS[name]?.cta ?? "Run report"}
+                </Link>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Pinned from Intelligence - no real source yet */}
+      {/* Saved reports from Intelligence */}
       <div>
         <h2 className="mb-3 text-sm font-semibold text-foreground">
-          Pinned from Intelligence
+          Saved from Intelligence
         </h2>
-        <div className="overflow-hidden rounded-xl border border-border/60">
-          <EmptyState
-            title="No pinned reports yet"
-            body="Pin a saved query from Intelligence to see it here."
-          />
-        </div>
+        <SavedReports />
       </div>
 
       {notes.length > 0 ? (
@@ -433,41 +465,6 @@ function KpiCard({
   );
 }
 
-function LoadingState() {
-  return (
-    <div className="space-y-6" aria-hidden="true">
-      {/* KPI strip */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {["k1", "k2", "k3", "k4"].map((k) => (
-          <div
-            key={k}
-            className="h-28 animate-pulse rounded-xl border border-border/60 bg-card/60"
-          />
-        ))}
-      </div>
-      {/* Off-chain + On-chain */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="h-44 animate-pulse rounded-xl border border-border/60 bg-card/60" />
-        <div className="h-44 animate-pulse rounded-xl border border-border/60 bg-card/60" />
-      </div>
-      {/* In-app push delivery */}
-      <div className="h-40 animate-pulse rounded-xl border border-border/60 bg-card/60" />
-      {/* Report templates */}
-      <div className="space-y-3">
-        <div className="h-4 w-32 animate-pulse rounded bg-card/60" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {["t1", "t2", "t3", "t4", "t5", "t6"].map((k) => (
-            <div
-              key={k}
-              className="h-36 animate-pulse rounded-xl border border-border/60 bg-card/60"
-            />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="rounded-xl border border-border/60 bg-card/60 p-10 text-center">
@@ -496,6 +493,99 @@ function EmptyState({ title, body }: { title: string; body: string }) {
       <p className="mt-1 max-w-md text-xs leading-relaxed text-muted-foreground">
         {body}
       </p>
+    </div>
+  );
+}
+
+/**
+ * Saved reports from Intelligence (GET /intelligence/reports), each linking to
+ * its detail view. This replaces the old hardcoded-empty "Pinned" placeholder -
+ * it surfaces the reports you've saved. True per-report *pinning* (a curated
+ * subset) still needs a backend `pinned` flag; this shows all saved reports.
+ */
+function SavedReports() {
+  const query = useQuery({
+    queryKey: ["analytics", "intelligence-reports"],
+    queryFn: () => intelligenceService.listReports({ page: 1, limit: 6 }),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+
+  const reports = useMemo(() => {
+    const data = query.data as
+      unknown[] | { items?: unknown[] } | null | undefined;
+    const rawItems: unknown[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.items)
+        ? data.items
+        : [];
+    return rawItems
+      .map((raw): { id: string; name: string } | null => {
+        if (!raw || typeof raw !== "object") return null;
+        const r = raw as Record<string, unknown>;
+        const id =
+          typeof r.id === "string"
+            ? r.id
+            : typeof r.reportId === "string"
+              ? r.reportId
+              : null;
+        const name =
+          typeof r.name === "string" && r.name.trim().length > 0
+            ? r.name
+            : typeof r.title === "string" && r.title.trim().length > 0
+              ? r.title
+              : "Untitled report";
+        return id ? { id, name } : null;
+      })
+      .filter((x): x is { id: string; name: string } => x !== null)
+      .slice(0, 6);
+  }, [query.data]);
+
+  if (query.isLoading) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {["a", "b", "c"].map((k) => (
+          <div
+            key={k}
+            className="h-20 animate-pulse rounded-xl border border-border/60 bg-card/60"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (reports.length === 0) {
+    return (
+      <div className="overflow-hidden rounded-xl border border-border/60">
+        <EmptyState
+          title="No saved reports yet"
+          body="Save a query in Intelligence to see it here."
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {reports.map((r) => (
+        <Link
+          key={r.id}
+          href={`${PRIVATE_ROUTES.INTELLIGENCE}/reports/${r.id}`}
+          className="group flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/60 p-4 transition-colors hover:border-primary/40"
+        >
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-foreground">
+              {r.name}
+            </span>
+            <span className="text-xs text-muted-foreground">Saved report</span>
+          </span>
+          <ArrowRightIcon
+            className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"
+            aria-hidden="true"
+          />
+        </Link>
+      ))}
     </div>
   );
 }

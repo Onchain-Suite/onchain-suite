@@ -322,6 +322,11 @@ const FIXED_TRIGGERS: { type: string; label: string; description: string }[] = [
     description: "Wallet interacts with a contract",
   },
   {
+    type: "holder_acquired",
+    label: "Token acquired",
+    description: "A wallet acquires your token or NFT",
+  },
+  {
     type: "swap_completed",
     label: "Swap completed",
     description: "DEX trade or token exchange",
@@ -823,6 +828,13 @@ function FlowToggle({
  * the three guardrails are org-wide sending caps; local state until the builder
  * settings contract lands.
  */
+const REENTRY_OPTIONS: PropertySelectOption[] = [
+  { value: "never", label: "Never" },
+  { value: "daily", label: "Once per day" },
+  { value: "weekly", label: "Once per week" },
+  { value: "always", label: "Always" },
+];
+
 function FlowSettingsPanel() {
   const [reentry, setReentry] = useState("never");
   const [exitOnGoal, setExitOnGoal] = useState(true);
@@ -835,20 +847,13 @@ function FlowSettingsPanel() {
       </h3>
       <div className="mt-6 space-y-5">
         <div className="flex items-center justify-between gap-3">
-          <label htmlFor="flow-reentry" className="text-sm text-foreground">
-            Re-entry
-          </label>
-          <select
-            id="flow-reentry"
+          <span className="text-sm text-foreground">Re-entry</span>
+          <PropertySelect
             value={reentry}
-            onChange={(e) => setReentry(e.target.value)}
-            className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
-          >
-            <option value="never">Never</option>
-            <option value="daily">Once per day</option>
-            <option value="weekly">Once per week</option>
-            <option value="always">Always</option>
-          </select>
+            onChange={setReentry}
+            className="w-40"
+            options={REENTRY_OPTIONS}
+          />
         </div>
         <FlowToggle
           label="Exit on goal"
@@ -1783,6 +1788,16 @@ const CreateAutomationContent = () => {
     if (nodeType.includes("segment") || label.includes("segment")) {
       return "segment_entered" as const;
     }
+    if (nodeType.includes("form") || label.includes("form")) {
+      return "form_submitted" as const;
+    }
+    if (
+      nodeType.includes("list_joined") ||
+      nodeType.includes("joined") ||
+      label.includes("joined a list")
+    ) {
+      return "list_joined" as const;
+    }
     if (nodeType.includes("email") || label.includes("email")) {
       return "email_opened" as const;
     }
@@ -1810,6 +1825,23 @@ const CreateAutomationContent = () => {
           return automationService.triggerSegmentEntered({
             segmentId:
               asString(selectedNodeData.segmentId) || "preview-segment",
+            email: "preview@onchainsuite.com",
+            sourceEventId,
+            payload: sharedPayload,
+          });
+        case "list_joined":
+          return automationService.triggerListJoined({
+            segmentId:
+              asString(selectedNodeData.segmentId) ||
+              asString(selectedNodeData.listId) ||
+              "preview-segment",
+            email: "preview@onchainsuite.com",
+            sourceEventId,
+            payload: sharedPayload,
+          });
+        case "form_submitted":
+          return automationService.triggerFormSubmitted({
+            formId: asString(selectedNodeData.formId) || "preview-form",
             email: "preview@onchainsuite.com",
             sourceEventId,
             payload: sharedPayload,
@@ -3393,9 +3425,16 @@ const CreateAutomationContent = () => {
                         </div>
                       )}
 
-                      {selectedNodeSchemaQuery.isFetching ||
-                      selectedNodeSchemaFields.length > 0 ||
-                      selectedNodeSchemaQuery.error instanceof Error ? (
+                      {/* The schema-driven CONFIGURATION section is the low-level
+                          field dump (event source, standard, topic0, filters…).
+                          Preset on-chain triggers imply all of that from their
+                          type, so the simplified panel above is all they need —
+                          hide this section for them. The generic "On-chain event"
+                          trigger and actions still render it. */}
+                      {!selectedTriggerHasImpliedEvent &&
+                      (selectedNodeSchemaQuery.isFetching ||
+                        selectedNodeSchemaFields.length > 0 ||
+                        selectedNodeSchemaQuery.error instanceof Error) ? (
                         <div className="space-y-4 rounded-[20px] border border-border bg-card p-4">
                           <div className="flex items-center justify-between gap-3">
                             <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">

@@ -26,6 +26,8 @@ interface SuiteTier {
   who: string;
   /** Allowance rows shown on the card (label, value). */
   rows: [string, string][];
+  /** Price for each seat beyond the included allowance. */
+  extraSeat: string;
   popular?: boolean;
 }
 
@@ -41,6 +43,7 @@ const SUITE_TIERS: SuiteTier[] = [
       ["Team seats", "2"],
       ["Metered at", "list price"],
     ],
+    extraSeat: "$10 / mo each",
   },
   {
     name: "Launch",
@@ -56,6 +59,7 @@ const SUITE_TIERS: SuiteTier[] = [
       ["ONS+", "250"],
       ["Team seats", "2"],
     ],
+    extraSeat: "$10 / mo each",
   },
   {
     name: "Growth",
@@ -73,6 +77,7 @@ const SUITE_TIERS: SuiteTier[] = [
       ["Dedicated IP", "1"],
       ["Team seats", "4"],
     ],
+    extraSeat: "$10 / mo each",
   },
   {
     name: "Pro",
@@ -89,6 +94,7 @@ const SUITE_TIERS: SuiteTier[] = [
       ["Dedicated IP", "1"],
       ["Team seats", "7"],
     ],
+    extraSeat: "$10 / mo each",
   },
 ];
 
@@ -123,6 +129,10 @@ const PRICING_FAQ: [string, string][] = [
   [
     "What happens if I exceed an allowance?",
     "Usage above a tier's allowance bills at list price. Allowances are sized to cover normal use, so overage is the exception rather than the plan. Move up a tier whenever it is cheaper than running over.",
+  ],
+  [
+    "Can I add more team seats?",
+    "Yes. Each tier includes seats (2 on PAYG and Launch, 4 on Growth, 7 on Pro). Once those are filled, extra seats are $10 per seat a month.",
   ],
   [
     "Is there a free plan, and is there SMS?",
@@ -179,6 +189,10 @@ function SuiteCard({ tier }: { tier: SuiteTier }) {
           </div>
         ))}
       </dl>
+      <p className="-mt-2 mb-4 text-[11.5px] leading-relaxed t-muted">
+        Extra seats <span className="font-medium t-ink">{tier.extraSeat}</span>{" "}
+        once the included seats are filled.
+      </p>
       <Link
         href={SIGNUP}
         className={`mt-auto btn ${tier.popular ? "btn-primary" : "btn-ghost"} w-full`}

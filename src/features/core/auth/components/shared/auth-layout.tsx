@@ -4,13 +4,17 @@ import { CheckCircleIcon } from "@heroicons/react/24/solid";
 import Image from "next/image";
 import { type ReactNode } from "react";
 
+import { PARTNERS } from "@/features/website/onchain-suite/components/landing/v2/shared";
+
 interface AuthLayoutProps {
   children: ReactNode;
   className?: string;
 }
 
-const LOGO_LIGHT =
-  "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761095267/full_logo_horizontal_coloured_light_kl0irx.png";
+// The white (dark-background) wordmark - the brand panel is a deep-blue
+// gradient, so the coloured logo washed out. This is the current typeface.
+const BRAND_WORDMARK =
+  "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787936849/OS-dark_wdb06l.png";
 
 const VALUE_PROPS = [
   "Turn any wallet into an audience you can actually reach",
@@ -33,10 +37,10 @@ export function AuthLayout({ children, className = "" }: AuthLayoutProps) {
         <aside className="os-auth-brand">
           <div className="flex items-center">
             <Image
-              src={LOGO_LIGHT}
+              src={BRAND_WORDMARK}
               alt="Onchain Suite"
-              width={150}
-              height={45}
+              width={168}
+              height={51}
               priority
               className="h-auto w-auto"
             />
@@ -65,17 +69,27 @@ export function AuthLayout({ children, className = "" }: AuthLayoutProps) {
             </ul>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-white/60">
-            <span className="flex -space-x-2">
-              {["#9ec5ff", "#5b8cff", "#c7d7ff"].map((c) => (
-                <span
-                  key={c}
-                  className="h-6 w-6 rounded-full ring-2 ring-[#1727e0]"
-                  style={{ background: c }}
-                />
+          <div className="space-y-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-white/50">
+              Trusted by teams building world-class protocols
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              {PARTNERS.map((p) => (
+                <div
+                  key={p.name}
+                  title={p.name}
+                  className="relative h-10 w-10 overflow-hidden rounded-lg border border-white/15 bg-white/5"
+                >
+                  <Image
+                    src={p.src}
+                    alt={p.name}
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                  />
+                </div>
               ))}
-            </span>
-            Trusted by teams building world-class protocols
+            </div>
           </div>
         </aside>
 

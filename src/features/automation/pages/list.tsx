@@ -1,13 +1,16 @@
 "use client";
 
 import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { isJsonObject } from "@/lib/utils";
 
-import { automationService } from "../automation.service";
+import {
+  automationService,
+  type AutomationsListParams,
+} from "../automation.service";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 import { PageHeader } from "@/shared/components/page/page-header";
 import { Button } from "@/shared/components/ui/button";
@@ -41,6 +44,18 @@ const pick = (res: unknown): unknown[] => {
     if (Array.isArray(res.data)) return res.data;
   }
   return [];
+};
+
+/** Read the backend's total-item count from a paginated response's `meta`.
+ *  Undefined when the endpoint returns a bare array / omits meta - the UI then
+ *  falls back to page-relative controls. */
+const readTotal = (res: unknown): number | undefined => {
+  if (isJsonObject(res) && isJsonObject(res.meta)) {
+    const m = res.meta as Record<string, unknown>;
+    const t = m.totalItems ?? m.total;
+    if (typeof t === "number" && Number.isFinite(t)) return t;
+  }
+  return undefined;
 };
 
 const humanizeTrigger = (type: string) => {
@@ -117,88 +132,124 @@ const PER_PAGE = 10;
 
 export function AutomationsListView() {
   const [filter, setFilter] = useState<"all" | Status>("all");
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-
-  const listQuery = useQuery({
-    queryKey: ["automations", "list-all"],
-    retry: false,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const [active, paused, drafts] = await Promise.all([
-        automationService.listAutomations({ status: "active" }).catch(() => []),
-        automationService.listAutomations({ status: "paused" }).catch(() => []),
-        automationService.listAutomations({ tab: "drafts" }).catch(() => []),
-      ]);
-      const byId = new Map<string, Row>();
-      for (const raw of [...pick(active), ...pick(paused), ...pick(drafts)]) {
-        const row = toRow(raw);
-        if (row && !byId.has(row.id)) byId.set(row.id, row);
-      }
-      return [...byId.values()];
-    },
-  });
-
-  const rows = useMemo(() => listQuery.data ?? [], [listQuery.data]);
-
-  const counts = useMemo(
-    () => ({
-      all: rows.length,
-      active: rows.filter((r) => r.status === "active").length,
-      paused: rows.filter((r) => r.status === "paused").length,
-      draft: rows.filter((r) => r.status === "draft").length,
-    }),
-    [rows]
-  );
-
-  const stats = useMemo(() => {
-    const withEntries = rows.filter((r) => r.entries > 0);
-    const entries = rows.reduce((sum, r) => sum + r.entries, 0);
-    const conversions = rows.reduce((sum, r) => sum + r.conversions, 0);
-    const avgCompletion =
-      withEntries.length > 0
-        ? withEntries.reduce(
-            (sum, r) => sum + (r.conversions / r.entries) * 100,
-            0
-          ) / withEntries.length
-        : 0;
-    return {
-      activeFlows: counts.active,
-      entries,
-      avgCompletion,
-      conversions,
-    };
-  }, [rows, counts.active]);
-
-  const visibleRows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
-      if (filter !== "all" && r.status !== filter) return false;
-      if (q && !r.name.toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [rows, filter, search]);
-
-  // Client-side pagination, matching the Audience/Campaigns table convention.
   const [page, setPage] = useState(1);
+
+  // Debounce the search so we don't fire a request on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Any filter/search change starts back at page 1.
   useEffect(() => {
     setPage(1);
   }, [filter, search]);
-  const totalPages = Math.max(1, Math.ceil(visibleRows.length / PER_PAGE));
-  const currentPage = Math.min(page, totalPages);
-  const pagedRows = visibleRows.slice(
-    (currentPage - 1) * PER_PAGE,
-    currentPage * PER_PAGE
-  );
 
+  // Server-side page: the backend does the filtering + slicing. Search uses the
+  // dedicated /automations/search endpoint (status tabs don't apply mid-search);
+  // otherwise the status/tab param drives it. keepPreviousData avoids a flash
+  // between pages.
+  const listQuery = useQuery({
+    queryKey: ["automations", "list", { filter, search, page }],
+    queryFn: () => {
+      if (search) {
+        return automationService.searchAutomations({
+          q: search,
+          page,
+          limit: PER_PAGE,
+        });
+      }
+      const params: AutomationsListParams = { page, limit: PER_PAGE };
+      if (filter === "draft") params.tab = "drafts";
+      else if (filter !== "all") params.status = filter;
+      return automationService.listAutomations(params);
+    },
+    placeholderData: keepPreviousData,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const rows = useMemo(
+    () =>
+      pick(listQuery.data)
+        .map(toRow)
+        .filter((r): r is Row => r !== null),
+    [listQuery.data]
+  );
+  const total = useMemo(() => readTotal(listQuery.data), [listQuery.data]);
+  const totalPages =
+    total !== undefined ? Math.max(1, Math.ceil(total / PER_PAGE)) : undefined;
+  const hasPrev = page > 1;
+  // When the backend reports a total we page by it; otherwise a full page is a
+  // signal there may be more.
+  const hasNext =
+    totalPages !== undefined ? page < totalPages : rows.length >= PER_PAGE;
+
+  // Stat cards from the org-wide metrics aggregate (server-side, not derived
+  // from the current page).
+  const metricsQuery = useQuery({
+    queryKey: ["automations", "metrics"],
+    queryFn: () => automationService.getMetrics(),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  const m = metricsQuery.data;
   const statCards = [
-    { label: "Active flows", value: stats.activeFlows.toLocaleString() },
-    { label: "Entries · 30d", value: stats.entries.toLocaleString() },
-    { label: "Avg completion", value: `${stats.avgCompletion.toFixed(1)}%` },
+    { label: "Active flows", value: m ? m.active.toLocaleString() : "-" },
+    { label: "Entries · 30d", value: m ? m.entries.toLocaleString() : "-" },
+    {
+      label: "Avg completion",
+      value: m
+        ? `${(m.entries > 0 ? (m.conversions / m.entries) * 100 : 0).toFixed(1)}%`
+        : "-",
+    },
     {
       label: "On-chain conversions",
-      value: stats.conversions.toLocaleString(),
+      value: m ? m.conversions.toLocaleString() : "-",
     },
   ];
+
+  // Per-status counts for the tab chips - one cheap meta read per status (the
+  // list endpoint's total), cached. Hidden gracefully if the backend omits the
+  // total. Independent of the search term (counts are global).
+  const countsQuery = useQuery({
+    queryKey: ["automations", "counts"],
+    queryFn: async () => {
+      const totalFor = (p: AutomationsListParams) =>
+        automationService
+          .listAutomations({ ...p, page: 1, limit: 1 })
+          .then(readTotal)
+          .catch(() => undefined);
+      const [all, active, paused, draft] = await Promise.all([
+        totalFor({}),
+        totalFor({ status: "active" }),
+        totalFor({ status: "paused" }),
+        totalFor({ tab: "drafts" }),
+      ]);
+      return { all, active, paused, draft };
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  const counts = countsQuery.data;
+  const countFor = (id: "all" | Status): number | undefined =>
+    id === "all"
+      ? counts?.all
+      : id === "active"
+        ? counts?.active
+        : id === "paused"
+          ? counts?.paused
+          : counts?.draft;
+
+  const showingFrom = total === 0 ? 0 : (page - 1) * PER_PAGE + 1;
+  const showingTo =
+    total !== undefined
+      ? Math.min(page * PER_PAGE, total)
+      : (page - 1) * PER_PAGE + rows.length;
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
@@ -221,7 +272,7 @@ export function AutomationsListView() {
           <div key={card.label} className="bg-card px-5 py-4">
             <div className="text-sm text-muted-foreground">{card.label}</div>
             <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-              {listQuery.isLoading ? "-" : card.value}
+              {metricsQuery.isLoading ? "-" : card.value}
             </div>
           </div>
         ))}
@@ -229,14 +280,15 @@ export function AutomationsListView() {
 
       <div className="flex flex-wrap items-center gap-3">
         <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Search automations…"
           className="h-9 w-64 rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
         />
         <div className="flex flex-wrap gap-1.5">
           {STATUS_TABS.map((tab) => {
             const active = filter === tab.id;
+            const c = countFor(tab.id);
             return (
               <button
                 key={tab.id}
@@ -249,7 +301,18 @@ export function AutomationsListView() {
                     : "border-border bg-card text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {tab.label} · {counts[tab.id]}
+                {tab.label}
+                {typeof c === "number" ? (
+                  <span
+                    className={
+                      active
+                        ? "ml-1.5 text-primary"
+                        : "ml-1.5 text-muted-foreground/70"
+                    }
+                  >
+                    · {c}
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -271,7 +334,7 @@ export function AutomationsListView() {
               </tr>
             </thead>
             <tbody>
-              {pagedRows.map((row) => {
+              {rows.map((row) => {
                 const hasData = row.entries > 0;
                 const completion = hasData
                   ? `${((row.conversions / row.entries) * 100).toFixed(1)}%`
@@ -279,7 +342,7 @@ export function AutomationsListView() {
                 return (
                   <tr
                     key={row.id}
-                    className="group border-b border-border last:border-0 transition-colors hover:bg-muted/40"
+                    className="group border-b border-border transition-colors last:border-0 hover:bg-muted/40"
                   >
                     <td className="px-5 py-4">
                       <Link href={`/automations/${row.id}`} className="block">
@@ -330,19 +393,24 @@ export function AutomationsListView() {
           </table>
         </div>
 
-        {visibleRows.length > PER_PAGE ? (
+        {hasPrev || hasNext ? (
           <div className="flex items-center justify-between pt-4 text-sm text-muted-foreground">
             <span>
-              Showing {(currentPage - 1) * PER_PAGE + 1}–
-              {Math.min(currentPage * PER_PAGE, visibleRows.length)} of{" "}
-              {visibleRows.length.toLocaleString()}
+              {total !== undefined ? (
+                <>
+                  Showing {showingFrom.toLocaleString()}–
+                  {showingTo.toLocaleString()} of {total.toLocaleString()}
+                </>
+              ) : (
+                <>Page {page}</>
+              )}
             </span>
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"
                 className="rounded-lg"
-                disabled={currentPage <= 1}
+                disabled={!hasPrev}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
                 Previous
@@ -351,8 +419,8 @@ export function AutomationsListView() {
                 size="sm"
                 variant="outline"
                 className="rounded-lg"
-                disabled={currentPage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={!hasNext}
+                onClick={() => setPage((p) => p + 1)}
               >
                 Next
               </Button>
@@ -360,7 +428,7 @@ export function AutomationsListView() {
           </div>
         ) : null}
 
-        {!listQuery.isLoading && visibleRows.length === 0 ? (
+        {!listQuery.isLoading && rows.length === 0 ? (
           <div className="rounded-xl border border-border px-5 py-16 text-center">
             <p className="text-sm font-semibold text-foreground">
               {search || filter !== "all"

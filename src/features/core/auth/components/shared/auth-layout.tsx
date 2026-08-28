@@ -4,12 +4,32 @@ import { CheckCircleIcon } from "@heroicons/react/24/solid";
 import Image from "next/image";
 import { type ReactNode } from "react";
 
-import { PARTNERS } from "@/features/website/onchain-suite/components/landing/v2/shared";
-
 interface AuthLayoutProps {
   children: ReactNode;
   className?: string;
 }
+
+// Design partners, mirrored from the landing "Trusted by" row. Kept inline
+// (not imported from the landing module) so the auth bundle/tests don't pull in
+// landing-v2.css.
+const PARTNERS: { name: string; src: string }[] = [
+  {
+    name: "Yaugahaus",
+    src: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/yauga_k75ki2.jpg",
+  },
+  {
+    name: "Vault777",
+    src: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/vault777_c3ceoc.jpg",
+  },
+  {
+    name: "W3GM",
+    src: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/w3gm_lomrj0.jpg",
+  },
+  {
+    name: "Surgence",
+    src: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/surgence_e1nmnh.jpg",
+  },
+];
 
 // The white (dark-background) wordmark - the brand panel is a deep-blue
 // gradient, so the coloured logo washed out. This is the current typeface.

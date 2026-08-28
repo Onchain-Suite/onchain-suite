@@ -123,6 +123,11 @@ const rowRates = (c: Campaign) => ({
   click: c.clickRateOfDelivered ?? c.clickRateOfAudience ?? c.clickRate,
 });
 
+// Recent activity is hidden until the per-recipient GET /campaigns/{id}/activity
+// endpoint ships (see campaignsService.getActivity). The component + query stay
+// wired - flip this to true to bring the section back.
+const SHOW_RECENT_ACTIVITY: boolean = false;
+
 export function CampaignDetailPage({ id }: { id: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -192,7 +197,7 @@ export function CampaignDetailPage({ id }: { id: string }) {
   const activityQuery = useQuery({
     queryKey: ["campaigns", "detail", id, "activity"],
     queryFn: () => campaignsService.getActivity(id),
-    enabled: Boolean(campaign) && isSent,
+    enabled: SHOW_RECENT_ACTIVITY && Boolean(campaign) && isSent,
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -383,7 +388,12 @@ export function CampaignDetailPage({ id }: { id: string }) {
         </div>
       ) : (
         <>
-          <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+          <div
+            className={cn(
+              "grid gap-6",
+              SHOW_RECENT_ACTIVITY && "lg:grid-cols-[1.6fr_1fr]"
+            )}
+          >
             <PerformanceByChannel
               analytics={analytics}
               channels={channels}
@@ -391,11 +401,13 @@ export function CampaignDetailPage({ id }: { id: string }) {
               error={analyticsQuery.isError}
               onRetry={() => analyticsQuery.refetch()}
             />
-            <RecentActivity
-              events={activityQuery.data}
-              loading={activityQuery.isLoading}
-              error={activityQuery.isError}
-            />
+            {SHOW_RECENT_ACTIVITY ? (
+              <RecentActivity
+                events={activityQuery.data}
+                loading={activityQuery.isLoading}
+                error={activityQuery.isError}
+              />
+            ) : null}
           </div>
 
           <ComparedWithPrevious

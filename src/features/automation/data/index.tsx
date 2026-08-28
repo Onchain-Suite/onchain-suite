@@ -50,7 +50,7 @@ export const mockContracts = [
   { address: "0x3Bf2...5e9D", name: "Base Bridge", chain: "Base", users: 1247 },
 ];
 
-// Fallback event list - used only when the GoldRush onchain catalog
+// Fallback event list - used only when the on-chain event catalog
 // (`GET /automations/builder/onchain/catalog`) is unavailable.
 export const eventTypes = [
   "Transfer",

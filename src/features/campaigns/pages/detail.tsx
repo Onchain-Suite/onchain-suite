@@ -493,22 +493,11 @@ function PerformanceByChannel({
                     <span className="font-medium text-foreground">
                       {fmtPct(r.engagedRate)}
                     </span>
-                    {isNum(r.engaged) ? (
-                      <span className="block text-xs text-muted-foreground">
-                        {fmtCount(r.engaged)}{" "}
-                        {r.key === "inapp" ? "viewed" : "opened"}
-                      </span>
-                    ) : null}
                   </td>
                   <td className="px-4 py-3">
                     <span className="font-medium text-foreground">
                       {fmtPct(r.clickRate)}
                     </span>
-                    {isNum(r.clicked) ? (
-                      <span className="block text-xs text-muted-foreground">
-                        {fmtCount(r.clicked)} clicked
-                      </span>
-                    ) : null}
                   </td>
                 </tr>
               ))}

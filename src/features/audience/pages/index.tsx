@@ -338,6 +338,40 @@ export function AudiencePages() {
     refetchOnWindowFocus: false,
   });
 
+  // Email-reachable = contacts we can actually email (an email channel that
+  // isn't suppressed). The /audience/overview aggregate under-counts this - it
+  // only counts a strict verified-channel flag, so imported contacts that
+  // plainly have emails read 0. When the whole audience fits in one page (the
+  // 200 cap), count it straight from the profiles instead; above the cap we
+  // can't see every contact client-side, so we defer to the aggregate.
+  const emailReachableQuery = useQuery({
+    queryKey: ["audience", "email-reachable-count"],
+    queryFn: async () => {
+      const res = await audienceService.listProfiles({
+        page: 1,
+        limit: 200,
+        include: "wallets,attributes,tags",
+      });
+      const obj = res as {
+        items?: AudienceProfile[];
+        data?: AudienceProfile[];
+        meta?: { totalItems?: number };
+      };
+      const items = Array.isArray(res) ? res : (obj.items ?? obj.data ?? []);
+      const metaTotal = !Array.isArray(res)
+        ? num(obj.meta?.totalItems)
+        : undefined;
+      const complete =
+        items.length < 200 ||
+        (typeof metaTotal === "number" && metaTotal <= items.length);
+      const count = items.filter((p) => toRow(p).reach.email).length;
+      return { count, complete };
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+
   const rows = useMemo(
     () => (profilesQuery.data?.items ?? []).map(toRow),
     [profilesQuery.data]
@@ -363,7 +397,13 @@ export function AudiencePages() {
   // (total - withWallet); the reachability/suppressed counts come only from the
   // overview endpoint - when absent they render "-", never a fabricated value.
   const emailOnly = num(overview?.emailOnly) ?? Math.max(0, total - withWallet);
-  const emailReachable = num(overview?.emailReachable);
+  // Prefer the exact client-side count when we've seen the whole audience;
+  // otherwise fall back to the (under-counting) overview aggregate.
+  const computedEmailReachable = emailReachableQuery.data?.complete
+    ? emailReachableQuery.data.count
+    : undefined;
+  const emailReachable =
+    computedEmailReachable ?? num(overview?.emailReachable);
   const pushReachable = num(overview?.pushReachable);
   const suppressed = num(overview?.suppressed);
 

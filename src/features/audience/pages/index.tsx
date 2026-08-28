@@ -759,6 +759,7 @@ export function AudiencePages() {
             className="rounded-xl"
             disabled={syncMutation.isPending || syncing}
             onClick={() => syncMutation.mutate()}
+            title="Pulls holders from your indexed contracts into the audience. This adds new wallets. To refresh metrics on wallets you already have, use Enrich in Intelligence."
           >
             <ArrowPathIcon
               className={cn("mr-2 size-4", syncing && "animate-spin")}

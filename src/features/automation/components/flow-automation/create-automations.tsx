@@ -322,6 +322,11 @@ const FIXED_TRIGGERS: { type: string; label: string; description: string }[] = [
     description: "Wallet interacts with a contract",
   },
   {
+    type: "holder_acquired",
+    label: "Token acquired",
+    description: "A wallet acquires your token or NFT",
+  },
+  {
     type: "swap_completed",
     label: "Swap completed",
     description: "DEX trade or token exchange",

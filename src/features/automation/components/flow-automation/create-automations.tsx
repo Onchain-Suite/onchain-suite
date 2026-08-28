@@ -1890,6 +1890,24 @@ const CreateAutomationContent = () => {
     },
   });
 
+  // Persist the automation NAME the moment the user finishes editing it (blur /
+  // Enter), like the campaign editor. The builder autosave below only saves
+  // nodes/edges, so without this the title would revert unless the user hit the
+  // explicit Save. New (uncreated) automations get their name on first Save.
+  const persistName = () => {
+    if (isNew) return;
+    const next =
+      typeof automationData.name === "string" ? automationData.name.trim() : "";
+    if (next.length === 0) return;
+    automationService
+      .updateAutomation(automationId, {
+        name: next,
+        description: automationData.description ?? "",
+      })
+      .then(() => queryClient.invalidateQueries({ queryKey: ["automations"] }))
+      .catch(() => undefined);
+  };
+
   const draftSaveMutation = useMutation({
     mutationFn: async () => {
       if (isNew) return;
@@ -2290,6 +2308,11 @@ const CreateAutomationContent = () => {
               onChange={(e) =>
                 setAutomationData({ ...automationData, name: e.target.value })
               }
+              onBlur={persistName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+              aria-label="Automation name"
               className="min-w-0 max-w-[45vw] rounded-md bg-transparent px-1 text-base font-semibold tracking-tight text-foreground transition-colors hover:bg-muted/50 focus:bg-muted/50 focus:outline-none sm:max-w-none"
             />
             {/* Autosave runs silently in the background - the status badge

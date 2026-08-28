@@ -261,6 +261,15 @@ export function FormBuilder({ id }: { id: string }) {
     saveMutation.mutate({ id, input: buildInput() });
   };
 
+  // Persist the form name the moment the user finishes renaming (blur/Enter),
+  // like the campaign editor - so the title sticks without waiting for Save,
+  // whatever the form's status (draft, live, paused).
+  const persistName = () => {
+    const next = name.trim() || "Untitled form";
+    if (!form || next === form.name) return;
+    statusMutation.mutate({ id, input: { name: next } });
+  };
+
   const setLive = (next: "active" | "paused") => {
     setStatus(next);
     statusMutation.mutate(
@@ -404,9 +413,18 @@ export function FormBuilder({ id }: { id: string }) {
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onBlur={() => setRenaming(false)}
+              onBlur={() => {
+                persistName();
+                setRenaming(false);
+              }}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === "Escape") setRenaming(false);
+                if (e.key === "Enter") {
+                  persistName();
+                  setRenaming(false);
+                } else if (e.key === "Escape") {
+                  setName(form.name);
+                  setRenaming(false);
+                }
               }}
               aria-label="Form name"
               placeholder="Untitled form"

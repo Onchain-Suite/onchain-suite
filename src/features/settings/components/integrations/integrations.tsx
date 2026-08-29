@@ -58,14 +58,22 @@ function normalizeOrigin(value: string) {
 const SDK_VERSION = "0.3.0";
 const SDK_INAPP_URL = `https://cdn.onchainsuite.com/inapp-${SDK_VERSION}.js`;
 
-/** The org's publishable key (prod preferred, else test) from the in-app status. */
-async function fetchPublishableKey(orgId: string): Promise<string> {
+interface InappStatus {
+  /** The org's publishable key (prod preferred, else test). */
+  publishableKey: string;
+  /** Active SDK sessions - >0 means a wallet has connected (the SDK phoned home). */
+  sessionCount: number;
+}
+
+/** In-app status: the publishable key plus the live connected-session count. */
+async function fetchInappStatus(orgId: string): Promise<InappStatus> {
+  const empty: InappStatus = { publishableKey: "", sessionCount: 0 };
   try {
     const res = await fetch("/api/v1/integrations/inapp/status", {
       headers: { "x-org-id": orgId },
     });
     const json: unknown = await res.json().catch(() => null);
-    if (!res.ok || !json || typeof json !== "object") return "";
+    if (!res.ok || !json || typeof json !== "object") return empty;
     const root = json as Record<string, unknown>;
     const d = (root.data ?? root) as Record<string, unknown>;
     const pk = (d.publishableKeys ?? d.publishable ?? {}) as Record<
@@ -74,9 +82,16 @@ async function fetchPublishableKey(orgId: string): Promise<string> {
     >;
     const prod = typeof pk.production === "string" ? pk.production : "";
     const test = typeof pk.test === "string" ? pk.test : "";
-    return prod || test || "";
+    const rawCount =
+      d.sessionCount ??
+      d.activeSessions ??
+      (Array.isArray(d.sessions) ? d.sessions.length : undefined);
+    return {
+      publishableKey: prod || test || "",
+      sessionCount: typeof rawCount === "number" ? rawCount : 0,
+    };
   } catch {
-    return "";
+    return empty;
   }
 }
 
@@ -105,13 +120,21 @@ export default function IntegrationsSettings() {
 
   const orgId = useMemo(() => getSelectedOrganizationId(), []);
 
-  // Pre-load the publishable key so we can bake it straight into the snippet.
-  const keyQuery = useQuery({
+  // Pre-load the publishable key (baked into the snippet) and the live session
+  // count. Poll so the "Connected" step ticks the moment the SDK phones home.
+  const statusQuery = useQuery({
     queryKey: ["integrations", "inapp", "status", orgId],
     enabled: !!orgId,
-    queryFn: () => fetchPublishableKey(orgId as string),
+    queryFn: () => fetchInappStatus(orgId as string),
+    refetchInterval: 15_000,
   });
-  const publishableKey = keyQuery.data ?? "";
+  const publishableKey = statusQuery.data?.publishableKey ?? "";
+  const sessionCount = statusQuery.data?.sessionCount ?? 0;
+
+  // Drive the 3-step rail from real state: a connected wallet (sessionCount > 0)
+  // ticks all three; generating the snippet allow-lists the origin + bakes the
+  // key, so we're installed + listening (step 3 "Connected" then pending).
+  const setupStep = sessionCount > 0 ? 3 : snippet ? 2 : 0;
 
   const generateSnippet = async () => {
     if (!orgId) {
@@ -172,7 +195,7 @@ export default function IntegrationsSettings() {
           </Button>
         }
       >
-        <SettingsStepper steps={WEB_STEPS} current={0} />
+        <SettingsStepper steps={WEB_STEPS} current={setupStep} />
         <div className="mt-6 max-w-xl space-y-2">
           <Label htmlFor="dapp-origin">dApp origin</Label>
           <Input
@@ -211,7 +234,7 @@ export default function IntegrationsSettings() {
           <Button onClick={generateSnippet} disabled={!orgId || generating}>
             {generating ? "Generating…" : "Generate install snippet"}
           </Button>
-          {orgId && !publishableKey && !keyQuery.isLoading ? (
+          {orgId && !publishableKey && !statusQuery.isLoading ? (
             <p className="mt-2 text-xs text-amber-500">
               No publishable key yet - open{" "}
               <span className="font-medium">Manage keys</span> to create one,

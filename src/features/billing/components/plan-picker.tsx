@@ -6,6 +6,8 @@ import {
   CheckIcon,
   CreditCardIcon,
   ExclamationTriangleIcon,
+  MinusIcon,
+  PlusIcon,
   WalletIcon,
 } from "@heroicons/react/24/outline";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -22,6 +24,12 @@ import {
   SUITE_TIER_ANCHORS,
 } from "../billing.service";
 import { openCheckoutInNewTab, startPlanCheckout } from "../checkout";
+import {
+  clampExtraSeats,
+  includedSeatsForPlan,
+  MAX_EXTRA_SEATS,
+  SEAT_PRICE_USD,
+} from "../seat-pricing";
 
 type PaymentMethod = "card" | "crypto";
 type Selection = "suite" | "send" | "payg";
@@ -176,6 +184,7 @@ export function PlanPicker({
   });
   const [contacts, setContacts] = useState(11_000);
   const [subscribers, setSubscribers] = useState(10_000);
+  const [extraSeats, setExtraSeats] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const units = selection === "send" ? subscribers : contacts;
@@ -184,13 +193,27 @@ export function PlanPicker({
     const h = window.setTimeout(() => setDebouncedUnits(units), 250);
     return () => window.clearTimeout(h);
   }, [units]);
+  // Re-quote on seat changes too so the headline total the customer sees is the
+  // backend's own plan+seats figure (never a client sum) - that's shown==charged.
+  const [debouncedSeats, setDebouncedSeats] = useState(extraSeats);
+  useEffect(() => {
+    const h = window.setTimeout(() => setDebouncedSeats(extraSeats), 250);
+    return () => window.clearTimeout(h);
+  }, [extraSeats]);
 
   const quoteQuery = useQuery({
-    queryKey: ["billing", "line-quote", selection, debouncedUnits],
+    queryKey: [
+      "billing",
+      "line-quote",
+      selection,
+      debouncedUnits,
+      debouncedSeats,
+    ],
     queryFn: () =>
       billingService.getLineQuote(
         selection === "send" ? "send" : "suite",
-        debouncedUnits
+        debouncedUnits,
+        { extraSeats: debouncedSeats }
       ),
     enabled: selection !== "payg",
     retry: false,
@@ -242,6 +265,7 @@ export function PlanPicker({
       const checkout = await startPlanCheckout(planRef, undefined, {
         paymentMethod,
         contacts: unitsToBuy,
+        extraSeats,
       });
       if (!checkout?.paymentUrl) {
         toast.error("Checkout did not return a payment link. Try again.");
@@ -274,11 +298,20 @@ export function PlanPicker({
   const sliderMax = selection === "send" ? SEND_MAX : SUITE_MAX;
   const sliderPct = ((units - sliderMin) / (sliderMax - sliderMin)) * 100;
 
+  // Headline = plan + seats, straight from the quote (backend prices seats with
+  // the same function checkout charges, so this equals what's billed).
+  const headlineMonthly = quote
+    ? (quote.totalMonthlyPrice ?? quote.monthlyPrice)
+    : null;
+  const headlineAnnual = quote
+    ? (quote.totalAnnualPrice ?? quote.annualPrice)
+    : null;
   const priceText = isEmptySuite
     ? "Free"
-    : quote
-      ? usd(quote.monthlyPrice)
+    : headlineMonthly !== null
+      ? usd(headlineMonthly)
       : "…";
+  const includedSeats = includedSeatsForPlan(resolvedPlan);
 
   return (
     <div>
@@ -405,9 +438,7 @@ export function PlanPicker({
                       {units.toLocaleString()}
                     </span>{" "}
                     {selection === "send" ? "subscribers" : "contacts"}
-                    {quote?.annualPrice
-                      ? ` · ${usd(quote.annualPrice)}/yr`
-                      : ""}
+                    {headlineAnnual ? ` · ${usd(headlineAnnual)}/yr` : ""}
                   </>
                 )}
               </p>
@@ -500,6 +531,48 @@ export function PlanPicker({
             />
             {selection !== "send" ? <CoreCapabilities /> : null}
           </div>
+
+          {/* Extra team seats - a delta above the tier's included count. The
+              cost is folded into the headline total above by the quote. */}
+          {!isEmptySuite ? (
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  Team seats
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {includedSeats} included · extra seats {usd(SEAT_PRICE_USD)}
+                  /mo each
+                  {extraSeats > 0 && quote?.seatMonthlyPrice
+                    ? ` · +${usd(quote.seatMonthlyPrice)}/mo`
+                    : ""}
+                </p>
+              </div>
+              <div className="flex items-center rounded-lg border border-border">
+                <button
+                  type="button"
+                  aria-label="Remove a seat"
+                  disabled={extraSeats <= 0}
+                  onClick={() => setExtraSeats((s) => clampExtraSeats(s - 1))}
+                  className="flex size-9 items-center justify-center rounded-l-lg text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                >
+                  <MinusIcon className="size-4" aria-hidden="true" />
+                </button>
+                <span className="w-12 text-center text-sm font-medium tabular-nums text-foreground">
+                  {includedSeats + extraSeats}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Add a seat"
+                  disabled={extraSeats >= MAX_EXTRA_SEATS}
+                  onClick={() => setExtraSeats((s) => clampExtraSeats(s + 1))}
+                  className="flex size-9 items-center justify-center rounded-r-lg text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                >
+                  <PlusIcon className="size-4" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : (
         // Pay-as-you-go: the metered $0 entry, no sizing.

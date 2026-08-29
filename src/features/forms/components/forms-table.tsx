@@ -4,6 +4,7 @@ import {
   ArrowTopRightOnSquareIcon,
   BoltIcon,
   ChevronRightIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import { memo, useEffect, useMemo, useState } from "react";
 
@@ -12,6 +13,17 @@ import { Button } from "@/ui/button";
 import { cn } from "@/lib/utils";
 
 import { type CaptureForm, readFormMeta } from "../forms.service";
+import { useDeleteForm } from "../hooks/use-forms";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog";
 
 const PER_PAGE = 10;
 
@@ -26,6 +38,8 @@ export const FormsTable = memo(function FormsTable({
   onOpen: (form: CaptureForm) => void;
 }) {
   const [page, setPage] = useState(1);
+  const [pendingDelete, setPendingDelete] = useState<CaptureForm | null>(null);
+  const deleteForm = useDeleteForm(() => setPendingDelete(null));
   const totalPages = Math.max(1, Math.ceil(forms.length / PER_PAGE));
 
   // Snap back into range if the list shrinks under the current page.
@@ -137,6 +151,18 @@ export const FormsTable = memo(function FormsTable({
                           />
                         </a>
                       ) : null}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPendingDelete(form);
+                        }}
+                        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        title="Delete form"
+                        aria-label={`Delete ${form.name}`}
+                      >
+                        <TrashIcon className="size-4" aria-hidden="true" />
+                      </button>
                       <ChevronRightIcon
                         className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
                         aria-hidden="true"
@@ -176,6 +202,41 @@ export const FormsTable = memo(function FormsTable({
           </div>
         </div>
       ) : null}
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteForm.isPending) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete form?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes{" "}
+              <span className="font-medium text-foreground">
+                {pendingDelete?.name}
+              </span>{" "}
+              and stops it collecting submissions. This can&apos;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteForm.isPending}>
+              Keep form
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteForm.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDelete) deleteForm.mutate(pendingDelete.id);
+              }}
+            >
+              {deleteForm.isPending ? "Deleting…" : "Delete form"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 });

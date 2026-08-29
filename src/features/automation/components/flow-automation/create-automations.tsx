@@ -303,8 +303,13 @@ function nodeNeedsSetup(type: string | undefined, rawData: unknown): boolean {
   }
   const renderer = ACTION_NODE_RENDERER[t] ?? t;
   switch (renderer) {
-    case "email":
-      return !str("templateId") && !str("templateName") && !str("template");
+    case "email": {
+      // Needs a template (the body) AND a subject. The template model carries no
+      // subject, so the subject lives on the node — and Gmail/Outlook need one.
+      const noTemplate =
+        !str("templateId") && !str("templateName") && !str("template");
+      return noTemplate || !str("subject");
+    }
     case "inapp":
       return !str("title") && !str("body");
     case "tag":
@@ -2505,7 +2510,22 @@ const CreateAutomationContent = () => {
         y: event.clientY - 64, // Adjust for header
       });
 
-      const { rendererType, data } = resolveNodeShape(type, label);
+      const { category, rendererType, data } = resolveNodeShape(type, label);
+      // One trigger per automation — refuse a dragged-in second trigger.
+      if (
+        category === "trigger" &&
+        nodes.some(
+          (n) =>
+            n.type === "trigger" ||
+            (isJsonObject(n.data) &&
+              TRIGGER_NODE_TYPES.has(asString(n.data.triggerType)))
+        )
+      ) {
+        toast.error(
+          "An automation can have only one trigger — remove the current one first."
+        );
+        return;
+      }
       const newNode: Node = {
         id: `${type}-${Date.now()}`,
         type: rendererType,
@@ -2515,7 +2535,7 @@ const CreateAutomationContent = () => {
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [project, setNodes, resolveNodeShape]
+    [project, setNodes, resolveNodeShape, nodes]
   );
 
   const handleNodeClick = (_: React.MouseEvent, node: Node) => {
@@ -2605,7 +2625,23 @@ const CreateAutomationContent = () => {
   }, [nodes, edges, activeInsertEdge, showAnalytics, nodeStatsById]);
 
   const addNode = (type: string, label: string) => {
-    const { rendererType, data } = resolveNodeShape(type, label);
+    const { category, rendererType, data } = resolveNodeShape(type, label);
+    // One trigger per automation — refuse a second (computed from `nodes`
+    // directly to avoid a use-before-define on the memo).
+    if (
+      category === "trigger" &&
+      nodes.some(
+        (n) =>
+          n.type === "trigger" ||
+          (isJsonObject(n.data) &&
+            TRIGGER_NODE_TYPES.has(asString(n.data.triggerType)))
+      )
+    ) {
+      toast.error(
+        "An automation can have only one trigger — remove the current one first."
+      );
+      return;
+    }
     const newNode: Node = {
       id: `${type}-${Date.now()}`,
       type: rendererType,
@@ -2843,16 +2879,18 @@ const CreateAutomationContent = () => {
         })),
     [nodes]
   );
-  const hasTrigger = useMemo(
+  // Exactly one trigger per automation — a flow has a single entry point.
+  const triggerCount = useMemo(
     () =>
-      nodes.some(
+      nodes.filter(
         (n) =>
           n.type === "trigger" ||
           (isJsonObject(n.data) &&
             TRIGGER_NODE_TYPES.has(asString(n.data.triggerType)))
-      ),
+      ).length,
     [nodes]
   );
+  const hasTrigger = triggerCount >= 1;
   // A send-email step needs a verified sending domain, or it can't deliver to
   // Gmail/Outlook (they reject/spam unauthenticated senders). The runtime falls
   // back to the platform sender, but that's poor deliverability — so block
@@ -2878,7 +2916,7 @@ const CreateAutomationContent = () => {
   // half-configured, and a verified sender when it sends email.
   const canActivate =
     builderNodeCount > 0 &&
-    hasTrigger &&
+    triggerCount === 1 &&
     stepsNeedingSetup === 0 &&
     !emailNeedsSender;
 
@@ -2922,15 +2960,17 @@ const CreateAutomationContent = () => {
         note={
           builderNodeCount === 0
             ? "Add at least one step before turning this on."
-            : !hasTrigger
+            : triggerCount === 0
               ? "Add a trigger before turning this on."
-              : incompleteNodes.length > 0
-                ? `Finish these steps first — ${incompleteNodes
-                    .map((n) => n.label)
-                    .join(", ")}.`
-                : emailNeedsSender
-                  ? "Verify a sending domain in Settings before this can send email — Gmail/Outlook reject unauthenticated senders."
-                  : undefined
+              : triggerCount > 1
+                ? `Only one trigger per automation — remove ${triggerCount - 1} extra ${triggerCount - 1 === 1 ? "trigger" : "triggers"}.`
+                : incompleteNodes.length > 0
+                  ? `Finish these steps first — ${incompleteNodes
+                      .map((n) => n.label)
+                      .join(", ")}.`
+                  : emailNeedsSender
+                    ? "Verify a sending domain in Settings before this can send email — Gmail/Outlook reject unauthenticated senders."
+                    : undefined
         }
         confirmLabel="Turn on"
         confirmingLabel="Turning on…"

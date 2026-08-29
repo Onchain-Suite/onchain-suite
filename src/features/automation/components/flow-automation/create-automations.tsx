@@ -836,22 +836,68 @@ function FlowToggle({
 }
 
 /**
- * Right-panel flow-level settings, shown when no node is selected. Re-entry +
- * the three guardrails are org-wide sending caps; local state until the builder
- * settings contract lands.
+ * Right-panel flow-level guardrails, shown when no node is selected. Controlled
+ * by the parent's `flowSettings` (persisted in the graph's `settings` and read
+ * by the runtime) — re-entry policy (onchain-backend #307) + per-contact
+ * frequency cap (#309). Only guardrails the runtime actually enforces are shown.
  */
 const REENTRY_OPTIONS: PropertySelectOption[] = [
-  { value: "never", label: "Never" },
+  { value: "once", label: "Never re-enter" },
   { value: "daily", label: "Once per day" },
   { value: "weekly", label: "Once per week" },
   { value: "always", label: "Always" },
 ];
 
-function FlowSettingsPanel() {
-  const [reentry, setReentry] = useState("never");
-  const [exitOnGoal, setExitOnGoal] = useState(true);
-  const [quietHours, setQuietHours] = useState(true);
-  const [frequencyCap, setFrequencyCap] = useState(true);
+/** Panel choice → runtime contract `{ policy, windowDays }`. */
+function reentryUiToConfig(ui: string): Record<string, unknown> {
+  switch (ui) {
+    case "once":
+      return { policy: "once" };
+    case "daily":
+      return { policy: "window", windowDays: 1 };
+    case "weekly":
+      return { policy: "window", windowDays: 7 };
+    default:
+      return { policy: "always" };
+  }
+}
+function reentryConfigToUi(cfg: unknown): string {
+  const c = isJsonObject(cfg) ? (cfg as Record<string, unknown>) : {};
+  const policy = asString(c.policy);
+  if (policy === "once") return "once";
+  if (policy === "window")
+    return Number(c.windowDays) >= 7 ? "weekly" : "daily";
+  return "always";
+}
+
+function FlowSettingsPanel({
+  value,
+  onChange,
+}: {
+  value: Record<string, unknown>;
+  onChange: (next: Record<string, unknown>) => void;
+}) {
+  const reentryUi = reentryConfigToUi(value.reentry);
+  const freq = isJsonObject(value.frequencyCap)
+    ? (value.frequencyCap as Record<string, unknown>)
+    : null;
+  const freqOn = !!freq && Number(freq.maxPerContact) > 0;
+
+  const setReentry = (ui: string) =>
+    onChange({ ...value, reentry: reentryUiToConfig(ui) });
+  const setFreq = (on: boolean) => {
+    if (on) {
+      onChange({
+        ...value,
+        frequencyCap: { maxPerContact: 1, windowHours: 10 },
+      });
+    } else {
+      const next = { ...value };
+      delete next.frequencyCap;
+      onChange(next);
+    }
+  };
+
   return (
     <div className="hidden w-[344px] shrink-0 overflow-y-auto rounded-xl border border-border bg-card p-6 md:block">
       <h3 className="font-semibold tracking-tight text-foreground">
@@ -861,32 +907,22 @@ function FlowSettingsPanel() {
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm text-foreground">Re-entry</span>
           <PropertySelect
-            value={reentry}
+            value={reentryUi}
             onChange={setReentry}
             className="w-40"
             options={REENTRY_OPTIONS}
           />
         </div>
         <FlowToggle
-          label="Exit on goal"
-          checked={exitOnGoal}
-          onChange={setExitOnGoal}
-        />
-        <FlowToggle
-          label="Respect quiet hours"
-          checked={quietHours}
-          onChange={setQuietHours}
-        />
-        <FlowToggle
           label="Max 1 message / 10h"
-          checked={frequencyCap}
-          onChange={setFrequencyCap}
+          checked={freqOn}
+          onChange={setFreq}
         />
       </div>
       <p className="mt-6 text-xs leading-5 text-muted-foreground">
-        These caps apply across all automations, so a wallet in three flows
-        still hears from you at most once per window. Select a node to configure
-        it.
+        Re-entry limits how often a contact can start this flow; the cap limits
+        how many messages this flow sends one contact per window. Select a node
+        to configure it.
       </p>
     </div>
   );
@@ -906,6 +942,9 @@ const CreateAutomationContent = () => {
     getInitialEdges(automationId)
   );
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  // Flow-level guardrail settings (re-entry policy, frequency cap) persisted in
+  // the graph's `settings` and read by the runtime. Hydrated from the backend.
+  const [flowSettings, setFlowSettings] = useState<Record<string, unknown>>({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showConfetti, setShowConfetti] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -962,6 +1001,9 @@ const CreateAutomationContent = () => {
           ...prev,
           status: asString(record.status) || prev.status,
         }));
+        if (isJsonObject(record.settings)) {
+          setFlowSettings(record.settings as Record<string, unknown>);
+        }
       }
       setSelectedNode(null);
       setShowNodeSelector({ show: false, x: 0, y: 0 });
@@ -1937,7 +1979,11 @@ const CreateAutomationContent = () => {
         });
         const createdId = created.automationId;
         if (createdId) {
-          await automationService.saveBuilder(createdId, { nodes, edges });
+          await automationService.saveBuilder(createdId, {
+            nodes,
+            edges,
+            settings: flowSettings,
+          });
         }
         return { createdId };
       }
@@ -1949,6 +1995,7 @@ const CreateAutomationContent = () => {
       const builder = await automationService.saveBuilder(automationId, {
         nodes,
         edges,
+        settings: flowSettings,
       });
       return { createdId: null as string | null, builder };
     },
@@ -3848,7 +3895,12 @@ const CreateAutomationContent = () => {
                   </motion.div>
                 )}
             </AnimatePresence>
-            {!selectedNode ? <FlowSettingsPanel /> : null}
+            {!selectedNode ? (
+              <FlowSettingsPanel
+                value={flowSettings}
+                onChange={setFlowSettings}
+              />
+            ) : null}
           </>
         ) : (
           /* Stats Tab Content */

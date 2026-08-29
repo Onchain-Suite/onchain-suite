@@ -12,6 +12,7 @@ import {
   BeakerIcon,
   BoltIcon,
   CheckCircleIcon,
+  ChevronDownIcon,
   ClipboardDocumentListIcon,
   ClockIcon,
   Cog6ToothIcon,
@@ -559,6 +560,8 @@ type BuilderSchemaField = {
   type: string;
   required: boolean;
   placeholder?: string;
+  /** Non-essential field: hidden under an "Advanced" disclosure by default. */
+  advanced: boolean;
   options: BuilderSchemaFieldOption[];
 };
 
@@ -673,13 +676,22 @@ const normalizeSchemaFields = (schema: unknown): BuilderSchemaField[] => {
         entry.helperText
       );
       const placeholder = pickText(entry.placeholder);
+      // Show the schema default as placeholder text ("smart defaults, visible")
+      // so an unset field reads as its default rather than an empty required box.
+      const defaultHint =
+        entry.default !== undefined &&
+        entry.default !== null &&
+        typeof entry.default !== "object"
+          ? String(entry.default)
+          : "";
       return {
         key,
         label: pickText(entry.label, entry.title, key) || key,
         description: description || undefined,
         type: rawType,
         required: asBoolean(entry.required),
-        placeholder: placeholder || undefined,
+        placeholder: placeholder || defaultHint || undefined,
+        advanced: asBoolean(entry.advanced),
         options: normalizeSchemaFieldOptions(entry.options ?? entry.enum),
       };
     })
@@ -914,6 +926,9 @@ const CreateAutomationContent = () => {
   >({});
   const [nodeSearch, setNodeSearch] = useState("");
   const [showTriggerPicker, setShowTriggerPicker] = useState(false);
+  // Progressive disclosure: advanced config fields stay collapsed by default so
+  // each node shows only the one or two inputs that matter.
+  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
   // Guard before an automation goes live and starts enrolling contacts.
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
 
@@ -1566,6 +1581,16 @@ const CreateAutomationContent = () => {
           : selectedNodeSchemaQuery.data
       ),
     [selectedNodeData.schema, selectedNodeSchemaQuery.data]
+  );
+  // Split config fields into the essentials (shown) and the advanced ones
+  // (collapsed) so a node's panel is one or two inputs, not a wall of forms.
+  const schemaEssentialFields = useMemo(
+    () => selectedNodeSchemaFields.filter((f) => !f.advanced),
+    [selectedNodeSchemaFields]
+  );
+  const schemaAdvancedFields = useMemo(
+    () => selectedNodeSchemaFields.filter((f) => f.advanced),
+    [selectedNodeSchemaFields]
   );
 
   const updateSelectedNodeData = useCallback(
@@ -3455,98 +3480,164 @@ const CreateAutomationContent = () => {
                             </div>
                           ) : null}
 
-                          {selectedNodeSchemaFields.map((field) => {
-                            const rawValue = selectedNodeData[field.key];
-                            const jsonDraftKey = `${selectedNode ?? "node"}:${field.key}`;
+                          {(() => {
+                            const renderSchemaField = (
+                              field: BuilderSchemaField
+                            ) => {
+                              const rawValue = selectedNodeData[field.key];
+                              const jsonDraftKey = `${selectedNode ?? "node"}:${field.key}`;
 
-                            if (
-                              field.options.length > 0 ||
-                              field.type === "select" ||
-                              field.type === "enum"
-                            ) {
-                              return (
-                                <div key={field.key} className="space-y-2">
-                                  <label className={PROPERTY_LABEL_CLASS}>
-                                    {field.label}
-                                    {field.required ? " *" : ""}
-                                  </label>
-                                  <PropertySelect
-                                    placeholder={
-                                      field.placeholder ??
-                                      `Select ${field.label}`
-                                    }
-                                    value={pickText(rawValue)}
-                                    options={field.options.map((option) => ({
-                                      value: option.value,
-                                      label: option.label,
-                                    }))}
-                                    onChange={(next) =>
-                                      updateSchemaFieldValue(field, next)
-                                    }
-                                  />
-                                  {field.description ? (
-                                    <p className={PROPERTY_HINT_CLASS}>
-                                      {field.description}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              );
-                            }
-
-                            if (
-                              field.type === "boolean" ||
-                              field.type === "toggle"
-                            ) {
-                              return (
-                                <label
-                                  key={field.key}
-                                  className="flex items-start gap-3 rounded-2xl border border-border bg-background px-3 py-3"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    className="mt-1 h-4 w-4 rounded border-border bg-background text-primary"
-                                    checked={asBoolean(rawValue)}
-                                    onChange={(e) =>
-                                      updateSchemaFieldValue(
-                                        field,
-                                        e.target.checked
-                                      )
-                                    }
-                                  />
-                                  <span className="space-y-1">
-                                    <span className="block text-sm font-medium text-foreground">
+                              if (
+                                field.options.length > 0 ||
+                                field.type === "select" ||
+                                field.type === "enum"
+                              ) {
+                                return (
+                                  <div key={field.key} className="space-y-2">
+                                    <label className={PROPERTY_LABEL_CLASS}>
                                       {field.label}
-                                    </span>
+                                      {field.required ? " *" : ""}
+                                    </label>
+                                    <PropertySelect
+                                      placeholder={
+                                        field.placeholder ??
+                                        `Select ${field.label}`
+                                      }
+                                      value={pickText(rawValue)}
+                                      options={field.options.map((option) => ({
+                                        value: option.value,
+                                        label: option.label,
+                                      }))}
+                                      onChange={(next) =>
+                                        updateSchemaFieldValue(field, next)
+                                      }
+                                    />
                                     {field.description ? (
-                                      <span className="block text-[11px] leading-5 text-muted-foreground">
+                                      <p className={PROPERTY_HINT_CLASS}>
                                         {field.description}
-                                      </span>
+                                      </p>
                                     ) : null}
-                                  </span>
-                                </label>
-                              );
-                            }
+                                  </div>
+                                );
+                              }
 
-                            if (
-                              field.type === "object" ||
-                              field.type === "array" ||
-                              field.type === "json"
-                            ) {
-                              const jsonValue =
-                                jsonFieldDrafts[jsonDraftKey] ??
-                                (rawValue === undefined
-                                  ? ""
-                                  : JSON.stringify(rawValue, null, 2));
-                              const isJsonInvalid =
-                                jsonValue.trim().length > 0 &&
-                                (() => {
-                                  try {
-                                    JSON.parse(jsonValue);
-                                    return false;
-                                  } catch {
-                                    return true;
-                                  }
-                                })();
+                              if (
+                                field.type === "boolean" ||
+                                field.type === "toggle"
+                              ) {
+                                return (
+                                  <label
+                                    key={field.key}
+                                    className="flex items-start gap-3 rounded-2xl border border-border bg-background px-3 py-3"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      className="mt-1 h-4 w-4 rounded border-border bg-background text-primary"
+                                      checked={asBoolean(rawValue)}
+                                      onChange={(e) =>
+                                        updateSchemaFieldValue(
+                                          field,
+                                          e.target.checked
+                                        )
+                                      }
+                                    />
+                                    <span className="space-y-1">
+                                      <span className="block text-sm font-medium text-foreground">
+                                        {field.label}
+                                      </span>
+                                      {field.description ? (
+                                        <span className="block text-[11px] leading-5 text-muted-foreground">
+                                          {field.description}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </label>
+                                );
+                              }
+
+                              if (
+                                field.type === "object" ||
+                                field.type === "array" ||
+                                field.type === "json"
+                              ) {
+                                const jsonValue =
+                                  jsonFieldDrafts[jsonDraftKey] ??
+                                  (rawValue === undefined
+                                    ? ""
+                                    : JSON.stringify(rawValue, null, 2));
+                                const isJsonInvalid =
+                                  jsonValue.trim().length > 0 &&
+                                  (() => {
+                                    try {
+                                      JSON.parse(jsonValue);
+                                      return false;
+                                    } catch {
+                                      return true;
+                                    }
+                                  })();
+
+                                return (
+                                  <div key={field.key} className="space-y-2">
+                                    <label className={PROPERTY_LABEL_CLASS}>
+                                      {field.label}
+                                      {field.required ? " *" : ""}
+                                    </label>
+                                    <textarea
+                                      rows={5}
+                                      className={PROPERTY_INPUT_CLASS}
+                                      placeholder={
+                                        field.placeholder ??
+                                        `Enter valid JSON for ${field.label}`
+                                      }
+                                      value={jsonValue}
+                                      onChange={(e) => {
+                                        const nextValue = e.target.value;
+                                        setJsonFieldDrafts((prev) => ({
+                                          ...prev,
+                                          [jsonDraftKey]: nextValue,
+                                        }));
+                                        if (nextValue.trim().length === 0) {
+                                          updateSchemaFieldValue(
+                                            field,
+                                            field.type === "array" ? [] : {}
+                                          );
+                                          return;
+                                        }
+                                        try {
+                                          updateSchemaFieldValue(
+                                            field,
+                                            JSON.parse(nextValue)
+                                          );
+                                        } catch {
+                                          // Keep draft local until the JSON becomes valid.
+                                        }
+                                      }}
+                                    />
+                                    {field.description ? (
+                                      <p className={PROPERTY_HINT_CLASS}>
+                                        {field.description}
+                                      </p>
+                                    ) : null}
+                                    {isJsonInvalid ? (
+                                      <p className="text-[11px] text-amber-300">
+                                        Enter valid JSON to apply this field.
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                );
+                              }
+
+                              const inputType =
+                                field.type === "number" ||
+                                field.type === "integer"
+                                  ? "number"
+                                  : field.type === "date"
+                                    ? "date"
+                                    : "text";
+                              const isTextarea =
+                                field.type === "textarea" ||
+                                field.type === "multiline" ||
+                                field.type === "long_text";
 
                               return (
                                 <div key={field.key} className="space-y-2">
@@ -3554,112 +3645,83 @@ const CreateAutomationContent = () => {
                                     {field.label}
                                     {field.required ? " *" : ""}
                                   </label>
-                                  <textarea
-                                    rows={5}
-                                    className={PROPERTY_INPUT_CLASS}
-                                    placeholder={
-                                      field.placeholder ??
-                                      `Enter valid JSON for ${field.label}`
-                                    }
-                                    value={jsonValue}
-                                    onChange={(e) => {
-                                      const nextValue = e.target.value;
-                                      setJsonFieldDrafts((prev) => ({
-                                        ...prev,
-                                        [jsonDraftKey]: nextValue,
-                                      }));
-                                      if (nextValue.trim().length === 0) {
+                                  {isTextarea ? (
+                                    <AutoGrowTextarea
+                                      className={PROPERTY_INPUT_CLASS}
+                                      placeholder={field.placeholder}
+                                      value={String(rawValue ?? "")}
+                                      onChange={(e) =>
                                         updateSchemaFieldValue(
                                           field,
-                                          field.type === "array" ? [] : {}
-                                        );
-                                        return;
+                                          e.target.value
+                                        )
                                       }
-                                      try {
+                                    />
+                                  ) : (
+                                    <input
+                                      type={inputType}
+                                      className={PROPERTY_INPUT_CLASS}
+                                      placeholder={field.placeholder}
+                                      value={
+                                        rawValue === undefined ||
+                                        rawValue === null
+                                          ? ""
+                                          : String(rawValue)
+                                      }
+                                      onChange={(e) =>
                                         updateSchemaFieldValue(
                                           field,
-                                          JSON.parse(nextValue)
-                                        );
-                                      } catch {
-                                        // Keep draft local until the JSON becomes valid.
+                                          inputType === "number"
+                                            ? e.target.value === ""
+                                              ? ""
+                                              : Number(e.target.value)
+                                            : e.target.value
+                                        )
                                       }
-                                    }}
-                                  />
+                                    />
+                                  )}
                                   {field.description ? (
                                     <p className={PROPERTY_HINT_CLASS}>
                                       {field.description}
                                     </p>
                                   ) : null}
-                                  {isJsonInvalid ? (
-                                    <p className="text-[11px] text-amber-300">
-                                      Enter valid JSON to apply this field.
-                                    </p>
-                                  ) : null}
                                 </div>
                               );
-                            }
-
-                            const inputType =
-                              field.type === "number" ||
-                              field.type === "integer"
-                                ? "number"
-                                : field.type === "date"
-                                  ? "date"
-                                  : "text";
-                            const isTextarea =
-                              field.type === "textarea" ||
-                              field.type === "multiline" ||
-                              field.type === "long_text";
-
+                            };
                             return (
-                              <div key={field.key} className="space-y-2">
-                                <label className={PROPERTY_LABEL_CLASS}>
-                                  {field.label}
-                                  {field.required ? " *" : ""}
-                                </label>
-                                {isTextarea ? (
-                                  <AutoGrowTextarea
-                                    className={PROPERTY_INPUT_CLASS}
-                                    placeholder={field.placeholder}
-                                    value={String(rawValue ?? "")}
-                                    onChange={(e) =>
-                                      updateSchemaFieldValue(
-                                        field,
-                                        e.target.value
-                                      )
-                                    }
-                                  />
-                                ) : (
-                                  <input
-                                    type={inputType}
-                                    className={PROPERTY_INPUT_CLASS}
-                                    placeholder={field.placeholder}
-                                    value={
-                                      rawValue === undefined ||
-                                      rawValue === null
-                                        ? ""
-                                        : String(rawValue)
-                                    }
-                                    onChange={(e) =>
-                                      updateSchemaFieldValue(
-                                        field,
-                                        inputType === "number"
-                                          ? e.target.value === ""
-                                            ? ""
-                                            : Number(e.target.value)
-                                          : e.target.value
-                                      )
-                                    }
-                                  />
-                                )}
-                                {field.description ? (
-                                  <p className={PROPERTY_HINT_CLASS}>
-                                    {field.description}
-                                  </p>
+                              <>
+                                {schemaEssentialFields.map(renderSchemaField)}
+                                {schemaAdvancedFields.length > 0 ? (
+                                  <div className="space-y-4 border-t border-border/60 pt-4">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setShowAdvancedConfig((v) => !v)
+                                      }
+                                      className="flex w-full items-center justify-between text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"
+                                    >
+                                      <span>
+                                        Advanced ({schemaAdvancedFields.length})
+                                      </span>
+                                      <ChevronDownIcon
+                                        aria-hidden="true"
+                                        className={`h-4 w-4 transition-transform ${
+                                          showAdvancedConfig ? "rotate-180" : ""
+                                        }`}
+                                      />
+                                    </button>
+                                    {showAdvancedConfig ? (
+                                      <div className="space-y-4">
+                                        {schemaAdvancedFields.map(
+                                          renderSchemaField
+                                        )}
+                                      </div>
+                                    ) : null}
+                                  </div>
                                 ) : null}
-                              </div>
+                              </>
                             );
-                          })}
+                          })()}
                         </div>
                       ) : null}
 

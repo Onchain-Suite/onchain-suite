@@ -349,6 +349,25 @@ export const automationService = {
   },
 
   /**
+   * Events a specific contract emits (decoded from its recent on-chain logs),
+   * for the trigger's Event dropdown. Backed lazily + cached server-side, with a
+   * catalog fallback, so it's safe to fetch on contract-select.
+   */
+  getContractEvents(chain: string, address: string, orgId?: string) {
+    return request<{
+      events: { value: string; label: string; topic0?: string }[];
+      source: "live" | "catalog";
+    }>(
+      {
+        method: "GET",
+        url: "/automations/builder/onchain/contract-events",
+        params: { chain, address },
+      },
+      orgId
+    );
+  },
+
+  /**
    * `GET /events/catalog` - distinct Custom Events API event names from the
    * last 30 days, for app_event trigger autocomplete (docs/backend.md
    * 2026-07-21). Ingestion itself is server-to-server (`POST /events`,

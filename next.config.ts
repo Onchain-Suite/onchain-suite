@@ -47,6 +47,52 @@ const HOSTED_FORM_CSP_REPORT_ONLY = [
   "report-uri /api/csp-report",
 ].join("; ");
 
+/**
+ * App-wide CSP (report-only for now). Broader than the hosted-form policy: the
+ * authenticated app also loads Clarity analytics, Cloudinary images and Google
+ * Fonts, and talks to its own same-origin `/api/v1` proxy + `/ws/*` sockets.
+ * Ships REPORT-ONLY so violations land at `/api/csp-report` without breaking a
+ * page; tighten from the real reports, then flip the key to
+ * `Content-Security-Policy` to enforce. Kept intentionally without a blanket
+ * `https:` so genuine cross-origin egress shows up in the report.
+ */
+const APP_CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'",
+  "form-action 'self'",
+  // 'unsafe-inline'/'unsafe-eval' reflect what Next.js needs today; the report
+  // stream will tell us what can be dropped on the way to a nonce-based policy.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.clarity.ms",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "img-src 'self' data: blob: https://res.cloudinary.com https://*.clarity.ms",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "connect-src 'self' https://*.clarity.ms https://challenges.cloudflare.com",
+  "frame-src 'self' https://challenges.cloudflare.com",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  "report-uri /api/csp-report",
+].join("; ");
+
+/** Baseline security headers for the whole app. All safe to enforce today. */
+const appSecurityHeaders = [
+  { key: "Content-Security-Policy-Report-Only", value: APP_CSP_REPORT_ONLY },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=()",
+  },
+  { key: "X-DNS-Prefetch-Control", value: "off" },
+  // Ignored over plain HTTP (dev); enforces HTTPS in production.
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
+];
+
 const hostedFormSecurityHeaders = [
   {
     key: "Content-Security-Policy-Report-Only",
@@ -67,6 +113,8 @@ const hostedFormSecurityHeaders = [
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // Don't advertise the framework/version to every visitor.
+  poweredByHeader: false,
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -96,8 +144,10 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
-      // Scope the hardening to the public hosted-form pages only, so the
-      // authenticated app is untouched by this phase.
+      // App-wide baseline. The negative lookahead excludes /f/ so the hosted
+      // form keeps its own stricter policy below and no header is set twice.
+      { source: "/((?!f/).*)", headers: appSecurityHeaders },
+      // The public hosted-form pages keep their tighter, form-specific policy.
       { source: "/f/:path*", headers: hostedFormSecurityHeaders },
     ];
   },

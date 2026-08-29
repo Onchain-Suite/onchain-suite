@@ -424,7 +424,7 @@ export function AudienceSelector({
                   <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                     No segments yet. Create one in{" "}
                     <Link
-                      href="/intelligence/segments/create"
+                      href="/intelligence?tab=segments"
                       className="font-medium text-primary underline underline-offset-2"
                     >
                       Intelligence → Segments

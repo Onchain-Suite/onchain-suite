@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircleIcon } from "@heroicons/react/24/solid";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { CaptureFieldSpec, FormDisplaySettings } from "../forms.service";
 import { FormRenderer } from "./form-renderer";
@@ -23,6 +23,14 @@ export interface HostedFormConfig {
   settings: Record<string, unknown>;
   display: FormDisplaySettings;
   zkEnabled: boolean;
+  /**
+   * Form-level GDPR consent gate (backend `requireConsent`). Enforced on submit
+   * server-side regardless of the field list, so when it's on the page must show
+   * a consent checkbox — see `effectiveFields` below.
+   */
+  requireConsent?: boolean;
+  /** The exact consent copy to show (and record as the proof snapshot). */
+  consentText?: string | null;
 }
 
 interface WalletProof {
@@ -77,9 +85,31 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
+  // The fields the page actually renders. When the form carries a form-level
+  // consent requirement but no explicit `consent` field, synthesize the
+  // checkbox: the backend rejects a require-consent submission that arrives
+  // without `consent: true`, so without this the form would render fine and then
+  // silently fail every submission.
+  const effectiveFields = useMemo<CaptureFieldSpec[]>(() => {
+    const fields = config.fields ?? [];
+    const hasConsent = fields.some((f) => (f.type ?? "text") === "consent");
+    if (config.requireConsent && !hasConsent) {
+      return [
+        ...fields,
+        {
+          key: "__consent",
+          type: "consent",
+          required: true,
+          ...(config.consentText ? { label: config.consentText } : {}),
+        } as CaptureFieldSpec,
+      ];
+    }
+    return fields;
+  }, [config.fields, config.requireConsent, config.consentText]);
+
   const hasField = useCallback(
-    (type: string) => config.fields.some((f) => (f.type ?? "text") === type),
-    [config.fields]
+    (type: string) => effectiveFields.some((f) => (f.type ?? "text") === type),
+    [effectiveFields]
   );
 
   const connectWallet = useCallback(async () => {
@@ -157,14 +187,20 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
       setError("Connect your wallet to continue.");
       return;
     }
-    const consentField = config.fields.find(
+    const consentField = effectiveFields.find(
       (f) => (f.type ?? "text") === "consent"
     );
     if (consentField && !consent) {
       setError("Please accept the consent to continue.");
       return;
     }
-    for (const field of config.fields) {
+    // The exact wording shown, recorded verbatim as the lawful-basis proof.
+    const shownConsentText = consentField
+      ? (consentField.label ??
+        config.consentText ??
+        config.display.consentLabel)
+      : null;
+    for (const field of effectiveFields) {
       const type = field.type ?? "text";
       if (!field.required) continue;
       if (type === "email" || type === "text") {
@@ -185,6 +221,7 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
           body: JSON.stringify({
             fields: values,
             consent,
+            ...(shownConsentText ? { consentText: shownConsentText } : {}),
             wallet: wallet
               ? {
                   address: wallet.address,
@@ -209,8 +246,10 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
       setSubmitting(false);
     }
   }, [
-    config.fields,
+    effectiveFields,
     config.token,
+    config.consentText,
+    config.display,
     values,
     consent,
     wallet,
@@ -249,7 +288,7 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
   return (
     <FormRenderer
       name={config.name}
-      fields={config.fields}
+      fields={effectiveFields}
       settings={config.settings}
       zkEnabled={config.zkEnabled}
       live={{

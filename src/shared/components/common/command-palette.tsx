@@ -187,7 +187,7 @@ const ACTION_OPTIONS: PaletteOption[] = [
     group: "actions",
     keywords: ["new", "segment", "audience", "filter"],
     icon: <FunnelIcon className="h-4 w-4" aria-hidden="true" />,
-    data: { kind: "navigate", href: "/intelligence/segments/create" },
+    data: { kind: "navigate", href: "/intelligence?tab=segments" },
   },
   {
     id: "action-import-contacts",

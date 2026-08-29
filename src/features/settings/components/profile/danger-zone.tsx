@@ -9,7 +9,7 @@ import { apiClient } from "@/lib/api-client";
 import { signOut } from "@/lib/auth-client";
 import { isJsonObject } from "@/lib/utils";
 
-import SettingsSectionCard from "@/features/settings/components/settings-section-card";
+import { SettingsCard } from "@/features/settings/components/settings-card";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -69,17 +69,11 @@ export default function DangerZone() {
   });
 
   return (
-    <SettingsSectionCard
+    <SettingsCard
       title="Danger zone"
       description="Permanently delete your account and the workspaces only you belong to."
-      icon={<ExclamationTriangleIcon aria-hidden="true" className="h-5 w-5" />}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-xl text-sm text-muted-foreground">
-          Deleting your account removes your profile and every workspace where
-          you are the only member. Workspaces with other members must be
-          transferred first - your team is never deleted out from under them.
-        </p>
+      className="border-destructive/40"
+      action={
         <Button
           variant="destructive"
           className="shrink-0 rounded-xl"
@@ -90,6 +84,18 @@ export default function DangerZone() {
         >
           Delete account
         </Button>
+      }
+    >
+      <div className="flex items-start gap-3">
+        <ExclamationTriangleIcon
+          aria-hidden="true"
+          className="mt-0.5 size-5 shrink-0 text-destructive"
+        />
+        <p className="max-w-xl text-sm text-muted-foreground">
+          Deleting your account removes your profile and every workspace where
+          you are the only member. Workspaces with other members must be
+          transferred first - your team is never deleted out from under them.
+        </p>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -137,6 +143,6 @@ export default function DangerZone() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </SettingsSectionCard>
+    </SettingsCard>
   );
 }

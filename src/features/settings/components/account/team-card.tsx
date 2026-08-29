@@ -2,13 +2,20 @@
 
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { apiClient } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 import { SettingsCard } from "../settings-card";
 import { useAccountOrg } from "./use-account-org";
+import { billingService } from "@/features/billing/billing.service";
+import {
+  includedSeatsForPlan,
+  SEAT_PRICE_USD,
+} from "@/features/billing/seat-pricing";
 import {
   type AssignableRole,
   organizationMembersService,
@@ -50,6 +57,18 @@ export function TeamCard() {
       ]);
       return { members, invites };
     },
+  });
+
+  // Seat usage. Prefer the backend's seats meter; fall back to counting members
+  // + pending invites against the plan's included allowance so the card still
+  // shows "X of Y" before the meter is populated.
+  const planUsageQuery = useQuery({
+    queryKey: ["billing", "plan-usage", organizationId],
+    enabled: Boolean(organizationId),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+    queryFn: () => billingService.getPlanUsage(organizationId ?? undefined),
   });
 
   const invalidate = () =>
@@ -135,6 +154,19 @@ export function TeamCard() {
   const isEmpty =
     !membersQuery.isLoading && members.length === 0 && invites.length === 0;
 
+  const seatMeter = planUsageQuery.data?.meters?.seats;
+  const seatLimit =
+    seatMeter?.limit ??
+    (planUsageQuery.data?.plan
+      ? includedSeatsForPlan(planUsageQuery.data.plan)
+      : undefined);
+  const seatUsed = seatMeter?.used ?? members.length + invites.length;
+  const hasSeatMeter = typeof seatLimit === "number" && seatLimit > 0;
+  const seatsFull = hasSeatMeter && seatUsed >= seatLimit;
+  const seatPercent = hasSeatMeter
+    ? Math.min(100, Math.round((seatUsed / seatLimit) * 100))
+    : 0;
+
   return (
     <SettingsCard
       title="Team"
@@ -152,6 +184,39 @@ export function TeamCard() {
         ) : null
       }
     >
+      {hasSeatMeter ? (
+        <div className="mb-4 rounded-xl border border-border/60 bg-background/40 p-4">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium text-foreground">Seats</span>
+            <span className="tabular-nums text-muted-foreground">
+              {seatUsed} of {seatLimit} used
+            </span>
+          </div>
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className={cn(
+                "h-full rounded-full transition-[width] duration-300",
+                seatsFull ? "bg-amber-500" : "bg-primary"
+              )}
+              style={{ width: `${seatPercent}%` }}
+            />
+          </div>
+          {seatsFull ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              All {seatLimit} seats are in use. Add more at ${SEAT_PRICE_USD}/mo
+              each from{" "}
+              <Link
+                href="/settings?tab=billing"
+                className="font-medium text-foreground underline-offset-2 hover:underline"
+              >
+                Billing
+              </Link>
+              .
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {inviting ? (
         <form
           className="mb-4 grid gap-3 rounded-xl border border-border/60 bg-background/40 p-4 sm:grid-cols-[1fr_auto]"

@@ -1,6 +1,7 @@
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import { billingService, type PlanCheckoutSlug } from "./billing.service";
+import { clampExtraSeats } from "./seat-pricing";
 
 /**
  * Blockradar crypto checkout flow (docs/backend.md):
@@ -220,7 +221,12 @@ export interface StartPlanCheckoutResult {
 export async function startPlanCheckout(
   planName: string,
   organizationId?: string,
-  options?: { paymentMethod?: "crypto" | "card"; contacts?: number }
+  options?: {
+    paymentMethod?: "crypto" | "card";
+    contacts?: number;
+    /** Seats above the tier's included count (a delta, 0-50). */
+    extraSeats?: number;
+  }
 ): Promise<StartPlanCheckoutResult | null> {
   const slug = planCheckoutSlug(planName);
   if (!slug) return null;
@@ -238,6 +244,10 @@ export async function startPlanCheckout(
       ? Math.round(options.contacts)
       : undefined;
 
+  // Extra seats are a delta above the tier's included count; the backend caps
+  // and prices them by the same function the quote uses (shown == charged).
+  const extraSeats = clampExtraSeats(options?.extraSeats);
+
   let res;
   try {
     res = await billingService.checkoutPlan({
@@ -245,6 +255,7 @@ export async function startPlanCheckout(
       organizationId: orgId,
       billingCycle: "monthly",
       ...(contacts ? { contacts } : {}),
+      ...(extraSeats > 0 ? { extraSeats } : {}),
       ...(options?.paymentMethod === "card"
         ? { paymentMethod: "card" as const }
         : {}),

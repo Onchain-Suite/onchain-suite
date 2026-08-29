@@ -3,6 +3,8 @@ import type { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import { clampExtraSeats, SEAT_PRICE_USD } from "./seat-pricing";
+
 export type BillingPeriod = "month" | "current";
 
 export type BillingPlanName = "Growth" | "Pro" | "Enterprise";
@@ -350,6 +352,17 @@ export interface LineQuote {
     monthlyPrice: number;
     stepUp: number;
   } | null;
+  /** Extra seats above the tier's included count (echoed from the request). */
+  extraSeats?: number;
+  /** Monthly $ for the extra seats alone (0 when none). */
+  seatMonthlyPrice?: number;
+  seatAnnualPrice?: number | null;
+  /**
+   * Plan + seats. This is what a customer pays, so it is what the UI must show:
+   * driving the headline off this keeps shown == charged when seats are added.
+   */
+  totalMonthlyPrice?: number;
+  totalAnnualPrice?: number | null;
 }
 
 const suiteFallbackLineQuote = (contacts: number): LineQuote => {
@@ -402,20 +415,49 @@ export const computeFallbackSendPricing = (subscribers: number): LineQuote => {
   };
 };
 
+/**
+ * Fold an extra-seat surcharge onto a fallback quote at the SSOT rate. Only used
+ * when the backend quote is unavailable (everything is already a client estimate
+ * there); the live path prefers the backend's own seat fields.
+ */
+const withSeatFallback = (quote: LineQuote, extraSeats: number): LineQuote => {
+  const seats = clampExtraSeats(extraSeats);
+  if (seats <= 0) return quote;
+  const seatMonthly = seats * SEAT_PRICE_USD;
+  const baseAnnual = quote.annualPrice ?? quote.monthlyPrice * 12;
+  return {
+    ...quote,
+    extraSeats: seats,
+    seatMonthlyPrice: seatMonthly,
+    seatAnnualPrice: seatMonthly * 12,
+    totalMonthlyPrice: quote.monthlyPrice + seatMonthly,
+    totalAnnualPrice: baseAnnual + seatMonthly * 12,
+  };
+};
+
 const normalizeLineQuote = (
   payload: unknown,
   line: "suite" | "send",
-  requested: number
+  requested: number,
+  requestedSeats = 0
 ): LineQuote => {
   const root = isJsonObject(payload)
     ? ((payload.data ?? payload) as Record<string, unknown>)
     : {};
   const monthly = num(root.monthlyPrice ?? root.price);
   if (monthly === null || monthly < 0) {
-    return line === "send"
-      ? computeFallbackSendPricing(requested)
-      : suiteFallbackLineQuote(requested);
+    return withSeatFallback(
+      line === "send"
+        ? computeFallbackSendPricing(requested)
+        : suiteFallbackLineQuote(requested),
+      requestedSeats
+    );
   }
+  // Prefer the backend's authoritative seat line; fall back to the SSOT rate
+  // only when the response omits it (older backend).
+  const extraSeats = clampExtraSeats(num(root.extraSeats) ?? requestedSeats);
+  const seatMonthly = num(root.seatMonthlyPrice) ?? extraSeats * SEAT_PRICE_USD;
+  const totalMonthly = num(root.totalMonthlyPrice) ?? monthly + seatMonthly;
   const nt = isJsonObject(root.nextTier) ? root.nextTier : null;
   const band = isJsonObject(root.band) ? root.band : undefined;
   return {
@@ -446,6 +488,11 @@ const normalizeLineQuote = (
           stepUp: num(nt.stepUp) ?? 0,
         }
       : null,
+    extraSeats,
+    seatMonthlyPrice: seatMonthly,
+    seatAnnualPrice: num(root.seatAnnualPrice) ?? seatMonthly * 12,
+    totalMonthlyPrice: totalMonthly,
+    totalAnnualPrice: num(root.totalAnnualPrice) ?? totalMonthly * 12,
   };
 };
 
@@ -496,6 +543,13 @@ export interface PlanCheckoutRequest {
    * capacity. On payment the backend writes `metadata.billing.contactCapacity`.
    */
   contacts?: number;
+  /**
+   * Seats to buy ABOVE the tier's included count (a DELTA, 0-50, not a total).
+   * Priced at $10/seat by the same `seatSurcharge` `GET /billing/quote` uses, so
+   * shown == charged by construction. On payment the backend raises
+   * `metadata.billing.seatCapacity`. Belongs on `checkout/plan`, not upgrade*.
+   */
+  extraSeats?: number;
 }
 
 /**
@@ -903,23 +957,38 @@ export const billingService = {
   getLineQuote(
     line: "suite" | "send",
     units: number,
-    options?: BillingServiceOptions
+    options?: BillingServiceOptions & {
+      /** Seats ABOVE the tier's included count (a delta, 0-50). */
+      extraSeats?: number;
+      billingCycle?: "monthly" | "annual";
+    }
   ): Promise<LineQuote> {
     const min = line === "send" ? SEND_MIN_SUBSCRIBERS : 0;
     const safe = Math.max(min, Math.round(Number.isFinite(units) ? units : 0));
+    const extraSeats = clampExtraSeats(options?.extraSeats);
     return billingRequest<unknown>(
       {
         method: "GET",
         url: "/billing/quote",
-        params: { plan: line, units: safe },
+        params: {
+          plan: line,
+          units: safe,
+          ...(extraSeats > 0 ? { extraSeats } : {}),
+          ...(options?.billingCycle
+            ? { billingCycle: options.billingCycle }
+            : {}),
+        },
       },
       options
     )
-      .then((payload) => normalizeLineQuote(payload, line, safe))
+      .then((payload) => normalizeLineQuote(payload, line, safe, extraSeats))
       .catch(() =>
-        line === "send"
-          ? computeFallbackSendPricing(safe)
-          : suiteFallbackLineQuote(safe)
+        withSeatFallback(
+          line === "send"
+            ? computeFallbackSendPricing(safe)
+            : suiteFallbackLineQuote(safe),
+          extraSeats
+        )
       );
   },
 

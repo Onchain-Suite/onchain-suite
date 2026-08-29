@@ -377,7 +377,10 @@ export const automationService = {
   getContractEvents(chain: string, address: string, orgId?: string) {
     return request<{
       events: { value: string; label: string; topic0?: string }[];
-      source: "live" | "catalog";
+      // A chosen contract resolves to its own events; `empty`/`unavailable`/
+      // `unsupported` describe why there are none. `catalog` is only the
+      // no-contract browse list.
+      source: "live" | "empty" | "unavailable" | "unsupported" | "catalog";
     }>(
       {
         method: "GET",

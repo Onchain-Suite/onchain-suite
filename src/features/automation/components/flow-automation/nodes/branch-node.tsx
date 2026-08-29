@@ -53,6 +53,9 @@ export const BranchNode = ({ data, selected }: BranchNodeProps) => (
         <p className="text-sm font-semibold tracking-tight text-foreground">
           {data.label}
         </p>
+        <p className="truncate text-xs text-muted-foreground">
+          Sends each contact down a path based on a condition
+        </p>
       </div>
     </div>
     <div className="mt-2.5 flex justify-between rounded-lg border border-border bg-muted/60 px-3 py-2 text-xs">

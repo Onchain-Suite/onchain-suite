@@ -159,7 +159,7 @@ export function ContactSlideOver({
             </SheetHeader>
 
             <div className="space-y-6 p-6">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-border bg-card p-4">
                   <p className="text-xs text-muted-foreground">
                     Lifetime value

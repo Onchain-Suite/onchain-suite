@@ -1143,6 +1143,11 @@ function FlowSettingsPanel({
           value={goalEvent}
           onChange={(e) => setGoal(e.target.value, goalWindow)}
         />
+        <p className={`${PROPERTY_HINT_CLASS} mt-2`}>
+          The action that means this flow worked — a purchase, a swap. When an
+          enrolled contact fires this event within the window, it counts as a
+          conversion on the Stats tab. Leave blank to skip.
+        </p>
         {goalEvent ? (
           <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
             <span>within</span>
@@ -1477,14 +1482,23 @@ const CreateAutomationContent = () => {
     staleTime: 300_000,
   });
 
-  // Chain picker options — dynamic from the backend catalog (all supported
-  // mainnets), falling back to the static list while the catalog loads.
+  // Chain picker options — dynamic from the backend catalog (every supported
+  // network), falling back to the static list while the catalog loads. Mainnets
+  // list first; testnets follow, tagged so a test deployment on Sepolia/Amoy is
+  // reachable (teams trigger off testnets before going to mainnet).
   const chainOptions = useMemo<PropertySelectOption[]>(() => {
     const chains = onchainCatalogQuery.data?.chains ?? [];
     if (chains.length === 0) return CHAIN_OPTIONS;
+    const mainnets = chains.filter((c) => !c.testnet);
+    const testnets = chains.filter((c) => c.testnet);
     return [
       { value: "all", label: "All chains" },
-      ...chains.map((c) => ({ value: c.slug, label: c.label })),
+      ...mainnets.map((c) => ({ value: c.slug, label: c.label })),
+      ...testnets.map((c) => ({
+        value: c.slug,
+        label: c.label,
+        hint: "testnet",
+      })),
     ];
   }, [onchainCatalogQuery.data]);
 
@@ -2308,14 +2322,32 @@ const CreateAutomationContent = () => {
       const matched = asNumber(
         (result as Record<string, unknown> | undefined)?.matchedAutomations
       );
-      const parts = [
-        matched > 0 ? `${matched.toLocaleString()} matching automations` : null,
-        entries > 0 ? `${entries.toLocaleString()} entries queued` : null,
-      ].filter((part): part is string => Boolean(part));
+      // The runtime always accepts the event, so a bare "sent" tells the user
+      // nothing about whether the flow actually reacted. Report the three real
+      // outcomes distinctly instead.
+      if (matched <= 0) {
+        toast.warning(
+          "Test event delivered, but no live automation matched it. " +
+            "Activate this flow, then check the trigger's chain, event and " +
+            "contract line up with the test."
+        );
+        return;
+      }
+      if (entries <= 0) {
+        toast.info(
+          `Matched ${matched.toLocaleString()} automation${
+            matched === 1 ? "" : "s"
+          }, but nobody was enrolled — re-entry or the frequency cap likely ` +
+            "skipped this test contact."
+        );
+        return;
+      }
       toast.success(
-        parts.length > 0
-          ? `Test trigger sent: ${parts.join(" · ")}`
-          : "Test trigger sent"
+        `Test event enrolled ${entries.toLocaleString()} ${
+          entries === 1 ? "entry" : "entries"
+        } across ${matched.toLocaleString()} automation${
+          matched === 1 ? "" : "s"
+        }. Open the Entries tab to watch it run.`
       );
     },
     onError: (err) => {
@@ -2453,10 +2485,32 @@ const CreateAutomationContent = () => {
       const validation = await validateMutation.mutateAsync();
       const errors = pickArray(
         isJsonObject(validation) ? validation.errors : undefined
-      );
+      ) as Array<{ code?: string; message?: string; nodeId?: string }>;
       if (errors.length > 0) {
         setIsSaving(false);
-        toast.error("Builder has validation errors");
+        // Name the offending step(s) instead of a blank "has errors". Node-
+        // scoped errors carry a nodeId (mapped back to the node's label);
+        // graph-level ones (empty flow, missing trigger) don't. Jump the
+        // properties panel to the first node that failed so the fix is one
+        // click away.
+        const labelFor = (id: string) => {
+          const node = nodes.find((n) => n.id === id);
+          const data = isJsonObject(node?.data) ? node?.data : undefined;
+          const label = data ? asString(data.label).trim() : "";
+          if (label !== "") return label;
+          return node?.type ?? "a step";
+        };
+        const firstWithNode = errors.find((e) => e?.nodeId);
+        if (firstWithNode?.nodeId) setSelectedNode(firstWithNode.nodeId);
+        const lines = errors
+          .slice(0, 3)
+          .map((e) =>
+            e?.nodeId
+              ? `${labelFor(e.nodeId)} — ${e.message ?? "needs setup"}`
+              : (e?.message ?? "Invalid flow")
+          );
+        const more = errors.length > 3 ? ` (+${errors.length - 3} more)` : "";
+        toast.error(`Can't save yet: ${lines.join("; ")}${more}`);
         return;
       }
       saveMutation.mutate();
@@ -3246,6 +3300,12 @@ const CreateAutomationContent = () => {
                   }}
                   snapToGrid
                   snapGrid={[24, 24]}
+                  // Without this, ANY pointer movement between press and release
+                  // is treated as a drag and onNodeClick never fires — so only a
+                  // pixel-perfect tap (which happened to land on the title) would
+                  // open the editor. A few px of slop makes the whole card a
+                  // reliable click target.
+                  nodeDragThreshold={5}
                   fitView
                   fitViewOptions={{ maxZoom: 1, minZoom: 0.85, padding: 0.15 }}
                   minZoom={0.5}
@@ -3590,11 +3650,38 @@ const CreateAutomationContent = () => {
                                   );
                                 }}
                               />
-                              {selectedTriggerHasImpliedEvent && (
+                              {/* Escape hatch: the select only lists saved
+                                  contracts. Pasting any deployed address here
+                                  drives the same live event resolution, so a
+                                  contract that isn't in project settings yet
+                                  (a fresh testnet deploy) still works. */}
+                              <input
+                                type="text"
+                                className={PROPERTY_INPUT_CLASS}
+                                placeholder="…or paste a contract address (0x…)"
+                                spellCheck={false}
+                                value={asString(
+                                  selectedNodeData.contractAddress
+                                )}
+                                onChange={(e) => {
+                                  const address = e.target.value.trim();
+                                  updateSelectedNodeData({
+                                    contractAddress: address,
+                                    contract: address,
+                                  });
+                                }}
+                              />
+                              {selectedTriggerHasImpliedEvent ? (
                                 <p className={PROPERTY_HINT_CLASS}>
                                   That&rsquo;s all this trigger needs — it fires
                                   automatically on the matching on-chain
                                   activity for this contract.
+                                </p>
+                              ) : (
+                                <p className={PROPERTY_HINT_CLASS}>
+                                  Pick a saved contract or paste an address,
+                                  then choose its chain below to load that
+                                  contract&rsquo;s events.
                                 </p>
                               )}
                             </div>
@@ -3726,23 +3813,47 @@ const CreateAutomationContent = () => {
                               }}
                             />
                           </div>
-                          {selectedTemplate?.category ||
-                          selectedTemplate?.source ? (
-                            <div className="flex flex-wrap gap-2">
-                              {selectedTemplate?.category ? (
-                                <span className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] text-muted-foreground">
-                                  {selectedTemplate.category}
-                                </span>
-                              ) : null}
-                              {"source" in (selectedTemplate ?? {}) &&
-                              typeof selectedTemplate?.source === "string" &&
-                              selectedTemplate.source.length > 0 ? (
-                                <span className="rounded-full border border-sky-500/20 bg-primary/10 px-2.5 py-1 text-[11px] text-primary">
-                                  {selectedTemplate.source}
-                                </span>
-                              ) : null}
-                            </div>
-                          ) : null}
+                          <div className="space-y-2">
+                            <label className={PROPERTY_LABEL_CLASS}>
+                              Subject line
+                            </label>
+                            <input
+                              type="text"
+                              className={PROPERTY_INPUT_CLASS}
+                              value={asString(selectedNodeData.subject)}
+                              onChange={(e) =>
+                                updateSelectedNodeData({
+                                  subject: e.target.value,
+                                })
+                              }
+                              placeholder="What lands in the inbox subject line"
+                            />
+                            <p className={PROPERTY_HINT_CLASS}>
+                              Required — Gmail and Outlook reject mail with no
+                              subject. Choosing a template fills this in; edit
+                              to override.
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <label className={PROPERTY_LABEL_CLASS}>
+                              Preview text
+                            </label>
+                            <input
+                              type="text"
+                              className={PROPERTY_INPUT_CLASS}
+                              value={asString(selectedNodeData.previewText)}
+                              onChange={(e) =>
+                                updateSelectedNodeData({
+                                  previewText: e.target.value,
+                                })
+                              }
+                              placeholder="Preheader shown after the subject"
+                            />
+                            <p className={PROPERTY_HINT_CLASS}>
+                              Optional — the snippet inbox clients show next to
+                              the subject line.
+                            </p>
+                          </div>
                           <div className="space-y-2">
                             <label className={PROPERTY_LABEL_CLASS}>
                               Send as

@@ -15,7 +15,11 @@ export const EmailNode = ({ data, selected }: EmailNodeProps) => {
     (typeof data.templateName === "string" && data.templateName) ||
     (typeof data.template === "string" && data.template) ||
     "";
-  const needsSetup = templateLabel.length === 0;
+  // A deliverable email needs both a template (the body) and a subject — the
+  // go-live gate blocks activation without a subject, so the dot must flag it
+  // too, otherwise the node looks complete while go-live refuses it.
+  const hasSubject = (data.subject?.trim() ?? "").length > 0;
+  const needsSetup = templateLabel.length === 0 || !hasSubject;
   const subtitle = needsSetup
     ? "Needs setup"
     : (data.subject?.trim() ?? "").length > 0

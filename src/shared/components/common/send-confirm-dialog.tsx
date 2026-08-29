@@ -37,6 +37,9 @@ interface SendConfirmDialogProps {
   cancelLabel?: string;
   /** Disables the buttons and shows a spinner on the confirm action. */
   confirming?: boolean;
+  /** Blocks the confirm action (e.g. the automation still has incomplete steps).
+   *  Unlike `confirming` it shows no spinner — the action simply isn't allowed. */
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   icon?: ComponentType<SVGProps<SVGSVGElement>>;
 }
@@ -61,6 +64,7 @@ export function SendConfirmDialog({
   confirmingLabel,
   cancelLabel = "Cancel",
   confirming = false,
+  confirmDisabled = false,
   onConfirm,
   icon: Icon = PaperAirplaneIcon,
 }: SendConfirmDialogProps) {
@@ -124,7 +128,11 @@ export function SendConfirmDialog({
           >
             {cancelLabel}
           </Button>
-          <Button type="button" onClick={onConfirm} disabled={confirming}>
+          <Button
+            type="button"
+            onClick={onConfirm}
+            disabled={confirming || confirmDisabled}
+          >
             {confirming ? (
               <>
                 <ArrowPathIcon

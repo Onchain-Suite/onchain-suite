@@ -23,6 +23,11 @@ interface RawPublicForm {
   fields?: CaptureFieldSpec[];
   settings?: Record<string, unknown>;
   zkEnabled?: boolean;
+  // Form-level GDPR consent gate. The backend enforces `requireConsent` on
+  // submit regardless of the field list, so the page must render a checkbox for
+  // it — otherwise a require-consent form silently rejects every submission.
+  requireConsent?: boolean;
+  consentText?: string | null;
 }
 
 async function fetchPublicForm(token: string): Promise<RawPublicForm | null> {
@@ -103,6 +108,8 @@ export default async function HostedFormPage({
     settings: form.settings ?? {},
     display: readDisplaySettings(form.settings),
     zkEnabled: Boolean(form.zkEnabled),
+    requireConsent: Boolean(form.requireConsent),
+    consentText: form.consentText ?? null,
   };
 
   return (

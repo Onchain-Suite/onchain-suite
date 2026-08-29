@@ -14,7 +14,6 @@ import {
   BoltIcon,
   ChartBarIcon,
   CheckCircleIcon,
-  ChevronDownIcon,
   ClipboardDocumentListIcon,
   ClockIcon,
   Cog6ToothIcon,
@@ -1201,9 +1200,6 @@ const CreateAutomationContent = () => {
   >({});
   const [nodeSearch, setNodeSearch] = useState("");
   const [showTriggerPicker, setShowTriggerPicker] = useState(false);
-  // Progressive disclosure: advanced config fields stay collapsed by default so
-  // each node shows only the one or two inputs that matter.
-  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
   // Guard before an automation goes live and starts enrolling contacts.
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
 
@@ -1844,6 +1840,17 @@ const CreateAutomationContent = () => {
   const selectedIsTag = isSelectedRenderer("tag");
   const selectedIsList = isSelectedRenderer("list");
   const selectedIsWait = isSelectedRenderer("wait");
+  // Action nodes have their own dedicated config panels above, so the generic
+  // schema "Configuration" dump is redundant noise for them - hide it. It stays
+  // for off-chain triggers (segment/form) where it is still the only config.
+  const selectedHasDedicatedPanel =
+    selectedIsEmail ||
+    selectedIsInapp ||
+    selectedIsWebhook ||
+    selectedIsDispatch ||
+    selectedIsTag ||
+    selectedIsList ||
+    selectedIsWait;
   const selectedTemplate = useMemo(() => {
     const templateId = asString(selectedNodeData.templateId);
     return (
@@ -1965,14 +1972,11 @@ const CreateAutomationContent = () => {
       ),
     [selectedNodeData.schema, selectedNodeSchemaQuery.data]
   );
-  // Split config fields into the essentials (shown) and the advanced ones
-  // (collapsed) so a node's panel is one or two inputs, not a wall of forms.
+  // Only the essential (non-advanced) config fields are shown - the low-level
+  // advanced fields (topic0, filters…) are dropped so a node's panel is the one
+  // or two inputs that matter, not a wall of forms.
   const schemaEssentialFields = useMemo(
     () => selectedNodeSchemaFields.filter((f) => !f.advanced),
-    [selectedNodeSchemaFields]
-  );
-  const schemaAdvancedFields = useMemo(
-    () => selectedNodeSchemaFields.filter((f) => f.advanced),
     [selectedNodeSchemaFields]
   );
 
@@ -3566,15 +3570,8 @@ const CreateAutomationContent = () => {
                           {!isNew ? (
                             <div className="rounded-2xl border border-primary/15 bg-primary/5 p-3.5">
                               <div className="flex items-center justify-between gap-3">
-                                <div>
-                                  <div className="text-xs font-medium text-foreground">
-                                    Test runtime trigger
-                                  </div>
-                                  <div className="mt-1 text-[11px] leading-5 text-muted-foreground">
-                                    Sends a preview event through the backend
-                                    runtime ingestion endpoint for this trigger
-                                    type.
-                                  </div>
+                                <div className="text-xs font-medium text-foreground">
+                                  Test runtime trigger
                                 </div>
                                 <button
                                   type="button"
@@ -4104,12 +4101,13 @@ const CreateAutomationContent = () => {
 
                       {/* The schema-driven CONFIGURATION section is the low-level
                           field dump (event source, standard, topic0, filters…).
-                          EVERY on-chain trigger — generic and preset — is fully
-                          covered by the simplified panel above (token + event +
-                          chain), so hide it for all of them. Off-chain triggers
-                          (segment/form/email) and action nodes still render it —
-                          that's where their only config (segmentId, template, …)
-                          lives. */}
+                          Hidden for on-chain triggers (covered by the simplified
+                          token+event+chain panel above) AND for action nodes,
+                          which now have their own dedicated panels. It stays only
+                          for off-chain triggers (segment/form), where it is still
+                          the only place their config (segmentId, formId, …) is
+                          edited - remove it there only once those get a real
+                          panel. */}
                       {/* A/B split variants — a friendly editor instead of the raw
                           JSON the schema would render. Weights are relative. */}
                       {selectedNodeSchemaType === "split"
@@ -4210,13 +4208,14 @@ const CreateAutomationContent = () => {
 
                       {!selectedTriggerIsOnchain &&
                       selectedNodeSchemaType !== "split" &&
+                      !selectedHasDedicatedPanel &&
                       (selectedNodeSchemaQuery.isFetching ||
                         selectedNodeSchemaFields.length > 0 ||
                         selectedNodeSchemaQuery.error instanceof Error) ? (
                         <div className="space-y-4 rounded-[20px] border border-border bg-card p-4">
                           <div className="flex items-center justify-between gap-3">
                             <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
-                              Configuration
+                              Trigger setup
                             </div>
                             {selectedNodeSchemaQuery.isFetching ? (
                               <ArrowPathIcon
@@ -4444,34 +4443,6 @@ const CreateAutomationContent = () => {
                             return (
                               <>
                                 {schemaEssentialFields.map(renderSchemaField)}
-                                {schemaAdvancedFields.length > 0 ? (
-                                  <div className="space-y-4 border-t border-border/60 pt-4">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setShowAdvancedConfig((v) => !v)
-                                      }
-                                      className="flex w-full items-center justify-between text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"
-                                    >
-                                      <span>
-                                        Advanced ({schemaAdvancedFields.length})
-                                      </span>
-                                      <ChevronDownIcon
-                                        aria-hidden="true"
-                                        className={`h-4 w-4 transition-transform ${
-                                          showAdvancedConfig ? "rotate-180" : ""
-                                        }`}
-                                      />
-                                    </button>
-                                    {showAdvancedConfig ? (
-                                      <div className="space-y-4">
-                                        {schemaAdvancedFields.map(
-                                          renderSchemaField
-                                        )}
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                ) : null}
                               </>
                             );
                           })()}
@@ -4550,15 +4521,11 @@ const CreateAutomationContent = () => {
                           </div>
                         ) : (
                           <div className="rounded-xl border border-dashed border-border bg-muted/30 px-3.5 py-4 text-[11px] leading-5 text-muted-foreground">
-                            Conversions, active users, click rate, and revenue
-                            for this step populate automatically once the
-                            automation is published and starts processing
-                            entries. Draft nodes show no data. See the full
-                            breakdown any time in the{" "}
+                            No data yet - see the full breakdown in the{" "}
                             <span className="font-medium text-foreground">
                               Stats
                             </span>{" "}
-                            tab.
+                            tab once published.
                           </div>
                         )}
                       </div>

@@ -593,6 +593,26 @@ export const automationService = {
     );
   },
 
+  /** Per-node funnel (reached / completed / dropped) + overall enrolled → completed. */
+  getFlowAnalytics(automationId: string, orgId?: string) {
+    return request<{
+      automationId: string;
+      overall: { enrolled: number; completed: number; completionRate: number };
+      nodes: {
+        nodeId: string;
+        type: string | null;
+        reached: number;
+        completed: number;
+        skipped: number;
+        failed: number;
+        dropped: number;
+      }[];
+    }>(
+      { method: "GET", url: `/automations/${automationId}/flow-analytics` },
+      orgId
+    );
+  },
+
   getStatsPreview(automationId: string, orgId?: string) {
     return request<Record<string, unknown>>(
       { method: "GET", url: `/automations/${automationId}/stats/preview` },

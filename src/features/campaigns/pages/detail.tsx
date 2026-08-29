@@ -5,13 +5,14 @@ import {
   DevicePhoneMobileIcon,
   DocumentDuplicateIcon,
   EnvelopeIcon,
+  PencilIcon,
   PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import { ArrowTrendingUpIcon } from "@heroicons/react/24/solid";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -214,6 +215,35 @@ export function CampaignDetailPage({ id }: { id: string }) {
       toast.error(e instanceof Error ? e.message : "Failed to duplicate"),
   });
 
+  // Inline title rename - name-only PUT that works whatever the status (the
+  // name isn't locked after a campaign is sent).
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+
+  const renameMutation = useMutation({
+    mutationFn: (next: string) =>
+      campaignsService.updateCampaign(id, { name: next }),
+    onSuccess: (_res, next) => {
+      queryClient.setQueryData<Campaign | undefined>(
+        ["campaigns", "detail", id],
+        (prev) => (prev ? { ...prev, name: next } : prev)
+      );
+      queryClient.invalidateQueries({ queryKey: ["campaigns", "list"] });
+      setIsEditingName(false);
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Couldn't rename campaign"),
+  });
+
+  const submitRename = () => {
+    const next = nameDraft.trim();
+    if (!next || next === campaign?.name) {
+      setIsEditingName(false);
+      return;
+    }
+    renameMutation.mutate(next);
+  };
+
   // This campaign's headline rates - prefer the precise per-channel analytics,
   // fall back to the list row.
   const rates = useMemo(() => {
@@ -312,9 +342,42 @@ export function CampaignDetailPage({ id }: { id: string }) {
             <ArrowLeftIcon className="size-4" aria-hidden="true" />
             Campaigns
           </Link>
-          <h1 className="truncate text-lg font-semibold text-foreground">
-            {campaign.name}
-          </h1>
+          {isEditingName ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              disabled={renameMutation.isPending}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={submitRename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") {
+                  setNameDraft(campaign.name);
+                  setIsEditingName(false);
+                }
+              }}
+              aria-label="Campaign name"
+              className="min-w-0 max-w-[16rem] rounded-md border border-input bg-background px-2 py-0.5 text-lg font-semibold text-foreground focus:ring-2 focus:ring-ring focus:outline-none sm:max-w-xs"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setNameDraft(campaign.name);
+                setIsEditingName(true);
+              }}
+              className="group/name flex min-w-0 items-center gap-1.5"
+              title="Rename campaign"
+            >
+              <span className="truncate text-lg font-semibold text-foreground">
+                {campaign.name}
+              </span>
+              <PencilIcon
+                aria-hidden="true"
+                className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/name:opacity-100"
+              />
+            </button>
+          )}
           <span
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium",

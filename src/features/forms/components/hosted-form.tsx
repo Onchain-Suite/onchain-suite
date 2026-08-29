@@ -16,6 +16,24 @@ function getInjectedProvider(): Eip1193Provider | null {
   return eth ?? null;
 }
 
+/**
+ * Pull a human-readable string out of an API error payload. Backends return the
+ * error as a plain string OR a nested object ({ error: { message } }); passing
+ * the object straight to `new Error()` renders the dreaded "[object Object]".
+ */
+function errText(payload: unknown, fallback: string): string {
+  if (payload && typeof payload === "object") {
+    const root = payload as { error?: unknown; message?: unknown };
+    const candidate = root.error ?? root.message;
+    if (typeof candidate === "string" && candidate.trim()) return candidate;
+    if (candidate && typeof candidate === "object") {
+      const nested = (candidate as { message?: unknown }).message;
+      if (typeof nested === "string" && nested.trim()) return nested;
+    }
+  }
+  return fallback;
+}
+
 export interface HostedFormConfig {
   token: string;
   name: string;
@@ -97,37 +115,44 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
       const address = accounts?.[0];
       if (!address) throw new Error("No account returned by the wallet.");
 
-      const nonceRes = await fetch(
-        `/api/forms/${encodeURIComponent(config.token)}/nonce?wallet=${address}`
-      );
-      const noncePayload = (await nonceRes.json().catch(() => ({}))) as {
-        nonce?: string;
-        message?: string;
-        data?: { nonce?: string; message?: string };
-        error?: string;
-      };
-      if (!nonceRes.ok) {
-        throw new Error(noncePayload.error ?? "Couldn't start verification.");
+      // The address is the identity we need - capture it up front so a connected
+      // wallet is never lost to a hiccup in the optional ownership proof below.
+      setWallet({ address, signature: "", nonce: "" });
+
+      // Best-effort signature proof (nonce -> personal_sign). If the
+      // verification service is unavailable we keep the address-only connection
+      // rather than failing the whole connect.
+      try {
+        const nonceRes = await fetch(
+          `/api/forms/${encodeURIComponent(config.token)}/nonce?wallet=${address}`
+        );
+        const noncePayload = (await nonceRes.json().catch(() => ({}))) as {
+          nonce?: string;
+          message?: string;
+          data?: { nonce?: string; message?: string };
+        };
+        const nonce = noncePayload.nonce ?? noncePayload.data?.nonce ?? "";
+        if (nonceRes.ok && nonce) {
+          const message =
+            noncePayload.message ??
+            noncePayload.data?.message ??
+            `Sign in to ${config.name}: ${nonce}`;
+          const signature = (await provider.request({
+            method: "personal_sign",
+            params: [message, address],
+          })) as string;
+          setWallet({ address, signature, nonce });
+        }
+      } catch {
+        // Signature declined or verification unavailable - the connected
+        // address still stands; submission proceeds with it.
       }
-      const nonce = noncePayload.nonce ?? noncePayload.data?.nonce ?? "";
-      const message =
-        noncePayload.message ??
-        noncePayload.data?.message ??
-        `Sign in to ${config.name}: ${nonce}`;
-      if (!nonce) throw new Error("Verification nonce missing.");
-
-      const signature = (await provider.request({
-        method: "personal_sign",
-        params: [message, address],
-      })) as string;
-
-      setWallet({ address, signature, nonce });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Wallet connection failed.";
-      // 4001 = user rejected
+      // 4001 = user rejected the connection request
       setError(
         msg.includes("4001") || msg.toLowerCase().includes("reject")
-          ? "Signature request was rejected."
+          ? "Wallet connection was rejected."
           : msg
       );
     } finally {
@@ -197,10 +222,10 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
         }
       );
       const payload = (await res.json().catch(() => ({}))) as {
-        error?: string;
+        error?: unknown;
         pendingConfirmation?: boolean;
       };
-      if (!res.ok) throw new Error(payload.error ?? "Submission failed.");
+      if (!res.ok) throw new Error(errText(payload, "Submission failed."));
       setPendingConfirmation(payload.pendingConfirmation === true);
       setDone(true);
     } catch (e) {

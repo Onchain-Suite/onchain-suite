@@ -142,11 +142,26 @@ export type OnchainCatalogDefinition = {
   defaultConfig?: Record<string, unknown>;
 };
 
+/** One issue from the builder `validate` endpoint. `nodeId` is set for
+ *  node-scoped errors so the UI can point at the offending step; graph-level
+ *  errors (empty flow, missing trigger) omit it. */
+export type BuilderValidationIssue = {
+  code?: string;
+  message?: string;
+  nodeId?: string;
+};
+
 export type OnchainCatalogResponse = {
   source: string;
-  /** All supported mainnets from the backend registry — the chain picker's
-   *  source of truth. `slug` is the stored value (the runtime resolves it). */
-  chains?: { slug: string; label: string; family: string }[];
+  /** All supported networks from the backend registry — the chain picker's
+   *  source of truth. `slug` is the stored value (the runtime resolves it).
+   *  `testnet` lets the picker group mainnets and testnets separately. */
+  chains?: {
+    slug: string;
+    label: string;
+    family: string;
+    testnet?: boolean;
+  }[];
   chainFamilies: { id: string; label: string; chains: string[] }[];
   definitions: OnchainCatalogDefinition[];
 };
@@ -312,7 +327,10 @@ export const automationService = {
     orgId?: string
   ) {
     return request<
-      { errors?: unknown[]; warnings?: unknown[] } & Record<string, unknown>
+      {
+        errors?: BuilderValidationIssue[];
+        warnings?: BuilderValidationIssue[];
+      } & Record<string, unknown>
     >(
       {
         method: "POST",

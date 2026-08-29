@@ -1,6 +1,10 @@
 "use client";
 
-import { BoltIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowTopRightOnSquareIcon,
+  BoltIcon,
+  ChevronRightIcon,
+} from "@heroicons/react/24/outline";
 import { memo, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/ui/button";
@@ -116,10 +120,28 @@ export const FormsTable = memo(function FormsTable({
                     </span>
                   </td>
                   <td className="py-4 pl-2 text-right">
-                    <ChevronRightIcon
-                      className="ml-auto size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-                      aria-hidden="true"
-                    />
+                    <div className="flex items-center justify-end gap-1">
+                      {surface === "Hosted" && form.publicToken ? (
+                        <a
+                          href={`/f/${form.publicToken}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          title="Open hosted page"
+                          aria-label={`Open hosted page for ${form.name}`}
+                        >
+                          <ArrowTopRightOnSquareIcon
+                            className="size-4"
+                            aria-hidden="true"
+                          />
+                        </a>
+                      ) : null}
+                      <ChevronRightIcon
+                        className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
+                    </div>
                   </td>
                 </tr>
               );

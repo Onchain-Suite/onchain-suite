@@ -8,6 +8,63 @@ const pickNonEmpty = (...values: Array<string | undefined | null>) => {
   return "";
 };
 
+/**
+ * Security headers for the PUBLIC hosted-form route (`/f/:token`).
+ *
+ * These pages render tenant-defined content (field labels, presentation) and,
+ * critically, live on the SAME registrable domain as the authenticated app —
+ * and the Better Auth session cookie is scoped `Domain=onchainsuite.com`
+ * (cross-subdomain), so it rides along on this origin. There is no XSS sink
+ * today (everything is React-escaped; no dangerouslySetInnerHTML), but this is
+ * the belt-and-braces: shrink what a hosted page is allowed to do so that a
+ * future injection can't phone home or be framed.
+ *
+ * Phase 1 ships the CSP in REPORT-ONLY mode so we can watch real violations
+ * before flipping it to enforcing — a botched enforced CSP would blank the page
+ * for every visitor. The non-CSP headers below are safe to enforce immediately.
+ *
+ * `frame-ancestors 'none'` is safe here because the embeddable widget is a raw
+ * <form> that posts straight to the API — it never iframes `/f/` — so nothing
+ * legitimately frames this page.
+ */
+const HOSTED_FORM_CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  "base-uri 'none'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  // Turnstile (Cloudflare) is the only third party the form loads.
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "img-src 'self' data: https:",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  // Submissions go through the same-origin proxy (/api/forms/*); no direct
+  // cross-origin egress. This is the line that stops data exfiltration.
+  "connect-src 'self' https://challenges.cloudflare.com",
+  "frame-src https://challenges.cloudflare.com",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  "report-uri /api/csp-report",
+].join("; ");
+
+const hostedFormSecurityHeaders = [
+  {
+    key: "Content-Security-Policy-Report-Only",
+    value: HOSTED_FORM_CSP_REPORT_ONLY,
+  },
+  // Standalone page — never legitimately framed. Blocks clickjacking.
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  // The form's public token sits in the URL path; never leak the full URL to a
+  // third party via Referer.
+  { key: "Referrer-Policy", value: "no-referrer" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=()",
+  },
+  { key: "X-DNS-Prefetch-Control", value: "off" },
+];
+
 const nextConfig: NextConfig = {
   /* config options here */
   typescript: {
@@ -36,6 +93,13 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  async headers() {
+    return [
+      // Scope the hardening to the public hosted-form pages only, so the
+      // authenticated app is untouched by this phase.
+      { source: "/f/:path*", headers: hostedFormSecurityHeaders },
+    ];
   },
   async rewrites() {
     const devDefault = "http://127.0.0.1:3333/api/v1";

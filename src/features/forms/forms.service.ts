@@ -279,9 +279,20 @@ export const formsService = {
     });
   },
 
-  /** Export all submissions as CSV (server streams a file). */
-  submissionsCsvUrl(id: string) {
-    return `/api/v1/forms/${id}/submissions/export.csv`;
+  /**
+   * Export all submissions as a CSV blob. Goes through the authed client so the
+   * `x-org-id` header is attached - a plain `<a href>` download can't send it,
+   * which is why the old link-based export came back empty / unauthorized.
+   */
+  exportSubmissionsCsv(id: string, orgId?: string) {
+    return request<Blob>(
+      {
+        method: "GET",
+        url: `/forms/${id}/submissions/export.csv`,
+        responseType: "blob",
+      },
+      orgId
+    );
   },
 };
 

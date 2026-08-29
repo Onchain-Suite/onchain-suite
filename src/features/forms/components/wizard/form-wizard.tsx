@@ -27,6 +27,7 @@ import {
   type CaptureFieldSpec,
   type CaptureFieldType,
   DEFAULT_TIMING,
+  formsService,
   readFormMeta,
   writeFormMeta,
 } from "../../forms.service";
@@ -89,7 +90,13 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
   const surface = surfaceForStyle(style);
 
   const create = useCreateForm((form) => {
-    router.push(`/forms/${form.id}`);
+    // New forms start as DRAFT (like automations and campaigns) - live only on
+    // explicit publish. POST /forms has no status field, so set it right after
+    // create via PATCH; a failure here can't block creation.
+    const openBuilder = () => router.push(`/forms/${form.id}`);
+    formsService
+      .updateForm(form.id, { status: "draft" })
+      .then(openBuilder, openBuilder);
   });
 
   const selectStyle = (id: FormStyleId) => setStyle(id);

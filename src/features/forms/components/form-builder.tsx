@@ -190,7 +190,7 @@ export function FormBuilder({ id }: { id: string }) {
   // Staged edits, seeded from the loaded form.
   const [name, setName] = useState("");
   const [tag, setTag] = useState("");
-  const [status, setStatus] = useState("active");
+  const [status, setStatus] = useState("draft");
   const [origins, setOrigins] = useState("");
   const [listId, setListId] = useState<string>("");
   const [fields, setFields] = useState<CaptureFieldSpec[]>([]);

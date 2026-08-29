@@ -90,6 +90,7 @@ import {
   type EdgeInsertTarget,
 } from "./addable-edge";
 import { AutoGrowTextarea } from "./auto-grow-textarea";
+import { AutomationBuilderSkeleton } from "./automation-builder-skeleton";
 import {
   AddToListNode,
   BranchNode,
@@ -2826,6 +2827,13 @@ const CreateAutomationContent = () => {
   );
   const stepsNeedingSetup = Math.max(builderErrorCount, needsSetupCount);
 
+  // While an existing automation's graph hydrates, show the layout-matching
+  // skeleton instead of the empty chrome + spinner - same shape the route-level
+  // loading.tsx renders, so there's no jump.
+  if (!isNew && builderQuery.isLoading) {
+    return <AutomationBuilderSkeleton />;
+  }
+
   return (
     <motion.div
       variants={{
@@ -3190,20 +3198,6 @@ const CreateAutomationContent = () => {
                   ) : null}
                 </ReactFlow>
               </EdgeInsertContext.Provider>
-
-              {!isNew && builderQuery.isLoading ? (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/50 px-6 backdrop-blur-[2px]">
-                  <div className="rounded-2xl border border-border bg-card px-5 py-4 shadow-xl">
-                    <div className="flex items-center gap-3 text-sm text-foreground">
-                      <ArrowPathIcon
-                        aria-hidden="true"
-                        className="h-4 w-4 animate-spin text-primary"
-                      />
-                      Loading automation builder...
-                    </div>
-                  </div>
-                </div>
-              ) : null}
 
               {nodes.length === 0 ? (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">

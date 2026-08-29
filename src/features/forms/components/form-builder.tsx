@@ -612,10 +612,7 @@ export function FormBuilder({ id }: { id: string }) {
         ) : tab === "submissions" ? (
           <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto p-6">
             <div className="mx-auto max-w-5xl">
-              <SubmissionsTab
-                formId={id}
-                csvUrl={`/api/v1/forms/${id}/submissions/export.csv`}
-              />
+              <SubmissionsTab formId={id} />
             </div>
           </div>
         ) : (
@@ -806,7 +803,10 @@ function TimingPanel({
           onValueChange={(v) => set({ pages: v })}
           disabled={meta.surface === "hosted"}
         >
-          <SelectTrigger className="h-9" aria-label="Where it shows">
+          <SelectTrigger
+            className="h-9 w-full min-w-0"
+            aria-label="Where it shows"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -834,7 +834,10 @@ function TimingPanel({
               value={t.trigger}
               onValueChange={(v) => set({ trigger: v as FormTrigger })}
             >
-              <SelectTrigger className="h-9" aria-label="When it appears">
+              <SelectTrigger
+                className="h-9 w-full min-w-0"
+                aria-label="When it appears"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -871,7 +874,10 @@ function TimingPanel({
           ) : null}
           <Field label="Frequency">
             <Select value={t.freq} onValueChange={(v) => set({ freq: v })}>
-              <SelectTrigger className="h-9" aria-label="Frequency">
+              <SelectTrigger
+                className="h-9 w-full min-w-0"
+                aria-label="Frequency"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -959,7 +965,10 @@ function SettingsPanel({
             value={meta.type}
             onValueChange={(v) => setType(v as FormCaptureType)}
           >
-            <SelectTrigger className="h-9" aria-label="Form type">
+            <SelectTrigger
+              className="h-9 w-full min-w-0"
+              aria-label="Form type"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -987,7 +996,10 @@ function SettingsPanel({
               value={meta.style}
               onValueChange={(v) => setStyle(v as FormStyleId)}
             >
-              <SelectTrigger className="h-9" aria-label="Widget style">
+              <SelectTrigger
+                className="h-9 w-full min-w-0"
+                aria-label="Widget style"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1123,7 +1135,10 @@ function SettingsPanel({
             value={listId || "none"}
             onValueChange={(v) => onListId(v === "none" ? "" : v)}
           >
-            <SelectTrigger className="h-9" aria-label="Add subscribers to list">
+            <SelectTrigger
+              className="h-9 w-full min-w-0"
+              aria-label="Add subscribers to list"
+            >
               <SelectValue placeholder="No list" />
             </SelectTrigger>
             <SelectContent>
@@ -1159,7 +1174,10 @@ function SettingsPanel({
               setAfter({ onCompletion: v as FormCompletion })
             }
           >
-            <SelectTrigger className="h-9" aria-label="On completion">
+            <SelectTrigger
+              className="h-9 w-full min-w-0"
+              aria-label="On completion"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1215,7 +1233,10 @@ function SettingsPanel({
               })
             }
           >
-            <SelectTrigger className="h-9" aria-label="Automation">
+            <SelectTrigger
+              className="h-9 w-full min-w-0"
+              aria-label="Automation"
+            >
               <SelectValue placeholder="Choose an automation" />
             </SelectTrigger>
             <SelectContent>

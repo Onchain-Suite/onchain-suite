@@ -181,6 +181,9 @@ export function FormBuilder({ id }: { id: string }) {
 
   const [tab, setTab] = useState<Tab>("build");
   const [buildTab, setBuildTab] = useState<BuildTab>("fields");
+  // On narrow screens the config aside and the preview can't sit side by side,
+  // so a phone shows one at a time via this toggle (both show together on lg).
+  const [mobilePane, setMobilePane] = useState<"edit" | "preview">("edit");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
@@ -505,11 +508,38 @@ export function FormBuilder({ id }: { id: string }) {
         </div>
       </header>
 
+      {/* Mobile-only Edit/Preview switch: the aside + preview can't share a
+          phone width, so show one at a time. Hidden from lg up where both fit. */}
+      {tab === "build" ? (
+        <div className="flex shrink-0 gap-1 border-b border-border p-2 lg:hidden">
+          {(["edit", "preview"] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setMobilePane(p)}
+              className={cn(
+                "flex-1 rounded-lg py-2 text-sm font-medium capitalize transition-colors",
+                mobilePane === p
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <div className="flex min-h-0 flex-1">
         {tab === "build" ? (
           <>
             {/* Left config panel */}
-            <aside className="flex w-80 shrink-0 flex-col border-r border-border">
+            <aside
+              className={cn(
+                "w-full shrink-0 flex-col border-border lg:flex lg:w-80 lg:border-r",
+                mobilePane === "edit" ? "flex" : "hidden"
+              )}
+            >
               <div className="flex gap-4 border-b border-border px-4">
                 {(["fields", "display", "settings"] as const).map((tt) => (
                   <button
@@ -570,7 +600,12 @@ export function FormBuilder({ id }: { id: string }) {
             </aside>
 
             {/* Preview canvas */}
-            <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto bg-muted/30 p-6">
+            <div
+              className={cn(
+                "scrollbar-sleek min-h-0 flex-1 overflow-y-auto bg-muted/30 p-4 sm:p-6 lg:block",
+                mobilePane === "preview" ? "block" : "hidden"
+              )}
+            >
               <FormPreviewStage
                 name={name}
                 fields={fields}

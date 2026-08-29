@@ -144,6 +144,9 @@ export type OnchainCatalogDefinition = {
 
 export type OnchainCatalogResponse = {
   source: string;
+  /** All supported mainnets from the backend registry — the chain picker's
+   *  source of truth. `slug` is the stored value (the runtime resolves it). */
+  chains?: { slug: string; label: string; family: string }[];
   chainFamilies: { id: string; label: string; chains: string[] }[];
   definitions: OnchainCatalogDefinition[];
 };

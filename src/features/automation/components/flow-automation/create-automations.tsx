@@ -1472,6 +1472,17 @@ const CreateAutomationContent = () => {
     staleTime: 300_000,
   });
 
+  // Chain picker options — dynamic from the backend catalog (all supported
+  // mainnets), falling back to the static list while the catalog loads.
+  const chainOptions = useMemo<PropertySelectOption[]>(() => {
+    const chains = onchainCatalogQuery.data?.chains ?? [];
+    if (chains.length === 0) return CHAIN_OPTIONS;
+    return [
+      { value: "all", label: "All chains" },
+      ...chains.map((c) => ({ value: c.slug, label: c.label })),
+    ];
+  }, [onchainCatalogQuery.data]);
+
   const contractCatalog = useMemo(() => {
     const backendContracts = builderContractsQuery.data?.contracts ?? [];
     if (backendContracts.length > 0) {
@@ -3550,7 +3561,7 @@ const CreateAutomationContent = () => {
                               <PropertySelect
                                 placeholder="All chains"
                                 value={asString(selectedNodeData.chain)}
-                                options={CHAIN_OPTIONS}
+                                options={chainOptions}
                                 onChange={(next) =>
                                   updateSelectedNodeData({ chain: next })
                                 }

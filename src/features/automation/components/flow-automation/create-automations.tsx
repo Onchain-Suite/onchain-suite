@@ -1591,6 +1591,44 @@ const CreateAutomationContent = () => {
   const selectedTriggerHasImpliedEvent =
     selectedTriggerIsOnchain &&
     !GENERIC_ONCHAIN_TRIGGER_TYPES.has(selectedNodeSchemaType);
+  // Selected contract → its own events. Fetched lazily (only when a contract is
+  // picked) and cached; the backend falls back to the well-known catalog, so
+  // this is always safe and the dropdown always has options.
+  const selectedContractAddress = pickText(
+    selectedNodeData.contractAddress,
+    selectedNodeData.contract
+  );
+  const selectedTriggerChain =
+    pickText(selectedNodeData.chain) || "eth-mainnet";
+  const contractEventsQuery = useQuery({
+    queryKey: [
+      "automations",
+      "builder",
+      "contract-events",
+      selectedTriggerChain,
+      selectedContractAddress,
+    ],
+    queryFn: () =>
+      automationService.getContractEvents(
+        selectedTriggerChain,
+        selectedContractAddress
+      ),
+    enabled:
+      selectedTriggerIsOnchain &&
+      !selectedTriggerHasImpliedEvent &&
+      selectedContractAddress.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60 * 60 * 1000,
+  });
+  const contractEventOptions = useMemo(
+    () =>
+      (contractEventsQuery.data?.events ?? []).map((e) => ({
+        value: e.value,
+        label: e.label,
+      })),
+    [contractEventsQuery.data]
+  );
   const selectedNodeSchemaQuery = useQuery({
     queryKey: [
       "automations",
@@ -2961,9 +2999,23 @@ const CreateAutomationContent = () => {
                                   Event
                                 </label>
                                 <PropertySelect
-                                  placeholder="Select event"
+                                  placeholder={
+                                    !selectedContractAddress
+                                      ? "Select a contract first"
+                                      : contractEventsQuery.isFetching
+                                        ? "Loading events…"
+                                        : "Select event"
+                                  }
+                                  disabled={!selectedContractAddress}
                                   value={asString(selectedNodeData.event)}
-                                  options={eventOptions}
+                                  // Events for the SELECTED contract; the global
+                                  // catalog is the fallback (backend `source:
+                                  // catalog`, or before a contract is picked).
+                                  options={
+                                    contractEventOptions.length > 0
+                                      ? contractEventOptions
+                                      : eventOptions
+                                  }
                                   onChange={(next) => {
                                     const def =
                                       eventDefinitionByValue.get(next);
@@ -2985,6 +3037,12 @@ const CreateAutomationContent = () => {
                                     });
                                   }}
                                 />
+                                {selectedContractAddress &&
+                                contractEventsQuery.data?.source === "live" ? (
+                                  <p className={PROPERTY_HINT_CLASS}>
+                                    Events indexed on this contract.
+                                  </p>
+                                ) : null}
                               </div>
                             )}
                           {selectedTriggerIsOnchain && (
@@ -3499,11 +3557,13 @@ const CreateAutomationContent = () => {
 
                       {/* The schema-driven CONFIGURATION section is the low-level
                           field dump (event source, standard, topic0, filters…).
-                          Preset on-chain triggers imply all of that from their
-                          type, so the simplified panel above is all they need —
-                          hide this section for them. The generic "On-chain event"
-                          trigger and actions still render it. */}
-                      {!selectedTriggerHasImpliedEvent &&
+                          EVERY on-chain trigger — generic and preset — is fully
+                          covered by the simplified panel above (token + event +
+                          chain), so hide it for all of them. Off-chain triggers
+                          (segment/form/email) and action nodes still render it —
+                          that's where their only config (segmentId, template, …)
+                          lives. */}
+                      {!selectedTriggerIsOnchain &&
                       (selectedNodeSchemaQuery.isFetching ||
                         selectedNodeSchemaFields.length > 0 ||
                         selectedNodeSchemaQuery.error instanceof Error) ? (

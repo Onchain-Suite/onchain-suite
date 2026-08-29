@@ -1,11 +1,10 @@
 "use client";
 
-import { ClockIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import SettingsSectionCard from "@/features/settings/components/settings-section-card";
+import { SettingsCard } from "@/features/settings/components/settings-card";
 import {
   SMART_SENDING_MAX_HOURS,
   SMART_SENDING_MIN_HOURS,
@@ -92,16 +91,16 @@ export function SmartSendingCard() {
   };
 
   return (
-    <SettingsSectionCard
+    <SettingsCard
       title="Smart Sending"
       description="Skip contacts who were messaged recently, so the same people aren't over-contacted."
-      icon={<ClockIcon aria-hidden="true" className="h-5 w-5" />}
-      badge={
-        settings
-          ? `${hoursLabel(settings.windowHours)}${
-              settings.isCustomWindow ? "" : " (default)"
-            }`
-          : undefined
+      action={
+        settings ? (
+          <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            {hoursLabel(settings.windowHours)}
+            {settings.isCustomWindow ? "" : " (default)"}
+          </span>
+        ) : undefined
       }
     >
       {settingsQuery.isPending ? (
@@ -209,7 +208,7 @@ export function SmartSendingCard() {
           )}
         </div>
       )}
-    </SettingsSectionCard>
+    </SettingsCard>
   );
 }
 

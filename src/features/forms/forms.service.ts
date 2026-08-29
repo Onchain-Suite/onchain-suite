@@ -36,7 +36,7 @@ export interface CaptureForm {
   id: string;
   name: string;
   publicToken: string;
-  status: "active" | "paused" | "archived" | string;
+  status: "draft" | "active" | "paused" | "archived" | string;
   fields: CaptureFieldSpec[];
   settings: Record<string, unknown>;
   allowedOrigins: string[];

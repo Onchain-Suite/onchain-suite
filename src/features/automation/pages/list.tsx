@@ -1,6 +1,10 @@
 "use client";
 
-import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
+import {
+  ChevronRightIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -11,8 +15,19 @@ import {
   automationService,
   type AutomationsListParams,
 } from "../automation.service";
+import { useDeleteAutomation } from "../hooks/use-automations";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 import { PageHeader } from "@/shared/components/page/page-header";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
 
 type Status = "active" | "paused" | "draft";
@@ -135,6 +150,8 @@ export function AutomationsListView() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
+  const deleteAutomation = useDeleteAutomation(() => setPendingDelete(null));
 
   // Debounce the search so we don't fire a request on every keystroke.
   useEffect(() => {
@@ -375,16 +392,27 @@ export function AutomationsListView() {
                       {hasData ? relativeTime(row.lastTriggered) : "-"}
                     </td>
                     <td className="px-4 py-4 text-right">
-                      <Link
-                        href={`/automations/${row.id}`}
-                        aria-label={`Open ${row.name}`}
-                        className="inline-flex text-muted-foreground transition-colors group-hover:text-foreground"
-                      >
-                        <ChevronRightIcon
-                          aria-hidden="true"
-                          className="h-4 w-4"
-                        />
-                      </Link>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setPendingDelete(row)}
+                          aria-label={`Delete ${row.name}`}
+                          title="Delete automation"
+                          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <TrashIcon aria-hidden="true" className="h-4 w-4" />
+                        </button>
+                        <Link
+                          href={`/automations/${row.id}`}
+                          aria-label={`Open ${row.name}`}
+                          className="inline-flex text-muted-foreground transition-colors group-hover:text-foreground"
+                        >
+                          <ChevronRightIcon
+                            aria-hidden="true"
+                            className="h-4 w-4"
+                          />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -443,6 +471,41 @@ export function AutomationsListView() {
           </div>
         ) : null}
       </div>
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteAutomation.isPending) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete automation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes{" "}
+              <span className="font-medium text-foreground">
+                {pendingDelete?.name}
+              </span>{" "}
+              and stops all of its active triggers. This can&apos;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteAutomation.isPending}>
+              Keep automation
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteAutomation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDelete) deleteAutomation.mutate(pendingDelete.id);
+              }}
+            >
+              {deleteAutomation.isPending ? "Deleting…" : "Delete automation"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

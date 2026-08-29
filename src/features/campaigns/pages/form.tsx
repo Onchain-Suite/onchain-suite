@@ -1017,7 +1017,7 @@ function CampaignPreviewStep({
 
           <div className="mt-4 overflow-hidden rounded-xl border border-border">
             {!normalizedCampaignId ? (
-              <div className="flex h-[720px] items-center justify-center bg-card p-6 text-center text-sm text-muted-foreground">
+              <div className="flex h-[560px] sm:h-[720px] items-center justify-center bg-card p-6 text-center text-sm text-muted-foreground">
                 Missing campaign id.
               </div>
             ) : isPush ? (
@@ -1035,7 +1035,7 @@ function CampaignPreviewStep({
               </div>
             ) : previewQuery.isLoading ? (
               <div
-                className="flex h-[720px] animate-pulse flex-col gap-3 bg-card p-6"
+                className="flex h-[560px] sm:h-[720px] animate-pulse flex-col gap-3 bg-card p-6"
                 aria-hidden="true"
               >
                 <div className="h-6 w-1/3 rounded-md bg-muted" />
@@ -1045,7 +1045,7 @@ function CampaignPreviewStep({
                 <div className="flex-1 rounded-md bg-muted" />
               </div>
             ) : previewQuery.isError ? (
-              <div className="flex h-[720px] items-center justify-center bg-card p-6 text-center">
+              <div className="flex h-[560px] sm:h-[720px] items-center justify-center bg-card p-6 text-center">
                 <div className="max-w-md space-y-3">
                   <div className="text-sm font-medium text-foreground">
                     Preview unavailable
@@ -1072,7 +1072,7 @@ function CampaignPreviewStep({
                 </div>
               </div>
             ) : (
-              <div className="flex h-[720px] items-center justify-center bg-card p-6 text-center">
+              <div className="flex h-[560px] sm:h-[720px] items-center justify-center bg-card p-6 text-center">
                 <div className="max-w-md space-y-2">
                   <div className="text-sm font-medium text-foreground">
                     No preview available yet

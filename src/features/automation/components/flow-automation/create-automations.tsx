@@ -2870,13 +2870,17 @@ const CreateAutomationContent = () => {
     () =>
       nodes
         .filter((n) => nodeNeedsSetup(n.type, n.data))
-        .map((n) => ({
-          id: n.id,
-          label:
-            (isJsonObject(n.data) ? asString(n.data.label) : "").trim() ||
-            n.type ||
-            "Step",
-        })),
+        .map((n) => {
+          const label = (
+            isJsonObject(n.data) ? asString(n.data.label) : ""
+          ).trim();
+          return {
+            id: n.id,
+            // Empty label falls through to the node type, then a generic
+            // "Step" — a plain string fallback, so `??` (null-only) won't do.
+            label: label !== "" ? label : (n.type ?? "Step"),
+          };
+        }),
     [nodes]
   );
   // Exactly one trigger per automation — a flow has a single entry point.
@@ -2890,7 +2894,6 @@ const CreateAutomationContent = () => {
       ).length,
     [nodes]
   );
-  const hasTrigger = triggerCount >= 1;
   // A send-email step needs a verified sending domain, or it can't deliver to
   // Gmail/Outlook (they reject/spam unauthenticated senders). The runtime falls
   // back to the platform sender, but that's poor deliverability — so block

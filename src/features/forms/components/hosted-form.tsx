@@ -3,8 +3,27 @@
 import { CheckCircleIcon } from "@heroicons/react/24/solid";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { CaptureFieldSpec, FormDisplaySettings } from "../forms.service";
+import {
+  type CaptureFieldSpec,
+  type FormDisplaySettings,
+  readFormMeta,
+} from "../forms.service";
 import { FormRenderer } from "./form-renderer";
+
+/** A URL is safe to redirect to only if it's http(s) or a same-origin path. */
+function safeRedirect(raw: string): string | null {
+  const url = raw.trim();
+  if (!url) return null;
+  if (url.startsWith("/") && !url.startsWith("//")) return url;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:"
+      ? url
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Minimal EIP-1193 provider surface we rely on (no wallet SDK). */
 interface Eip1193Provider {
@@ -263,7 +282,21 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
         pendingConfirmation?: boolean;
       };
       if (!res.ok) throw new Error(errText(payload, "Submission failed."));
-      setPendingConfirmation(payload.pendingConfirmation === true);
+      const pending = payload.pendingConfirmation === true;
+      setPendingConfirmation(pending);
+
+      // Honor the form's "redirect on submit" completion mode. Skip it while a
+      // double opt-in confirmation is still pending - that person needs to see
+      // the "check your email" message, not get bounced away.
+      const after = readFormMeta(config.settings).afterSubmit;
+      const redirect =
+        !pending && after?.onCompletion === "redirect"
+          ? safeRedirect(after.redirectUrl ?? "")
+          : null;
+      if (redirect) {
+        window.location.assign(redirect);
+        return;
+      }
       setDone(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Submission failed.");
@@ -273,6 +306,7 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
   }, [
     effectiveFields,
     config.token,
+    config.settings,
     config.consentText,
     config.display,
     values,

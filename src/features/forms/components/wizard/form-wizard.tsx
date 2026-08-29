@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/ui/button";
+import { Input } from "@/ui/input";
+import { Label } from "@/ui/label";
 
 import { cn } from "@/lib/utils";
 
@@ -76,9 +78,12 @@ function defaultNewFields(): CaptureFieldSpec[] {
 export function FormWizard({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("style");
+  const [name, setName] = useState("Untitled form");
   const [style, setStyle] = useState<FormStyleId>("inline");
   const [template, setTemplate] = useState<FormTemplateDef | null>(null);
   const [fields, setFields] = useState<CaptureFieldSpec[]>(defaultNewFields);
+
+  const formName = name.trim() || "Untitled form";
 
   const type = template?.type ?? "identity";
   const surface = surfaceForStyle(style);
@@ -103,7 +108,7 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
       timing: { ...DEFAULT_TIMING },
     };
     create.mutate({
-      name: "Untitled form",
+      name: formName,
       fields,
       zkEnabled: type === "identity",
       settings: writeFormMeta(undefined, meta),
@@ -136,7 +141,7 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
           </button>
           <span className="text-border">|</span>
           <span className="truncate text-sm font-semibold text-foreground">
-            Untitled form
+            {formName}
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
             <span className="size-1.5 rounded-full bg-muted-foreground" />
@@ -207,6 +212,15 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
               <h2 className="mb-5 text-2xl font-bold text-foreground">
                 Select a template
               </h2>
+              <div className="mb-6 max-w-sm space-y-1.5">
+                <Label htmlFor="wizard-form-name">Form name</Label>
+                <Input
+                  id="wizard-form-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Untitled form"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 {FORM_TEMPLATES.map((t) => (
                   <PickCard
@@ -224,7 +238,7 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
         </div>
 
         <FormSummary
-          name="Untitled form"
+          name={formName}
           style={style}
           template={template?.id ?? null}
           type={type}

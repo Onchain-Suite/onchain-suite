@@ -7,10 +7,11 @@ import {
 } from "@heroicons/react/24/outline";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/ui/button";
 
-import type { FormSubmission } from "../forms.service";
+import { formsService, type FormSubmission } from "../forms.service";
 import { useSubmissions } from "../hooks/use-forms";
 
 const shorten = (v: string) =>
@@ -24,14 +25,9 @@ function fieldSummary(sub: FormSubmission): string {
   return entries.length > 0 ? entries.join(" · ") : "-";
 }
 
-export function SubmissionsTab({
-  formId,
-  csvUrl,
-}: {
-  formId: string;
-  csvUrl: string;
-}) {
+export function SubmissionsTab({ formId }: { formId: string }) {
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
   const limit = 25;
   const { data, isLoading, isError } = useSubmissions(formId, page, limit);
 
@@ -39,17 +35,41 @@ export function SubmissionsTab({
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const blob = await formsService.exportSubmissionsCsv(formId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `submissions-${formId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Couldn't export submissions."
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {total.toLocaleString()} submission{total === 1 ? "" : "s"}
         </p>
-        <Button variant="outline" size="sm" asChild>
-          <a href={csvUrl} target="_blank" rel="noreferrer">
-            <ArrowDownTrayIcon className="size-4" aria-hidden="true" />
-            Export CSV
-          </a>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={exportCsv}
+          disabled={exporting || total === 0}
+        >
+          <ArrowDownTrayIcon className="size-4" aria-hidden="true" />
+          {exporting ? "Exporting…" : "Export CSV"}
         </Button>
       </div>
 

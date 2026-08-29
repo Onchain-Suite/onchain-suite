@@ -993,6 +993,11 @@ function FlowSettingsPanel({
     ? (value.frequencyCap as Record<string, unknown>)
     : null;
   const freqOn = !!freq && Number(freq.maxPerContact) > 0;
+  const goal = isJsonObject(value.goal)
+    ? (value.goal as Record<string, unknown>)
+    : null;
+  const goalEvent = goal ? String(goal.event ?? "") : "";
+  const goalWindow = goal ? Number(goal.windowDays) || 7 : 7;
 
   const setReentry = (ui: string) =>
     onChange({ ...value, reentry: reentryUiToConfig(ui) });
@@ -1007,6 +1012,16 @@ function FlowSettingsPanel({
       delete next.frequencyCap;
       onChange(next);
     }
+  };
+  const setGoal = (event: string, windowDays: number) => {
+    const e = event.trim();
+    if (!e) {
+      const next = { ...value };
+      delete next.goal;
+      onChange(next);
+      return;
+    }
+    onChange({ ...value, goal: { event: e, windowDays } });
   };
 
   return (
@@ -1030,10 +1045,40 @@ function FlowSettingsPanel({
           onChange={setFreq}
         />
       </div>
+
+      {/* Goal — the outcome that counts as "this flow worked". A matching event
+          within the window marks the enrolment converted; the rate shows on the
+          Stats tab. */}
+      <div className="mt-7 border-t border-border pt-5">
+        <label className={PROPERTY_LABEL_CLASS}>Conversion goal</label>
+        <input
+          type="text"
+          className={`${PROPERTY_INPUT_CLASS} mt-2`}
+          placeholder="Goal event (e.g. purchase, swap_completed)"
+          value={goalEvent}
+          onChange={(e) => setGoal(e.target.value, goalWindow)}
+        />
+        {goalEvent ? (
+          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+            <span>within</span>
+            <input
+              type="number"
+              min={1}
+              className={`${PROPERTY_INPUT_CLASS} w-16 py-1.5 text-center`}
+              value={goalWindow}
+              onChange={(e) =>
+                setGoal(goalEvent, Math.max(1, Number(e.target.value) || 7))
+              }
+            />
+            <span>days of enrolling</span>
+          </div>
+        ) : null}
+      </div>
+
       <p className="mt-6 text-xs leading-5 text-muted-foreground">
         Re-entry limits how often a contact can start this flow; the cap limits
-        how many messages this flow sends one contact per window. Select a node
-        to configure it.
+        how many messages it sends one contact per window; the goal measures
+        whether it worked. Select a node to configure it.
       </p>
     </div>
   );
@@ -3674,7 +3719,106 @@ const CreateAutomationContent = () => {
                           (segment/form/email) and action nodes still render it —
                           that's where their only config (segmentId, template, …)
                           lives. */}
+                      {/* A/B split variants — a friendly editor instead of the raw
+                          JSON the schema would render. Weights are relative. */}
+                      {selectedNodeSchemaType === "split"
+                        ? (() => {
+                            const variants = Array.isArray(
+                              selectedNodeData.variants
+                            )
+                              ? (selectedNodeData.variants as unknown[]).map(
+                                  (v) => {
+                                    const r = isJsonObject(v) ? v : {};
+                                    return {
+                                      label: String(r.label ?? ""),
+                                      weight: Number(r.weight) || 0,
+                                    };
+                                  }
+                                )
+                              : [];
+                            const write = (
+                              next: { label: string; weight: number }[]
+                            ) => updateSelectedNodeData({ variants: next });
+                            const total =
+                              variants.reduce((s, v) => s + v.weight, 0) || 0;
+                            return (
+                              <div className="space-y-3 rounded-[20px] border border-border bg-card p-4">
+                                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
+                                  Variants
+                                </div>
+                                {variants.map((v, i) => (
+                                  <div
+                                    key={i}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <input
+                                      className={PROPERTY_INPUT_CLASS}
+                                      placeholder="Label (e.g. A, holdout)"
+                                      value={v.label}
+                                      onChange={(e) => {
+                                        const n = [...variants];
+                                        n[i] = { ...v, label: e.target.value };
+                                        write(n);
+                                      }}
+                                    />
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      className={`${PROPERTY_INPUT_CLASS} w-20 text-center`}
+                                      value={v.weight}
+                                      onChange={(e) => {
+                                        const n = [...variants];
+                                        n[i] = {
+                                          ...v,
+                                          weight: Math.max(
+                                            0,
+                                            Number(e.target.value) || 0
+                                          ),
+                                        };
+                                        write(n);
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      aria-label={`Remove variant ${v.label || i + 1}`}
+                                      className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                      onClick={() =>
+                                        write(
+                                          variants.filter((_, j) => j !== i)
+                                        )
+                                      }
+                                    >
+                                      <XMarkIcon className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                ))}
+                                <button
+                                  type="button"
+                                  className="w-full rounded-xl border border-dashed border-border py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                                  onClick={() =>
+                                    write([
+                                      ...variants,
+                                      { label: "", weight: 50 },
+                                    ])
+                                  }
+                                >
+                                  + Add variant
+                                </button>
+                                <p className={PROPERTY_HINT_CLASS}>
+                                  Weights are relative
+                                  {total > 0 ? ` (total ${total})` : ""}. Label
+                                  a variant{" "}
+                                  <span className="mono">holdout</span> and
+                                  leave its branch empty for a control group.
+                                  Assignment is deterministic per contact.
+                                </p>
+                              </div>
+                            );
+                          })()
+                        : null}
+
                       {!selectedTriggerIsOnchain &&
+                      selectedNodeSchemaType !== "split" &&
                       (selectedNodeSchemaQuery.isFetching ||
                         selectedNodeSchemaFields.length > 0 ||
                         selectedNodeSchemaQuery.error instanceof Error) ? (

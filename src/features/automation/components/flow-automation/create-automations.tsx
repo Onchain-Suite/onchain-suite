@@ -2853,10 +2853,34 @@ const CreateAutomationContent = () => {
       ),
     [nodes]
   );
-  // A flow may go live only with a trigger, at least one step, and NOTHING
-  // half-configured.
+  // A send-email step needs a verified sending domain, or it can't deliver to
+  // Gmail/Outlook (they reject/spam unauthenticated senders). The runtime falls
+  // back to the platform sender, but that's poor deliverability — so block
+  // go-live until the org has verified at least one domain.
+  const hasEmailNode = useMemo(
+    () =>
+      nodes.some((n) => {
+        const t = isJsonObject(n.data) ? asString(n.data.nodeType) : "";
+        return (
+          n.type === "email" ||
+          t === "send_email" ||
+          (isJsonObject(n.data) && asString(n.data.actionType) === "send_email")
+        );
+      }),
+    [nodes]
+  );
+  const emailNeedsSender =
+    hasEmailNode &&
+    !senderIdentitiesQuery.isLoading &&
+    verifiedSenderIdentities.length === 0;
+
+  // A flow may go live only with a trigger, at least one step, NOTHING
+  // half-configured, and a verified sender when it sends email.
   const canActivate =
-    builderNodeCount > 0 && hasTrigger && stepsNeedingSetup === 0;
+    builderNodeCount > 0 &&
+    hasTrigger &&
+    stepsNeedingSetup === 0 &&
+    !emailNeedsSender;
 
   // While an existing automation's graph hydrates, show the layout-matching
   // skeleton instead of the empty chrome + spinner - same shape the route-level
@@ -2904,7 +2928,9 @@ const CreateAutomationContent = () => {
                 ? `Finish these steps first — ${incompleteNodes
                     .map((n) => n.label)
                     .join(", ")}.`
-                : undefined
+                : emailNeedsSender
+                  ? "Verify a sending domain in Settings before this can send email — Gmail/Outlook reject unauthenticated senders."
+                  : undefined
         }
         confirmLabel="Turn on"
         confirmingLabel="Turning on…"

@@ -36,6 +36,8 @@ export interface AutomationNodeData {
   url?: string;
   method?: string;
   campaignId?: string;
+  /** Per-node funnel counts, painted on the canvas by the analytics overlay. */
+  stats?: { reached: number; dropped: number; completed: number } | null;
   [key: string]: unknown;
 }
 

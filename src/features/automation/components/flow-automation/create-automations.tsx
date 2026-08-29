@@ -12,6 +12,7 @@ import {
   BanknotesIcon,
   BeakerIcon,
   BoltIcon,
+  ChartBarIcon,
   CheckCircleIcon,
   ChevronDownIcon,
   ClipboardDocumentListIcon,
@@ -55,6 +56,7 @@ import {
   type Edge,
   MarkerType,
   type Node,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   useEdgesState,
@@ -103,6 +105,7 @@ import {
 } from "./nodes";
 import { PropertySelect, type PropertySelectOption } from "./property-select";
 import { AUTOMATION_RECIPES, type AutomationRecipe } from "./recipes";
+import { audienceService } from "@/features/audience/audience.service";
 import {
   emailTemplates as fallbackEmailTemplates,
   eventTypes,
@@ -119,6 +122,7 @@ import {
   buildTriggerContractPatch,
   resolveContractCatalog,
 } from "@/features/automation/utils/contracts";
+import { campaignsService } from "@/features/campaigns/campaigns.service";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
@@ -149,45 +153,93 @@ if (typeof window === "undefined") {
   };
 }
 
+/**
+ * Paints the analytics overlay's per-node funnel (reached / dropped) as a small
+ * chip just under any node, without every node component knowing about it. The
+ * chip is absolutely positioned so it never disturbs the card layout or the
+ * ReactFlow handles inside it. No stats → renders exactly the wrapped node.
+ */
+function withNodeStats<P extends { data?: { stats?: unknown } }>(
+  Component: React.ComponentType<P>
+): React.FC<P> {
+  const Wrapped: React.FC<P> = (props) => {
+    const stats = (props.data?.stats ?? null) as {
+      reached: number;
+      dropped: number;
+    } | null;
+    return (
+      <div className="relative">
+        <Component {...props} />
+        {stats ? (
+          <div className="pointer-events-none absolute -bottom-3 left-4 z-10 flex items-center gap-2 rounded-full border border-border bg-card px-2.5 py-0.5 text-[10px] font-semibold tabular-nums shadow-sm">
+            <span className="text-emerald-600 dark:text-emerald-400">
+              {stats.reached.toLocaleString()} reached
+            </span>
+            {stats.dropped > 0 ? (
+              <span className="text-amber-600 dark:text-amber-400">
+                {stats.dropped.toLocaleString()} dropped
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+  Wrapped.displayName = `withNodeStats(${
+    Component.displayName ?? Component.name ?? "Node"
+  })`;
+  return Wrapped;
+}
+
+const TriggerNodeA = withNodeStats(TriggerNode);
+const WaitNodeA = withNodeStats(WaitNode);
+const BranchNodeA = withNodeStats(BranchNode);
+const EmailNodeA = withNodeStats(EmailNode);
+const InappNodeA = withNodeStats(InappNode);
+const TagNodeA = withNodeStats(TagNode);
+const AddToListNodeA = withNodeStats(AddToListNode);
+const WebhookNodeA = withNodeStats(WebhookNode);
+const DispatchCampaignNodeA = withNodeStats(DispatchCampaignNode);
+
 const nodeTypes = {
   // Renderer keys used by the drag-and-drop builder.
-  trigger: TriggerNode,
-  wait: WaitNode,
-  branch: BranchNode,
-  email: EmailNode,
-  inapp: InappNode,
-  tag: TagNode,
-  list: AddToListNode,
-  webhook: WebhookNode,
-  dispatch: DispatchCampaignNode,
+  trigger: TriggerNodeA,
+  wait: WaitNodeA,
+  branch: BranchNodeA,
+  email: EmailNodeA,
+  inapp: InappNodeA,
+  tag: TagNodeA,
+  list: AddToListNodeA,
+  webhook: WebhookNodeA,
+  dispatch: DispatchCampaignNodeA,
   placeholder: PlaceholderNode,
   // Canonical backend types - so a graph saved/applied with these (e.g. built-in
   // templates use `node.type: "send_inapp"`, "holder_acquired", …) still renders
   // the correct styled node when loaded onto the canvas.
-  send_email: EmailNode,
-  send_inapp: InappNode,
-  add_tag: TagNode,
-  add_to_list: AddToListNode,
-  dispatch_campaign: DispatchCampaignNode,
-  onchain_event: TriggerNode,
-  holder_acquired: TriggerNode,
-  governance_activity: TriggerNode,
-  swap_completed: TriggerNode,
-  liquidity_added: TriggerNode,
-  borrow_opened: TriggerNode,
-  exchange_outflow: TriggerNode,
-  capital_withdrawn: TriggerNode,
-  liquidation_detected: TriggerNode,
-  approval_intent: TriggerNode,
-  segment_entered: TriggerNode,
-  segment_exited: TriggerNode,
-  list_joined: TriggerNode,
-  form_submitted: TriggerNode,
-  email_opened: TriggerNode,
-  email_clicked: TriggerNode,
-  tag_added: TriggerNode,
-  campaign_completed: TriggerNode,
-  health_threshold: TriggerNode,
+  send_email: EmailNodeA,
+  send_inapp: InappNodeA,
+  add_tag: TagNodeA,
+  add_to_list: AddToListNodeA,
+  dispatch_campaign: DispatchCampaignNodeA,
+  onchain_event: TriggerNodeA,
+  holder_acquired: TriggerNodeA,
+  governance_activity: TriggerNodeA,
+  swap_completed: TriggerNodeA,
+  liquidity_added: TriggerNodeA,
+  borrow_opened: TriggerNodeA,
+  exchange_outflow: TriggerNodeA,
+  capital_withdrawn: TriggerNodeA,
+  liquidation_detected: TriggerNodeA,
+  approval_intent: TriggerNodeA,
+  segment_entered: TriggerNodeA,
+  segment_exited: TriggerNodeA,
+  list_joined: TriggerNodeA,
+  form_submitted: TriggerNodeA,
+  email_opened: TriggerNodeA,
+  email_clicked: TriggerNodeA,
+  tag_added: TriggerNodeA,
+  campaign_completed: TriggerNodeA,
+  health_threshold: TriggerNodeA,
 };
 
 /** Custom edge with an inline "+" to insert a step between two nodes. */
@@ -561,6 +613,20 @@ const CHAIN_OPTIONS: PropertySelectOption[] = [
 ];
 
 const asString = (v: unknown): string => (typeof v === "string" ? v : "");
+
+/**
+ * Keep a node's currently-stored value selectable even when it isn't in the
+ * fetched catalog yet (list still loading, or a value typed before pickers
+ * existed), so switching to a picker never silently drops the saved selection.
+ */
+const ensureOption = (
+  options: PropertySelectOption[],
+  value: string,
+  label?: string
+): PropertySelectOption[] =>
+  value && !options.some((o) => o.value === value)
+    ? [{ value, label: label ?? value }, ...options]
+    : options;
 
 const asNumber = (v: unknown): number => {
   if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -1007,6 +1073,11 @@ function FlowSettingsPanel({
     ? (value.frequencyCap as Record<string, unknown>)
     : null;
   const freqOn = !!freq && Number(freq.maxPerContact) > 0;
+  const goal = isJsonObject(value.goal)
+    ? (value.goal as Record<string, unknown>)
+    : null;
+  const goalEvent = goal ? String(goal.event ?? "") : "";
+  const goalWindow = goal ? Number(goal.windowDays) || 7 : 7;
 
   const setReentry = (ui: string) =>
     onChange({ ...value, reentry: reentryUiToConfig(ui) });
@@ -1021,6 +1092,16 @@ function FlowSettingsPanel({
       delete next.frequencyCap;
       onChange(next);
     }
+  };
+  const setGoal = (event: string, windowDays: number) => {
+    const e = event.trim();
+    if (!e) {
+      const next = { ...value };
+      delete next.goal;
+      onChange(next);
+      return;
+    }
+    onChange({ ...value, goal: { event: e, windowDays } });
   };
 
   return (
@@ -1044,10 +1125,40 @@ function FlowSettingsPanel({
           onChange={setFreq}
         />
       </div>
+
+      {/* Goal — the outcome that counts as "this flow worked". A matching event
+          within the window marks the enrolment converted; the rate shows on the
+          Stats tab. */}
+      <div className="mt-7 border-t border-border pt-5">
+        <label className={PROPERTY_LABEL_CLASS}>Conversion goal</label>
+        <input
+          type="text"
+          className={`${PROPERTY_INPUT_CLASS} mt-2`}
+          placeholder="Goal event (e.g. purchase, swap_completed)"
+          value={goalEvent}
+          onChange={(e) => setGoal(e.target.value, goalWindow)}
+        />
+        {goalEvent ? (
+          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+            <span>within</span>
+            <input
+              type="number"
+              min={1}
+              className={`${PROPERTY_INPUT_CLASS} w-16 py-1.5 text-center`}
+              value={goalWindow}
+              onChange={(e) =>
+                setGoal(goalEvent, Math.max(1, Number(e.target.value) || 7))
+              }
+            />
+            <span>days of enrolling</span>
+          </div>
+        ) : null}
+      </div>
+
       <p className="mt-6 text-xs leading-5 text-muted-foreground">
         Re-entry limits how often a contact can start this flow; the cap limits
-        how many messages this flow sends one contact per window. Select a node
-        to configure it.
+        how many messages it sends one contact per window; the goal measures
+        whether it worked. Select a node to configure it.
       </p>
     </div>
   );
@@ -1286,6 +1397,63 @@ const CreateAutomationContent = () => {
       ),
     [senderIdentitiesQuery.data]
   );
+
+  // Action-node pickers pull from the existing catalogs so a step references a
+  // real campaign/list/tag instead of a hand-typed id. Each inherits the
+  // builder's no-refetch, fail-soft query defaults.
+  const campaignsQuery = useQuery({
+    queryKey: ["automations", "builder", "campaigns"],
+    queryFn: () => campaignsService.listCampaigns({ limit: 100 }),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  const campaignOptions = useMemo<PropertySelectOption[]>(
+    () =>
+      (campaignsQuery.data ?? []).map((c) => ({
+        value: c.id,
+        label: c.name || c.id,
+        hint: c.status,
+      })),
+    [campaignsQuery.data]
+  );
+
+  const segmentsQuery = useQuery({
+    queryKey: ["automations", "builder", "segments"],
+    queryFn: () => audienceService.listSegments({ limit: 100 }),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  const segmentOptions = useMemo<PropertySelectOption[]>(
+    () =>
+      (segmentsQuery.data ?? []).map((s) => ({
+        value: s.id,
+        label: s.name || s.id,
+        hint:
+          typeof s.count === "number"
+            ? `${s.count.toLocaleString()} contacts`
+            : undefined,
+      })),
+    [segmentsQuery.data]
+  );
+
+  const tagsQuery = useQuery({
+    queryKey: ["automations", "builder", "tags"],
+    queryFn: () => audienceService.listTags(),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  const tagOptions = useMemo<PropertySelectOption[]>(() => {
+    const res = tagsQuery.data;
+    // listTags returns its response un-unwrapped: an array, or { items }/{ data }.
+    const list = Array.isArray(res) ? res : (res?.items ?? res?.data ?? []);
+    return list
+      .map((t) => asString(t?.name))
+      .filter(Boolean)
+      .map((name) => ({ value: name, label: name }));
+  }, [tagsQuery.data]);
 
   // Builder-scoped contract list from the backend (indexed project contracts);
   // project settings then the static list are fallbacks only.
@@ -1635,6 +1803,16 @@ const CreateAutomationContent = () => {
         ? (selectedNodeDetails.data as Record<string, unknown>)
         : {},
     [selectedNodeDetails]
+  );
+  // Tag node stores a string[] (with `tag` mirroring the first for legacy reads).
+  const selectedTags = useMemo<string[]>(
+    () =>
+      Array.isArray(selectedNodeData.tags)
+        ? (selectedNodeData.tags as unknown[]).map(asString).filter(Boolean)
+        : asString(selectedNodeData.tag)
+          ? [asString(selectedNodeData.tag)]
+          : [],
+    [selectedNodeData]
   );
   // Recognize triggers/email nodes by either the drag renderer key OR the
   // canonical backend type (so loaded templates get the bespoke config blocks).
@@ -2369,21 +2547,57 @@ const CreateAutomationContent = () => {
   // While the inline "Add step" grid is open on an edge, push the target step
   // and everything below it down so the grid sits in the opened gap instead of
   // covering the next node.
+  // Analytics overlay: fetch the per-node funnel and paint reached/dropped onto
+  // each node on the canvas. Off by default (a live automation only).
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const flowAnalyticsQuery = useQuery({
+    queryKey: ["automations", "flow-analytics", automationId],
+    queryFn: () => automationService.getFlowAnalytics(automationId),
+    enabled: !isNew && showAnalytics,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  });
+  const nodeStatsById = useMemo(() => {
+    const map = new Map<
+      string,
+      { reached: number; dropped: number; completed: number }
+    >();
+    for (const n of flowAnalyticsQuery.data?.nodes ?? []) {
+      map.set(n.nodeId, {
+        reached: n.reached,
+        dropped: n.dropped,
+        completed: n.completed,
+      });
+    }
+    return map;
+  }, [flowAnalyticsQuery.data]);
+
   const displayNodes = useMemo(() => {
-    if (!activeInsertEdge) return nodes;
-    const edge = edges.find((e) => e.id === activeInsertEdge);
-    const targetNode = edge
-      ? nodes.find((n) => n.id === edge.target)
-      : undefined;
-    if (!targetNode) return nodes;
-    const threshold = targetNode.position.y;
-    const offset = 250;
-    return nodes.map((n) =>
-      n.position.y >= threshold
-        ? { ...n, position: { ...n.position, y: n.position.y + offset } }
-        : n
-    );
-  }, [nodes, edges, activeInsertEdge]);
+    let out = nodes;
+    if (activeInsertEdge) {
+      const edge = edges.find((e) => e.id === activeInsertEdge);
+      const targetNode = edge
+        ? nodes.find((n) => n.id === edge.target)
+        : undefined;
+      if (targetNode) {
+        const threshold = targetNode.position.y;
+        const offset = 250;
+        out = nodes.map((n) =>
+          n.position.y >= threshold
+            ? { ...n, position: { ...n.position, y: n.position.y + offset } }
+            : n
+        );
+      }
+    }
+    if (showAnalytics) {
+      out = out.map((n) => ({
+        ...n,
+        data: { ...n.data, stats: nodeStatsById.get(n.id) ?? null },
+      }));
+    }
+    return out;
+  }, [nodes, edges, activeInsertEdge, showAnalytics, nodeStatsById]);
 
   const addNode = (type: string, label: string) => {
     const { rendererType, data } = resolveNodeShape(type, label);
@@ -2923,6 +3137,53 @@ const CreateAutomationContent = () => {
                     showInteractive={false}
                     className="overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-sm [&_button]:border-border [&_button]:bg-card [&_button]:text-foreground [&_button:hover]:bg-muted"
                   />
+                  {!isNew ? (
+                    <Panel position="top-center">
+                      <div className="flex items-center gap-3 rounded-full border border-border bg-card/90 px-2 py-1.5 shadow-sm backdrop-blur">
+                        <button
+                          type="button"
+                          onClick={() => setShowAnalytics((v) => !v)}
+                          className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                            showAnalytics
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          }`}
+                        >
+                          <ChartBarIcon className="h-3.5 w-3.5" />
+                          Analytics
+                        </button>
+                        {showAnalytics && flowAnalyticsQuery.data ? (
+                          <div className="flex items-center gap-3 pr-1.5 text-xs tabular-nums">
+                            <span className="text-muted-foreground">
+                              <span className="font-semibold text-foreground">
+                                {flowAnalyticsQuery.data.overall.enrolled.toLocaleString()}
+                              </span>{" "}
+                              enrolled
+                            </span>
+                            <span
+                              className="text-muted-foreground/50"
+                              aria-hidden="true"
+                            >
+                              →
+                            </span>
+                            <span className="text-muted-foreground">
+                              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                {flowAnalyticsQuery.data.overall.completed.toLocaleString()}
+                              </span>{" "}
+                              completed
+                            </span>
+                            <span className="rounded-full bg-muted px-2 py-0.5 font-medium text-foreground">
+                              {flowAnalyticsQuery.data.overall.completionRate}%
+                            </span>
+                          </div>
+                        ) : showAnalytics && flowAnalyticsQuery.isFetching ? (
+                          <span className="pr-2 text-xs text-muted-foreground">
+                            Loading…
+                          </span>
+                        ) : null}
+                      </div>
+                    </Panel>
+                  ) : null}
                 </ReactFlow>
               </EdgeInsertContext.Provider>
 
@@ -3558,18 +3819,22 @@ const CreateAutomationContent = () => {
                       {selectedIsDispatch && (
                         <div className="space-y-2">
                           <label className={PROPERTY_LABEL_CLASS}>
-                            Campaign ID
+                            Campaign
                           </label>
-                          <input
-                            type="text"
-                            className={PROPERTY_INPUT_CLASS}
+                          <PropertySelect
                             value={asString(selectedNodeData.campaignId)}
-                            onChange={(e) =>
-                              updateSelectedNodeData({
-                                campaignId: e.target.value,
-                              })
+                            options={ensureOption(
+                              campaignOptions,
+                              asString(selectedNodeData.campaignId)
+                            )}
+                            onChange={(next) =>
+                              updateSelectedNodeData({ campaignId: next })
                             }
-                            placeholder="cmp_…"
+                            placeholder={
+                              campaignsQuery.isLoading
+                                ? "Loading campaigns…"
+                                : "Select a campaign"
+                            }
                           />
                           <p className={PROPERTY_HINT_CLASS}>
                             The campaign to dispatch when this step runs.
@@ -3580,47 +3845,91 @@ const CreateAutomationContent = () => {
                       {selectedIsTag && (
                         <div className="space-y-2">
                           <label className={PROPERTY_LABEL_CLASS}>Tags</label>
-                          <input
-                            type="text"
-                            className={PROPERTY_INPUT_CLASS}
-                            value={
-                              Array.isArray(selectedNodeData.tags)
-                                ? (selectedNodeData.tags as string[]).join(", ")
-                                : asString(selectedNodeData.tag)
-                            }
-                            onChange={(e) => {
-                              const tags = e.target.value
-                                .split(",")
-                                .map((t) => t.trim())
-                                .filter(Boolean);
+                          {selectedTags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {selectedTags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-foreground"
+                                >
+                                  {tag}
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove ${tag}`}
+                                    className="text-muted-foreground hover:text-foreground"
+                                    onClick={() => {
+                                      const tags = selectedTags.filter(
+                                        (t) => t !== tag
+                                      );
+                                      updateSelectedNodeData({
+                                        tags,
+                                        tag: tags[0] ?? "",
+                                      });
+                                    }}
+                                  >
+                                    <XMarkIcon
+                                      aria-hidden="true"
+                                      className="size-3"
+                                    />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <PropertySelect
+                            value=""
+                            options={tagOptions.filter(
+                              (o) => !selectedTags.includes(o.value)
+                            )}
+                            onChange={(next) => {
+                              if (!next || selectedTags.includes(next)) return;
+                              const tags = [...selectedTags, next];
                               updateSelectedNodeData({
                                 tags,
                                 tag: tags[0] ?? "",
                               });
                             }}
-                            placeholder="vip, whale"
+                            placeholder={
+                              tagsQuery.isLoading
+                                ? "Loading tags…"
+                                : "Add a tag"
+                            }
                           />
                           <p className={PROPERTY_HINT_CLASS}>
-                            Comma-separated tags to apply to the contact.
+                            Tags to apply to the contact. Pick from your
+                            existing tags.
                           </p>
                         </div>
                       )}
 
                       {selectedIsList && (
                         <div className="space-y-2">
-                          <label className={PROPERTY_LABEL_CLASS}>
-                            List name
-                          </label>
-                          <input
-                            type="text"
-                            className={PROPERTY_INPUT_CLASS}
-                            value={asString(selectedNodeData.listName)}
-                            onChange={(e) =>
-                              updateSelectedNodeData({
-                                listName: e.target.value,
-                              })
+                          <label className={PROPERTY_LABEL_CLASS}>List</label>
+                          <PropertySelect
+                            value={
+                              asString(selectedNodeData.listId) ||
+                              asString(selectedNodeData.listName)
                             }
-                            placeholder="Newsletter"
+                            options={ensureOption(
+                              segmentOptions,
+                              asString(selectedNodeData.listId) ||
+                                asString(selectedNodeData.listName),
+                              asString(selectedNodeData.listName) || undefined
+                            )}
+                            onChange={(next) => {
+                              const picked = segmentOptions.find(
+                                (o) => o.value === next
+                              );
+                              updateSelectedNodeData({
+                                listId: next,
+                                listName: picked?.label ?? next,
+                              });
+                            }}
+                            placeholder={
+                              segmentsQuery.isLoading
+                                ? "Loading lists…"
+                                : "Select a list"
+                            }
                           />
                           <p className={PROPERTY_HINT_CLASS}>
                             The contact will be added to this list.
@@ -3801,7 +4110,106 @@ const CreateAutomationContent = () => {
                           (segment/form/email) and action nodes still render it —
                           that's where their only config (segmentId, template, …)
                           lives. */}
+                      {/* A/B split variants — a friendly editor instead of the raw
+                          JSON the schema would render. Weights are relative. */}
+                      {selectedNodeSchemaType === "split"
+                        ? (() => {
+                            const variants = Array.isArray(
+                              selectedNodeData.variants
+                            )
+                              ? (selectedNodeData.variants as unknown[]).map(
+                                  (v) => {
+                                    const r = isJsonObject(v) ? v : {};
+                                    return {
+                                      label: String(r.label ?? ""),
+                                      weight: Number(r.weight) || 0,
+                                    };
+                                  }
+                                )
+                              : [];
+                            const write = (
+                              next: { label: string; weight: number }[]
+                            ) => updateSelectedNodeData({ variants: next });
+                            const total =
+                              variants.reduce((s, v) => s + v.weight, 0) || 0;
+                            return (
+                              <div className="space-y-3 rounded-[20px] border border-border bg-card p-4">
+                                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
+                                  Variants
+                                </div>
+                                {variants.map((v, i) => (
+                                  <div
+                                    key={i}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <input
+                                      className={PROPERTY_INPUT_CLASS}
+                                      placeholder="Label (e.g. A, holdout)"
+                                      value={v.label}
+                                      onChange={(e) => {
+                                        const n = [...variants];
+                                        n[i] = { ...v, label: e.target.value };
+                                        write(n);
+                                      }}
+                                    />
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      className={`${PROPERTY_INPUT_CLASS} w-20 text-center`}
+                                      value={v.weight}
+                                      onChange={(e) => {
+                                        const n = [...variants];
+                                        n[i] = {
+                                          ...v,
+                                          weight: Math.max(
+                                            0,
+                                            Number(e.target.value) || 0
+                                          ),
+                                        };
+                                        write(n);
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      aria-label={`Remove variant ${v.label || i + 1}`}
+                                      className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                      onClick={() =>
+                                        write(
+                                          variants.filter((_, j) => j !== i)
+                                        )
+                                      }
+                                    >
+                                      <XMarkIcon className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                ))}
+                                <button
+                                  type="button"
+                                  className="w-full rounded-xl border border-dashed border-border py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                                  onClick={() =>
+                                    write([
+                                      ...variants,
+                                      { label: "", weight: 50 },
+                                    ])
+                                  }
+                                >
+                                  + Add variant
+                                </button>
+                                <p className={PROPERTY_HINT_CLASS}>
+                                  Weights are relative
+                                  {total > 0 ? ` (total ${total})` : ""}. Label
+                                  a variant{" "}
+                                  <span className="mono">holdout</span> and
+                                  leave its branch empty for a control group.
+                                  Assignment is deterministic per contact.
+                                </p>
+                              </div>
+                            );
+                          })()
+                        : null}
+
                       {!selectedTriggerIsOnchain &&
+                      selectedNodeSchemaType !== "split" &&
                       (selectedNodeSchemaQuery.isFetching ||
                         selectedNodeSchemaFields.length > 0 ||
                         selectedNodeSchemaQuery.error instanceof Error) ? (

@@ -2827,6 +2827,37 @@ const CreateAutomationContent = () => {
   );
   const stepsNeedingSetup = Math.max(builderErrorCount, needsSetupCount);
 
+  // The specific steps still needing setup — surfaced BY NAME so the user knows
+  // exactly what to finish, not just a count. Going live is blocked until this
+  // is empty and the flow actually has a trigger.
+  const incompleteNodes = useMemo(
+    () =>
+      nodes
+        .filter((n) => nodeNeedsSetup(n.type, n.data))
+        .map((n) => ({
+          id: n.id,
+          label:
+            (isJsonObject(n.data) ? asString(n.data.label) : "").trim() ||
+            n.type ||
+            "Step",
+        })),
+    [nodes]
+  );
+  const hasTrigger = useMemo(
+    () =>
+      nodes.some(
+        (n) =>
+          n.type === "trigger" ||
+          (isJsonObject(n.data) &&
+            TRIGGER_NODE_TYPES.has(asString(n.data.triggerType)))
+      ),
+    [nodes]
+  );
+  // A flow may go live only with a trigger, at least one step, and NOTHING
+  // half-configured.
+  const canActivate =
+    builderNodeCount > 0 && hasTrigger && stepsNeedingSetup === 0;
+
   // While an existing automation's graph hydrates, show the layout-matching
   // skeleton instead of the empty chrome + spinner - same shape the route-level
   // loading.tsx renders, so there's no jump.
@@ -2865,17 +2896,20 @@ const CreateAutomationContent = () => {
           },
         ]}
         note={
-          stepsNeedingSetup > 0
-            ? `${stepsNeedingSetup} ${
-                stepsNeedingSetup === 1
-                  ? "step still needs"
-                  : "steps still need"
-              } setup and may block sending.`
-            : undefined
+          builderNodeCount === 0
+            ? "Add at least one step before turning this on."
+            : !hasTrigger
+              ? "Add a trigger before turning this on."
+              : incompleteNodes.length > 0
+                ? `Finish these steps first — ${incompleteNodes
+                    .map((n) => n.label)
+                    .join(", ")}.`
+                : undefined
         }
         confirmLabel="Turn on"
         confirmingLabel="Turning on…"
         confirming={statusToggleMutation.isPending || publishMutation.isPending}
+        confirmDisabled={!canActivate}
         onConfirm={activateAutomation}
       />
 

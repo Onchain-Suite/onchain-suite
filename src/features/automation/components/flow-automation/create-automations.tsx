@@ -1986,6 +1986,16 @@ const CreateAutomationContent = () => {
       })),
     [contractEventsQuery.data]
   );
+  // Real events carry their own topic0 (from the ABI, or the sampled log for an
+  // unverified contract). Keep it so selecting one wires the runtime match key
+  // even when the event isn't in the well-known catalog.
+  const contractEventByValue = useMemo(() => {
+    const map = new Map<string, { topic0?: string }>();
+    for (const e of contractEventsQuery.data?.events ?? []) {
+      if (!map.has(e.value)) map.set(e.value, { topic0: e.topic0 });
+    }
+    return map;
+  }, [contractEventsQuery.data]);
   const selectedNodeSchemaQuery = useQuery({
     queryKey: [
       "automations",
@@ -3722,17 +3732,20 @@ const CreateAutomationContent = () => {
                                   }
                                   disabled={!selectedContractAddress}
                                   value={asString(selectedNodeData.event)}
-                                  // Events for the SELECTED contract; the global
-                                  // catalog is the fallback (backend `source:
-                                  // catalog`, or before a contract is picked).
+                                  // A chosen contract shows ONLY its real events
+                                  // (empty when none resolve — never generic
+                                  // catalog events). The catalog/app-event list
+                                  // is only for the no-contract case, where the
+                                  // picker is disabled anyway.
                                   options={
-                                    contractEventOptions.length > 0
+                                    selectedContractAddress
                                       ? contractEventOptions
                                       : eventOptions
                                   }
                                   onChange={(next) => {
                                     const def =
                                       eventDefinitionByValue.get(next);
+                                    const real = contractEventByValue.get(next);
                                     updateSelectedNodeData({
                                       event: next,
                                       ...(def
@@ -3748,15 +3761,55 @@ const CreateAutomationContent = () => {
                                               def.instructionNames?.[0],
                                           }
                                         : {}),
+                                      // Prefer the contract's own topic0 so a
+                                      // real event that isn't in the catalog
+                                      // still matches at runtime.
+                                      ...(real?.topic0
+                                        ? { topic0: real.topic0 }
+                                        : {}),
                                     });
                                   }}
                                 />
-                                {selectedContractAddress &&
-                                contractEventsQuery.data?.source === "live" ? (
-                                  <p className={PROPERTY_HINT_CLASS}>
-                                    Events indexed on this contract.
-                                  </p>
-                                ) : null}
+                                {selectedContractAddress
+                                  ? (() => {
+                                      const source =
+                                        contractEventsQuery.data?.source;
+                                      if (contractEventsQuery.isFetching)
+                                        return null;
+                                      if (source === "live")
+                                        return (
+                                          <p className={PROPERTY_HINT_CLASS}>
+                                            Real events read from this contract.
+                                          </p>
+                                        );
+                                      if (source === "empty")
+                                        return (
+                                          <p className={PROPERTY_HINT_CLASS}>
+                                            No events found. A verified contract
+                                            lists its full ABI here; an
+                                            unverified one only shows events
+                                            emitted in the last ~2,000 blocks.
+                                          </p>
+                                        );
+                                      if (source === "unavailable")
+                                        return (
+                                          <p className={PROPERTY_HINT_CLASS}>
+                                            Couldn&rsquo;t read this
+                                            contract&rsquo;s events right now —
+                                            check the chain is right and try
+                                            again.
+                                          </p>
+                                        );
+                                      if (source === "unsupported")
+                                        return (
+                                          <p className={PROPERTY_HINT_CLASS}>
+                                            Event resolution isn&rsquo;t
+                                            available for this chain yet.
+                                          </p>
+                                        );
+                                      return null;
+                                    })()
+                                  : null}
                               </div>
                             )}
                           {selectedTriggerIsOnchain && (

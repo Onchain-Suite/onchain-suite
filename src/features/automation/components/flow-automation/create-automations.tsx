@@ -127,6 +127,13 @@ import { ContractAddressNudge } from "@/features/settings/components/contract-ad
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
 import { SendConfirmDialog } from "@/shared/components/common/send-confirm-dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/shared/components/ui/sheet";
 
 // This is a known benign error with ReactFlow that can be safely ignored
 if (typeof window === "undefined") {
@@ -1064,9 +1071,13 @@ function reentryConfigToUi(cfg: unknown): string {
 function FlowSettingsPanel({
   value,
   onChange,
+  className,
 }: {
   value: Record<string, unknown>;
   onChange: (next: Record<string, unknown>) => void;
+  /** Root class override so the panel works both as the desktop column and
+   *  inside the mobile bottom sheet. */
+  className?: string;
 }) {
   const reentryUi = reentryConfigToUi(value.reentry);
   const freq = isJsonObject(value.frequencyCap)
@@ -1105,7 +1116,12 @@ function FlowSettingsPanel({
   };
 
   return (
-    <div className="hidden w-[344px] shrink-0 overflow-y-auto rounded-xl border border-border bg-card p-6 md:block">
+    <div
+      className={
+        className ??
+        "hidden w-[344px] shrink-0 overflow-y-auto rounded-xl border border-border bg-card p-6 md:block"
+      }
+    >
       <h3 className="font-semibold tracking-tight text-foreground">
         Flow settings
       </h3>
@@ -4563,10 +4579,39 @@ const CreateAutomationContent = () => {
                 )}
             </AnimatePresence>
             {!selectedNode ? (
-              <FlowSettingsPanel
-                value={flowSettings}
-                onChange={setFlowSettings}
-              />
+              <>
+                {/* Desktop: static right column (hidden below md). */}
+                <FlowSettingsPanel
+                  value={flowSettings}
+                  onChange={setFlowSettings}
+                />
+                {/* Mobile: a trigger on the canvas that opens Flow settings as a
+                    bottom sheet, since the static column is hidden on phones. */}
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <button
+                      type="button"
+                      className="absolute top-4 right-4 z-10 flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground md:hidden"
+                    >
+                      <Cog6ToothIcon aria-hidden="true" className="h-4 w-4" />
+                      Flow settings
+                    </button>
+                  </SheetTrigger>
+                  <SheetContent
+                    side="bottom"
+                    className="max-h-[85vh] overflow-y-auto"
+                  >
+                    <SheetHeader>
+                      <SheetTitle>Flow settings</SheetTitle>
+                    </SheetHeader>
+                    <FlowSettingsPanel
+                      value={flowSettings}
+                      onChange={setFlowSettings}
+                      className="w-full px-4 pb-6"
+                    />
+                  </SheetContent>
+                </Sheet>
+              </>
             ) : null}
           </>
         ) : (

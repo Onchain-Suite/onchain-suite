@@ -104,6 +104,7 @@ import {
   WebhookNode,
 } from "./nodes";
 import { PropertySelect, type PropertySelectOption } from "./property-select";
+import { AUTOMATION_RECIPES, type AutomationRecipe } from "./recipes";
 import { audienceService } from "@/features/audience/audience.service";
 import {
   emailTemplates as fallbackEmailTemplates,
@@ -549,6 +550,19 @@ const FIXED_ACTIONS: { type: string; label: string; description: string }[] = [
     description: "Fire an existing campaign",
   },
 ];
+
+/** Recipe card icons, keyed by `AutomationRecipe.iconKey` (recipes.ts is JSX-free). */
+const RECIPE_ICONS: Record<
+  string,
+  React.ComponentType<React.SVGProps<SVGSVGElement>>
+> = {
+  sparkles: SparklesIcon,
+  heart: HeartIcon,
+  shield: ShieldCheckIcon,
+  gift: GiftIcon,
+  bag: ShoppingBagIcon,
+  scale: ScaleIcon,
+};
 
 /**
  * All canonical trigger `type`s (used to recognize a trigger node whether it was
@@ -2627,6 +2641,76 @@ const CreateAutomationContent = () => {
     }
   };
 
+  // Drop a pre-wired recipe onto a blank canvas: build a linear spine of nodes
+  // (trigger → actions) and the "addable" edges between them, so the flow lands
+  // ready to configure and publish. Recipe steps carry a `data` override merged
+  // over the resolved node data (a wait's duration, a tag, starter in-app copy).
+  const applyRecipe = (recipe: AutomationRecipe) => {
+    const stamp = Date.now();
+    const newNodes: Node[] = recipe.steps.map((step, i) => {
+      const { rendererType, data } = resolveNodeShape(step.type, step.label);
+      return {
+        id: `recipe-${recipe.id}-${i}-${stamp}`,
+        type: rendererType,
+        position: { x: 400, y: 50 + i * 130 },
+        data: { ...data, ...(step.data ?? {}) },
+      };
+    });
+
+    const color = EDGE_COLORS.default;
+    const newEdges: Edge[] = newNodes.slice(1).map((node, i) => {
+      const source = newNodes[i].id;
+      return {
+        id: `e-${source}-${node.id}`,
+        source,
+        target: node.id,
+        type: "addable",
+        animated: false,
+        style: { stroke: color, strokeWidth: 1.5 },
+        markerEnd: { type: MarkerType.ArrowClosed, color },
+      };
+    });
+
+    setNodes(newNodes);
+    setEdges(newEdges);
+    setSelectedNode(newNodes[0]?.id ?? null);
+    setShowNodeSelector({ show: false, x: 0, y: 0 });
+    setShowTriggerPicker(false);
+    toast.success(`Started from "${recipe.title}"`);
+
+    // Mirror addNode: on a saved (non-new) automation, hydrate each node's
+    // config schema so the properties panel is populated without a click.
+    if (!isNew) {
+      newNodes.forEach((node) => {
+        const schemaType = String(
+          (node.data as Record<string, unknown>).nodeType ?? ""
+        );
+        if (!schemaType) return;
+        const loadSchema = async () => {
+          try {
+            const schema =
+              node.type === "trigger"
+                ? await automationService.getTriggerSchema(schemaType)
+                : await automationService.getActionSchema(schemaType);
+            setNodes((nds) =>
+              nds.map((n) =>
+                n.id === node.id
+                  ? {
+                      ...n,
+                      data: { ...(n.data as Record<string, unknown>), schema },
+                    }
+                  : n
+              )
+            );
+          } catch (_e) {
+            String(_e);
+          }
+        };
+        loadSchema().catch(() => undefined);
+      });
+    }
+  };
+
   // Insert an action node that splits the clicked edge (source → new → target).
   const insertNodeOnEdge = (
     target: EdgeInsertTarget,
@@ -3119,7 +3203,7 @@ const CreateAutomationContent = () => {
 
               {nodes.length === 0 ? (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
-                  <div className="pointer-events-auto w-full max-w-lg rounded-[28px] border border-border bg-card p-7 text-center shadow-[0_32px_80px_rgba(15,23,42,0.45)] backdrop-blur-xl">
+                  <div className="scrollbar-sleek pointer-events-auto max-h-[calc(100%-2rem)] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-border bg-card p-7 text-center shadow-[0_32px_80px_rgba(15,23,42,0.45)] backdrop-blur-xl">
                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
                       <GlobeAltIcon aria-hidden="true" className="h-6 w-6" />
                     </div>
@@ -3145,6 +3229,49 @@ const CreateAutomationContent = () => {
                       >
                         Browse blocks
                       </button>
+                    </div>
+
+                    <div className="mt-6 flex items-center gap-3">
+                      <span className="h-px flex-1 bg-border" />
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Or start from a recipe
+                      </span>
+                      <span className="h-px flex-1 bg-border" />
+                    </div>
+
+                    <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+                      {AUTOMATION_RECIPES.map((recipe) => {
+                        const Icon =
+                          RECIPE_ICONS[recipe.iconKey] ?? SparklesIcon;
+                        return (
+                          <button
+                            key={recipe.id}
+                            type="button"
+                            onClick={() => applyRecipe(recipe)}
+                            className="group flex items-start gap-3 rounded-2xl border border-border/60 bg-background p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                          >
+                            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                              <Icon aria-hidden="true" className="h-4 w-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center justify-between gap-2">
+                                <span className="truncate text-sm font-semibold text-foreground">
+                                  {recipe.title}
+                                </span>
+                                <span className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                  {recipe.category}
+                                </span>
+                              </span>
+                              <span className="mt-0.5 line-clamp-2 block text-[11px] leading-snug text-muted-foreground">
+                                {recipe.description}
+                              </span>
+                              <span className="mt-1 block text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
+                                {recipe.steps.length} steps
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

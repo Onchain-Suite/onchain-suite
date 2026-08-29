@@ -201,7 +201,7 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
               <h2 className="mb-5 text-2xl font-bold text-foreground">
                 Select a style
               </h2>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {FORM_STYLES.map((s) => (
                   <PickCard
                     key={s.id}
@@ -228,7 +228,7 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
                   placeholder="Untitled form"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {FORM_TEMPLATES.map((t) => (
                   <PickCard
                     key={t.id}

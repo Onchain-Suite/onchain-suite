@@ -239,16 +239,33 @@ const collectObjectCandidates = (
   return candidates;
 };
 
+/**
+ * Strip the underlying data provider's branding (GoldRush / the "MCP" wire word)
+ * from any agent step text before it reaches the UI, so the activity timeline
+ * reads as a clean, generic thinking process. The backend endpoint keys keep
+ * their names; this only touches human-facing copy.
+ */
+const sanitizeAgentText = (text: string): string =>
+  text
+    .replace(/(?:GoldRush\s+)?MCP\s+agent/gi, "on-chain agent")
+    .replace(/GoldRush[\s_-]+MCP/gi, "")
+    .replace(/GoldRush/gi, "")
+    .replace(/\bMCP\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[\s_-]+/, "")
+    .trim();
+
 const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
   const eventType = event.type ?? "update";
   const candidates = collectObjectCandidates(event.data);
   const [first] = candidates;
-  const toolName = candidates
+  const rawToolName = candidates
     .map((candidate) =>
       pickFirstText(candidate.toolName, candidate.name, candidate.title)
     )
     .find(Boolean);
-  const detail = candidates
+  const toolName = rawToolName ? sanitizeAgentText(rawToolName) : undefined;
+  const rawDetail = candidates
     .map((candidate) =>
       pickFirstText(
         candidate.message,
@@ -260,6 +277,7 @@ const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
       )
     )
     .find(Boolean);
+  const detail = rawDetail ? sanitizeAgentText(rawDetail) : undefined;
 
   switch (eventType) {
     case "started":
@@ -267,7 +285,7 @@ const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
         label: "Thought process",
         detail:
           detail ??
-          "Working through the request and connecting to the MCP agent.",
+          "Working through the request and connecting to the on-chain agent.",
         tone: "default" as const,
       };
     case "planner_ready":
@@ -275,7 +293,7 @@ const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
         label: "Execution plan ready",
         detail:
           detail ??
-          "Pressure-testing the best route before running any live MCP calls.",
+          "Pressure-testing the best route before running any live calls.",
         tone: "default" as const,
       };
     case "resource_context":
@@ -283,7 +301,7 @@ const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
         label: "Context loaded",
         detail:
           detail ??
-          `${pickUnknownArray(first?.resources).length || "Relevant"} MCP resources were loaded.`,
+          `${pickUnknownArray(first?.resources).length || "Relevant"} resources were loaded.`,
         tone: "default" as const,
       };
     case "tools_discovered":
@@ -291,7 +309,7 @@ const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
         label: "Tool path selected",
         detail:
           detail ??
-          `${pickUnknownArray(first?.tools).length || "Relevant"} MCP tools are in play for this request.`,
+          `${pickUnknownArray(first?.tools).length || "Relevant"} tools are in play for this request.`,
         tone: "default" as const,
       };
     case "step_started":
@@ -320,9 +338,7 @@ const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
       return {
         label: "Tool running",
         detail:
-          toolName ??
-          detail ??
-          "Executing a live MCP tool against the provider.",
+          toolName ?? detail ?? "Executing a live tool against the provider.",
         tone: "default" as const,
       };
     case "tool_call_result":
@@ -343,21 +359,20 @@ const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
     case "summarizing":
       return {
         label: "Composing answer",
-        detail:
-          detail ?? "Turning the MCP output into a product-ready response.",
+        detail: detail ?? "Turning the output into a product-ready response.",
         tone: "default" as const,
       };
     case "final":
       return {
         label: "Answer ready",
-        detail: detail ?? "The MCP agent finished successfully.",
+        detail: detail ?? "The on-chain agent finished successfully.",
         tone: "success" as const,
       };
     case "error":
       return {
         label: "Error",
         detail:
-          detail ?? "The MCP stream failed and could not finish this request.",
+          detail ?? "The stream failed and could not finish this request.",
         tone: "error" as const,
       };
     default:
@@ -464,7 +479,7 @@ const MCP_FAILURE_GUIDANCE: Array<{ match: RegExp; guidance: string }> = [
   {
     match: /mcp routing is not configured/i,
     guidance:
-      "The on-chain data agent (GoldRush MCP) isn't enabled on this backend environment - an operator needs to configure the GoldRush API key and MCP routing on the server. Until then, Chat and SQL modes still answer questions over your own audience and campaign data.",
+      "The on-chain data agent isn't enabled on this backend environment - an operator needs to enable it on the server. Until then, Chat and SQL modes still answer questions over your own audience and campaign data.",
   },
   {
     match: /unknown variant `?developer`?/i,
@@ -474,7 +489,7 @@ const MCP_FAILURE_GUIDANCE: Array<{ match: RegExp; guidance: string }> = [
   {
     match: /plan_limit_exceeded|credit/i,
     guidance:
-      "Your organization has used its GoldRush/AI credit allowance and the usage wallet can't cover the overage. Top up the wallet or upgrade in Settings → Billing.",
+      "Your organization has used its AI credit allowance and the usage wallet can't cover the overage. Top up the wallet or upgrade in Settings → Billing.",
   },
   {
     match: /rate limit|too many requests/i,
@@ -527,7 +542,7 @@ const toMcpFailureReport = (
         )
       )
       .find(Boolean) ??
-    "Failed to run MCP chat";
+    "Failed to run the on-chain agent";
   const statusCode = candidates
     .map((candidate) => {
       const directStatus = candidate.status;
@@ -1303,7 +1318,7 @@ export function QueryTab({
         throw queryResult.reason;
       }
 
-      throw new Error("Failed to generate an MCP response");
+      throw new Error("Failed to generate a response");
     },
     onSuccess: (res: IntelligenceGoldrushMcpQueryResponse) => {
       if (
@@ -1443,7 +1458,7 @@ export function QueryTab({
           role: "assistant",
           kind: "error",
           content:
-            "I couldn't complete that MCP request. Please try again or refine the prompt.",
+            "I couldn't complete that request. Please try again or refine the prompt.",
           rationale: message,
           errorReport,
           queryReady: false,

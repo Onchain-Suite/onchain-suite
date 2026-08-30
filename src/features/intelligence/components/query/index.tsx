@@ -758,17 +758,24 @@ const normalizeStructuredRows = (
 
 // Column names we treat as the category (x/legend) and the numeric measure when
 // deriving a chart series from an arbitrary structured result.
+// Wallet/holder/address columns come first: in holder-style results every row
+// carries a constant token `name` ("Aerodrome"), so preferring `name` made every
+// slice share one label. The distinguishing per-row value is the address, so the
+// chart labels each slice by the (truncated) wallet. Segment/campaign/name still
+// win for results that have no address column.
 const CHART_LABEL_COLUMNS = [
-  "name",
-  "holder",
-  "label",
   "wallet",
+  "holder",
   "address",
+  "owner",
+  "account",
+  "label",
+  "segment",
+  "campaign",
+  "name",
   "token",
   "symbol",
-  "segment",
   "chain",
-  "campaign",
 ];
 const CHART_VALUE_COLUMNS = [
   "amount",
@@ -2041,114 +2048,76 @@ export function QueryTab({
         const maxShare = Math.max(...shareValues, 0);
 
         return (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-            <div className="overflow-hidden rounded-2xl border border-primary/15 bg-card">
-              <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
-                <div>
-                  <div className="text-sm font-medium text-foreground">
-                    Ranked holders
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Top holders ranked by balance
-                  </div>
+          <div className="overflow-hidden rounded-2xl border border-primary/15 bg-card">
+            <div className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-3.5 sm:px-5 sm:py-4">
+              <div>
+                <div className="text-sm font-medium text-foreground">
+                  Ranked holders
                 </div>
-                <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
-                  Top {structuredRows.length}
-                </span>
+                <div className="text-xs text-muted-foreground">
+                  Top holders ranked by balance
+                </div>
               </div>
-              <div className="divide-y divide-white/6">
-                {structuredRows.slice(0, 8).map((row, index) => {
-                  const shareValue =
-                    shareColumn !== null ? asNumber(row[shareColumn]) : null;
-                  const normalizedShare =
-                    shareValue === null
-                      ? 0
-                      : shareValue > 0 && shareValue <= 1
-                        ? shareValue * 100
-                        : shareValue;
-                  const width =
-                    normalizedShare > 0 && maxShare > 0
-                      ? Math.max(10, (normalizedShare / maxShare) * 100)
-                      : 0;
-                  const rowKey = createStructuredRowKey(
-                    row,
-                    [holderColumn, amountColumn, shareColumn, chainColumn],
-                    "holder"
-                  );
-
-                  return (
-                    <div
-                      key={rowKey}
-                      className="grid gap-3 px-5 py-4 md:grid-cols-[auto_minmax(0,1fr)_auto]"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-white/8 text-xs font-semibold text-foreground">
-                        {index + 1}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-foreground">
-                          {holderColumn
-                            ? asIdentifierText(row[holderColumn])
-                            : `Holder ${index + 1}`}
-                        </div>
-                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/60">
-                          <div
-                            className="h-full rounded-full bg-[linear-gradient(90deg,rgba(87,115,255,0.95),rgba(88,211,255,0.9))]"
-                            style={{ width: `${width}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div className="text-left md:text-right">
-                        <div className="text-sm font-medium text-foreground">
-                          {amountColumn
-                            ? formatCompactNumber(row[amountColumn])
-                            : "-"}
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {shareColumn
-                            ? formatPercentValue(row[shareColumn])
-                            : "Share unavailable"}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
+                Top {structuredRows.length}
+              </span>
             </div>
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                  Result profile
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  <div className="rounded-xl border border-border/50 bg-card/70 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                      Rows
+            <div className="divide-y divide-white/6">
+              {structuredRows.slice(0, 8).map((row, index) => {
+                const shareValue =
+                  shareColumn !== null ? asNumber(row[shareColumn]) : null;
+                const normalizedShare =
+                  shareValue === null
+                    ? 0
+                    : shareValue > 0 && shareValue <= 1
+                      ? shareValue * 100
+                      : shareValue;
+                const width =
+                  normalizedShare > 0 && maxShare > 0
+                    ? Math.max(10, (normalizedShare / maxShare) * 100)
+                    : 0;
+                const rowKey = createStructuredRowKey(
+                  row,
+                  [holderColumn, amountColumn, shareColumn, chainColumn],
+                  "holder"
+                );
+
+                return (
+                  <div
+                    key={rowKey}
+                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3.5 sm:px-5 sm:py-4"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-white/8 text-xs font-semibold text-foreground">
+                      {index + 1}
                     </div>
-                    <div className="mt-2 text-lg font-semibold text-foreground">
-                      {structuredRows.length.toLocaleString()}
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-foreground">
+                        {holderColumn
+                          ? asIdentifierText(row[holderColumn])
+                          : `Holder ${index + 1}`}
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/60">
+                        <div
+                          className="h-full rounded-full bg-[linear-gradient(90deg,rgba(87,115,255,0.95),rgba(88,211,255,0.9))]"
+                          style={{ width: `${width}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-foreground">
+                        {amountColumn
+                          ? formatCompactNumber(row[amountColumn])
+                          : "-"}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {shareColumn
+                          ? formatPercentValue(row[shareColumn])
+                          : "Share unavailable"}
+                      </div>
                     </div>
                   </div>
-                  <div className="rounded-xl border border-border/50 bg-card/70 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                      Coverage
-                    </div>
-                    <div className="mt-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      {chainColumn && structuredRows[0] ? (
-                        <>
-                          <ChainLogo
-                            chain={asDisplayText(
-                              structuredRows[0][chainColumn]
-                            )}
-                          />
-                          {asDisplayText(structuredRows[0][chainColumn])}
-                        </>
-                      ) : (
-                        chainCoverageLabel
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </div>
         );
@@ -2522,27 +2491,13 @@ export function QueryTab({
                       message.role === "user" ? (
                         <div key={message.id} className="flex justify-end">
                           <div className="max-w-[78%] rounded-[28px_28px_12px_28px] border border-primary/30 bg-primary px-4 py-3 text-sm text-primary-foreground shadow-[0_22px_60px_-28px_rgba(86,112,255,0.7)]">
-                            <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-primary-foreground/75">
-                              You
-                            </div>
-                            <div className="mt-1 leading-6">
-                              {message.content}
-                            </div>
+                            <div className="leading-6">{message.content}</div>
                           </div>
                         </div>
                       ) : (
                         <div key={message.id} className="flex justify-start">
-                          <div className="flex max-w-[92%] items-end gap-3">
-                            <div
-                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] border text-xs font-semibold ${
-                                message.kind === "error"
-                                  ? "border-red-400/25 bg-red-400/10 text-red-300"
-                                  : "border-primary/20 bg-primary/10 text-primary"
-                              }`}
-                            >
-                              {message.kind === "error" ? "!" : "AI"}
-                            </div>
-                            <div className="overflow-hidden rounded-[28px_28px_28px_12px] border border-border bg-card shadow-[0_28px_90px_-46px_rgba(45,102,255,0.5)]">
+                          <div className="flex w-full max-w-[92%]">
+                            <div className="w-full overflow-hidden rounded-[28px_28px_28px_12px] border border-border bg-card shadow-[0_28px_90px_-46px_rgba(45,102,255,0.5)]">
                               <div className="space-y-5 px-5 py-5">
                                 {message.structuredResult ? (
                                   <div className="space-y-4">
@@ -2604,15 +2559,6 @@ export function QueryTab({
                                       series={deriveChatChartSeries(
                                         message.structuredResult
                                       )}
-                                      sql={
-                                        typeof message.structuredResult.meta
-                                          ?.sql === "string"
-                                          ? message.structuredResult.meta.sql
-                                          : undefined
-                                      }
-                                      onOpenSqlWorkspace={() =>
-                                        setActiveTab("sql")
-                                      }
                                     />
 
                                     {message.queryReady
@@ -2727,27 +2673,14 @@ export function QueryTab({
                                   />
                                 ) : null}
 
-                                <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
-                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1">
-                                    <BoltIcon
-                                      className="h-3 w-3 text-primary"
-                                      aria-hidden="true"
-                                    />
-                                    {message.mode === "deterministic_fallback"
-                                      ? "Standard lookup"
-                                      : "Live onchain lookup"}
-                                  </span>
-                                  {message.queryReady ? (
+                                {message.queryReady ? (
+                                  <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
                                     <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
                                       Turn into report, campaign, or segment
                                       below
                                     </span>
-                                  ) : message.kind === "question" ? (
-                                    <span className="rounded-full border border-border bg-muted/40 px-2.5 py-1">
-                                      Reply below to continue this thread
-                                    </span>
-                                  ) : null}
-                                </div>
+                                  </div>
+                                ) : null}
                               </div>
                             </div>
                           </div>

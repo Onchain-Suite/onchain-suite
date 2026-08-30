@@ -317,6 +317,19 @@ const request = async <T>(
   }
 };
 
+/**
+ * A GET on a collection that 404s means the resource doesn't exist yet for this
+ * org (a brand-new / empty workspace), not that the request failed. The list
+ * callers treat that as "no data" (empty list) so the UI shows the empty state
+ * - "No campaigns yet" - rather than an error banner. Real failures (5xx,
+ * network, auth) keep their thrown error so the error state still surfaces them;
+ * we never mask a genuine backend outage as "nothing here".
+ */
+const isNoDataError = (error: unknown): boolean => {
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  return (cause as AxiosError | undefined)?.response?.status === 404;
+};
+
 const campaignTypes = new Set<Campaign["type"]>([
   "email-blast",
   "smart-sending",
@@ -578,10 +591,12 @@ const toCampaign = (raw: unknown): Campaign => {
 
 export const campaignsService = {
   listCampaigns(params?: ListCampaignsParams, orgId?: string) {
-    return request<unknown>(
-      { method: "GET", url: "/campaigns", params },
-      orgId
-    ).then((d) => extractList(d).map(toCampaign));
+    return request<unknown>({ method: "GET", url: "/campaigns", params }, orgId)
+      .then((d) => extractList(d).map(toCampaign))
+      .catch((e) => {
+        if (isNoDataError(e)) return [] as Campaign[];
+        throw e;
+      });
   },
 
   createCampaign(body: Record<string, unknown>, orgId?: string) {

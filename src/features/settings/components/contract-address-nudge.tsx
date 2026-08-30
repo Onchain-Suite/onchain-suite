@@ -18,7 +18,7 @@ export type ContractNudgeContext = "intelligence" | "automation";
 const COPY: Record<ContractNudgeContext, { title: string; body: string }> = {
   intelligence: {
     title: "Add a contract address to enrich your data",
-    body: "MCP and SQL queries return real onchain metrics once we've indexed your protocol's contracts and enriched the holder wallets.",
+    body: "The AI agent and SQL queries return real onchain metrics once we've indexed your protocol's contracts and enriched the holder wallets.",
   },
   automation: {
     title: "Add a contract address for onchain triggers",
@@ -27,10 +27,10 @@ const COPY: Record<ContractNudgeContext, { title: string; body: string }> = {
 };
 
 /**
- * Nudge shown in the enrichment-dependent surfaces (Intelligence MCP/SQL and the
+ * Nudge shown in the enrichment-dependent surfaces (Intelligence agent/SQL and the
  * automation builder) when the org has no saved contract addresses. Enrichment
  * seeds `user_onchain_metrics` from project-settings contracts, so without one
- * MCP/SQL return empty and onchain automation triggers have nothing to fire on.
+ * agent/SQL return empty and onchain automation triggers have nothing to fire on.
  *
  * Self-fetches by default (its own cache key). When the host already holds the
  * project-settings, pass `hasContracts` to skip the extra request.

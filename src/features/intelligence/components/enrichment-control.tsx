@@ -30,7 +30,7 @@ const timeAgo = (iso: string | null): string => {
  * Compact wallet/contract enrichment button (sits next to the credit meter).
  * Kicks off holder discovery + per-wallet enrichment from saved project-settings
  * contracts - this is what populates `user_onchain_metrics`, so SQL queries
- * return rows. Status is surfaced in the tooltip. Spends GoldRush credits.
+ * return rows. Status is surfaced in the tooltip. Spends Alchemy on-chain data credits.
  */
 export function EnrichmentControl() {
   const queryClient = useQueryClient();

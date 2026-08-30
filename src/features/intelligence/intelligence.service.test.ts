@@ -256,28 +256,28 @@ describe("intelligenceService", () => {
     );
   });
 
-  it("supports GoldRush MCP catalog, tools, resources, planning, direct runs, and multichain queries", async () => {
-    await intelligenceService.getGoldrushMcpCatalog();
-    await intelligenceService.getGoldrushMcpTools();
-    await intelligenceService.getGoldrushMcpResources();
-    await intelligenceService.readGoldrushMcpResource({
+  it("supports the agent catalog, tools, resources, planning, direct runs, and multichain queries", async () => {
+    await intelligenceService.getAgentCatalog();
+    await intelligenceService.getAgentTools();
+    await intelligenceService.getAgentResources();
+    await intelligenceService.readAgentResource({
       uri: "config://supported-chains",
     });
-    await intelligenceService.planGoldrushMcp({
+    await intelligenceService.planAgent({
       prompt: "Find active wallets across EVM and Solana",
       chains: ["eth-mainnet", "base-mainnet", "solana-mainnet"],
       protocol: "Jupiter",
       useProjectSettings: true,
       useProtocolRegistry: true,
     });
-    await intelligenceService.runGoldrushMcpTool({
+    await intelligenceService.runAgentTool({
       toolName: "multichain_balances",
       arguments: {
         walletAddress: "0xabc",
         chains: ["eth-mainnet", "base-mainnet"],
       },
     });
-    await intelligenceService.queryGoldrushMcp({
+    await intelligenceService.queryAgent({
       prompt: "Compare protocol activity across Ethereum, Base, and Solana",
       chains: ["eth-mainnet", "base-mainnet", "solana-mainnet"],
       mode: "best",
@@ -287,49 +287,49 @@ describe("intelligenceService", () => {
       1,
       expect.objectContaining({
         method: "GET",
-        url: "/intelligence/query/goldrush/mcp/catalog",
+        url: "/intelligence/query/agent/catalog",
       })
     );
     expect(mocks.apiClient.request).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
         method: "GET",
-        url: "/intelligence/query/goldrush/mcp/tools",
+        url: "/intelligence/query/agent/tools",
       })
     );
     expect(mocks.apiClient.request).toHaveBeenNthCalledWith(
       3,
       expect.objectContaining({
         method: "GET",
-        url: "/intelligence/query/goldrush/mcp/resources",
+        url: "/intelligence/query/agent/resources",
       })
     );
     expect(mocks.apiClient.request).toHaveBeenNthCalledWith(
       4,
       expect.objectContaining({
         method: "POST",
-        url: "/intelligence/query/goldrush/mcp/resources/read",
+        url: "/intelligence/query/agent/resources/read",
       })
     );
     expect(mocks.apiClient.request).toHaveBeenNthCalledWith(
       5,
       expect.objectContaining({
         method: "POST",
-        url: "/intelligence/query/goldrush/mcp/plan",
+        url: "/intelligence/query/agent/plan",
       })
     );
     expect(mocks.apiClient.request).toHaveBeenNthCalledWith(
       6,
       expect.objectContaining({
         method: "POST",
-        url: "/intelligence/query/goldrush/mcp/run",
+        url: "/intelligence/query/agent/tools/run",
       })
     );
     expect(mocks.apiClient.request).toHaveBeenNthCalledWith(
       7,
       expect.objectContaining({
         method: "POST",
-        url: "/intelligence/query/goldrush/mcp/query",
+        url: "/intelligence/query/agent/query",
         data: expect.objectContaining({
           chains: ["eth-mainnet", "base-mainnet", "solana-mainnet"],
         }),
@@ -337,7 +337,7 @@ describe("intelligenceService", () => {
     );
   });
 
-  it("streams GoldRush MCP progress through the dedicated frontend stream route", async () => {
+  it("streams agent progress through the dedicated frontend stream route", async () => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
@@ -363,7 +363,7 @@ describe("intelligenceService", () => {
     });
 
     const events: Array<{ type?: string; data?: unknown }> = [];
-    await intelligenceService.streamGoldrushMcpQuery(
+    await intelligenceService.streamAgentQuery(
       {
         prompt: "Find cross-chain holders",
         chains: ["eth-mainnet", "solana-mainnet"],
@@ -377,7 +377,7 @@ describe("intelligenceService", () => {
     );
 
     expect(mocks.fetch).toHaveBeenCalledWith(
-      "/api/v1/intelligence/query/goldrush/mcp/query/stream?prompt=Find+cross-chain+holders&useProjectSettings=true&chains=eth-mainnet&chains=solana-mainnet&orgId=org_test_123",
+      "/api/v1/intelligence/query/agent/query/stream?prompt=Find+cross-chain+holders&useProjectSettings=true&chains=eth-mainnet&chains=solana-mainnet&orgId=org_test_123",
       expect.objectContaining({
         method: "GET",
         credentials: "include",
@@ -401,7 +401,7 @@ describe("intelligenceService", () => {
   it("uses native EventSource for simple GET SSE requests when preferred", async () => {
     const events: Array<{ type?: string; data?: unknown }> = [];
 
-    const streamPromise = intelligenceService.streamGoldrushMcpQuery(
+    const streamPromise = intelligenceService.streamAgentQuery(
       {
         prompt: "Show balances on Base",
         chain: "base-mainnet",
@@ -417,7 +417,7 @@ describe("intelligenceService", () => {
 
     expect(mocks.eventSourceInstances).toHaveLength(1);
     expect(mocks.eventSourceInstances[0]?.url).toBe(
-      "/api/v1/intelligence/query/goldrush/mcp/query/stream?prompt=Show+balances+on+Base&chain=base-mainnet&useProjectSettings=true&orgId=org_test_123"
+      "/api/v1/intelligence/query/agent/query/stream?prompt=Show+balances+on+Base&chain=base-mainnet&useProjectSettings=true&orgId=org_test_123"
     );
     expect(mocks.eventSourceInstances[0]?.options).toEqual({
       withCredentials: true,
@@ -448,7 +448,7 @@ describe("intelligenceService", () => {
     expect(mocks.eventSourceInstances[0]?.close).toHaveBeenCalled();
   });
 
-  it("uses POST SSE for rich MCP stream bodies", async () => {
+  it("uses POST SSE for rich agent stream bodies", async () => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
@@ -468,7 +468,7 @@ describe("intelligenceService", () => {
       text: vi.fn().mockResolvedValue(""),
     });
 
-    await intelligenceService.streamGoldrushMcpQuery({
+    await intelligenceService.streamAgentQuery({
       prompt:
         "Compare contracts across chains with a long prompt payload that should prefer POST SSE because it carries structured data.",
       chains: [
@@ -488,7 +488,7 @@ describe("intelligenceService", () => {
     });
 
     expect(mocks.fetch).toHaveBeenCalledWith(
-      "/api/v1/intelligence/query/goldrush/mcp/query/stream",
+      "/api/v1/intelligence/query/agent/query/stream",
       expect.objectContaining({
         method: "POST",
         credentials: "include",

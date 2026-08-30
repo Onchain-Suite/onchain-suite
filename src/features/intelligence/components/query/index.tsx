@@ -32,11 +32,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { isJsonObject } from "@/lib/utils";
 
 import {
-  type IntelligenceGoldrushMcpQueryResponse,
-  type IntelligenceGoldrushMcpStep,
-  type IntelligenceGoldrushMcpStreamEvent,
-  type IntelligenceGoldrushMcpStructuredResult,
-  type IntelligenceGoldrushMcpStructuredResultKind,
+  type IntelligenceAgentQueryResponse,
+  type IntelligenceAgentStep,
+  type IntelligenceAgentStreamEvent,
+  type IntelligenceAgentStructuredResult,
+  type IntelligenceAgentStructuredResultKind,
   intelligenceService,
 } from "../../intelligence.service";
 import { type ChartSeriesPoint, ChatResultCard } from "./chat-result-card";
@@ -240,22 +240,25 @@ const collectObjectCandidates = (
 };
 
 /**
- * Strip the underlying data provider's branding (GoldRush / the "MCP" wire word)
- * from any agent step text before it reaches the UI, so the activity timeline
- * reads as a clean, generic thinking process. The backend endpoint keys keep
- * their names; this only touches human-facing copy.
+ * Strip the underlying data provider's branding from any agent step text before
+ * it reaches the UI, so the activity timeline reads as a clean, generic thinking
+ * process (like Claude's). Covers the current provider (Alchemy) and the legacy
+ * names still present in older runs (GoldRush / the "MCP" wire word). The backend
+ * endpoint keys keep their names; this only touches human-facing copy.
  */
 const sanitizeAgentText = (text: string): string =>
   text
-    .replace(/(?:GoldRush\s+)?MCP\s+agent/gi, "on-chain agent")
+    .replace(/(?:GoldRush\s+)?(?:Alchemy\s+)?MCP\s+agent/gi, "on-chain agent")
+    .replace(/\bAlchemy\s+agent\b/gi, "on-chain agent")
     .replace(/GoldRush[\s_-]+MCP/gi, "")
     .replace(/GoldRush/gi, "")
+    .replace(/\bAlchemy\b/gi, "")
     .replace(/\bMCP\b/gi, "")
     .replace(/\s{2,}/g, " ")
     .replace(/^[\s_-]+/, "")
     .trim();
 
-const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
+const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
   const eventType = event.type ?? "update";
   const candidates = collectObjectCandidates(event.data);
   const [first] = candidates;
@@ -393,8 +396,8 @@ const isAbortError = (error: unknown) =>
   error instanceof Error && error.name === "AbortError";
 
 const toStreamStep = (
-  event: IntelligenceGoldrushMcpStreamEvent
-): IntelligenceGoldrushMcpStep | null => {
+  event: IntelligenceAgentStreamEvent
+): IntelligenceAgentStep | null => {
   const eventType = event.type ?? "";
   if (
     eventType !== "tool_call_started" &&
@@ -431,9 +434,9 @@ const toStreamStep = (
 };
 
 const toStreamFinalResponse = (
-  event: IntelligenceGoldrushMcpStreamEvent,
-  collectedSteps: IntelligenceGoldrushMcpStep[]
-): IntelligenceGoldrushMcpQueryResponse | null => {
+  event: IntelligenceAgentStreamEvent,
+  collectedSteps: IntelligenceAgentStep[]
+): IntelligenceAgentQueryResponse | null => {
   const candidates = collectObjectCandidates(event.data);
   const responseCandidate =
     candidates.find(
@@ -448,7 +451,7 @@ const toStreamFinalResponse = (
 
   const response = {
     ...responseCandidate,
-  } as IntelligenceGoldrushMcpQueryResponse;
+  } as IntelligenceAgentQueryResponse;
 
   if (
     (!Array.isArray(response.steps) || response.steps.length === 0) &&
@@ -460,7 +463,7 @@ const toStreamFinalResponse = (
   return response;
 };
 
-interface MpcFailureReport {
+interface AgentFailureReport {
   message: string;
   /** Actionable explanation for known failure modes (config, quota, …). */
   guidance?: string;
@@ -498,7 +501,7 @@ const MCP_FAILURE_GUIDANCE: Array<{ match: RegExp; guidance: string }> = [
   },
 ];
 
-const guidanceForMcpFailure = (
+const guidanceForAgentFailure = (
   message: string,
   statusCode?: number
 ): string | undefined => {
@@ -512,13 +515,13 @@ const guidanceForMcpFailure = (
   return undefined;
 };
 
-const toMcpFailureReport = (
+const toAgentFailureReport = (
   error: unknown,
   context: {
     prompt?: string;
     conversationId?: string | null;
   }
-): MpcFailureReport => {
+): AgentFailureReport => {
   const candidates = [
     ...collectObjectCandidates(error),
     ...(error instanceof Error ? collectObjectCandidates(error.cause) : []),
@@ -576,7 +579,7 @@ const toMcpFailureReport = (
 
   return {
     message,
-    guidance: guidanceForMcpFailure(message, statusCode),
+    guidance: guidanceForAgentFailure(message, statusCode),
     statusCode,
     requestId,
     conversationId,
@@ -585,7 +588,7 @@ const toMcpFailureReport = (
   };
 };
 
-const formatMcpFailureReport = (report: MpcFailureReport) =>
+const formatAgentFailureReport = (report: AgentFailureReport) =>
   [
     report.guidance ?? null,
     report.guidance ? "" : null,
@@ -616,7 +619,7 @@ interface ChatMessage {
   content: string;
   kind?: "answer" | "question" | "error";
   rationale?: string;
-  errorReport?: MpcFailureReport;
+  errorReport?: AgentFailureReport;
   confidence?: number;
   queryReady?: boolean;
   toolSteps?: Array<{
@@ -627,7 +630,7 @@ interface ChatMessage {
   mode?: string;
   conversationId?: string;
   queryId?: string;
-  structuredResult?: IntelligenceGoldrushMcpStructuredResult | null;
+  structuredResult?: IntelligenceAgentStructuredResult | null;
 }
 
 const getFallbackReasoningActivity = (
@@ -666,7 +669,7 @@ const getFallbackReasoningActivity = (
 
 const isStructuredResult = (
   value: unknown
-): value is IntelligenceGoldrushMcpStructuredResult =>
+): value is IntelligenceAgentStructuredResult =>
   isJsonObject(value) &&
   typeof value.kind === "string" &&
   Array.isArray(value.rows);
@@ -733,9 +736,7 @@ const meaningfulStructuredRows = (
 };
 
 /** Plain-language "nothing found" line, phrased for the result kind. */
-const emptyResultMessage = (
-  kind: IntelligenceGoldrushMcpStructuredResultKind
-) => {
+const emptyResultMessage = (kind: IntelligenceAgentStructuredResultKind) => {
   const normalized = String(kind).toLowerCase();
   if (normalized.includes("transaction") || normalized.includes("transfer")) {
     return "No transactions were found for this wallet on the covered chains.";
@@ -753,7 +754,7 @@ const emptyResultMessage = (
 };
 
 const normalizeStructuredRows = (
-  rows: IntelligenceGoldrushMcpStructuredResult["rows"]
+  rows: IntelligenceAgentStructuredResult["rows"]
 ) => rows.map(asRecord);
 
 // Column names we treat as the category (x/legend) and the numeric measure when
@@ -797,7 +798,7 @@ const CHART_VALUE_COLUMNS = [
  * no numeric measure is present so the Chart tab is simply hidden (never faked).
  */
 const deriveChatChartSeries = (
-  structured: IntelligenceGoldrushMcpStructuredResult
+  structured: IntelligenceAgentStructuredResult
 ): ChartSeriesPoint[] => {
   const rows = meaningfulStructuredRows(
     normalizeStructuredRows(structured.rows)
@@ -926,7 +927,7 @@ interface QueryTabProps {
   setActiveTab: (tab: string) => void;
   // Seed the editor with a previously saved run (Reports tab "Open" action).
   // Mirrors the history-panel click-through: with a queryId the status poll +
-  // results fetch re-open the saved run's data; with a chat prompt the MCP
+  // results fetch re-open the saved run's data; with a chat prompt the agent
   // composer is pre-filled for a resend. Read once on mount.
   initialQueryId?: string | null;
   initialSql?: string;
@@ -975,7 +976,7 @@ export function QueryTab({
   const [assistantPrompt, setAssistantPrompt] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const chatThreadEndRef = useRef<HTMLDivElement | null>(null);
-  const mcpAbortRef = useRef<AbortController | null>(null);
+  const agentAbortRef = useRef<AbortController | null>(null);
   const [protocolSearch] = useState("");
   const [selectedProtocolId] = useState("");
   const [activeConversationId, setActiveConversationId] = useState<
@@ -1118,7 +1119,7 @@ export function QueryTab({
     },
     [activeSuggestionId]
   );
-  const buildMcpRequest = useCallback(
+  const buildAgentRequest = useCallback(
     (prompt: string) => ({
       conversationId: activeConversationId ?? undefined,
       message: prompt,
@@ -1194,8 +1195,8 @@ export function QueryTab({
     },
   });
 
-  const mcpMutation = useMutation<
-    IntelligenceGoldrushMcpQueryResponse,
+  const agentMutation = useMutation<
+    IntelligenceAgentQueryResponse,
     Error,
     string
   >({
@@ -1204,23 +1205,23 @@ export function QueryTab({
       if (trimmedPrompt.length === 0) {
         throw new Error("Write a message first");
       }
-      const request = buildMcpRequest(trimmedPrompt);
+      const request = buildAgentRequest(trimmedPrompt);
       setStreamActivity([]);
       setStreamFallbackUsed(false);
 
-      const collectedSteps: IntelligenceGoldrushMcpStep[] = [];
-      let streamFinalResponse: IntelligenceGoldrushMcpQueryResponse | undefined;
+      const collectedSteps: IntelligenceAgentStep[] = [];
+      let streamFinalResponse: IntelligenceAgentQueryResponse | undefined;
       let streamFailed = false;
       const streamAbortController = new AbortController();
       // Lets the user stop a long-running agent; also tears down the SSE stream.
       const runAbort = new AbortController();
-      mcpAbortRef.current = runAbort;
+      agentAbortRef.current = runAbort;
       runAbort.signal.addEventListener("abort", () =>
         streamAbortController.abort()
       );
 
       const streamPromise = intelligenceService
-        .streamGoldrushMcpQuery(request, {
+        .streamAgentQuery(request, {
           signal: streamAbortController.signal,
           onEvent: (event) => {
             const eventConversationId = extractConversationId(event.data);
@@ -1270,10 +1271,10 @@ export function QueryTab({
         });
 
       const [planResult, queryResult] = await Promise.allSettled([
-        intelligenceService.planGoldrushMcp(request, undefined, {
+        intelligenceService.planAgent(request, undefined, {
           signal: runAbort.signal,
         }),
-        intelligenceService.queryGoldrushMcp(request, undefined, {
+        intelligenceService.queryAgent(request, undefined, {
           signal: runAbort.signal,
         }),
       ]);
@@ -1327,7 +1328,7 @@ export function QueryTab({
 
       throw new Error("Failed to generate a response");
     },
-    onSuccess: (res: IntelligenceGoldrushMcpQueryResponse) => {
+    onSuccess: (res: IntelligenceAgentQueryResponse) => {
       if (
         typeof res.conversationId === "string" &&
         res.conversationId.length > 0
@@ -1418,7 +1419,7 @@ export function QueryTab({
         setHasRunQuery(false);
       }
 
-      // MCP runs spend GoldRush credits - refresh the meter.
+      // Agent runs spend on-chain data credits - refresh the meter.
       queryClient
         .invalidateQueries({ queryKey: ["intelligence", "credits"] })
         .catch(() => undefined);
@@ -1443,12 +1444,12 @@ export function QueryTab({
         ]);
         return;
       }
-      const errorReport = toMcpFailureReport(err, {
+      const errorReport = toAgentFailureReport(err, {
         prompt: lastSubmittedChatPrompt,
         conversationId: activeConversationId,
       });
       const { message } = errorReport;
-      console.error("[intelligence] MCP chat failure", errorReport, err);
+      console.error("[intelligence] agent chat failure", errorReport, err);
       setStreamActivity((prev) => [
         ...prev.slice(-3),
         {
@@ -1474,13 +1475,13 @@ export function QueryTab({
       toast.error(message);
     },
     onSettled: () => {
-      mcpAbortRef.current = null;
+      agentAbortRef.current = null;
     },
   });
 
-  const stopMcpRun = useCallback(() => {
-    mcpAbortRef.current?.abort();
-    mcpAbortRef.current = null;
+  const stopAgentRun = useCallback(() => {
+    agentAbortRef.current?.abort();
+    agentAbortRef.current = null;
   }, []);
 
   const submitChatPrompt = useCallback(
@@ -1498,9 +1499,9 @@ export function QueryTab({
       ]);
       setLastSubmittedChatPrompt(trimmedPrompt);
       setChatPrompt("");
-      mcpMutation.mutate(trimmedPrompt);
+      agentMutation.mutate(trimmedPrompt);
     },
-    [mcpMutation]
+    [agentMutation]
   );
 
   useEffect(() => {
@@ -1508,7 +1509,7 @@ export function QueryTab({
     const node = chatThreadEndRef.current;
     if (!node || typeof node.scrollIntoView !== "function") return;
     node.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [activeSurface, chatMessages.length, mcpMutation.isPending]);
+  }, [activeSurface, chatMessages.length, agentMutation.isPending]);
 
   const suggestionsMutation = useMutation({
     mutationFn: async () => {
@@ -1703,16 +1704,16 @@ export function QueryTab({
     status === "completed" || status === "failed" || sqlPollTimedOut;
   const isQueryRunning =
     runMutation.isPending ||
-    mcpMutation.isPending ||
+    agentMutation.isPending ||
     (!!queryId && !sqlStatusSettled);
 
   const isSqlRunning =
     runMutation.isPending ||
-    (!mcpMutation.isPending && !!queryId && !sqlStatusSettled);
+    (!agentMutation.isPending && !!queryId && !sqlStatusSettled);
 
   // Backend message for a rejected run (4xx/5xx, e.g. "Only SELECT queries
   // are allowed") - rendered as an explicit panel in the results area, not
-  // just a toast. Scoped to the SQL surface; the chat surface reports MCP
+  // just a toast. Scoped to the SQL surface; the chat surface reports agent
   // failures inline in the thread.
   const sqlRunError =
     activeSurface === "sql" && runMutation.isError
@@ -1929,7 +1930,7 @@ export function QueryTab({
     );
   };
   const renderStructuredResult = (
-    structuredResult: IntelligenceGoldrushMcpStructuredResult
+    structuredResult: IntelligenceAgentStructuredResult
   ) => {
     const structuredRows = normalizeStructuredRows(structuredResult.rows);
     const holderColumn = findPreferredColumn(structuredRows, [
@@ -2471,11 +2472,11 @@ export function QueryTab({
       setSelectedRows([]);
       validateMutation.reset();
       runMutation.reset();
-      mcpMutation.reset();
+      agentMutation.reset();
       setStreamActivity([]);
       setStreamFallbackUsed(false);
     },
-    [mcpMutation, runMutation, validateMutation]
+    [agentMutation, runMutation, validateMutation]
   );
 
   return (
@@ -2585,7 +2586,7 @@ export function QueryTab({
                                           if (!report) return;
                                           navigator.clipboard
                                             .writeText(
-                                              formatMcpFailureReport(report)
+                                              formatAgentFailureReport(report)
                                             )
                                             .catch(() => {
                                               // Copy failure should not block the visible bug report.
@@ -2687,7 +2688,7 @@ export function QueryTab({
                         </div>
                       )
                     )}
-                    {mcpMutation.isPending ? (
+                    {agentMutation.isPending ? (
                       <ThinkingTimeline
                         steps={reasoningTimeline}
                         recovering={streamFallbackUsed}
@@ -2771,14 +2772,14 @@ export function QueryTab({
               <div className="mx-auto flex w-full max-w-4xl flex-col gap-3">
                 <div className="flex items-end gap-2 rounded-[24px] border border-border bg-muted/40 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/25">
                   <textarea
-                    id="mcp-chat-input"
-                    aria-label="MCP chat input"
+                    id="agent-chat-input"
+                    aria-label="Ask the on-chain agent"
                     value={chatPrompt}
                     onChange={(e) => setChatPrompt(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
-                        if (mcpMutation.isPending) return;
+                        if (agentMutation.isPending) return;
                         submitChatPrompt(chatPrompt);
                       }
                     }}
@@ -2788,23 +2789,23 @@ export function QueryTab({
                   />
                   <Button
                     type="button"
-                    aria-label={mcpMutation.isPending ? "Stop" : "Send"}
-                    title={mcpMutation.isPending ? "Stop" : "Send"}
+                    aria-label={agentMutation.isPending ? "Stop" : "Send"}
+                    title={agentMutation.isPending ? "Stop" : "Send"}
                     onClick={() =>
-                      mcpMutation.isPending
-                        ? stopMcpRun()
+                      agentMutation.isPending
+                        ? stopAgentRun()
                         : submitChatPrompt(chatPrompt)
                     }
                     disabled={
-                      !mcpMutation.isPending && chatPrompt.trim().length === 0
+                      !agentMutation.isPending && chatPrompt.trim().length === 0
                     }
                     className={
-                      mcpMutation.isPending
+                      agentMutation.isPending
                         ? "h-11 w-11 shrink-0 rounded-full bg-white/10 p-0 text-foreground transition-all hover:bg-white/20"
                         : "h-11 w-11 shrink-0 rounded-full bg-[linear-gradient(135deg,#5c70ff,#4258e0)] p-0 shadow-[0_14px_34px_-16px_rgba(86,112,255,0.9)] transition-all hover:shadow-[0_18px_40px_-14px_rgba(86,112,255,1)]"
                     }
                   >
-                    {mcpMutation.isPending ? (
+                    {agentMutation.isPending ? (
                       <StopIcon className="h-4 w-4" aria-hidden="true" />
                     ) : (
                       <ChevronUpIcon className="h-4 w-4" aria-hidden="true" />
@@ -3275,7 +3276,13 @@ export function QueryTab({
                     : typeof item.summary === "string"
                       ? item.summary
                       : "",
-              isMcp: provider.includes("goldrush") || provider.includes("mcp"),
+              // Backend `provider` is now "alchemy"/"agent"; older rows still
+              // read "goldrush"/"mcp". Match all so replay routes correctly.
+              isAgent:
+                provider.includes("agent") ||
+                provider.includes("alchemy") ||
+                provider.includes("goldrush") ||
+                provider.includes("mcp"),
               status: typeof item.status === "string" ? item.status : "",
               createdAt:
                 typeof item.createdAt === "string"
@@ -3304,7 +3311,7 @@ export function QueryTab({
                 History
               </span>
               <span className="text-xs text-muted-foreground">
-                MCP &amp; SQL runs
+                Agent &amp; SQL runs
               </span>
               <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground">
                 {items.length}
@@ -3332,8 +3339,8 @@ export function QueryTab({
                           type="button"
                           className="group flex w-full items-start gap-3 rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-border hover:bg-background"
                           onClick={() => {
-                            if (it.isMcp) {
-                              // Replay an MCP run: reload the prompt into
+                            if (it.isAgent) {
+                              // Replay an agent run: reload the prompt into
                               // the chat composer for the user to resend.
                               setChatPrompt(it.q);
                               return;
@@ -3353,7 +3360,7 @@ export function QueryTab({
                             }`}
                           />
                           <span className="mt-0.5 shrink-0 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                            {it.isMcp ? "MCP" : "SQL"}
+                            {it.isAgent ? "Agent" : "SQL"}
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate font-mono text-xs text-foreground">

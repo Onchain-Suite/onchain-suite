@@ -43,7 +43,7 @@ export interface IntelligenceQueryHistoryItem {
   metadata?: Record<string, unknown>;
 }
 
-export interface IntelligenceGoldrushRunBody {
+export interface IntelligenceAgentWalletDataBody {
   resourceType:
     | "balances"
     | "transactions"
@@ -60,7 +60,7 @@ export interface IntelligenceGoldrushRunBody {
   noSpam?: boolean;
 }
 
-export interface IntelligenceGoldrushMcpQueryBody {
+export interface IntelligenceAgentQueryBody {
   conversationId?: string;
   message?: string;
   prompt?: string;
@@ -79,7 +79,7 @@ export interface IntelligenceGoldrushMcpQueryBody {
   useProtocolRegistry?: boolean;
 }
 
-export interface IntelligenceGoldrushMcpStep {
+export interface IntelligenceAgentStep {
   toolName?: string;
   title?: string;
   description?: string;
@@ -87,7 +87,7 @@ export interface IntelligenceGoldrushMcpStep {
   [key: string]: unknown;
 }
 
-export type IntelligenceGoldrushMcpStructuredResultKind =
+export type IntelligenceAgentStructuredResultKind =
   | "multichain_address_activity"
   | "multichain_balances"
   | "multichain_transactions"
@@ -117,32 +117,32 @@ export type IntelligenceGoldrushMcpStructuredResultKind =
   | "generic_object"
   | string;
 
-export interface IntelligenceGoldrushMcpStructuredResult {
+export interface IntelligenceAgentStructuredResult {
   toolName?: string;
-  kind: IntelligenceGoldrushMcpStructuredResultKind;
+  kind: IntelligenceAgentStructuredResultKind;
   title?: string;
   summary?: string;
   rows: Array<Record<string, unknown>>;
   meta?: Record<string, unknown>;
 }
 
-export interface IntelligenceGoldrushMcpQueryResponse {
+export interface IntelligenceAgentQueryResponse {
   conversationId?: string;
   queryId?: string;
   mode?: "dynamic_agent" | "deterministic_fallback" | string;
   status?: "answered" | "needs_clarification" | string;
   answer?: string;
   question?: string;
-  structuredResult?: IntelligenceGoldrushMcpStructuredResult | null;
+  structuredResult?: IntelligenceAgentStructuredResult | null;
   rationale?: string;
   confidence?: number;
   plan?: unknown;
-  steps?: IntelligenceGoldrushMcpStep[];
+  steps?: IntelligenceAgentStep[];
   execution?: unknown;
   [key: string]: unknown;
 }
 
-export interface IntelligenceGoldrushMcpTool {
+export interface IntelligenceAgentTool {
   name: string;
   title?: string;
   description?: string;
@@ -150,17 +150,17 @@ export interface IntelligenceGoldrushMcpTool {
   outputSchema?: unknown;
 }
 
-export interface IntelligenceGoldrushMcpToolsResponse {
-  items: IntelligenceGoldrushMcpTool[];
+export interface IntelligenceAgentToolsResponse {
+  items: IntelligenceAgentTool[];
 }
 
-export interface IntelligenceGoldrushMcpCatalogResponse {
+export interface IntelligenceAgentCatalogResponse {
   tools?: Array<Record<string, unknown>>;
   resources?: Array<Record<string, unknown>>;
   [key: string]: unknown;
 }
 
-export interface IntelligenceGoldrushMcpResource {
+export interface IntelligenceAgentResource {
   uri: string;
   name?: string;
   title?: string;
@@ -169,20 +169,20 @@ export interface IntelligenceGoldrushMcpResource {
   [key: string]: unknown;
 }
 
-export interface IntelligenceGoldrushMcpResourcesResponse {
-  items: IntelligenceGoldrushMcpResource[];
+export interface IntelligenceAgentResourcesResponse {
+  items: IntelligenceAgentResource[];
 }
 
-export interface IntelligenceGoldrushMcpRunBody {
+export interface IntelligenceAgentRunBody {
   toolName: string;
   arguments?: Record<string, unknown>;
 }
 
-export interface IntelligenceGoldrushMcpReadResourceBody {
+export interface IntelligenceAgentReadResourceBody {
   uri: string;
 }
 
-export interface IntelligenceGoldrushMcpRunResponse {
+export interface IntelligenceAgentRunResponse {
   toolName?: string;
   arguments?: Record<string, unknown>;
   isError?: boolean;
@@ -193,7 +193,7 @@ export interface IntelligenceGoldrushMcpRunResponse {
   [key: string]: unknown;
 }
 
-export interface IntelligenceGoldrushMcpReadResourceResponse {
+export interface IntelligenceAgentReadResourceResponse {
   uri?: string;
   textContent?: unknown;
   parsedText?: unknown;
@@ -201,7 +201,7 @@ export interface IntelligenceGoldrushMcpReadResourceResponse {
   [key: string]: unknown;
 }
 
-export interface IntelligenceGoldrushMcpPlanResponse {
+export interface IntelligenceAgentPlanResponse {
   intent?: string;
   supported?: boolean;
   protocol?: unknown;
@@ -478,7 +478,7 @@ export type IntelligenceWalletEnrichmentMetricsResponse = Record<
   unknown
 >;
 
-/** GoldRush credit meter - `GET /intelligence/query/credits`. */
+/** On-chain data credit meter (Alchemy) - `GET /intelligence/query/credits`. */
 export interface IntelligenceCreditMeter {
   period: string;
   used: number;
@@ -511,12 +511,12 @@ export interface IntelligenceEnrichProtocolResponse {
   contactsEnqueued: number;
 }
 
-export interface IntelligenceGoldrushMcpStreamEvent {
+export interface IntelligenceAgentStreamEvent {
   type?: string;
   data?: unknown;
 }
 
-export type IntelligenceGoldrushMcpStreamTransport = "get" | "post";
+export type IntelligenceAgentStreamTransport = "get" | "post";
 
 const pickOrgId = (orgId?: string) =>
   orgId ?? getSelectedOrganizationId() ?? null;
@@ -573,9 +573,7 @@ const appendUniqueSearchParams = (
   }
 };
 
-const buildGoldrushMcpStreamSearchParams = (
-  input: IntelligenceGoldrushMcpQueryBody
-) => {
+const buildAgentStreamSearchParams = (input: IntelligenceAgentQueryBody) => {
   const params = new URLSearchParams();
 
   if (input.prompt) params.set("prompt", input.prompt);
@@ -630,7 +628,7 @@ const parseSseEventData = (raw: string): unknown => {
 const toStreamEvent = (
   eventType: string | undefined,
   rawData: string
-): IntelligenceGoldrushMcpStreamEvent => {
+): IntelligenceAgentStreamEvent => {
   const parsed = parseSseEventData(rawData);
   return {
     type:
@@ -642,7 +640,7 @@ const toStreamEvent = (
   };
 };
 
-const MCP_STREAM_EVENT_TYPES = [
+const AGENT_STREAM_EVENT_TYPES = [
   "started",
   "planner_ready",
   "resource_context",
@@ -871,26 +869,26 @@ export const intelligenceService = {
     );
   },
 
-  runGoldrushQuery(body: IntelligenceGoldrushRunBody, orgId?: string) {
+  runAgentWalletData(body: IntelligenceAgentWalletDataBody, orgId?: string) {
     return request<IntelligenceQueryRunResponse>(
       {
         method: "POST",
-        url: "/intelligence/query/goldrush/run",
+        url: "/intelligence/query/agent/wallet-data",
         data: body,
       },
       orgId
     );
   },
 
-  queryGoldrushMcp(
-    body: IntelligenceGoldrushMcpQueryBody,
+  queryAgent(
+    body: IntelligenceAgentQueryBody,
     orgId?: string,
     options?: { signal?: AbortSignal; timeoutMs?: number }
   ) {
-    return request<IntelligenceGoldrushMcpQueryResponse>(
+    return request<IntelligenceAgentQueryResponse>(
       {
         method: "POST",
-        url: "/intelligence/query/goldrush/mcp/query",
+        url: "/intelligence/query/agent/query",
         data: body,
         signal: options?.signal,
         // Hard ceiling so the agent can't spin forever with no response.
@@ -900,70 +898,67 @@ export const intelligenceService = {
     );
   },
 
-  getGoldrushMcpCatalog(orgId?: string) {
-    return request<IntelligenceGoldrushMcpCatalogResponse>(
+  getAgentCatalog(orgId?: string) {
+    return request<IntelligenceAgentCatalogResponse>(
       {
         method: "GET",
-        url: "/intelligence/query/goldrush/mcp/catalog",
+        url: "/intelligence/query/agent/catalog",
       },
       orgId
     );
   },
 
-  getGoldrushMcpTools(orgId?: string) {
-    return request<IntelligenceGoldrushMcpToolsResponse>(
+  getAgentTools(orgId?: string) {
+    return request<IntelligenceAgentToolsResponse>(
       {
         method: "GET",
-        url: "/intelligence/query/goldrush/mcp/tools",
+        url: "/intelligence/query/agent/tools",
       },
       orgId
     );
   },
 
-  getGoldrushMcpResources(orgId?: string) {
-    return request<IntelligenceGoldrushMcpResourcesResponse>(
+  getAgentResources(orgId?: string) {
+    return request<IntelligenceAgentResourcesResponse>(
       {
         method: "GET",
-        url: "/intelligence/query/goldrush/mcp/resources",
+        url: "/intelligence/query/agent/resources",
       },
       orgId
     );
   },
 
-  readGoldrushMcpResource(
-    body: IntelligenceGoldrushMcpReadResourceBody,
-    orgId?: string
-  ) {
-    return request<IntelligenceGoldrushMcpReadResourceResponse>(
+  readAgentResource(body: IntelligenceAgentReadResourceBody, orgId?: string) {
+    return request<IntelligenceAgentReadResourceResponse>(
       {
         method: "POST",
-        url: "/intelligence/query/goldrush/mcp/resources/read",
+        url: "/intelligence/query/agent/resources/read",
         data: body,
       },
       orgId
     );
   },
 
-  runGoldrushMcpTool(body: IntelligenceGoldrushMcpRunBody, orgId?: string) {
-    return request<IntelligenceGoldrushMcpRunResponse>(
+  runAgentTool(body: IntelligenceAgentRunBody, orgId?: string) {
+    return request<IntelligenceAgentRunResponse>(
       {
         method: "POST",
-        url: "/intelligence/query/goldrush/mcp/run",
+        url: "/intelligence/query/agent/tools/run",
         data: body,
       },
       orgId
     );
   },
 
-  planGoldrushMcp(
-    body: IntelligenceGoldrushMcpQueryBody,
+  planAgent(
+    body: IntelligenceAgentQueryBody,
     orgId?: string,
     options?: { signal?: AbortSignal; timeoutMs?: number }
   ) {
-    return request<IntelligenceGoldrushMcpPlanResponse>(
+    return request<IntelligenceAgentPlanResponse>(
       {
         method: "POST",
-        url: "/intelligence/query/goldrush/mcp/plan",
+        url: "/intelligence/query/agent/plan",
         data: body,
         signal: options?.signal,
         timeout: options?.timeoutMs ?? 60_000,
@@ -972,9 +967,9 @@ export const intelligenceService = {
     );
   },
 
-  selectGoldrushMcpStreamTransport(
-    body: IntelligenceGoldrushMcpQueryBody
-  ): IntelligenceGoldrushMcpStreamTransport {
+  selectAgentStreamTransport(
+    body: IntelligenceAgentQueryBody
+  ): IntelligenceAgentStreamTransport {
     const promptLength = body.prompt?.trim().length ?? 0;
     const sqlLength = body.sql?.trim().length ?? 0;
     const chainsCount = body.chains?.length ?? 0;
@@ -987,37 +982,33 @@ export const intelligenceService = {
     if (chainsCount > 4) return "post";
     if (contractAddressesCount > 4 || walletAddressesCount > 4) return "post";
 
-    const queryLength =
-      buildGoldrushMcpStreamSearchParams(body).toString().length;
+    const queryLength = buildAgentStreamSearchParams(body).toString().length;
     return queryLength > 1400 ? "post" : "get";
   },
 
-  buildGoldrushMcpStreamUrl(
-    body: IntelligenceGoldrushMcpQueryBody,
-    orgId?: string
-  ) {
-    const params = buildGoldrushMcpStreamSearchParams(body);
+  buildAgentStreamUrl(body: IntelligenceAgentQueryBody, orgId?: string) {
+    const params = buildAgentStreamSearchParams(body);
     if (typeof orgId === "string" && orgId.trim().length > 0) {
       params.set("orgId", orgId.trim());
     }
     const queryString = params.toString();
     return queryString.length > 0
-      ? `/api/v1/intelligence/query/goldrush/mcp/query/stream?${queryString}`
-      : "/api/v1/intelligence/query/goldrush/mcp/query/stream";
+      ? `/api/v1/intelligence/query/agent/query/stream?${queryString}`
+      : "/api/v1/intelligence/query/agent/query/stream";
   },
 
-  async streamGoldrushMcpQueryViaFetch(
-    body: IntelligenceGoldrushMcpQueryBody,
+  async streamAgentQueryViaFetch(
+    body: IntelligenceAgentQueryBody,
     options?: {
       orgId?: string;
       signal?: AbortSignal;
-      onEvent?: (event: IntelligenceGoldrushMcpStreamEvent) => void;
-      transport?: IntelligenceGoldrushMcpStreamTransport;
+      onEvent?: (event: IntelligenceAgentStreamEvent) => void;
+      transport?: IntelligenceAgentStreamTransport;
     }
   ) {
     const orgId = pickOrgId(options?.orgId) ?? undefined;
     const transport =
-      options?.transport ?? this.selectGoldrushMcpStreamTransport(body);
+      options?.transport ?? this.selectAgentStreamTransport(body);
     const headers: Record<string, string> = {
       Accept: "text/event-stream",
     };
@@ -1027,7 +1018,7 @@ export const intelligenceService = {
     }
 
     const response = await fetch(
-      this.buildGoldrushMcpStreamUrl(
+      this.buildAgentStreamUrl(
         transport === "get" ? body : {},
         transport === "get" ? orgId : undefined
       ),
@@ -1085,24 +1076,24 @@ export const intelligenceService = {
     if (finalChunk.length > 0) emitEvent(finalChunk);
   },
 
-  async streamGoldrushMcpQueryViaEventSource(
-    body: IntelligenceGoldrushMcpQueryBody,
+  async streamAgentQueryViaEventSource(
+    body: IntelligenceAgentQueryBody,
     options?: {
       orgId?: string;
       signal?: AbortSignal;
-      onEvent?: (event: IntelligenceGoldrushMcpStreamEvent) => void;
+      onEvent?: (event: IntelligenceAgentStreamEvent) => void;
     }
   ) {
     const EventSourceCtor = globalThis.EventSource;
     if (!EventSourceCtor) {
-      return this.streamGoldrushMcpQueryViaFetch(body, {
+      return this.streamAgentQueryViaFetch(body, {
         ...options,
         transport: "get",
       });
     }
 
     const orgId = pickOrgId(options?.orgId) ?? undefined;
-    const url = this.buildGoldrushMcpStreamUrl(body, orgId);
+    const url = this.buildAgentStreamUrl(body, orgId);
 
     await new Promise<void>((resolve, reject) => {
       let settled = false;
@@ -1142,7 +1133,7 @@ export const intelligenceService = {
         options.signal.addEventListener("abort", handleAbort, { once: true });
       }
 
-      MCP_STREAM_EVENT_TYPES.forEach((type) => {
+      AGENT_STREAM_EVENT_TYPES.forEach((type) => {
         const handler = (event: MessageEvent<string>) => {
           const nextEvent = toStreamEvent(type, event.data);
           options?.onEvent?.(nextEvent);
@@ -1169,26 +1160,26 @@ export const intelligenceService = {
     });
   },
 
-  async streamGoldrushMcpQuery(
-    body: IntelligenceGoldrushMcpQueryBody,
+  async streamAgentQuery(
+    body: IntelligenceAgentQueryBody,
     options?: {
       orgId?: string;
       signal?: AbortSignal;
-      onEvent?: (event: IntelligenceGoldrushMcpStreamEvent) => void;
-      transport?: "auto" | IntelligenceGoldrushMcpStreamTransport;
+      onEvent?: (event: IntelligenceAgentStreamEvent) => void;
+      transport?: "auto" | IntelligenceAgentStreamTransport;
       preferNativeEventSource?: boolean;
     }
   ) {
     const transport =
       options?.transport && options.transport !== "auto"
         ? options.transport
-        : this.selectGoldrushMcpStreamTransport(body);
+        : this.selectAgentStreamTransport(body);
 
     if (transport === "get" && options?.preferNativeEventSource) {
-      return this.streamGoldrushMcpQueryViaEventSource(body, options);
+      return this.streamAgentQueryViaEventSource(body, options);
     }
 
-    return this.streamGoldrushMcpQueryViaFetch(body, {
+    return this.streamAgentQueryViaFetch(body, {
       ...options,
       transport,
     });
@@ -1343,7 +1334,7 @@ export const intelligenceService = {
     );
   },
 
-  // GoldRush credit meter (MCP + enrichment consume credits; SQL does not).
+  // On-chain data credit meter (Alchemy). Agent + enrichment consume credits; SQL does not.
   getCredits(orgId?: string) {
     return request<IntelligenceCreditMeter>(
       { method: "GET", url: "/intelligence/query/credits" },

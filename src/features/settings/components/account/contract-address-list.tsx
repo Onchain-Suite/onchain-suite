@@ -124,7 +124,7 @@ function ContractRowItem({
 /**
  * Renders every configured contract address as a clean, copyable list with
  * chain badges (resolved from the supported-chains registry, so testnets show a
- * tag) and the GoldRush token logo. These addresses feed the on-chain
+ * tag) and the Alchemy token logo. These addresses feed the on-chain
  * intelligence / indexing pipeline.
  */
 export function ContractAddressList({

@@ -31,7 +31,7 @@ const C = 2 * Math.PI * R;
  * AI credit meter, rendered as a compact circular usage ring with the AI
  * icon at its center. Reads the org's `meters.aiCredits` from
  * `GET /billing/plan-usage/:organizationId` - the weighted meter that gates
- * the assistant, SQL generation, suggestions and the MCP agent (402
+ * the assistant, SQL generation, suggestions and the on-chain agent (402
  * AI_CREDITS_EXCEEDED). Numeric usage and remaining credits surface on hover.
  * Refreshes when other intelligence requests invalidate the
  * ["intelligence","credits"] key prefix.
@@ -158,7 +158,7 @@ export function CreditMeter() {
                 : `${compact(remaining)} credits remaining this month.`}
           </p>
           <p className="mt-1 text-muted-foreground">
-            Used by AI chat, SQL generation, query suggestions and the MCP
+            Used by AI chat, SQL generation, query suggestions and the on-chain
             agent. Running saved SQL against your own data is free.
           </p>
         </TooltipContent>

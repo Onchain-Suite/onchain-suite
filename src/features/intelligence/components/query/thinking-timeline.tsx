@@ -164,7 +164,7 @@ export function ThinkingTimeline({
       className="flex justify-start"
       role="status"
       aria-live="polite"
-      aria-label="MCP agent is thinking"
+      aria-label="On-chain agent is thinking"
     >
       <div className="flex w-full max-w-[88%] gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] border border-primary/20 bg-primary/10 text-[10px] font-semibold text-primary">

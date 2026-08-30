@@ -616,7 +616,7 @@ describe("QueryTab", () => {
 
     expect(
       await screen.findByText(
-        /I couldn't complete that MCP request\. Please try again or refine the prompt\./i
+        /I couldn't complete that request\. Please try again or refine the prompt\./i
       )
     ).toBeInTheDocument();
     expect(await screen.findByText(/Bug report/i)).toBeInTheDocument();

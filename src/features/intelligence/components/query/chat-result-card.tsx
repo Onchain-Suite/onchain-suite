@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  ChartPieIcon,
-  CheckIcon,
-  ClipboardDocumentIcon,
-  CodeBracketIcon,
-  TableCellsIcon,
-} from "@heroicons/react/24/outline";
+import { ChartPieIcon, TableCellsIcon } from "@heroicons/react/24/outline";
 import { type ReactNode, useMemo, useState } from "react";
 import {
   Bar,
@@ -36,7 +30,7 @@ const CHART_COLORS = [
   "var(--chart-5)",
 ];
 
-type ResultTab = "table" | "chart" | "sql";
+type ResultTab = "table" | "chart";
 type ChartType = "bar" | "line" | "donut";
 
 const formatCompact = (value: number): string => {
@@ -55,7 +49,6 @@ const truncateMiddle = (text: string, head = 6, tail = 4): string =>
 const TABS: { id: ResultTab; label: string; icon: typeof TableCellsIcon }[] = [
   { id: "table", label: "Table", icon: TableCellsIcon },
   { id: "chart", label: "Chart", icon: ChartPieIcon },
-  { id: "sql", label: "SQL", icon: CodeBracketIcon },
 ];
 
 const CHART_TYPES: { id: ChartType; label: string }[] = [
@@ -66,25 +59,19 @@ const CHART_TYPES: { id: ChartType; label: string }[] = [
 
 /**
  * Tabbed result surface for a chat answer: Table (the existing structured
- * render, passed in), Chart (Bar / Line / Donut derived from the rows), and SQL
- * (shown when the answer carries a query; otherwise an honest pointer, since MCP
- * answers don't return SQL). Chart/SQL tabs are hidden when they'd be empty.
+ * render, passed in) and Chart (Bar / Line / Donut derived from the rows). The
+ * Chart tab is hidden when there's no numeric series to plot.
  */
 export function ChatResultCard({
   tableContent,
   series,
-  sql,
-  onOpenSqlWorkspace,
 }: {
   tableContent: ReactNode;
   series: ChartSeriesPoint[];
-  sql?: string;
-  onOpenSqlWorkspace?: () => void;
 }) {
   const hasChart = series.length > 0;
   const [tab, setTab] = useState<ResultTab>("table");
   const [chartType, setChartType] = useState<ChartType>("donut");
-  const [copied, setCopied] = useState(false);
 
   const total = useMemo(
     () =>
@@ -99,17 +86,6 @@ export function ChatResultCard({
     () => series.map((p) => ({ label: p.label, value: p.value })),
     [series]
   );
-
-  const copySql = async () => {
-    if (!sql) return;
-    try {
-      await navigator.clipboard.writeText(sql);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard unavailable - no-op */
-    }
-  };
 
   const chartConfig = { value: { label: "Value", color: "var(--chart-1)" } };
 
@@ -290,52 +266,6 @@ export function ChatResultCard({
                 />
               </LineChart>
             </ChartContainer>
-          )}
-        </div>
-      ) : null}
-
-      {/* SQL */}
-      {tab === "sql" ? (
-        <div className="p-4">
-          {sql && sql.trim().length > 0 ? (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={copySql}
-                className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                {copied ? (
-                  <CheckIcon
-                    className="h-3.5 w-3.5 text-emerald-500"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <ClipboardDocumentIcon
-                    className="h-3.5 w-3.5"
-                    aria-hidden="true"
-                  />
-                )}
-                {copied ? "Copied" : "Copy"}
-              </button>
-              <pre className="overflow-x-auto rounded-xl border border-border bg-muted/40 p-4 pr-16 font-mono text-xs leading-6 text-foreground">
-                {sql}
-              </pre>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
-              This answer came from the onchain agent, not a SQL query, so there
-              is no SQL to show.{" "}
-              {onOpenSqlWorkspace ? (
-                <button
-                  type="button"
-                  onClick={onOpenSqlWorkspace}
-                  className="font-medium text-primary hover:underline"
-                >
-                  Open the SQL workspace
-                </button>
-              ) : null}{" "}
-              to write and run a query by hand.
-            </div>
           )}
         </div>
       ) : null}

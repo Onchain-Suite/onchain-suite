@@ -434,6 +434,19 @@ const request = async <T>(
   }
 };
 
+/**
+ * A GET on a collection that 404s means the resource doesn't exist yet for this
+ * org (a brand-new / empty workspace), not that the request failed. The list
+ * callers treat that as "no data" (empty result) so the UI shows the empty
+ * state - "No contacts yet" - rather than an error banner. Real failures (5xx,
+ * network, auth) keep their thrown error so the error state still surfaces them;
+ * we never mask a genuine backend outage as "nothing here".
+ */
+const isNoDataError = (error: unknown): boolean => {
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  return (cause as AxiosError | undefined)?.response?.status === 404;
+};
+
 const extractItems = <T>(payload: unknown): T[] => {
   const root = extractData<unknown>(payload);
   if (Array.isArray(root)) return root as T[];
@@ -542,7 +555,10 @@ export const audienceService = {
         signal: options?.signal,
       },
       orgId
-    );
+    ).catch((e) => {
+      if (isNoDataError(e)) return { items: [] as AudienceProfile[] };
+      throw e;
+    });
   },
 
   listSegments(params?: { q?: string; limit?: number }, orgId?: string) {

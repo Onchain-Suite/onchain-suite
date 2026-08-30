@@ -619,6 +619,40 @@ describe("QueryTab", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("surfaces actionable guidance (not a raw bug dump) when the agent isn't configured", async () => {
+    mocks.intelligenceService.queryAgent.mockRejectedValueOnce({
+      message: "GoldRush MCP is not configured",
+      response: {
+        status: 400,
+        data: { message: "GoldRush MCP is not configured" },
+      },
+    });
+
+    renderQueryTab({ activeSurface: "chat" });
+
+    fireEvent.change(screen.getByLabelText("Ask the on-chain agent"), {
+      target: { value: "Top holders of this token" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
+
+    // The main answer leads with the actionable guidance...
+    expect(
+      await screen.findByText(
+        /on-chain agent isn't enabled on this backend environment yet/i
+      )
+    ).toBeInTheDocument();
+    // ...not the generic fallback line.
+    expect(
+      screen.queryByText(
+        /I couldn't complete that request\. Please try again or refine the prompt\./i
+      )
+    ).not.toBeInTheDocument();
+    // The raw backend text is still available in the collapsible bug report.
+    expect(
+      screen.getAllByText(/GoldRush MCP is not configured/i).length
+    ).toBeGreaterThan(0);
+  });
+
   it("renders token holder structured results with the deterministic agent renderer", async () => {
     mocks.intelligenceService.queryAgent.mockResolvedValueOnce({
       conversationId: "conv_holders",

@@ -15,7 +15,7 @@ export const apiClient = axios.create({
   withCredentials: true,
   // Safety net so no request hangs forever. A stalled request used to leave
   // React Query stuck in `pending`, which froze gated UI (e.g. the dashboard
-  // skeleton) until a manual reload. Long/streaming calls (MCP, enrichment)
+  // skeleton) until a manual reload. Long/streaming calls (agent, enrichment)
   // pass their own larger `timeout` per-request and override this.
   timeout: 30000,
   headers: {

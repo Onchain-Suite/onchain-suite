@@ -209,7 +209,7 @@ const forwardStreamRequest = async (args: {
 }) => {
   const startedAt = Date.now();
   const ip = getClientIp(args.req);
-  const rateKey = `intelligence-mcp-stream:${args.orgId}:${ip}`;
+  const rateKey = `intelligence-agent-stream:${args.orgId}:${ip}`;
   const rate = enforceRateLimit(rateKey);
   if (!rate.ok) {
     const res = jsonError(
@@ -236,7 +236,7 @@ const forwardStreamRequest = async (args: {
   });
 
   const latencyMs = Date.now() - startedAt;
-  console.warn("[api] intelligence/mcp/stream", {
+  console.warn("[api] intelligence/agent/stream", {
     at: new Date().toISOString(),
     method: args.method,
     orgId: args.orgId,
@@ -335,8 +335,8 @@ export async function GET(req: NextRequest) {
     const queryString = upstreamParams.toString();
     const upstreamUrl =
       queryString.length > 0
-        ? `${backendBase}/intelligence/query/goldrush/mcp/query/stream?${queryString}`
-        : `${backendBase}/intelligence/query/goldrush/mcp/query/stream`;
+        ? `${backendBase}/intelligence/query/agent/query/stream?${queryString}`
+        : `${backendBase}/intelligence/query/agent/query/stream`;
 
     return forwardStreamRequest({
       req,
@@ -345,8 +345,13 @@ export async function GET(req: NextRequest) {
       upstreamUrl,
     });
   } catch (error) {
-    console.error("[api] intelligence/mcp/stream error", error);
-    return jsonError(req, 500, "INTERNAL", "Failed to stream MCP response.");
+    console.error("[api] intelligence/agent/stream error", error);
+    return jsonError(
+      req,
+      500,
+      "INTERNAL",
+      "Failed to stream the agent response."
+    );
   }
 }
 
@@ -368,7 +373,7 @@ export async function POST(req: NextRequest) {
     const bodyText = await req.text();
     const trimmedBody = bodyText.trim();
     const backendBase = getBackendBaseUrl();
-    const upstreamUrl = `${backendBase}/intelligence/query/goldrush/mcp/query/stream`;
+    const upstreamUrl = `${backendBase}/intelligence/query/agent/query/stream`;
 
     return forwardStreamRequest({
       req,
@@ -378,7 +383,12 @@ export async function POST(req: NextRequest) {
       body: trimmedBody.length > 0 ? trimmedBody : "{}",
     });
   } catch (error) {
-    console.error("[api] intelligence/mcp/stream error", error);
-    return jsonError(req, 500, "INTERNAL", "Failed to stream MCP response.");
+    console.error("[api] intelligence/agent/stream error", error);
+    return jsonError(
+      req,
+      500,
+      "INTERNAL",
+      "Failed to stream the agent response."
+    );
   }
 }

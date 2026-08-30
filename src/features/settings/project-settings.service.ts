@@ -13,7 +13,7 @@ export interface ProjectSettingsAddressRow {
 }
 
 /**
- * A GoldRush-supported chain from
+ * An Alchemy-supported chain from
  * `GET /organization/project-settings/supported-chains`. The settings chain
  * pickers must be rendered from this (single source of truth) and store the
  * `slug`, so `PUT /organization/project-settings` never returns
@@ -266,7 +266,7 @@ const toSavePayload = (values: ProjectSettingsFormData) => {
 const messageFromObject = (
   obj: Record<string, unknown>
 ): string | undefined => {
-  // GoldRush chain rejection
+  // Alchemy chain rejection
   if (
     obj.code === "UNSUPPORTED_CHAINS" &&
     Array.isArray(obj.unsupportedChains)

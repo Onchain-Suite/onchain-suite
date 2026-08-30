@@ -874,7 +874,7 @@ export const billingService = {
    * `{ plan, meters: { contacts, emailsPerMonth, aiCredits, goldrushCredits,
    * seats, automations, apiKeys, trackedWallets } }`, each meter
    * `{ used, limit, percent, status }`. The `aiCredits` meter is the one that
-   * gates the AI assistant / SQL generation / MCP agent (402
+   * gates the AI assistant / SQL generation / on-chain agent (402
    * AI_CREDITS_EXCEEDED).
    */
   getPlanUsage(organizationId?: string, options?: BillingServiceOptions) {

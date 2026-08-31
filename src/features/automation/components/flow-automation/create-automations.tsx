@@ -121,6 +121,13 @@ import {
   isValidConnection,
 } from "@/features/automation/utils";
 import {
+  canonicalNodeType,
+  fromWireNodes,
+  KNOWN_ACTION_TYPES,
+  KNOWN_TRIGGER_TYPES,
+  toWireGraph,
+} from "@/features/automation/utils/builder-graph";
+import {
   type BuilderIssue,
   buildLocalIssues,
   isBuilderInvalidError,
@@ -1352,7 +1359,10 @@ const CreateAutomationContent = () => {
       const record = isJsonObject(payload)
         ? (payload as Record<string, unknown>)
         : null;
-      const nextNodes = pickArray(record?.nodes) as Node[];
+      // Backend nodes carry CANONICAL types (`swap_completed`, `add_tag`);
+      // the canvas keys off renderer types. Convert on the way in so cards and
+      // config panels behave exactly as they do for a freshly dragged step.
+      const nextNodes = fromWireNodes(pickArray(record?.nodes) as Node[]);
       // Force every loaded edge to the "addable" renderer so the inline "+"
       // insert affordance shows on flows loaded from a template or the backend.
       const nextEdges = (pickArray(record?.edges) as Edge[]).map((edge) => ({
@@ -1397,22 +1407,65 @@ const CreateAutomationContent = () => {
     refetchOnWindowFocus: false,
   });
 
+  // The catalogs are the authority on what can be published: the backend
+  // rejects any node whose `type` is in neither of them
+  // (`UNSUPPORTED_NODE_TYPE`). Fetch them so the palette cannot offer a step
+  // that fails at publish, and fall back to the documented list when the fetch
+  // fails rather than emptying the sidebar.
+  const catalogTypesQuery = useQuery({
+    queryKey: ["automations", "builder", "catalog-types"],
+    queryFn: async () => {
+      const [triggers, actions] = await Promise.all([
+        automationService.listTriggerTypes().catch(() => null),
+        automationService.listActionTypes().catch(() => null),
+      ]);
+      const types = (payload: unknown) =>
+        pickArray(payload)
+          .map((entry) => (isJsonObject(entry) ? asString(entry.type) : ""))
+          .filter((type) => type.length > 0);
+      return {
+        triggers: types(triggers),
+        actions: types(actions),
+      };
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 30 * 60 * 1000,
+  });
+
+  const supportedTriggerTypes = useMemo(() => {
+    const live = catalogTypesQuery.data?.triggers ?? [];
+    return new Set(live.length > 0 ? live : KNOWN_TRIGGER_TYPES);
+  }, [catalogTypesQuery.data?.triggers]);
+  const supportedActionTypes = useMemo(() => {
+    const live = catalogTypesQuery.data?.actions ?? [];
+    return new Set(live.length > 0 ? live : KNOWN_ACTION_TYPES);
+  }, [catalogTypesQuery.data?.actions]);
+  const supportedNodeTypes = useMemo(
+    () => new Set([...supportedTriggerTypes, ...supportedActionTypes]),
+    [supportedActionTypes, supportedTriggerTypes]
+  );
+
   const triggerCatalog = useMemo(
     () =>
-      FIXED_TRIGGERS.map((t) => ({
-        ...t,
-        icon: <LibraryIcon type={t.type} />,
-      })),
-    []
+      FIXED_TRIGGERS.filter((t) => supportedTriggerTypes.has(t.type)).map(
+        (t) => ({
+          ...t,
+          icon: <LibraryIcon type={t.type} />,
+        })
+      ),
+    [supportedTriggerTypes]
   );
 
   const actionCatalog = useMemo(
     () =>
-      FIXED_ACTIONS.map((a) => ({
-        ...a,
-        icon: <LibraryIcon type={a.type} />,
-      })),
-    []
+      FIXED_ACTIONS.filter((a) => supportedActionTypes.has(a.type)).map(
+        (a) => ({
+          ...a,
+          icon: <LibraryIcon type={a.type} />,
+        })
+      ),
+    [supportedActionTypes]
   );
 
   const matchesNodeSearch = useCallback(
@@ -2380,10 +2433,10 @@ const CreateAutomationContent = () => {
   const validateMutation = useMutation({
     mutationFn: async () => {
       if (isNew) return { errors: [], warnings: [] };
-      return automationService.validateBuilder(automationId, {
-        nodes,
-        edges,
-      });
+      return automationService.validateBuilder(
+        automationId,
+        toWireGraph({ nodes, edges })
+      );
     },
   });
 
@@ -2537,13 +2590,12 @@ const CreateAutomationContent = () => {
         const created = await automationService.createAutomation({
           name,
           description: automationData.description ?? "",
-          builder: { nodes, edges },
+          builder: toWireGraph({ nodes, edges }),
         });
         const createdId = created.automationId;
         if (createdId) {
           await automationService.saveBuilder(createdId, {
-            nodes,
-            edges,
+            ...toWireGraph({ nodes, edges }),
             settings: flowSettings,
           });
         }
@@ -2555,8 +2607,7 @@ const CreateAutomationContent = () => {
         description: automationData.description ?? "",
       });
       const builder = await automationService.saveBuilder(automationId, {
-        nodes,
-        edges,
+        ...toWireGraph({ nodes, edges }),
         settings: flowSettings,
       });
       return { createdId: null as string | null, builder };
@@ -2600,7 +2651,10 @@ const CreateAutomationContent = () => {
   const draftSaveMutation = useMutation({
     mutationFn: async () => {
       if (isNew) return;
-      await automationService.saveBuilderDraft(automationId, { nodes, edges });
+      await automationService.saveBuilderDraft(
+        automationId,
+        toWireGraph({ nodes, edges })
+      );
     },
   });
 
@@ -3173,13 +3227,17 @@ const CreateAutomationContent = () => {
             isTrigger:
               n.type === "trigger" || TRIGGER_NODE_TYPES.has(triggerType),
             triggerType: triggerType || n.type,
+            // What the backend will actually see, and therefore what its
+            // catalogs get checked against.
+            wireType: canonicalNodeType(n),
             data: n.data,
           };
         }),
         edges: edges.map((e) => ({ source: e.source, target: e.target })),
         emailNeedsSender,
+        supportedTypes: supportedNodeTypes,
       }),
-    [edges, emailNeedsSender, nodes]
+    [edges, emailNeedsSender, nodes, supportedNodeTypes]
   );
 
   const serverVerdictStale =

@@ -387,6 +387,34 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
   }
 };
 
+/**
+ * Pull the incremental answer text out of an `answer_token` SSE event so the
+ * answer can type out live (like Claude Code) while the durable query is still
+ * in flight. The backend may carry the piece under a few keys, or as the raw
+ * data string. Whitespace is preserved deliberately - a token is often a single
+ * space or a partial word - so this does NOT go through the trimming
+ * `pickFirstText`. Returns null for any non-answer_token event.
+ */
+const extractAnswerToken = (
+  event: IntelligenceAgentStreamEvent
+): string | null => {
+  if (event.type !== "answer_token") return null;
+  const fromKey = collectObjectCandidates(event.data)
+    .map((candidate) =>
+      [
+        candidate.token,
+        candidate.delta,
+        candidate.text,
+        candidate.content,
+        candidate.chunk,
+      ].find((value) => typeof value === "string")
+    )
+    .find((value): value is string => typeof value === "string");
+  if (typeof fromKey === "string") return fromKey;
+  if (typeof event.data === "string") return event.data;
+  return null;
+};
+
 const extractConversationId = (payload: unknown) =>
   collectObjectCandidates(payload)
     .map((candidate) => pickFirstText(candidate.conversationId))
@@ -993,6 +1021,11 @@ export function QueryTab({
   const [streamActivity, setStreamActivity] = useState<StreamActivityEntry[]>(
     []
   );
+  // Answer text streamed token-by-token off the SSE `answer_token` events, shown
+  // in the thinking bubble so the answer visibly forms before the durable query
+  // resolves. Purely additive UI over the authoritative blocking result - if the
+  // backend never streams tokens this stays "" and behavior is unchanged.
+  const [streamingAnswer, setStreamingAnswer] = useState("");
   const [streamFallbackUsed, setStreamFallbackUsed] = useState(false);
   const [activeSuggestionId, setActiveSuggestionId] = useState<string | null>(
     null
@@ -1212,6 +1245,7 @@ export function QueryTab({
       }
       const request = buildAgentRequest(trimmedPrompt);
       setStreamActivity([]);
+      setStreamingAnswer("");
       setStreamFallbackUsed(false);
 
       const collectedSteps: IntelligenceAgentStep[] = [];
@@ -1233,6 +1267,14 @@ export function QueryTab({
             if (eventConversationId) {
               setActiveConversationId(eventConversationId);
             }
+
+            // Answer tokens stream into the live preview, not the step timeline.
+            const answerToken = extractAnswerToken(event);
+            if (answerToken !== null) {
+              setStreamingAnswer((prev) => prev + answerToken);
+              return;
+            }
+
             const activityEntry = toStreamActivityEntry(event);
             setStreamActivity((prev) =>
               [
@@ -1489,6 +1531,8 @@ export function QueryTab({
     },
     onSettled: () => {
       agentAbortRef.current = null;
+      // The committed message now owns the answer; drop the live preview.
+      setStreamingAnswer("");
     },
   });
 
@@ -2705,6 +2749,7 @@ export function QueryTab({
                       <ThinkingTimeline
                         steps={reasoningTimeline}
                         recovering={streamFallbackUsed}
+                        answerPreview={streamingAnswer}
                       />
                     ) : null}
                   </>

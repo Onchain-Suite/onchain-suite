@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -651,6 +657,48 @@ describe("QueryTab", () => {
     expect(
       screen.getAllByText(/GoldRush MCP is not configured/i).length
     ).toBeGreaterThan(0);
+  });
+
+  it("streams the answer into the thinking bubble while the durable query is in flight", async () => {
+    let resolveQuery: (value: unknown) => void = () => {};
+    mocks.intelligenceService.queryAgent.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveQuery = resolve;
+      })
+    );
+    mocks.intelligenceService.streamAgentQuery.mockImplementationOnce(
+      async (
+        _body: { prompt?: string },
+        options?: {
+          onEvent?: (event: { type?: string; data?: unknown }) => void;
+        }
+      ) => {
+        options?.onEvent?.({ type: "answer_token", data: { token: "Top " } });
+        options?.onEvent?.({
+          type: "answer_token",
+          data: { token: "holders." },
+        });
+      }
+    );
+
+    renderQueryTab({ activeSurface: "chat" });
+    fireEvent.change(screen.getByLabelText("Ask the on-chain agent"), {
+      target: { value: "Top holders of this token" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
+
+    // The answer types out in the thinking bubble before the durable query
+    // resolves, and answer tokens never appear as raw "answer_token" steps.
+    expect(await screen.findByText(/Top holders\./i)).toBeInTheDocument();
+    expect(screen.queryByText(/answer[_ ]?token/i)).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveQuery({
+        status: "answered",
+        answer: "Top holders.",
+        conversationId: "conv_stream",
+      });
+    });
   });
 
   it("renders token holder structured results with the deterministic agent renderer", async () => {

@@ -84,13 +84,17 @@ function StepIcon({
   }
 }
 
-/** Vertical connected timeline of steps. When `active`, the last step spins. */
+/** Vertical connected timeline of steps. When `active`, the last step spins.
+ *  With `animateEntrance`, each row fades/slides in as it mounts, so steps
+ *  visibly appear one-by-one as they stream in rather than popping in at once. */
 function TimelineRows({
   steps,
   active = false,
+  animateEntrance = false,
 }: {
   steps: ThinkingStep[];
   active?: boolean;
+  animateEntrance?: boolean;
 }) {
   return (
     <ol className="space-y-2.5">
@@ -98,7 +102,14 @@ function TimelineRows({
         const isLast = i === steps.length - 1;
         const spinning = active && isLast;
         return (
-          <li key={step.id} className="flex gap-2.5">
+          <li
+            key={step.id}
+            className={cn(
+              "flex gap-2.5",
+              animateEntrance &&
+                "animate-in fade-in slide-in-from-bottom-1 duration-300"
+            )}
+          >
             <div className="flex flex-col items-center">
               <span className="flex h-5 w-5 items-center justify-center">
                 <StepIcon tone={step.tone ?? "default"} spinning={spinning} />
@@ -206,7 +217,11 @@ export function ThinkingTimeline({
 
           {steps.length > 0 ? (
             <div className="mt-3 max-h-60 overflow-y-auto pr-1">
-              <TimelineRows steps={steps} active={!writing} />
+              <TimelineRows
+                steps={steps}
+                active={!writing}
+                animateEntrance={!reduced}
+              />
             </div>
           ) : null}
 

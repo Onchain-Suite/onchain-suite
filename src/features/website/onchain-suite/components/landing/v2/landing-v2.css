@@ -629,7 +629,7 @@
    sections use their own book-width container.
    ========================================================================= */
 .ocs2 .blog-read {
-  max-width: 44rem;
+  max-width: 52rem;
   margin: 0 auto;
   padding: 0 28px;
 }

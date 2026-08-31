@@ -10,7 +10,8 @@ interface WebhookNodeProps {
 
 /** Integration action node that calls an external URL (`webhook`). */
 export const WebhookNode = ({ data, selected }: WebhookNodeProps) => {
-  const needsSetup = !data.url;
+  const needsSetup =
+    typeof data.needsSetup === "boolean" ? data.needsSetup : !data.url;
   return (
     <div
       className={`relative w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${

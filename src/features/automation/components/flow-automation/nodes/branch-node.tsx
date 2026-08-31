@@ -14,12 +14,20 @@ interface BranchNodeProps {
 
 export const BranchNode = ({ data, selected }: BranchNodeProps) => (
   <div
-    className={`w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${
+    className={`relative w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${
       selected
         ? "border-primary shadow-lg ring-2 ring-primary/30"
         : "border-border hover:border-primary/40 hover:shadow-lg"
     }`}
   >
+    {/* A branch the runtime can use needs BOTH outcomes wired to a step - the
+        builder counts the outgoing edges and flags it here. */}
+    {data.needsSetup ? (
+      <span
+        aria-hidden="true"
+        className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-orange-500"
+      />
+    ) : null}
     <Handle
       type="target"
       position={Position.Top}

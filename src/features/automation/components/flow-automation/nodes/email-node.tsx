@@ -19,9 +19,15 @@ export const EmailNode = ({ data, selected }: EmailNodeProps) => {
   // go-live gate blocks activation without a subject, so the dot must flag it
   // too, otherwise the node looks complete while go-live refuses it.
   const hasSubject = (data.subject?.trim() ?? "").length > 0;
-  const needsSetup = templateLabel.length === 0 || !hasSubject;
+  // The builder computes this from the same rules the backend validates with,
+  // so the dot and the issues list always agree; the local guess is only the
+  // fallback for a node rendered outside the builder.
+  const needsSetup =
+    typeof data.needsSetup === "boolean"
+      ? data.needsSetup
+      : templateLabel.length === 0 || !hasSubject;
   const subtitle = needsSetup
-    ? "Needs setup"
+    ? (data.setupHint ?? "Needs setup")
     : (data.subject?.trim() ?? "").length > 0
       ? (data.subject as string)
       : templateLabel.length > 0

@@ -16,7 +16,10 @@ export const AddToListNode = ({ data, selected }: AddToListNodeProps) => {
       : typeof data.listId === "string" && data.listId.length > 0
         ? data.listId
         : "";
-  const needsSetup = listName.length === 0;
+  const needsSetup =
+    typeof data.needsSetup === "boolean"
+      ? data.needsSetup
+      : listName.length === 0;
   return (
     <div
       className={`relative w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${

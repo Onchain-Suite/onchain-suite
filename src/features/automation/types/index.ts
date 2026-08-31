@@ -38,6 +38,19 @@ export interface AutomationNodeData {
   campaignId?: string;
   /** Per-node funnel counts, painted on the canvas by the analytics overlay. */
   stats?: { reached: number; dropped: number; completed: number } | null;
+  /** Set by the builder from the shared config inspection: true while a
+   *  required setting is still missing. Drives the node's orange dot, and is
+   *  the same verdict the issues panel and the go-live gate use. */
+  needsSetup?: boolean;
+  /** What is missing, e.g. "Needs a subject line". */
+  setupHint?: string;
+  /** On-chain triggers only: is this node's watch actually receiving events?
+   *  `undefined` = unknown (not published, or the subscription read failed) -
+   *  which must never render as "dead". */
+  watchLive?: boolean;
+  /** When this trigger last produced an event; null until the first one. A
+   *  timestamp that has stopped moving is the staleness signal. */
+  watchLastEventAt?: string | null;
   [key: string]: unknown;
 }
 

@@ -10,7 +10,10 @@ interface InappNodeProps {
 
 /** In-app notification action node (`send_inapp`). */
 export const InappNode = ({ data, selected }: InappNodeProps) => {
-  const needsSetup = !data.title && !data.body;
+  const needsSetup =
+    typeof data.needsSetup === "boolean"
+      ? data.needsSetup
+      : !data.title && !data.body;
   const subtitle = needsSetup
     ? "Needs setup"
     : (data.title?.trim() ?? "").length > 0

@@ -19,25 +19,39 @@ export const WaitNode = ({ data, selected }: WaitNodeProps) => {
   const duration =
     typeof data.duration === "string" && data.duration
       ? data.duration
-      : typeof data.seconds === "number"
+      : typeof data.seconds === "number" && data.seconds > 0
         ? `${data.seconds}s`
-        : "3 days";
+        : "";
+  const needsSetup = data.needsSetup === true;
   const untilEvent = data.mode === "until_event" && !!data.waitFor;
   const waitFor = String(data.waitFor ?? "");
-  const title = untilEvent
-    ? `Wait up to ${duration} for ${EVENT_WORDS[waitFor] ?? waitFor}`
-    : `Wait ${duration}`;
-  const subtitle = untilEvent
-    ? "Continue when it happens, else take the timeout branch"
-    : "Pause, then continue to the next step";
+  // No invented default: a wait with no duration used to read "Wait 3 days"
+  // while the runtime refused to publish it (INVALID_WAIT_CONFIG).
+  const title =
+    duration.length === 0
+      ? "Wait"
+      : untilEvent
+        ? `Wait up to ${duration} for ${EVENT_WORDS[waitFor] ?? waitFor}`
+        : `Wait ${duration}`;
+  const subtitle = needsSetup
+    ? (data.setupHint ?? "Needs setup")
+    : untilEvent
+      ? "Continue when it happens, else take the timeout branch"
+      : "Pause, then continue to the next step";
   return (
     <div
-      className={`w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${
+      className={`relative w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${
         selected
           ? "border-primary shadow-lg ring-2 ring-primary/30"
           : "border-border hover:border-primary/40 hover:shadow-lg"
       }`}
     >
+      {needsSetup ? (
+        <span
+          aria-hidden="true"
+          className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-orange-500"
+        />
+      ) : null}
       <Handle
         type="target"
         position={Position.Top}

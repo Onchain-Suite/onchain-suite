@@ -13,7 +13,8 @@ export const DispatchCampaignNode = ({
   data,
   selected,
 }: DispatchCampaignNodeProps) => {
-  const needsSetup = !data.campaignId;
+  const needsSetup =
+    typeof data.needsSetup === "boolean" ? data.needsSetup : !data.campaignId;
   return (
     <div
       className={`relative w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${

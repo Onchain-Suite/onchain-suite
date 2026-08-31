@@ -81,6 +81,7 @@ import { cn, isJsonObject } from "@/lib/utils";
 import "reactflow/dist/style.css";
 import {
   automationService,
+  type AutomationWatchTrigger,
   type OnchainCatalogDefinition,
 } from "../../automation.service";
 import { Confetti } from "../confetti";
@@ -91,6 +92,7 @@ import {
 } from "./addable-edge";
 import { AutoGrowTextarea } from "./auto-grow-textarea";
 import { AutomationBuilderSkeleton } from "./automation-builder-skeleton";
+import { BuilderIssuesPanel } from "./builder-issues-panel";
 import {
   AddToListNode,
   BranchNode,
@@ -118,6 +120,20 @@ import {
   getInitialNodes,
   isValidConnection,
 } from "@/features/automation/utils";
+import {
+  type BuilderIssue,
+  buildLocalIssues,
+  isBuilderInvalidError,
+  mergeIssues,
+  type NodeSetupIssue,
+  nodeSetupIssue,
+  parseBuilderErrorIssues,
+  parseDurationToSeconds,
+  parseValidationIssues,
+  parseWatchesSkipped,
+  parseWatchState,
+  summarizeIssues,
+} from "@/features/automation/utils/builder-issues";
 import {
   buildTriggerContractPatch,
   resolveContractCatalog,
@@ -296,40 +312,30 @@ const ACTION_NODE_RENDERER: Record<string, string> = {
 };
 
 /**
- * True when a node still needs configuration - mirrors the per-node orange
- * "Needs setup" dot logic so the header badge can count unconfigured steps
- * locally, before (or without) the backend validation pass.
+ * Is this node fully configured? Delegates to the shared inspector so the
+ * orange dot on the canvas, the issues list, and the go-live gate can never
+ * disagree - and so each reason carries the backend's own code.
  */
-function nodeNeedsSetup(type: string | undefined, rawData: unknown): boolean {
-  const t = type ?? "";
-  const data = isJsonObject(rawData) ? rawData : {};
-  const str = (k: string): string =>
-    typeof data[k] === "string" ? (data[k] as string) : "";
-  if (TRIGGER_NODE_TYPES.has(t) || TRIGGER_NODE_TYPES.has(str("triggerType"))) {
-    return !str("contract") && !str("contractAddress") && !str("event");
-  }
-  const renderer = ACTION_NODE_RENDERER[t] ?? t;
-  switch (renderer) {
-    case "email": {
-      // Needs a template (the body) AND a subject. The template model carries no
-      // subject, so the subject lives on the node — and Gmail/Outlook need one.
-      const noTemplate =
-        !str("templateId") && !str("templateName") && !str("template");
-      return noTemplate || !str("subject");
-    }
-    case "inapp":
-      return !str("title") && !str("body");
-    case "tag":
-      return !(Array.isArray(data.tags) && data.tags.length > 0) && !str("tag");
-    case "list":
-      return !str("listName") && !str("listId");
-    case "webhook":
-      return !str("url");
-    case "dispatch":
-      return !str("campaignId");
-    default:
-      return false;
-  }
+function inspectNode(
+  node: Pick<Node, "type" | "data">,
+  outgoingEdgeCount = 0
+): NodeSetupIssue | null {
+  const type = node.type ?? "";
+  const data = isJsonObject(node.data) ? node.data : {};
+  const triggerType = asString(data.triggerType) || type;
+  const isTrigger =
+    type === "trigger" ||
+    TRIGGER_NODE_TYPES.has(type) ||
+    TRIGGER_NODE_TYPES.has(asString(data.triggerType));
+  return nodeSetupIssue(
+    {
+      type: ACTION_NODE_RENDERER[type] ?? type,
+      isTrigger,
+      triggerType,
+      data,
+    },
+    { outgoingEdgeCount }
+  );
 }
 
 /**
@@ -1229,6 +1235,17 @@ const CreateAutomationContent = () => {
   const [showTriggerPicker, setShowTriggerPicker] = useState(false);
   // Guard before an automation goes live and starts enrolling contacts.
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
+  // What the backend said about the graph, and the graph it said it about.
+  // Kept separate from the local pre-flight so a stale verdict can be labelled
+  // rather than silently trusted after the user edits a step.
+  const [serverIssues, setServerIssues] = useState<BuilderIssue[]>([]);
+  const [checkedGraphKey, setCheckedGraphKey] = useState<string | null>(null);
+  // Watch state is about the PUBLISHED automation, not the draft graph, so it
+  // is kept apart from the validation verdict: editing a step must not clear
+  // "this trigger published but never subscribed", and re-validating must not
+  // clear it either. The backend persists `watchesSkipped` on the automation,
+  // so it survives a reload.
+  const [watchIssues, setWatchIssues] = useState<BuilderIssue[]>([]);
 
   // On phones the node library renders as an overlay covering the canvas, so
   // start it closed there (post-mount to stay SSR/hydration safe). Desktop
@@ -1239,7 +1256,96 @@ const CreateAutomationContent = () => {
     }
   }, []);
 
-  const { project } = useReactFlow();
+  const { project, setCenter } = useReactFlow();
+
+  // Identity of the graph the backend last passed judgement on, so a verdict is
+  // marked stale the moment a step changes instead of quietly going out of date.
+  const graphKey = useMemo(
+    () =>
+      JSON.stringify({
+        n: nodes.map((n) => [n.id, n.type, n.data]),
+        e: edges.map((e) => [e.source, e.target, e.sourceHandle ?? null]),
+      }),
+    [edges, nodes]
+  );
+
+  const labelForNode = useCallback(
+    (nodeId: string) => {
+      const node = nodes.find((n) => n.id === nodeId);
+      if (!node) return "Deleted step";
+      const label = (
+        isJsonObject(node.data) ? asString(node.data.label) : ""
+      ).trim();
+      return label !== "" ? label : nodePanelLabel(node.type);
+    },
+    [nodes]
+  );
+
+  // Select a step from the issue list and bring it into view, so "Fix" lands
+  // the user on the exact field that's wrong.
+  const focusNode = useCallback(
+    (nodeId: string) => {
+      const node = nodes.find((n) => n.id === nodeId);
+      setSelectedNode(nodeId);
+      if (!node) return;
+      setCenter(node.position.x + 180, node.position.y + 60, {
+        zoom: 1,
+        duration: 400,
+      });
+    },
+    [nodes, setCenter]
+  );
+
+  /**
+   * Record what the backend said about this exact graph and point the user at
+   * the first blocking step. `AUTOMATION_BUILDER_INVALID` arrives as a single
+   * opaque line ("Automation builder graph is invalid") with the useful part in
+   * `errors[]`, so anything we can attribute to a step goes in the issues panel
+   * and the toast stays a one-line summary.
+   */
+  const recordServerIssues = useCallback(
+    (parsed: BuilderIssue[]) => {
+      setServerIssues(parsed);
+      setCheckedGraphKey(graphKey);
+      const firstBlocking = parsed.find(
+        (issue) => issue.severity === "error" && issue.nodeId
+      );
+      if (firstBlocking?.nodeId) focusNode(firstBlocking.nodeId);
+      return parsed.filter((issue) => issue.severity === "error");
+    },
+    [focusNode, graphKey]
+  );
+
+  /**
+   * Turn a thrown request error into panel issues when it carries them, and
+   * report it either way. Returns true when the failure was a graph rejection
+   * we could explain in the panel.
+   */
+  const reportGraphError = useCallback(
+    (error: unknown, fallback: string): boolean => {
+      const parsed = parseBuilderErrorIssues(error);
+      if (parsed.length > 0) {
+        const blocking = recordServerIssues(parsed);
+        toast.error(
+          blocking.length > 0
+            ? `Can't save yet - ${summarizeIssues(parsed)}`
+            : "The graph was rejected - see the issue list above the canvas."
+        );
+        return true;
+      }
+      if (isBuilderInvalidError(error)) {
+        // The backend rejected the graph but sent no per-step detail. Fall back
+        // to the local pre-flight, which at least names the likely steps.
+        toast.error(
+          "This flow can't be saved yet - check the issue list above the canvas."
+        );
+        return true;
+      }
+      toast.error(error instanceof Error ? error.message : fallback);
+      return false;
+    },
+    [recordServerIssues]
+  );
 
   const hydrateBuilderState = useCallback(
     (payload: unknown) => {
@@ -1262,6 +1368,13 @@ const CreateAutomationContent = () => {
         }));
         if (isJsonObject(record.settings)) {
           setFlowSettings(record.settings as Record<string, unknown>);
+        }
+        // `watchesSkipped` rides on every builder response and is replaced
+        // outright on each watch sync (including with []), so mirroring it here
+        // keeps "published but not firing" visible across reloads instead of
+        // only in the publish response.
+        if (Array.isArray(record.watchesSkipped)) {
+          setWatchIssues(parseWatchesSkipped(record));
         }
       }
       setSelectedNode(null);
@@ -1612,15 +1725,44 @@ const CreateAutomationContent = () => {
     refetchOnWindowFocus: false,
   });
 
+  // What the automation is subscribed to RIGHT NOW. Only meaningful once it is
+  // live, and it is the ONLY place a watch the reconciler later marked `failed`
+  // shows up - a clean publish says nothing about the days after it.
+  const watchesQuery = useQuery({
+    queryKey: ["automations", automationId, "watches"],
+    queryFn: () => automationService.getWatches(automationId),
+    enabled:
+      !isNew &&
+      automationData.status === "active" &&
+      typeof automationId === "string" &&
+      automationId.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+
   const publishMutation = useMutation({
     mutationFn: async () => automationService.publishAutomation(automationId),
-    onSuccess: async () => {
+    onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: ["automations"] });
       await automationDetailQuery.refetch();
+      // A publish can succeed while a trigger registers no watch - the
+      // automation then reads ACTIVE and never fires, which is the silent
+      // failure worth shouting about. `watchesSkipped` names the node.
+      const skipped = parseWatchesSkipped(res);
+      setWatchIssues(skipped);
+      watchesQuery.refetch().catch(() => undefined);
+      if (skipped.length === 0) return;
+      toast.warning(
+        `Published, but ${skipped.length} ${
+          skipped.length === 1 ? "trigger isn't" : "triggers aren't"
+        } live yet - see the issue list above the canvas.`
+      );
     },
     onError: (err) => {
-      const message = err instanceof Error ? err.message : "Failed to publish";
-      toast.error(message);
+      // Publish validates the draft graph server-side; on rejection the useful
+      // detail rides in `errors[]`, so route it to the issues panel.
+      reportGraphError(err, "Failed to publish");
     },
   });
 
@@ -2433,8 +2575,7 @@ const CreateAutomationContent = () => {
     },
     onError: (err) => {
       setIsSaving(false);
-      const message = err instanceof Error ? err.message : "Failed to save";
-      toast.error(message);
+      reportGraphError(err, "Failed to save");
     },
   });
 
@@ -2505,46 +2646,66 @@ const CreateAutomationContent = () => {
     [edges, nodes, setEdges]
   );
 
-  const handleSave = async () => {
-    setIsSaving(true);
+  /**
+   * Run the backend validation pass and publish the verdict into the issues
+   * panel. Fired by the header's "Check flow" button and before every save, so
+   * the user can ask "what's wrong with this?" without having to save first.
+   */
+  const runValidation = useCallback(async (): Promise<BuilderIssue[]> => {
+    const validation = await validateMutation.mutateAsync();
+    const parsed = parseValidationIssues(validation);
+    recordServerIssues(parsed);
+    return parsed;
+  }, [recordServerIssues, validateMutation]);
+
+  const handleCheckFlow = async () => {
     try {
-      const validation = await validateMutation.mutateAsync();
-      const errors = pickArray(
-        isJsonObject(validation) ? validation.errors : undefined
-      ) as Array<{ code?: string; message?: string; nodeId?: string }>;
-      if (errors.length > 0) {
-        setIsSaving(false);
-        // Name the offending step(s) instead of a blank "has errors". Node-
-        // scoped errors carry a nodeId (mapped back to the node's label);
-        // graph-level ones (empty flow, missing trigger) don't. Jump the
-        // properties panel to the first node that failed so the fix is one
-        // click away.
-        const labelFor = (id: string) => {
-          const node = nodes.find((n) => n.id === id);
-          const data = isJsonObject(node?.data) ? node?.data : undefined;
-          const label = data ? asString(data.label).trim() : "";
-          if (label !== "") return label;
-          return node?.type ?? "a step";
-        };
-        const firstWithNode = errors.find((e) => e?.nodeId);
-        if (firstWithNode?.nodeId) setSelectedNode(firstWithNode.nodeId);
-        const lines = errors
-          .slice(0, 3)
-          .map((e) =>
-            e?.nodeId
-              ? `${labelFor(e.nodeId)} — ${e.message ?? "needs setup"}`
-              : (e?.message ?? "Invalid flow")
-          );
-        const more = errors.length > 3 ? ` (+${errors.length - 3} more)` : "";
-        toast.error(`Can't save yet: ${lines.join("; ")}${more}`);
+      const parsed = await runValidation();
+      const blocking = parsed.filter((issue) => issue.severity === "error");
+      if (blocking.length === 0 && errorIssues.length === 0) {
+        toast.success("No issues - this flow is ready to go live.");
         return;
       }
-      saveMutation.mutate();
+      toast.error(
+        `${blocking.length || errorIssues.length} ${
+          (blocking.length || errorIssues.length) === 1 ? "issue" : "issues"
+        } to fix - ${summarizeIssues(
+          blocking.length > 0 ? parsed : errorIssues
+        )}`
+      );
     } catch (err) {
-      setIsSaving(false);
-      const message = err instanceof Error ? err.message : "Failed to save";
-      toast.error(message);
+      reportGraphError(err, "Couldn't check this flow");
     }
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    // Validate first: a save the backend refuses comes back as one opaque line
+    // ("Automation builder graph is invalid"), whereas the validate pass names
+    // the offending steps.
+    let parsed: BuilderIssue[] = [];
+    try {
+      parsed = await runValidation();
+    } catch (err) {
+      if (
+        isBuilderInvalidError(err) ||
+        parseBuilderErrorIssues(err).length > 0
+      ) {
+        setIsSaving(false);
+        reportGraphError(err, "Failed to save");
+        return;
+      }
+      // The validation call itself failed (offline, 5xx, endpoint missing).
+      // Don't hold the draft hostage to it - PUT /builder validates server-side
+      // too, and its rejection lands in the same panel.
+    }
+    const blocking = parsed.filter((issue) => issue.severity === "error");
+    if (blocking.length > 0) {
+      setIsSaving(false);
+      toast.error(`Can't save yet - ${summarizeIssues(parsed)}`);
+      return;
+    }
+    saveMutation.mutate();
   };
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -2568,17 +2729,18 @@ const CreateAutomationContent = () => {
         category === "trigger"
           ? "trigger"
           : (ACTION_NODE_RENDERER[type] ?? type);
-      const isOnchainTrigger =
-        category === "trigger" && !NON_ONCHAIN_TRIGGER_TYPES.has(type);
       const data: Record<string, unknown> = {
         label,
         nodeType: type,
         ...(category === "trigger"
           ? { triggerType: type }
           : { actionType: type }),
-        ...(isOnchainTrigger
-          ? { contract: "Select Contract", event: "Select Event" }
-          : {}),
+        // No "Select Contract" / "Select Event" placeholder text: it made a
+        // brand-new trigger read as configured (no orange dot, no issue) and
+        // could be saved as a literal value. An unset field stays empty, and a
+        // PRESET trigger is never asked for an event at all - its event names
+        // are baked into the preset server-side (swap_completed → Swap /
+        // TokenExchange, holder_acquired → Transfer from 0x0, …).
       };
       return { category, rendererType, data };
     },
@@ -2895,9 +3057,24 @@ const CreateAutomationContent = () => {
         status: nextStatus,
       });
     },
-    onSuccess: (_res, nextStatus) => {
+    onSuccess: (res, nextStatus) => {
       setAutomationData((prev) => ({ ...prev, status: nextStatus }));
       queryClient.invalidateQueries({ queryKey: ["automations"] });
+      // Un-pausing re-runs the same watch sync a publish does and can skip the
+      // same triggers, so ACTIVE-but-not-live is a real outcome here too. Any
+      // other status releases the watches and returns an empty array.
+      const skipped = parseWatchesSkipped(res);
+      setWatchIssues(skipped);
+      if (nextStatus === "active") {
+        watchesQuery.refetch().catch(() => undefined);
+        if (skipped.length > 0) {
+          toast.warning(
+            `Turned on, but ${skipped.length} ${
+              skipped.length === 1 ? "trigger isn't" : "triggers aren't"
+            } live - see the issue list above the canvas.`
+          );
+        }
+      }
     },
   });
 
@@ -2941,39 +3118,7 @@ const CreateAutomationContent = () => {
     (projectSettingsQuery.data?.contractAddresses?.length ?? 0) > 0;
 
   const builderNodeCount = nodes.length;
-  const builderErrorCount = pickArray(
-    isJsonObject(validateMutation.data)
-      ? validateMutation.data.errors
-      : undefined
-  ).length;
-  // Count unconfigured steps locally (mirrors the orange node dots) so the
-  // header badge is meaningful before the backend validation pass runs.
-  const needsSetupCount = useMemo(
-    () => nodes.filter((n) => nodeNeedsSetup(n.type, n.data)).length,
-    [nodes]
-  );
-  const stepsNeedingSetup = Math.max(builderErrorCount, needsSetupCount);
 
-  // The specific steps still needing setup — surfaced BY NAME so the user knows
-  // exactly what to finish, not just a count. Going live is blocked until this
-  // is empty and the flow actually has a trigger.
-  const incompleteNodes = useMemo(
-    () =>
-      nodes
-        .filter((n) => nodeNeedsSetup(n.type, n.data))
-        .map((n) => {
-          const label = (
-            isJsonObject(n.data) ? asString(n.data.label) : ""
-          ).trim();
-          return {
-            id: n.id,
-            // Empty label falls through to the node type, then a generic
-            // "Step" — a plain string fallback, so `??` (null-only) won't do.
-            label: label !== "" ? label : (n.type ?? "Step"),
-          };
-        }),
-    [nodes]
-  );
   // Exactly one trigger per automation — a flow has a single entry point.
   const triggerCount = useMemo(
     () =>
@@ -3006,13 +3151,137 @@ const CreateAutomationContent = () => {
     !senderIdentitiesQuery.isLoading &&
     verifiedSenderIdentities.length === 0;
 
+  // Client-side pre-flight, recomputed on every graph change: the same checks
+  // the backend runs, but attached to the step that failed them and available
+  // before anything is sent. The backend stays the authority — its verdict is
+  // merged over this one below.
+  const localIssues = useMemo(
+    () =>
+      buildLocalIssues({
+        nodes: nodes.map((n) => {
+          const label = (
+            isJsonObject(n.data) ? asString(n.data.label) : ""
+          ).trim();
+          const triggerType = isJsonObject(n.data)
+            ? asString(n.data.triggerType)
+            : "";
+          return {
+            id: n.id,
+            // The inspector reasons in canonical types, not renderer keys.
+            type: ACTION_NODE_RENDERER[n.type ?? ""] ?? n.type,
+            label: label !== "" ? label : nodePanelLabel(n.type),
+            isTrigger:
+              n.type === "trigger" || TRIGGER_NODE_TYPES.has(triggerType),
+            triggerType: triggerType || n.type,
+            data: n.data,
+          };
+        }),
+        edges: edges.map((e) => ({ source: e.source, target: e.target })),
+        emailNeedsSender,
+      }),
+    [edges, emailNeedsSender, nodes]
+  );
+
+  const serverVerdictStale =
+    checkedGraphKey !== null && checkedGraphKey !== graphKey;
+
+  // Live watch state, from the endpoint that knows about subscriptions the
+  // reconciler dropped after a clean publish.
+  const liveWatchIssues = useMemo(
+    () => parseWatchState(watchesQuery.data),
+    [watchesQuery.data]
+  );
+  // Watch issues describe the PUBLISHED automation, so they are not cleared by
+  // a stale draft verdict - only by the next watch sync.
+  const issues = useMemo(
+    () =>
+      mergeIssues(localIssues, [
+        ...(serverVerdictStale ? [] : serverIssues),
+        ...(liveWatchIssues.length > 0 ? liveWatchIssues : watchIssues),
+      ]),
+    [
+      liveWatchIssues,
+      localIssues,
+      serverIssues,
+      serverVerdictStale,
+      watchIssues,
+    ]
+  );
+  const errorIssues = useMemo(
+    () => issues.filter((issue) => issue.severity === "error"),
+    [issues]
+  );
+  const issuesByNodeId = useMemo(() => {
+    const map = new Map<string, BuilderIssue["severity"]>();
+    for (const issue of issues) {
+      if (!issue.nodeId) continue;
+      if (issue.severity === "error" || !map.has(issue.nodeId)) {
+        map.set(issue.nodeId, issue.severity);
+      }
+    }
+    return map;
+  }, [issues]);
+
+  // Paint the offending steps on the canvas itself: a red ring for anything
+  // blocking, amber for a warning. Without this the issue list would name a
+  // step the user still has to hunt for in a long flow.
+  //
+  // Each node also gets `needsSetup` / `setupHint` from the SAME inspection the
+  // issues list uses, so its orange dot is on exactly when a setting is still
+  // missing - the nodes' own guesses used to drift (an on-chain trigger seeded
+  // with "Select Contract" read as configured and never showed a dot).
+  const canvasNodes = useMemo(() => {
+    const outgoing = new Map<string, number>();
+    for (const edge of edges) {
+      outgoing.set(edge.source, (outgoing.get(edge.source) ?? 0) + 1);
+    }
+    // Per-trigger subscription state, so a live automation says on the canvas
+    // which triggers are actually receiving events and when each last fired.
+    const watchByNode = new Map<string, AutomationWatchTrigger>();
+    for (const trigger of watchesQuery.data?.triggers ?? []) {
+      if (trigger?.nodeId) watchByNode.set(trigger.nodeId, trigger);
+    }
+    const subscriptionsKnown =
+      watchesQuery.data?.subscriptions !== "unavailable";
+    return displayNodes.map((n) => {
+      const setup = inspectNode(n, outgoing.get(n.id) ?? 0);
+      const severity = issuesByNodeId.get(n.id);
+      const watch = watchByNode.get(n.id);
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          needsSetup: setup !== null,
+          setupHint: setup?.message ?? "",
+          // Undefined (not false) while the read is unavailable: "we don't
+          // know" must never render as "dead".
+          watchLive: subscriptionsKnown
+            ? (watch?.live ?? undefined)
+            : undefined,
+          watchLastEventAt: watch?.lastEventAt ?? null,
+        },
+        className: severity
+          ? cn(
+              n.className,
+              "rounded-lg ring-2 ring-offset-2 ring-offset-background",
+              severity === "error" ? "ring-red-500/70" : "ring-amber-500/70"
+            )
+          : n.className,
+      };
+    });
+  }, [
+    displayNodes,
+    edges,
+    issuesByNodeId,
+    watchesQuery.data?.subscriptions,
+    watchesQuery.data?.triggers,
+  ]);
+
   // A flow may go live only with a trigger, at least one step, NOTHING
-  // half-configured, and a verified sender when it sends email.
+  // half-configured, and a verified sender when it sends email — i.e. no
+  // blocking issue left in the list above.
   const canActivate =
-    builderNodeCount > 0 &&
-    triggerCount === 1 &&
-    stepsNeedingSetup === 0 &&
-    !emailNeedsSender;
+    builderNodeCount > 0 && triggerCount === 1 && errorIssues.length === 0;
 
   // While an existing automation's graph hydrates, show the layout-matching
   // skeleton instead of the empty chrome + spinner - same shape the route-level
@@ -3052,19 +3321,11 @@ const CreateAutomationContent = () => {
           },
         ]}
         note={
-          builderNodeCount === 0
-            ? "Add at least one step before turning this on."
-            : triggerCount === 0
-              ? "Add a trigger before turning this on."
-              : triggerCount > 1
-                ? `Only one trigger per automation — remove ${triggerCount - 1} extra ${triggerCount - 1 === 1 ? "trigger" : "triggers"}.`
-                : incompleteNodes.length > 0
-                  ? `Finish these steps first — ${incompleteNodes
-                      .map((n) => n.label)
-                      .join(", ")}.`
-                  : emailNeedsSender
-                    ? "Verify a sending domain in Settings before this can send email — Gmail/Outlook reject unauthenticated senders."
-                    : undefined
+          // Same list the issues panel shows, so the dialog never says
+          // "something's wrong" without naming it.
+          errorIssues.length > 0
+            ? `Fix ${errorIssues.length} ${errorIssues.length === 1 ? "issue" : "issues"} first - ${summarizeIssues(errorIssues, 3)}`
+            : undefined
         }
         confirmLabel="Turn on"
         confirmingLabel="Turning on…"
@@ -3099,28 +3360,34 @@ const CreateAutomationContent = () => {
             {/* Autosave runs silently in the background - the status badge
                 stays fixed on setup/ready so it never flickers between states
                 on every keystroke-triggered save. */}
-            {stepsNeedingSetup > 0 ? (
-              <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
+            {/* One status badge, and it never says "0 issues": either steps
+                are unfinished (click to jump to the first one) or the flow is
+                ready. Autosave stays silent so this doesn't flicker on every
+                keystroke. */}
+            {errorIssues.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const first = errorIssues.find((issue) => issue.nodeId);
+                  if (first?.nodeId) focusNode(first.nodeId);
+                }}
+                className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
+              >
                 <span
                   aria-hidden="true"
                   className="h-1.5 w-1.5 rounded-full bg-amber-500"
                 />
-                {stepsNeedingSetup}{" "}
-                {stepsNeedingSetup === 1 ? "step needs" : "steps need"} setup
-              </span>
-            ) : (
+                {errorIssues.length}{" "}
+                {errorIssues.length === 1 ? "step needs" : "steps need"} setup
+              </button>
+            ) : builderNodeCount > 0 ? (
               <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
                 <CheckCircleIcon aria-hidden="true" className="h-3 w-3" />
-                Ready
+                {checkedGraphKey === graphKey ? "Checked" : "Ready"}
               </span>
-            )}
-            <span className="flex items-center gap-2 text-[13px] text-muted-foreground">
-              <span>{builderNodeCount} nodes</span>
-              <span className="text-border">·</span>
-              <span>
-                {builderErrorCount}{" "}
-                {builderErrorCount === 1 ? "issue" : "issues"}
-              </span>
+            ) : null}
+            <span className="text-[13px] text-muted-foreground">
+              {builderNodeCount} {builderNodeCount === 1 ? "node" : "nodes"}
             </span>
           </div>
         </div>
@@ -3183,6 +3450,25 @@ const CreateAutomationContent = () => {
               />
             </button>
           </div>
+          {/* Ask the backend what's wrong WITHOUT having to save first - the
+              answer lands in the issues panel, per step. */}
+          {!isNew && builderNodeCount > 0 ? (
+            <button
+              type="button"
+              onClick={handleCheckFlow}
+              disabled={validateMutation.isPending}
+              className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+            >
+              <ShieldCheckIcon
+                aria-hidden="true"
+                className={cn(
+                  "h-3.5 w-3.5",
+                  validateMutation.isPending ? "animate-pulse" : ""
+                )}
+              />
+              {validateMutation.isPending ? "Checking…" : "Check flow"}
+            </button>
+          ) : null}
           <button
             className="flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground shadow-[0_10px_28px_-14px_rgba(86,112,255,0.9)] transition-colors hover:bg-primary/90 disabled:opacity-80"
             onClick={handleSave}
@@ -3205,6 +3491,19 @@ const CreateAutomationContent = () => {
         <ContractAddressNudge
           context="automation"
           hasContracts={hasSavedContracts}
+        />
+      ) : null}
+
+      {/* What's wrong and where — the builder's answer to a backend graph
+          rejection, which otherwise arrives as one opaque line. */}
+      {activeTab === "builder" && issues.length > 0 ? (
+        <BuilderIssuesPanel
+          issues={issues}
+          labelForNode={labelForNode}
+          onFocusNode={focusNode}
+          onRecheck={handleCheckFlow}
+          checking={validateMutation.isPending}
+          stale={serverVerdictStale}
         />
       ) : null}
 
@@ -3304,7 +3603,7 @@ const CreateAutomationContent = () => {
                 }}
               >
                 <ReactFlow
-                  nodes={displayNodes}
+                  nodes={canvasNodes}
                   edges={edges}
                   onNodesChange={onNodesChange}
                   onEdgesChange={onEdgesChange}
@@ -4231,15 +4530,26 @@ const CreateAutomationContent = () => {
                             type="text"
                             className={PROPERTY_INPUT_CLASS}
                             value={asString(selectedNodeData.duration)}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              // The runtime wants a positive `seconds`, not
+                              // prose - without this the step reads "Wait 2
+                              // days" on the canvas and publish still fails
+                              // with INVALID_WAIT_CONFIG.
+                              const duration = e.target.value;
                               updateSelectedNodeData({
-                                duration: e.target.value,
-                              })
-                            }
+                                duration,
+                                seconds: parseDurationToSeconds(duration),
+                              });
+                            }}
                             placeholder="e.g. 2 days"
                           />
                           <p className={PROPERTY_HINT_CLASS}>
-                            How long to wait before the next step.
+                            {parseDurationToSeconds(selectedNodeData.duration) >
+                            0
+                              ? `How long to wait before the next step. Saved as ${parseDurationToSeconds(
+                                  selectedNodeData.duration
+                                ).toLocaleString()} seconds.`
+                              : "How long to wait before the next step - e.g. 30 minutes, 2 days, 1 week."}
                           </p>
                         </div>
                       )}

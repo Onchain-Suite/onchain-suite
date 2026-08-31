@@ -16,7 +16,8 @@ export const TagNode = ({ data, selected }: TagNodeProps) => {
       : data.tag
         ? [data.tag]
         : [];
-  const needsSetup = tags.length === 0;
+  const needsSetup =
+    typeof data.needsSetup === "boolean" ? data.needsSetup : tags.length === 0;
   return (
     <div
       className={`relative w-[360px] rounded-lg border bg-card p-4 shadow-sm transition-all ${

@@ -3,6 +3,8 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import { withApiErrorFields } from "./utils/builder-issues";
+
 const pickOrgId = (orgId?: string) =>
   orgId ?? getSelectedOrganizationId() ?? null;
 
@@ -39,7 +41,21 @@ const request = async <T>(
         : typeof data === "string"
           ? data
           : (err.message ?? "Automations request failed");
-    throw new Error(String(message), { cause: e });
+    // Keep the structured payload on the Error. Flattening to a string threw
+    // away `code` and the `errors[]`/`warnings[]` the builder returns with
+    // AUTOMATION_BUILDER_INVALID - which is why a rejected graph could only be
+    // reported as "Automation builder graph is invalid", with no way to tell
+    // the user WHICH step was wrong.
+    throw withApiErrorFields(new Error(String(message), { cause: e }), {
+      code:
+        isJsonObject(nestedError) && typeof nestedError.code === "string"
+          ? nestedError.code
+          : isJsonObject(data) && typeof data.code === "string"
+            ? data.code
+            : undefined,
+      details: isJsonObject(nestedError) ? nestedError.details : undefined,
+      body: data,
+    });
   }
 };
 
@@ -88,6 +104,16 @@ export type AutomationsCreateResponse = {
   status: "draft" | string;
 };
 
+/** One trigger that published but registered no watch, so it will never fire.
+ *  Persisted server-side (2026-08-31): it comes back from the automation detail,
+ *  the builder load, both builder saves, discard and the status toggle - not
+ *  only from the publish response - so the warning survives a reload. */
+export type AutomationWatchSkip = {
+  nodeId?: string;
+  code?: string;
+  reason?: string;
+};
+
 export type AutomationBuilderResponse = {
   automationId?: string;
   status?: string;
@@ -95,10 +121,46 @@ export type AutomationBuilderResponse = {
   version?: number | string;
   nodes?: unknown[];
   edges?: unknown[];
+  settings?: unknown;
   updatedAt?: string;
   draftSavedAt?: string;
   builderWarnings?: unknown[];
+  watchesSkipped?: AutomationWatchSkip[];
   [key: string]: unknown;
+};
+
+/** One on-chain trigger's CURRENT subscription state, from
+ *  `GET /automations/{id}/watches`. Distinct from `watchesSkipped`, which
+ *  records what went wrong at the last sync: a watch can bind cleanly at
+ *  publish and be marked `failed` by the reconciler later, and nothing else
+ *  surfaces that. Treat anything but `live: true` as not firing. */
+export type AutomationWatchTrigger = {
+  nodeId: string;
+  live: boolean;
+  chain?: string;
+  address?: string;
+  topic0?: string;
+  signature?: string | null;
+  decodes?: boolean;
+  actorPath?: string | null;
+  watchStatus?: "active" | "draining" | "failed";
+  /** null until the first event - and a stalled timestamp is the staleness
+   *  signal for a subscription that quietly died. */
+  lastEventAt?: string | null;
+  lastError?: string | null;
+  /** Set instead of the live fields when the trigger never bound. */
+  code?: string;
+  reason?: string;
+};
+
+export type AutomationWatchesResponse = {
+  automationId?: string;
+  status?: string;
+  /** `"unavailable"` means the subscription read FAILED - not that nothing is
+   *  subscribed. A missing live entry proves nothing in that state, so it must
+   *  never render as a dead trigger. */
+  subscriptions?: "known" | "unavailable" | string;
+  triggers?: AutomationWatchTrigger[];
 };
 
 export type AutomationRuntimeTriggerResponse = {
@@ -440,8 +502,21 @@ export const automationService = {
   },
 
   listAvailableTriggers(orgId?: string) {
+    // The controller is `automations/runtime`; the un-prefixed path 404s in
+    // production (docs/backend.md, 2026-08-30 route sweep).
     return request<{ items?: unknown[] } | unknown[]>(
-      { method: "GET", url: "/automations/triggers/available" },
+      { method: "GET", url: "/automations/runtime/triggers/available" },
+      orgId
+    );
+  },
+
+  /**
+   * What the automation is subscribed to RIGHT NOW - the only way to see a
+   * watch the reconciler marked `failed` after a clean publish.
+   */
+  getWatches(automationId: string, orgId?: string) {
+    return request<AutomationWatchesResponse>(
+      { method: "GET", url: `/automations/${automationId}/watches` },
       orgId
     );
   },

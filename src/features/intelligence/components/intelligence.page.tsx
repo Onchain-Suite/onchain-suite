@@ -156,22 +156,24 @@ export default function IntelligencePage() {
     "relative h-auto flex-none gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-2.5 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-b-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:border-b-primary dark:data-[state=active]:bg-transparent";
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col gap-6">
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">
           Intelligence
         </h1>
         <EnrichmentStatus />
       </div>
 
-      <ContractAddressNudge context="intelligence" />
+      <div className="shrink-0">
+        <ContractAddressNudge context="intelligence" />
+      </div>
 
       <Tabs
         value={activeTab}
         onValueChange={handleTabChange}
-        className="space-y-6"
+        className="flex min-h-0 flex-1 flex-col gap-6"
       >
-        <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b border-border bg-transparent p-0">
+        <TabsList className="h-auto w-full shrink-0 justify-start gap-6 rounded-none border-b border-border bg-transparent p-0">
           <TabsTrigger value="chat" className={TAB_TRIGGER_CLASS}>
             <ChatBubbleLeftRightIcon aria-hidden="true" className="h-4 w-4" />
             Chat
@@ -199,10 +201,16 @@ export default function IntelligencePage() {
             activeSurface={activeTab === "chat" ? "chat" : "sql"}
             openEmailComposer={openEmailComposer}
             setActiveTab={handleTabChange}
+            className={
+              activeTab === "chat" ? "flex min-h-0 flex-1 flex-col" : undefined
+            }
           />
         ) : null}
 
-        <TabsContent value="segments" className="space-y-4">
+        <TabsContent
+          value="segments"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto"
+        >
           <SegmentsView />
         </TabsContent>
       </Tabs>

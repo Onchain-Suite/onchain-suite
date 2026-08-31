@@ -29,7 +29,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/dialog";
 import { Input } from "@/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 
-import { isJsonObject } from "@/lib/utils";
+import { cn, isJsonObject } from "@/lib/utils";
 
 import {
   type IntelligenceAgentQueryResponse,
@@ -965,6 +965,10 @@ interface QueryTabProps {
   initialQueryId?: string | null;
   initialSql?: string;
   initialChatPrompt?: string;
+  /** Root className - the chat surface passes fill/flex classes so the message
+   *  list scrolls inside a fixed viewport (ChatGPT-style) instead of growing the
+   *  page. */
+  className?: string;
 }
 
 export function QueryTab({
@@ -974,6 +978,7 @@ export function QueryTab({
   initialQueryId,
   initialSql,
   initialChatPrompt,
+  className,
 }: QueryTabProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -1863,16 +1868,18 @@ export function QueryTab({
     () => suggestionsMutation.data?.suggestions ?? [],
     [suggestionsMutation.data?.suggestions]
   );
-  const reasoningTimeline = useMemo(
-    () =>
-      streamActivity.length > 0
-        ? streamActivity.slice(-12)
-        : getFallbackReasoningActivity(
-            streamFallbackUsed,
-            lastSubmittedChatPrompt
-          ),
-    [streamActivity, streamFallbackUsed, lastSubmittedChatPrompt]
-  );
+  const reasoningTimeline = useMemo(() => {
+    // Live steps from the agent stream take precedence.
+    if (streamActivity.length > 0) return streamActivity.slice(-12);
+    // No live events. Only show the generic scripted progress once we've
+    // actually fallen back to the durable query (stream failed). At the very
+    // start of a run, show nothing and let the "Thinking" pulse convey activity
+    // until the agent's real steps stream in - so the thinking never looks
+    // canned or pre-baked.
+    return streamFallbackUsed
+      ? getFallbackReasoningActivity(true, lastSubmittedChatPrompt)
+      : [];
+  }, [streamActivity, streamFallbackUsed, lastSubmittedChatPrompt]);
   const renderConversionActions = (forQueryId?: string) => {
     // Point the shared query-scoped mutations at this message's result before
     // the dialog confirms, so actions on older messages target the right run.
@@ -2536,12 +2543,28 @@ export function QueryTab({
     [agentMutation, runMutation, validateMutation]
   );
 
+  // When the host passes a fill className (chat surface), the card stretches to
+  // its parent and the message list scrolls inside a fixed viewport - ChatGPT
+  // style - instead of growing the page. Without it (tests, SQL), it keeps a
+  // sensible min-height and flows normally.
+  const chatFill = Boolean(className);
+
   return (
-    <div className="space-y-4">
+    <div className={className ?? "space-y-4"}>
       {activeSurface === "chat" ? (
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
-          <div className="relative grid min-h-[520px] grid-rows-[1fr_auto] md:min-h-[640px]">
-            <div className="overflow-y-auto px-5 py-6">
+        <div
+          className={cn(
+            "relative overflow-hidden rounded-2xl border border-border bg-card",
+            chatFill && "flex min-h-0 flex-1 flex-col"
+          )}
+        >
+          <div
+            className={cn(
+              "relative grid grid-rows-[1fr_auto]",
+              chatFill ? "min-h-0 flex-1" : "min-h-[520px] md:min-h-[640px]"
+            )}
+          >
+            <div className="min-h-0 overflow-y-auto px-5 py-6">
               <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
                 {chatMessages.length > 0 ? (
                   <>

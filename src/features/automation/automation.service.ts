@@ -301,6 +301,31 @@ export const automationService = {
     );
   },
 
+  /**
+   * Run a Health Factor (`health_threshold` / `defi_health_factor`) trigger NOW,
+   * ignoring its 30-minute schedule. Editor+.
+   *
+   * `positionsRead` and `crossings` are both meaningful (docs/backend.md):
+   * `positionsRead: 0` = nothing read (wrong pool/chain, or no contact has a
+   * wallet); `positionsRead > 0, crossings: 0` = reading fine, nothing crossed
+   * the threshold this run.
+   */
+  runHealthFactorNow(automationId: string, orgId?: string) {
+    return request<
+      {
+        automationId?: string;
+        positionsRead?: number;
+        crossings?: number;
+      } & Record<string, unknown>
+    >(
+      {
+        method: "POST",
+        url: `/automations/${automationId}/defi/health-factor/run`,
+      },
+      orgId
+    );
+  },
+
   duplicateAutomation(automationId: string, orgId?: string) {
     return request<{ automationId?: string } & Record<string, unknown>>(
       { method: "POST", url: `/automations/${automationId}/duplicate` },
@@ -497,15 +522,6 @@ export const automationService = {
   getTriggerSchema(triggerType: string, orgId?: string) {
     return request<Record<string, unknown>>(
       { method: "GET", url: `/automations/builder/triggers/${triggerType}` },
-      orgId
-    );
-  },
-
-  listAvailableTriggers(orgId?: string) {
-    // The controller is `automations/runtime`; the un-prefixed path 404s in
-    // production (docs/backend.md, 2026-08-30 route sweep).
-    return request<{ items?: unknown[] } | unknown[]>(
-      { method: "GET", url: "/automations/runtime/triggers/available" },
       orgId
     );
   },

@@ -1838,6 +1838,33 @@ const CreateAutomationContent = () => {
     },
   });
 
+  // Run a Health Factor (`health_threshold`) trigger immediately, ignoring its
+  // 30-minute schedule. The response's two numbers are both actionable, so the
+  // toast distinguishes "read nothing" (bad pool/chain/no wallets) from "read
+  // fine, nothing crossed" (docs/backend.md).
+  const runHealthFactorMutation = useMutation({
+    mutationFn: async () => automationService.runHealthFactorNow(automationId),
+    onSuccess: (res) => {
+      const positionsRead = res.positionsRead ?? 0;
+      const crossings = res.crossings ?? 0;
+      const positions = `${positionsRead} position${positionsRead === 1 ? "" : "s"}`;
+      if (positionsRead === 0) {
+        toast.warning(
+          "Ran, but read 0 positions - check the pool address and chain, and that at least one contact has a wallet."
+        );
+      } else if (crossings === 0) {
+        toast.success(`Read ${positions} - none crossed your threshold.`);
+      } else {
+        toast.success(
+          `Read ${positions} - ${crossings} crossed and entered the flow.`
+        );
+      }
+    },
+    onError: (err) => {
+      reportGraphError(err, "Couldn't run the health-factor check");
+    },
+  });
+
   const statsOverviewQuery = useQuery({
     queryKey: ["automations", automationId, "stats"],
     queryFn: () => automationService.getStatsOverview(automationId),
@@ -2153,6 +2180,11 @@ const CreateAutomationContent = () => {
       ),
     [selectedNodeData, selectedNodeDetails?.type]
   );
+  // The Health Factor trigger is the one trigger that can be run on demand
+  // (POST /automations/{id}/defi/health-factor/run), so its config panel gets a
+  // "Run now" control - but only once the automation is saved (needs a real id).
+  const selectedIsHealthTrigger =
+    selectedIsTrigger && selectedNodeSchemaType === "health_threshold";
   // On-chain triggers ask for a contract; only the GENERIC on-chain trigger
   // ("On-chain event") also asks for a raw event. Business presets imply their
   // event, so their panel is just the contract (+ optional chain). Off-chain
@@ -4024,6 +4056,41 @@ const CreateAutomationContent = () => {
                       {/* Specific fields */}
                       {selectedIsTrigger && (
                         <>
+                          {/* Health Factor: run the check on demand instead of
+                              waiting for the 30-minute schedule. Saved
+                              automations only (needs a persisted id + config). */}
+                          {selectedIsHealthTrigger && !isNew && (
+                            <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="text-sm font-medium text-foreground">
+                                    Run now
+                                  </div>
+                                  <p className={PROPERTY_HINT_CLASS}>
+                                    Check every position immediately, ignoring
+                                    the 30-minute schedule.
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    runHealthFactorMutation.mutate()
+                                  }
+                                  disabled={runHealthFactorMutation.isPending}
+                                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  <BoltIcon
+                                    className="h-3.5 w-3.5"
+                                    aria-hidden="true"
+                                  />
+                                  {runHealthFactorMutation.isPending
+                                    ? "Running…"
+                                    : "Run now"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Contract — only on-chain triggers watch a
                               contract. Off-chain triggers (segment/list/form/
                               email) need nothing here. */}

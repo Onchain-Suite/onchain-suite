@@ -210,4 +210,21 @@ describe("automationService", () => {
       })
     );
   });
+
+  it("runs a Health Factor trigger on demand and returns both counts", async () => {
+    mocks.apiClient.request.mockResolvedValueOnce({
+      data: { automationId: "auto_123", positionsRead: 12, crossings: 2 },
+    });
+
+    const res = await automationService.runHealthFactorNow("auto_123");
+
+    expect(mocks.apiClient.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        url: "/automations/auto_123/defi/health-factor/run",
+        headers: expect.objectContaining({ "x-org-id": "org_test_123" }),
+      })
+    );
+    expect(res).toMatchObject({ positionsRead: 12, crossings: 2 });
+  });
 });

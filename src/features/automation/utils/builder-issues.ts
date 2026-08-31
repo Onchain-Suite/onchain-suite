@@ -56,6 +56,9 @@ export interface IssueGraphNode {
   triggerType?: string;
   /** The node's config blob, inspected against the backend's own rules. */
   data?: unknown;
+  /** The type the BACKEND will see, when it differs from the canvas renderer
+   *  key - checked against the catalogs. */
+  wireType?: string;
 }
 
 export interface IssueGraphEdge {
@@ -501,8 +504,12 @@ export const buildLocalIssues = (input: {
   edges: IssueGraphEdge[];
   /** The flow sends email but the org has no verified sender identity. */
   emailNeedsSender?: boolean;
+  /** Types the backend's catalogs accept. Anything else is rejected with
+   *  `UNSUPPORTED_NODE_TYPE`, so it is worth saying so on the canvas rather
+   *  than at publish. Omit to skip the check. */
+  supportedTypes?: ReadonlySet<string>;
 }): BuilderIssue[] => {
-  const { nodes, edges, emailNeedsSender = false } = input;
+  const { nodes, edges, emailNeedsSender = false, supportedTypes } = input;
   const issues: BuilderIssue[] = [];
   const local = (
     code: string,
@@ -542,6 +549,24 @@ export const buildLocalIssues = (input: {
     outgoingCount.set(edge.source, (outgoingCount.get(edge.source) ?? 0) + 1);
   }
   for (const node of nodes) {
+    // A step the catalogs do not know can never be published, and no amount of
+    // configuring it helps - report that instead of its missing fields.
+    const wireType = (node.wireType ?? node.type ?? "").trim();
+    if (
+      supportedTypes &&
+      supportedTypes.size > 0 &&
+      wireType.length > 0 &&
+      !supportedTypes.has(wireType)
+    ) {
+      issues.push(
+        local(
+          "UNSUPPORTED_NODE_TYPE",
+          `${node.label} isn't a supported step type (${wireType})`,
+          { nodeId: node.id }
+        )
+      );
+      continue;
+    }
     const setup = nodeSetupIssue(node, {
       outgoingEdgeCount: outgoingCount.get(node.id) ?? 0,
     });

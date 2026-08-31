@@ -22,7 +22,10 @@ axios · react-hook-form + zod.
 2. Reduce frontend render time as much as possible - this whole document is how.
 3. Model the domain **wallet-first** (Section 0.5). It's the product standard,
    shared with the backend; UI/data contracts must conform.
-4. **No em-dashes.** Never use the em-dash character (Unicode `U+2014`) anywhere
+4. **Keep the tree tidy (Section 15).** Feature-first folders, backend
+   contracts in `<feature>/contracts/`, tests colocated, and no new file over
+   ~400 lines. Structure is the thing that decays silently.
+5. **No em-dashes.** Never use the em-dash character (Unicode `U+2014`) anywhere
    in the frontend: not in UI copy, string literals, JSX text, or comments. Use
    a hyphen (`-`), a comma, a colon, or restructure the sentence. This keeps
    copy consistent and on-brand. (Ellipsis `…` and arrows `→` are fine.)
@@ -264,6 +267,14 @@ frontend consumes and must not contradict them.
 - [ ] Icons: per-import, `currentColor`, fixed size, no dynamic icon registry?
 - [ ] Heavy dep (chart/flow/editor/motion) dynamically imported?
 - [ ] Colors use semantic tokens (light + dark both work)?
+- [ ] Every new file in the right folder (Section 15) - no loose files at a
+      feature root?
+- [ ] New/changed backend types in `<feature>/contracts/`, not inline in the
+      service?
+- [ ] Test colocated with the file it covers; logic pure enough to test without
+      rendering?
+- [ ] New file under 400 lines; any over-budget file you touched left smaller,
+      not larger?
 - [ ] `tsc --noEmit` clean; lint clean; profiled if perf-sensitive?
 
 ## 14. Git & PR conventions
@@ -271,3 +282,113 @@ frontend consumes and must not contradict them.
 - **Do not** append the `🤖 Generated with Claude Code` trailer (or any
   tool-attribution footer) to PR descriptions or commit messages. Keep PR bodies
   and commits clean and descriptive.
+
+## 15. File & folder layout (where things go)
+
+The repo is **feature-first**: everything a feature owns lives under
+`src/features/<feature>/`, and something moves to `src/shared` or `src/lib`
+only once a **second** feature needs it. A file dropped at a feature root
+"just for now" is how a 5,000-line component happens, so every file lands in a
+folder with one purpose.
+
+### 15.1 Canonical feature shape
+
+```
+src/features/<feature>/
+  <family>.service.ts        # HTTP boundary: URLs, headers, envelope unwrap
+  <family>.service.test.ts   # colocated, same name + .test
+  contracts/                 # BACKEND CONTRACTS - types only, no runtime code
+    <family>.ts              #   one file per API family in docs/backend.md
+  components/                # one component per file
+    <area>/                  #   folder per area once an area has 2+ files
+  hooks/                     # use-*.ts, React only
+  utils/                     # pure functions, no React, no network
+  pages/                     # the feature's route-level compositions
+  data/                      # static catalogs, fixtures, seed content
+  types/                     # UI/domain types that are NOT wire contracts
+```
+
+Not every feature needs every folder - create one when it has a second file,
+not before.
+
+### 15.2 Backend contracts live in `contracts/`
+
+Every request/response type that mirrors `docs/backend.md` belongs in
+`<feature>/contracts/<family>.ts`, **not** inline in the service.
+
+- **One file per API family**, named after the doc section it mirrors
+  (`builder.ts`, `watches.ts`, `imports.ts`), so a reviewer can diff a contract
+  against the docs without reading transport code. Services today carry 18-60
+  exported types each, which is why nobody notices when one drifts.
+- **Types only.** No axios, no functions, no constants that run. A contract file
+  should be safe to import from anywhere, client or server.
+- **Comment the field, not the type.** Note what the backend actually does
+  (`"unavailable" means the READ failed, not that nothing is subscribed`), and
+  cite the doc date when the contract changed.
+- The service **imports and may re-export** them
+  (`export type { BuilderGraph } from "./contracts/builder"`) so moving types
+  never churns call sites.
+- **Never `any` at the boundary**, and unwrap the `{ success, data }` envelope
+  once, in the service (Section 1).
+
+### 15.3 `utils/` inside a feature, `src/lib/` for the app
+
+- `<feature>/utils/` - pure, testable helpers for that feature. **Do not add
+  another `lib/` folder inside a feature**; `campaigns/lib` and
+  `campaigns/utils` currently mean the same thing, and that ambiguity is the
+  mess. Fold `lib/` into `utils/` when you next touch it.
+- `src/lib/` - app-wide infrastructure only (api client, auth, dates, env).
+  Feature logic never goes here.
+- `src/shared/` - components, hooks, providers and types used by 2+ features.
+
+### 15.4 Tests
+
+- **Colocate**: `foo.ts` → `foo.test.ts`, right next to it. This is already the
+  convention in ~40 files; keep it.
+- `src/test/` is only for **setup, mocks, e2e and cross-feature smoke tests**.
+  A unit test for one feature never lives there.
+- **Extract logic so it can be tested without rendering.** Parsing, mapping,
+  validation and formatting belong in `utils/` with a unit test; a test that has
+  to mount a 3,000-line component to check a mapping is a design smell, not a
+  testing problem. `automation/utils/builder-issues.ts` and
+  `automation/utils/builder-graph.ts` are the reference: pure module, exhaustive
+  unit test, component just renders the result.
+- A bug fix lands **with the test that would have caught it**.
+
+### 15.5 File size budget
+
+- **New files: 400 lines soft, 500 hard.** Past that, split by responsibility -
+  a config panel, a results table and a canvas are three files.
+- **When you edit a file already over budget, extract the part you touched**
+  rather than growing it. Leaving it larger than you found it is not acceptable
+  in a file this size.
+- Current offenders, in order, so nobody has to guess:
+  `automation/components/flow-automation/create-automations.tsx` (~5.6k),
+  `intelligence/components/query/index.tsx` (~3.6k),
+  `campaigns/pages/form.tsx` (~2.5k),
+  `audience/components/import-export.tsx` (~2.5k),
+  `app/api/v1/[...path]/route.ts` (~2.4k).
+
+### 15.6 Naming
+
+- **Files and folders: kebab-case** (`builder-issues.ts`,
+  `flow-automation/nodes/trigger-node.tsx`).
+- **One exported component per file**, PascalCase, matching the filename
+  (`trigger-node.tsx` → `TriggerNode`).
+- Services `<family>.service.ts`, hooks `use-<thing>.ts`, contracts named after
+  the API family.
+- An `index.ts` may re-export the files **of its own folder** (e.g.
+  `components/flow-automation/nodes/index.ts`). It must never re-export a whole
+  feature - see Section 7 on barrels.
+
+### 15.7 Deciding where a new file goes
+
+1. Does it talk to the API? → `<feature>/<family>.service.ts`, with its types in
+   `<feature>/contracts/`.
+2. Is it a pure function? → `<feature>/utils/`, with a colocated test.
+3. Does it render? → `<feature>/components/<area>/`.
+4. Is it React state logic reused by 2+ components? → `<feature>/hooks/`.
+5. Do 2+ features need it? → `src/shared/` (or `src/lib/` if it is
+   infrastructure).
+6. None of the above? It probably belongs in the feature that already owns the
+   concept - not at the root.

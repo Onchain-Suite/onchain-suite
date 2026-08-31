@@ -140,9 +140,17 @@ function TimelineRows({
 export function ThinkingTimeline({
   steps,
   recovering,
+  answerPreview,
 }: {
   steps: ThinkingStep[];
   recovering?: boolean;
+  /**
+   * Answer text streamed so far (SSE `answer_token`). When non-empty the bubble
+   * flips from "Thinking" to "Writing answer" and types the text out with a
+   * caret, so the answer visibly forms - like Claude Code - before the durable
+   * query resolves and commits the final message.
+   */
+  answerPreview?: string;
 }) {
   const reduced = usePrefersReducedMotion();
   const elapsedRef = useRef(0);
@@ -156,6 +164,8 @@ export function ThinkingTimeline({
     return () => window.clearInterval(tick);
   }, []);
 
+  const writing = (answerPreview?.length ?? 0) > 0;
+
   return (
     <motion.div
       initial={reduced ? false : { opacity: 0, y: 6 }}
@@ -164,12 +174,13 @@ export function ThinkingTimeline({
       className="flex justify-start"
       role="status"
       aria-live="polite"
-      aria-label="On-chain agent is thinking"
+      aria-label={
+        writing
+          ? "On-chain agent is writing the answer"
+          : "On-chain agent is thinking"
+      }
     >
-      <div className="flex w-full max-w-[88%] gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] border border-primary/20 bg-primary/10 text-[10px] font-semibold text-primary">
-          AI
-        </div>
+      <div className="flex w-full max-w-[92%]">
         <div className="min-w-0 flex-1 rounded-[22px_22px_22px_8px] border border-border bg-card px-4 py-3 shadow-[0_18px_50px_-30px_rgba(45,102,255,0.6)]">
           <div className="flex items-center gap-2">
             <span className="flex gap-1" aria-hidden="true">
@@ -182,7 +193,11 @@ export function ThinkingTimeline({
               ))}
             </span>
             <span className="text-sm font-medium text-foreground">
-              {recovering ? "Recovering route" : "Thinking"}
+              {recovering
+                ? "Recovering route"
+                : writing
+                  ? "Writing answer"
+                  : "Thinking"}
             </span>
             <span className="font-mono text-[10px] text-muted-foreground">
               {elapsed}s
@@ -191,8 +206,18 @@ export function ThinkingTimeline({
 
           {steps.length > 0 ? (
             <div className="mt-3 max-h-60 overflow-y-auto pr-1">
-              <TimelineRows steps={steps} active />
+              <TimelineRows steps={steps} active={!writing} />
             </div>
+          ) : null}
+
+          {writing ? (
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/90">
+              {answerPreview}
+              <span
+                className="ml-0.5 inline-block h-4 w-[2px] -translate-y-[1px] animate-pulse bg-primary align-middle"
+                aria-hidden="true"
+              />
+            </p>
           ) : null}
         </div>
       </div>

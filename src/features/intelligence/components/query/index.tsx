@@ -480,9 +480,14 @@ interface AgentFailureReport {
  */
 const MCP_FAILURE_GUIDANCE: Array<{ match: RegExp; guidance: string }> = [
   {
-    match: /mcp routing is not configured/i,
+    // Any "not configured / not enabled" flavor from the agent backend. Covers
+    // "mcp routing is not configured" and the legacy "GoldRush MCP is not
+    // configured" string this environment still returns when the agent's
+    // on-chain data provider isn't wired up.
+    match:
+      /\bis not configured\b|not configured|isn'?t configured|not enabled|isn'?t enabled/i,
     guidance:
-      "The on-chain data agent isn't enabled on this backend environment - an operator needs to enable it on the server. Until then, Chat and SQL modes still answer questions over your own audience and campaign data.",
+      "The on-chain agent isn't enabled on this backend environment yet - an operator needs to configure its data provider on the server. Until then, SQL queries over your own audience and campaign data still work.",
   },
   {
     match: /unknown variant `?developer`?/i,
@@ -1465,14 +1470,22 @@ export function QueryTab({
           id: `assistant-error-${Date.now()}`,
           role: "assistant",
           kind: "error",
+          // Lead with actionable guidance for known failures (agent not
+          // configured, out of credits, rate-limited); fall back to a generic,
+          // de-branded line. The raw backend message stays in the bug report.
           content:
+            errorReport.guidance ??
             "I couldn't complete that request. Please try again or refine the prompt.",
           rationale: message,
           errorReport,
           queryReady: false,
         },
       ]);
-      toast.error(message);
+      toast.error(
+        errorReport.guidance
+          ? "The on-chain agent isn't available right now."
+          : "I couldn't complete that request."
+      );
     },
     onSettled: () => {
       agentAbortRef.current = null;

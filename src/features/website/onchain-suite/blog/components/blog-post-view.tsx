@@ -18,7 +18,7 @@ export function BlogPostView({ post }: { post: BlogPost }) {
       <article>
         <section className="relative overflow-hidden pb-8 pt-16 md:pt-20">
           <div className="grid-bg" />
-          <div className="wrap relative max-w-3xl">
+          <div className="blog-read relative">
             <Link href="/blog" className="text-[13px] t-muted hover:underline">
               ← All posts
             </Link>
@@ -79,7 +79,7 @@ export function BlogPostView({ post }: { post: BlogPost }) {
 
         {post.coverImage?.url ? (
           <section className="pb-10">
-            <div className="wrap max-w-3xl">
+            <div className="blog-read">
               <Image
                 src={post.coverImage.url}
                 alt={post.coverImage.alt}
@@ -94,14 +94,14 @@ export function BlogPostView({ post }: { post: BlogPost }) {
         ) : null}
 
         <section className="pb-16">
-          <div className="wrap max-w-3xl">
+          <div className="blog-read">
             <BlogRichText content={post.content} />
           </div>
         </section>
 
         {post.tags.length > 0 ? (
           <section className="pb-20">
-            <div className="wrap max-w-3xl">
+            <div className="blog-read">
               <div className="rule mb-6 h-px" />
               <div className="flex flex-wrap gap-2">
                 {post.tags.map((tag) => (

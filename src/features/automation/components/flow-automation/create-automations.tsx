@@ -410,8 +410,17 @@ const GENERIC_ONCHAIN_TRIGGER_TYPES = new Set([
   "onchain_event",
 ]);
 
-/** The exact triggers offered in the builder library + "Add trigger" grid.
- *  Config schemas are still fetched per type; this only scopes the palette. */
+/**
+ * Curated copy (nicer labels/descriptions) for the trigger types the backend
+ * catalog exposes - see docs/backend.md `GET /automations/builder/triggers`.
+ *
+ * This is NOT the source of truth for what the palette shows. The live catalog
+ * is (see `triggerCatalog`); this only supplies polished wording and the
+ * offline fallback list. So it mirrors the documented trigger set exactly:
+ * adding a curated entry does not make a trigger appear if the backend does not
+ * support it, and a trigger the backend adds still shows (with its own label)
+ * even without an entry here.
+ */
 const FIXED_TRIGGERS: { type: string; label: string; description: string }[] = [
   {
     type: "onchain_event",
@@ -444,24 +453,9 @@ const FIXED_TRIGGERS: { type: string; label: string; description: string }[] = [
     description: "Approves a contract to spend",
   },
   {
-    type: "staked",
-    label: "Staked",
-    description: "Stakes, restakes, or deposits into a vault",
-  },
-  {
-    type: "unstaked",
-    label: "Unstaked",
-    description: "Unstakes or requests a withdrawal",
-  },
-  {
     type: "borrow_opened",
     label: "Borrowed",
     description: "Opens a loan or draws credit",
-  },
-  {
-    type: "loan_repaid",
-    label: "Loan repaid",
-    description: "Pays down a loan",
   },
   {
     type: "liquidation_detected",
@@ -469,44 +463,9 @@ const FIXED_TRIGGERS: { type: string; label: string; description: string }[] = [
     description: "A position was liquidated",
   },
   {
-    type: "rewards_claimed",
-    label: "Rewards claimed",
-    description: "Harvests yield or incentives",
-  },
-  {
-    type: "position_opened",
-    label: "Position opened",
-    description: "Opens a perp or margin position",
-  },
-  {
-    type: "position_closed",
-    label: "Position closed",
-    description: "Closes a perp or margin position",
-  },
-  {
-    type: "nft_sold",
-    label: "NFT sold",
-    description: "A marketplace sale settles",
-  },
-  {
-    type: "nft_listed",
-    label: "NFT listed",
-    description: "An item is listed for sale",
-  },
-  {
-    type: "bridged",
-    label: "Bridged",
-    description: "Cross-chain arrival or departure",
-  },
-  {
-    type: "large_transfer",
-    label: "Large transfer",
-    description: "Whale-sized token move",
-  },
-  {
-    type: "supply_change",
-    label: "Supply change",
-    description: "Issuer mints or burns supply",
+    type: "exchange_outflow",
+    label: "Exchange outflow",
+    description: "Tokens move out to a known exchange wallet",
   },
   {
     type: "governance_activity",
@@ -514,14 +473,14 @@ const FIXED_TRIGGERS: { type: string; label: string; description: string }[] = [
     description: "Proposal or vote cast",
   },
   {
-    type: "delegated",
-    label: "Delegated",
-    description: "Voting power delegated",
+    type: "email_opened",
+    label: "Email opened",
+    description: "A recipient opens one of your emails",
   },
   {
-    type: "attestation",
-    label: "Attestation / name",
-    description: "Registers a name or earns a credential",
+    type: "health_threshold",
+    label: "Health factor threshold",
+    description: "A lending position's health factor crosses your level",
   },
   {
     type: "form_submitted",
@@ -575,6 +534,54 @@ const FIXED_ACTIONS: { type: string; label: string; description: string }[] = [
     description: "Fire an existing campaign",
   },
 ];
+
+/** One entry from a builder catalog endpoint (`GET /automations/builder/triggers`
+ *  or `.../actions`). `label`/`description` are the backend's own, used when we
+ *  have no curated copy for that type. */
+type CatalogEntry = { type: string; label: string; description: string };
+
+const CURATED_TRIGGER_COPY = new Map(FIXED_TRIGGERS.map((t) => [t.type, t]));
+const CURATED_ACTION_COPY = new Map(FIXED_ACTIONS.map((a) => [a.type, a]));
+
+/** "health_threshold" -> "Health threshold". Last-resort label when neither the
+ *  backend nor the curated copy names a type. */
+const humanizeNodeType = (type: string) =>
+  type
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+/**
+ * Build the palette from the LIVE backend catalog - the authority on what can
+ * actually publish - so every backend trigger/action is offered and nothing the
+ * backend doesn't support is. Curated copy supplies polished wording where we
+ * have it; otherwise the backend's own label/description (then a humanized type)
+ * is used. When the fetch fails, `live` is empty and we render the curated
+ * fallback filtered to the known-supported types, so the sidebar is never empty.
+ */
+const buildCatalog = (
+  live: CatalogEntry[],
+  curated: Map<string, { type: string; label: string; description: string }>,
+  fallback: { type: string; label: string; description: string }[],
+  supportedTypes: Set<string>
+): CatalogEntry[] => {
+  // First non-empty string: curated copy wins, then the backend's own, then a
+  // humanized type. `??` won't do here - the backend often sends `""`, which
+  // must fall through, not win.
+  const pick = (...vals: string[]) =>
+    vals.find((v) => v.trim().length > 0) ?? "";
+  if (live.length > 0) {
+    return live.map((entry) => {
+      const c = curated.get(entry.type);
+      return {
+        type: entry.type,
+        label: pick(c?.label ?? "", entry.label, humanizeNodeType(entry.type)),
+        description: pick(c?.description ?? "", entry.description),
+      };
+    });
+  }
+  return fallback.filter((entry) => supportedTypes.has(entry.type));
+};
 
 /** Recipe card icons, keyed by `AutomationRecipe.iconKey` (recipes.ts is JSX-free). */
 const RECIPE_ICONS: Record<
@@ -1419,13 +1426,21 @@ const CreateAutomationContent = () => {
         automationService.listTriggerTypes().catch(() => null),
         automationService.listActionTypes().catch(() => null),
       ]);
-      const types = (payload: unknown) =>
+      const entries = (payload: unknown): CatalogEntry[] =>
         pickArray(payload)
-          .map((entry) => (isJsonObject(entry) ? asString(entry.type) : ""))
-          .filter((type) => type.length > 0);
+          .map((entry) =>
+            isJsonObject(entry)
+              ? {
+                  type: asString(entry.type),
+                  label: asString(entry.label),
+                  description: asString(entry.description),
+                }
+              : null
+          )
+          .filter((e): e is CatalogEntry => e !== null && e.type.length > 0);
       return {
-        triggers: types(triggers),
-        actions: types(actions),
+        triggers: entries(triggers),
+        actions: entries(actions),
       };
     },
     retry: false,
@@ -1435,11 +1450,15 @@ const CreateAutomationContent = () => {
 
   const supportedTriggerTypes = useMemo(() => {
     const live = catalogTypesQuery.data?.triggers ?? [];
-    return new Set(live.length > 0 ? live : KNOWN_TRIGGER_TYPES);
+    return new Set(
+      live.length > 0 ? live.map((t) => t.type) : KNOWN_TRIGGER_TYPES
+    );
   }, [catalogTypesQuery.data?.triggers]);
   const supportedActionTypes = useMemo(() => {
     const live = catalogTypesQuery.data?.actions ?? [];
-    return new Set(live.length > 0 ? live : KNOWN_ACTION_TYPES);
+    return new Set(
+      live.length > 0 ? live.map((a) => a.type) : KNOWN_ACTION_TYPES
+    );
   }, [catalogTypesQuery.data?.actions]);
   const supportedNodeTypes = useMemo(
     () => new Set([...supportedTriggerTypes, ...supportedActionTypes]),
@@ -1448,24 +1467,24 @@ const CreateAutomationContent = () => {
 
   const triggerCatalog = useMemo(
     () =>
-      FIXED_TRIGGERS.filter((t) => supportedTriggerTypes.has(t.type)).map(
-        (t) => ({
-          ...t,
-          icon: <LibraryIcon type={t.type} />,
-        })
-      ),
-    [supportedTriggerTypes]
+      buildCatalog(
+        catalogTypesQuery.data?.triggers ?? [],
+        CURATED_TRIGGER_COPY,
+        FIXED_TRIGGERS,
+        supportedTriggerTypes
+      ).map((t) => ({ ...t, icon: <LibraryIcon type={t.type} /> })),
+    [catalogTypesQuery.data?.triggers, supportedTriggerTypes]
   );
 
   const actionCatalog = useMemo(
     () =>
-      FIXED_ACTIONS.filter((a) => supportedActionTypes.has(a.type)).map(
-        (a) => ({
-          ...a,
-          icon: <LibraryIcon type={a.type} />,
-        })
-      ),
-    [supportedActionTypes]
+      buildCatalog(
+        catalogTypesQuery.data?.actions ?? [],
+        CURATED_ACTION_COPY,
+        FIXED_ACTIONS,
+        supportedActionTypes
+      ).map((a) => ({ ...a, icon: <LibraryIcon type={a.type} /> })),
+    [catalogTypesQuery.data?.actions, supportedActionTypes]
   );
 
   const matchesNodeSearch = useCallback(

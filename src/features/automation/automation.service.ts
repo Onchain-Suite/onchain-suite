@@ -262,6 +262,23 @@ export interface PresetEventMatch {
   message: string;
 }
 
+/** What `GET .../contracts/interface` returns. */
+export type SubmittedInterface =
+  | { submitted: false }
+  | {
+      submitted: true;
+      family: "evm" | "solana";
+      contractName: string | null;
+      events: {
+        name: string;
+        signature?: string;
+        topic0?: string;
+        discriminator?: string;
+      }[];
+      instructions: string[];
+      eventCount: number;
+    };
+
 export const automationService = {
   listAutomations(params?: AutomationsListParams, orgId?: string) {
     return request<
@@ -495,6 +512,75 @@ export const automationService = {
    * for the trigger's Event dropdown. Backed lazily + cached server-side, with a
    * catalog fallback, so it's safe to fetch on contract-select.
    */
+  /**
+   * Whether an ABI or IDL has already been submitted for an address.
+   *
+   * Absence is `{ submitted: false }`, not a 404 — nobody having submitted one
+   * is the normal answer for most addresses, and branching on a status code
+   * for the common case goes wrong eventually.
+   */
+  getContractInterface(chain: string, address: string, orgId?: string) {
+    return request<SubmittedInterface>(
+      {
+        method: "GET",
+        url: "/automations/builder/contracts/interface",
+        params: { chain, address },
+      },
+      orgId
+    );
+  },
+
+  /**
+   * Submit an ABI (EVM) or IDL (Solana) for an address.
+   *
+   * Stored per (chain, address) and SHARED across organisations — an ABI is
+   * public information about a public address, so this fixes the contract for
+   * everyone watching it, not just for us. The response says `shared: true`
+   * and the UI should repeat that, because it is surprising.
+   */
+  submitContractInterface(
+    params: {
+      chain: string;
+      address: string;
+      artifact: unknown;
+      family: "evm" | "solana";
+    },
+    orgId?: string
+  ) {
+    return request<{
+      chain: string;
+      address: string;
+      family: "evm" | "solana";
+      contractName: string | null;
+      events: {
+        name: string;
+        signature?: string;
+        topic0?: string;
+        discriminator?: string;
+      }[];
+      instructions: string[];
+      shared: boolean;
+    }>(
+      {
+        method: "POST",
+        url: "/automations/builder/contracts/interface",
+        data:
+          params.family === "solana"
+            ? {
+                chain: params.chain,
+                address: params.address,
+                idl: params.artifact,
+              }
+            : {
+                chain: params.chain,
+                address: params.address,
+                abi: params.artifact,
+              },
+      },
+      orgId
+    );
+  },
+
   getContractEvents(
     chain: string,
     address: string,

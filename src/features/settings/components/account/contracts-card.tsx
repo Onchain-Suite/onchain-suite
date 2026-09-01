@@ -1,13 +1,23 @@
 "use client";
 
 import { PlusIcon } from "@heroicons/react/24/outline";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { SettingsCard } from "../settings-card";
+import {
+  ContractInterfaceDialog,
+  InterfaceSubmittedBadge,
+} from "./contract-interface-dialog";
 import { projectSettingsKey, supportedChainsKey } from "./project-card";
 import { useAccountOrg } from "./use-account-org";
+import { automationService } from "@/features/automation/automation.service";
 import {
   type ProjectSettingsAddressRow,
   type ProjectSettingsFormData,
@@ -27,6 +37,11 @@ export function ContractsCard() {
   const { organizationId } = useAccountOrg();
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [interfaceTarget, setInterfaceTarget] = useState<{
+    chain: string;
+    address: string;
+    label?: string;
+  } | null>(null);
   const [draft, setDraft] = useState({ chain: "", address: "", label: "" });
 
   const settingsQuery = useQuery({
@@ -48,6 +63,37 @@ export function ContractsCard() {
 
   const settings = settingsQuery.data;
   const chains = useMemo(() => chainsQuery.data ?? [], [chainsQuery.data]);
+  // One indexed lookup per contract, cached for the session: the row has to
+  // show whether an address is already covered, and the alternative is pasting
+  // again to find out — which is also how a good ABI gets overwritten by a
+  // worse one.
+  const interfaceQueries = useQueries({
+    queries: (settings?.contractAddresses ?? [])
+      .filter((c) => c.address && c.chain)
+      .map((c) => ({
+        queryKey: ["contract-interface", c.chain, c.address],
+        queryFn: () =>
+          automationService.getContractInterface(
+            c.chain as string,
+            c.address as string,
+            organizationId ?? undefined
+          ),
+        staleTime: 5 * 60 * 1000,
+        retry: false,
+      })),
+  });
+  const interfaceByAddress = useMemo(() => {
+    const map = new Map<string, number>();
+    const rows = (settings?.contractAddresses ?? []).filter(
+      (c) => c.address && c.chain
+    );
+    rows.forEach((row, index) => {
+      const data = interfaceQueries[index]?.data;
+      if (data?.submitted) map.set(String(row.address), data.eventCount);
+    });
+    return map;
+  }, [settings?.contractAddresses, interfaceQueries]);
+
   const chainLabel = useMemo(() => {
     const map = new Map(chains.map((c) => [c.slug, c.label]));
     return (slug?: string) => (slug ? (map.get(slug) ?? slug) : "");
@@ -203,22 +249,61 @@ export function ContractsCard() {
                       {contract.label}
                     </span>
                   ) : null}
+                  {interfaceByAddress.has(String(contract.address)) ? (
+                    <InterfaceSubmittedBadge
+                      eventCount={
+                        interfaceByAddress.get(String(contract.address)) ?? 0
+                      }
+                    />
+                  ) : null}
                 </div>
                 <code className="mt-0.5 block truncate font-mono text-xs text-muted-foreground">
                   {contract.address}
                 </code>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => removeMutation.mutate(contract.address)}
-                disabled={removeMutation.isPending}
-              >
-                Remove
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setInterfaceTarget({
+                      chain: String(contract.chain ?? ""),
+                      address: String(contract.address),
+                      label: contract.label ?? undefined,
+                    })
+                  }
+                  // A submitted interface can still be replaced — a partial ABI
+                  // pasted in a hurry should be fixable by pasting the full one.
+                  disabled={!contract.chain}
+                >
+                  {interfaceByAddress.has(String(contract.address))
+                    ? "Replace ABI"
+                    : "Add ABI"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeMutation.mutate(contract.address)}
+                  disabled={removeMutation.isPending}
+                >
+                  Remove
+                </Button>
+              </div>
             </li>
           ))}
         </ul>
+      ) : null}
+      {interfaceTarget ? (
+        <ContractInterfaceDialog
+          open
+          onOpenChange={(next) => {
+            if (!next) setInterfaceTarget(null);
+          }}
+          chain={interfaceTarget.chain}
+          address={interfaceTarget.address}
+          label={interfaceTarget.label}
+          organizationId={organizationId ?? undefined}
+        />
       ) : null}
     </SettingsCard>
   );

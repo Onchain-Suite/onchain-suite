@@ -109,3 +109,70 @@ describe("parseJsonish", () => {
     expect(parseJsonish("   ")).toMatchObject({ ok: false });
   });
 });
+
+/**
+ * Solana. An Anchor IDL reaches people as `anchor idl fetch` output (real JSON)
+ * or as the generated `src/idl/my_program.ts`, which is a TS literal with a
+ * TYPE ANNOTATION on the declaration — `export const IDL: MyProgram = {...}`.
+ * That annotation is the part an EVM-shaped stripper would miss.
+ */
+describe("parseJsonish — Anchor IDLs", () => {
+  it("reads a generated IDL module, type annotation and all", () => {
+    const result = parseJsonish(`export const IDL: GoldgardVault = {
+      version: "0.1.0",
+      name: "goldgard_vault",
+      instructions: [
+        { name: "deposit", accounts: [], args: [] },
+        { name: "withdraw", accounts: [], args: [] },
+      ],
+      events: [
+        {
+          name: "DepositMade",
+          fields: [{ name: "amount", type: "u64", index: false }],
+        },
+      ],
+    };`);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.usedFallback).toBe(true);
+
+    const idl = result.value as {
+      name: string;
+      events: { name: string; fields: { index: boolean }[] }[];
+      instructions: { name: string }[];
+    };
+    expect(idl.name).toBe("goldgard_vault");
+    expect(idl.instructions.map((i) => i.name)).toEqual([
+      "deposit",
+      "withdraw",
+    ]);
+    expect(idl.events[0].name).toBe("DepositMade");
+    // Same booleans-must-stay-booleans hazard as an EVM `indexed` flag.
+    expect(idl.events[0].fields[0].index).toBe(false);
+  });
+
+  it("keeps an IDL that declares instructions but no events", () => {
+    // Solana triggers can match an INSTRUCTION name, so this is usable and
+    // must not be normalised away or rejected downstream.
+    const result = parseJsonish(
+      `{ version: '0.1.0', name: 'p', instructions: [{ name: 'swap' }] }`
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual({
+      version: "0.1.0",
+      name: "p",
+      instructions: [{ name: "swap" }],
+    });
+  });
+
+  it("preserves case in a base58 program id", () => {
+    // Base58 is case-SENSITIVE and its alphabet omits 0, O, I and l. Any
+    // lowercasing here would produce an address that does not exist.
+    const id = "GoLDg1rdVau1tPr0gram11111111111111111111111";
+    const result = parseJsonish(`{ metadata: { address: '${id}' } }`);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual({ metadata: { address: id } });
+  });
+});

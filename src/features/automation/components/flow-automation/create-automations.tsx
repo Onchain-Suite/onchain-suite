@@ -105,7 +105,14 @@ import {
   WaitNode,
   WebhookNode,
 } from "./nodes";
-import { PropertySelect, type PropertySelectOption } from "./property-select";
+import { OnchainTriggerFields } from "./onchain-trigger-fields";
+import {
+  PROPERTY_HINT_CLASS,
+  PROPERTY_INPUT_CLASS,
+  PROPERTY_LABEL_CLASS,
+  PropertySelect,
+  type PropertySelectOption,
+} from "./property-select";
 import { AUTOMATION_RECIPES, type AutomationRecipe } from "./recipes";
 import { audienceService } from "@/features/audience/audience.service";
 import {
@@ -141,10 +148,7 @@ import {
   parseWatchState,
   summarizeIssues,
 } from "@/features/automation/utils/builder-issues";
-import {
-  buildTriggerContractPatch,
-  resolveContractCatalog,
-} from "@/features/automation/utils/contracts";
+import { resolveContractCatalog } from "@/features/automation/utils/contracts";
 import { campaignsService } from "@/features/campaigns/campaigns.service";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
@@ -787,14 +791,6 @@ type BuilderSchemaField = {
   advanced: boolean;
   options: BuilderSchemaFieldOption[];
 };
-
-const PROPERTY_LABEL_CLASS =
-  "text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground";
-
-const PROPERTY_INPUT_CLASS =
-  "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/30";
-
-const PROPERTY_HINT_CLASS = "text-[11px] leading-5 text-muted-foreground";
 
 /** A single branch condition row: `field <operator> value → target node`. */
 type BranchRule = {
@@ -2194,63 +2190,6 @@ const CreateAutomationContent = () => {
   const selectedTriggerHasImpliedEvent =
     selectedTriggerIsOnchain &&
     !GENERIC_ONCHAIN_TRIGGER_TYPES.has(selectedNodeSchemaType);
-  // Selected contract → its own events. Fetched lazily (only when a contract is
-  // picked) and cached; the backend falls back to the well-known catalog, so
-  // this is always safe and the dropdown always has options.
-  const selectedContractAddress = pickText(
-    selectedNodeData.contractAddress,
-    selectedNodeData.contract
-  );
-  const selectedTriggerChain =
-    pickText(selectedNodeData.chain) || "eth-mainnet";
-  const contractEventsQuery = useQuery({
-    queryKey: [
-      "automations",
-      "builder",
-      "contract-events",
-      selectedTriggerChain,
-      selectedContractAddress,
-      // Presets are keyed too: the answer depends on which preset is asking.
-      selectedTriggerHasImpliedEvent ? selectedNodeSchemaType : "",
-    ],
-    queryFn: () =>
-      automationService.getContractEvents(
-        selectedTriggerChain,
-        selectedContractAddress,
-        undefined,
-        selectedTriggerHasImpliedEvent ? selectedNodeSchemaType : undefined
-      ),
-    // Fetched for PRESETS as well now. It used to be skipped for them, on the
-    // reasoning that a preset implies its event — which is true right up until
-    // the contract does not emit that event, at which point the trigger is
-    // silently dead and the panel says it is ready.
-    enabled: selectedTriggerIsOnchain && selectedContractAddress.length > 0,
-    retry: false,
-    refetchOnWindowFocus: false,
-    staleTime: 60 * 60 * 1000,
-  });
-  const presetMatch = contractEventsQuery.data?.presetMatch;
-  // Only `confirmed` justifies telling the user this trigger is ready. The
-  // other two states must show the picker instead of a promise.
-  const presetConfirmed = presetMatch?.status === "confirmed";
-  const contractEventOptions = useMemo(
-    () =>
-      (contractEventsQuery.data?.events ?? []).map((e) => ({
-        value: e.value,
-        label: e.label,
-      })),
-    [contractEventsQuery.data]
-  );
-  // Real events carry their own topic0 (from the ABI, or the sampled log for an
-  // unverified contract). Keep it so selecting one wires the runtime match key
-  // even when the event isn't in the well-known catalog.
-  const contractEventByValue = useMemo(() => {
-    const map = new Map<string, { topic0?: string }>();
-    for (const e of contractEventsQuery.data?.events ?? []) {
-      if (!map.has(e.value)) map.set(e.value, { topic0: e.topic0 });
-    }
-    return map;
-  }, [contractEventsQuery.data]);
   const selectedNodeSchemaQuery = useQuery({
     queryKey: [
       "automations",
@@ -4100,238 +4039,17 @@ const CreateAutomationContent = () => {
                             </div>
                           )}
 
-                          {/* Contract — only on-chain triggers watch a
-                              contract. Off-chain triggers (segment/list/form/
-                              email) need nothing here. */}
                           {selectedTriggerIsOnchain && (
-                            <div className="space-y-2">
-                              <label className={PROPERTY_LABEL_CLASS}>
-                                Token or contract
-                              </label>
-                              <PropertySelect
-                                placeholder="Select contract"
-                                value={
-                                  asString(selectedNodeData.contractAddress) ||
-                                  asString(selectedNodeData.contract)
-                                }
-                                options={contractCatalog.map((c) => ({
-                                  value: c.address,
-                                  label: c.name,
-                                  hint: `(${c.chain})`,
-                                }))}
-                                onChange={(next) => {
-                                  updateSelectedNodeData(
-                                    buildTriggerContractPatch(
-                                      next,
-                                      contractCatalog
-                                    )
-                                  );
-                                }}
-                              />
-                              {/* Escape hatch: the select only lists saved
-                                  contracts. Pasting any deployed address here
-                                  drives the same live event resolution, so a
-                                  contract that isn't in project settings yet
-                                  (a fresh testnet deploy) still works. */}
-                              <input
-                                type="text"
-                                className={PROPERTY_INPUT_CLASS}
-                                placeholder="…or paste a contract address (0x…)"
-                                spellCheck={false}
-                                value={asString(
-                                  selectedNodeData.contractAddress
-                                )}
-                                onChange={(e) => {
-                                  const address = e.target.value.trim();
-                                  updateSelectedNodeData({
-                                    contractAddress: address,
-                                    contract: address,
-                                  });
-                                }}
-                              />
-                              {selectedTriggerHasImpliedEvent ? (
-                                // The old copy promised this fires, always. It
-                                // is only true when the contract actually emits
-                                // the preset's event — so the promise is now
-                                // conditional on the backend confirming it, and
-                                // the other two answers say what to do instead.
-                                !selectedContractAddress ? (
-                                  <p className={PROPERTY_HINT_CLASS}>
-                                    Pick a contract to check this trigger can
-                                    fire on it.
-                                  </p>
-                                ) : contractEventsQuery.isFetching ? (
-                                  <p className={PROPERTY_HINT_CLASS}>
-                                    Checking which events this contract
-                                    emits&hellip;
-                                  </p>
-                                ) : presetConfirmed && presetMatch ? (
-                                  <p className={PROPERTY_HINT_CLASS}>
-                                    Fires on{" "}
-                                    <span className="font-medium text-emerald-400">
-                                      {presetMatch.resolvedEvent?.name}
-                                    </span>
-                                    , which this contract emits. Change it below
-                                    if that is the wrong event.
-                                  </p>
-                                ) : presetMatch?.status === "mismatch" ? (
-                                  <p className="text-xs leading-relaxed text-red-400">
-                                    {presetMatch.message}
-                                  </p>
-                                ) : presetMatch?.status === "unconfirmed" ? (
-                                  <p className="text-xs leading-relaxed text-amber-400">
-                                    {presetMatch.message}
-                                  </p>
-                                ) : (
-                                  <p className={PROPERTY_HINT_CLASS}>
-                                    That&rsquo;s all this trigger needs — it
-                                    fires automatically on the matching on-chain
-                                    activity for this contract.
-                                  </p>
-                                )
-                              ) : (
-                                <p className={PROPERTY_HINT_CLASS}>
-                                  Pick a saved contract or paste an address,
-                                  then choose its chain below to load that
-                                  contract&rsquo;s events.
-                                </p>
-                              )}
-                            </div>
-                          )}
-                          {/* Event. Shown for presets too once a contract is
-                              chosen: the preset only IMPLIES an event, and the
-                              user has to be able to see which one was picked
-                              and choose a different one when it is wrong. A
-                              hidden implication that silently matches nothing
-                              is the failure this panel exists to prevent. */}
-                          {selectedTriggerIsOnchain &&
-                            (!selectedTriggerHasImpliedEvent ||
-                              (selectedContractAddress.length > 0 &&
-                                !contractEventsQuery.isFetching)) && (
-                              <div className="space-y-2">
-                                <label className={PROPERTY_LABEL_CLASS}>
-                                  Event
-                                </label>
-                                <PropertySelect
-                                  placeholder={
-                                    !selectedContractAddress
-                                      ? "Select a contract first"
-                                      : contractEventsQuery.isFetching
-                                        ? "Loading events…"
-                                        : "Select event"
-                                  }
-                                  disabled={!selectedContractAddress}
-                                  // Falls back to the event the preset RESOLVED
-                                  // to, so a confirmed preset shows which event
-                                  // it picked rather than an empty box. Applying
-                                  // the node writes it, so what publishes is a
-                                  // concrete event with a real topic0 — not a
-                                  // preset name re-matched later against
-                                  // whatever the contract exposes then.
-                                  value={
-                                    asString(selectedNodeData.event) ||
-                                    (presetConfirmed
-                                      ? (presetMatch?.resolvedEvent?.name ?? "")
-                                      : "")
-                                  }
-                                  // A chosen contract shows ONLY its real events
-                                  // (empty when none resolve — never generic
-                                  // catalog events). The catalog/app-event list
-                                  // is only for the no-contract case, where the
-                                  // picker is disabled anyway.
-                                  options={
-                                    selectedContractAddress
-                                      ? contractEventOptions
-                                      : eventOptions
-                                  }
-                                  onChange={(next) => {
-                                    const def =
-                                      eventDefinitionByValue.get(next);
-                                    const real = contractEventByValue.get(next);
-                                    updateSelectedNodeData({
-                                      event: next,
-                                      ...(def
-                                        ? {
-                                            // Wire key the runtime matches on;
-                                            // internal, never shown in the UI.
-                                            goldrushEventId: def.id,
-                                            eventStandard: def.standard,
-                                            chainFamily: def.chainFamily,
-                                            topic0: def.topic0,
-                                            programId: def.programIds?.[0],
-                                            instructionName:
-                                              def.instructionNames?.[0],
-                                          }
-                                        : {}),
-                                      // Prefer the contract's own topic0 so a
-                                      // real event that isn't in the catalog
-                                      // still matches at runtime.
-                                      ...(real?.topic0
-                                        ? { topic0: real.topic0 }
-                                        : {}),
-                                    });
-                                  }}
-                                />
-                                {selectedContractAddress
-                                  ? (() => {
-                                      const source =
-                                        contractEventsQuery.data?.source;
-                                      if (contractEventsQuery.isFetching)
-                                        return null;
-                                      if (source === "live")
-                                        return (
-                                          <p className={PROPERTY_HINT_CLASS}>
-                                            Real events read from this contract.
-                                          </p>
-                                        );
-                                      if (source === "empty")
-                                        return (
-                                          <p className={PROPERTY_HINT_CLASS}>
-                                            No events found. A verified contract
-                                            lists its full ABI here; an
-                                            unverified one only shows events
-                                            emitted in the last ~2,000 blocks.
-                                          </p>
-                                        );
-                                      if (source === "unavailable")
-                                        return (
-                                          <p className={PROPERTY_HINT_CLASS}>
-                                            Couldn&rsquo;t read this
-                                            contract&rsquo;s events right now —
-                                            check the chain is right and try
-                                            again.
-                                          </p>
-                                        );
-                                      if (source === "unsupported")
-                                        return (
-                                          <p className={PROPERTY_HINT_CLASS}>
-                                            Event resolution isn&rsquo;t
-                                            available for this chain yet.
-                                          </p>
-                                        );
-                                      return null;
-                                    })()
-                                  : null}
-                              </div>
-                            )}
-                          {selectedTriggerIsOnchain && (
-                            <div className="space-y-2">
-                              <label className={PROPERTY_LABEL_CLASS}>
-                                Chain
-                              </label>
-                              <PropertySelect
-                                placeholder="All chains"
-                                value={asString(selectedNodeData.chain)}
-                                options={chainOptions}
-                                onChange={(next) =>
-                                  updateSelectedNodeData({ chain: next })
-                                }
-                              />
-                              <p className={PROPERTY_HINT_CLASS}>
-                                Restrict this trigger to one network, or leave
-                                on all chains.
-                              </p>
-                            </div>
+                            <OnchainTriggerFields
+                              nodeData={selectedNodeData}
+                              onChange={updateSelectedNodeData}
+                              schemaType={selectedNodeSchemaType}
+                              hasImpliedEvent={selectedTriggerHasImpliedEvent}
+                              contractCatalog={contractCatalog}
+                              chainOptions={chainOptions}
+                              eventOptions={eventOptions}
+                              eventDefinitionByValue={eventDefinitionByValue}
+                            />
                           )}
                           {!isNew ? (
                             <div className="rounded-2xl border border-primary/15 bg-primary/5 p-3.5">

@@ -11,13 +11,13 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { SettingsCard } from "../settings-card";
-import {
-  ContractInterfaceDialog,
-  InterfaceSubmittedBadge,
-} from "./contract-interface-dialog";
 import { projectSettingsKey, supportedChainsKey } from "./project-card";
 import { useAccountOrg } from "./use-account-org";
 import { automationService } from "@/features/automation/automation.service";
+import {
+  ContractInterfaceDialog,
+  InterfaceSubmittedBadge,
+} from "@/features/automation/components/contract-interface-dialog";
 import {
   type ProjectSettingsAddressRow,
   type ProjectSettingsFormData,

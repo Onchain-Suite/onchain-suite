@@ -118,6 +118,7 @@ export function ContractInterfaceDialog({
   address,
   label,
   organizationId,
+  onSubmitted,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -125,6 +126,13 @@ export function ContractInterfaceDialog({
   address: string;
   label?: string;
   organizationId?: string;
+  /**
+   * Called after a successful save. The dialog invalidates its own lookup, but
+   * it cannot know what ELSE went stale — the builder's event list is keyed on
+   * the trigger as well as the address, and a picker still showing "no events"
+   * after a good paste is the exact confusion this flow exists to remove.
+   */
+  onSubmitted?: () => void;
 }) {
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
@@ -151,6 +159,7 @@ export function ContractInterfaceDialog({
           queryKey: ["contract-interface", chain, address],
         })
         .catch(() => undefined);
+      onSubmitted?.();
       onOpenChange(false);
       setText("");
     },

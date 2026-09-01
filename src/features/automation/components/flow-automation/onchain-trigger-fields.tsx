@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 
 import type { PropertySelectOption } from "./property-select";
 import {
@@ -12,6 +12,7 @@ import {
 } from "./property-select";
 import type { OnchainCatalogDefinition } from "@/features/automation/automation.service";
 import { automationService } from "@/features/automation/automation.service";
+import { ContractInterfaceDialog } from "@/features/automation/components/contract-interface-dialog";
 import { buildTriggerContractPatch } from "@/features/automation/utils/contracts";
 
 /**
@@ -51,6 +52,9 @@ export function OnchainTriggerFields({
   eventOptions: PropertySelectOption[];
   eventDefinitionByValue: Map<string, OnchainCatalogDefinition>;
 }) {
+  const queryClient = useQueryClient();
+  const [interfaceDialogOpen, setInterfaceDialogOpen] = useState(false);
+
   const asString = (v: unknown): string => (typeof v === "string" ? v : "");
   const contractAddress =
     asString(nodeData.contractAddress).trim() ||
@@ -112,6 +116,31 @@ export function OnchainTriggerFields({
     }
     return map;
   }, [contractEventsQuery.data]);
+
+  /**
+   * WHEN PASTING AN INTERFACE IS THE ACTUAL FIX.
+   *
+   * Every one of these states means the same thing underneath: we could not
+   * read this contract's events, so we cannot tell the user which one their
+   * trigger will fire on. Sourcify has no ABI, the explorer has none, and the
+   * bytecode scan only sees events that happened to be emitted in the last
+   * ~2,000 blocks — so a quiet contract, or any Solana program (which has no
+   * ABI at all, only an IDL nobody publishes to a registry), lands here.
+   *
+   * Telling someone "no events found" and stopping is a dead end. They have the
+   * ABI — it is in their repo, or one click away in their explorer. So offer
+   * the paste box at the exact moment the gap appears, rather than making them
+   * discover the settings page on their own.
+   */
+  const interfaceWouldHelp =
+    contractAddress.length > 0 &&
+    !contractEventsQuery.isFetching &&
+    (presetMatch?.status === "unconfirmed" ||
+      presetMatch?.status === "mismatch" ||
+      source === "empty" ||
+      contractEventOptions.length === 0);
+
+  const isSolana = resolvedChain.toLowerCase().startsWith("solana");
 
   return (
     <>
@@ -254,13 +283,6 @@ export function OnchainTriggerFields({
                   Real events read from this contract.
                 </p>
               ) : null}
-              {source === "empty" ? (
-                <p className={PROPERTY_HINT_CLASS}>
-                  No events found. A verified contract lists its full ABI here;
-                  an unverified one only shows events emitted in the last ~2,000
-                  blocks.
-                </p>
-              ) : null}
               {source === "unavailable" ? (
                 <p className={PROPERTY_HINT_CLASS}>
                   Couldn&rsquo;t read this contract&rsquo;s events right now —
@@ -273,6 +295,43 @@ export function OnchainTriggerFields({
                 </p>
               ) : null}
             </>
+          ) : null}
+
+          {interfaceWouldHelp ? (
+            <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
+              <p className="text-[11px] leading-5 text-muted-foreground">
+                {contractEventOptions.length === 0 ? (
+                  isSolana ? (
+                    <>
+                      Solana programs don&rsquo;t publish an ABI, so there is
+                      nothing to read here automatically.
+                    </>
+                  ) : (
+                    <>
+                      No events could be read from this contract. A verified
+                      contract lists its full ABI; an unverified one only shows
+                      events emitted in the last ~2,000 blocks.
+                    </>
+                  )
+                ) : (
+                  <>
+                    Paste the {isSolana ? "IDL" : "ABI"} to name every event
+                    this contract can emit, not just the ones seen recently.
+                  </>
+                )}{" "}
+                <span className="text-foreground">
+                  Paste the {isSolana ? "IDL" : "ABI"} and the full list appears
+                  here.
+                </span>
+              </p>
+              <button
+                type="button"
+                onClick={() => setInterfaceDialogOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
+              >
+                Paste {isSolana ? "IDL" : "ABI"}
+              </button>
+            </div>
           ) : null}
         </div>
       )}
@@ -289,6 +348,24 @@ export function OnchainTriggerFields({
           Restrict this trigger to one network, or leave on all chains.
         </p>
       </div>
+
+      <ContractInterfaceDialog
+        open={interfaceDialogOpen}
+        onOpenChange={setInterfaceDialogOpen}
+        chain={resolvedChain}
+        address={contractAddress}
+        // The dialog invalidates its own lookup, but the event list is keyed on
+        // the trigger as well as the address. Without this the picker would
+        // still say "no events" straight after a good paste — which is the
+        // exact confusion the paste box exists to remove.
+        onSubmitted={() => {
+          queryClient
+            .invalidateQueries({
+              queryKey: ["automations", "builder", "contract-events"],
+            })
+            .catch(() => undefined);
+        }}
+      />
     </>
   );
 }

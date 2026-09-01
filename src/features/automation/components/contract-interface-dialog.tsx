@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { automationService } from "@/features/automation/automation.service";
+import { parseJsonish } from "@/features/automation/utils/interface-paste";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -35,27 +36,37 @@ import {
  * the request is ever made.
  */
 
-/** What we can tell about the pasted text without asking the server. */
+/**
+ * What we can tell about the pasted text without asking the server.
+ *
+ * `value` is carried on the valid case so the caller submits the artifact this
+ * check actually approved. Re-parsing at submit time would be a second, subtly
+ * different parse of the same text — and only one of the two would be the one
+ * the user was shown a verdict on.
+ */
 type LocalCheck =
   | { state: "empty" }
   | { state: "invalid"; message: string }
-  | { state: "valid"; summary: string };
+  | { state: "valid"; summary: string; value: unknown; normalised: boolean };
 
 function inspect(text: string, family: "evm" | "solana"): LocalCheck {
   const trimmed = text.trim();
   if (!trimmed) return { state: "empty" };
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(trimmed);
-  } catch (error) {
-    // The message from JSON.parse names the position, which is the single most
-    // useful thing when a paste was truncated.
+  // Accepts a JS/TS object literal as well as JSON: the copy most people have
+  // to hand is the `export const abi = [...] as const` in their own frontend,
+  // which JSON.parse rejects at the first unquoted key.
+  const read = parseJsonish(trimmed);
+  if (!read.ok) {
     return {
       state: "invalid",
-      message: error instanceof Error ? error.message : "Not valid JSON",
+      // The parser reports JSON.parse's own message, which names the POSITION —
+      // the single most useful thing when a paste was truncated.
+      message: read.message,
     };
   }
+  const parsed = read.value;
+  const normalised = read.usedFallback;
 
   if (family === "evm") {
     const abi = Array.isArray(parsed)
@@ -82,6 +93,8 @@ function inspect(text: string, family: "evm" | "solana"): LocalCheck {
     return {
       state: "valid",
       summary: `${events} event${events === 1 ? "" : "s"} found`,
+      value: abi,
+      normalised,
     };
   }
 
@@ -108,6 +121,8 @@ function inspect(text: string, family: "evm" | "solana"): LocalCheck {
     summary: `${events} event${events === 1 ? "" : "s"}, ${instructions} instruction${
       instructions === 1 ? "" : "s"
     }`,
+    value: idl,
+    normalised,
   };
 }
 
@@ -145,7 +160,15 @@ export function ContractInterfaceDialog({
   const submit = useMutation({
     mutationFn: () =>
       automationService.submitContractInterface(
-        { chain, address, artifact: JSON.parse(text), family },
+        {
+          chain,
+          address,
+          // The value the check above validated. Re-parsing here would be a
+          // second parse of the same text, and only one of the two would be
+          // the one the user was shown a verdict on.
+          artifact: check.state === "valid" ? check.value : null,
+          family,
+        },
         organizationId
       ),
     onSuccess: (result) => {
@@ -170,12 +193,14 @@ export function ContractInterfaceDialog({
   });
 
   /** Reformat in place — the fastest way to see where a paste went wrong. */
+  /**
+   * Reformat in place — the fastest way to see where a paste went wrong, and
+   * for a JS literal it also rewrites the text as the JSON that will actually
+   * be stored. Showing that conversion beats describing it.
+   */
   const format = () => {
-    try {
-      setText(JSON.stringify(JSON.parse(text), null, 2));
-    } catch {
-      // Nothing to format; the inline error already says so.
-    }
+    if (check.state !== "valid") return;
+    setText(JSON.stringify(check.value, null, 2));
   };
 
   return (
@@ -192,6 +217,7 @@ export function ContractInterfaceDialog({
               {family === "solana"
                 ? "Paste the program's Anchor IDL. Solana has no ABI, so this is the only way to name a program's events and instructions."
                 : "Paste the contract ABI. Only needed when the contract isn't verified — verified ones resolve automatically."}{" "}
+              JSON or the JS/TS array straight out of your own code both work.
               Saved against this address and shared with everyone who watches
               it.
             </span>
@@ -217,7 +243,15 @@ export function ContractInterfaceDialog({
             {check.state === "invalid" ? (
               <p className="text-xs text-red-400">{check.message}</p>
             ) : check.state === "valid" ? (
-              <p className="text-xs text-emerald-400">{check.summary}</p>
+              <p className="text-xs text-emerald-400">
+                {check.summary}
+                {check.normalised ? (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · read as a JavaScript literal, saved as JSON
+                  </span>
+                ) : null}
+              </p>
             ) : (
               <span />
             )}

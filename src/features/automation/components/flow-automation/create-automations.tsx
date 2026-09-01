@@ -2210,20 +2210,29 @@ const CreateAutomationContent = () => {
       "contract-events",
       selectedTriggerChain,
       selectedContractAddress,
+      // Presets are keyed too: the answer depends on which preset is asking.
+      selectedTriggerHasImpliedEvent ? selectedNodeSchemaType : "",
     ],
     queryFn: () =>
       automationService.getContractEvents(
         selectedTriggerChain,
-        selectedContractAddress
+        selectedContractAddress,
+        undefined,
+        selectedTriggerHasImpliedEvent ? selectedNodeSchemaType : undefined
       ),
-    enabled:
-      selectedTriggerIsOnchain &&
-      !selectedTriggerHasImpliedEvent &&
-      selectedContractAddress.length > 0,
+    // Fetched for PRESETS as well now. It used to be skipped for them, on the
+    // reasoning that a preset implies its event — which is true right up until
+    // the contract does not emit that event, at which point the trigger is
+    // silently dead and the panel says it is ready.
+    enabled: selectedTriggerIsOnchain && selectedContractAddress.length > 0,
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: 60 * 60 * 1000,
   });
+  const presetMatch = contractEventsQuery.data?.presetMatch;
+  // Only `confirmed` justifies telling the user this trigger is ready. The
+  // other two states must show the picker instead of a promise.
+  const presetConfirmed = presetMatch?.status === "confirmed";
   const contractEventOptions = useMemo(
     () =>
       (contractEventsQuery.data?.events ?? []).map((e) => ({
@@ -4141,11 +4150,45 @@ const CreateAutomationContent = () => {
                                 }}
                               />
                               {selectedTriggerHasImpliedEvent ? (
-                                <p className={PROPERTY_HINT_CLASS}>
-                                  That&rsquo;s all this trigger needs — it fires
-                                  automatically on the matching on-chain
-                                  activity for this contract.
-                                </p>
+                                // The old copy promised this fires, always. It
+                                // is only true when the contract actually emits
+                                // the preset's event — so the promise is now
+                                // conditional on the backend confirming it, and
+                                // the other two answers say what to do instead.
+                                !selectedContractAddress ? (
+                                  <p className={PROPERTY_HINT_CLASS}>
+                                    Pick a contract to check this trigger can
+                                    fire on it.
+                                  </p>
+                                ) : contractEventsQuery.isFetching ? (
+                                  <p className={PROPERTY_HINT_CLASS}>
+                                    Checking which events this contract
+                                    emits&hellip;
+                                  </p>
+                                ) : presetConfirmed && presetMatch ? (
+                                  <p className={PROPERTY_HINT_CLASS}>
+                                    Fires on{" "}
+                                    <span className="font-medium text-emerald-400">
+                                      {presetMatch.resolvedEvent?.name}
+                                    </span>
+                                    , which this contract emits. Change it below
+                                    if that is the wrong event.
+                                  </p>
+                                ) : presetMatch?.status === "mismatch" ? (
+                                  <p className="text-xs leading-relaxed text-red-400">
+                                    {presetMatch.message}
+                                  </p>
+                                ) : presetMatch?.status === "unconfirmed" ? (
+                                  <p className="text-xs leading-relaxed text-amber-400">
+                                    {presetMatch.message}
+                                  </p>
+                                ) : (
+                                  <p className={PROPERTY_HINT_CLASS}>
+                                    That&rsquo;s all this trigger needs — it
+                                    fires automatically on the matching on-chain
+                                    activity for this contract.
+                                  </p>
+                                )
                               ) : (
                                 <p className={PROPERTY_HINT_CLASS}>
                                   Pick a saved contract or paste an address,
@@ -4155,12 +4198,16 @@ const CreateAutomationContent = () => {
                               )}
                             </div>
                           )}
-                          {/* Event — only the generic "On-chain event" trigger
-                              asks for a raw event. Presets imply their event
-                              (mapped server-side from the trigger type), so the
-                              picker is hidden for them. */}
+                          {/* Event. Shown for presets too once a contract is
+                              chosen: the preset only IMPLIES an event, and the
+                              user has to be able to see which one was picked
+                              and choose a different one when it is wrong. A
+                              hidden implication that silently matches nothing
+                              is the failure this panel exists to prevent. */}
                           {selectedTriggerIsOnchain &&
-                            !selectedTriggerHasImpliedEvent && (
+                            (!selectedTriggerHasImpliedEvent ||
+                              (selectedContractAddress.length > 0 &&
+                                !contractEventsQuery.isFetching)) && (
                               <div className="space-y-2">
                                 <label className={PROPERTY_LABEL_CLASS}>
                                   Event
@@ -4174,7 +4221,19 @@ const CreateAutomationContent = () => {
                                         : "Select event"
                                   }
                                   disabled={!selectedContractAddress}
-                                  value={asString(selectedNodeData.event)}
+                                  // Falls back to the event the preset RESOLVED
+                                  // to, so a confirmed preset shows which event
+                                  // it picked rather than an empty box. Applying
+                                  // the node writes it, so what publishes is a
+                                  // concrete event with a real topic0 — not a
+                                  // preset name re-matched later against
+                                  // whatever the contract exposes then.
+                                  value={
+                                    asString(selectedNodeData.event) ||
+                                    (presetConfirmed
+                                      ? (presetMatch?.resolvedEvent?.name ?? "")
+                                      : "")
+                                  }
                                   // A chosen contract shows ONLY its real events
                                   // (empty when none resolve — never generic
                                   // catalog events). The catalog/app-event list

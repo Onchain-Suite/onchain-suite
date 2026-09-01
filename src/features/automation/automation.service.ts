@@ -228,6 +228,40 @@ export type OnchainCatalogResponse = {
   definitions: OnchainCatalogDefinition[];
 };
 
+/** One selectable event, with how we know about it. */
+export interface ContractEventOption {
+  value: string;
+  label: string;
+  topic0?: string;
+  signature?: string;
+  /**
+   * `abi` — from a verified ABI, so the list is COMPLETE.
+   * `directory` — an unverified contract's topic, named by reverse lookup.
+   * `observed` — seen emitted, but unnamed.
+   * `catalog` — a well-known event, offered before a contract is chosen.
+   */
+  provenance?: "abi" | "directory" | "observed" | "catalog";
+  recentCount?: number;
+}
+
+/**
+ * Whether a preset trigger can fire on the chosen contract.
+ *
+ * Exactly three answers and no maybes — see the backend note. Only `confirmed`
+ * justifies telling the user the trigger is ready; the other two must show the
+ * event picker instead.
+ */
+export interface PresetEventMatch {
+  triggerType: string;
+  status: "confirmed" | "mismatch" | "unconfirmed";
+  expects: string[];
+  /** The concrete event, when confirmed — store THIS, not the preset name. */
+  resolvedEvent: { name: string; signature?: string; topic0?: string } | null;
+  /** Everything the contract emits, to pick from when not confirmed. */
+  options: ContractEventOption[];
+  message: string;
+}
+
 export const automationService = {
   listAutomations(params?: AutomationsListParams, orgId?: string) {
     return request<
@@ -461,18 +495,31 @@ export const automationService = {
    * for the trigger's Event dropdown. Backed lazily + cached server-side, with a
    * catalog fallback, so it's safe to fetch on contract-select.
    */
-  getContractEvents(chain: string, address: string, orgId?: string) {
+  getContractEvents(
+    chain: string,
+    address: string,
+    orgId?: string,
+    // Pass the PRESET trigger type to get `presetMatch` back: whether that
+    // preset can actually fire on this contract. Presets match on EVENT NAME
+    // (`Transfer`, `Approval`, `Liquidate`), so a protocol with custom events
+    // matches nothing — the trigger publishes, registers, reports live, and is
+    // silent forever. This is the last point at which that is visible.
+    triggerType?: string
+  ) {
     return request<{
-      events: { value: string; label: string; topic0?: string }[];
+      events: ContractEventOption[];
       // A chosen contract resolves to its own events; `empty`/`unavailable`/
       // `unsupported` describe why there are none. `catalog` is only the
       // no-contract browse list.
       source: "live" | "empty" | "unavailable" | "unsupported" | "catalog";
+      presetMatch?: PresetEventMatch;
     }>(
       {
         method: "GET",
         url: "/automations/builder/onchain/contract-events",
-        params: { chain, address },
+        params: triggerType
+          ? { chain, address, triggerType }
+          : { chain, address },
       },
       orgId
     );

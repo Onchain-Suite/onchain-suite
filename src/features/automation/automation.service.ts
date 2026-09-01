@@ -228,6 +228,57 @@ export type OnchainCatalogResponse = {
   definitions: OnchainCatalogDefinition[];
 };
 
+/** One selectable event, with how we know about it. */
+export interface ContractEventOption {
+  value: string;
+  label: string;
+  topic0?: string;
+  signature?: string;
+  /**
+   * `abi` — from a verified ABI, so the list is COMPLETE.
+   * `directory` — an unverified contract's topic, named by reverse lookup.
+   * `observed` — seen emitted, but unnamed.
+   * `catalog` — a well-known event, offered before a contract is chosen.
+   */
+  provenance?: "abi" | "directory" | "observed" | "catalog";
+  recentCount?: number;
+}
+
+/**
+ * Whether a preset trigger can fire on the chosen contract.
+ *
+ * Exactly three answers and no maybes — see the backend note. Only `confirmed`
+ * justifies telling the user the trigger is ready; the other two must show the
+ * event picker instead.
+ */
+export interface PresetEventMatch {
+  triggerType: string;
+  status: "confirmed" | "mismatch" | "unconfirmed";
+  expects: string[];
+  /** The concrete event, when confirmed — store THIS, not the preset name. */
+  resolvedEvent: { name: string; signature?: string; topic0?: string } | null;
+  /** Everything the contract emits, to pick from when not confirmed. */
+  options: ContractEventOption[];
+  message: string;
+}
+
+/** What `GET .../contracts/interface` returns. */
+export type SubmittedInterface =
+  | { submitted: false }
+  | {
+      submitted: true;
+      family: "evm" | "solana";
+      contractName: string | null;
+      events: {
+        name: string;
+        signature?: string;
+        topic0?: string;
+        discriminator?: string;
+      }[];
+      instructions: string[];
+      eventCount: number;
+    };
+
 export const automationService = {
   listAutomations(params?: AutomationsListParams, orgId?: string) {
     return request<
@@ -461,18 +512,100 @@ export const automationService = {
    * for the trigger's Event dropdown. Backed lazily + cached server-side, with a
    * catalog fallback, so it's safe to fetch on contract-select.
    */
-  getContractEvents(chain: string, address: string, orgId?: string) {
+  /**
+   * Whether an ABI or IDL has already been submitted for an address.
+   *
+   * Absence is `{ submitted: false }`, not a 404 — nobody having submitted one
+   * is the normal answer for most addresses, and branching on a status code
+   * for the common case goes wrong eventually.
+   */
+  getContractInterface(chain: string, address: string, orgId?: string) {
+    return request<SubmittedInterface>(
+      {
+        method: "GET",
+        url: "/automations/builder/contracts/interface",
+        params: { chain, address },
+      },
+      orgId
+    );
+  },
+
+  /**
+   * Submit an ABI (EVM) or IDL (Solana) for an address.
+   *
+   * Stored per (chain, address) and SHARED across organisations — an ABI is
+   * public information about a public address, so this fixes the contract for
+   * everyone watching it, not just for us. The response says `shared: true`
+   * and the UI should repeat that, because it is surprising.
+   */
+  submitContractInterface(
+    params: {
+      chain: string;
+      address: string;
+      artifact: unknown;
+      family: "evm" | "solana";
+    },
+    orgId?: string
+  ) {
     return request<{
-      events: { value: string; label: string; topic0?: string }[];
+      chain: string;
+      address: string;
+      family: "evm" | "solana";
+      contractName: string | null;
+      events: {
+        name: string;
+        signature?: string;
+        topic0?: string;
+        discriminator?: string;
+      }[];
+      instructions: string[];
+      shared: boolean;
+    }>(
+      {
+        method: "POST",
+        url: "/automations/builder/contracts/interface",
+        data:
+          params.family === "solana"
+            ? {
+                chain: params.chain,
+                address: params.address,
+                idl: params.artifact,
+              }
+            : {
+                chain: params.chain,
+                address: params.address,
+                abi: params.artifact,
+              },
+      },
+      orgId
+    );
+  },
+
+  getContractEvents(
+    chain: string,
+    address: string,
+    orgId?: string,
+    // Pass the PRESET trigger type to get `presetMatch` back: whether that
+    // preset can actually fire on this contract. Presets match on EVENT NAME
+    // (`Transfer`, `Approval`, `Liquidate`), so a protocol with custom events
+    // matches nothing — the trigger publishes, registers, reports live, and is
+    // silent forever. This is the last point at which that is visible.
+    triggerType?: string
+  ) {
+    return request<{
+      events: ContractEventOption[];
       // A chosen contract resolves to its own events; `empty`/`unavailable`/
       // `unsupported` describe why there are none. `catalog` is only the
       // no-contract browse list.
       source: "live" | "empty" | "unavailable" | "unsupported" | "catalog";
+      presetMatch?: PresetEventMatch;
     }>(
       {
         method: "GET",
         url: "/automations/builder/onchain/contract-events",
-        params: { chain, address },
+        params: triggerType
+          ? { chain, address, triggerType }
+          : { chain, address },
       },
       orgId
     );

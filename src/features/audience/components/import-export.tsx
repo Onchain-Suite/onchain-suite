@@ -1405,7 +1405,13 @@ export default function ImportExportPage() {
       setImportStep("complete");
       toast.error(message);
     }
-  }, [importStatus]);
+    // The download mutations are stable useMutation refs; they're listed to
+    // satisfy exhaustive-deps (the toast actions inside close over them).
+  }, [
+    importStatus,
+    downloadImportErrorsMutation,
+    downloadImportRejectedMutation,
+  ]);
 
   return (
     <motion.div

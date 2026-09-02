@@ -275,6 +275,9 @@ export function SenderVerificationCard() {
                       if (
                         domain.status === "verified" &&
                         typeof window !== "undefined" &&
+                        // Deliberate native confirm for a one-off destructive
+                        // action - removing a verified sending domain.
+                        // eslint-disable-next-line no-alert
                         !window.confirm(
                           `Remove ${domain.domain}? Branded sending from this domain will stop until it is re-verified.`
                         )

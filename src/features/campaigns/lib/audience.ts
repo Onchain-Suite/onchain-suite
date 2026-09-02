@@ -230,18 +230,28 @@ export const getEstimatedRecipientsFromSelection = (
 /**
  * Gate a group row (segment/list/tag) by the campaign's current channel.
  *
- * A row whose `reachableVia` is KNOWN but excludes the channel is marked
- * `disabled` with a short reason, so the picker can dim it and stop new
- * selections. A row with no reachability data (the source doesn't report it -
- * e.g. intelligence segments and tags) is left selectable: we never guess a
- * group is unreachable. `reachableVia` comes from `GET /audience/segments`
- * (email = deliverable + non-suppressed; push = connected wallet).
+ * Gate ONLY on positive evidence: a row whose `reachableVia` explicitly lists the
+ * OTHER channel and not this one is marked `disabled` with a short reason, so the
+ * picker can dim it and stop new selections.
+ *
+ * Everything else stays selectable - we never block on the absence of a positive
+ * signal:
+ *  - `undefined` -> the source doesn't report reachability (intelligence
+ *    segments, tags).
+ *  - `[]` (empty) -> UNKNOWN, not "reachable on nothing". A list can report an
+ *    empty set while its members are still being reachability-scored, and the
+ *    backend's email-reachable count lags for imported contacts - blocking on
+ *    that wrongly hid every list from an email campaign. The send-time estimate
+ *    is the authority, so leave these selectable.
+ *
+ * `reachableVia` comes from `GET /audience/segments` (email = deliverable +
+ * non-suppressed; push = connected wallet).
  */
 export const reachabilityGate = (
   reachableVia: ("email" | "push")[] | undefined,
   isPush: boolean
 ): { disabled?: boolean; disabledHint?: string } => {
-  if (!Array.isArray(reachableVia)) return {};
+  if (!Array.isArray(reachableVia) || reachableVia.length === 0) return {};
   const channel = isPush ? "push" : "email";
   if (reachableVia.includes(channel)) return {};
   return { disabled: true, disabledHint: isPush ? "No wallets" : "No emails" };

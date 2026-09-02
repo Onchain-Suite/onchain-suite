@@ -10,6 +10,8 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { usePagination } from "../../hooks/use-pagination";
+import { ListPager } from "../list-pager";
 import { SettingsCard } from "../settings-card";
 import { projectSettingsKey, supportedChainsKey } from "./project-card";
 import { useAccountOrg } from "./use-account-org";
@@ -40,7 +42,6 @@ export function ContractsCard() {
   const { organizationId } = useAccountOrg();
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
-  const [contractsPage, setContractsPage] = useState(0);
   const [interfaceTarget, setInterfaceTarget] = useState<{
     chain: string;
     address: string;
@@ -106,16 +107,7 @@ export function ContractsCard() {
     () => (settings?.contractAddresses ?? []).filter((c) => c.address),
     [settings?.contractAddresses]
   );
-  const contractsPageCount = Math.max(
-    1,
-    Math.ceil(contracts.length / CONTRACTS_PER_PAGE)
-  );
-  // Clamp so removing the last row on the last page doesn't strand an empty view.
-  const contractsPageSafe = Math.min(contractsPage, contractsPageCount - 1);
-  const pagedContracts = contracts.slice(
-    contractsPageSafe * CONTRACTS_PER_PAGE,
-    contractsPageSafe * CONTRACTS_PER_PAGE + CONTRACTS_PER_PAGE
-  );
+  const pager = usePagination(contracts, CONTRACTS_PER_PAGE);
 
   const saveContracts = (next: ProjectSettingsAddressRow[]) => {
     if (!settings) throw new Error("Project settings not loaded yet");
@@ -145,10 +137,11 @@ export function ContractsCard() {
       setDraft({ chain: "", address: "", label: "" });
       toast.success("Contract added");
       // The new contract is appended last - jump to its page so it's visible.
+      // setPage is unclamped; the next render (with the added row) clamps it.
       const count = (saved?.contractAddresses ?? []).filter(
         (c) => c.address
       ).length;
-      setContractsPage(Math.max(0, Math.ceil(count / CONTRACTS_PER_PAGE) - 1));
+      pager.setPage(Math.max(0, Math.ceil(count / CONTRACTS_PER_PAGE) - 1));
     },
     onError: (error: unknown) =>
       toast.error(
@@ -251,7 +244,7 @@ export function ContractsCard() {
         </div>
       ) : contracts.length > 0 ? (
         <ul className="divide-y divide-border/50">
-          {pagedContracts.map((contract) => (
+          {pager.items.map((contract) => (
             <li
               key={`${contract.chain}-${contract.address}`}
               className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
@@ -312,41 +305,7 @@ export function ContractsCard() {
           ))}
         </ul>
       ) : null}
-      {contracts.length > CONTRACTS_PER_PAGE ? (
-        <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-3">
-          <span className="text-xs text-muted-foreground">
-            {contractsPageSafe * CONTRACTS_PER_PAGE + 1}-
-            {Math.min(
-              (contractsPageSafe + 1) * CONTRACTS_PER_PAGE,
-              contracts.length
-            )}{" "}
-            of {contracts.length}
-          </span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setContractsPage((p) => Math.max(0, p - 1))}
-              disabled={contractsPageSafe === 0}
-            >
-              Previous
-            </Button>
-            <span className="px-1 text-xs text-muted-foreground">
-              {contractsPageSafe + 1} / {contractsPageCount}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                setContractsPage((p) => Math.min(contractsPageCount - 1, p + 1))
-              }
-              disabled={contractsPageSafe >= contractsPageCount - 1}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      <ListPager pagination={pager} label="contracts" />
       {interfaceTarget ? (
         <ContractInterfaceDialog
           open

@@ -62,6 +62,8 @@ export interface FormRendererLive {
   onSubmit: () => void;
   submitting?: boolean;
   error?: string | null;
+  /** Optional bot-check slot rendered just above the submit button. */
+  captcha?: ReactNode;
 }
 
 /** Builder-only: makes preview field blocks selectable / reorderable. */
@@ -353,6 +355,10 @@ export function FormRenderer({
 
           {live?.error ? (
             <p className="text-xs text-red-400">{live.error}</p>
+          ) : null}
+
+          {live?.captcha ? (
+            <div className="flex justify-center">{live.captcha}</div>
           ) : null}
 
           {/* Submit */}

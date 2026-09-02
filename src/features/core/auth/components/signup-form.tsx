@@ -5,13 +5,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { CheckboxFormField, InputFormField } from "@/components/form-fields";
 import { Form } from "@/ui/form";
 import { LoadingButton } from "@/ui/loading-button";
+import {
+  isTurnstileConfigured,
+  type TurnstileHandle,
+  TurnstileWidget,
+} from "@/ui/turnstile-widget";
 
 import { useLocalStorage } from "@/hooks/client";
 import { authClient, signInWithGoogle } from "@/lib/auth-client";
@@ -34,6 +39,8 @@ interface SignUpFormProps {
 
 export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const turnstileRef = useRef<TurnstileHandle>(null);
 
   const { setValue } = useLocalStorage<SignUpFormData | null>("user", null);
 
@@ -65,15 +72,23 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
   };
 
   const onSubmit = async (data: SignUpFormData) => {
+    if (isTurnstileConfigured() && !captchaToken) {
+      toast.error("Please complete the verification below.");
+      return;
+    }
     setIsLoading(true);
     try {
       const { error } = await authClient.signUp.email({
         email: data.email,
         password: data.password,
         name: `${data.firstName} ${data.lastName}`,
-      });
+        // Bot gate — the custom /auth/sign-up/email handler verifies this
+        // server-side before the account is created.
+        turnstileToken: captchaToken,
+      } as Parameters<typeof authClient.signUp.email>[0]);
 
       if (error) {
+        turnstileRef.current?.reset(); // single-use token spent on the attempt
         toast.error(
           pickNonEmptyString(error.message) ??
             "Failed to create account. Please try again."
@@ -96,6 +111,7 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
       form.reset();
     } catch (error: unknown) {
       console.error("Sign up error:", error);
+      turnstileRef.current?.reset();
       const response = isJsonObject(error) ? error.response : undefined;
       const data = isJsonObject(response) ? response.data : undefined;
       const message = isJsonObject(data) ? data.message : undefined;
@@ -236,6 +252,12 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
                       updates and features"
               />
             </div>
+
+            <TurnstileWidget
+              ref={turnstileRef}
+              onVerify={setCaptchaToken}
+              className="flex justify-center"
+            />
 
             <LoadingButton isLoading={isLoading} disabled={isLoading}>
               Create Account

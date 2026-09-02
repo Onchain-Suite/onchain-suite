@@ -251,6 +251,24 @@ export interface ContractEventOption {
  * justifies telling the user the trigger is ready; the other two must show the
  * event picker instead.
  */
+/**
+ * One of the org's OTHER saved contracts that CAN fire the chosen preset.
+ *
+ * Returned only when the chosen contract cannot — a confirmed preset needs no
+ * alternative, and offering one would imply the choice was wrong.
+ */
+export interface ContractSuggestion {
+  chain: string | null;
+  address: string;
+  label?: string;
+  /** The wanted event this contract actually emits. */
+  event: string;
+  /** Ready to display: says what to switch to and why. */
+  reason: string;
+  /** False when accepting it also changes the trigger's chain. */
+  sameChain: boolean;
+}
+
 export interface PresetEventMatch {
   triggerType: string;
   status: "confirmed" | "mismatch" | "unconfirmed";
@@ -599,6 +617,7 @@ export const automationService = {
       // no-contract browse list.
       source: "live" | "empty" | "unavailable" | "unsupported" | "catalog";
       presetMatch?: PresetEventMatch;
+      suggestions?: ContractSuggestion[];
     }>(
       {
         method: "GET",

@@ -201,16 +201,11 @@ export function AudienceStep({
     () => contactsQuery.data ?? [],
     [contactsQuery.data]
   );
-  // Channel-aware audience: In-app push can only reach a wallet, Direct campaign
-  // can only reach an email, so each channel renders only the contacts it can
-  // actually deliver to.
-  const contacts = useMemo(
-    () =>
-      isPush
-        ? fetchedContacts.filter((c) => (c.walletAddress ?? "").length > 0)
-        : fetchedContacts.filter((c) => c.email.length > 0),
-    [fetchedContacts, isPush]
-  );
+  // Show EVERY contact (anyone reachable on at least one channel). The picker
+  // doesn't hide contacts the current channel can't reach - it dims them and
+  // makes them non-selectable in the render, with the reason, exactly like the
+  // group rows. Hiding them made the list look empty/partial ("I only see some").
+  const contacts = fetchedContacts;
 
   // The suppression window is org-configurable, so read it rather than
   // quoting a hardcoded number. `windowHours` always comes back concrete
@@ -756,15 +751,27 @@ export function AudienceStep({
             />
           ) : sendTab === "contacts" ? (
             <SelectList
-              rows={contacts.map((c) => ({
-                id: c.id,
-                title: c.name,
-                // In-app push reaches the wallet, so show it; email is
-                // irrelevant on this channel (and vice-versa for Direct).
-                trailing: isPush
-                  ? (c.walletShort ?? c.walletAddress ?? "")
-                  : c.email,
-              }))}
+              rows={contacts.map((c) => {
+                const hasWallet = (c.walletAddress ?? "").length > 0;
+                const reachable = isPush ? hasWallet : c.email.length > 0;
+                return {
+                  id: c.id,
+                  title: c.name,
+                  // Show the identity the current channel actually uses (wallet
+                  // for in-app, email for direct); the other is irrelevant here.
+                  trailing: isPush
+                    ? (c.walletShort ?? c.walletAddress ?? "")
+                    : c.email,
+                  // Everyone is listed; a contact the current channel can't
+                  // reach is dimmed + non-selectable with the reason.
+                  ...(reachable
+                    ? {}
+                    : {
+                        disabled: true,
+                        disabledHint: isPush ? "No wallet" : "No email",
+                      }),
+                };
+              })}
               loading={contactsQuery.isLoading}
               searchPlaceholder="Search contacts…"
               searchValue={contactSearch}
@@ -772,9 +779,7 @@ export function AudienceStep({
               emptyText={
                 debouncedContactSearch
                   ? "No contacts match your search."
-                  : isPush
-                    ? "No contacts with a connected wallet yet."
-                    : "No contacts with a verified email yet."
+                  : "No contacts yet - import a CSV or capture a form."
               }
               footerNote={
                 fetchedContacts.length >= CONTACTS_PAGE_LIMIT

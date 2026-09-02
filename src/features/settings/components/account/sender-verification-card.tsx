@@ -15,6 +15,8 @@ import { CopyButton } from "@/components/common/copy-button";
 import { apiClient } from "@/lib/api-client";
 import { cn, isJsonObject } from "@/lib/utils";
 
+import { usePagination } from "../../hooks/use-pagination";
+import { ListPager } from "../list-pager";
 import { SettingsCard, SettingsStepper, StatusPill } from "../settings-card";
 import { parseDomainDns } from "./domain-dns";
 import { useAccountOrg } from "./use-account-org";
@@ -53,6 +55,8 @@ interface DomainRow {
   status: DomainStatus;
 }
 
+const DOMAINS_PER_PAGE = 5;
+
 const domainsKey = (orgId: string | null) =>
   ["account", "domains", orgId] as const;
 
@@ -86,6 +90,7 @@ export function SenderVerificationCard() {
   });
 
   const domains = useMemo(() => domainsQuery.data ?? [], [domainsQuery.data]);
+  const domainsPager = usePagination(domains, DOMAINS_PER_PAGE);
   const currentStep = useMemo(() => {
     if (domains.length === 0) return 0;
     // Past the last step so "Verified" renders as a completed check, not "3".
@@ -226,7 +231,7 @@ export function SenderVerificationCard() {
 
       {domains.length > 0 ? (
         <div className="mt-6 space-y-2 border-t border-border/50 pt-4">
-          {domains.map((domain) => {
+          {domainsPager.items.map((domain) => {
             const open = expandedId === domain.id;
             return (
               <div
@@ -335,6 +340,7 @@ export function SenderVerificationCard() {
               </div>
             );
           })}
+          <ListPager pagination={domainsPager} label="domains" />
         </div>
       ) : null}
     </SettingsCard>

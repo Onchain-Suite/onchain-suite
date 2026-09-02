@@ -3,12 +3,14 @@
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
+import { usePagination } from "../../hooks/use-pagination";
+import { ListPager } from "../list-pager";
 import { SettingsCard } from "../settings-card";
 import { useAccountOrg } from "./use-account-org";
 import { billingService } from "@/features/billing/billing.service";
@@ -32,6 +34,8 @@ import {
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 const ROLES: AssignableRole[] = ["ADMIN", "EDITOR", "VIEWER"];
+
+const TEAM_PER_PAGE = 5;
 
 const membersKey = (orgId: string | null) =>
   ["account", "members", orgId] as const;
@@ -149,10 +153,27 @@ export function TeamCard() {
       toast.error(e instanceof Error ? e.message : "Failed to cancel invite"),
   });
 
-  const members = membersQuery.data?.members ?? [];
-  const invites = membersQuery.data?.invites ?? [];
+  const members = useMemo(
+    () => membersQuery.data?.members ?? [],
+    [membersQuery.data]
+  );
+  const invites = useMemo(
+    () => membersQuery.data?.invites ?? [],
+    [membersQuery.data]
+  );
   const isEmpty =
     !membersQuery.isLoading && members.length === 0 && invites.length === 0;
+
+  // Members and pending invites share one paginated roster (members first),
+  // each row tagged so the list can render the right controls per kind.
+  const teamRows = useMemo(
+    () => [
+      ...members.map((member) => ({ kind: "member" as const, member })),
+      ...invites.map((invite) => ({ kind: "invite" as const, invite })),
+    ],
+    [members, invites]
+  );
+  const pager = usePagination(teamRows, TEAM_PER_PAGE);
 
   const seatMeter = planUsageQuery.data?.meters?.seats;
   const seatLimit =
@@ -281,104 +302,111 @@ export function TeamCard() {
         </div>
       ) : (
         <ul className="divide-y divide-border/50">
-          {members.map((member) => (
-            <li
-              key={member.userId}
-              className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
-                  {(member.name || member.email).charAt(0).toUpperCase()}
-                </span>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-foreground">
-                    {member.name || member.email}
+          {pager.items.map((row) => {
+            if (row.kind === "member") {
+              const { member } = row;
+              return (
+                <li
+                  key={member.userId}
+                  className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
+                      {(member.name || member.email).charAt(0).toUpperCase()}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-foreground">
+                        {member.name || member.email}
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {member.email}
+                      </div>
+                    </div>
                   </div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {member.email}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {member.role === "OWNER" ? (
+                      <span className="rounded-full border border-border/70 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                        Owner
+                      </span>
+                    ) : (
+                      <>
+                        <Select
+                          value={member.role}
+                          onValueChange={(v) =>
+                            roleMutation.mutate({
+                              userId: member.userId,
+                              role: v as AssignableRole,
+                            })
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-28 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLES.map((role) => (
+                              <SelectItem key={role} value={role}>
+                                {role.charAt(0) + role.slice(1).toLowerCase()}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeMutation.mutate(member.userId)}
+                          disabled={removeMutation.isPending}
+                        >
+                          Remove
+                        </Button>
+                      </>
+                    )}
                   </div>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {member.role === "OWNER" ? (
-                  <span className="rounded-full border border-border/70 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                    Owner
+                </li>
+              );
+            }
+            const { invite } = row;
+            return (
+              <li
+                key={invite.id}
+                className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
+                    {invite.email.charAt(0).toUpperCase()}
                   </span>
-                ) : (
-                  <>
-                    <Select
-                      value={member.role}
-                      onValueChange={(v) =>
-                        roleMutation.mutate({
-                          userId: member.userId,
-                          role: v as AssignableRole,
-                        })
-                      }
-                    >
-                      <SelectTrigger className="h-8 w-28 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ROLES.map((role) => (
-                          <SelectItem key={role} value={role}>
-                            {role.charAt(0) + role.slice(1).toLowerCase()}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeMutation.mutate(member.userId)}
-                      disabled={removeMutation.isPending}
-                    >
-                      Remove
-                    </Button>
-                  </>
-                )}
-              </div>
-            </li>
-          ))}
-          {invites.map((invite) => (
-            <li
-              key={invite.id}
-              className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
-                  {invite.email.charAt(0).toUpperCase()}
-                </span>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-foreground">
-                    {invite.email}
-                  </div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    Pending · {invite.roleLabel}
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-foreground">
+                      {invite.email}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      Pending · {invite.roleLabel}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => resendMutation.mutate(invite.id)}
-                  disabled={resendMutation.isPending}
-                >
-                  Resend
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => cancelMutation.mutate(invite.id)}
-                  disabled={cancelMutation.isPending}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </li>
-          ))}
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => resendMutation.mutate(invite.id)}
+                    disabled={resendMutation.isPending}
+                  >
+                    Resend
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => cancelMutation.mutate(invite.id)}
+                    disabled={cancelMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
+      <ListPager pagination={pager} label="teammates" />
     </SettingsCard>
   );
 }

@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { isJsonObject } from "@/lib/utils";
 
+import { usePagination } from "../../hooks/use-pagination";
+import { ListPager } from "../list-pager";
 import { SettingsCard, StatusPill } from "../settings-card";
 import {
   billingService,
@@ -40,6 +42,8 @@ const statusTone = (
   return "neutral";
 };
 
+const INVOICES_PER_PAGE = 5;
+
 /** Accepts an array or an `{ items }` / `{ data }` envelope. */
 const toInvoiceArray = (payload: unknown): CustomerInvoice[] => {
   if (Array.isArray(payload)) return payload as CustomerInvoice[];
@@ -65,6 +69,7 @@ export function BillingInvoicesCard() {
   });
 
   const invoices = toInvoiceArray(invoicesQuery.data);
+  const pager = usePagination(invoices, INVOICES_PER_PAGE);
 
   return (
     <SettingsCard
@@ -107,7 +112,7 @@ export function BillingInvoicesCard() {
               </tr>
             </thead>
             <tbody>
-              {invoices.map((invoice, index) => {
+              {pager.items.map((invoice, index) => {
                 const isPaid = invoice.status?.toLowerCase() === "paid";
                 const date = isPaid ? invoice.paidAt : invoice.dueAt;
                 return (
@@ -161,6 +166,7 @@ export function BillingInvoicesCard() {
               })}
             </tbody>
           </table>
+          <ListPager pagination={pager} label="invoices" />
         </div>
       )}
     </SettingsCard>

@@ -36,11 +36,14 @@ import {
   type WebhookEndpoint,
   type WebhookStatus,
 } from "../../developer.service";
+import { usePagination } from "../../hooks/use-pagination";
+import { ListPager } from "../list-pager";
 import { SettingsCard, StatusPill } from "../settings-card";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 
+const DEVELOPER_LIST_PER_PAGE = 5;
 const BASE_URL = "https://api.onchainsuite.com/api/v1";
 const AUTH_HEADER = "Authorization: Bearer sk_live_…";
 
@@ -979,6 +982,8 @@ export function DeveloperApiCard() {
   // a struck-through row.
   const keys = (keysQuery.data ?? []).filter((key) => key.status !== "revoked");
   const webhooks = webhooksQuery.data ?? [];
+  const keysPager = usePagination(keys, DEVELOPER_LIST_PER_PAGE);
+  const webhooksPager = usePagination(webhooks, DEVELOPER_LIST_PER_PAGE);
   const catalog = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
 
   const webhookBusy =
@@ -1035,14 +1040,17 @@ export function DeveloperApiCard() {
               No keys yet - create one to authenticate server-to-server calls.
             </p>
           ) : (
-            keys.map((key) => (
-              <KeyRow
-                key={key.id}
-                keyRow={key}
-                onRoll={setRollTarget}
-                onRevoke={setRevokeTarget}
-              />
-            ))
+            <>
+              {keysPager.items.map((key) => (
+                <KeyRow
+                  key={key.id}
+                  keyRow={key}
+                  onRoll={setRollTarget}
+                  onRevoke={setRevokeTarget}
+                />
+              ))}
+              <ListPager pagination={keysPager} label="keys" />
+            </>
           )}
         </div>
       </div>
@@ -1085,16 +1093,19 @@ export function DeveloperApiCard() {
               No endpoints. Add one to receive delivery and contact events.
             </p>
           ) : (
-            webhooks.map((hook) => (
-              <WebhookRow
-                key={hook.id}
-                hook={hook}
-                onTest={(id) => testWebhookMutation.mutate(id)}
-                onToggleStatus={(h) => toggleWebhookMutation.mutate(h)}
-                onDelete={(id) => deleteWebhookMutation.mutate(id)}
-                busy={webhookBusy}
-              />
-            ))
+            <>
+              {webhooksPager.items.map((hook) => (
+                <WebhookRow
+                  key={hook.id}
+                  hook={hook}
+                  onTest={(id) => testWebhookMutation.mutate(id)}
+                  onToggleStatus={(h) => toggleWebhookMutation.mutate(h)}
+                  onDelete={(id) => deleteWebhookMutation.mutate(id)}
+                  busy={webhookBusy}
+                />
+              ))}
+              <ListPager pagination={webhooksPager} label="endpoints" />
+            </>
           )}
         </div>
 

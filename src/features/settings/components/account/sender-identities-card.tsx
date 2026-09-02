@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { usePagination } from "../../hooks/use-pagination";
+import { ListPager } from "../list-pager";
 import { SettingsCard, StatusPill } from "../settings-card";
 import { useAccountOrg } from "./use-account-org";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
@@ -14,6 +16,8 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 
 const sendersKey = (orgId: string | null) =>
   ["account", "senders", orgId] as const;
+
+const SENDERS_PER_PAGE = 5;
 
 export function SenderIdentitiesCard() {
   const { organizationId } = useAccountOrg();
@@ -96,6 +100,7 @@ export function SenderIdentitiesCard() {
   });
 
   const senders = sendersQuery.data ?? [];
+  const pager = usePagination(senders, SENDERS_PER_PAGE);
 
   return (
     <SettingsCard
@@ -166,7 +171,7 @@ export function SenderIdentitiesCard() {
         </div>
       ) : senders.length > 0 ? (
         <ul className="divide-y divide-border/50">
-          {senders.map((sender) => (
+          {pager.items.map((sender) => (
             <li
               key={sender.id}
               className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
@@ -230,6 +235,7 @@ export function SenderIdentitiesCard() {
           ))}
         </ul>
       ) : null}
+      <ListPager pagination={pager} label="senders" />
     </SettingsCard>
   );
 }

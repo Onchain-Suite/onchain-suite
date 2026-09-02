@@ -63,12 +63,22 @@ export interface Campaign {
  *  Undefined = the source doesn't report it, so the row is not gated. */
 export type ReachableVia = ("email" | "push")[] | undefined;
 
+/** Per-channel reachable member counts (server-computed over full membership,
+ *  send-grade for email). Absent when the source doesn't report it or, for
+ *  intelligence segments, when it fails soft (`reachable: null`) - in both
+ *  cases the row falls back to its total `count`, never renders 0. */
+export interface ReachableCounts {
+  email: number;
+  push: number;
+}
+
 export interface List {
   id: string;
   name: string;
   count: number;
   starred: boolean;
   reachableVia?: ReachableVia;
+  reachable?: ReachableCounts;
 }
 
 export interface Segment {
@@ -77,6 +87,7 @@ export interface Segment {
   count: number;
   starred: boolean;
   reachableVia?: ReachableVia;
+  reachable?: ReachableCounts;
 }
 
 export interface EmailTemplate {

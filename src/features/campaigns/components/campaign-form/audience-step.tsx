@@ -115,7 +115,7 @@ export function AudienceStep({
   const [includeInternal, setIncludeInternal] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [sendTab, setSendTab] = useState<SendTab>("segments");
+  const [sendTab, setSendTab] = useState<SendTab>("everyone");
   const [utmOpen, setUtmOpen] = useState(false);
   const syncSequenceRef = useRef(0);
 
@@ -592,11 +592,11 @@ export function AudienceStep({
             : 0;
 
   const SEND_TABS: { key: SendTab; label: string }[] = [
-    { key: "segments", label: "Segments" },
+    { key: "everyone", label: "Everyone" },
     { key: "lists", label: "Lists" },
     { key: "tags", label: "Tags" },
     { key: "contacts", label: "Contacts" },
-    { key: "everyone", label: "Everyone" },
+    { key: "segments", label: "Segments" },
   ];
 
   // "Don't send to" is a set of exclusion filters. Suppressed/unsubscribed is
@@ -623,7 +623,7 @@ export function AudienceStep({
     },
     {
       key: "internal",
-      label: "Internal / team wallets",
+      label: isPush ? "Internal / team wallets" : "Internal / team contacts",
       count: internalCount,
       applied: !includeInternal,
       locked: false,
@@ -961,10 +961,10 @@ export function AudienceStep({
               }
               title={
                 ex.locked
-                  ? "Always excluded - suppressed and unsubscribed wallets can't be messaged"
+                  ? `Always excluded - suppressed and unsubscribed ${isPush ? "wallets" : "contacts"} can't be messaged`
                   : ex.applied
-                    ? "Excluded. Click to include internal / team wallets"
-                    : "Included. Click to exclude internal / team wallets"
+                    ? `Excluded. Click to include internal / team ${isPush ? "wallets" : "contacts"}`
+                    : `Included. Click to exclude internal / team ${isPush ? "wallets" : "contacts"}`
               }
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors",

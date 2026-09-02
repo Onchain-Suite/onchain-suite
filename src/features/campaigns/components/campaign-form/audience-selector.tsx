@@ -39,7 +39,12 @@ import {
 export interface ContactOption {
   id: string;
   name: string;
+  /** Empty when the contact has no real (non-synthetic) email. */
   email: string;
+  /** Full wallet address; empty when the contact has no wallet on file. */
+  walletAddress?: string;
+  /** Truncated wallet for display (0x1234…abcd). */
+  walletShort?: string;
 }
 
 interface AudienceSelectorProps {

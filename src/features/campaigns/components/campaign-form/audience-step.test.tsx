@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
@@ -79,6 +79,9 @@ describe("AudienceStep links", () => {
     // has no route - Segments is a tab on /intelligence - so the link must carry
     // the ?tab= deep link.
     renderStep({ segments: [] });
+
+    // Segments is no longer the default tab (Everyone is first now), so open it.
+    fireEvent.click(screen.getByRole("button", { name: "Segments" }));
 
     const link = screen.getByRole("link", { name: /create one/i });
     expect(link).toHaveAttribute("href", PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS);

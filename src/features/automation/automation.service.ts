@@ -269,6 +269,26 @@ export interface ContractSuggestion {
   sameChain: boolean;
 }
 
+/**
+ * A contract found ON CHAIN that emits the wanted event in the same
+ * transactions as the one the user chose — but which they have NOT saved.
+ *
+ * Distinct from ContractSuggestion because the provenance changes what the UI
+ * may claim. A saved contract is something they already told us about; this is
+ * an inference from co-occurrence, and co-occurrence is not causation. It has
+ * to read as "we found this, is it right?" rather than as a fact.
+ */
+export interface DiscoveredContract {
+  address: string;
+  topic0: string;
+  /** Transactions (of those sampled) where it emitted the event. */
+  transactions: number;
+  /** How many transactions were sampled. */
+  sampled: number;
+  /** transactions / sampled. 1.0 means every single one. */
+  consistency: number;
+}
+
 export interface PresetEventMatch {
   triggerType: string;
   status: "confirmed" | "mismatch" | "unconfirmed";
@@ -618,6 +638,7 @@ export const automationService = {
       source: "live" | "empty" | "unavailable" | "unsupported" | "catalog";
       presetMatch?: PresetEventMatch;
       suggestions?: ContractSuggestion[];
+      discovered?: DiscoveredContract[];
     }>(
       {
         method: "GET",

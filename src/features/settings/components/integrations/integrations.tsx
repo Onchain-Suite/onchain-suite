@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { CopyButton } from "@/components/common/copy-button";
 
-import { getSelectedOrganizationId } from "@/lib/utils";
+import { cn, getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import { fadeInUp } from "../../utils";
 import { SettingsCard, SettingsStepper } from "../settings-card";
@@ -95,6 +95,34 @@ async function fetchInappStatus(orgId: string): Promise<InappStatus> {
   }
 }
 
+/**
+ * Count of allow-listed origins (`GET /integrations/inapp/origins`). The setup
+ * checklist reads this so it reflects PERSISTED configuration and survives a
+ * reload - previously the rail was driven off the ephemeral local snippet, so
+ * a fully-configured org showed an empty checklist after refreshing.
+ */
+async function fetchInappOriginsCount(orgId: string): Promise<number> {
+  try {
+    const res = await fetch("/api/v1/integrations/inapp/origins", {
+      headers: { "x-org-id": orgId },
+    });
+    const json: unknown = await res.json().catch(() => null);
+    if (!res.ok || !json || typeof json !== "object") return 0;
+    const root = json as Record<string, unknown>;
+    const d = (root.data ?? root) as unknown;
+    const list = Array.isArray(d)
+      ? d
+      : isJsonObject(d) && Array.isArray(d.items)
+        ? d.items
+        : isJsonObject(d) && Array.isArray(d.origins)
+          ? d.origins
+          : [];
+    return list.length;
+  } catch {
+    return 0;
+  }
+}
+
 /** Allow-list an origin so the pasted snippet connects. Best-effort (idempotent). */
 async function allowlistOrigin(orgId: string, origin: string): Promise<void> {
   try {
@@ -131,10 +159,26 @@ export default function IntegrationsSettings() {
   const publishableKey = statusQuery.data?.publishableKey ?? "";
   const sessionCount = statusQuery.data?.sessionCount ?? 0;
 
-  // Drive the 3-step rail from real state: a connected wallet (sessionCount > 0)
-  // ticks all three; generating the snippet allow-lists the origin + bakes the
-  // key, so we're installed + listening (step 3 "Connected" then pending).
-  const setupStep = sessionCount > 0 ? 3 : snippet ? 2 : 0;
+  // Persisted allow-listed origin count, so the checklist reflects the org's
+  // real configuration and survives a reload (poll so a change elsewhere shows).
+  const originsQuery = useQuery({
+    queryKey: ["integrations", "inapp", "origins", "count", orgId],
+    enabled: !!orgId,
+    queryFn: () => fetchInappOriginsCount(orgId as string),
+    refetchInterval: 30_000,
+  });
+  const allowedOriginCount = originsQuery.data ?? 0;
+
+  const hasKey = publishableKey.length > 0;
+  // Generating the snippet just POSTed the origin, so treat it as allow-listed
+  // immediately; the persisted count keeps it ticked after a reload.
+  const hasOrigin = allowedOriginCount > 0 || Boolean(snippet);
+  // "Set up" = a publishable key AND at least one allow-listed origin. Once both
+  // exist the integration is configured and the SDK will connect wallets on its
+  // own, so all three steps read as done (a live session also ticks them). A key
+  // with no origin yet leaves "We listen" as the active step.
+  const configured = hasKey && hasOrigin;
+  const setupStep = configured || sessionCount > 0 ? 3 : hasKey ? 1 : 0;
 
   const generateSnippet = async () => {
     if (!orgId) {
@@ -183,7 +227,7 @@ export default function IntegrationsSettings() {
     >
       <SettingsCard
         title="In-app push · Web"
-        description="Install the SDK in your dApp - push can't send until it reports a connected wallet"
+        description="Configure a publishable key and your allowed origins, then install the SDK. Once both are set, in-app push is ready."
         action={
           <Button
             variant="outline"
@@ -196,6 +240,20 @@ export default function IntegrationsSettings() {
         }
       >
         <SettingsStepper steps={WEB_STEPS} current={setupStep} />
+        <p
+          className={cn(
+            "mt-3 text-xs",
+            configured ? "text-emerald-500" : "text-muted-foreground"
+          )}
+        >
+          {configured
+            ? sessionCount > 0
+              ? `In-app push is set up and live - ${sessionCount.toLocaleString()} connected ${sessionCount === 1 ? "wallet" : "wallets"}.`
+              : "In-app push is set up. The SDK will connect wallets automatically - this ticks live once your first wallet connects."
+            : hasKey
+              ? "Almost there - add your dApp origin below and generate the snippet to allow-list it."
+              : "Create a publishable key (Manage keys) and allow-list your dApp origin to turn on in-app push."}
+        </p>
         <div className="mt-6 max-w-xl space-y-2">
           <Label htmlFor="dapp-origin">dApp origin</Label>
           <Input

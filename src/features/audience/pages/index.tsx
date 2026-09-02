@@ -210,8 +210,8 @@ function listMeta(seg: AudienceSegment): {
       : sourceObj && typeof sourceObj.label === "string"
         ? sourceObj.label
         : "Manual";
-  const reachable = Array.isArray(seg.reachableVia)
-    ? seg.reachableVia.filter((r): r is string => typeof r === "string")
+  const reachable: string[] = Array.isArray(seg.reachableVia)
+    ? [...seg.reachableVia]
     : ["email"];
   return { type, source, reachable };
 }

@@ -1328,6 +1328,14 @@ export function CreateCampaignPage() {
           name: s.name,
           count: typeof s.count === "number" ? s.count : 0,
           starred: Boolean(s.starred),
+          // Channel-reachability, so the picker can dim a list that can't
+          // deliver on the chosen channel. Absent on older responses -> left
+          // undefined so the row stays selectable.
+          reachableVia: Array.isArray(s.reachableVia)
+            ? s.reachableVia.filter(
+                (r): r is "email" | "push" => r === "email" || r === "push"
+              )
+            : undefined,
         }));
     },
     retry: false,

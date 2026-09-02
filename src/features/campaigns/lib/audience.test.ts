@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { Segment } from "../types";
-import { partitionAudienceSelection, tagSelectionId } from "./audience";
+import {
+  partitionAudienceSelection,
+  reachabilityGate,
+  tagSelectionId,
+} from "./audience";
 
 const SEGMENTS: Segment[] = [
   { id: "seg_1", name: "New subscribers", count: 42, starred: false },
@@ -56,5 +60,38 @@ describe("partitionAudienceSelection", () => {
       "segmentIds",
       "tagNames",
     ]);
+  });
+});
+
+describe("reachabilityGate", () => {
+  it("does not gate a row with no reachability data (undefined)", () => {
+    expect(reachabilityGate(undefined, true)).toEqual({});
+    expect(reachabilityGate(undefined, false)).toEqual({});
+  });
+
+  it("allows a row reachable on the current channel", () => {
+    expect(reachabilityGate(["email", "push"], true)).toEqual({});
+    expect(reachabilityGate(["email", "push"], false)).toEqual({});
+    expect(reachabilityGate(["push"], true)).toEqual({});
+    expect(reachabilityGate(["email"], false)).toEqual({});
+  });
+
+  it("disables an email-only group on an in-app push campaign", () => {
+    expect(reachabilityGate(["email"], true)).toEqual({
+      disabled: true,
+      disabledHint: "No wallets",
+    });
+  });
+
+  it("disables a push-only group on an email campaign", () => {
+    expect(reachabilityGate(["push"], false)).toEqual({
+      disabled: true,
+      disabledHint: "No emails",
+    });
+  });
+
+  it("disables a group reachable on nothing (empty array) for both channels", () => {
+    expect(reachabilityGate([], true).disabled).toBe(true);
+    expect(reachabilityGate([], false).disabled).toBe(true);
   });
 });

@@ -4,6 +4,12 @@ import { CheckCircleIcon } from "@heroicons/react/24/solid";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  isTurnstileConfigured,
+  type TurnstileHandle,
+  TurnstileWidget,
+} from "@/ui/turnstile-widget";
+
+import {
   type CaptureFieldSpec,
   type FormDisplaySettings,
   readFormMeta,
@@ -98,6 +104,8 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
   // contact must click a confirmation link before they actually join. Telling
   // someone they are subscribed when they are not is how that email gets ignored.
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const turnstileRef = useRef<TurnstileHandle>(null);
   const popupRef = useRef<Window | null>(null);
 
   // Listen for the OAuth callback popup posting back a linked channel.
@@ -254,6 +262,10 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
         }
       }
     }
+    if (isTurnstileConfigured() && !captchaToken) {
+      setError("Please complete the verification below.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -274,6 +286,8 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
                 }
               : null,
             channels: linkedHandles,
+            // Bot gate — verified server-side on the public submit route.
+            turnstileToken: captchaToken,
           }),
         }
       );
@@ -299,11 +313,13 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
       }
       setDone(true);
     } catch (e) {
+      turnstileRef.current?.reset(); // single-use token spent on the attempt
       setError(e instanceof Error ? e.message : "Submission failed.");
     } finally {
       setSubmitting(false);
     }
   }, [
+    captchaToken,
     effectiveFields,
     config.token,
     config.settings,
@@ -363,6 +379,14 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
         onSubmit: submit,
         submitting,
         error,
+        // Dark theme to match the hosted page; sits above the submit button.
+        captcha: (
+          <TurnstileWidget
+            ref={turnstileRef}
+            onVerify={setCaptchaToken}
+            theme="dark"
+          />
+        ),
       }}
     />
   );

@@ -100,6 +100,15 @@ export interface CampaignSendInAppResult {
   skippedCount?: number;
   /** Echoes the persisted delivery mode used for this run. */
   delivery?: PushDelivery;
+  /**
+   * The campaign's status AFTER this call (docs/backend.md 2026-09-02). A real
+   * send that reaches >=1 recipient flips it to `SENT`; a zero-recipient send is
+   * a 200 with the status unchanged. Gate the "sent" UI on this / recipientCount,
+   * never on a bare 200.
+   */
+  status?: string;
+  /** ISO send time (event-derived); present once the campaign is `SENT`. */
+  sentAt?: string | null;
   [key: string]: unknown;
 }
 

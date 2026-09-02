@@ -25,6 +25,7 @@ import {
   getEstimatedRecipientsFromSelection,
   isAllContactsSelected,
   partitionAudienceSelection,
+  reachabilityGate,
   resolveTagsToProfileIds,
 } from "../../lib/audience";
 import {
@@ -700,6 +701,7 @@ export function AudienceStep({
                     ? (s as { description?: string }).description
                     : undefined,
                 count: s.count,
+                ...reachabilityGate(s.reachableVia, isPush),
               }))}
               loading={segmentsLoading}
               searchPlaceholder="Search segments…"
@@ -721,6 +723,7 @@ export function AudienceStep({
                 id: l.id,
                 title: l.name,
                 count: l.count,
+                ...reachabilityGate(l.reachableVia, isPush),
               }))}
               searchPlaceholder="Search lists…"
               emptyText="No lists yet - save a segment or tag to reuse it."
@@ -733,6 +736,7 @@ export function AudienceStep({
                 id: t.id,
                 title: t.name,
                 count: t.count,
+                ...reachabilityGate(t.reachableVia, isPush),
               }))}
               searchPlaceholder="Search tags…"
               emptyText={
@@ -1091,6 +1095,10 @@ function SelectList({
     sub?: string;
     trailing?: string;
     count?: number;
+    /** Not deliverable on the current channel: dimmed + non-selectable. */
+    disabled?: boolean;
+    /** Short reason shown in place of the count when disabled ("No wallets"). */
+    disabledHint?: string;
   }[];
   loading?: boolean;
   emptyText: React.ReactNode;
@@ -1146,14 +1154,20 @@ function SelectList({
         <ul className="max-h-72 divide-y divide-border overflow-y-auto">
           {filtered.map((row) => {
             const selected = isSelected(row.id);
+            // Lock only UNSELECTED unreachable rows - an already-selected row
+            // stays clickable so a channel switch can't trap a selection.
+            const locked = Boolean(row.disabled) && !selected;
             return (
               <li key={row.id}>
                 <button
                   type="button"
+                  disabled={locked}
                   onClick={() => onToggle(row.id)}
                   className={cn(
                     "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40",
-                    selected && "bg-primary/[0.04]"
+                    selected && "bg-primary/[0.04]",
+                    locked &&
+                      "cursor-not-allowed opacity-45 hover:bg-transparent"
                   )}
                 >
                   <span
@@ -1177,7 +1191,11 @@ function SelectList({
                       </span>
                     ) : null}
                   </span>
-                  {row.trailing ? (
+                  {row.disabled && row.disabledHint ? (
+                    <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      {row.disabledHint}
+                    </span>
+                  ) : row.trailing ? (
                     <span className="shrink-0 font-mono text-xs text-muted-foreground">
                       {row.trailing}
                     </span>

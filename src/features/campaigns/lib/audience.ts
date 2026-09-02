@@ -226,3 +226,23 @@ export const getEstimatedRecipientsFromSelection = (
     0
   );
 };
+
+/**
+ * Gate a group row (segment/list/tag) by the campaign's current channel.
+ *
+ * A row whose `reachableVia` is KNOWN but excludes the channel is marked
+ * `disabled` with a short reason, so the picker can dim it and stop new
+ * selections. A row with no reachability data (the source doesn't report it -
+ * e.g. intelligence segments and tags) is left selectable: we never guess a
+ * group is unreachable. `reachableVia` comes from `GET /audience/segments`
+ * (email = deliverable + non-suppressed; push = connected wallet).
+ */
+export const reachabilityGate = (
+  reachableVia: ("email" | "push")[] | undefined,
+  isPush: boolean
+): { disabled?: boolean; disabledHint?: string } => {
+  if (!Array.isArray(reachableVia)) return {};
+  const channel = isPush ? "push" : "email";
+  if (reachableVia.includes(channel)) return {};
+  return { disabled: true, disabledHint: isPush ? "No wallets" : "No emails" };
+};

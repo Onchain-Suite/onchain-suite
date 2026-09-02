@@ -59,11 +59,16 @@ export interface Campaign {
   [key: string]: unknown;
 }
 
+/** Channels a group can deliver on (from `GET /audience/segments` reachableVia).
+ *  Undefined = the source doesn't report it, so the row is not gated. */
+export type ReachableVia = ("email" | "push")[] | undefined;
+
 export interface List {
   id: string;
   name: string;
   count: number;
   starred: boolean;
+  reachableVia?: ReachableVia;
 }
 
 export interface Segment {
@@ -71,6 +76,7 @@ export interface Segment {
   name: string;
   count: number;
   starred: boolean;
+  reachableVia?: ReachableVia;
 }
 
 export interface EmailTemplate {

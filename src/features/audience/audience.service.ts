@@ -325,6 +325,13 @@ export interface AudienceSegment {
   starred?: boolean;
   criteria?: unknown;
   updatedAt?: string;
+  /**
+   * Channels the list can actually deliver on, computed live from members
+   * (email = deliverable + non-suppressed; push = connected wallet). From
+   * `GET /audience/segments` (docs/backend.md 2026-08-13). Undefined on older
+   * responses that predate the field.
+   */
+  reachableVia?: ("email" | "push")[];
   [key: string]: unknown;
 }
 

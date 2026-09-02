@@ -159,21 +159,30 @@ export function AudienceStep({
             : [];
       return rows
         .map((profile): ContactOption | null => {
-          const rawEmail =
-            typeof profile.email === "string" ? profile.email.trim() : "";
-          if (rawEmail.length === 0 || isSyntheticWalletEmail(rawEmail)) {
-            return null;
-          }
           const id = typeof profile.id === "string" ? profile.id.trim() : "";
           if (id.length === 0) return null;
-          const { walletFull } = extractWalletFields(profile);
+          const rawEmail =
+            typeof profile.email === "string" ? profile.email.trim() : "";
+          // A synthetic wallet-placeholder email is not a real, sendable email.
+          const email =
+            rawEmail.length > 0 && !isSyntheticWalletEmail(rawEmail)
+              ? rawEmail
+              : "";
+          const { walletFull, wallet: walletShort } =
+            extractWalletFields(profile);
+          // Keep anyone reachable on at least one channel; the per-channel
+          // filter (email for Direct, wallet for In-app) is applied in `contacts`
+          // so switching channel never refetches.
+          if (email.length === 0 && walletFull.length === 0) return null;
           return {
             id,
-            email: rawEmail,
+            email,
+            walletAddress: walletFull,
+            walletShort,
             name: deriveDisplayName({
               name: profile.name,
               fullName: (profile as { fullName?: unknown }).fullName,
-              email: rawEmail,
+              email: email || undefined,
               wallet: walletFull,
               walletAddress: walletFull,
             }),
@@ -185,9 +194,21 @@ export function AudienceStep({
     refetchOnWindowFocus: false,
     staleTime: 30_000,
   });
-  const contacts = useMemo(
+  // Every fetched contact reachable on at least one channel (raw, for the
+  // "showing the first N" footer which reflects the page size, not the filter).
+  const fetchedContacts = useMemo(
     () => contactsQuery.data ?? [],
     [contactsQuery.data]
+  );
+  // Channel-aware audience: In-app push can only reach a wallet, Direct campaign
+  // can only reach an email, so each channel renders only the contacts it can
+  // actually deliver to.
+  const contacts = useMemo(
+    () =>
+      isPush
+        ? fetchedContacts.filter((c) => (c.walletAddress ?? "").length > 0)
+        : fetchedContacts.filter((c) => c.email.length > 0),
+    [fetchedContacts, isPush]
   );
 
   // The suppression window is org-configurable, so read it rather than
@@ -582,13 +603,13 @@ export function AudienceStep({
               key: "email" as const,
               icon: EnvelopeIcon,
               title: "Direct campaign",
-              sub: "Email · wallet optional",
+              sub: "Sent to contacts with an email",
             },
             {
               key: "in-app-push" as const,
               icon: DevicePhoneMobileIcon,
               title: "In-app push",
-              sub: "Wallet · email optional",
+              sub: "Sent to connected wallets",
             },
           ].map((opt) => {
             const active =
@@ -641,7 +662,7 @@ export function AudienceStep({
         </div>
         <p className="text-xs text-muted-foreground">
           {isPush
-            ? "Delivered in-app to connected wallets - email optional."
+            ? "Delivered in-app to connected wallets."
             : "Delivered by email - contacts need an email address."}
         </p>
       </div>
@@ -734,7 +755,11 @@ export function AudienceStep({
               rows={contacts.map((c) => ({
                 id: c.id,
                 title: c.name,
-                trailing: c.email,
+                // In-app push reaches the wallet, so show it; email is
+                // irrelevant on this channel (and vice-versa for Direct).
+                trailing: isPush
+                  ? (c.walletShort ?? c.walletAddress ?? "")
+                  : c.email,
               }))}
               loading={contactsQuery.isLoading}
               searchPlaceholder="Search contacts…"
@@ -743,11 +768,13 @@ export function AudienceStep({
               emptyText={
                 debouncedContactSearch
                   ? "No contacts match your search."
-                  : "No contacts with a verified email yet."
+                  : isPush
+                    ? "No contacts with a connected wallet yet."
+                    : "No contacts with a verified email yet."
               }
               footerNote={
-                contacts.length >= CONTACTS_PAGE_LIMIT
-                  ? `Showing the first ${CONTACTS_PAGE_LIMIT.toLocaleString()}. Search by name or email to find anyone, or send to a segment, list, or Everyone.`
+                fetchedContacts.length >= CONTACTS_PAGE_LIMIT
+                  ? `Showing the first ${CONTACTS_PAGE_LIMIT.toLocaleString()}. Search by name${isPush ? "" : " or email"} to find anyone, or send to a segment, list, or Everyone.`
                   : null
               }
               isSelected={isSelected}

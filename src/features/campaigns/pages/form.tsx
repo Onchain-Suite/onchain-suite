@@ -1926,6 +1926,18 @@ export function CreateCampaignPage() {
         const result = await campaignsService.sendInAppPush(campaignId);
         const recipients = result.recipientCount ?? 0;
         const deliveredNow = result.deliveredNowCount ?? 0;
+        // Refresh the list + this campaign so the run (and any status change)
+        // are reflected instead of leaving a stale draft row on screen.
+        await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+        // A 2xx with zero recipients is NOT a send - the audience resolved to no
+        // wallet-reachable contacts. Say so plainly instead of a false "sent",
+        // and don't advance to the "done" screen.
+        if (recipients === 0) {
+          toast.warning(
+            "Nobody was reached. In-app push only reaches contacts with a connected wallet - this audience has none. Pick a wallet-reachable audience and try again."
+          );
+          return;
+        }
         toast.success(
           `Push sent to ${recipients} wallet${recipients === 1 ? "" : "s"} (${deliveredNow} delivered live).`
         );

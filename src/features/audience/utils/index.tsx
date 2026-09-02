@@ -371,6 +371,37 @@ export function readChannels(input: unknown): {
   return channels as Record<string, boolean>;
 }
 
+/**
+ * Per-profile channel reachability, the ONE definition the whole app shares so
+ * the Audience overview tiles and the campaign audience picker agree. Prefers the
+ * server's `channels` booleans; when the response omits them, falls back to
+ * presence: email = a present, non-synthetic email OR a ZK-verified wallet
+ * identity; push = a connected wallet. This is why an imported contact with a
+ * plain email counts as email-reachable even though `/audience/overview`'s strict
+ * aggregate reads it as 0.
+ */
+export function profileReach(input: unknown): {
+  email: boolean;
+  push: boolean;
+} {
+  const obj =
+    input && typeof input === "object"
+      ? (input as Record<string, unknown>)
+      : {};
+  const channels = readChannels(input);
+  if (channels) {
+    return { email: Boolean(channels.email), push: Boolean(channels.inapp) };
+  }
+  const { walletFull } = extractWalletFields(input);
+  const rawEmail = typeof obj.email === "string" ? obj.email : undefined;
+  const hasRealEmail = Boolean(rawEmail && !isSyntheticWalletEmail(rawEmail));
+  const verified = obj.status === "verified";
+  return {
+    email: hasRealEmail || (verified && Boolean(walletFull)),
+    push: Boolean(walletFull),
+  };
+}
+
 const readString = (obj: Record<string, unknown> | null, key: string) => {
   if (!obj) return "";
   const value = obj[key];

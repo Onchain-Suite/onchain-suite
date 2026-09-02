@@ -44,6 +44,7 @@ import {
   deriveDisplayName,
   extractWalletFields,
   isSyntheticWalletEmail,
+  profileReach,
 } from "@/features/audience/utils";
 import { smartSendingService } from "@/features/settings/smart-sending.service";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
@@ -244,6 +245,55 @@ export function AudienceStep({
   });
   const audienceTotal = audienceCountQuery.data ?? null;
 
+  // Reachability, computed client-side EXACTLY like the Audience section (shared
+  // `profileReach`). The `/audience/overview` aggregate under-counts imported
+  // contacts (reads emailReachable 0), so the Audience page already counts it
+  // straight from the profiles when the whole audience fits one page - we carry
+  // that same computation here so the campaign's "Everyone" count matches the
+  // Audience tile instead of showing 0.
+  const reachableCountQuery = useQuery({
+    queryKey: ["audience", "campaign-reachable-count"],
+    queryFn: async () => {
+      const res = await audienceService.listProfiles({
+        page: 1,
+        limit: 200,
+        include: "wallets,attributes,tags",
+      });
+      const obj = res as {
+        items?: AudienceProfile[];
+        data?: AudienceProfile[];
+        meta?: { totalItems?: number };
+      };
+      const items = Array.isArray(res) ? res : (obj.items ?? obj.data ?? []);
+      const metaTotal =
+        !Array.isArray(res) && typeof obj.meta?.totalItems === "number"
+          ? obj.meta.totalItems
+          : undefined;
+      const complete =
+        items.length < 200 ||
+        (typeof metaTotal === "number" && metaTotal <= items.length);
+      let email = 0;
+      let push = 0;
+      for (const p of items) {
+        const r = profileReach(p);
+        if (r.email) email += 1;
+        if (r.push) push += 1;
+      }
+      return { email, push, complete };
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  // Trust the exact client-side count only when we've seen the whole audience;
+  // above the 200-page cap defer to the (under-counting) overview aggregate.
+  const computedEmailReachable = reachableCountQuery.data?.complete
+    ? reachableCountQuery.data.email
+    : null;
+  const computedPushReachable = reachableCountQuery.data?.complete
+    ? reachableCountQuery.data.push
+    : null;
+
   const allSelected = isAllContactsSelected(selectedAudiences);
 
   // "Everyone" is channel-aware: an email campaign reaches every email-reachable
@@ -258,6 +308,7 @@ export function AudienceStep({
     if (isPush) {
       return (
         breakdownTotal ??
+        computedPushReachable ??
         pick(overview?.pushReachable) ??
         pick(overview?.withWallet) ??
         pick(overview?.total) ??
@@ -266,6 +317,7 @@ export function AudienceStep({
     }
     return (
       breakdownTotal ??
+      computedEmailReachable ??
       pick(overview?.emailReachable) ??
       pick(overview?.total) ??
       audienceTotal

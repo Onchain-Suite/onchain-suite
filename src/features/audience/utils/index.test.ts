@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   deriveDisplayName,
   extractWalletFields,
+  profileReach,
   hashHue,
   normalizeTags,
   shortenWallet,
@@ -66,3 +67,36 @@ describe("audience utils", () => {
     expect(a).toBeLessThan(360);
   });
 });
+
+describe("profileReach", () => {
+  it("counts an imported contact with a plain email as email-reachable (no channels object)", () => {
+    // The exact case /audience/overview under-counts: present email, unverified,
+    // no channels payload. Must be email-reachable, not push.
+    expect(profileReach({ email: "a@b.com", status: "pending" })).toEqual({
+      email: true,
+      push: false,
+    });
+  });
+
+  it("prefers the server channels object when present", () => {
+    expect(
+      profileReach({ email: "a@b.com", channels: { email: false, inapp: true } })
+    ).toEqual({ email: false, push: true });
+  });
+
+  it("treats a synthetic wallet-placeholder email as no email channel", () => {
+    expect(
+      profileReach({ email: "0xabc@wallet.onchainsuite.local" })
+    ).toEqual({ email: false, push: false });
+  });
+
+  it("is push-reachable from a wallet, and a verified wallet is email-reachable", () => {
+    expect(
+      profileReach({ walletAddress: "0x1111111111111111111111111111111111111111", status: "verified" })
+    ).toEqual({ email: true, push: true });
+    expect(
+      profileReach({ walletAddress: "0x2222222222222222222222222222222222222222", status: "pending" })
+    ).toEqual({ email: false, push: true });
+  });
+});
+

@@ -88,6 +88,7 @@ import {
   isSyntheticWalletEmail,
   lifetimeUsd,
   normalizeTags,
+  profileReach,
   readChannels,
 } from "../utils";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
@@ -163,20 +164,13 @@ const toRow = (p: AudienceProfile): Row => {
         ? formatRelativeTime(new Date(lastActionAt))
         : undefined,
     lifetimeUsd: onchainUsd ?? undefined,
-    reach: channels
-      ? {
-          email: Boolean(channels.email),
-          push: Boolean(channels.inapp),
-          x: Boolean(channels.x),
-        }
-      : {
-          // Fallback (no `channels` in the response): ZK-protected (verified
-          // wallet) contacts are email-reachable even without a plaintext email;
-          // in-app push is inferred from wallet presence.
-          email: Boolean(email) || (verified && Boolean(walletFull)),
-          push: Boolean(walletFull),
-          x: Boolean(socials.twitter),
-        },
+    // Email/push come from the shared `profileReach` (the ONE definition the
+    // campaign audience picker also uses), so the tiles and the campaign
+    // "Everyone" count can't disagree. `x` stays local (not part of send).
+    reach: {
+      ...profileReach(p),
+      x: channels ? Boolean(channels.x) : Boolean(socials.twitter),
+    },
   };
 };
 

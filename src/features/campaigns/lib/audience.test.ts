@@ -90,8 +90,11 @@ describe("reachabilityGate", () => {
     });
   });
 
-  it("disables a group reachable on nothing (empty array) for both channels", () => {
-    expect(reachabilityGate([], true).disabled).toBe(true);
-    expect(reachabilityGate([], false).disabled).toBe(true);
+  it("does NOT gate an empty reachableVia (unknown, not 'reachable on nothing')", () => {
+    // A list can report [] while members are still being reachability-scored, and
+    // the backend's email-reachable count lags for imported contacts - blocking
+    // on that wrongly hid every list from email campaigns.
+    expect(reachabilityGate([], true)).toEqual({});
+    expect(reachabilityGate([], false)).toEqual({});
   });
 });

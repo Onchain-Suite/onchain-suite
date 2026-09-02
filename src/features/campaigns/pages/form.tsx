@@ -336,12 +336,19 @@ const toCampaignSegment = (value: unknown): Segment | null => {
   return {
     id,
     name,
+    // Intelligence segments carry their member count as `size` (derived) or
+    // `matchCount`, NOT `count`/`totalProfiles` - reading the wrong field is why
+    // every segment showed 0. `size` is null for lazily-resolved rule segments.
     count:
       typeof value.count === "number"
         ? value.count
-        : typeof value.totalProfiles === "number"
-          ? value.totalProfiles
-          : 0,
+        : typeof value.size === "number"
+          ? value.size
+          : typeof value.matchCount === "number"
+            ? value.matchCount
+            : typeof value.totalProfiles === "number"
+              ? value.totalProfiles
+              : 0,
     starred: Boolean(value.starred ?? value.isStarred ?? false),
   };
 };

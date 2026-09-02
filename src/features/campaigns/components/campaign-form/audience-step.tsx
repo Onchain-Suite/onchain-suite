@@ -44,6 +44,7 @@ import {
   deriveDisplayName,
   extractWalletFields,
   isSyntheticWalletEmail,
+  normalizeTags,
   profileReach,
 } from "@/features/audience/utils";
 import { smartSendingService } from "@/features/settings/smart-sending.service";
@@ -274,12 +275,22 @@ export function AudienceStep({
         (typeof metaTotal === "number" && metaTotal <= items.length);
       let email = 0;
       let push = 0;
+      // Per-tag channel-reachable counts. /audience/tags returns no count, so the
+      // campaign picker otherwise showed every tag as 0; here we count how many
+      // sampled contacts carry each tag AND are reachable on the channel.
+      const tagReach: Record<string, { email: number; push: number }> = {};
       for (const p of items) {
         const r = profileReach(p);
         if (r.email) email += 1;
         if (r.push) push += 1;
+        for (const name of normalizeTags((p as { tags?: unknown }).tags)) {
+          const cur = tagReach[name] ?? { email: 0, push: 0 };
+          if (r.email) cur.email += 1;
+          if (r.push) cur.push += 1;
+          tagReach[name] = cur;
+        }
       }
-      return { email, push, complete };
+      return { email, push, complete, tagReach };
     },
     retry: false,
     refetchOnWindowFocus: false,
@@ -287,6 +298,10 @@ export function AudienceStep({
   });
   // Trust the exact client-side count only when we've seen the whole audience;
   // above the 200-page cap defer to the (under-counting) overview aggregate.
+  // Per-tag reachable counts, trusted only when we've seen the whole audience.
+  const computedTagReach = reachableCountQuery.data?.complete
+    ? reachableCountQuery.data.tagReach
+    : null;
   const computedEmailReachable = reachableCountQuery.data?.complete
     ? reachableCountQuery.data.email
     : null;
@@ -779,12 +794,17 @@ export function AudienceStep({
             />
           ) : sendTab === "tags" ? (
             <SelectList
-              rows={tags.map((t) => ({
-                id: t.id,
-                title: t.name,
-                count: t.count,
-                ...reachabilityGate(t.reachableVia, isPush),
-              }))}
+              rows={tags.map((t) => {
+                // Real, channel-aware count from the profile sample (the tags
+                // API sends none); fall back to whatever the tag object had.
+                const reach = computedTagReach?.[t.name];
+                return {
+                  id: t.id,
+                  title: t.name,
+                  count: reach ? (isPush ? reach.push : reach.email) : t.count,
+                  ...reachabilityGate(t.reachableVia, isPush),
+                };
+              })}
               searchPlaceholder="Search tags…"
               emptyText={
                 <>

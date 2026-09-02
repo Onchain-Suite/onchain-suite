@@ -92,6 +92,12 @@ export function OnchainTriggerFields({
   });
 
   const presetMatch = contractEventsQuery.data?.presetMatch;
+  /**
+   * The backend returns these ONLY when the preset cannot fire here. They are
+   * the org's other saved contracts that CAN fire it — the common case being a
+   * protocol contract chosen when the event actually lives on its token.
+   */
+  const suggestions = contractEventsQuery.data?.suggestions ?? [];
   // Only `confirmed` justifies telling the user this trigger is ready. The
   // other two states must show the picker instead of a promise.
   const presetConfirmed = presetMatch?.status === "confirmed";
@@ -295,6 +301,45 @@ export function OnchainTriggerFields({
                 </p>
               ) : null}
             </>
+          ) : null}
+
+          {suggestions.length > 0 ? (
+            <div className="space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3">
+              <p className="text-[11px] leading-5 text-muted-foreground">
+                This contract doesn&rsquo;t emit the event this trigger needs.
+                One of your saved contracts does:
+              </p>
+              {suggestions.map((s) => (
+                <button
+                  key={`${s.chain ?? ""}:${s.address}`}
+                  type="button"
+                  onClick={() =>
+                    // Set the chain too. A suggestion on another chain is
+                    // useless without it, and leaving the old chain behind
+                    // fails exactly as silently as the wrong contract did.
+                    onChange({
+                      contractAddress: s.address,
+                      contract: s.address,
+                      ...(s.chain ? { chain: s.chain } : {}),
+                      event: s.event,
+                    })
+                  }
+                  className="flex w-full items-start justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2 text-left transition-colors hover:bg-muted"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-xs font-medium text-foreground">
+                      {s.label?.trim() ? s.label : s.address}
+                    </span>
+                    <span className="block text-[11px] leading-5 text-muted-foreground">
+                      {s.reason}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[11px] font-medium text-primary">
+                    Use this
+                  </span>
+                </button>
+              ))}
+            </div>
           ) : null}
 
           {interfaceWouldHelp ? (

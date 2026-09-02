@@ -251,8 +251,15 @@ export const reachabilityGate = (
   reachableVia: ("email" | "push")[] | undefined,
   isPush: boolean
 ): { disabled?: boolean; disabledHint?: string } => {
+  // Only gate PUSH. `reachableVia`'s "push" entry is wallet presence - a hard,
+  // reliable signal - so a group with no wallet really can't receive an in-app
+  // push. Its "email" entry, however, has the SAME server-side under-count as
+  // /audience/overview.emailReachable (imported contacts with plain emails read
+  // as not-email-reachable), so blocking an email campaign's lists on it wrongly
+  // hid lists that can be emailed. For email we never gate the group rows - the
+  // send-time estimate is the authority.
+  if (!isPush) return {};
   if (!Array.isArray(reachableVia) || reachableVia.length === 0) return {};
-  const channel = isPush ? "push" : "email";
-  if (reachableVia.includes(channel)) return {};
-  return { disabled: true, disabledHint: isPush ? "No wallets" : "No emails" };
+  if (reachableVia.includes("push")) return {};
+  return { disabled: true, disabledHint: "No wallets" };
 };

@@ -897,7 +897,9 @@ export function AudienceStep({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Overlapping wallets are only messaged once.
+          {isPush
+            ? "Overlapping wallets are only messaged once."
+            : "Overlapping contacts are only emailed once."}
         </p>
 
         {segmentsError ? (

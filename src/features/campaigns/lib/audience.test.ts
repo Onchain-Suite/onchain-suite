@@ -83,18 +83,16 @@ describe("reachabilityGate", () => {
     });
   });
 
-  it("disables a push-only group on an email campaign", () => {
-    expect(reachabilityGate(["push"], false)).toEqual({
-      disabled: true,
-      disabledHint: "No emails",
-    });
+  it("NEVER gates an email campaign - the reachableVia email signal under-counts", () => {
+    // Even a group whose reachableVia is push-only stays selectable on email:
+    // the "email" entry is unreliable (imported contacts read as not-reachable),
+    // so we don't block email lists on it. The send estimate is the authority.
+    expect(reachabilityGate(["push"], false)).toEqual({});
+    expect(reachabilityGate([], false)).toEqual({});
+    expect(reachabilityGate(["email"], false)).toEqual({});
   });
 
-  it("does NOT gate an empty reachableVia (unknown, not 'reachable on nothing')", () => {
-    // A list can report [] while members are still being reachability-scored, and
-    // the backend's email-reachable count lags for imported contacts - blocking
-    // on that wrongly hid every list from email campaigns.
+  it("does NOT gate an empty reachableVia on push (unknown, not 'no wallets')", () => {
     expect(reachabilityGate([], true)).toEqual({});
-    expect(reachabilityGate([], false)).toEqual({});
   });
 });

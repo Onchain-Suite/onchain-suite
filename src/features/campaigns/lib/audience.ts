@@ -1,6 +1,6 @@
 import { isJsonObject } from "@/lib/utils";
 
-import type { List, Segment } from "../types";
+import type { List, ReachableCounts, Segment } from "../types";
 import { audienceService } from "@/features/audience/audience.service";
 
 /**
@@ -263,3 +263,37 @@ export const reachabilityGate = (
   if (reachableVia.includes("push")) return {};
   return { disabled: true, disabledHint: "No wallets" };
 };
+
+/**
+ * Parse the backend `reachable: { email, push }` add-on (GET /audience/segments,
+ * /audience/tags, /intelligence/segments). Server-computed over full membership,
+ * with email send-grade (the same rule a send uses), so a group can never claim
+ * more emailable members than a send would reach.
+ *
+ * Returns undefined - so the caller falls back to the total count, never 0 -
+ * when the value is:
+ *  - absent (older response), or
+ *  - `null` (intelligence segments fail soft when they can't compute it), or
+ *  - present but with neither field numeric.
+ * A field the backend omits individually is treated as 0.
+ */
+export const parseReachable = (value: unknown): ReachableCounts | undefined => {
+  if (!isJsonObject(value)) return undefined;
+  const r = value.reachable;
+  if (!isJsonObject(r)) return undefined;
+  const email = typeof r.email === "number" ? r.email : undefined;
+  const push = typeof r.push === "number" ? r.push : undefined;
+  if (email === undefined && push === undefined) return undefined;
+  return { email: email ?? 0, push: push ?? 0 };
+};
+
+/**
+ * Pick the count for the active channel from a `reachable` pair, or null when
+ * there is none (so callers fall back to a total). Returns 0 when the backend
+ * genuinely reports 0 reachable - a real count, not a missing one, so callers
+ * must combine with `??` (not `||`) to preserve it.
+ */
+export const reachChannelCount = (
+  reach: ReachableCounts | null | undefined,
+  isPush: boolean
+): number | null => (reach ? (isPush ? reach.push : reach.email) : null);

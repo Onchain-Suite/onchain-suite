@@ -26,6 +26,7 @@ import {
   isAllContactsSelected,
   partitionAudienceSelection,
   reachabilityGate,
+  reachChannelCount,
   resolveTagsToProfileIds,
 } from "../../lib/audience";
 import {
@@ -762,7 +763,7 @@ export function AudienceStep({
                   "string"
                     ? (s as { description?: string }).description
                     : undefined,
-                count: s.count,
+                count: reachChannelCount(s.reachable, isPush) ?? s.count,
                 ...reachabilityGate(s.reachableVia, isPush),
               }))}
               loading={segmentsLoading}
@@ -784,7 +785,7 @@ export function AudienceStep({
               rows={lists.map((l) => ({
                 id: l.id,
                 title: l.name,
-                count: l.count,
+                count: reachChannelCount(l.reachable, isPush) ?? l.count,
                 ...reachabilityGate(l.reachableVia, isPush),
               }))}
               searchPlaceholder="Search lists…"
@@ -795,13 +796,17 @@ export function AudienceStep({
           ) : sendTab === "tags" ? (
             <SelectList
               rows={tags.map((t) => {
-                // Real, channel-aware count from the profile sample (the tags
-                // API sends none); fall back to whatever the tag object had.
-                const reach = computedTagReach?.[t.name];
+                // Prefer the server's send-grade count; else the profile-sample
+                // count (the tags API historically sent none); else the raw tag
+                // count. A backend 0 is real - don't fall through it.
+                const count =
+                  reachChannelCount(t.reachable, isPush) ??
+                  reachChannelCount(computedTagReach?.[t.name], isPush) ??
+                  t.count;
                 return {
                   id: t.id,
                   title: t.name,
-                  count: reach ? (isPush ? reach.push : reach.email) : t.count,
+                  count,
                   ...reachabilityGate(t.reachableVia, isPush),
                 };
               })}

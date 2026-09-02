@@ -68,6 +68,7 @@ import { WizardStepRail } from "@/features/campaigns/components/campaign-form/wi
 import { WizardSummary } from "@/features/campaigns/components/campaign-form/wizard-summary";
 import {
   ALL_CONTACTS_SELECTION_ID,
+  parseReachable,
   partitionAudienceSelection,
   resolveTagsToProfileIds,
   tagSelectionId,
@@ -336,6 +337,7 @@ const toCampaignSegment = (value: unknown): Segment | null => {
   return {
     id,
     name,
+    reachable: parseReachable(value),
     // Intelligence segments carry their member count as `size` (derived) or
     // `matchCount`, NOT `count`/`totalProfiles` - reading the wrong field is why
     // every segment showed 0. `size` is null for lazily-resolved rule segments.
@@ -1307,6 +1309,7 @@ export function CreateCampaignPage() {
                   ? t.countProfiles
                   : 0,
           starred: false,
+          reachable: parseReachable(t),
         }));
     },
     retry: false,
@@ -1343,6 +1346,7 @@ export function CreateCampaignPage() {
                 (r): r is "email" | "push" => r === "email" || r === "push"
               )
             : undefined,
+          reachable: parseReachable(s),
         }));
     },
     retry: false,

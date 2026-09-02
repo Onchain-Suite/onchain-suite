@@ -334,10 +334,7 @@ function inspectNode(
   const type = node.type ?? "";
   const data = isJsonObject(node.data) ? node.data : {};
   const triggerType = asString(data.triggerType) || type;
-  const isTrigger =
-    type === "trigger" ||
-    TRIGGER_NODE_TYPES.has(type) ||
-    TRIGGER_NODE_TYPES.has(asString(data.triggerType));
+  const isTrigger = nodeIsTrigger(type, asString(data.triggerType));
   return nodeSetupIssue(
     {
       type: ACTION_NODE_RENDERER[type] ?? type,
@@ -627,6 +624,20 @@ const TRIGGER_NODE_TYPES = new Set([
   "campaign_completed",
   "health_threshold",
 ]);
+
+/**
+ * Is this node the flow's trigger? A trigger can arrive three ways, and ALL of
+ * them must count or the go-live gate falsely reports MISSING_TRIGGER on a live,
+ * configured trigger: the generic trigger card (`type === "trigger"`), a
+ * type-specific trigger card whose renderer key IS the trigger type (e.g. a
+ * loaded `onchain_event` node rendered by `TriggerNodeA`), or a node that only
+ * records the trigger type in its data. `inspectNode` (the orange-dot check) and
+ * the go-live issue list must agree, so both call this one helper.
+ */
+const nodeIsTrigger = (type?: string, triggerType?: string): boolean =>
+  type === "trigger" ||
+  TRIGGER_NODE_TYPES.has(type ?? "") ||
+  TRIGGER_NODE_TYPES.has(triggerType ?? "");
 
 /** HTTP methods for the webhook action's Method field. */
 const WEBHOOK_METHODS: PropertySelectOption[] = [
@@ -2820,11 +2831,11 @@ const CreateAutomationContent = () => {
       // One trigger per automation — refuse a dragged-in second trigger.
       if (
         category === "trigger" &&
-        nodes.some(
-          (n) =>
-            n.type === "trigger" ||
-            (isJsonObject(n.data) &&
-              TRIGGER_NODE_TYPES.has(asString(n.data.triggerType)))
+        nodes.some((n) =>
+          nodeIsTrigger(
+            n.type,
+            isJsonObject(n.data) ? asString(n.data.triggerType) : ""
+          )
         )
       ) {
         toast.error(
@@ -2936,11 +2947,11 @@ const CreateAutomationContent = () => {
     // directly to avoid a use-before-define on the memo).
     if (
       category === "trigger" &&
-      nodes.some(
-        (n) =>
-          n.type === "trigger" ||
-          (isJsonObject(n.data) &&
-            TRIGGER_NODE_TYPES.has(asString(n.data.triggerType)))
+      nodes.some((n) =>
+        nodeIsTrigger(
+          n.type,
+          isJsonObject(n.data) ? asString(n.data.triggerType) : ""
+        )
       )
     ) {
       toast.error(
@@ -3175,11 +3186,11 @@ const CreateAutomationContent = () => {
   // Exactly one trigger per automation — a flow has a single entry point.
   const triggerCount = useMemo(
     () =>
-      nodes.filter(
-        (n) =>
-          n.type === "trigger" ||
-          (isJsonObject(n.data) &&
-            TRIGGER_NODE_TYPES.has(asString(n.data.triggerType)))
+      nodes.filter((n) =>
+        nodeIsTrigger(
+          n.type,
+          isJsonObject(n.data) ? asString(n.data.triggerType) : ""
+        )
       ).length,
     [nodes]
   );
@@ -3223,8 +3234,7 @@ const CreateAutomationContent = () => {
             // The inspector reasons in canonical types, not renderer keys.
             type: ACTION_NODE_RENDERER[n.type ?? ""] ?? n.type,
             label: label !== "" ? label : nodePanelLabel(n.type),
-            isTrigger:
-              n.type === "trigger" || TRIGGER_NODE_TYPES.has(triggerType),
+            isTrigger: nodeIsTrigger(n.type, triggerType),
             triggerType: triggerType || n.type,
             // What the backend will actually see, and therefore what its
             // catalogs get checked against.

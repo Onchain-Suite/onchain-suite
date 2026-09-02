@@ -90,6 +90,9 @@ export default async function BlogPostPage({ params }: Props) {
       <script
         type="application/ld+json"
         // Per-post BlogPosting, additive to the site-wide graph in the root layout.
+        // JSON-LD requires raw injection; the payload is our own JSON.stringify,
+        // never user HTML, so there is nothing to sanitize.
+        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(buildBlogPostingJsonLd(post)),
         }}

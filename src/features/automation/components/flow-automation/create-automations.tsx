@@ -4666,6 +4666,11 @@ const CreateAutomationContent = () => {
                                 </div>
                                 {variants.map((v, i) => (
                                   <div
+                                    // Variants have no stable id and the inputs
+                                    // are fully controlled (value from state), so
+                                    // an index key is safe here - there is no
+                                    // per-row local state to mismatch on edit.
+                                    // eslint-disable-next-line react/no-array-index-key
                                     key={i}
                                     className="flex items-center gap-2"
                                   >

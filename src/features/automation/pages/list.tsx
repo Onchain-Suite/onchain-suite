@@ -38,6 +38,8 @@ interface Row {
   triggerLabel: string;
   status: Status;
   entries: number;
+  /** Enrolments that reached the end of the flow. */
+  completionRate: number;
   conversions: number;
   lastTriggered: string;
 }
@@ -106,6 +108,7 @@ const toRow = (input: unknown): Row | null => {
     triggerLabel,
     status,
     entries: asNumber(input.entries ?? input.entryCount),
+    completionRate: asNumber(input.completionRate),
     conversions: asNumber(input.conversions ?? input.conversionCount),
     lastTriggered: asString(
       input.lastTriggered ?? input.last_triggered ?? input.updatedAt
@@ -219,9 +222,9 @@ export function AutomationsListView() {
     { label: "Entries · 30d", value: m ? m.entries.toLocaleString() : "-" },
     {
       label: "Avg completion",
-      value: m
-        ? `${(m.entries > 0 ? (m.conversions / m.entries) * 100 : 0).toFixed(1)}%`
-        : "-",
+      // Served by the backend from enrolment status; it used to be computed
+      // here from conversions, which is a different measure entirely.
+      value: m ? `${m.completionRate.toFixed(1)}%` : "-",
     },
     {
       label: "On-chain conversions",
@@ -353,8 +356,15 @@ export function AutomationsListView() {
             <tbody>
               {rows.map((row) => {
                 const hasData = row.entries > 0;
+                // COMPLETED is completion, not conversion. This divided
+                // conversions by entries — a conversion rate under a
+                // "Completed" heading — so a flow whose every enrolment
+                // finished still read 0.0% unless it also converted. The two
+                // measure different things: an enrolment COMPLETES when it
+                // reaches the end of its flow, and CONVERTS when a delivery
+                // event says the contact did what the flow was for.
                 const completion = hasData
-                  ? `${((row.conversions / row.entries) * 100).toFixed(1)}%`
+                  ? `${row.completionRate.toFixed(1)}%`
                   : "-";
                 return (
                   <tr

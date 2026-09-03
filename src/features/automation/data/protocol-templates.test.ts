@@ -2,106 +2,107 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildProtocolAutomation,
-  buildTemplateGraph,
-  type ProtocolTemplate,
-  protocolTemplateFamilies,
   protocolTemplates,
-  protocolTemplatesByFamily,
 } from "./protocol-templates";
 
-describe("protocol templates catalog", () => {
-  it("covers every advertised family with at least one template", () => {
-    for (const family of protocolTemplateFamilies) {
-      expect(protocolTemplatesByFamily(family.id).length).toBeGreaterThan(0);
-    }
-  });
+/**
+ * Applying a recipe used to create a draft that could never be published.
+ *
+ * The payload carried `type: "behavior"` — a display grouping no trigger
+ * matcher recognises — alongside `contract: "Your Token"` and
+ * `chain: "All Chains"`. Those are captions: `getAddress()` rejects the first
+ * and no chain is named "All Chains", so the watch planner bound nothing and
+ * the automation sat as a draft that looked configured and could never fire.
+ * The only symptom was that nothing ever happened.
+ *
+ * Evidence it reached production: the Goldgard org holds an "LTV Milestone
+ * Reward" draft with `triggerSpec {"type":"behavior","event":"LTV ≥ $5,000"}`
+ * and zero watch bindings.
+ */
+describe("protocol template payloads", () => {
+  const triggerOf = (t: (typeof protocolTemplates)[number]) => {
+    const step = t.steps.find((s) => s.kind === "trigger");
+    return step?.kind === "trigger" ? step : null;
+  };
 
-  it("gives every template a unique id and exactly one trigger", () => {
-    const ids = new Set<string>();
+  it("gives every recipe a trigger the runtime knows", () => {
+    // The old values — "onchain" and "behavior" — are display groupings, not
+    // trigger types. Anything not on this list binds nothing.
+    const real = new Set([
+      "onchain_event",
+      "large_transfer",
+      "holder_acquired",
+      "bridged",
+      "segment_entered",
+      "form_submitted",
+      "list_joined",
+      "email_opened",
+      "email_clicked",
+      "health_threshold",
+      "date_reached",
+    ]);
     for (const t of protocolTemplates) {
-      expect(ids.has(t.id)).toBe(false);
-      ids.add(t.id);
-      const triggers = t.steps.filter((s) => s.kind === "trigger");
-      expect(triggers).toHaveLength(1);
-      // trigger must be the first step
-      expect(t.steps[0]?.kind).toBe("trigger");
+      const trigger = triggerOf(t);
+      expect({ name: t.name, preset: trigger?.triggerPreset }).toEqual({
+        name: t.name,
+        preset: expect.any(String),
+      });
+      expect({
+        name: t.name,
+        known: real.has(String(trigger?.triggerPreset)),
+      }).toEqual({ name: t.name, known: true });
     }
   });
-});
 
-describe("buildTemplateGraph", () => {
-  const linear = protocolTemplates.find(
-    (t) => t.id === "bridge-welcome-series"
-  );
-  if (!linear) throw new Error("fixture 'bridge-welcome-series' not found");
-
-  it("produces a node per linear step and connects them sequentially", () => {
-    const graph = buildTemplateGraph(linear, 1);
-    expect(graph.nodes).toHaveLength(linear.steps.length);
-    // one fewer edge than nodes for a purely linear flow
-    expect(graph.edges).toHaveLength(linear.steps.length - 1);
-
-    // first node is the trigger
-    expect(graph.nodes[0].type).toBe("trigger");
-
-    // every edge references real nodes
-    const nodeIds = new Set(graph.nodes.map((n) => n.id));
-    for (const edge of graph.edges) {
-      expect(nodeIds.has(edge.source)).toBe(true);
-      expect(nodeIds.has(edge.target)).toBe(true);
+  it("never sends a caption as configuration", () => {
+    for (const t of protocolTemplates) {
+      const body = buildProtocolAutomation(t) as Record<string, unknown>;
+      const spec = (body.triggerSpec ?? {}) as Record<string, unknown>;
+      // An empty required field is a prompt; a plausible wrong one is a trap.
+      expect({ name: t.name, contract: spec.contract }).toEqual({
+        name: t.name,
+        contract: undefined,
+      });
+      expect({ name: t.name, chain: spec.chain }).toEqual({
+        name: t.name,
+        chain: undefined,
+      });
     }
-
-    // node ids are unique
-    expect(nodeIds.size).toBe(graph.nodes.length);
   });
 
-  it("fans a branch into yes/no paths with handle-tagged edges", () => {
-    const branching = protocolTemplates.find(
-      (t) => t.id === "airdrop-eligibility-notice"
-    );
-    if (!branching) {
-      throw new Error("fixture 'airdrop-eligibility-notice' not found");
+  it("emits the real preset as the trigger type", () => {
+    for (const t of protocolTemplates) {
+      const body = buildProtocolAutomation(t) as Record<string, unknown>;
+      const spec = (body.triggerSpec ?? {}) as Record<string, unknown>;
+      expect({ name: t.name, type: spec.type }).toEqual({
+        name: t.name,
+        type: triggerOf(t)?.triggerPreset,
+      });
     }
-    const graph = buildTemplateGraph(branching, 2);
-
-    const branchNode = graph.nodes.find((n) => n.type === "branch");
-    expect(branchNode).toBeDefined();
-
-    const yesEdge = graph.edges.find((e) => e.sourceHandle === "yes");
-    const noEdge = graph.edges.find((e) => e.sourceHandle === "no");
-    expect(branchNode).toBeDefined();
-    expect(yesEdge).toBeDefined();
-    expect(noEdge).toBeDefined();
-    if (!branchNode || !yesEdge || !noEdge) return;
-    expect(yesEdge.source).toBe(branchNode.id);
-    expect(noEdge.source).toBe(branchNode.id);
-
-    // yes/no edges are color-coded distinctly
-    expect(yesEdge.style.stroke).not.toBe(noEdge.style.stroke);
   });
 
-  it("is deterministic for a given seed", () => {
-    const a = buildTemplateGraph(linear, 7);
-    const b = buildTemplateGraph(linear, 7);
-    expect(a).toEqual(b);
+  it("declares what the user still has to choose", () => {
+    // Shown on the card, so the empty field in the builder is expected rather
+    // than read as the template having failed.
+    for (const t of protocolTemplates) {
+      const trigger = triggerOf(t);
+      if (trigger?.triggerPreset === "health_threshold") continue; // needs nothing
+      expect((trigger?.requires ?? []).length).toBeGreaterThan(0);
+    }
   });
-});
 
-describe("buildProtocolAutomation", () => {
-  it("creates a POST /automations body with trigger + builder graph", () => {
-    const template = protocolTemplates[0] as ProtocolTemplate;
-    const body = buildProtocolAutomation(template, 3);
-
-    expect(body.name).toBe(template.name);
-    expect(body.description).toBe(template.description);
-    expect(body.trigger).toMatchObject({
-      type: expect.any(String),
-      event: expect.any(String),
-    });
-
-    const builder = body.builder as { nodes: unknown[]; edges: unknown[] };
-    expect(Array.isArray(builder.nodes)).toBe(true);
-    expect(builder.nodes.length).toBeGreaterThan(0);
-    expect(body.flowGraph).toEqual(body.builder);
+  it("keeps the trigger node free of placeholder contract and chain", () => {
+    for (const t of protocolTemplates) {
+      const body = buildProtocolAutomation(t) as {
+        flowGraph: { nodes: Array<Record<string, unknown>> };
+      };
+      const node = body.flowGraph.nodes.find((n) => n.type === "trigger");
+      const data = (node?.data ?? {}) as Record<string, unknown>;
+      expect({
+        name: t.name,
+        contract: data.contract,
+        chain: data.chain,
+      }).toEqual({ name: t.name, contract: undefined, chain: undefined });
+    }
   });
 });

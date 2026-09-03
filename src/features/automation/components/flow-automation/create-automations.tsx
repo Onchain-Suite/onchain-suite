@@ -626,6 +626,33 @@ const TRIGGER_NODE_TYPES = new Set([
 ]);
 
 /**
+ * The goal event a given TRIGGER type would collide with.
+ *
+ * Every on-chain trigger — holder_acquired, swap_completed, approval_intent and
+ * the rest — reaches the runtime as a single `onchain_event`, and every list
+ * trigger as `segment_entered`. So the collision is by ingest path, not by card
+ * name: a flow triggered on "Holder acquired" with an on-chain goal converts on
+ * the very event that enrolled the contact.
+ */
+const TRIGGER_TO_GOAL_EVENT: Record<string, string> = {
+  onchain_event: "onchain_event",
+  holder_acquired: "onchain_event",
+  governance_activity: "onchain_event",
+  swap_completed: "onchain_event",
+  liquidity_added: "onchain_event",
+  borrow_opened: "onchain_event",
+  exchange_outflow: "onchain_event",
+  capital_withdrawn: "onchain_event",
+  liquidation_detected: "onchain_event",
+  approval_intent: "onchain_event",
+  segment_entered: "segment_entered",
+  list_joined: "segment_entered",
+  form_submitted: "form_submitted",
+  email_opened: "email_opened",
+  email_clicked: "email_clicked",
+};
+
+/**
  * Is this node the flow's trigger? A trigger can arrive three ways, and ALL of
  * them must count or the go-live gate falsely reports MISSING_TRIGGER on a live,
  * configured trigger: the generic trigger card (`type === "trigger"`), a
@@ -1078,6 +1105,49 @@ const REENTRY_OPTIONS: PropertySelectOption[] = [
   { value: "always", label: "Always" },
 ];
 
+/**
+ * The events a goal can actually convert on.
+ *
+ * ONLY THESE FOUR SOURCES CALL THE CONVERSION RECORDER, so a goal set to
+ * anything else never fires — silently, with the Stats tab reading 0% forever
+ * and nothing to say why. This field used to be free text whose placeholder
+ * suggested "purchase, swap_completed": neither exists, so a user following
+ * the hint got a goal that could never convert.
+ *
+ * Labels are what the contact DID, not the internal event name, because the
+ * person configuring a flow is picking an outcome, not a topic string.
+ * `list_joined` is deliberately absent — it arrives as `segment_entered`, and
+ * offering both would imply a distinction the runtime does not make.
+ */
+const GOAL_EVENT_OPTIONS: PropertySelectOption[] = [
+  { value: "", label: "No goal", hint: "Skip conversion tracking" },
+  {
+    value: "onchain_event",
+    label: "Did something on-chain",
+    hint: "A swap, mint or transfer on a watched contract",
+  },
+  {
+    value: "email_opened",
+    label: "Opened an email",
+    hint: "Any campaign or automation email",
+  },
+  {
+    value: "email_clicked",
+    label: "Clicked an email link",
+    hint: "A stronger signal than an open",
+  },
+  {
+    value: "segment_entered",
+    label: "Joined a list or segment",
+    hint: "Entered any audience list",
+  },
+  {
+    value: "form_submitted",
+    label: "Submitted a form",
+    hint: "Any capture form",
+  },
+];
+
 /** Panel choice → runtime contract `{ policy, windowDays }`. */
 function reentryUiToConfig(ui: string): Record<string, unknown> {
   switch (ui) {
@@ -1104,9 +1174,17 @@ function FlowSettingsPanel({
   value,
   onChange,
   className,
+  triggerEventType,
 }: {
   value: Record<string, unknown>;
   onChange: (next: Record<string, unknown>) => void;
+  /**
+   * The event that STARTS this flow, so the goal picker can warn when the two
+   * match. Conversions are recorded in the same ingest that creates the
+   * enrolment, so a goal equal to its own trigger converts every enrolment the
+   * instant it begins — a 100% rate that measures nothing.
+   */
+  triggerEventType?: string;
   /** Root class override so the panel works both as the desktop column and
    *  inside the mobile bottom sheet. */
   className?: string;
@@ -1179,18 +1257,24 @@ function FlowSettingsPanel({
           Stats tab. */}
       <div className="mt-7 border-t border-border pt-5">
         <label className={PROPERTY_LABEL_CLASS}>Conversion goal</label>
-        <input
-          type="text"
-          className={`${PROPERTY_INPUT_CLASS} mt-2`}
-          placeholder="Goal event (e.g. purchase, swap_completed)"
+        <PropertySelect
           value={goalEvent}
-          onChange={(e) => setGoal(e.target.value, goalWindow)}
+          onChange={(e) => setGoal(e, goalWindow)}
+          className="mt-2 w-full"
+          placeholder="No goal"
+          options={GOAL_EVENT_OPTIONS}
         />
         <p className={`${PROPERTY_HINT_CLASS} mt-2`}>
-          The action that means this flow worked — a purchase, a swap. When an
-          enrolled contact fires this event within the window, it counts as a
-          conversion on the Stats tab. Leave blank to skip.
+          What a contact has to do for this flow to have worked. It counts once
+          per enrolment, and only if they do it within the window.
         </p>
+        {goalEvent && goalEvent === triggerEventType ? (
+          <p className="mt-2 text-xs leading-5 text-amber-500">
+            This is the same event that starts the flow, so every enrolment
+            converts the moment it begins. Pick a different outcome to measure
+            anything.
+          </p>
+        ) : null}
         {goalEvent ? (
           <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
             <span>within</span>
@@ -2090,6 +2174,20 @@ const CreateAutomationContent = () => {
       statsEntriesQuery,
       statsRevenueQuery,
     ].some((query) => query.isLoading || query.isFetching);
+
+  /**
+   * The goal event this flow's trigger would collide with, so the goal picker
+   * can warn before the user configures a rate that is always 100%.
+   */
+  const triggerEventType = useMemo(() => {
+    const trigger = nodes.find((n) =>
+      nodeIsTrigger(n.type, String((n.data as { type?: string })?.type ?? ""))
+    );
+    if (!trigger) return undefined;
+    const key =
+      String((trigger.data as { type?: string })?.type ?? "") || trigger.type;
+    return TRIGGER_TO_GOAL_EVENT[key ?? ""];
+  }, [nodes]);
 
   const selectedNodeDetails = useMemo(
     () => nodes.find((n) => n.id === selectedNode) ?? null,
@@ -5115,6 +5213,7 @@ const CreateAutomationContent = () => {
                 <FlowSettingsPanel
                   value={flowSettings}
                   onChange={setFlowSettings}
+                  triggerEventType={triggerEventType}
                 />
                 {/* Mobile: a trigger on the canvas that opens Flow settings as a
                     bottom sheet, since the static column is hidden on phones. */}
@@ -5138,6 +5237,7 @@ const CreateAutomationContent = () => {
                     <FlowSettingsPanel
                       value={flowSettings}
                       onChange={setFlowSettings}
+                      triggerEventType={triggerEventType}
                       className="w-full px-4 pb-6"
                     />
                   </SheetContent>

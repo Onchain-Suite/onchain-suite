@@ -16,7 +16,9 @@ import { Switch } from "@/ui/switch";
 
 import { cn } from "@/lib/utils";
 
+import type { InAppReadiness } from "../../utils/inapp-readiness";
 import type { CampaignFormData } from "../../validations";
+import { InAppReadinessNotice } from "./in-app-readiness-notice";
 
 export type PushPlacement =
   "modal" | "banner" | "slide-in" | "inline" | "mobile-push";
@@ -287,6 +289,9 @@ export interface InAppMessageStepProps {
   appDomain?: string;
   /** Short brand mark (org initials) for the notification badge. */
   brandMark?: string;
+  /** Per-channel delivery readiness (web SDK / mobile push), for the setup notice. */
+  readiness?: InAppReadiness;
+  readinessLoading?: boolean;
 }
 
 /**
@@ -299,6 +304,8 @@ export function InAppMessageStep({
   form,
   appDomain = "your-dapp.com",
   brandMark = "APP",
+  readiness,
+  readinessLoading,
 }: InAppMessageStepProps) {
   const placement = (form.watch("pushPlacement") ?? "modal") as PushPlacement;
   const title = form.watch("emailSubject") ?? "";
@@ -331,6 +338,14 @@ export function InAppMessageStep({
           Write the notification and set where it opens.
         </p>
       </div>
+
+      {readiness ? (
+        <InAppReadinessNotice
+          readiness={readiness}
+          isMobile={placement === "mobile-push"}
+          isLoading={readinessLoading}
+        />
+      ) : null}
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start">
         {/* ---- Composer ---- */}

@@ -84,7 +84,12 @@ export type AutomationsCountsResponse = {
 
 export type AutomationsMetricsResponse = {
   active: number;
+  /** Enrolments in the last 30 days. */
   entries: number;
+  /** Enrolments that reached the end of their flow. */
+  completed: number;
+  /** `completed / entries`, served by the backend. */
+  completionRate: number;
   conversions: number;
   revenue: number;
 };

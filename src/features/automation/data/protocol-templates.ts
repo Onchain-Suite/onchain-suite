@@ -81,8 +81,21 @@ export type TemplateStep =
   | {
       kind: "email";
       label?: string;
+      /** Display name for the card. NOT a templateId — the copy lives in `body`. */
       template: string;
       subject: string;
+      /**
+       * The email itself.
+       *
+       * Recipes used to carry a template NAME and a subject and nothing else.
+       * `executeSendEmailNode` reads `templateId` or `body`; a display name is
+       * neither, so every recipe reached its first email step and sent an empty
+       * message. A recipe that cannot send is a recipe that does not work.
+       *
+       * Kept as plain short HTML so it is readable and editable in the builder
+       * rather than pointing at a row the user has never seen.
+       */
+      body: string;
       dynamicFields?: string[];
     }
   | {
@@ -181,8 +194,12 @@ const stepNodeData = (step: TemplateStep): Record<string, unknown> => {
       return {
         label: step.label ?? step.template,
         nodeType: "send_email",
+        // `template` is the card's display name. The SENDABLE content is
+        // `body` — executeSendEmailNode reads templateId or body, and a
+        // display name is neither.
         template: step.template,
         subject: step.subject,
+        body: step.body,
         ...(step.dynamicFields ? { dynamicFields: step.dynamicFields } : {}),
       };
   }
@@ -329,8 +346,9 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "email",
         label: "VIP welcome",
         template: "VIP Announcement",
-        subject: "You're now a VIP, {{ens_name}}",
-        dynamicFields: ["ens_name", "portfolio_value", "ltv"],
+        subject: "You're now a VIP, {{ greeting_name }}",
+        body: "<p>That transfer puts you among our largest holders. We wanted to say so directly.</p><p>Your VIP access is being set up now — the next email has the details.</p>",
+        dynamicFields: ["greeting_name", "portfolio_value", "ltv"],
       },
       { kind: "wait", duration: "2 days" },
       {
@@ -338,7 +356,8 @@ export const protocolTemplates: ProtocolTemplate[] = [
         label: "Exclusive access",
         template: "VIP Announcement",
         subject: "Your private access is ready",
-        dynamicFields: ["ens_name", "engagement_score"],
+        body: "<p>Your VIP access is live. It covers early drops, the private channel, and direct support.</p><p>Reply to this email if anything is missing.</p>",
+        dynamicFields: ["greeting_name", "engagement_score"],
       },
     ],
   },
@@ -368,8 +387,9 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "email",
         label: "Milestone reward",
         template: "VIP Announcement",
-        subject: "A reward for reaching the top, {{ens_name}}",
-        dynamicFields: ["ens_name", "ltv"],
+        subject: "A reward for reaching the top, {{ greeting_name }}",
+        body: "<p>You have crossed a milestone that very few holders reach.</p><p>There is a reward waiting for you. Here is how to claim it.</p>",
+        dynamicFields: ["greeting_name", "ltv"],
       },
     ],
   },
@@ -401,8 +421,9 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "email",
         label: "Mint is live",
         template: "Airdrop Alert",
-        subject: "Mint is LIVE, {{ens_name}} - claim your spot",
-        dynamicFields: ["ens_name", "last_activity"],
+        subject: "Mint is LIVE, {{ greeting_name }} - claim your spot",
+        body: "<p>The mint window is open.</p><p>Spots are limited and go in order. Claim yours while it is live.</p>",
+        dynamicFields: ["greeting_name", "last_activity"],
       },
     ],
   },
@@ -438,8 +459,9 @@ export const protocolTemplates: ProtocolTemplate[] = [
             kind: "email",
             label: "Claim your airdrop",
             template: "Airdrop Alert",
-            subject: "You're eligible, {{ens_name}} - claim now",
-            dynamicFields: ["ens_name"],
+            subject: "You're eligible, {{ greeting_name }} - claim now",
+            body: "<p>The snapshot is in, and your wallet qualifies.</p><p>Claim before the window closes — unclaimed allocations do not roll over.</p>",
+            dynamicFields: ["greeting_name"],
           },
         ],
         no: [
@@ -448,7 +470,8 @@ export const protocolTemplates: ProtocolTemplate[] = [
             label: "How to qualify",
             template: "Product Update",
             subject: "Almost there - here's how to qualify next time",
-            dynamicFields: ["ens_name"],
+            body: "<p>Your wallet did not qualify for this snapshot. It was close.</p><p>Here is exactly what counts toward the next one, so you are in.</p>",
+            dynamicFields: ["greeting_name"],
           },
         ],
       },
@@ -481,8 +504,9 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "email",
         label: "We miss you",
         template: "Win-back Campaign",
-        subject: "We miss you, {{ens_name}}",
-        dynamicFields: ["ens_name", "last_activity"],
+        subject: "We miss you, {{ greeting_name }}",
+        body: "<p>It has been a while since your last on-chain activity with us.</p><p>Here is what has changed since you were last around.</p>",
+        dynamicFields: ["greeting_name", "last_activity"],
       },
       { kind: "wait", duration: "5 days" },
       {
@@ -490,7 +514,8 @@ export const protocolTemplates: ProtocolTemplate[] = [
         label: "Incentive to return",
         template: "Win-back Campaign",
         subject: "A little something to bring you back",
-        dynamicFields: ["ens_name"],
+        body: "<p>We saved something for you.</p><p>It is yours whenever you are ready — no deadline attached.</p>",
+        dynamicFields: ["greeting_name"],
       },
     ],
   },
@@ -517,8 +542,9 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "email",
         label: "Retention offer",
         template: "VIP Announcement",
-        subject: "Don't go yet, {{ens_name}}",
-        dynamicFields: ["ens_name", "engagement_score"],
+        subject: "Don't go yet, {{ greeting_name }}",
+        body: "<p>We noticed things have gone quiet, and we would rather ask than assume.</p><p>Tell us what is not working. If we can fix it, we will.</p>",
+        dynamicFields: ["greeting_name", "engagement_score"],
       },
     ],
   },
@@ -551,16 +577,18 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "email",
         label: "Welcome aboard",
         template: "Welcome Series #1",
-        subject: "Welcome to the chain, {{ens_name}}",
-        dynamicFields: ["ens_name"],
+        subject: "Welcome to the chain, {{ greeting_name }}",
+        body: "<p>Your bridge went through. Your assets are here.</p><p>Here is what to do first, so nothing sits idle.</p>",
+        dynamicFields: ["greeting_name"],
       },
       { kind: "wait", duration: "2 days" },
       {
         kind: "email",
         label: "Getting started",
         template: "Product Update",
-        subject: "Your first steps, {{ens_name}}",
-        dynamicFields: ["ens_name"],
+        subject: "Your first steps, {{ greeting_name }}",
+        body: "<p>Three things worth doing in your first week, in order.</p><p>Each takes a few minutes and makes the next one easier.</p>",
+        dynamicFields: ["greeting_name"],
       },
       { kind: "wait", duration: "3 days" },
       {
@@ -568,7 +596,8 @@ export const protocolTemplates: ProtocolTemplate[] = [
         label: "Power features",
         template: "Product Update",
         subject: "Ready for the advanced stuff?",
-        dynamicFields: ["ens_name", "engagement_score"],
+        body: "<p>You have the basics down. This is where it gets more interesting.</p><p>Here is what experienced holders do next.</p>",
+        dynamicFields: ["greeting_name", "engagement_score"],
       },
     ],
   },
@@ -598,8 +627,9 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "email",
         label: "Onboarding hello",
         template: "Welcome Series #1",
-        subject: "Thanks for trying us, {{ens_name}}",
-        dynamicFields: ["ens_name"],
+        subject: "Thanks for trying us, {{ greeting_name }}",
+        body: "<p>Thanks for your first interaction with our contract.</p><p>Here is what to do next, and where to ask if you get stuck.</p>",
+        dynamicFields: ["greeting_name"],
       },
     ],
   },

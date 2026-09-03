@@ -105,4 +105,63 @@ describe("protocol template payloads", () => {
       }).toEqual({ name: t.name, contract: undefined, chain: undefined });
     }
   });
+
+  it("gives every email step sendable copy", () => {
+    // executeSendEmailNode reads `templateId` or `body`. A template NAME is
+    // neither, so a recipe without a body reached its first email step and
+    // sent an empty message — the flow ran and the customer got nothing.
+    const emails = (
+      steps: (typeof protocolTemplates)[number]["steps"]
+    ): number => {
+      let n = 0;
+      for (const s of steps) {
+        if (s.kind === "email") {
+          expect({
+            subject: s.subject,
+            hasBody: Boolean(s.body?.trim()),
+          }).toEqual({ subject: s.subject, hasBody: true });
+          n += 1;
+        } else if (s.kind === "branch") {
+          n += emails(s.yes) + emails(s.no);
+        }
+      }
+      return n;
+    };
+    let total = 0;
+    for (const t of protocolTemplates) total += emails(t.steps);
+    expect(total).toBeGreaterThan(0);
+  });
+
+  it("never uses a merge tag that renders empty for a wallet", () => {
+    // `{{ens_name}}` is blank for any wallet without ENS — most of them — so
+    // "You're now a VIP, " went out. `greeting_name` falls back
+    // firstName || ens || wallet_short || "there" and resolves for everyone.
+    const json = JSON.stringify(protocolTemplates);
+    expect(json).not.toContain("{{ens_name}}");
+    expect(json).not.toContain("ens_name");
+  });
+
+  it("carries the body into the built graph, not just the step", () => {
+    // The copy has to reach the NODE. It lived on the step and was dropped by
+    // stepNodeData, so the graph the backend received still had no body.
+    for (const t of protocolTemplates) {
+      const body = buildProtocolAutomation(t) as {
+        flowGraph: { nodes: Array<{ data?: Record<string, unknown> }> };
+      };
+      const emailNodes = body.flowGraph.nodes.filter(
+        (n) => n.data?.nodeType === "send_email"
+      );
+      for (const n of emailNodes) {
+        expect({
+          name: t.name,
+          subject: n.data?.subject,
+          hasBody: Boolean(String(n.data?.body ?? "").trim()),
+        }).toEqual({
+          name: t.name,
+          subject: n.data?.subject,
+          hasBody: true,
+        });
+      }
+    }
+  });
 });

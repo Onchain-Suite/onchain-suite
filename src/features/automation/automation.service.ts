@@ -396,8 +396,9 @@ export const automationService = {
   },
 
   /**
-   * Run a Health Factor (`health_threshold` / `defi_health_factor`) trigger NOW,
-   * ignoring its 30-minute schedule. Editor+.
+   * Run a Health Factor Crossed (`defi_health_factor`) trigger NOW, ignoring its
+   * 30-minute schedule. Editor+. This is the DeFi lending trigger; it is NOT the
+   * `health_threshold` contact-score trigger, which is unrelated to lending.
    *
    * `positionsRead` and `crossings` are both meaningful (docs/backend.md):
    * `positionsRead: 0` = nothing read (wrong pool/chain, or no contact has a

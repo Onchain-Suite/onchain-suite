@@ -56,7 +56,22 @@ export type TemplateStep =
   | {
       kind: "trigger";
       label: string;
+      /** Display grouping only. `triggerPreset` is what the backend runs. */
       triggerType: "onchain" | "behavior";
+      /**
+       * The REAL trigger type the runtime knows.
+       *
+       * Recipes used to emit `triggerType` straight into the payload, so a
+       * created automation carried `type: "behavior"` — which no trigger
+       * matcher recognises — alongside `contract: "Your Token"` and
+       * `chain: "All Chains"`. Those are captions, not configuration: the
+       * watch planner rejects both, so applying a recipe produced a draft that
+       * could never be published into anything that fires, with no signal
+       * beyond nothing ever happening.
+       */
+      triggerPreset: string;
+      /** Shown on the card and left blank in the draft, for the user to pick. */
+      requires?: Array<"contract" | "chain" | "segment" | "amount">;
       event: string;
       contract?: string;
       chain?: string;
@@ -138,10 +153,16 @@ const stepNodeData = (step: TemplateStep): Record<string, unknown> => {
     case "trigger":
       return {
         label: step.label,
-        nodeType: step.triggerType,
+        // The real trigger type, so the builder opens the right panel and the
+        // runtime recognises it. `triggerType` is display grouping only.
+        type: step.triggerPreset,
+        nodeType: step.triggerPreset,
         event: step.event,
-        ...(step.contract ? { contract: step.contract } : {}),
-        ...(step.chain ? { chain: step.chain } : {}),
+        // contract/chain are deliberately ABSENT. The template's values are
+        // captions ("Your Token", "All Chains") which the watch planner
+        // rejects; leaving the fields empty makes the builder prompt for them
+        // and the go-live check hold the flow until they are set.
+        ...(step.requires?.length ? { requires: step.requires } : {}),
         ...(step.preview ? { preview: step.preview } : {}),
       };
     case "wait":
@@ -255,25 +276,24 @@ export const buildProtocolAutomation = (
     (s): s is Extract<TemplateStep, { kind: "trigger" }> => s.kind === "trigger"
   );
 
+  // The REAL trigger type, and NOTHING the user has to choose.
+  //
+  // `contract: "Your Token"` and `chain: "All Chains"` are captions. Sending
+  // them produced a draft the watch planner rejects — getAddress() does not
+  // accept "Your Token" — so the automation was created, looked configured,
+  // and could never bind a watch. Omitting them leaves the field empty, which
+  // the builder shows as unset and the go-live check refuses to publish until
+  // the user fills in. An empty required field is a prompt; a plausible wrong
+  // one is a trap.
+  const trigger = triggerStep
+    ? { type: triggerStep.triggerPreset, event: triggerStep.event }
+    : undefined;
+
   return {
     name: template.name,
     description: template.description,
-    trigger: triggerStep
-      ? {
-          type: triggerStep.triggerType,
-          event: triggerStep.event,
-          ...(triggerStep.contract ? { contract: triggerStep.contract } : {}),
-          ...(triggerStep.chain ? { chain: triggerStep.chain } : {}),
-        }
-      : undefined,
-    triggerSpec: triggerStep
-      ? {
-          type: triggerStep.triggerType,
-          event: triggerStep.event,
-          contract: triggerStep.contract,
-          chain: triggerStep.chain,
-        }
-      : undefined,
+    trigger,
+    triggerSpec: trigger,
     builder: graph,
     flowGraph: graph,
   };
@@ -296,6 +316,9 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "trigger",
         label: "Large transfer detected",
         triggerType: "onchain",
+        // Real threshold since backend #460; the amount is the user's to set.
+        triggerPreset: "large_transfer",
+        requires: ["contract", "chain", "amount"],
         event: "Transfer ≥ $25k",
         contract: "Your Token",
         chain: "All Chains",
@@ -334,6 +357,10 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "trigger",
         label: "LTV crosses $5,000",
         triggerType: "behavior",
+        // There is no LTV trigger. Entering an LTV-based segment is the honest
+        // equivalent, and it is a trigger that exists.
+        triggerPreset: "segment_entered",
+        requires: ["segment"],
         event: "LTV ≥ $5,000",
         preview: "Wallets passing the $5k lifetime value mark",
       },
@@ -363,6 +390,8 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "trigger",
         label: "Mint window opens",
         triggerType: "onchain",
+        triggerPreset: "holder_acquired",
+        requires: ["contract", "chain"],
         event: "Mint Open",
         contract: "Your Collection",
         chain: "Ethereum",
@@ -392,6 +421,9 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "trigger",
         label: "Snapshot taken",
         triggerType: "onchain",
+        // A snapshot is an audience, not a chain event.
+        triggerPreset: "segment_entered",
+        requires: ["segment"],
         event: "Snapshot",
         contract: "Token Contract",
         chain: "All Chains",
@@ -439,6 +471,9 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "trigger",
         label: "Inactive 30 days",
         triggerType: "behavior",
+        // No inactivity trigger exists; a dormant SEGMENT is how this is built.
+        triggerPreset: "segment_entered",
+        requires: ["segment"],
         event: "Inactive ≥ 30 days",
         preview: "Holders with no onchain activity for a month",
       },
@@ -474,6 +509,7 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "trigger",
         label: "Churn score > 70",
         triggerType: "behavior",
+        triggerPreset: "health_threshold",
         event: "Churn score > 70",
         preview: "Wallets showing strong churn signals",
       },
@@ -503,6 +539,9 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "trigger",
         label: "Bridge complete",
         triggerType: "onchain",
+        // Real since backend #463 — Wormhole core + token bridge.
+        triggerPreset: "bridged",
+        requires: ["contract", "chain"],
         event: "Bridge Complete",
         contract: "Base Bridge",
         chain: "Base",
@@ -548,6 +587,8 @@ export const protocolTemplates: ProtocolTemplate[] = [
         kind: "trigger",
         label: "First interaction",
         triggerType: "onchain",
+        triggerPreset: "onchain_event",
+        requires: ["contract", "chain"],
         event: "First Interaction",
         contract: "Your Contract",
         chain: "All Chains",

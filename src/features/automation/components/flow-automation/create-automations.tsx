@@ -480,8 +480,8 @@ const FIXED_TRIGGERS: { type: string; label: string; description: string }[] = [
   },
   {
     type: "health_threshold",
-    label: "Health factor threshold",
-    description: "A lending position's health factor crosses your level",
+    label: "Contact Score Threshold",
+    description: "A contact score crosses your threshold",
   },
   {
     type: "form_submitted",
@@ -544,7 +544,7 @@ type CatalogEntry = { type: string; label: string; description: string };
 const CURATED_TRIGGER_COPY = new Map(FIXED_TRIGGERS.map((t) => [t.type, t]));
 const CURATED_ACTION_COPY = new Map(FIXED_ACTIONS.map((a) => [a.type, a]));
 
-/** "health_threshold" -> "Health threshold". Last-resort label when neither the
+/** "supply_change" -> "Supply Change". Last-resort label when neither the
  *  backend nor the curated copy names a type. */
 const humanizeNodeType = (type: string) =>
   type
@@ -783,7 +783,8 @@ const LIBRARY_ICONS: Record<string, typeof BoltIcon> = {
   email_clicked: CursorArrowRaysIcon,
   tag_added: TagIcon,
   campaign_completed: MegaphoneIcon,
-  health_threshold: HeartIcon,
+  health_threshold: ChartBarIcon,
+  defi_health_factor: HeartIcon,
   send_email: EnvelopeIcon,
   email: EnvelopeIcon,
   send_inapp: DevicePhoneMobileIcon,

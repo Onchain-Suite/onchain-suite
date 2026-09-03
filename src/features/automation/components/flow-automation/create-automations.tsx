@@ -93,6 +93,7 @@ import {
 import { AutoGrowTextarea } from "./auto-grow-textarea";
 import { AutomationBuilderSkeleton } from "./automation-builder-skeleton";
 import { BuilderIssuesPanel } from "./builder-issues-panel";
+import { DefiHealthFactorFields } from "./defi-health-factor-fields";
 import {
   AddToListNode,
   BranchNode,
@@ -275,6 +276,7 @@ const nodeTypes = {
   tag_added: TriggerNodeA,
   campaign_completed: TriggerNodeA,
   health_threshold: TriggerNodeA,
+  defi_health_factor: TriggerNodeA,
 };
 
 /** Custom edge with an inline "+" to insert a step between two nodes. */
@@ -396,6 +398,10 @@ const ON_CHAIN_TRIGGER_TYPES = new Set([
   "supply_change",
   "delegated",
   "attestation",
+  // Grouped on-chain (it reads lending positions), but configured by pool +
+  // threshold rather than contract + event, so it is routed to its own config
+  // panel and excluded from the contract/event fields below.
+  "defi_health_factor",
 ]);
 
 /**
@@ -481,8 +487,13 @@ const FIXED_TRIGGERS: { type: string; label: string; description: string }[] = [
   },
   {
     type: "health_threshold",
-    label: "Health factor threshold",
-    description: "A lending position's health factor crosses your level",
+    label: "Contact score threshold",
+    description: "A contact's score crosses a level you set",
+  },
+  {
+    type: "defi_health_factor",
+    label: "Health factor crossed",
+    description: "A lending position's health factor drops below your level",
   },
   {
     type: "form_submitted",
@@ -544,6 +555,15 @@ type CatalogEntry = { type: string; label: string; description: string };
 
 const CURATED_TRIGGER_COPY = new Map(FIXED_TRIGGERS.map((t) => [t.type, t]));
 const CURATED_ACTION_COPY = new Map(FIXED_ACTIONS.map((a) => [a.type, a]));
+
+/**
+ * Triggers the frontend supports on its own that the live catalog
+ * (`GET /automations/builder/triggers`) does not return. `defi_health_factor` is
+ * real - the backend validates its config and runs it on demand - it is simply
+ * absent from the catalog endpoint, so it is merged into the palette and the
+ * supported-types set here rather than depending on the fetch to surface it.
+ */
+const CLIENT_TRIGGER_TYPES = ["defi_health_factor"] as const;
 
 /** "health_threshold" -> "Health threshold". Last-resort label when neither the
  *  backend nor the curated copy names a type. */
@@ -624,6 +644,7 @@ const TRIGGER_NODE_TYPES = new Set([
   "tag_added",
   "campaign_completed",
   "health_threshold",
+  "defi_health_factor",
 ]);
 
 /**
@@ -784,7 +805,8 @@ const LIBRARY_ICONS: Record<string, typeof BoltIcon> = {
   email_clicked: CursorArrowRaysIcon,
   tag_added: TagIcon,
   campaign_completed: MegaphoneIcon,
-  health_threshold: HeartIcon,
+  health_threshold: ChartBarIcon,
+  defi_health_factor: HeartIcon,
   send_email: EnvelopeIcon,
   email: EnvelopeIcon,
   send_inapp: DevicePhoneMobileIcon,
@@ -1542,9 +1564,11 @@ const CreateAutomationContent = () => {
 
   const supportedTriggerTypes = useMemo(() => {
     const live = catalogTypesQuery.data?.triggers ?? [];
-    return new Set(
-      live.length > 0 ? live.map((t) => t.type) : KNOWN_TRIGGER_TYPES
-    );
+    return new Set([
+      ...(live.length > 0 ? live.map((t) => t.type) : KNOWN_TRIGGER_TYPES),
+      // Kept supported regardless of the live catalog, which never lists it.
+      ...CLIENT_TRIGGER_TYPES,
+    ]);
   }, [catalogTypesQuery.data?.triggers]);
   const supportedActionTypes = useMemo(() => {
     const live = catalogTypesQuery.data?.actions ?? [];
@@ -1557,16 +1581,22 @@ const CreateAutomationContent = () => {
     [supportedActionTypes, supportedTriggerTypes]
   );
 
-  const triggerCatalog = useMemo(
-    () =>
-      buildCatalog(
-        catalogTypesQuery.data?.triggers ?? [],
-        CURATED_TRIGGER_COPY,
-        FIXED_TRIGGERS,
-        supportedTriggerTypes
-      ).map((t) => ({ ...t, icon: <LibraryIcon type={t.type} /> })),
-    [catalogTypesQuery.data?.triggers, supportedTriggerTypes]
-  );
+  const triggerCatalog = useMemo(() => {
+    const built = buildCatalog(
+      catalogTypesQuery.data?.triggers ?? [],
+      CURATED_TRIGGER_COPY,
+      FIXED_TRIGGERS,
+      supportedTriggerTypes
+    ).map((t) => ({ ...t, icon: <LibraryIcon type={t.type} /> }));
+    // The live catalog never lists client-only triggers, so append their curated
+    // copy when the build did not already include them (it does in the fallback).
+    const present = new Set(built.map((t) => t.type));
+    const extra = CLIENT_TRIGGER_TYPES.filter((type) => !present.has(type))
+      .map((type) => CURATED_TRIGGER_COPY.get(type))
+      .filter((entry): entry is CatalogEntry => entry !== undefined)
+      .map((entry) => ({ ...entry, icon: <LibraryIcon type={entry.type} /> }));
+    return [...built, ...extra];
+  }, [catalogTypesQuery.data?.triggers, supportedTriggerTypes]);
 
   const actionCatalog = useMemo(
     () =>
@@ -2298,20 +2328,24 @@ const CreateAutomationContent = () => {
   );
   // The DeFi lending "Health Factor Crossed" trigger (`defi_health_factor`) is
   // the one trigger that can be run on demand
-  // (POST /automations/{id}/defi/health-factor/run), so its config panel gets a
-  // "Run now" control - but only once the automation is saved (needs a real id).
-  // NOTE: this is NOT `health_threshold` (a CONTACT-SCORE trigger); that endpoint
-  // reads on-chain lending positions and requires a pool/protocol/chain, which
-  // the score trigger never has. `defi_health_factor` reaches the builder via the
-  // live BUILDER_TRIGGER_CATALOG (no static entry), so the type exists at runtime.
+  // (POST /automations/{id}/defi/health-factor/run), so it gets a "Run now"
+  // control - but only once the automation is saved (needs a real id). It also
+  // owns its own pool/threshold/chain panel rather than the contract/event one.
+  // NOTE: this is NOT `health_threshold` (a CONTACT-SCORE trigger); the lending
+  // endpoint reads on-chain positions and requires a pool/protocol/chain, which
+  // the score trigger never has. `canRunLendingHealthFactorNow` is the tested
+  // guard that keeps the two from being conflated.
   const selectedIsDefiHealthTrigger =
     selectedIsTrigger && canRunLendingHealthFactorNow(selectedNodeSchemaType);
   // On-chain triggers ask for a contract; only the GENERIC on-chain trigger
   // ("On-chain event") also asks for a raw event. Business presets imply their
   // event, so their panel is just the contract (+ optional chain). Off-chain
-  // triggers (segment/list/form/email) need neither.
+  // triggers (segment/list/form/email) need neither. The DeFi trigger is grouped
+  // on-chain but is configured by pool + threshold, so it is excluded here.
   const selectedTriggerIsOnchain =
-    selectedIsTrigger && ON_CHAIN_TRIGGER_TYPES.has(selectedNodeSchemaType);
+    selectedIsTrigger &&
+    ON_CHAIN_TRIGGER_TYPES.has(selectedNodeSchemaType) &&
+    !selectedIsDefiHealthTrigger;
   const selectedTriggerHasImpliedEvent =
     selectedTriggerIsOnchain &&
     !GENERIC_ONCHAIN_TRIGGER_TYPES.has(selectedNodeSchemaType);
@@ -2573,6 +2607,13 @@ const CreateAutomationContent = () => {
     ).toLowerCase();
     const label = pickText(selectedNodeData.label).toLowerCase();
 
+    // The DeFi Health Factor trigger has no runtime ingest endpoint - it is
+    // tested by the "Run now" sweep instead - so it never uses this synthetic
+    // test-event path. Checked first: its type contains "health", which would
+    // otherwise fall into the contact-score branch below.
+    if (nodeType.includes("defi")) {
+      return null;
+    }
     if (nodeType.includes("segment") || label.includes("segment")) {
       return "segment_entered" as const;
     }
@@ -2599,6 +2640,10 @@ const CreateAutomationContent = () => {
     mutationFn: async () => {
       if (isNew || !selectedNode || selectedNodeDetails?.type !== "trigger") {
         throw new Error("Save the automation before sending a test trigger");
+      }
+      if (selectedTriggerRuntimeType === null) {
+        // The DeFi trigger has no synthetic test event; it is swept via Run now.
+        throw new Error("Use Run now to test this trigger");
       }
 
       const sourceEventId = `preview-${selectedNode}-${Date.now()}`;
@@ -3287,7 +3332,11 @@ const CreateAutomationContent = () => {
           ? asString(n.data.triggerType)
           : "";
         return (
-          triggerType.length > 0 && !NON_ONCHAIN_TRIGGER_TYPES.has(triggerType)
+          triggerType.length > 0 &&
+          !NON_ONCHAIN_TRIGGER_TYPES.has(triggerType) &&
+          // The DeFi trigger reads a pool address of its own, not a saved
+          // project contract, so the "save a contract" nudge does not apply.
+          triggerType !== "defi_health_factor"
         );
       }),
     [nodes]
@@ -4128,10 +4177,19 @@ const CreateAutomationContent = () => {
                       {/* Specific fields */}
                       {selectedIsTrigger && (
                         <>
-                          {/* DeFi Health Factor Crossed: run the lending check on
-                              demand instead of waiting for the 30-minute
-                              schedule. Saved automations only (needs a persisted
-                              id + a configured pool/protocol/chain). */}
+                          {/* DeFi Health Factor: pool + threshold + chain, then
+                              run the sweep on demand instead of waiting for the
+                              30-minute schedule. */}
+                          {selectedIsDefiHealthTrigger && (
+                            <DefiHealthFactorFields
+                              nodeData={selectedNodeData}
+                              onChange={updateSelectedNodeData}
+                              chainOptions={chainOptions}
+                            />
+                          )}
+                          {/* Run the lending check on demand instead of waiting
+                              for the 30-minute schedule. Saved automations only
+                              (needs a persisted id + a configured pool/chain). */}
                           {selectedIsDefiHealthTrigger && !isNew && (
                             <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
                               <div className="flex items-center justify-between gap-3">
@@ -4176,7 +4234,9 @@ const CreateAutomationContent = () => {
                               eventDefinitionByValue={eventDefinitionByValue}
                             />
                           )}
-                          {!isNew ? (
+                          {/* The DeFi trigger has no synthetic runtime event -
+                              its "Run now" sweep above is how it is tested. */}
+                          {!isNew && !selectedIsDefiHealthTrigger ? (
                             <div className="rounded-2xl border border-primary/15 bg-primary/5 p-3.5">
                               <div className="flex items-center justify-between gap-3">
                                 <div className="text-xs font-medium text-foreground">
@@ -4856,6 +4916,7 @@ const CreateAutomationContent = () => {
                         : null}
 
                       {!selectedTriggerIsOnchain &&
+                      !selectedIsDefiHealthTrigger &&
                       selectedNodeSchemaType !== "split" &&
                       !selectedHasDedicatedPanel &&
                       (selectedNodeSchemaQuery.isFetching ||

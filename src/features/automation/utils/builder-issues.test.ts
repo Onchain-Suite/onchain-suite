@@ -10,6 +10,7 @@ import {
   nodeSetupIssue,
   parseBuilderErrorIssues,
   parseDurationToSeconds,
+  parseHealthFactorThreshold,
   parseValidationIssues,
   parseWatchesSkipped,
   parseWatchState,
@@ -290,6 +291,34 @@ describe("nodeSetupIssue", () => {
     expect(trigger("segment_entered", {})).toBeNull();
   });
 
+  it("treats the contact-score trigger as off-chain - it needs no contract", () => {
+    // Renaming `health_threshold` to a contact-score trigger must not turn it
+    // into a contract-watching one: it is ingested by score, not a chain event.
+    expect(trigger("health_threshold", {})).toBeNull();
+  });
+
+  it("asks the DeFi trigger for a pool and a positive threshold, NOT a contract/event", () => {
+    // The lending trigger is configured by pool + health-factor level. It must
+    // never fall into the contract/event path every other on-chain trigger uses.
+    expect(trigger("defi_health_factor", {})).toMatchObject({
+      code: "INVALID_DEFI_POOL",
+    });
+    expect(
+      trigger("defi_health_factor", { poolAddress: "0xpool" })
+    ).toMatchObject({ code: "INVALID_DEFI_THRESHOLD" });
+    // A non-positive level is not a real threshold, so it reads as unset.
+    expect(
+      trigger("defi_health_factor", { poolAddress: "0xpool", threshold: 0 })
+    ).toMatchObject({ code: "INVALID_DEFI_THRESHOLD" });
+    expect(
+      trigger("defi_health_factor", { poolAddress: "0xpool", threshold: 1.2 })
+    ).toBeNull();
+    // Stored as a string by the input, which must still count.
+    expect(
+      trigger("defi_health_factor", { poolAddress: "0xpool", threshold: "1" })
+    ).toBeNull();
+  });
+
   it("uses the backend's own code for each action step", () => {
     const action = (
       type: string,
@@ -322,6 +351,25 @@ describe("nodeSetupIssue", () => {
     expect(action("dispatch_campaign", {})).toMatchObject({
       code: "INVALID_CAMPAIGN_DISPATCH_CONFIG",
     });
+  });
+});
+
+describe("parseHealthFactorThreshold", () => {
+  it("keeps a positive number, from either a number or a string", () => {
+    expect(parseHealthFactorThreshold(1.2)).toBe(1.2);
+    expect(parseHealthFactorThreshold("1.05")).toBe(1.05);
+    expect(parseHealthFactorThreshold("1")).toBe(1);
+  });
+
+  it("treats zero, negatives, and junk as unset (0)", () => {
+    // 1.0 is the liquidation line; a value at or below 0 would never fire or
+    // match everything, so it is not a usable threshold.
+    expect(parseHealthFactorThreshold(0)).toBe(0);
+    expect(parseHealthFactorThreshold(-1)).toBe(0);
+    expect(parseHealthFactorThreshold("")).toBe(0);
+    expect(parseHealthFactorThreshold("abc")).toBe(0);
+    expect(parseHealthFactorThreshold(undefined)).toBe(0);
+    expect(parseHealthFactorThreshold(Number.NaN)).toBe(0);
   });
 });
 

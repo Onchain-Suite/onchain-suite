@@ -1969,6 +1969,13 @@ const CreateAutomationContent = () => {
   const statsConversions = asNumber(
     (statsOverview as Record<string, unknown>).conversions
   );
+  // The "Completed" card showed CONVERSION rate, so a flow whose every
+  // enrolment finished still read 0% unless it also converted. They are
+  // different measures: an enrolment COMPLETES when it reaches the end of its
+  // flow, and CONVERTS when it hits the flow's configured goal event.
+  const statsCompletionRate = asNumber(
+    (statsOverview as Record<string, unknown>).completionRate
+  );
   const statsConvRate =
     asNumber((statsOverview as Record<string, unknown>).conversionRate) ||
     (statsEntries > 0
@@ -5152,7 +5159,7 @@ const CreateAutomationContent = () => {
                   },
                   {
                     label: "Completed",
-                    value: `${statsConvRate}%`,
+                    value: `${statsCompletionRate}%`,
                   },
                   {
                     label: "On-chain conversions",

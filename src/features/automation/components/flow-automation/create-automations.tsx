@@ -5273,7 +5273,25 @@ const CreateAutomationContent = () => {
                             axisLine={false}
                             allowDecimals={false}
                           />
-                          <Tooltip />
+                          {/*
+                            Recharts' default tooltip is a white box with a
+                            light-grey label — unreadable in dark mode, where
+                            the date all but disappeared. Every other element
+                            in this chart already draws from theme tokens;
+                            this was the one left on library defaults, so it
+                            was the one that did not follow the theme.
+                          */}
+                          <Tooltip
+                            contentStyle={{
+                              background: "var(--popover)",
+                              border: "1px solid var(--border)",
+                              borderRadius: "0.5rem",
+                              color: "var(--popover-foreground)",
+                            }}
+                            labelStyle={{ color: "var(--foreground)" }}
+                            itemStyle={{ color: "var(--popover-foreground)" }}
+                            cursor={{ stroke: "var(--border)" }}
+                          />
                           <Area
                             type="monotone"
                             dataKey="entries"

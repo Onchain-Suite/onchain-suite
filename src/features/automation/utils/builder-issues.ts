@@ -105,6 +105,10 @@ const ISSUE_HINTS: Record<string, string> = {
     "A branch needs both paths wired up. Connect the Yes and the No handle to a step.",
   INVALID_WEBHOOK_CONFIG: "Open the step and add the URL to POST to.",
   INVALID_TAG_CONFIG: "Open the step and choose at least one tag.",
+  INVALID_DEFI_POOL:
+    "Open the trigger and paste the lending pool address to read positions from.",
+  INVALID_DEFI_THRESHOLD:
+    "Open the trigger and set the health-factor level to fire below - 1.0 is the liquidation line.",
   INVALID_CAMPAIGN_DISPATCH_CONFIG:
     "Open the step and choose the campaign to dispatch.",
   INVALID_CAMPAIGN_RECIPIENTS:
@@ -188,6 +192,10 @@ const FALLBACK_HINT_RULES: {
     hint: ISSUE_HINTS.INVALID_WEBHOOK_CONFIG,
   },
   { when: (t) => t.includes("tag"), hint: ISSUE_HINTS.INVALID_TAG_CONFIG },
+  {
+    when: (t) => t.includes("defi") || t.includes("pool"),
+    hint: ISSUE_HINTS.INVALID_DEFI_POOL,
+  },
   {
     when: (t) => t.includes("campaign") || t.includes("dispatch"),
     hint: ISSUE_HINTS.INVALID_CAMPAIGN_DISPATCH_CONFIG,
@@ -388,6 +396,24 @@ export const parseDurationToSeconds = (input: unknown): number => {
   return bare ? Math.round(Number(bare[1]) * 60) : 0;
 };
 
+/**
+ * A DeFi Health Factor threshold → a positive number, or 0 when unusable.
+ *
+ * The health factor is a ratio (1.0 is the liquidation line, `INVALID_DEFI_THRESHOLD`),
+ * so the trigger fires when a position drops below the level the user sets. Any
+ * value at or below 0 is not a real threshold - it would either never fire or
+ * match everything - so it is treated as unset, exactly as the backend does.
+ */
+export const parseHealthFactorThreshold = (input: unknown): number => {
+  if (typeof input === "number") {
+    return Number.isFinite(input) && input > 0 ? input : 0;
+  }
+  const text = asText(input);
+  if (text.length === 0) return 0;
+  const value = Number(text);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+};
+
 export interface NodeSetupIssue {
   /** The code the backend would raise for this, so copy is shared. */
   code: string;
@@ -411,6 +437,22 @@ export const nodeSetupIssue = (
     asText(node.triggerType) || asText(data.triggerType) || type;
 
   if (node.isTrigger) {
+    // The DeFi Health Factor trigger is on-chain but is configured by a lending
+    // pool + a health-factor level, NOT a contract + event like every other
+    // on-chain trigger. Mirrors the backend's `INVALID_DEFI_POOL` /
+    // `INVALID_DEFI_THRESHOLD` (docs/backend.md).
+    if (triggerType === "defi_health_factor") {
+      if (!field(data, "poolAddress") && !field(data, "pool")) {
+        return { code: "INVALID_DEFI_POOL", message: "Needs a pool address" };
+      }
+      if (parseHealthFactorThreshold(data.threshold) <= 0) {
+        return {
+          code: "INVALID_DEFI_THRESHOLD",
+          message: "Needs a health-factor level",
+        };
+      }
+      return null;
+    }
     if (OFFCHAIN_TRIGGERS.has(triggerType)) return null;
     if (!field(data, "contractAddress") && !field(data, "contract")) {
       return {

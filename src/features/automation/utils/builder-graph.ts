@@ -65,6 +65,13 @@ export const KNOWN_TRIGGER_TYPES = [
   // fetch fails. The live catalog overrules this either way.
   "form_submitted",
   "list_joined",
+  // The DeFi lending trigger. It is absent from both the doc's "Live workflow
+  // surface" list AND `GET /automations/builder/triggers`, but the backend
+  // validates its config (`INVALID_DEFI_POOL` / `INVALID_DEFI_THRESHOLD`) and
+  // runs it on demand (`POST /automations/{id}/defi/health-factor/run`), so it
+  // is a real node type the catalog just does not advertise. Keep it here so
+  // the graph is never rejected as `UNSUPPORTED_NODE_TYPE` for a supported node.
+  "defi_health_factor",
 ] as const;
 
 export const KNOWN_ACTION_TYPES = [

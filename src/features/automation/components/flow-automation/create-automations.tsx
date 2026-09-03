@@ -93,6 +93,8 @@ import {
 import { AutoGrowTextarea } from "./auto-grow-textarea";
 import { AutomationBuilderSkeleton } from "./automation-builder-skeleton";
 import { BuilderIssuesPanel } from "./builder-issues-panel";
+import { DefiHealthFactorFields } from "./defi-health-factor-fields";
+import { FlowSettingsPanel } from "./flow-settings-panel";
 import {
   AddToListNode,
   BranchNode,
@@ -128,6 +130,21 @@ import {
   isValidConnection,
 } from "@/features/automation/utils";
 import {
+  buildCatalog,
+  type CatalogEntry,
+  CLIENT_TRIGGER_TYPES,
+  CURATED_ACTION_COPY,
+  CURATED_TRIGGER_COPY,
+  FIXED_ACTIONS,
+  FIXED_TRIGGERS,
+  GENERIC_ONCHAIN_TRIGGER_TYPES,
+  nodeIsTrigger,
+  NON_ONCHAIN_TRIGGER_TYPES,
+  ON_CHAIN_TRIGGER_TYPES,
+  TRIGGER_NODE_TYPES,
+  TRIGGER_TO_GOAL_EVENT,
+} from "@/features/automation/utils/builder-catalog";
+import {
   canonicalNodeType,
   fromWireNodes,
   KNOWN_ACTION_TYPES,
@@ -148,7 +165,23 @@ import {
   parseWatchState,
   summarizeIssues,
 } from "@/features/automation/utils/builder-issues";
+import {
+  BRANCH_OPERATORS,
+  BRANCH_VALUELESS_OPERATORS,
+  type BranchRule,
+  type BuilderSchemaField,
+  normalizeBranchRule,
+  normalizeSchemaFields,
+} from "@/features/automation/utils/builder-schema";
+import {
+  asBoolean,
+  asNumber,
+  asString,
+  pickArray,
+  pickText,
+} from "@/features/automation/utils/coerce";
 import { resolveContractCatalog } from "@/features/automation/utils/contracts";
+import { canRunLendingHealthFactorNow } from "@/features/automation/utils/run-now";
 import { campaignsService } from "@/features/campaigns/campaigns.service";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
@@ -274,6 +307,7 @@ const nodeTypes = {
   tag_added: TriggerNodeA,
   campaign_completed: TriggerNodeA,
   health_threshold: TriggerNodeA,
+  defi_health_factor: TriggerNodeA,
 };
 
 /** Custom edge with an inline "+" to insert a step between two nodes. */
@@ -346,244 +380,6 @@ function inspectNode(
   );
 }
 
-/**
- * Trigger types that are NOT on-chain (so they don't get a contract/event
- * placeholder). Everything else in the trigger catalog - `onchain_event` and the
- * business presets like `holder_acquired` - is treated as on-chain.
- */
-const NON_ONCHAIN_TRIGGER_TYPES = new Set([
-  "segment_entered",
-  "segment_exited",
-  "list_joined",
-  "form_submitted",
-  "email_opened",
-  "email_clicked",
-  "tag_added",
-  "campaign_completed",
-  "health_threshold",
-]);
-
-/**
- * Trigger `type`s that fire from on-chain activity - used to split the left
- * palette into "On-chain triggers" vs "Off-chain triggers" (everything else in
- * the trigger catalog, e.g. form_submitted / joined_list / segment_entered).
- */
-const ON_CHAIN_TRIGGER_TYPES = new Set([
-  "onchain",
-  "trigger",
-  "onchain_event",
-  "holder_acquired",
-  "governance_activity",
-  "swap_completed",
-  "liquidity_added",
-  "borrow_opened",
-  "exchange_outflow",
-  "capital_withdrawn",
-  "liquidation_detected",
-  "approval_intent",
-  // Sector-spanning primitives (onchain-backend #315).
-  "staked",
-  "unstaked",
-  "loan_repaid",
-  "rewards_claimed",
-  "position_opened",
-  "position_closed",
-  "nft_sold",
-  "nft_listed",
-  "bridged",
-  "large_transfer",
-  "supply_change",
-  "delegated",
-  "attestation",
-]);
-
-/**
- * The only on-chain triggers where the user picks the raw contract event
- * themselves. The business presets ("Token acquired", "Swap completed", …) have
- * an IMPLIED event: the runtime maps the preset type onto the concrete
- * event(s) + payload filters, so the builder hides the event picker for them
- * and asks for nothing but the contract. Keeps the common case ("notify me when
- * a wallet acquires my token") down to a single input.
- */
-const GENERIC_ONCHAIN_TRIGGER_TYPES = new Set([
-  "onchain",
-  "trigger",
-  "onchain_event",
-]);
-
-/**
- * Curated copy (nicer labels/descriptions) for the trigger types the backend
- * catalog exposes - see docs/backend.md `GET /automations/builder/triggers`.
- *
- * This is NOT the source of truth for what the palette shows. The live catalog
- * is (see `triggerCatalog`); this only supplies polished wording and the
- * offline fallback list. So it mirrors the documented trigger set exactly:
- * adding a curated entry does not make a trigger appear if the backend does not
- * support it, and a trigger the backend adds still shows (with its own label)
- * even without an entry here.
- */
-const FIXED_TRIGGERS: { type: string; label: string; description: string }[] = [
-  {
-    type: "onchain_event",
-    label: "On-chain event",
-    description: "Wallet interacts with a contract",
-  },
-  {
-    type: "holder_acquired",
-    label: "Token acquired",
-    description: "A wallet acquires your token or NFT",
-  },
-  {
-    type: "swap_completed",
-    label: "Swap completed",
-    description: "DEX trade or token exchange",
-  },
-  {
-    type: "liquidity_added",
-    label: "Liquidity added",
-    description: "Deposits into your pools",
-  },
-  {
-    type: "capital_withdrawn",
-    label: "Capital withdrawn",
-    description: "Burns, unstakes, or withdraws",
-  },
-  {
-    type: "approval_intent",
-    label: "Approval intent",
-    description: "Approves a contract to spend",
-  },
-  {
-    type: "borrow_opened",
-    label: "Borrowed",
-    description: "Opens a loan or draws credit",
-  },
-  {
-    type: "liquidation_detected",
-    label: "Liquidation",
-    description: "A position was liquidated",
-  },
-  {
-    type: "exchange_outflow",
-    label: "Exchange outflow",
-    description: "Tokens move out to a known exchange wallet",
-  },
-  {
-    type: "governance_activity",
-    label: "Governance activity",
-    description: "Proposal or vote cast",
-  },
-  {
-    type: "email_opened",
-    label: "Email opened",
-    description: "A recipient opens one of your emails",
-  },
-  {
-    type: "health_threshold",
-    label: "Contact Score Threshold",
-    description: "A contact score crosses your threshold",
-  },
-  {
-    type: "form_submitted",
-    label: "Form submitted",
-    description: "Wallet completes a capture form",
-  },
-  {
-    type: "list_joined",
-    label: "Joined a list",
-    description: "Wallet is added to a list",
-  },
-  {
-    type: "segment_entered",
-    label: "Segment entered",
-    description: "Wallet joins a saved segment",
-  },
-];
-
-/** The exact actions offered in the "Add step" grid + library. */
-const FIXED_ACTIONS: { type: string; label: string; description: string }[] = [
-  {
-    type: "send_email",
-    label: "Send email",
-    description: "Email or reusable template",
-  },
-  {
-    type: "send_inapp",
-    label: "Send in-app",
-    description: "Push to the matched wallet",
-  },
-  { type: "wait", label: "Wait", description: "Pause the flow for a duration" },
-  {
-    type: "branch",
-    label: "Branch",
-    description: "Split paths on a condition",
-  },
-  {
-    type: "add_tag",
-    label: "Add tag",
-    description: "Attach a tag to the contact",
-  },
-  {
-    type: "add_to_list",
-    label: "Add to list",
-    description: "Add the contact to a list",
-  },
-  { type: "webhook", label: "Webhook", description: "Call an external URL" },
-  {
-    type: "dispatch_campaign",
-    label: "Dispatch campaign",
-    description: "Fire an existing campaign",
-  },
-];
-
-/** One entry from a builder catalog endpoint (`GET /automations/builder/triggers`
- *  or `.../actions`). `label`/`description` are the backend's own, used when we
- *  have no curated copy for that type. */
-type CatalogEntry = { type: string; label: string; description: string };
-
-const CURATED_TRIGGER_COPY = new Map(FIXED_TRIGGERS.map((t) => [t.type, t]));
-const CURATED_ACTION_COPY = new Map(FIXED_ACTIONS.map((a) => [a.type, a]));
-
-/** "supply_change" -> "Supply Change". Last-resort label when neither the
- *  backend nor the curated copy names a type. */
-const humanizeNodeType = (type: string) =>
-  type
-    .replace(/[_-]+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-
-/**
- * Build the palette from the LIVE backend catalog - the authority on what can
- * actually publish - so every backend trigger/action is offered and nothing the
- * backend doesn't support is. Curated copy supplies polished wording where we
- * have it; otherwise the backend's own label/description (then a humanized type)
- * is used. When the fetch fails, `live` is empty and we render the curated
- * fallback filtered to the known-supported types, so the sidebar is never empty.
- */
-const buildCatalog = (
-  live: CatalogEntry[],
-  curated: Map<string, { type: string; label: string; description: string }>,
-  fallback: { type: string; label: string; description: string }[],
-  supportedTypes: Set<string>
-): CatalogEntry[] => {
-  // First non-empty string: curated copy wins, then the backend's own, then a
-  // humanized type. `??` won't do here - the backend often sends `""`, which
-  // must fall through, not win.
-  const pick = (...vals: string[]) =>
-    vals.find((v) => v.trim().length > 0) ?? "";
-  if (live.length > 0) {
-    return live.map((entry) => {
-      const c = curated.get(entry.type);
-      return {
-        type: entry.type,
-        label: pick(c?.label ?? "", entry.label, humanizeNodeType(entry.type)),
-        description: pick(c?.description ?? "", entry.description),
-      };
-    });
-  }
-  return fallback.filter((entry) => supportedTypes.has(entry.type));
-};
-
 /** Recipe card icons, keyed by `AutomationRecipe.iconKey` (recipes.ts is JSX-free). */
 const RECIPE_ICONS: Record<
   string,
@@ -596,75 +392,6 @@ const RECIPE_ICONS: Record<
   bag: ShoppingBagIcon,
   scale: ScaleIcon,
 };
-
-/**
- * All canonical trigger `type`s (used to recognize a trigger node whether it was
- * created via drag - renderer key "trigger" - or loaded from a template, where
- * `node.type` is the canonical type like "holder_acquired").
- */
-const TRIGGER_NODE_TYPES = new Set([
-  "trigger",
-  "onchain_event",
-  "holder_acquired",
-  "governance_activity",
-  "swap_completed",
-  "liquidity_added",
-  "borrow_opened",
-  "exchange_outflow",
-  "capital_withdrawn",
-  "liquidation_detected",
-  "approval_intent",
-  "segment_entered",
-  "segment_exited",
-  "list_joined",
-  "form_submitted",
-  "email_opened",
-  "email_clicked",
-  "tag_added",
-  "campaign_completed",
-  "health_threshold",
-]);
-
-/**
- * The goal event a given TRIGGER type would collide with.
- *
- * Every on-chain trigger — holder_acquired, swap_completed, approval_intent and
- * the rest — reaches the runtime as a single `onchain_event`, and every list
- * trigger as `segment_entered`. So the collision is by ingest path, not by card
- * name: a flow triggered on "Holder acquired" with an on-chain goal converts on
- * the very event that enrolled the contact.
- */
-const TRIGGER_TO_GOAL_EVENT: Record<string, string> = {
-  onchain_event: "onchain_event",
-  holder_acquired: "onchain_event",
-  governance_activity: "onchain_event",
-  swap_completed: "onchain_event",
-  liquidity_added: "onchain_event",
-  borrow_opened: "onchain_event",
-  exchange_outflow: "onchain_event",
-  capital_withdrawn: "onchain_event",
-  liquidation_detected: "onchain_event",
-  approval_intent: "onchain_event",
-  segment_entered: "segment_entered",
-  list_joined: "segment_entered",
-  form_submitted: "form_submitted",
-  email_opened: "email_opened",
-  email_clicked: "email_clicked",
-};
-
-/**
- * Is this node the flow's trigger? A trigger can arrive three ways, and ALL of
- * them must count or the go-live gate falsely reports MISSING_TRIGGER on a live,
- * configured trigger: the generic trigger card (`type === "trigger"`), a
- * type-specific trigger card whose renderer key IS the trigger type (e.g. a
- * loaded `onchain_event` node rendered by `TriggerNodeA`), or a node that only
- * records the trigger type in its data. `inspectNode` (the orange-dot check) and
- * the go-live issue list must agree, so both call this one helper.
- */
-const nodeIsTrigger = (type?: string, triggerType?: string): boolean =>
-  type === "trigger" ||
-  TRIGGER_NODE_TYPES.has(type ?? "") ||
-  TRIGGER_NODE_TYPES.has(triggerType ?? "");
 
 /** HTTP methods for the webhook action's Method field. */
 const WEBHOOK_METHODS: PropertySelectOption[] = [
@@ -686,8 +413,6 @@ const CHAIN_OPTIONS: PropertySelectOption[] = [
   { value: "Solana", label: "Solana" },
 ];
 
-const asString = (v: unknown): string => (typeof v === "string" ? v : "");
-
 /**
  * Keep a node's currently-stored value selectable even when it isn't in the
  * fetched catalog yet (list still loading, or a value typed before pickers
@@ -701,34 +426,6 @@ const ensureOption = (
   value && !options.some((o) => o.value === value)
     ? [{ value, label: label ?? value }, ...options]
     : options;
-
-const asNumber = (v: unknown): number => {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string" && v.trim().length > 0) {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-};
-
-const pickArray = (payload: unknown): unknown[] => {
-  if (Array.isArray(payload)) return payload;
-  if (isJsonObject(payload) && Array.isArray(payload.items))
-    return payload.items;
-  if (isJsonObject(payload) && Array.isArray(payload.data)) return payload.data;
-  return [];
-};
-
-const pickText = (...values: unknown[]) => {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim().length > 0) {
-      return value.trim();
-    }
-  }
-  return "";
-};
-
-const asBoolean = (value: unknown): boolean => value === true;
 
 type PathPerformanceRow = {
   path: string;
@@ -813,148 +510,6 @@ const EDGE_COLORS = {
   success: "#22c55e",
   danger: "#f97316",
 } as const;
-
-type BuilderSchemaFieldOption = {
-  label: string;
-  value: string;
-};
-
-type BuilderSchemaField = {
-  key: string;
-  label: string;
-  description?: string;
-  type: string;
-  required: boolean;
-  placeholder?: string;
-  /** Non-essential field: hidden under an "Advanced" disclosure by default. */
-  advanced: boolean;
-  options: BuilderSchemaFieldOption[];
-};
-
-/** A single branch condition row: `field <operator> value → target node`. */
-type BranchRule = {
-  id: string;
-  field: string;
-  operator: string;
-  value: string;
-  target: string;
-};
-
-const BRANCH_OPERATORS: { value: string; label: string }[] = [
-  { value: "eq", label: "equals" },
-  { value: "neq", label: "not equals" },
-  { value: "gte", label: "greater or equal" },
-  { value: "lte", label: "less or equal" },
-  { value: "contains", label: "contains" },
-  { value: "exists", label: "exists" },
-];
-
-/** Operators that don't need a comparison value. */
-const BRANCH_VALUELESS_OPERATORS = new Set(["exists"]);
-
-/** Normalize a persisted branch rule (tolerant of backend/legacy key names). */
-const normalizeBranchRule = (raw: unknown, index: number): BranchRule => {
-  const obj = isJsonObject(raw) ? raw : {};
-  return {
-    id:
-      asString(obj.id) ||
-      asString(obj.ruleId) ||
-      `rule-${index}-${Math.random().toString(36).slice(2, 8)}`,
-    field: asString(obj.field ?? obj.key ?? obj.attribute),
-    operator: asString(obj.operator ?? obj.op ?? obj.comparator) || "eq",
-    value:
-      obj.value === undefined || obj.value === null ? "" : String(obj.value),
-    target: asString(obj.target ?? obj.targetNodeId ?? obj.to ?? obj.node),
-  };
-};
-
-const INTERNAL_SCHEMA_KEYS = new Set([
-  "label",
-  "schema",
-  "stats",
-  "nodeType",
-  "triggerType",
-  "actionType",
-  "template",
-  "templateId",
-  "templateName",
-  "contract",
-  "contractAddress",
-  "event",
-]);
-
-const normalizeSchemaFieldOptions = (
-  value: unknown
-): BuilderSchemaFieldOption[] =>
-  pickArray(value)
-    .map((option) => {
-      if (typeof option === "string" || typeof option === "number") {
-        return {
-          label: String(option),
-          value: String(option),
-        };
-      }
-      if (!isJsonObject(option)) return null;
-      const record = option as Record<string, unknown>;
-      const resolvedValue = pickText(
-        record.value,
-        record.id,
-        record.key,
-        record.name
-      );
-      if (resolvedValue.length === 0) return null;
-      return {
-        value: resolvedValue,
-        label:
-          pickText(record.label, record.name, record.title, resolvedValue) ||
-          resolvedValue,
-      };
-    })
-    .filter((option): option is BuilderSchemaFieldOption => Boolean(option));
-
-const normalizeSchemaFields = (schema: unknown): BuilderSchemaField[] => {
-  if (!isJsonObject(schema)) return [];
-  const record = schema as Record<string, unknown>;
-  return pickArray(record.fields)
-    .map<BuilderSchemaField | null>((field) => {
-      if (!isJsonObject(field)) return null;
-      const entry = field as Record<string, unknown>;
-      const key = pickText(entry.key, entry.name, entry.id);
-      if (key.length === 0 || INTERNAL_SCHEMA_KEYS.has(key)) return null;
-      const rawType = pickText(
-        entry.type,
-        entry.inputType,
-        entry.component,
-        entry.kind,
-        "text"
-      ).toLowerCase();
-      const description = pickText(
-        entry.description,
-        entry.helpText,
-        entry.helperText
-      );
-      const placeholder = pickText(entry.placeholder);
-      // Show the schema default as placeholder text ("smart defaults, visible")
-      // so an unset field reads as its default rather than an empty required box.
-      const defaultHint =
-        entry.default !== undefined &&
-        entry.default !== null &&
-        typeof entry.default !== "object"
-          ? String(entry.default)
-          : "";
-      return {
-        key,
-        label: pickText(entry.label, entry.title, key) || key,
-        description: description || undefined,
-        type: rawType,
-        required: asBoolean(entry.required),
-        placeholder: placeholder || defaultHint || undefined,
-        advanced: asBoolean(entry.advanced),
-        options: normalizeSchemaFieldOptions(entry.options ?? entry.enum),
-      };
-    })
-    .filter((field): field is BuilderSchemaField => Boolean(field));
-};
 
 type NodeLibraryItem = {
   type: string;
@@ -1055,249 +610,6 @@ function NodeLibrarySection({
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-/** A labeled on/off switch used in the flow-settings panel. */
-function FlowToggle({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm text-foreground">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        onClick={() => onChange(!checked)}
-        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-          checked ? "bg-primary" : "bg-muted"
-        }`}
-      >
-        <span
-          aria-hidden="true"
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
-            checked ? "left-[18px]" : "left-0.5"
-          }`}
-        />
-      </button>
-    </div>
-  );
-}
-
-/**
- * Right-panel flow-level guardrails, shown when no node is selected. Controlled
- * by the parent's `flowSettings` (persisted in the graph's `settings` and read
- * by the runtime) — re-entry policy (onchain-backend #307) + per-contact
- * frequency cap (#309). Only guardrails the runtime actually enforces are shown.
- */
-const REENTRY_OPTIONS: PropertySelectOption[] = [
-  { value: "once", label: "Never re-enter" },
-  { value: "daily", label: "Once per day" },
-  { value: "weekly", label: "Once per week" },
-  { value: "always", label: "Always" },
-];
-
-/**
- * The events a goal can actually convert on.
- *
- * ONLY THESE FOUR SOURCES CALL THE CONVERSION RECORDER, so a goal set to
- * anything else never fires — silently, with the Stats tab reading 0% forever
- * and nothing to say why. This field used to be free text whose placeholder
- * suggested "purchase, swap_completed": neither exists, so a user following
- * the hint got a goal that could never convert.
- *
- * Labels are what the contact DID, not the internal event name, because the
- * person configuring a flow is picking an outcome, not a topic string.
- * `list_joined` is deliberately absent — it arrives as `segment_entered`, and
- * offering both would imply a distinction the runtime does not make.
- */
-const GOAL_EVENT_OPTIONS: PropertySelectOption[] = [
-  { value: "", label: "No goal", hint: "Skip conversion tracking" },
-  {
-    value: "onchain_event",
-    label: "Did something on-chain",
-    hint: "A swap, mint or transfer on a watched contract",
-  },
-  {
-    value: "email_opened",
-    label: "Opened an email",
-    hint: "Any campaign or automation email",
-  },
-  {
-    value: "email_clicked",
-    label: "Clicked an email link",
-    hint: "A stronger signal than an open",
-  },
-  {
-    value: "segment_entered",
-    label: "Joined a list or segment",
-    hint: "Entered any audience list",
-  },
-  {
-    value: "form_submitted",
-    label: "Submitted a form",
-    hint: "Any capture form",
-  },
-];
-
-/** Panel choice → runtime contract `{ policy, windowDays }`. */
-function reentryUiToConfig(ui: string): Record<string, unknown> {
-  switch (ui) {
-    case "once":
-      return { policy: "once" };
-    case "daily":
-      return { policy: "window", windowDays: 1 };
-    case "weekly":
-      return { policy: "window", windowDays: 7 };
-    default:
-      return { policy: "always" };
-  }
-}
-function reentryConfigToUi(cfg: unknown): string {
-  const c = isJsonObject(cfg) ? (cfg as Record<string, unknown>) : {};
-  const policy = asString(c.policy);
-  if (policy === "once") return "once";
-  if (policy === "window")
-    return Number(c.windowDays) >= 7 ? "weekly" : "daily";
-  return "always";
-}
-
-function FlowSettingsPanel({
-  value,
-  onChange,
-  className,
-  triggerEventType,
-}: {
-  value: Record<string, unknown>;
-  onChange: (next: Record<string, unknown>) => void;
-  /**
-   * The event that STARTS this flow, so the goal picker can warn when the two
-   * match. Conversions are recorded in the same ingest that creates the
-   * enrolment, so a goal equal to its own trigger converts every enrolment the
-   * instant it begins — a 100% rate that measures nothing.
-   */
-  triggerEventType?: string;
-  /** Root class override so the panel works both as the desktop column and
-   *  inside the mobile bottom sheet. */
-  className?: string;
-}) {
-  const reentryUi = reentryConfigToUi(value.reentry);
-  const freq = isJsonObject(value.frequencyCap)
-    ? (value.frequencyCap as Record<string, unknown>)
-    : null;
-  const freqOn = !!freq && Number(freq.maxPerContact) > 0;
-  const goal = isJsonObject(value.goal)
-    ? (value.goal as Record<string, unknown>)
-    : null;
-  const goalEvent = goal ? String(goal.event ?? "") : "";
-  const goalWindow = goal ? Number(goal.windowDays) || 7 : 7;
-
-  const setReentry = (ui: string) =>
-    onChange({ ...value, reentry: reentryUiToConfig(ui) });
-  const setFreq = (on: boolean) => {
-    if (on) {
-      onChange({
-        ...value,
-        frequencyCap: { maxPerContact: 1, windowHours: 10 },
-      });
-    } else {
-      const next = { ...value };
-      delete next.frequencyCap;
-      onChange(next);
-    }
-  };
-  const setGoal = (event: string, windowDays: number) => {
-    const e = event.trim();
-    if (!e) {
-      const next = { ...value };
-      delete next.goal;
-      onChange(next);
-      return;
-    }
-    onChange({ ...value, goal: { event: e, windowDays } });
-  };
-
-  return (
-    <div
-      className={
-        className ??
-        "hidden w-[344px] shrink-0 overflow-y-auto rounded-xl border border-border bg-card p-6 md:block"
-      }
-    >
-      <h3 className="font-semibold tracking-tight text-foreground">
-        Flow settings
-      </h3>
-      <div className="mt-6 space-y-5">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm text-foreground">Re-entry</span>
-          <PropertySelect
-            value={reentryUi}
-            onChange={setReentry}
-            className="w-40"
-            options={REENTRY_OPTIONS}
-          />
-        </div>
-        <FlowToggle
-          label="Max 1 message / 10h"
-          checked={freqOn}
-          onChange={setFreq}
-        />
-      </div>
-
-      {/* Goal — the outcome that counts as "this flow worked". A matching event
-          within the window marks the enrolment converted; the rate shows on the
-          Stats tab. */}
-      <div className="mt-7 border-t border-border pt-5">
-        <label className={PROPERTY_LABEL_CLASS}>Conversion goal</label>
-        <PropertySelect
-          value={goalEvent}
-          onChange={(e) => setGoal(e, goalWindow)}
-          className="mt-2 w-full"
-          placeholder="No goal"
-          options={GOAL_EVENT_OPTIONS}
-        />
-        <p className={`${PROPERTY_HINT_CLASS} mt-2`}>
-          What a contact has to do for this flow to have worked. It counts once
-          per enrolment, and only if they do it within the window.
-        </p>
-        {goalEvent && goalEvent === triggerEventType ? (
-          <p className="mt-2 text-xs leading-5 text-amber-500">
-            This is the same event that starts the flow, so every enrolment
-            converts the moment it begins. Pick a different outcome to measure
-            anything.
-          </p>
-        ) : null}
-        {goalEvent ? (
-          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-            <span>within</span>
-            <input
-              type="number"
-              min={1}
-              className={`${PROPERTY_INPUT_CLASS} w-16 py-1.5 text-center`}
-              value={goalWindow}
-              onChange={(e) =>
-                setGoal(goalEvent, Math.max(1, Number(e.target.value) || 7))
-              }
-            />
-            <span>days of enrolling</span>
-          </div>
-        ) : null}
-      </div>
-
-      <p className="mt-6 text-xs leading-5 text-muted-foreground">
-        Re-entry limits how often a contact can start this flow; the cap limits
-        how many messages it sends one contact per window; the goal measures
-        whether it worked. Select a node to configure it.
-      </p>
     </div>
   );
 }
@@ -1542,9 +854,11 @@ const CreateAutomationContent = () => {
 
   const supportedTriggerTypes = useMemo(() => {
     const live = catalogTypesQuery.data?.triggers ?? [];
-    return new Set(
-      live.length > 0 ? live.map((t) => t.type) : KNOWN_TRIGGER_TYPES
-    );
+    return new Set([
+      ...(live.length > 0 ? live.map((t) => t.type) : KNOWN_TRIGGER_TYPES),
+      // Kept supported regardless of the live catalog, which never lists it.
+      ...CLIENT_TRIGGER_TYPES,
+    ]);
   }, [catalogTypesQuery.data?.triggers]);
   const supportedActionTypes = useMemo(() => {
     const live = catalogTypesQuery.data?.actions ?? [];
@@ -1557,16 +871,22 @@ const CreateAutomationContent = () => {
     [supportedActionTypes, supportedTriggerTypes]
   );
 
-  const triggerCatalog = useMemo(
-    () =>
-      buildCatalog(
-        catalogTypesQuery.data?.triggers ?? [],
-        CURATED_TRIGGER_COPY,
-        FIXED_TRIGGERS,
-        supportedTriggerTypes
-      ).map((t) => ({ ...t, icon: <LibraryIcon type={t.type} /> })),
-    [catalogTypesQuery.data?.triggers, supportedTriggerTypes]
-  );
+  const triggerCatalog = useMemo(() => {
+    const built = buildCatalog(
+      catalogTypesQuery.data?.triggers ?? [],
+      CURATED_TRIGGER_COPY,
+      FIXED_TRIGGERS,
+      supportedTriggerTypes
+    ).map((t) => ({ ...t, icon: <LibraryIcon type={t.type} /> }));
+    // The live catalog never lists client-only triggers, so append their curated
+    // copy when the build did not already include them (it does in the fallback).
+    const present = new Set(built.map((t) => t.type));
+    const extra = CLIENT_TRIGGER_TYPES.filter((type) => !present.has(type))
+      .map((type) => CURATED_TRIGGER_COPY.get(type))
+      .filter((entry): entry is CatalogEntry => entry !== undefined)
+      .map((entry) => ({ ...entry, icon: <LibraryIcon type={entry.type} /> }));
+    return [...built, ...extra];
+  }, [catalogTypesQuery.data?.triggers, supportedTriggerTypes]);
 
   const actionCatalog = useMemo(
     () =>
@@ -1930,8 +1250,11 @@ const CreateAutomationContent = () => {
     },
   });
 
-  // Run a Health Factor (`health_threshold`) trigger immediately, ignoring its
-  // 30-minute schedule. The response's two numbers are both actionable, so the
+  // Run the DeFi lending Health Factor (`defi_health_factor`) trigger
+  // immediately, ignoring its 30-minute schedule. Hits the lending endpoint,
+  // which reads on-chain positions for a configured pool/protocol/chain - never
+  // wire this to `health_threshold` (the contact-score trigger, which has no
+  // pool). The response's two numbers are both actionable, so the
   // toast distinguishes "read nothing" (bad pool/chain/no wallets) from "read
   // fine, nothing crossed" (docs/backend.md).
   const runHealthFactorMutation = useMutation({
@@ -2293,17 +1616,26 @@ const CreateAutomationContent = () => {
       ),
     [selectedNodeData, selectedNodeDetails?.type]
   );
-  // The Health Factor trigger is the one trigger that can be run on demand
-  // (POST /automations/{id}/defi/health-factor/run), so its config panel gets a
-  // "Run now" control - but only once the automation is saved (needs a real id).
-  const selectedIsHealthTrigger =
-    selectedIsTrigger && selectedNodeSchemaType === "health_threshold";
+  // The DeFi lending "Health Factor Crossed" trigger (`defi_health_factor`) is
+  // the one trigger that can be run on demand
+  // (POST /automations/{id}/defi/health-factor/run), so it gets a "Run now"
+  // control - but only once the automation is saved (needs a real id). It also
+  // owns its own pool/threshold/chain panel rather than the contract/event one.
+  // NOTE: this is NOT `health_threshold` (a CONTACT-SCORE trigger); the lending
+  // endpoint reads on-chain positions and requires a pool/protocol/chain, which
+  // the score trigger never has. `canRunLendingHealthFactorNow` is the tested
+  // guard that keeps the two from being conflated.
+  const selectedIsDefiHealthTrigger =
+    selectedIsTrigger && canRunLendingHealthFactorNow(selectedNodeSchemaType);
   // On-chain triggers ask for a contract; only the GENERIC on-chain trigger
   // ("On-chain event") also asks for a raw event. Business presets imply their
   // event, so their panel is just the contract (+ optional chain). Off-chain
-  // triggers (segment/list/form/email) need neither.
+  // triggers (segment/list/form/email) need neither. The DeFi trigger is grouped
+  // on-chain but is configured by pool + threshold, so it is excluded here.
   const selectedTriggerIsOnchain =
-    selectedIsTrigger && ON_CHAIN_TRIGGER_TYPES.has(selectedNodeSchemaType);
+    selectedIsTrigger &&
+    ON_CHAIN_TRIGGER_TYPES.has(selectedNodeSchemaType) &&
+    !selectedIsDefiHealthTrigger;
   const selectedTriggerHasImpliedEvent =
     selectedTriggerIsOnchain &&
     !GENERIC_ONCHAIN_TRIGGER_TYPES.has(selectedNodeSchemaType);
@@ -2565,6 +1897,13 @@ const CreateAutomationContent = () => {
     ).toLowerCase();
     const label = pickText(selectedNodeData.label).toLowerCase();
 
+    // The DeFi Health Factor trigger has no runtime ingest endpoint - it is
+    // tested by the "Run now" sweep instead - so it never uses this synthetic
+    // test-event path. Checked first: its type contains "health", which would
+    // otherwise fall into the contact-score branch below.
+    if (nodeType.includes("defi")) {
+      return null;
+    }
     if (nodeType.includes("segment") || label.includes("segment")) {
       return "segment_entered" as const;
     }
@@ -2591,6 +1930,10 @@ const CreateAutomationContent = () => {
     mutationFn: async () => {
       if (isNew || !selectedNode || selectedNodeDetails?.type !== "trigger") {
         throw new Error("Save the automation before sending a test trigger");
+      }
+      if (selectedTriggerRuntimeType === null) {
+        // The DeFi trigger has no synthetic test event; it is swept via Run now.
+        throw new Error("Use Run now to test this trigger");
       }
 
       const sourceEventId = `preview-${selectedNode}-${Date.now()}`;
@@ -3279,7 +2622,11 @@ const CreateAutomationContent = () => {
           ? asString(n.data.triggerType)
           : "";
         return (
-          triggerType.length > 0 && !NON_ONCHAIN_TRIGGER_TYPES.has(triggerType)
+          triggerType.length > 0 &&
+          !NON_ONCHAIN_TRIGGER_TYPES.has(triggerType) &&
+          // The DeFi trigger reads a pool address of its own, not a saved
+          // project contract, so the "save a contract" nudge does not apply.
+          triggerType !== "defi_health_factor"
         );
       }),
     [nodes]
@@ -4120,10 +3467,20 @@ const CreateAutomationContent = () => {
                       {/* Specific fields */}
                       {selectedIsTrigger && (
                         <>
-                          {/* Health Factor: run the check on demand instead of
-                              waiting for the 30-minute schedule. Saved
-                              automations only (needs a persisted id + config). */}
-                          {selectedIsHealthTrigger && !isNew && (
+                          {/* DeFi Health Factor: pool + threshold + chain, then
+                              run the sweep on demand instead of waiting for the
+                              30-minute schedule. */}
+                          {selectedIsDefiHealthTrigger && (
+                            <DefiHealthFactorFields
+                              nodeData={selectedNodeData}
+                              onChange={updateSelectedNodeData}
+                              chainOptions={chainOptions}
+                            />
+                          )}
+                          {/* Run the lending check on demand instead of waiting
+                              for the 30-minute schedule. Saved automations only
+                              (needs a persisted id + a configured pool/chain). */}
+                          {selectedIsDefiHealthTrigger && !isNew && (
                             <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
                               <div className="flex items-center justify-between gap-3">
                                 <div className="min-w-0">
@@ -4167,7 +3524,9 @@ const CreateAutomationContent = () => {
                               eventDefinitionByValue={eventDefinitionByValue}
                             />
                           )}
-                          {!isNew ? (
+                          {/* The DeFi trigger has no synthetic runtime event -
+                              its "Run now" sweep above is how it is tested. */}
+                          {!isNew && !selectedIsDefiHealthTrigger ? (
                             <div className="rounded-2xl border border-primary/15 bg-primary/5 p-3.5">
                               <div className="flex items-center justify-between gap-3">
                                 <div className="text-xs font-medium text-foreground">
@@ -4847,6 +4206,7 @@ const CreateAutomationContent = () => {
                         : null}
 
                       {!selectedTriggerIsOnchain &&
+                      !selectedIsDefiHealthTrigger &&
                       selectedNodeSchemaType !== "split" &&
                       !selectedHasDedicatedPanel &&
                       (selectedNodeSchemaQuery.isFetching ||

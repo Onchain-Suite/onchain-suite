@@ -5251,7 +5251,7 @@ const CreateAutomationContent = () => {
             <div className="mx-auto max-w-[1600px] space-y-6">
               {/* Overview Cards - reference layout: label over a big number,
                   no icon badge or delta chip. */}
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
                 {[
                   {
                     label: "Entries · 30d",
@@ -5260,6 +5260,10 @@ const CreateAutomationContent = () => {
                   {
                     label: "Completed",
                     value: `${statsCompletionRate}%`,
+                  },
+                  {
+                    label: "Conversion rate",
+                    value: `${statsConvRate}%`,
                   },
                   {
                     label: "On-chain conversions",

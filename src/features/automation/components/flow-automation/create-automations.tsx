@@ -149,6 +149,7 @@ import {
   summarizeIssues,
 } from "@/features/automation/utils/builder-issues";
 import { resolveContractCatalog } from "@/features/automation/utils/contracts";
+import { canRunLendingHealthFactorNow } from "@/features/automation/utils/run-now";
 import { campaignsService } from "@/features/campaigns/campaigns.service";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
@@ -1929,8 +1930,11 @@ const CreateAutomationContent = () => {
     },
   });
 
-  // Run a Health Factor (`health_threshold`) trigger immediately, ignoring its
-  // 30-minute schedule. The response's two numbers are both actionable, so the
+  // Run the DeFi lending Health Factor (`defi_health_factor`) trigger
+  // immediately, ignoring its 30-minute schedule. Hits the lending endpoint,
+  // which reads on-chain positions for a configured pool/protocol/chain - never
+  // wire this to `health_threshold` (the contact-score trigger, which has no
+  // pool). The response's two numbers are both actionable, so the
   // toast distinguishes "read nothing" (bad pool/chain/no wallets) from "read
   // fine, nothing crossed" (docs/backend.md).
   const runHealthFactorMutation = useMutation({
@@ -2292,11 +2296,16 @@ const CreateAutomationContent = () => {
       ),
     [selectedNodeData, selectedNodeDetails?.type]
   );
-  // The Health Factor trigger is the one trigger that can be run on demand
+  // The DeFi lending "Health Factor Crossed" trigger (`defi_health_factor`) is
+  // the one trigger that can be run on demand
   // (POST /automations/{id}/defi/health-factor/run), so its config panel gets a
   // "Run now" control - but only once the automation is saved (needs a real id).
-  const selectedIsHealthTrigger =
-    selectedIsTrigger && selectedNodeSchemaType === "health_threshold";
+  // NOTE: this is NOT `health_threshold` (a CONTACT-SCORE trigger); that endpoint
+  // reads on-chain lending positions and requires a pool/protocol/chain, which
+  // the score trigger never has. `defi_health_factor` reaches the builder via the
+  // live BUILDER_TRIGGER_CATALOG (no static entry), so the type exists at runtime.
+  const selectedIsDefiHealthTrigger =
+    selectedIsTrigger && canRunLendingHealthFactorNow(selectedNodeSchemaType);
   // On-chain triggers ask for a contract; only the GENERIC on-chain trigger
   // ("On-chain event") also asks for a raw event. Business presets imply their
   // event, so their panel is just the contract (+ optional chain). Off-chain
@@ -4119,10 +4128,11 @@ const CreateAutomationContent = () => {
                       {/* Specific fields */}
                       {selectedIsTrigger && (
                         <>
-                          {/* Health Factor: run the check on demand instead of
-                              waiting for the 30-minute schedule. Saved
-                              automations only (needs a persisted id + config). */}
-                          {selectedIsHealthTrigger && !isNew && (
+                          {/* DeFi Health Factor Crossed: run the lending check on
+                              demand instead of waiting for the 30-minute
+                              schedule. Saved automations only (needs a persisted
+                              id + a configured pool/protocol/chain). */}
+                          {selectedIsDefiHealthTrigger && !isNew && (
                             <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
                               <div className="flex items-center justify-between gap-3">
                                 <div className="min-w-0">

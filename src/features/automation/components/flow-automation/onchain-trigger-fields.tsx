@@ -3,6 +3,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
+import {
+  AmountThresholdField,
+  fromBaseUnits,
+  toBaseUnits,
+} from "./amount-threshold-field";
 import type { PropertySelectOption } from "./property-select";
 import {
   PROPERTY_HINT_CLASS,
@@ -56,6 +61,40 @@ export function OnchainTriggerFields({
   const [interfaceDialogOpen, setInterfaceDialogOpen] = useState(false);
 
   const asString = (v: unknown): string => (typeof v === "string" ? v : "");
+
+  /**
+   * Large Transfer is the one preset whose whole meaning is a NUMBER the user
+   * picks. Business presets otherwise hide every field but the contract, which
+   * left this one advertising "at or above an amount you set" with nowhere to
+   * set it — so it silently used a default nobody chose.
+   */
+  const isAmountThreshold = schemaType === "large_transfer";
+  const amountFilter = Array.isArray(nodeData.filters)
+    ? (nodeData.filters as Array<Record<string, unknown>>).find(
+        (f) => f?.path === "value" && String(f?.operator ?? "").startsWith("g")
+      )
+    : undefined;
+  const storedBase = asString(amountFilter?.value);
+  // Decimals are the user's declaration about the token, not something the
+  // chain tells us, so they are kept on the node rather than inferred.
+  const decimals = Number(nodeData.amountDecimals ?? 18) || 0;
+  const [amountText, setAmountText] = useState(() =>
+    fromBaseUnits(storedBase, decimals)
+  );
+
+  const setThreshold = (nextAmount: string, nextDecimals: number) => {
+    setAmountText(nextAmount);
+    const base = toBaseUnits(nextAmount, nextDecimals);
+    onChange({
+      amountDecimals: nextDecimals,
+      // Written as `gte` on the decoded `value` — the operator backend #460
+      // added. Cleared when the amount is unusable, so a half-typed number
+      // never becomes a threshold of zero that matches everything.
+      filters: base
+        ? [{ path: "value", operator: "gte", value: base }]
+        : [{ path: "value", operator: "exists" }],
+    });
+  };
   const contractAddress =
     asString(nodeData.contractAddress).trim() ||
     asString(nodeData.contract).trim();
@@ -157,6 +196,17 @@ export function OnchainTriggerFields({
 
   return (
     <>
+      {isAmountThreshold ? (
+        <AmountThresholdField
+          amount={amountText}
+          decimals={decimals}
+          onChange={setThreshold}
+          labelClass={PROPERTY_LABEL_CLASS}
+          inputClass={PROPERTY_INPUT_CLASS}
+          hintClass={PROPERTY_HINT_CLASS}
+        />
+      ) : null}
+
       {/* Contract — only on-chain triggers watch a contract. Off-chain
           triggers (segment/list/form/email) need nothing here. */}
       <div className="space-y-2">

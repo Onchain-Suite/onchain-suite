@@ -167,6 +167,11 @@
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },
+  "//overrides": "eslint-config-next@15.5.6 bundles @typescript-eslint@8.54.0, but we depend on ^8.65.0 directly. A clean install then keeps both copies, and eslint.config.mjs registers the top-level plugin while next/typescript registers next's nested copy - two instances of the same plugin name, which eslint 9.39.5 flat-config rejects with 'Cannot redefine plugin @typescript-eslint' before it lints any file. Force a single version so both resolve to one instance.",
+  "overrides": {
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0"
+  },
   "trustedDependencies": [
     "@prisma/client",
     "@prisma/engines",

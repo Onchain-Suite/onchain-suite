@@ -164,6 +164,21 @@ import {
   parseWatchState,
   summarizeIssues,
 } from "@/features/automation/utils/builder-issues";
+import {
+  BRANCH_OPERATORS,
+  BRANCH_VALUELESS_OPERATORS,
+  type BranchRule,
+  type BuilderSchemaField,
+  normalizeBranchRule,
+  normalizeSchemaFields,
+} from "@/features/automation/utils/builder-schema";
+import {
+  asBoolean,
+  asNumber,
+  asString,
+  pickArray,
+  pickText,
+} from "@/features/automation/utils/coerce";
 import { resolveContractCatalog } from "@/features/automation/utils/contracts";
 import { canRunLendingHealthFactorNow } from "@/features/automation/utils/run-now";
 import { campaignsService } from "@/features/campaigns/campaigns.service";
@@ -397,8 +412,6 @@ const CHAIN_OPTIONS: PropertySelectOption[] = [
   { value: "Solana", label: "Solana" },
 ];
 
-const asString = (v: unknown): string => (typeof v === "string" ? v : "");
-
 /**
  * Keep a node's currently-stored value selectable even when it isn't in the
  * fetched catalog yet (list still loading, or a value typed before pickers
@@ -412,34 +425,6 @@ const ensureOption = (
   value && !options.some((o) => o.value === value)
     ? [{ value, label: label ?? value }, ...options]
     : options;
-
-const asNumber = (v: unknown): number => {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string" && v.trim().length > 0) {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-};
-
-const pickArray = (payload: unknown): unknown[] => {
-  if (Array.isArray(payload)) return payload;
-  if (isJsonObject(payload) && Array.isArray(payload.items))
-    return payload.items;
-  if (isJsonObject(payload) && Array.isArray(payload.data)) return payload.data;
-  return [];
-};
-
-const pickText = (...values: unknown[]) => {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim().length > 0) {
-      return value.trim();
-    }
-  }
-  return "";
-};
-
-const asBoolean = (value: unknown): boolean => value === true;
 
 type PathPerformanceRow = {
   path: string;
@@ -524,148 +509,6 @@ const EDGE_COLORS = {
   success: "#22c55e",
   danger: "#f97316",
 } as const;
-
-type BuilderSchemaFieldOption = {
-  label: string;
-  value: string;
-};
-
-type BuilderSchemaField = {
-  key: string;
-  label: string;
-  description?: string;
-  type: string;
-  required: boolean;
-  placeholder?: string;
-  /** Non-essential field: hidden under an "Advanced" disclosure by default. */
-  advanced: boolean;
-  options: BuilderSchemaFieldOption[];
-};
-
-/** A single branch condition row: `field <operator> value → target node`. */
-type BranchRule = {
-  id: string;
-  field: string;
-  operator: string;
-  value: string;
-  target: string;
-};
-
-const BRANCH_OPERATORS: { value: string; label: string }[] = [
-  { value: "eq", label: "equals" },
-  { value: "neq", label: "not equals" },
-  { value: "gte", label: "greater or equal" },
-  { value: "lte", label: "less or equal" },
-  { value: "contains", label: "contains" },
-  { value: "exists", label: "exists" },
-];
-
-/** Operators that don't need a comparison value. */
-const BRANCH_VALUELESS_OPERATORS = new Set(["exists"]);
-
-/** Normalize a persisted branch rule (tolerant of backend/legacy key names). */
-const normalizeBranchRule = (raw: unknown, index: number): BranchRule => {
-  const obj = isJsonObject(raw) ? raw : {};
-  return {
-    id:
-      asString(obj.id) ||
-      asString(obj.ruleId) ||
-      `rule-${index}-${Math.random().toString(36).slice(2, 8)}`,
-    field: asString(obj.field ?? obj.key ?? obj.attribute),
-    operator: asString(obj.operator ?? obj.op ?? obj.comparator) || "eq",
-    value:
-      obj.value === undefined || obj.value === null ? "" : String(obj.value),
-    target: asString(obj.target ?? obj.targetNodeId ?? obj.to ?? obj.node),
-  };
-};
-
-const INTERNAL_SCHEMA_KEYS = new Set([
-  "label",
-  "schema",
-  "stats",
-  "nodeType",
-  "triggerType",
-  "actionType",
-  "template",
-  "templateId",
-  "templateName",
-  "contract",
-  "contractAddress",
-  "event",
-]);
-
-const normalizeSchemaFieldOptions = (
-  value: unknown
-): BuilderSchemaFieldOption[] =>
-  pickArray(value)
-    .map((option) => {
-      if (typeof option === "string" || typeof option === "number") {
-        return {
-          label: String(option),
-          value: String(option),
-        };
-      }
-      if (!isJsonObject(option)) return null;
-      const record = option as Record<string, unknown>;
-      const resolvedValue = pickText(
-        record.value,
-        record.id,
-        record.key,
-        record.name
-      );
-      if (resolvedValue.length === 0) return null;
-      return {
-        value: resolvedValue,
-        label:
-          pickText(record.label, record.name, record.title, resolvedValue) ||
-          resolvedValue,
-      };
-    })
-    .filter((option): option is BuilderSchemaFieldOption => Boolean(option));
-
-const normalizeSchemaFields = (schema: unknown): BuilderSchemaField[] => {
-  if (!isJsonObject(schema)) return [];
-  const record = schema as Record<string, unknown>;
-  return pickArray(record.fields)
-    .map<BuilderSchemaField | null>((field) => {
-      if (!isJsonObject(field)) return null;
-      const entry = field as Record<string, unknown>;
-      const key = pickText(entry.key, entry.name, entry.id);
-      if (key.length === 0 || INTERNAL_SCHEMA_KEYS.has(key)) return null;
-      const rawType = pickText(
-        entry.type,
-        entry.inputType,
-        entry.component,
-        entry.kind,
-        "text"
-      ).toLowerCase();
-      const description = pickText(
-        entry.description,
-        entry.helpText,
-        entry.helperText
-      );
-      const placeholder = pickText(entry.placeholder);
-      // Show the schema default as placeholder text ("smart defaults, visible")
-      // so an unset field reads as its default rather than an empty required box.
-      const defaultHint =
-        entry.default !== undefined &&
-        entry.default !== null &&
-        typeof entry.default !== "object"
-          ? String(entry.default)
-          : "";
-      return {
-        key,
-        label: pickText(entry.label, entry.title, key) || key,
-        description: description || undefined,
-        type: rawType,
-        required: asBoolean(entry.required),
-        placeholder: placeholder || defaultHint || undefined,
-        advanced: asBoolean(entry.advanced),
-        options: normalizeSchemaFieldOptions(entry.options ?? entry.enum),
-      };
-    })
-    .filter((field): field is BuilderSchemaField => Boolean(field));
-};
 
 type NodeLibraryItem = {
   type: string;

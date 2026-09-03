@@ -66,6 +66,7 @@ import { InlineSchedule } from "@/features/campaigns/components/campaign-form/in
 import { TemplateStep } from "@/features/campaigns/components/campaign-form/template-step";
 import { WizardStepRail } from "@/features/campaigns/components/campaign-form/wizard-step-rail";
 import { WizardSummary } from "@/features/campaigns/components/campaign-form/wizard-summary";
+import { useInAppReadiness } from "@/features/campaigns/hooks/use-inapp-readiness";
 import {
   ALL_CONTACTS_SELECTION_ID,
   parseReachable,
@@ -79,6 +80,7 @@ import {
 } from "@/features/campaigns/lib/audience-sync";
 import { parseSenderNotVerified } from "@/features/campaigns/lib/launch-errors";
 import type { List, Segment } from "@/features/campaigns/types";
+import { placementDeliverable } from "@/features/campaigns/utils/inapp-readiness";
 import { useOrgSwitcherContext } from "@/features/common/layout/components/org-switcher-context";
 import {
   type IntelligenceSegment,
@@ -1931,6 +1933,18 @@ export function CreateCampaignPage() {
       // pipeline: POST /campaigns/{id}/send-inapp fans out immediately to
       // the audience's wallet-reachable contacts (no scheduled push sends).
       if (data.channel === "in-app-push") {
+        // Guard: don't attempt a send on a channel we positively know is
+        // unconfigured. "unknown" readiness (e.g. a non-admin who can't read the
+        // setup) does NOT block - the backend stays the final authority.
+        const isMobilePush = data.pushPlacement === "mobile-push";
+        if (!placementDeliverable(inAppReadiness, isMobilePush)) {
+          toast.warning(
+            isMobilePush
+              ? "Mobile push isn't set up. Add an APNs (iOS) or FCM (Android) credential in Settings → Integrations before sending."
+              : "In-app push isn't set up. Install the web SDK key and allow-list your dApp origin in Settings → Integrations before sending."
+          );
+          return;
+        }
         await campaignsService
           .ensureChannels(campaignId, ["inapp"])
           .catch(() => undefined);
@@ -2072,6 +2086,12 @@ export function CreateCampaignPage() {
 
   // Persistent right-column summary, kept in sync across steps.
   const wizIsPush = form.watch("channel") === "in-app-push";
+
+  // In-app delivery readiness (web SDK keys/origins + mobile APNs/FCM). Drives
+  // the setup notice in the composer and the launch guard below. Only fetched
+  // for in-app campaigns.
+  const { readiness: inAppReadiness, isLoading: inAppReadinessLoading } =
+    useInAppReadiness(organizationId, wizIsPush);
 
   // Org identity for the in-app preview: verified sending domain first, else a
   // slug-derived org domain - never a generic placeholder. The badge uses the
@@ -2406,6 +2426,8 @@ export function CreateCampaignPage() {
                           form={form}
                           appDomain={pushAppDomain}
                           brandMark={pushBrandMark}
+                          readiness={inAppReadiness}
+                          readinessLoading={inAppReadinessLoading}
                         />
                       ) : (
                         <TemplateStep

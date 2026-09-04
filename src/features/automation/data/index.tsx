@@ -3,6 +3,7 @@ import {
   BellAlertIcon,
   BoltIcon,
   BuildingLibraryIcon,
+  ChartBarIcon,
   CircleStackIcon,
   ClockIcon,
   CursorArrowRaysIcon,
@@ -11,7 +12,6 @@ import {
   EnvelopeOpenIcon,
   ExclamationTriangleIcon,
   FlagIcon,
-  HeartIcon,
   LinkIcon,
   QueueListIcon,
   RocketLaunchIcon,
@@ -159,9 +159,9 @@ export const triggerNodes = [
   },
   {
     type: "health_threshold",
-    label: "Health score change",
-    description: "A wallet crosses a health-score threshold",
-    icon: catalogIcon(HeartIcon),
+    label: "Contact Score Threshold",
+    description: "A contact score crosses your threshold",
+    icon: catalogIcon(ChartBarIcon),
   },
 ];
 

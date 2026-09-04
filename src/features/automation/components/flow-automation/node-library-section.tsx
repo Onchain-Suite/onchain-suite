@@ -12,6 +12,13 @@ export type NodeLibraryItem = {
   label: string;
   description?: string;
   icon: React.ReactNode;
+  /**
+   * Set when the node cannot be used on the chain this flow is already on —
+   * currently only Solana, for a preset with no verified program. Rendering it
+   * greyed with the reason beats letting someone drag it on and discover at
+   * publish that it can never bind.
+   */
+  disabledReason?: string;
 };
 
 const NODE_ACCENTS = {
@@ -63,15 +70,29 @@ export function NodeLibrarySection({
         {nodes.map((node) => (
           <div
             key={node.type}
-            draggable
+            draggable={!node.disabledReason}
             tabIndex={0}
             role="button"
-            aria-label={`Drag ${node.label} onto the canvas`}
+            aria-disabled={node.disabledReason ? true : undefined}
+            title={node.disabledReason}
+            aria-label={
+              node.disabledReason
+                ? `${node.label} — ${node.disabledReason}`
+                : `Drag ${node.label} onto the canvas`
+            }
             onDragStart={(e) => {
+              if (node.disabledReason) {
+                e.preventDefault();
+                return;
+              }
               e.dataTransfer.setData("application/reactflow", node.type);
               e.dataTransfer.setData("application/label", node.label);
             }}
-            className={`group flex cursor-grab items-center gap-2.5 rounded-lg border border-border/60 bg-background p-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-primary/30 ${a.hover}`}
+            className={
+              node.disabledReason
+                ? "group flex cursor-not-allowed items-center gap-2.5 rounded-lg border border-border/40 bg-background/40 p-2 opacity-45"
+                : `group flex cursor-grab items-center gap-2.5 rounded-lg border border-border/60 bg-background p-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-primary/30 ${a.hover}`
+            }
           >
             <div
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${a.tile}`}

@@ -48,6 +48,27 @@ const ACCENT: Record<
   },
 };
 
+/**
+ * What the recipe cannot decide for you.
+ *
+ * A recipe is a head start, not a finished automation: it cannot know which
+ * contract you watch or which segment you built. Saying so on the CARD means
+ * the user learns it before clicking, rather than meeting an empty required
+ * field in the builder and wondering whether the template failed.
+ */
+const NEEDS_LABEL: Record<string, string> = {
+  contract: "contract",
+  chain: "chain",
+  segment: "segment",
+  amount: "amount",
+};
+
+const templateNeeds = (template: ProtocolTemplate): string[] => {
+  const trigger = template.steps.find((s) => s.kind === "trigger");
+  if (trigger?.kind !== "trigger") return [];
+  return (trigger.requires ?? []).map((r) => NEEDS_LABEL[r] ?? r);
+};
+
 const stepSummary = (template: ProtocolTemplate) => {
   const counts = { email: 0, wait: 0, branch: 0 };
   const walk = (steps: ProtocolTemplate["steps"]) => {
@@ -102,6 +123,12 @@ function TemplateCard({
       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
         {template.description}
       </p>
+      {templateNeeds(template).length ? (
+        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/80">
+          You&apos;ll pick the {templateNeeds(template).join(" and ")} after
+          applying.
+        </p>
+      ) : null}
       <div className="mt-auto flex items-center justify-between gap-2 pt-3 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className={`h-1.5 w-1.5 rounded-full ${accent.dot}`} />

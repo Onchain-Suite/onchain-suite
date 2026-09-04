@@ -218,7 +218,13 @@ export const FIXED_ACTIONS: {
 /** One entry from a builder catalog endpoint (`GET /automations/builder/triggers`
  *  or `.../actions`). `label`/`description` are the backend's own, used when we
  *  have no curated copy for that type. */
-export type CatalogEntry = { type: string; label: string; description: string };
+export type CatalogEntry = {
+  type: string;
+  label: string;
+  description: string;
+  /** Present for on-chain presets; see {@link SvmSupport}. */
+  svm?: SvmSupport;
+};
 
 export const CURATED_TRIGGER_COPY = new Map(
   FIXED_TRIGGERS.map((t) => [t.type, t])
@@ -345,3 +351,46 @@ export const nodeIsTrigger = (type?: string, triggerType?: string): boolean =>
   type === "trigger" ||
   TRIGGER_NODE_TYPES.has(type ?? "") ||
   TRIGGER_NODE_TYPES.has(triggerType ?? "");
+
+/**
+ * Whether a trigger can run on Solana, as the backend catalog reports it.
+ *
+ * Mirrors `svmSupportFor` in onchain-backend `svm-trigger-presets.ts` and is
+ * READ from `GET /automations/builder/triggers` rather than duplicated here —
+ * the program ids are cited to their protocol's own docs, and a second copy
+ * that drifts is worse than no copy at all.
+ */
+export type SvmSupport =
+  | {
+      supported: true;
+      programIds: string[];
+      defaultConfig: Record<string, unknown>;
+      source: string;
+      /** The protocol spans several programs; one binding sees only part. */
+      partial?: boolean;
+    }
+  | { supported: false; reason: string };
+
+/** True for any Solana cluster — mainnet, devnet, localnet. */
+export function isSolanaChain(chain: unknown): boolean {
+  return (
+    typeof chain === "string" && chain.trim().toLowerCase().startsWith("solana")
+  );
+}
+
+/**
+ * The Solana verdict for one trigger on one chain.
+ *
+ * Returns `null` when the question does not arise — a non-Solana chain, or a
+ * trigger the catalog says nothing about. A missing `svm` block is NOT read as
+ * "unsupported": an older backend simply does not send one, and greying out
+ * every trigger against an old deploy would be a worse failure than letting
+ * the publish-time check catch it.
+ */
+export function solanaVerdict(
+  svm: SvmSupport | undefined,
+  chain: unknown
+): SvmSupport | null {
+  if (!isSolanaChain(chain)) return null;
+  return svm ?? null;
+}

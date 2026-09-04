@@ -1291,7 +1291,6 @@ export function QueryTab({
 
       const collectedSteps: IntelligenceAgentStep[] = [];
       let streamFinalResponse: IntelligenceAgentQueryResponse | undefined;
-      let streamFailed = false;
       const streamAbortController = new AbortController();
       // Lets the user stop a long-running agent; also tears down the SSE stream.
       const runAbort = new AbortController();
@@ -1354,67 +1353,38 @@ export function QueryTab({
         })
         .catch((error) => {
           if (isAbortError(error)) return;
-          streamFailed = true;
           setStreamFallbackUsed(true);
         });
 
-      const [planResult, queryResult] = await Promise.allSettled([
-        intelligenceService.planAgent(request, undefined, {
-          signal: runAbort.signal,
-        }),
-        intelligenceService.queryAgent(request, undefined, {
-          signal: runAbort.signal,
-        }),
-      ]);
-
-      streamAbortController.abort();
+      // The SSE stream is the single source of truth. It drives the live
+      // progress UI and emits the final answer — with plan, structuredResult and
+      // steps — on its `final` event, so awaiting it is ONE agent run per
+      // message. The parallel blocking queryAgent + deterministic planAgent that
+      // used to run alongside it were a second and third execution of the SAME
+      // turn; the stream already carries everything they returned.
       await streamPromise;
 
-      const queryResponse =
-        queryResult.status === "fulfilled" ? queryResult.value : null;
-      if (queryResponse) {
-        if (typeof queryResponse.conversationId === "string") {
-          setActiveConversationId(queryResponse.conversationId);
-        }
-        if (
-          planResult.status === "fulfilled" &&
-          (queryResponse.plan === undefined || queryResponse.plan === null)
-        ) {
-          return {
-            ...queryResponse,
-            plan: planResult.value,
-          };
-        }
-        return queryResponse;
-      }
-
       if (streamFinalResponse) {
-        setStreamFallbackUsed(true);
         if (typeof streamFinalResponse.conversationId === "string") {
           setActiveConversationId(streamFinalResponse.conversationId);
-        }
-        if (
-          planResult.status === "fulfilled" &&
-          (streamFinalResponse.plan === undefined ||
-            streamFinalResponse.plan === null)
-        ) {
-          return {
-            ...streamFinalResponse,
-            plan: planResult.value,
-          };
         }
         return streamFinalResponse;
       }
 
-      if (streamFailed) {
-        setStreamFallbackUsed(true);
+      // The stream failed or ended without a final answer — fall back to a
+      // SINGLE blocking run rather than leave the user empty-handed.
+      setStreamFallbackUsed(true);
+      const fallback = await intelligenceService.queryAgent(
+        request,
+        undefined,
+        {
+          signal: runAbort.signal,
+        }
+      );
+      if (typeof fallback.conversationId === "string") {
+        setActiveConversationId(fallback.conversationId);
       }
-
-      if (queryResult.status === "rejected") {
-        throw queryResult.reason;
-      }
-
-      throw new Error("Failed to generate a response");
+      return fallback;
     },
     onSuccess: (res: IntelligenceAgentQueryResponse) => {
       if (

@@ -40,6 +40,14 @@ describe("exampleFieldsObject", () => {
   it("falls back to a lone email when the form declares no fields", () => {
     expect(exampleFieldsObject([])).toEqual({ email: "you@example.com" });
   });
+
+  it("excludes consent fields (consent rides as the top-level flag)", () => {
+    const fields: CaptureFieldSpec[] = [
+      { key: "email", type: "email" },
+      { key: "consent", type: "consent" },
+    ];
+    expect(exampleFieldsObject(fields)).toEqual({ email: "you@example.com" });
+  });
 });
 
 describe("buildCurlExample", () => {

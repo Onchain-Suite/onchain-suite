@@ -25,16 +25,26 @@ export const placeholderForField = (field: CaptureFieldSpec): string => {
 };
 
 /**
- * The example `fields` object: every declared field keyed to a placeholder.
- * Falls back to a lone `email` when the form declares no fields, so the example
- * is never an empty object (the backend needs at least an email or a wallet).
+ * The fields a caller actually puts inside the `fields` object. Consent is NOT
+ * one of them - it rides as the top-level `consent: true` - so a `consent`-typed
+ * field is dropped here to keep the example honest.
+ */
+export const submittableFields = (
+  fields: CaptureFieldSpec[]
+): CaptureFieldSpec[] => fields.filter((field) => field.type !== "consent");
+
+/**
+ * The example `fields` object: every submittable field keyed to a placeholder.
+ * Falls back to a lone `email` when the form declares no submittable fields, so
+ * the example is never empty (the backend needs at least an email or a wallet).
  */
 export const exampleFieldsObject = (
   fields: CaptureFieldSpec[]
 ): Record<string, string> => {
-  if (fields.length === 0) return { email: "you@example.com" };
+  const submittable = submittableFields(fields);
+  if (submittable.length === 0) return { email: "you@example.com" };
   const out: Record<string, string> = {};
-  for (const field of fields) out[field.key] = placeholderForField(field);
+  for (const field of submittable) out[field.key] = placeholderForField(field);
   return out;
 };
 

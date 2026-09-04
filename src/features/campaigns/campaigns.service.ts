@@ -169,8 +169,23 @@ export interface CampaignAnalyticsOverview {
     limit?: number | null;
     used?: number;
     remaining?: number | null;
-    /** ISO timestamp when the monthly allowance next resets. */
+    /** ISO timestamp when the monthly allowance next resets. Omitted on PAYG. */
     resetsAt?: string;
+    /**
+     * PAYG fields — present only when the org is pay-as-you-go. On PAYG there is
+     * no monthly allowance (`limit` is null because the tier is nominally
+     * unlimited); the real ceiling is the prepaid wallet, so the card shows the
+     * balance and how many emails/in-app pushes it buys instead of "Unlimited".
+     */
+    payg?: boolean;
+    /** Current prepaid balance in micro-USD (1e6 µ$ = $1). */
+    walletMicroUsd?: number;
+    /** Price per email / in-app push in micro-USD. */
+    emailUnitMicroUsd?: number;
+    inAppUnitMicroUsd?: number;
+    /** How many more emails / in-app pushes the current balance can fund (shared wallet). */
+    emailCapacity?: number;
+    inAppCapacity?: number;
   };
   [key: string]: unknown;
 }

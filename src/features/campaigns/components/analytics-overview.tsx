@@ -12,6 +12,16 @@ const formatCount = (value?: number | null) =>
     ? value.toLocaleString()
     : "-";
 
+/** Micro-USD (1e6 µ$ = $1) → "$X.XX". */
+const formatUsdFromMicro = (microUsd?: number | null) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(
+    (typeof microUsd === "number" && Number.isFinite(microUsd) ? microUsd : 0) /
+      1_000_000
+  );
+
 const formatResetDate = (date: Date) =>
   new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -69,6 +79,47 @@ export function CampaignsAnalyticsOverview() {
   const used = allowance?.used ?? 0;
   const limit = allowance?.limit ?? null;
 
+  // PAYG orgs have no monthly allowance — the tier is nominally "unlimited"
+  // (limit === null), but the real ceiling is the prepaid wallet. Showing
+  // "Unlimited" there is misleading (and there is no monthly reset), so for a
+  // PAYG org the card shows the wallet balance as the headline and the number
+  // of emails / in-app pushes it buys as the hint. Email and in-app draw the
+  // same wallet, so the two capacities are alternatives, not separate budgets.
+  const isPayg = allowance?.payg === true;
+  const allowanceCard = isPayg
+    ? {
+        label: "Send balance",
+        value: formatUsdFromMicro(allowance?.walletMicroUsd),
+        hint: `≈ ${formatCount(allowance?.emailCapacity)} emails or ${formatCount(
+          allowance?.inAppCapacity
+        )} in-app · ${formatCount(used)} sent this month`,
+      }
+    : limit === null
+      ? {
+          // A non-PAYG tier with no cap (internal / enterprise). Genuinely
+          // unlimited, so there is no fraction to show — usage rides in the hint.
+          label: "Monthly allowance",
+          value: "Unlimited",
+          hint: `${formatCount(used)} sent this month`,
+        }
+      : {
+          // Headline the fraction "used / limit" (e.g. "312 / 500"), with the
+          // limit as a muted suffix, and the reset date as the only caption.
+          label: "Monthly allowance",
+          value: (
+            <>
+              {formatCount(used)}
+              <span className="text-2xl font-normal text-muted-foreground">
+                {" / "}
+                {formatCount(limit)}
+              </span>
+            </>
+          ),
+          hint: allowance?.resetsAt
+            ? `resets ${resetLabel(allowance.resetsAt)}`
+            : undefined,
+        };
+
   const cards = [
     {
       // All-time total messages sent (the overview endpoint is capped at 30-90
@@ -94,15 +145,7 @@ export function CampaignsAnalyticsOverview() {
       value: formatPercentage(avgClickRate),
       hint: ratedCount > 0 ? `across ${ratedCount} sent` : undefined,
     },
-    {
-      // The big number is the allowance (limit, or "Unlimited"); usage rides in
-      // the hint. `limit: null` means unlimited - it is not a usage number.
-      label: "Monthly allowance",
-      value: limit === null ? "Unlimited" : formatCount(limit),
-      hint: allowance?.resetsAt
-        ? `${formatCount(used)} used · resets ${resetLabel(allowance.resetsAt)}`
-        : `${formatCount(used)} used`,
-    },
+    allowanceCard,
   ];
 
   return (

@@ -94,15 +94,31 @@ export function CampaignsAnalyticsOverview() {
           allowance?.inAppCapacity
         )} in-app · ${formatCount(used)} sent this month`,
       }
-    : {
-        // The big number is the allowance (limit, or "Unlimited"); usage rides
-        // in the hint. `limit: null` means unlimited - it is not a usage number.
-        label: "Monthly allowance",
-        value: limit === null ? "Unlimited" : formatCount(limit),
-        hint: allowance?.resetsAt
-          ? `${formatCount(used)} used · resets ${resetLabel(allowance.resetsAt)}`
-          : `${formatCount(used)} used`,
-      };
+    : limit === null
+      ? {
+          // A non-PAYG tier with no cap (internal / enterprise). Genuinely
+          // unlimited, so there is no fraction to show — usage rides in the hint.
+          label: "Monthly allowance",
+          value: "Unlimited",
+          hint: `${formatCount(used)} sent this month`,
+        }
+      : {
+          // Headline the fraction "used / limit" (e.g. "312 / 500"), with the
+          // limit as a muted suffix, and the reset date as the only caption.
+          label: "Monthly allowance",
+          value: (
+            <>
+              {formatCount(used)}
+              <span className="text-2xl font-normal text-muted-foreground">
+                {" / "}
+                {formatCount(limit)}
+              </span>
+            </>
+          ),
+          hint: allowance?.resetsAt
+            ? `resets ${resetLabel(allowance.resetsAt)}`
+            : undefined,
+        };
 
   const cards = [
     {

@@ -42,7 +42,11 @@ import {
 import { type ChartSeriesPoint, ChatResultCard } from "./chat-result-card";
 import { SqlBlockchainLoader } from "./sql-blockchain-loader";
 import { SqlResultsTable } from "./sql-results-table";
-import { ThinkingTimeline, ThoughtProcess } from "./thinking-timeline";
+import {
+  type ThinkingKind,
+  ThinkingTimeline,
+  ThoughtProcess,
+} from "./thinking-timeline";
 import {
   dropFormattedSiblingColumns,
   preferFormattedCell,
@@ -290,6 +294,7 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
           detail ??
           "Working through the request and connecting to the on-chain agent.",
         tone: "default" as const,
+        kind: "plan" as const,
       };
     case "planner_ready":
       return {
@@ -298,6 +303,7 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
           detail ??
           "Pressure-testing the best route before running any live calls.",
         tone: "default" as const,
+        kind: "plan" as const,
       };
     case "resource_context":
       return {
@@ -306,6 +312,7 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
           detail ??
           `${pickUnknownArray(first?.resources).length || "Relevant"} resources were loaded.`,
         tone: "default" as const,
+        kind: "context" as const,
       };
     case "tools_discovered":
       return {
@@ -314,6 +321,7 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
           detail ??
           `${pickUnknownArray(first?.tools).length || "Relevant"} tools are in play for this request.`,
         tone: "default" as const,
+        kind: "tools" as const,
       };
     case "step_started":
       return {
@@ -323,12 +331,14 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
           toolName ??
           "Preparing the next reasoning step for the request.",
         tone: "default" as const,
+        kind: "plan" as const,
       };
     case "decision":
       return {
         label: "Decision made",
         detail: detail ?? toolName ?? "The agent selected the next action.",
         tone: "default" as const,
+        kind: "decision" as const,
       };
     case "validation_issue":
       return {
@@ -336,6 +346,7 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
         detail:
           detail ?? "The request arguments needed a small normalization step.",
         tone: "warning" as const,
+        kind: "adjust" as const,
       };
     case "tool_call_started":
       return {
@@ -343,6 +354,7 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
         detail:
           toolName ?? detail ?? "Executing a live tool against the provider.",
         tone: "default" as const,
+        kind: "tool" as const,
       };
     case "tool_call_result":
       return {
@@ -352,24 +364,28 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
           detail ??
           "Received provider output and folded it into the answer.",
         tone: "success" as const,
+        kind: "tool" as const,
       };
     case "clarification":
       return {
         label: "Clarification needed",
         detail: detail ?? "The agent needs one more detail",
         tone: "warning" as const,
+        kind: "clarify" as const,
       };
     case "summarizing":
       return {
         label: "Composing answer",
         detail: detail ?? "Turning the output into a product-ready response.",
         tone: "default" as const,
+        kind: "writing" as const,
       };
     case "final":
       return {
         label: "Answer ready",
         detail: detail ?? "The on-chain agent finished successfully.",
         tone: "success" as const,
+        kind: "done" as const,
       };
     case "error":
       return {
@@ -377,12 +393,14 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
         detail:
           detail ?? "The stream failed and could not finish this request.",
         tone: "error" as const,
+        kind: "error" as const,
       };
     default:
       return {
         label: prettifyColumnLabel(eventType),
         detail: detail ?? toolName ?? "The agent returned another update.",
         tone: "default" as const,
+        kind: "update" as const,
       };
   }
 };
@@ -644,6 +662,7 @@ type StreamActivityEntry = {
   label: string;
   detail?: string;
   tone: "default" | "success" | "warning" | "error";
+  kind?: ThinkingKind;
 };
 
 interface ChatMessage {
@@ -681,6 +700,7 @@ const getFallbackReasoningActivity = (
       label: "Reading your question",
       detail: `Working out what ${questionRef} needs from live onchain data.`,
       tone: "default",
+      kind: "plan",
     },
     {
       id: "coverage",
@@ -688,6 +708,7 @@ const getFallbackReasoningActivity = (
       detail:
         "Pulling the wallets, tokens, and activity your answer depends on across the covered chains.",
       tone: "default",
+      kind: "tool",
     },
     {
       id: "result-path",
@@ -696,6 +717,7 @@ const getFallbackReasoningActivity = (
         ? "The connection recovered - finishing your answer now."
         : "Turning the data into a clear answer.",
       tone: recovering ? "warning" : "success",
+      kind: recovering ? "adjust" : "writing",
     },
   ];
 };
@@ -2749,6 +2771,7 @@ export function QueryTab({
                                             : `Step ${index + 1}`),
                                         detail: step.description,
                                         tone: "success" as const,
+                                        kind: "tool" as const,
                                       })
                                     )}
                                   />
@@ -3385,20 +3408,22 @@ export function QueryTab({
               className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
             >
               <ClockIcon
-                className="h-4 w-4 text-muted-foreground"
+                className="h-4 w-4 shrink-0 text-muted-foreground"
                 aria-hidden="true"
               />
-              <span className="text-sm font-medium text-foreground">
-                History
+              <span className="flex min-w-0 flex-col">
+                <span className="text-sm font-medium text-foreground">
+                  History
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Agent &amp; SQL runs
+                </span>
               </span>
-              <span className="text-xs text-muted-foreground">
-                Agent &amp; SQL runs
-              </span>
-              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground">
                 {items.length}
               </span>
               <ChevronUpIcon
-                className={`ml-auto h-4 w-4 text-muted-foreground transition-transform duration-300 ${
+                className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300 ${
                   historyOpen ? "" : "rotate-180"
                 }`}
                 aria-hidden="true"

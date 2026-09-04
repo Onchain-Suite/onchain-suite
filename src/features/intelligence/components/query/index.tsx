@@ -2,13 +2,11 @@
 
 import {
   ArrowPathIcon,
-  ArrowUturnLeftIcon,
   BoltIcon,
   CheckCircleIcon,
   CheckIcon,
   ChevronUpIcon,
   ClipboardDocumentIcon,
-  ClockIcon,
   CodeBracketIcon,
   EnvelopeOpenIcon,
   LinkIcon,
@@ -40,6 +38,7 @@ import {
   intelligenceService,
 } from "../../intelligence.service";
 import { type ChartSeriesPoint, ChatResultCard } from "./chat-result-card";
+import { HistoryView } from "./history-view";
 import { SqlBlockchainLoader } from "./sql-blockchain-loader";
 import { SqlResultsTable } from "./sql-results-table";
 import {
@@ -2587,352 +2586,378 @@ export function QueryTab({
   return (
     <div className={className ?? "space-y-4"}>
       {activeSurface === "chat" ? (
-        <div
-          className={cn(
-            "relative overflow-hidden rounded-2xl border border-border bg-card",
-            chatFill && "flex min-h-0 flex-1 flex-col"
-          )}
-        >
+        historyOpen ? (
+          <HistoryView
+            items={toQueryHistoryItems(historyQuery.data ?? [])}
+            chatFill={chatFill}
+            onClose={() => setHistoryOpen(false)}
+            onSelect={(it) => {
+              if (it.isAgent) {
+                setChatPrompt(it.q);
+              } else {
+                setSqlQuery(it.q);
+                setQueryId(it.qid);
+                setHasRunQuery(true);
+              }
+              setHistoryOpen(false);
+            }}
+          />
+        ) : (
           <div
             className={cn(
-              "relative grid grid-rows-[1fr_auto]",
-              chatFill ? "min-h-0 flex-1" : "min-h-[520px] md:min-h-[640px]"
+              "relative overflow-hidden rounded-2xl border border-border bg-card",
+              chatFill && "flex min-h-0 flex-1 flex-col"
             )}
           >
-            <div className="min-h-0 overflow-y-auto px-5 py-6">
-              <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
-                {chatMessages.length > 0 ? (
-                  <>
-                    {chatMessages.map((message) =>
-                      message.role === "user" ? (
-                        <div key={message.id} className="flex justify-end">
-                          <div className="max-w-[78%] rounded-[28px_28px_12px_28px] border border-primary/30 bg-primary px-4 py-3 text-sm text-primary-foreground shadow-[0_22px_60px_-28px_rgba(86,112,255,0.7)]">
-                            <div className="leading-6">{message.content}</div>
+            <div
+              className={cn(
+                "relative grid grid-rows-[1fr_auto]",
+                chatFill ? "min-h-0 flex-1" : "min-h-[520px] md:min-h-[640px]"
+              )}
+            >
+              <div className="min-h-0 overflow-y-auto px-5 py-6">
+                <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+                  {chatMessages.length > 0 ? (
+                    <>
+                      {chatMessages.map((message) =>
+                        message.role === "user" ? (
+                          <div key={message.id} className="flex justify-end">
+                            <div className="max-w-[78%] rounded-[28px_28px_12px_28px] border border-primary/30 bg-primary px-4 py-3 text-sm text-primary-foreground shadow-[0_22px_60px_-28px_rgba(86,112,255,0.7)]">
+                              <div className="leading-6">{message.content}</div>
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <div key={message.id} className="flex justify-start">
-                          <div className="flex w-full max-w-[92%]">
-                            <div className="w-full overflow-hidden rounded-[28px_28px_28px_12px] border border-border bg-card shadow-[0_28px_90px_-46px_rgba(45,102,255,0.5)]">
-                              <div className="space-y-5 px-5 py-5">
-                                {message.structuredResult ? (
-                                  <div className="space-y-4">
-                                    <div className="rounded-[24px] border border-primary/15 bg-card p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                                      {(() => {
-                                        const structured =
-                                          message.structuredResult;
-                                        const rowCount =
-                                          meaningfulStructuredRows(
-                                            normalizeStructuredRows(
-                                              structured.rows
-                                            )
-                                          ).length;
-                                        const title =
-                                          structured.title &&
-                                          !structured.title.includes("_")
-                                            ? structured.title
-                                            : prettifyColumnLabel(
-                                                structured.kind
+                        ) : (
+                          <div key={message.id} className="flex justify-start">
+                            <div className="flex w-full max-w-[92%]">
+                              <div className="w-full overflow-hidden rounded-[28px_28px_28px_12px] border border-border bg-card shadow-[0_28px_90px_-46px_rgba(45,102,255,0.5)]">
+                                <div className="space-y-5 px-5 py-5">
+                                  {message.structuredResult ? (
+                                    <div className="space-y-4">
+                                      <div className="rounded-[24px] border border-primary/15 bg-card p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                                        {(() => {
+                                          const structured =
+                                            message.structuredResult;
+                                          const rowCount =
+                                            meaningfulStructuredRows(
+                                              normalizeStructuredRows(
+                                                structured.rows
+                                              )
+                                            ).length;
+                                          const title =
+                                            structured.title &&
+                                            !structured.title.includes("_")
+                                              ? structured.title
+                                              : prettifyColumnLabel(
+                                                  structured.kind
+                                                );
+                                          // Prefer human prose; never render raw
+                                          // tool-envelope dumps as the answer.
+                                          const prose = !isRawToolDump(
+                                            message.content
+                                          )
+                                            ? stripMarkdown(message.content)
+                                            : stripMarkdown(
+                                                structured.summary ?? ""
                                               );
-                                        // Prefer human prose; never render raw
-                                        // tool-envelope dumps as the answer.
-                                        const prose = !isRawToolDump(
-                                          message.content
-                                        )
-                                          ? stripMarkdown(message.content)
-                                          : stripMarkdown(
-                                              structured.summary ?? ""
-                                            );
-                                        return (
-                                          <>
-                                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                              <div className="text-sm font-medium text-foreground">
-                                                {title}
+                                          return (
+                                            <>
+                                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                                <div className="text-sm font-medium text-foreground">
+                                                  {title}
+                                                </div>
+                                                {rowCount > 0 ? (
+                                                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
+                                                    {rowCount.toLocaleString()}{" "}
+                                                    {rowCount === 1
+                                                      ? "result"
+                                                      : "results"}
+                                                  </span>
+                                                ) : null}
                                               </div>
-                                              {rowCount > 0 ? (
-                                                <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
-                                                  {rowCount.toLocaleString()}{" "}
-                                                  {rowCount === 1
-                                                    ? "result"
-                                                    : "results"}
-                                                </span>
+                                              {prose.length > 0 ? (
+                                                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/90">
+                                                  {prose}
+                                                </p>
                                               ) : null}
-                                            </div>
-                                            {prose.length > 0 ? (
-                                              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/90">
-                                                {prose}
-                                              </p>
-                                            ) : null}
-                                          </>
-                                        );
-                                      })()}
-                                    </div>
+                                            </>
+                                          );
+                                        })()}
+                                      </div>
 
-                                    <ChatResultCard
-                                      tableContent={renderStructuredResult(
-                                        message.structuredResult
-                                      )}
-                                      series={deriveChatChartSeries(
-                                        message.structuredResult
+                                      <ChatResultCard
+                                        tableContent={renderStructuredResult(
+                                          message.structuredResult
+                                        )}
+                                        series={deriveChatChartSeries(
+                                          message.structuredResult
+                                        )}
+                                      />
+
+                                      {message.queryReady
+                                        ? renderConversionActions(
+                                            message.queryId
+                                          )
+                                        : null}
+                                    </div>
+                                  ) : message.content.trim().length > 0 ? (
+                                    <div className="whitespace-pre-wrap text-[15px] leading-7 text-foreground/95">
+                                      {stripMarkdown(message.content)}
+                                    </div>
+                                  ) : null}
+
+                                  {message.kind === "error" &&
+                                  message.errorReport ? (
+                                    <div className="rounded-[24px] border border-red-400/20 bg-red-400/5 p-4">
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="text-[11px] uppercase tracking-[0.16em] text-red-200/90">
+                                          Bug report
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const report = message.errorReport;
+                                            if (!report) return;
+                                            navigator.clipboard
+                                              .writeText(
+                                                formatAgentFailureReport(report)
+                                              )
+                                              .catch(() => {
+                                                // Copy failure should not block the visible bug report.
+                                              });
+                                            toast.success("Bug details copied");
+                                          }}
+                                          className="inline-flex items-center gap-1 rounded-full border border-red-400/20 bg-red-400/10 px-2.5 py-1 text-[11px] font-medium text-red-100 transition-colors hover:bg-red-400/15"
+                                        >
+                                          <ClipboardDocumentIcon
+                                            className="h-3.5 w-3.5"
+                                            aria-hidden="true"
+                                          />
+                                          Copy
+                                        </button>
+                                      </div>
+                                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                        <div>
+                                          <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                            Status
+                                          </div>
+                                          <div className="mt-1 text-sm text-red-50">
+                                            {message.errorReport.statusCode ??
+                                              "Unknown"}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                            Time
+                                          </div>
+                                          <div className="mt-1 text-sm text-red-50">
+                                            {message.errorReport.at}
+                                          </div>
+                                        </div>
+                                        {message.errorReport.requestId ? (
+                                          <div>
+                                            <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                              Request ID
+                                            </div>
+                                            <div className="mt-1 break-all font-mono text-xs text-red-50">
+                                              {message.errorReport.requestId}
+                                            </div>
+                                          </div>
+                                        ) : null}
+                                        {message.errorReport.conversationId ? (
+                                          <div>
+                                            <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                              Conversation ID
+                                            </div>
+                                            <div className="mt-1 break-all font-mono text-xs text-red-50">
+                                              {
+                                                message.errorReport
+                                                  .conversationId
+                                              }
+                                            </div>
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                      <div className="mt-3">
+                                        <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                          Failure
+                                        </div>
+                                        <div className="mt-1 text-sm leading-6 text-red-50">
+                                          {message.errorReport.message}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : null}
+
+                                  {Array.isArray(message.toolSteps) &&
+                                  message.toolSteps.length > 0 ? (
+                                    <ThoughtProcess
+                                      steps={message.toolSteps.map(
+                                        (step, index) => ({
+                                          id:
+                                            step.title ??
+                                            step.toolName ??
+                                            step.description ??
+                                            `tool-step-${index}`,
+                                          label:
+                                            step.title ??
+                                            (step.toolName
+                                              ? prettifyColumnLabel(
+                                                  step.toolName
+                                                )
+                                              : `Step ${index + 1}`),
+                                          detail: step.description,
+                                          tone: "success" as const,
+                                          kind: "tool" as const,
+                                        })
                                       )}
                                     />
+                                  ) : null}
 
-                                    {message.queryReady
-                                      ? renderConversionActions(message.queryId)
-                                      : null}
-                                  </div>
-                                ) : message.content.trim().length > 0 ? (
-                                  <div className="whitespace-pre-wrap text-[15px] leading-7 text-foreground/95">
-                                    {stripMarkdown(message.content)}
-                                  </div>
-                                ) : null}
-
-                                {message.kind === "error" &&
-                                message.errorReport ? (
-                                  <div className="rounded-[24px] border border-red-400/20 bg-red-400/5 p-4">
-                                    <div className="flex items-center justify-between gap-3">
-                                      <div className="text-[11px] uppercase tracking-[0.16em] text-red-200/90">
-                                        Bug report
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const report = message.errorReport;
-                                          if (!report) return;
-                                          navigator.clipboard
-                                            .writeText(
-                                              formatAgentFailureReport(report)
-                                            )
-                                            .catch(() => {
-                                              // Copy failure should not block the visible bug report.
-                                            });
-                                          toast.success("Bug details copied");
-                                        }}
-                                        className="inline-flex items-center gap-1 rounded-full border border-red-400/20 bg-red-400/10 px-2.5 py-1 text-[11px] font-medium text-red-100 transition-colors hover:bg-red-400/15"
-                                      >
-                                        <ClipboardDocumentIcon
-                                          className="h-3.5 w-3.5"
-                                          aria-hidden="true"
-                                        />
-                                        Copy
-                                      </button>
+                                  {message.queryReady ? (
+                                    <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
+                                      <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
+                                        Turn into report, campaign, or segment
+                                        below
+                                      </span>
                                     </div>
-                                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                      <div>
-                                        <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                          Status
-                                        </div>
-                                        <div className="mt-1 text-sm text-red-50">
-                                          {message.errorReport.statusCode ??
-                                            "Unknown"}
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                          Time
-                                        </div>
-                                        <div className="mt-1 text-sm text-red-50">
-                                          {message.errorReport.at}
-                                        </div>
-                                      </div>
-                                      {message.errorReport.requestId ? (
-                                        <div>
-                                          <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                            Request ID
-                                          </div>
-                                          <div className="mt-1 break-all font-mono text-xs text-red-50">
-                                            {message.errorReport.requestId}
-                                          </div>
-                                        </div>
-                                      ) : null}
-                                      {message.errorReport.conversationId ? (
-                                        <div>
-                                          <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                            Conversation ID
-                                          </div>
-                                          <div className="mt-1 break-all font-mono text-xs text-red-50">
-                                            {message.errorReport.conversationId}
-                                          </div>
-                                        </div>
-                                      ) : null}
-                                    </div>
-                                    <div className="mt-3">
-                                      <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                        Failure
-                                      </div>
-                                      <div className="mt-1 text-sm leading-6 text-red-50">
-                                        {message.errorReport.message}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : null}
-
-                                {Array.isArray(message.toolSteps) &&
-                                message.toolSteps.length > 0 ? (
-                                  <ThoughtProcess
-                                    steps={message.toolSteps.map(
-                                      (step, index) => ({
-                                        id:
-                                          step.title ??
-                                          step.toolName ??
-                                          step.description ??
-                                          `tool-step-${index}`,
-                                        label:
-                                          step.title ??
-                                          (step.toolName
-                                            ? prettifyColumnLabel(step.toolName)
-                                            : `Step ${index + 1}`),
-                                        detail: step.description,
-                                        tone: "success" as const,
-                                        kind: "tool" as const,
-                                      })
-                                    )}
-                                  />
-                                ) : null}
-
-                                {message.queryReady ? (
-                                  <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
-                                    <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
-                                      Turn into report, campaign, or segment
-                                      below
-                                    </span>
-                                  </div>
-                                ) : null}
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      )
-                    )}
-                    {agentMutation.isPending ? (
-                      <ThinkingTimeline
-                        steps={reasoningTimeline}
-                        recovering={streamFallbackUsed}
-                        answerPreview={streamingAnswer}
-                      />
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center px-4 py-10 text-center">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-primary shadow-[0_20px_50px_-28px_rgba(86,112,255,0.8)]">
-                      <SparklesIcon className="h-6 w-6" aria-hidden="true" />
-                    </div>
-                    <h2 className="mt-5 max-w-md text-xl font-medium tracking-[-0.02em] text-foreground">
-                      Ask anything about onchain activity
-                    </h2>
-                    <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                      Trace token holders, compare wallets, analyze gas - or
-                      cross-chain behaviour with email, push and campaign
-                      engagement, in plain English.
-                    </p>
+                        )
+                      )}
+                      {agentMutation.isPending ? (
+                        <ThinkingTimeline
+                          steps={reasoningTimeline}
+                          recovering={streamFallbackUsed}
+                          answerPreview={streamingAnswer}
+                        />
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center px-4 py-10 text-center">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-primary shadow-[0_20px_50px_-28px_rgba(86,112,255,0.8)]">
+                        <SparklesIcon className="h-6 w-6" aria-hidden="true" />
+                      </div>
+                      <h2 className="mt-5 max-w-md text-xl font-medium tracking-[-0.02em] text-foreground">
+                        Ask anything about onchain activity
+                      </h2>
+                      <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+                        Trace token holders, compare wallets, analyze gas - or
+                        cross-chain behaviour with email, push and campaign
+                        engagement, in plain English.
+                      </p>
 
-                    <div className="mt-6 grid w-full max-w-xl gap-2.5 sm:grid-cols-2">
-                      {[
-                        {
-                          title: "Top holders by token",
-                          kind: "on-chain" as const,
-                          icon: LinkIcon,
-                          prompt:
-                            "Show me the top 10 holders for this token contract.",
-                        },
-                        {
-                          title: "Wallet balances across chains",
-                          kind: "on-chain" as const,
-                          icon: Square3Stack3DIcon,
-                          prompt:
-                            "Compare this wallet's balances across EVM and Solana.",
-                        },
-                        {
-                          title: "Wallets that opened but never clicked",
-                          kind: "off-chain" as const,
-                          icon: EnvelopeOpenIcon,
-                          prompt:
-                            "Which wallets opened our last email but never clicked?",
-                        },
-                        {
-                          title: "Best-converting campaign by segment",
-                          kind: "off-chain" as const,
-                          icon: MegaphoneIcon,
-                          prompt:
-                            "Which campaign converted best, broken down by segment?",
-                        },
-                      ].map((chip) => {
-                        const Icon = chip.icon;
-                        return (
-                          <button
-                            key={chip.title}
-                            type="button"
-                            onClick={() => submitChatPrompt(chip.prompt)}
-                            className="group flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3 text-left text-sm text-foreground transition-colors hover:border-primary/30 hover:bg-primary/[0.06]"
-                          >
-                            <span className="flex min-w-0 items-center gap-2.5">
-                              <Icon
-                                aria-hidden="true"
-                                className="h-4 w-4 shrink-0 text-muted-foreground"
-                              />
-                              <span className="min-w-0">{chip.title}</span>
-                            </span>
-                            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                              {chip.kind}
-                            </span>
-                          </button>
-                        );
-                      })}
+                      <div className="mt-6 grid w-full max-w-xl gap-2.5 sm:grid-cols-2">
+                        {[
+                          {
+                            title: "Top holders by token",
+                            kind: "on-chain" as const,
+                            icon: LinkIcon,
+                            prompt:
+                              "Show me the top 10 holders for this token contract.",
+                          },
+                          {
+                            title: "Wallet balances across chains",
+                            kind: "on-chain" as const,
+                            icon: Square3Stack3DIcon,
+                            prompt:
+                              "Compare this wallet's balances across EVM and Solana.",
+                          },
+                          {
+                            title: "Wallets that opened but never clicked",
+                            kind: "off-chain" as const,
+                            icon: EnvelopeOpenIcon,
+                            prompt:
+                              "Which wallets opened our last email but never clicked?",
+                          },
+                          {
+                            title: "Best-converting campaign by segment",
+                            kind: "off-chain" as const,
+                            icon: MegaphoneIcon,
+                            prompt:
+                              "Which campaign converted best, broken down by segment?",
+                          },
+                        ].map((chip) => {
+                          const Icon = chip.icon;
+                          return (
+                            <button
+                              key={chip.title}
+                              type="button"
+                              onClick={() => submitChatPrompt(chip.prompt)}
+                              className="group flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3 text-left text-sm text-foreground transition-colors hover:border-primary/30 hover:bg-primary/[0.06]"
+                            >
+                              <span className="flex min-w-0 items-center gap-2.5">
+                                <Icon
+                                  aria-hidden="true"
+                                  className="h-4 w-4 shrink-0 text-muted-foreground"
+                                />
+                                <span className="min-w-0">{chip.title}</span>
+                              </span>
+                              <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                {chip.kind}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
-                <div ref={chatThreadEndRef} />
+                  )}
+                  <div ref={chatThreadEndRef} />
+                </div>
               </div>
-            </div>
 
-            <div className="border-t border-border/70 px-5 py-4 backdrop-blur">
-              <div className="mx-auto flex w-full max-w-4xl flex-col gap-3">
-                <div className="flex items-end gap-2 rounded-[24px] border border-border bg-muted/40 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/25">
-                  <textarea
-                    id="agent-chat-input"
-                    aria-label="Ask the on-chain agent"
-                    value={chatPrompt}
-                    onChange={(e) => setChatPrompt(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        if (agentMutation.isPending) return;
-                        submitChatPrompt(chatPrompt);
+              <div className="border-t border-border/70 px-5 py-4 backdrop-blur">
+                <div className="mx-auto flex w-full max-w-4xl flex-col gap-3">
+                  <div className="flex items-end gap-2 rounded-[24px] border border-border bg-muted/40 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/25">
+                    <textarea
+                      id="agent-chat-input"
+                      aria-label="Ask the on-chain agent"
+                      value={chatPrompt}
+                      onChange={(e) => setChatPrompt(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          if (agentMutation.isPending) return;
+                          submitChatPrompt(chatPrompt);
+                        }
+                      }}
+                      rows={1}
+                      className="max-h-44 min-h-[44px] w-full resize-none bg-transparent px-3 py-2.5 text-sm leading-6 text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+                      placeholder="Ask anything about onchain activity…"
+                    />
+                    <Button
+                      type="button"
+                      aria-label={agentMutation.isPending ? "Stop" : "Send"}
+                      title={agentMutation.isPending ? "Stop" : "Send"}
+                      onClick={() =>
+                        agentMutation.isPending
+                          ? stopAgentRun()
+                          : submitChatPrompt(chatPrompt)
                       }
-                    }}
-                    rows={1}
-                    className="max-h-44 min-h-[44px] w-full resize-none bg-transparent px-3 py-2.5 text-sm leading-6 text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
-                    placeholder="Ask anything about onchain activity…"
-                  />
-                  <Button
-                    type="button"
-                    aria-label={agentMutation.isPending ? "Stop" : "Send"}
-                    title={agentMutation.isPending ? "Stop" : "Send"}
-                    onClick={() =>
-                      agentMutation.isPending
-                        ? stopAgentRun()
-                        : submitChatPrompt(chatPrompt)
-                    }
-                    disabled={
-                      !agentMutation.isPending && chatPrompt.trim().length === 0
-                    }
-                    className={
-                      agentMutation.isPending
-                        ? "h-11 w-11 shrink-0 rounded-full bg-white/10 p-0 text-foreground transition-all hover:bg-white/20"
-                        : "h-11 w-11 shrink-0 rounded-full bg-[linear-gradient(135deg,#5c70ff,#4258e0)] p-0 shadow-[0_14px_34px_-16px_rgba(86,112,255,0.9)] transition-all hover:shadow-[0_18px_40px_-14px_rgba(86,112,255,1)]"
-                    }
-                  >
-                    {agentMutation.isPending ? (
-                      <StopIcon className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <ChevronUpIcon className="h-4 w-4" aria-hidden="true" />
-                    )}
-                  </Button>
+                      disabled={
+                        !agentMutation.isPending &&
+                        chatPrompt.trim().length === 0
+                      }
+                      className={
+                        agentMutation.isPending
+                          ? "h-11 w-11 shrink-0 rounded-full bg-white/10 p-0 text-foreground transition-all hover:bg-white/20"
+                          : "h-11 w-11 shrink-0 rounded-full bg-[linear-gradient(135deg,#5c70ff,#4258e0)] p-0 shadow-[0_14px_34px_-16px_rgba(86,112,255,0.9)] transition-all hover:shadow-[0_18px_40px_-14px_rgba(86,112,255,1)]"
+                      }
+                    >
+                      {agentMutation.isPending ? (
+                        <StopIcon className="h-4 w-4" aria-hidden="true" />
+                      ) : (
+                        <ChevronUpIcon className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )
       ) : (
         <>
           <div className="group relative overflow-hidden rounded-2xl border border-primary/20 bg-card shadow-[0_28px_80px_-48px_rgba(66,118,255,0.75)] transition-shadow focus-within:shadow-[0_28px_90px_-40px_rgba(66,118,255,0.9)]">
@@ -3369,103 +3394,6 @@ export function QueryTab({
           />
         )
       ) : null}
-
-      {(() => {
-        const items = toQueryHistoryItems(historyQuery.data ?? []);
-        if (items.length === 0) return null;
-        return (
-          <div className="overflow-hidden rounded-xl border border-border bg-card/40">
-            <button
-              type="button"
-              aria-expanded={historyOpen}
-              onClick={() => setHistoryOpen(!historyOpen)}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
-            >
-              <ClockIcon
-                className="h-4 w-4 shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <span className="flex min-w-0 flex-col">
-                <span className="text-sm font-medium text-foreground">
-                  History
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Agent &amp; SQL runs
-                </span>
-              </span>
-              <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                {items.length}
-              </span>
-              <ChevronUpIcon
-                className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300 ${
-                  historyOpen ? "" : "rotate-180"
-                }`}
-                aria-hidden="true"
-              />
-            </button>
-            <div
-              className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-                historyOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-              }`}
-            >
-              <div className="overflow-hidden">
-                <ul className="max-h-80 space-y-1.5 overflow-y-auto px-3 pb-3">
-                  {items.map((it) => {
-                    const ok = it.status === "completed";
-                    const failed = it.status === "failed";
-                    return (
-                      <li key={it.qid}>
-                        <button
-                          type="button"
-                          className="group flex w-full items-start gap-3 rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-border hover:bg-background"
-                          onClick={() => {
-                            if (it.isAgent) {
-                              // Replay an agent run: reload the prompt into
-                              // the chat composer for the user to resend.
-                              setChatPrompt(it.q);
-                              return;
-                            }
-                            setSqlQuery(it.q);
-                            setQueryId(it.qid);
-                            setHasRunQuery(true);
-                          }}
-                        >
-                          <span
-                            className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
-                              ok
-                                ? "bg-emerald-500"
-                                : failed
-                                  ? "bg-rose-500"
-                                  : "bg-amber-500"
-                            }`}
-                          />
-                          <span className="mt-0.5 shrink-0 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                            {it.isAgent ? "Agent" : "SQL"}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-mono text-xs text-foreground">
-                              {it.q.replace(/\s+/g, " ").trim()}
-                            </span>
-                            {it.createdAt ? (
-                              <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                                {new Date(it.createdAt).toLocaleString()}
-                              </span>
-                            ) : null}
-                          </span>
-                          <ArrowUturnLeftIcon
-                            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
-                            aria-hidden="true"
-                          />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       <Dialog open={nameDialogOpen} onOpenChange={setNameDialogOpen}>
         <DialogContent className="sm:max-w-[420px]">

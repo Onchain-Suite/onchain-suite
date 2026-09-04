@@ -127,6 +127,8 @@ export default function IntelligencePage() {
   const handleTabChange = useCallback(
     (tab: string) => {
       setActiveTab(tab);
+      // History is a chat sub-view; leaving chat returns to the thread.
+      if (tab !== "chat") setHistoryOpen(false);
       const next = new URLSearchParams(searchParamsString);
       next.set("tab", tab);
       router.replace(`/intelligence?${next.toString()}`, { scroll: false });

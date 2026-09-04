@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeftIcon,
   ArrowPathIcon,
   BoltIcon,
   CheckCircleIcon,
@@ -15,6 +16,7 @@ import {
   SparklesIcon,
   Square3Stack3DIcon,
   StopIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -2583,25 +2585,206 @@ export function QueryTab({
   // sensible min-height and flows normally.
   const chatFill = Boolean(className);
 
+  // The SQL run outcome (loader / error / empty / results table). Rendered inside
+  // the History surface for a replayed SQL run, and under the (hidden) SQL editor
+  // surface - never stacked beneath the chat thread.
+  const sqlResultsNode = isSqlRunning ? (
+    <SqlBlockchainLoader query={sqlQuery} />
+  ) : sqlRunError ? (
+    <div
+      role="alert"
+      className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
+    >
+      <div className="text-sm font-medium text-destructive">
+        Query failed to run
+      </div>
+      <p className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground/90">
+        {sqlRunError}
+      </p>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Fix the SQL above and run it again.
+      </p>
+    </div>
+  ) : hasRunQuery ? (
+    status === "failed" ? (
+      <div
+        role="alert"
+        className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
+      >
+        <div className="text-sm font-medium text-destructive">Query failed</div>
+        <p className="mt-2 whitespace-pre-wrap break-words font-mono text-sm text-foreground/90">
+          {statusFailureDetail ??
+            "The query failed to execute, and the backend returned no further detail."}
+        </p>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Fix the SQL above and run it again.
+        </p>
+      </div>
+    ) : sqlPollTimedOut && status !== "completed" ? (
+      <div
+        role="alert"
+        className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
+      >
+        <div className="text-sm font-medium text-destructive">
+          Query timed out
+        </div>
+        <p className="mt-2 text-sm text-foreground/90">
+          The query was still running after{" "}
+          {Math.round(SQL_STATUS_POLL_TIMEOUT_MS / 1000)} seconds, so we stopped
+          waiting.
+          {statusQuery.error instanceof Error
+            ? ` Last status check failed: ${statusQuery.error.message}`
+            : ""}
+        </p>
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              sqlPollStartedAtRef.current = Date.now();
+              setSqlPollTimedOut(false);
+              statusQuery.refetch().catch(() => undefined);
+            }}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/40"
+          >
+            Check again
+          </button>
+          <span className="text-xs text-muted-foreground">
+            or simplify the query and run it again.
+          </span>
+        </div>
+      </div>
+    ) : resultsQuery.isError ? (
+      <div
+        role="alert"
+        className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
+      >
+        <div className="text-sm font-medium text-destructive">
+          Couldn&apos;t load results
+        </div>
+        <p className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground/90">
+          {resultsQuery.error instanceof Error
+            ? resultsQuery.error.message
+            : "Failed to load query results"}
+        </p>
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => {
+              resultsQuery.refetch().catch(() => undefined);
+            }}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/40"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    ) : rows.length === 0 && !resultsQuery.isSuccess ? (
+      // Terminal status reached but the paginated results are still on their
+      // way - keep the loader up rather than flashing an empty table.
+      <SqlBlockchainLoader query={sqlQuery} />
+    ) : rows.length === 0 ? (
+      <div className="rounded-xl border border-border bg-card px-5 py-8 text-center">
+        <div className="text-sm font-medium text-foreground">
+          Query ran successfully - 0 rows returned
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          The SQL executed without errors but matched no rows. Adjust the
+          filters and run it again.
+        </p>
+      </div>
+    ) : (
+      <SqlResultsTable
+        rows={rows}
+        columns={columns}
+        columnLabels={columnLabels}
+        selectedRows={selectedRows}
+        onToggleAll={toggleAllRows}
+        onToggleRow={toggleRowSelection}
+        onClearSelection={clearSelection}
+        totalRows={typeof totalRows === "number" ? totalRows : 0}
+        winbackPotential={summaryQuery.data?.winbackPotential}
+        queryId={queryId}
+        status={status}
+        page={page}
+        pageCount={pageCount}
+        onPrevPage={goPrevPage}
+        onNextPage={goNextPage}
+        onSaveReport={handleSaveReport}
+        onCreateSegment={handleCreateSegment}
+        onCreateCampaign={handleCreateCampaign}
+        savePending={saveReportMutation.isPending}
+        segmentPending={createSegmentMutation.isPending}
+        campaignPending={createCampaignMutation.isPending}
+        onEmail={handleEmailRow}
+      />
+    )
+  ) : null;
+
   return (
     <div className={className ?? "space-y-4"}>
       {activeSurface === "chat" ? (
         historyOpen ? (
-          <HistoryView
-            items={toQueryHistoryItems(historyQuery.data ?? [])}
-            chatFill={chatFill}
-            onClose={() => setHistoryOpen(false)}
-            onSelect={(it) => {
-              if (it.isAgent) {
-                setChatPrompt(it.q);
-              } else {
-                setSqlQuery(it.q);
-                setQueryId(it.qid);
-                setHasRunQuery(true);
-              }
-              setHistoryOpen(false);
-            }}
-          />
+          hasRunQuery ? (
+            <div
+              className={cn(
+                "relative overflow-hidden rounded-2xl border border-border bg-card",
+                chatFill && "flex min-h-0 flex-1 flex-col"
+              )}
+            >
+              <div className="flex items-center gap-3 border-b border-border px-5 py-3">
+                <button
+                  type="button"
+                  onClick={() => setHasRunQuery(false)}
+                  aria-label="Back to history"
+                  title="Back to history"
+                  className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                >
+                  <ArrowLeftIcon aria-hidden="true" className="h-4 w-4" />
+                </button>
+                <span className="text-sm font-medium text-foreground">
+                  Query result
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHasRunQuery(false);
+                    setHistoryOpen(false);
+                  }}
+                  aria-label="Close history"
+                  className="ml-auto rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                >
+                  <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+                </button>
+              </div>
+              <div
+                className={cn(
+                  "p-4",
+                  chatFill && "min-h-0 flex-1 overflow-y-auto"
+                )}
+              >
+                {sqlResultsNode}
+              </div>
+            </div>
+          ) : (
+            <HistoryView
+              items={toQueryHistoryItems(historyQuery.data ?? [])}
+              chatFill={chatFill}
+              onClose={() => setHistoryOpen(false)}
+              onSelect={(it) => {
+                if (it.isAgent) {
+                  // Agent runs are conversational - drop back into the chat
+                  // composer with the prompt reloaded.
+                  setChatPrompt(it.q);
+                  setHistoryOpen(false);
+                } else {
+                  // SQL runs stay in History and open their result here.
+                  setSqlQuery(it.q);
+                  setQueryId(it.qid);
+                  setHasRunQuery(true);
+                }
+              }}
+            />
+          )
         ) : (
           <div
             className={cn(
@@ -3255,145 +3438,10 @@ export function QueryTab({
         </>
       )}
 
-      {isSqlRunning ? <SqlBlockchainLoader query={sqlQuery} /> : null}
-
-      {/*
-        Running SQL must always end in exactly one visible outcome: results,
-        or an explicit human-readable error/empty state in this region.
-      */}
-      {!isSqlRunning && sqlRunError ? (
-        <div
-          role="alert"
-          className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
-        >
-          <div className="text-sm font-medium text-destructive">
-            Query failed to run
-          </div>
-          <p className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground/90">
-            {sqlRunError}
-          </p>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Fix the SQL above and run it again.
-          </p>
-        </div>
-      ) : null}
-
-      {hasRunQuery && !isSqlRunning && !sqlRunError ? (
-        status === "failed" ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
-          >
-            <div className="text-sm font-medium text-destructive">
-              Query failed
-            </div>
-            <p className="mt-2 whitespace-pre-wrap break-words font-mono text-sm text-foreground/90">
-              {statusFailureDetail ??
-                "The query failed to execute, and the backend returned no further detail."}
-            </p>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Fix the SQL above and run it again.
-            </p>
-          </div>
-        ) : sqlPollTimedOut && status !== "completed" ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
-          >
-            <div className="text-sm font-medium text-destructive">
-              Query timed out
-            </div>
-            <p className="mt-2 text-sm text-foreground/90">
-              The query was still running after{" "}
-              {Math.round(SQL_STATUS_POLL_TIMEOUT_MS / 1000)} seconds, so we
-              stopped waiting.
-              {statusQuery.error instanceof Error
-                ? ` Last status check failed: ${statusQuery.error.message}`
-                : ""}
-            </p>
-            <div className="mt-4 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  sqlPollStartedAtRef.current = Date.now();
-                  setSqlPollTimedOut(false);
-                  statusQuery.refetch().catch(() => undefined);
-                }}
-                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/40"
-              >
-                Check again
-              </button>
-              <span className="text-xs text-muted-foreground">
-                or simplify the query and run it again.
-              </span>
-            </div>
-          </div>
-        ) : resultsQuery.isError ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
-          >
-            <div className="text-sm font-medium text-destructive">
-              Couldn&apos;t load results
-            </div>
-            <p className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground/90">
-              {resultsQuery.error instanceof Error
-                ? resultsQuery.error.message
-                : "Failed to load query results"}
-            </p>
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  resultsQuery.refetch().catch(() => undefined);
-                }}
-                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/40"
-              >
-                Try again
-              </button>
-            </div>
-          </div>
-        ) : rows.length === 0 && !resultsQuery.isSuccess ? (
-          // Terminal status reached but the paginated results are still on
-          // their way - keep the loader up rather than flashing an empty table.
-          <SqlBlockchainLoader query={sqlQuery} />
-        ) : rows.length === 0 ? (
-          <div className="rounded-xl border border-border bg-card px-5 py-8 text-center">
-            <div className="text-sm font-medium text-foreground">
-              Query ran successfully - 0 rows returned
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              The SQL executed without errors but matched no rows. Adjust the
-              filters and run it again.
-            </p>
-          </div>
-        ) : (
-          <SqlResultsTable
-            rows={rows}
-            columns={columns}
-            columnLabels={columnLabels}
-            selectedRows={selectedRows}
-            onToggleAll={toggleAllRows}
-            onToggleRow={toggleRowSelection}
-            onClearSelection={clearSelection}
-            totalRows={typeof totalRows === "number" ? totalRows : 0}
-            winbackPotential={summaryQuery.data?.winbackPotential}
-            queryId={queryId}
-            status={status}
-            page={page}
-            pageCount={pageCount}
-            onPrevPage={goPrevPage}
-            onNextPage={goNextPage}
-            onSaveReport={handleSaveReport}
-            onCreateSegment={handleCreateSegment}
-            onCreateCampaign={handleCreateCampaign}
-            savePending={saveReportMutation.isPending}
-            segmentPending={createSegmentMutation.isPending}
-            campaignPending={createCampaignMutation.isPending}
-            onEmail={handleEmailRow}
-          />
-        )
-      ) : null}
+      {/* SQL outcomes render under the (hidden) SQL editor surface only. In chat
+          they belong to the History surface, so they never stack with the chat
+          thread - see the historyOpen branch above. */}
+      {activeSurface === "sql" ? sqlResultsNode : null}
 
       <Dialog open={nameDialogOpen} onOpenChange={setNameDialogOpen}>
         <DialogContent className="sm:max-w-[420px]">

@@ -5,37 +5,16 @@ import {
   ArrowLeftIcon,
   ArrowPathIcon,
   ArrowRightIcon,
-  ArrowsRightLeftIcon,
-  ArrowsUpDownIcon,
-  ArrowTrendingDownIcon,
-  ArrowTrendingUpIcon,
-  BanknotesIcon,
-  BeakerIcon,
   BoltIcon,
   ChartBarIcon,
   CheckCircleIcon,
-  ClipboardDocumentListIcon,
-  ClockIcon,
   Cog6ToothIcon,
   CurrencyDollarIcon,
-  CursorArrowRaysIcon,
-  DevicePhoneMobileIcon,
-  DocumentCheckIcon,
-  EnvelopeIcon,
-  EnvelopeOpenIcon,
-  ExclamationTriangleIcon,
-  GiftIcon,
   GlobeAltIcon,
-  HeartIcon,
   MagnifyingGlassIcon,
-  MegaphoneIcon,
   PencilSquareIcon,
-  QueueListIcon,
-  ScaleIcon,
   ShieldCheckIcon,
-  ShoppingBagIcon,
   SparklesIcon,
-  TagIcon,
   TrashIcon,
   UserGroupIcon,
   ViewfinderCircleIcon,
@@ -95,6 +74,8 @@ import { AutomationBuilderSkeleton } from "./automation-builder-skeleton";
 import { BuilderIssuesPanel } from "./builder-issues-panel";
 import { DefiHealthFactorFields } from "./defi-health-factor-fields";
 import { FlowSettingsPanel } from "./flow-settings-panel";
+import { LibraryIcon, RECIPE_ICONS } from "./node-icons";
+import { NodeLibrarySection } from "./node-library-section";
 import {
   AddToListNode,
   BranchNode,
@@ -380,19 +361,6 @@ function inspectNode(
   );
 }
 
-/** Recipe card icons, keyed by `AutomationRecipe.iconKey` (recipes.ts is JSX-free). */
-const RECIPE_ICONS: Record<
-  string,
-  React.ComponentType<React.SVGProps<SVGSVGElement>>
-> = {
-  sparkles: SparklesIcon,
-  heart: HeartIcon,
-  shield: ShieldCheckIcon,
-  gift: GiftIcon,
-  bag: ShoppingBagIcon,
-  scale: ScaleIcon,
-};
-
 /** HTTP methods for the webhook action's Method field. */
 const WEBHOOK_METHODS: PropertySelectOption[] = [
   { value: "POST", label: "POST" },
@@ -445,174 +413,11 @@ type RecentEntryRow = {
   path: string;
 };
 
-/** Distinct, compact icon per trigger/action type for the node library and
- *  insert menus (the backend catalogs otherwise ship one generic glyph). */
-const LIBRARY_ICONS: Record<string, typeof BoltIcon> = {
-  onchain_event: BoltIcon,
-  on_chain_event: BoltIcon,
-  holder_acquired: SparklesIcon,
-  swap_completed: ArrowsRightLeftIcon,
-  liquidity_added: BeakerIcon,
-  governance_activity: ScaleIcon,
-  liquidation_detected: ExclamationTriangleIcon,
-  borrow_opened: BanknotesIcon,
-  exchange_outflow: ArrowTrendingDownIcon,
-  capital_withdrawn: ArrowTrendingDownIcon,
-  approval_intent: DocumentCheckIcon,
-  staked: BanknotesIcon,
-  unstaked: ArrowTrendingDownIcon,
-  loan_repaid: BanknotesIcon,
-  rewards_claimed: GiftIcon,
-  position_opened: ArrowTrendingUpIcon,
-  position_closed: ArrowTrendingDownIcon,
-  nft_sold: ShoppingBagIcon,
-  nft_listed: TagIcon,
-  bridged: ArrowsRightLeftIcon,
-  large_transfer: BanknotesIcon,
-  supply_change: BeakerIcon,
-  delegated: UserGroupIcon,
-  attestation: ShieldCheckIcon,
-  segment_entered: UserGroupIcon,
-  segment_exited: UserGroupIcon,
-  list_joined: QueueListIcon,
-  form_submitted: ClipboardDocumentListIcon,
-  email_opened: EnvelopeOpenIcon,
-  email_clicked: CursorArrowRaysIcon,
-  tag_added: TagIcon,
-  campaign_completed: MegaphoneIcon,
-  health_threshold: ChartBarIcon,
-  defi_health_factor: HeartIcon,
-  send_email: EnvelopeIcon,
-  email: EnvelopeIcon,
-  send_inapp: DevicePhoneMobileIcon,
-  inapp: DevicePhoneMobileIcon,
-  wait: ClockIcon,
-  branch: ArrowsUpDownIcon,
-  add_tag: TagIcon,
-  add_to_list: QueueListIcon,
-  webhook: GlobeAltIcon,
-  dispatch_campaign: MegaphoneIcon,
-};
-
-function LibraryIcon({
-  type,
-  className = "h-3.5 w-3.5",
-}: {
-  type: string;
-  className?: string;
-}) {
-  const Icon = LIBRARY_ICONS[type] ?? BoltIcon;
-  return <Icon aria-hidden="true" className={className} />;
-}
-
 const EDGE_COLORS = {
   default: "rgba(120,130,160,0.5)",
   success: "#22c55e",
   danger: "#f97316",
 } as const;
-
-type NodeLibraryItem = {
-  type: string;
-  label: string;
-  description?: string;
-  icon: React.ReactNode;
-};
-
-const NODE_ACCENTS = {
-  sky: {
-    tile: "border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400",
-    hover: "hover:border-sky-500/50",
-    dot: "bg-sky-500",
-  },
-  orange: {
-    tile: "border-orange-500/20 bg-orange-500/10 text-orange-600 dark:text-orange-400",
-    hover: "hover:border-orange-500/50",
-    dot: "bg-orange-500",
-  },
-  indigo: {
-    tile: "border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
-    hover: "hover:border-indigo-500/50",
-    dot: "bg-indigo-500",
-  },
-} as const;
-
-/** A draggable, color-accented group of builder nodes in the left library. */
-function NodeLibrarySection({
-  title,
-  accent,
-  nodes,
-}: {
-  title: string;
-  accent: keyof typeof NODE_ACCENTS;
-  nodes: NodeLibraryItem[];
-}) {
-  const a = NODE_ACCENTS[accent];
-  if (nodes.length === 0) return null;
-  return (
-    <div>
-      <h3 className="mb-2.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-        <span
-          className={`h-1.5 w-1.5 rounded-full ${a.dot}`}
-          aria-hidden="true"
-        />
-        {title}
-        <span aria-hidden="true" className="text-muted-foreground/60">
-          ·
-        </span>
-        <span className="tabular-nums text-muted-foreground/80">
-          {nodes.length}
-        </span>
-      </h3>
-      <div className="space-y-2">
-        {nodes.map((node) => (
-          <div
-            key={node.type}
-            draggable
-            tabIndex={0}
-            role="button"
-            aria-label={`Drag ${node.label} onto the canvas`}
-            onDragStart={(e) => {
-              e.dataTransfer.setData("application/reactflow", node.type);
-              e.dataTransfer.setData("application/label", node.label);
-            }}
-            className={`group flex cursor-grab items-center gap-2.5 rounded-lg border border-border/60 bg-background p-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-primary/30 ${a.hover}`}
-          >
-            <div
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${a.tile}`}
-            >
-              {node.icon}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-foreground">
-                {node.label}
-              </p>
-              <p className="line-clamp-2 text-[11px] leading-snug text-muted-foreground">
-                {node.description}
-              </p>
-            </div>
-            <div
-              aria-hidden="true"
-              className="flex flex-col gap-[3px] pr-0.5 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground"
-            >
-              <span className="flex gap-[3px]">
-                <span className="h-1 w-1 rounded-full bg-current" />
-                <span className="h-1 w-1 rounded-full bg-current" />
-              </span>
-              <span className="flex gap-[3px]">
-                <span className="h-1 w-1 rounded-full bg-current" />
-                <span className="h-1 w-1 rounded-full bg-current" />
-              </span>
-              <span className="flex gap-[3px]">
-                <span className="h-1 w-1 rounded-full bg-current" />
-                <span className="h-1 w-1 rounded-full bg-current" />
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 const CreateAutomationContent = () => {
   const params = useParams();

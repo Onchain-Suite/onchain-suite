@@ -15,6 +15,39 @@ import { cn } from "@/lib/utils";
 export type ThinkingTone = "default" | "success" | "warning" | "error";
 
 /**
+ * The kind of reasoning step, surfaced as a small badge so the reader can see
+ * *what type* of work each line is (planning vs. loading context vs. running a
+ * tool vs. writing) without parsing the prose. Derived from the stream event
+ * type in `toStreamActivityEntry`; `KIND_LABEL` maps each to its badge text.
+ */
+export type ThinkingKind =
+  | "plan"
+  | "context"
+  | "tools"
+  | "tool"
+  | "decision"
+  | "adjust"
+  | "clarify"
+  | "writing"
+  | "done"
+  | "error"
+  | "update";
+
+const KIND_LABEL: Record<ThinkingKind, string> = {
+  plan: "Plan",
+  context: "Context",
+  tools: "Tools",
+  tool: "Tool",
+  decision: "Decision",
+  adjust: "Adjust",
+  clarify: "Clarify",
+  writing: "Writing",
+  done: "Done",
+  error: "Error",
+  update: "Update",
+};
+
+/**
  * One entry in the agent's thought process. Mirrors the live `StreamActivityEntry`
  * (tool path selected → tool running → tool returned → composing → answer) as
  * well as the persisted post-run `toolSteps`, so the same timeline renders both
@@ -25,6 +58,8 @@ export type ThinkingStep = {
   label: string;
   detail?: string;
   tone?: ThinkingTone;
+  /** Category of work, rendered as a badge next to the label. */
+  kind?: ThinkingKind;
 };
 
 const usePrefersReducedMotion = () => {
@@ -124,11 +159,16 @@ function TimelineRows({
             <div className="min-w-0 flex-1 pb-1">
               <p
                 className={cn(
-                  "text-xs font-medium leading-5",
+                  "flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium leading-5",
                   spinning ? "text-foreground" : "text-foreground/90"
                 )}
               >
-                {step.label}
+                <span className="min-w-0">{step.label}</span>
+                {step.kind ? (
+                  <span className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {KIND_LABEL[step.kind]}
+                  </span>
+                ) : null}
               </p>
               {step.detail ? (
                 <p className="mt-0.5 text-xs leading-5 text-muted-foreground">

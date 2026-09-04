@@ -71,6 +71,7 @@ import {
   writeFormMeta,
 } from "../forms.service";
 import { useForm, useUpdateForm } from "../hooks/use-forms";
+import { CustomFormApi } from "./custom-form-api";
 import { EmbedSnippet } from "./embed-snippet";
 import { FormPreviewStage } from "./form-preview-stage";
 import { SubmissionsTab } from "./submissions-tab";
@@ -658,6 +659,8 @@ export function FormBuilder({ id }: { id: string }) {
                 publicUrl={publicUrl}
                 embedCode={form.embedCode}
                 submitUrl={form.submitUrl}
+                fields={form.fields}
+                allowedOrigins={form.allowedOrigins}
               />
             </div>
           </div>
@@ -1320,11 +1323,15 @@ function ShareTab({
   publicUrl,
   embedCode,
   submitUrl,
+  fields,
+  allowedOrigins,
 }: {
   surface: FormSurface;
   publicUrl: string;
   embedCode: string;
   submitUrl: string;
+  fields: CaptureFieldSpec[];
+  allowedOrigins: string[];
 }) {
   const [qrOpen, setQrOpen] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
@@ -1347,8 +1354,8 @@ function ShareTab({
     a.click();
     URL.revokeObjectURL(url);
   };
-  if (surface === "hosted") {
-    return (
+  const surfaceBlock =
+    surface === "hosted" ? (
       <div className="mx-auto max-w-xl space-y-4 rounded-2xl border border-border bg-card p-5">
         <div className="flex items-start gap-3">
           <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -1403,29 +1410,37 @@ function ShareTab({
           </DialogContent>
         </Dialog>
       </div>
+    ) : (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Label>Public form link</Label>
+          <div className="flex gap-2">
+            <Input readOnly value={publicUrl} className="font-mono text-sm" />
+            <Button variant="outline" onClick={copy}>
+              Copy
+            </Button>
+            <Button variant="outline" asChild>
+              <a href={publicUrl} target="_blank" rel="noreferrer">
+                <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
+                Open
+              </a>
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Share this link, or embed the snippet below on your site.
+          </p>
+        </div>
+        <EmbedSnippet embedCode={embedCode} submitUrl={submitUrl} />
+      </div>
     );
-  }
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <Label>Public form link</Label>
-        <div className="flex gap-2">
-          <Input readOnly value={publicUrl} className="font-mono text-sm" />
-          <Button variant="outline" onClick={copy}>
-            Copy
-          </Button>
-          <Button variant="outline" asChild>
-            <a href={publicUrl} target="_blank" rel="noreferrer">
-              <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
-              Open
-            </a>
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Share this link, or embed the snippet below on your site.
-        </p>
-      </div>
-      <EmbedSnippet embedCode={embedCode} submitUrl={submitUrl} />
+      {surfaceBlock}
+      <CustomFormApi
+        submitUrl={submitUrl}
+        fields={fields}
+        allowedOrigins={allowedOrigins}
+      />
     </div>
   );
 }

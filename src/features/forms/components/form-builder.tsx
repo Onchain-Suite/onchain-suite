@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/ui/select";
 import { Switch } from "@/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
 import { Textarea } from "@/ui/textarea";
 
 import { cn, isJsonObject } from "@/lib/utils";
@@ -1434,14 +1435,22 @@ function ShareTab({
       </div>
     );
   return (
-    <div className="space-y-6">
-      {surfaceBlock}
-      <CustomFormApi
-        submitUrl={submitUrl}
-        fields={fields}
-        allowedOrigins={allowedOrigins}
-      />
-    </div>
+    <Tabs defaultValue="share" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="share">
+          {surface === "hosted" ? "Hosted page" : "Share & embed"}
+        </TabsTrigger>
+        <TabsTrigger value="api">Post from your own form</TabsTrigger>
+      </TabsList>
+      <TabsContent value="share">{surfaceBlock}</TabsContent>
+      <TabsContent value="api">
+        <CustomFormApi
+          submitUrl={submitUrl}
+          fields={fields}
+          allowedOrigins={allowedOrigins}
+        />
+      </TabsContent>
+    </Tabs>
   );
 }
 

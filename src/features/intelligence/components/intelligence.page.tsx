@@ -219,26 +219,24 @@ export default function IntelligencePage() {
             </TabsTrigger> */}
           </TabsList>
 
-          {/* History lives at the far right of the tab row, only in Agent chat
-              and only when there are past runs; it toggles the panel below. */}
+          {/* History lives at the far right of the tab row, icon-only, shown
+              only in Agent chat and only when there are past runs. It opens the
+              full History view (replacing the chat thread). */}
           {activeTab === "chat" && historyCount > 0 ? (
             <button
               type="button"
               aria-expanded={historyOpen}
-              aria-label="Toggle query history"
+              aria-label="Query history"
+              title="Query history"
               onClick={() => setHistoryOpen((v) => !v)}
               className={cn(
-                "ml-auto mb-1.5 flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-colors",
+                "ml-auto mb-1.5 rounded-lg p-1.5 transition-colors",
                 historyOpen
                   ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <ClockIcon aria-hidden="true" className="h-4 w-4" />
-              History
-              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                {historyCount}
-              </span>
+              <ClockIcon aria-hidden="true" className="h-5 w-5" />
             </button>
           ) : null}
         </div>

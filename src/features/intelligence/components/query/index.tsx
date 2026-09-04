@@ -51,6 +51,7 @@ import {
   dropFormattedSiblingColumns,
   preferFormattedCell,
 } from "@/features/intelligence/utils";
+import { toQueryHistoryItems } from "@/features/intelligence/utils/query-history";
 
 const DEFAULT_SQL_QUERY = "";
 
@@ -980,6 +981,10 @@ interface QueryTabProps {
   activeSurface: "chat" | "sql";
   openEmailComposer: (recipient: unknown) => void;
   setActiveTab: (tab: string) => void;
+  /** Controlled history-panel disclosure, so the tab-bar History icon can drive
+   *  the same panel. Falls back to internal state when omitted. */
+  historyOpen?: boolean;
+  onHistoryOpenChange?: (open: boolean) => void;
   // Seed the editor with a previously saved run (Reports tab "Open" action).
   // Mirrors the history-panel click-through: with a queryId the status poll +
   // results fetch re-open the saved run's data; with a chat prompt the agent
@@ -997,6 +1002,8 @@ export function QueryTab({
   activeSurface,
   openEmailComposer,
   setActiveTab,
+  historyOpen: controlledHistoryOpen,
+  onHistoryOpenChange,
   initialQueryId,
   initialSql,
   initialChatPrompt,
@@ -1032,7 +1039,13 @@ export function QueryTab({
     contactsCreated?: number;
   } | null>(null);
   const [chatPrompt, setChatPrompt] = useState(initialChatPrompt ?? "");
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyOpenLocal, setHistoryOpenLocal] = useState(false);
+  // Controlled when the page drives it from the tab-bar icon, else self-owned.
+  const historyOpen = controlledHistoryOpen ?? historyOpenLocal;
+  const setHistoryOpen = (next: boolean) => {
+    setHistoryOpenLocal(next);
+    onHistoryOpenChange?.(next);
+  };
   const [assistantPrompt, setAssistantPrompt] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const chatThreadEndRef = useRef<HTMLDivElement | null>(null);
@@ -3358,53 +3371,14 @@ export function QueryTab({
       ) : null}
 
       {(() => {
-        const items = (historyQuery.data ?? [])
-          .map((h) => (isJsonObject(h) ? (h as Record<string, unknown>) : {}))
-          .map((item) => {
-            const provider =
-              typeof item.provider === "string"
-                ? item.provider.toLowerCase()
-                : "";
-            return {
-              qid:
-                typeof item.queryId === "string"
-                  ? item.queryId
-                  : typeof item.id === "string"
-                    ? item.id
-                    : "",
-              q:
-                typeof item.query === "string" && item.query.length > 0
-                  ? item.query
-                  : typeof item.name === "string" && item.name.length > 0
-                    ? item.name
-                    : typeof item.summary === "string"
-                      ? item.summary
-                      : "",
-              // Backend `provider` is now "alchemy"/"agent"; older rows still
-              // read "goldrush"/"mcp". Match all so replay routes correctly.
-              isAgent:
-                provider.includes("agent") ||
-                provider.includes("alchemy") ||
-                provider.includes("goldrush") ||
-                provider.includes("mcp"),
-              status: typeof item.status === "string" ? item.status : "",
-              createdAt:
-                typeof item.createdAt === "string"
-                  ? item.createdAt
-                  : typeof item.timestamp === "string"
-                    ? item.timestamp
-                    : "",
-            };
-          })
-          .filter((x) => x.qid && x.q.length > 0)
-          .slice(0, 12);
+        const items = toQueryHistoryItems(historyQuery.data ?? []);
         if (items.length === 0) return null;
         return (
           <div className="overflow-hidden rounded-xl border border-border bg-card/40">
             <button
               type="button"
               aria-expanded={historyOpen}
-              onClick={() => setHistoryOpen((v) => !v)}
+              onClick={() => setHistoryOpen(!historyOpen)}
               className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
             >
               <ClockIcon

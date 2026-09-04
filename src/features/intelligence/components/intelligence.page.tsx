@@ -4,6 +4,7 @@ import {
   ArrowPathIcon,
   ChatBubbleLeftRightIcon,
   CheckIcon,
+  ClockIcon,
   // CodeBracketIcon, // re-add when the hidden SQL tab is restored
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
@@ -17,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 import { intelligenceService } from "../intelligence.service";
+import { toQueryHistoryItems } from "../utils/query-history";
 import { QueryTab } from "./query";
 import { SegmentsView } from "./segments/segments-view";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
@@ -148,6 +150,24 @@ export default function IntelligencePage() {
       ? segmentsMetricsQuery.data.segmentsCount
       : null;
 
+  // History disclosure lives here so the tab-bar icon (right of Chat/Segments)
+  // can drive the panel QueryTab renders. Shares the query key with QueryTab's
+  // own read, so this adds no extra request; the count gates the icon.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const historyQuery = useQuery({
+    queryKey: ["intelligence", "query", "history"],
+    queryFn: async () => {
+      const res = await intelligenceService.getQueryHistory();
+      const items = Array.isArray(res)
+        ? res
+        : ((res as { items?: unknown[] }).items ?? []);
+      return Array.isArray(items) ? items : [];
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const historyCount = toQueryHistoryItems(historyQuery.data ?? []).length;
+
   // Left-aligned underline tabs. The shadcn TabsTrigger primitive bakes in
   // `flex-1` + a boxed active fill/shadow, so we explicitly neutralize those
   // (flex-none, transparent active bg in light AND dark, no shadow) and colour
@@ -173,34 +193,61 @@ export default function IntelligencePage() {
         onValueChange={handleTabChange}
         className="flex min-h-0 flex-1 flex-col gap-6"
       >
-        <TabsList className="h-auto w-full shrink-0 justify-start gap-6 rounded-none border-b border-border bg-transparent p-0">
-          <TabsTrigger value="chat" className={TAB_TRIGGER_CLASS}>
-            <ChatBubbleLeftRightIcon aria-hidden="true" className="h-4 w-4" />
-            Chat
-          </TabsTrigger>
-          <TabsTrigger value="segments" className={TAB_TRIGGER_CLASS}>
-            <UserGroupIcon aria-hidden="true" className="h-4 w-4" />
-            Segments
-            {segmentsCount !== null ? (
-              <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-                {segmentsCount}
+        <div className="flex shrink-0 items-center gap-4 border-b border-border">
+          <TabsList className="h-auto justify-start gap-6 rounded-none border-0 bg-transparent p-0">
+            <TabsTrigger value="chat" className={TAB_TRIGGER_CLASS}>
+              <ChatBubbleLeftRightIcon aria-hidden="true" className="h-4 w-4" />
+              Chat
+            </TabsTrigger>
+            <TabsTrigger value="segments" className={TAB_TRIGGER_CLASS}>
+              <UserGroupIcon aria-hidden="true" className="h-4 w-4" />
+              Segments
+              {segmentsCount !== null ? (
+                <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  {segmentsCount}
+                </span>
+              ) : null}
+            </TabsTrigger>
+            {/* SQL surface is intentionally hidden until we finalize the direction.
+                The tab, routing (?tab=sql) and QueryTab sql surface below stay
+                wired so it can be re-enabled by restoring this trigger. */}
+            {/* <TabsTrigger value="sql" className={TAB_TRIGGER_CLASS}>
+              <CodeBracketIcon aria-hidden="true" className="h-4 w-4" />
+              SQL
+            </TabsTrigger> */}
+          </TabsList>
+
+          {/* History lives at the far right of the tab row, only in Agent chat
+              and only when there are past runs; it toggles the panel below. */}
+          {activeTab === "chat" && historyCount > 0 ? (
+            <button
+              type="button"
+              aria-expanded={historyOpen}
+              aria-label="Toggle query history"
+              onClick={() => setHistoryOpen((v) => !v)}
+              className={cn(
+                "ml-auto mb-1.5 flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-colors",
+                historyOpen
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <ClockIcon aria-hidden="true" className="h-4 w-4" />
+              History
+              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                {historyCount}
               </span>
-            ) : null}
-          </TabsTrigger>
-          {/* SQL surface is intentionally hidden until we finalize the direction.
-              The tab, routing (?tab=sql) and QueryTab sql surface below stay
-              wired so it can be re-enabled by restoring this trigger. */}
-          {/* <TabsTrigger value="sql" className={TAB_TRIGGER_CLASS}>
-            <CodeBracketIcon aria-hidden="true" className="h-4 w-4" />
-            SQL
-          </TabsTrigger> */}
-        </TabsList>
+            </button>
+          ) : null}
+        </div>
 
         {activeTab === "chat" || activeTab === "sql" ? (
           <QueryTab
             activeSurface={activeTab === "chat" ? "chat" : "sql"}
             openEmailComposer={openEmailComposer}
             setActiveTab={handleTabChange}
+            historyOpen={historyOpen}
+            onHistoryOpenChange={setHistoryOpen}
             className={
               activeTab === "chat" ? "flex min-h-0 flex-1 flex-col" : undefined
             }

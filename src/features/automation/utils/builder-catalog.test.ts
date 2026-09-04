@@ -5,9 +5,12 @@ import {
   CURATED_TRIGGER_COPY,
   FIXED_TRIGGERS,
   humanizeNodeType,
+  isSolanaChain,
   nodeIsTrigger,
   NON_ONCHAIN_TRIGGER_TYPES,
   ON_CHAIN_TRIGGER_TYPES,
+  solanaVerdict,
+  type SvmSupport,
 } from "./builder-catalog";
 
 describe("humanizeNodeType", () => {
@@ -97,5 +100,48 @@ describe("trigger classification sets", () => {
     expect(NON_ONCHAIN_TRIGGER_TYPES.has("health_threshold")).toBe(true);
     // The two must never both classify the DeFi trigger.
     expect(NON_ONCHAIN_TRIGGER_TYPES.has("defi_health_factor")).toBe(false);
+  });
+});
+
+describe("solanaVerdict", () => {
+  const jupiter: SvmSupport = {
+    supported: true,
+    programIds: ["JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"],
+    defaultConfig: {
+      contractAddress: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+    },
+    source: "Jupiter Aggregator v6",
+  };
+  const noArm: SvmSupport = { supported: false, reason: "protocol-specific" };
+
+  it("says nothing on an EVM chain", () => {
+    expect(solanaVerdict(noArm, "eth-mainnet")).toBeNull();
+    expect(solanaVerdict(jupiter, "base-mainnet")).toBeNull();
+  });
+
+  it("blocks an unsupported trigger on any Solana cluster", () => {
+    for (const chain of ["solana-mainnet", "solana-devnet", "SOLANA-Devnet"]) {
+      expect(solanaVerdict(noArm, chain)).toEqual(noArm);
+    }
+  });
+
+  it("returns the program id for a supported trigger", () => {
+    expect(solanaVerdict(jupiter, "solana-mainnet")).toEqual(jupiter);
+  });
+
+  it("treats a missing svm block as unknown, not unsupported", () => {
+    // An older backend sends no `svm`. Greying out every trigger against it
+    // would be a worse failure than letting the publish-time check catch one.
+    expect(solanaVerdict(undefined, "solana-mainnet")).toBeNull();
+  });
+});
+
+describe("isSolanaChain", () => {
+  it("matches every cluster and nothing else", () => {
+    expect(isSolanaChain("solana-mainnet")).toBe(true);
+    expect(isSolanaChain("solana-devnet")).toBe(true);
+    expect(isSolanaChain("eth-mainnet")).toBe(false);
+    expect(isSolanaChain("")).toBe(false);
+    expect(isSolanaChain(undefined)).toBe(false);
   });
 });

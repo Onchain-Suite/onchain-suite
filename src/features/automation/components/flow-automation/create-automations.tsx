@@ -141,6 +141,8 @@ import {
   nodeIsTrigger,
   NON_ONCHAIN_TRIGGER_TYPES,
   ON_CHAIN_TRIGGER_TYPES,
+  solanaVerdict,
+  type SvmSupport,
   TRIGGER_NODE_TYPES,
   TRIGGER_TO_GOAL_EVENT,
 } from "@/features/automation/utils/builder-catalog";
@@ -516,6 +518,13 @@ type NodeLibraryItem = {
   label: string;
   description?: string;
   icon: React.ReactNode;
+  /**
+   * Set when the node cannot be used on the chain this flow is already on —
+   * currently only Solana, for a preset with no verified program. Rendering it
+   * greyed with the reason beats letting someone drag it on and discover at
+   * publish that it can never bind.
+   */
+  disabledReason?: string;
 };
 
 const NODE_ACCENTS = {
@@ -567,15 +576,29 @@ function NodeLibrarySection({
         {nodes.map((node) => (
           <div
             key={node.type}
-            draggable
+            draggable={!node.disabledReason}
             tabIndex={0}
             role="button"
-            aria-label={`Drag ${node.label} onto the canvas`}
+            aria-disabled={node.disabledReason ? true : undefined}
+            title={node.disabledReason}
+            aria-label={
+              node.disabledReason
+                ? `${node.label} — ${node.disabledReason}`
+                : `Drag ${node.label} onto the canvas`
+            }
             onDragStart={(e) => {
+              if (node.disabledReason) {
+                e.preventDefault();
+                return;
+              }
               e.dataTransfer.setData("application/reactflow", node.type);
               e.dataTransfer.setData("application/label", node.label);
             }}
-            className={`group flex cursor-grab items-center gap-2.5 rounded-lg border border-border/60 bg-background p-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-primary/30 ${a.hover}`}
+            className={
+              node.disabledReason
+                ? "group flex cursor-not-allowed items-center gap-2.5 rounded-lg border border-border/40 bg-background/40 p-2 opacity-45"
+                : `group flex cursor-grab items-center gap-2.5 rounded-lg border border-border/60 bg-background p-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-primary/30 ${a.hover}`
+            }
           >
             <div
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${a.tile}`}
@@ -838,6 +861,13 @@ const CreateAutomationContent = () => {
                   type: asString(entry.type),
                   label: asString(entry.label),
                   description: asString(entry.description),
+                  // Whether the trigger can run on Solana, and the program id
+                  // to watch if so. Spread rather than set to undefined, so an
+                  // older backend that sends no `svm` produces an entry
+                  // without the key instead of one that claims to know.
+                  ...(isJsonObject(entry.svm)
+                    ? { svm: entry.svm as unknown as SvmSupport }
+                    : {}),
                 }
               : null
           )
@@ -851,6 +881,15 @@ const CreateAutomationContent = () => {
     refetchOnWindowFocus: false,
     staleTime: 30 * 60 * 1000,
   });
+
+  /** Solana support per trigger type, straight from the backend catalog. */
+  const svmByTriggerType = useMemo(() => {
+    const map = new Map<string, SvmSupport>();
+    for (const t of catalogTypesQuery.data?.triggers ?? []) {
+      if (t.svm) map.set(t.type, t.svm);
+    }
+    return map;
+  }, [catalogTypesQuery.data?.triggers]);
 
   const supportedTriggerTypes = useMemo(() => {
     const live = catalogTypesQuery.data?.triggers ?? [];
@@ -914,10 +953,38 @@ const CreateAutomationContent = () => {
     () => triggerCatalog.filter(matchesNodeSearch),
     [triggerCatalog, matchesNodeSearch]
   );
+  /**
+   * The chain this flow is already on, read off its trigger node.
+   *
+   * The palette has no chain of its own — chain is per-node — so the only
+   * honest signal is what the flow already targets. Undefined on an empty
+   * canvas, which correctly disables nothing.
+   */
+  const flowChain = useMemo(() => {
+    const trigger = nodes.find((n) =>
+      nodeIsTrigger(n.type, String((n.data as { type?: string })?.type ?? ""))
+    );
+    const chain = String((trigger?.data as { chain?: string })?.chain ?? "");
+    return chain.length > 0 ? chain : undefined;
+  }, [nodes]);
+
   const filteredOnchainTriggers = useMemo(
     () =>
-      filteredTriggerCatalog.filter((t) => ON_CHAIN_TRIGGER_TYPES.has(t.type)),
-    [filteredTriggerCatalog]
+      filteredTriggerCatalog
+        .filter((t) => ON_CHAIN_TRIGGER_TYPES.has(t.type))
+        .map((t) => {
+          // Grey out a preset that has no verified Solana program once the
+          // flow is on Solana. Dragging it on would look fine and then refuse
+          // to bind at publish, after the whole panel had been filled in.
+          const verdict = solanaVerdict(
+            svmByTriggerType.get(t.type),
+            flowChain
+          );
+          return verdict && !verdict.supported
+            ? { ...t, disabledReason: verdict.reason }
+            : t;
+        }),
+    [filteredTriggerCatalog, svmByTriggerType, flowChain]
   );
   const filteredOffchainTriggers = useMemo(
     () =>
@@ -3520,6 +3587,7 @@ const CreateAutomationContent = () => {
                               hasImpliedEvent={selectedTriggerHasImpliedEvent}
                               contractCatalog={contractCatalog}
                               chainOptions={chainOptions}
+                              svm={svmByTriggerType.get(selectedNodeSchemaType)}
                               eventOptions={eventOptions}
                               eventDefinitionByValue={eventDefinitionByValue}
                             />

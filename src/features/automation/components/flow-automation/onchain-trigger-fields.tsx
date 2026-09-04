@@ -18,6 +18,10 @@ import {
 import type { OnchainCatalogDefinition } from "@/features/automation/automation.service";
 import { automationService } from "@/features/automation/automation.service";
 import { ContractInterfaceDialog } from "@/features/automation/components/contract-interface-dialog";
+import {
+  solanaVerdict,
+  type SvmSupport,
+} from "@/features/automation/utils/builder-catalog";
 import { buildTriggerContractPatch } from "@/features/automation/utils/contracts";
 
 /**
@@ -41,6 +45,7 @@ export function OnchainTriggerFields({
   hasImpliedEvent,
   contractCatalog,
   chainOptions,
+  svm,
   eventOptions,
   eventDefinitionByValue,
 }: {
@@ -54,6 +59,11 @@ export function OnchainTriggerFields({
   hasImpliedEvent: boolean;
   contractCatalog: ContractCatalogEntry[];
   chainOptions: PropertySelectOption[];
+  /**
+   * Whether this trigger can run on Solana, from the backend catalog. Absent
+   * against an older backend, which is treated as "unknown", not "no".
+   */
+  svm?: SvmSupport;
   eventOptions: PropertySelectOption[];
   eventDefinitionByValue: Map<string, OnchainCatalogDefinition>;
 }) {
@@ -99,6 +109,20 @@ export function OnchainTriggerFields({
     asString(nodeData.contractAddress).trim() ||
     asString(nodeData.contract).trim();
   const resolvedChain = asString(nodeData.chain).trim() || "eth-mainnet";
+
+  /**
+   * The Solana verdict for this trigger, or null when the chain is not Solana.
+   *
+   * On EVM a preset watches YOUR contract for a shared event name. Solana has
+   * no shared event vocabulary, so what makes a swap a swap is that it went
+   * through Jupiter's program — the customer has no address to supply, and the
+   * watched address has to be the protocol's program id.
+   */
+  const svmVerdict = solanaVerdict(svm, resolvedChain);
+  const svmBlocked = svmVerdict?.supported === false;
+  const svmProgramId = svmVerdict?.supported
+    ? String(svmVerdict.defaultConfig.contractAddress ?? "")
+    : "";
 
   // Selected contract → its own events. Fetched lazily (only when a contract is
   // picked) and cached; the backend falls back to the well-known catalog, so
@@ -207,9 +231,53 @@ export function OnchainTriggerFields({
         />
       ) : null}
 
+      {/* Solana, and this trigger has no verified program. Say so here rather
+          than letting the user configure a node that cannot bind — the publish
+          would refuse it, but only after they had filled the whole panel in. */}
+      {svmBlocked && (
+        <div
+          role="status"
+          className="space-y-1.5 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3.5"
+        >
+          <div className="text-xs font-medium text-foreground">
+            Not available on Solana
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {(svmVerdict as { reason: string }).reason}
+          </p>
+        </div>
+      )}
+
+      {/* Supported on Solana: the program id IS the address, so show which
+          protocol this will watch instead of asking for a contract the user
+          does not have. */}
+      {svmVerdict?.supported && (
+        <div className="space-y-1.5 rounded-2xl border border-primary/15 bg-primary/5 p-3.5">
+          <div className="text-xs font-medium text-foreground">
+            Watching {svmVerdict.programIds.length > 1 ? "programs" : "program"}
+          </div>
+          <p className="break-all font-mono text-[11px] text-muted-foreground">
+            {svmProgramId}
+          </p>
+          {svmVerdict.partial && (
+            <p className="text-xs text-amber-500">
+              This protocol spans {svmVerdict.programIds.length} programs and a
+              trigger watches one — add a second trigger for{" "}
+              <span className="break-all font-mono">
+                {svmVerdict.programIds[1]}
+              </span>{" "}
+              to see all of it.
+            </p>
+          )}
+          <p className={PROPERTY_HINT_CLASS}>Source: {svmVerdict.source}</p>
+        </div>
+      )}
+
       {/* Contract — only on-chain triggers watch a contract. Off-chain
-          triggers (segment/list/form/email) need nothing here. */}
-      <div className="space-y-2">
+          triggers (segment/list/form/email) need nothing here. On Solana the
+          address is the protocol's program, shown above, so this asks for
+          nothing. */}
+      <div className={svmVerdict ? "hidden" : "space-y-2"}>
         <label className={PROPERTY_LABEL_CLASS}>Token or contract</label>
         <PropertySelect
           placeholder="Select contract"

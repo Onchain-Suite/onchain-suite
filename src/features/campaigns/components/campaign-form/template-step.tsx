@@ -81,17 +81,35 @@ export function TemplateStep({
    * why, so the user isn't dropped somewhere with no way forward.
    */
   const openEditor = useCallback(
-    (params: URLSearchParams) => {
+    async (params: URLSearchParams) => {
       if (!normalizedCampaignId) {
         toast.error(
           "Add a campaign name first - the editor needs a saved campaign to attach the design to."
         );
         return;
       }
+      // Flush the message fields to the draft BEFORE leaving for the editor.
+      // Autosave only runs on a 15s interval, so a subject/preview typed just
+      // before opening the builder would otherwise never persist - and the
+      // return trip reloads the draft, restoring blank fields. Email only; push
+      // carries its own composer and never opens this editor.
+      if (form.getValues("channel") !== "in-app-push") {
+        await campaignsService
+          .updateContent(normalizedCampaignId, {
+            subject: form.getValues("emailSubject") ?? "",
+            previewText: form.getValues("previewText") ?? "",
+            senderName: form.getValues("senderName") ?? "",
+            senderEmail: form.getValues("senderEmail") ?? "",
+            replyToEmail: form.getValues("useReplyTo")
+              ? form.getValues("replyToEmail")
+              : undefined,
+          })
+          .catch(() => undefined);
+      }
       params.set("campaign", normalizedCampaignId);
       router.push(`/campaigns/editor?${params.toString()}`);
     },
-    [normalizedCampaignId, router]
+    [normalizedCampaignId, router, form]
   );
 
   return (

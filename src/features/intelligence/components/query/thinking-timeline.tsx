@@ -12,6 +12,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
+import { ThinkingOrb } from "./thinking-orb";
+
 export type ThinkingTone = "default" | "success" | "warning" | "error";
 
 /**
@@ -49,7 +51,7 @@ const KIND_LABEL: Record<ThinkingKind, string> = {
 
 /**
  * One entry in the agent's thought process. Mirrors the live `StreamActivityEntry`
- * (tool path selected → tool running → tool returned → composing → answer) as
+ * (tool path selected -> tool running -> tool returned -> composing -> answer) as
  * well as the persisted post-run `toolSteps`, so the same timeline renders both
  * the in-flight "Thinking" bubble and a completed message's collapsible trace.
  */
@@ -60,6 +62,8 @@ export type ThinkingStep = {
   tone?: ThinkingTone;
   /** Category of work, rendered as a badge next to the label. */
   kind?: ThinkingKind;
+  /** Data sources this step drew on, rendered as small pills (e.g. On-chain, CRM). */
+  sources?: string[];
 };
 
 const usePrefersReducedMotion = () => {
@@ -75,21 +79,27 @@ const usePrefersReducedMotion = () => {
   return reduced;
 };
 
-function StepIcon({
+/** Small source pill, e.g. "On-chain" / "CRM" / "Memory". */
+function SourceChip({ label }: { label: string }) {
+  return (
+    <span className="rounded-full border border-border/70 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+      {label}
+    </span>
+  );
+}
+
+/** The marker in a step's left rail: an orb for the active step, a status glyph
+ *  for finished ones, a quiet dot otherwise. */
+function StepMarker({
   tone,
-  spinning,
+  active,
+  reduced,
 }: {
   tone: ThinkingTone;
-  spinning: boolean;
+  active: boolean;
+  reduced: boolean;
 }) {
-  if (spinning) {
-    return (
-      <span
-        className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary/30 border-t-primary"
-        aria-hidden="true"
-      />
-    );
-  }
+  if (active) return <ThinkingOrb size={18} active={!reduced} />;
   switch (tone) {
     case "success":
       return (
@@ -112,58 +122,77 @@ function StepIcon({
     default:
       return (
         <span
-          className="h-2 w-2 rounded-full bg-primary/70"
+          className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50"
           aria-hidden="true"
         />
       );
   }
 }
 
-/** Vertical connected timeline of steps. When `active`, the last step spins.
- *  With `animateEntrance`, each row fades/slides in as it mounts, so steps
- *  visibly appear one-by-one as they stream in rather than popping in at once. */
+/**
+ * Vertical connected timeline of steps. When `active`, the last step carries the
+ * live orb and its detail keeps its full presence; earlier, settled steps fade
+ * back so the eye rests on what the agent is doing *now*. With `animateEntrance`
+ * each row and its detail fade in as they stream, so the thought process is
+ * revealed gradually rather than all at once.
+ */
 function TimelineRows({
   steps,
   active = false,
   animateEntrance = false,
+  reduced = false,
 }: {
   steps: ThinkingStep[];
   active?: boolean;
   animateEntrance?: boolean;
+  reduced?: boolean;
 }) {
   return (
-    <ol className="space-y-2.5">
+    <ol className="space-y-3">
       {steps.map((step, i) => {
         const isLast = i === steps.length - 1;
-        const spinning = active && isLast;
+        const live = active && isLast;
+        const settled = active && !isLast;
         return (
           <li
             key={step.id}
             className={cn(
-              "flex gap-2.5",
+              "flex gap-3",
               animateEntrance &&
                 "animate-in fade-in slide-in-from-bottom-1 duration-300"
             )}
           >
-            <div className="flex flex-col items-center">
-              <span className="flex h-5 w-5 items-center justify-center">
-                <StepIcon tone={step.tone ?? "default"} spinning={spinning} />
+            <div className="flex flex-col items-center pt-0.5">
+              <span className="flex h-[18px] w-[18px] items-center justify-center">
+                <StepMarker
+                  tone={step.tone ?? "default"}
+                  active={live}
+                  reduced={reduced}
+                />
               </span>
               {!isLast ? (
                 <span
-                  className="mt-0.5 w-px flex-1 bg-border"
+                  className="mt-1 w-px flex-1 bg-gradient-to-b from-border to-transparent"
                   aria-hidden="true"
                 />
               ) : null}
             </div>
-            <div className="min-w-0 flex-1 pb-1">
-              <p
-                className={cn(
-                  "flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium leading-5",
-                  spinning ? "text-foreground" : "text-foreground/90"
-                )}
-              >
-                <span className="min-w-0">{step.label}</span>
+            <div
+              className={cn(
+                "min-w-0 flex-1 pb-1 transition-opacity duration-500",
+                settled && "opacity-55"
+              )}
+            >
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium leading-6">
+                <span
+                  className={cn(
+                    "min-w-0",
+                    live ? "text-foreground" : "text-foreground/85"
+                  )}
+                >
+                  {step.label}
+                  {live ? <span className="opacity-70">...</span> : null}
+                </span>
                 {step.kind ? (
                   <span className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                     {KIND_LABEL[step.kind]}
@@ -171,9 +200,21 @@ function TimelineRows({
                 ) : null}
               </p>
               {step.detail ? (
-                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                <p
+                  className={cn(
+                    "mt-1 text-[13px] leading-6 text-muted-foreground/80",
+                    animateEntrance && "animate-in fade-in duration-700"
+                  )}
+                >
                   {step.detail}
                 </p>
+              ) : null}
+              {step.sources && step.sources.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {step.sources.map((s) => (
+                    <SourceChip key={s} label={s} />
+                  ))}
+                </div>
               ) : null}
             </div>
           </li>
@@ -184,9 +225,11 @@ function TimelineRows({
 }
 
 /**
- * In-thread "assistant is thinking" bubble showing the live thought process as a
- * status-aware timeline (spinner on the active step, ✓/⚠/✕ on finished ones) plus
- * an elapsed-time counter. Sized like a chat message.
+ * In-thread "assistant is thinking" surface showing the live thought process as
+ * a gradually revealed timeline: an animated orb leads the header, each reasoning
+ * step streams in with its sources, and a trailing "waiting" line stands in until
+ * the agent starts writing. Once answer tokens arrive it flips to a live,
+ * typing-out answer preview.
  */
 export function ThinkingTimeline({
   steps,
@@ -196,10 +239,9 @@ export function ThinkingTimeline({
   steps: ThinkingStep[];
   recovering?: boolean;
   /**
-   * Answer text streamed so far (SSE `answer_token`). When non-empty the bubble
+   * Answer text streamed so far (SSE `answer_token`). When non-empty the surface
    * flips from "Thinking" to "Writing answer" and types the text out with a
-   * caret, so the answer visibly forms - like Claude Code - before the durable
-   * query resolves and commits the final message.
+   * caret, so the answer visibly forms before the durable query resolves.
    */
   answerPreview?: string;
 }) {
@@ -216,6 +258,11 @@ export function ThinkingTimeline({
   }, []);
 
   const writing = (answerPreview?.length ?? 0) > 0;
+  const heading = recovering
+    ? "Recovering route"
+    : writing
+      ? "Writing answer"
+      : "Thinking";
 
   return (
     <motion.div
@@ -231,50 +278,57 @@ export function ThinkingTimeline({
           : "On-chain agent is thinking"
       }
     >
-      <div className="flex w-full max-w-[92%]">
-        <div className="min-w-0 flex-1 rounded-[22px_22px_22px_8px] border border-border bg-card px-4 py-3 shadow-[0_18px_50px_-30px_rgba(45,102,255,0.6)]">
-          <div className="flex items-center gap-2">
+      <div className="min-w-0 flex-1 rounded-2xl border border-border/50 bg-card/60 px-4 py-3.5 backdrop-blur-sm">
+        {/* Header: the live orb leads, like the reference design. */}
+        <div className="flex items-center gap-2.5">
+          <ThinkingOrb size={26} active={!reduced && !writing} />
+          <span className="text-base font-medium text-foreground">
+            {heading}
+            {!writing ? (
+              <span className="text-muted-foreground">...</span>
+            ) : null}
+          </span>
+          <span className="ml-auto font-mono text-[10px] text-muted-foreground/70">
+            {elapsed}s
+          </span>
+        </div>
+
+        {steps.length > 0 ? (
+          <div className="mt-4 max-h-72 overflow-y-auto pr-1">
+            <TimelineRows
+              steps={steps}
+              active={!writing}
+              animateEntrance={!reduced}
+              reduced={reduced}
+            />
+          </div>
+        ) : null}
+
+        {/* Trailing "waiting" line until the first answer token arrives. */}
+        {!writing ? (
+          <div className="mt-3 flex items-center gap-2.5 pl-[3px] text-sm text-muted-foreground">
             <span className="flex gap-1" aria-hidden="true">
               {[0, 1, 2].map((d) => (
                 <span
                   key={d}
-                  className="ocs-anim-think-pulse inline-block h-1.5 w-1.5 rounded-full bg-primary"
+                  className="ocs-anim-think-pulse inline-block h-1 w-1 rounded-full bg-muted-foreground"
                   style={{ animationDelay: `${d * 0.18}s` }}
                 />
               ))}
             </span>
-            <span className="text-sm font-medium text-foreground">
-              {recovering
-                ? "Recovering route"
-                : writing
-                  ? "Writing answer"
-                  : "Thinking"}
-            </span>
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {elapsed}s
-            </span>
+            <span>Waiting the agent to write response</span>
           </div>
+        ) : null}
 
-          {steps.length > 0 ? (
-            <div className="mt-3 max-h-60 overflow-y-auto pr-1">
-              <TimelineRows
-                steps={steps}
-                active={!writing}
-                animateEntrance={!reduced}
-              />
-            </div>
-          ) : null}
-
-          {writing ? (
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/90">
-              {answerPreview}
-              <span
-                className="ml-0.5 inline-block h-4 w-[2px] -translate-y-[1px] animate-pulse bg-primary align-middle"
-                aria-hidden="true"
-              />
-            </p>
-          ) : null}
-        </div>
+        {writing ? (
+          <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-foreground/90">
+            {answerPreview}
+            <span
+              className="ml-0.5 inline-block h-4 w-[2px] -translate-y-[1px] animate-pulse bg-primary align-middle"
+              aria-hidden="true"
+            />
+          </p>
+        ) : null}
       </div>
     </motion.div>
   );

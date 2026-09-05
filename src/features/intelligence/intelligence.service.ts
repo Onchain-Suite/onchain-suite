@@ -113,9 +113,30 @@ export type IntelligenceAgentStructuredResultKind =
   | "log_events_by_topic"
   | "block"
   | "block_heights"
+  // Org data + actions (the agent can act, behind an explicit confirm gate).
+  | "retention_recommendations"
+  | "sql_result"
+  | "proposed_action"
+  | "automation_created"
   | "generic_rows"
   | "generic_object"
   | string;
+
+/**
+ * A confirm-gated action the agent proposed but did NOT run. Arrives as the
+ * single row of a `proposed_action` structuredResult: `{ proposed, tool,
+ * summary, args }`. The UI shows `summary`, and on approve re-issues `tool` with
+ * `{ ...args, confirm: true }` through `runIntelligenceTool`.
+ */
+export interface IntelligenceProposedAction {
+  proposed: true;
+  tool: string;
+  summary: string;
+  args: Record<string, unknown>;
+}
+
+/** Result of `POST /intelligence/tools/run`: an executed tool payload, or a fresh proposal when `confirm` was omitted. */
+export type IntelligenceRunToolResponse = Record<string, unknown>;
 
 export interface IntelligenceAgentStructuredResult {
   toolName?: string;
@@ -894,6 +915,24 @@ export const intelligenceService = {
         // Hard ceiling so the agent can't spin forever with no response.
         timeout: options?.timeoutMs ?? 120_000,
       },
+      orgId
+    );
+  },
+
+  /**
+   * Execute one intelligence tool directly (`POST /intelligence/tools/run`).
+   * This is the deterministic confirm path for a `proposed_action`: pass the
+   * tool and the approved args with `confirm: true`, and the shared, org-scoped
+   * tool runs exactly what the human approved - no second LLM round trip. Read
+   * tools run immediately; action tools without `confirm: true` come back as a
+   * fresh proposal instead of executing.
+   */
+  runIntelligenceTool(
+    body: { tool: string; args?: Record<string, unknown> },
+    orgId?: string
+  ) {
+    return request<IntelligenceRunToolResponse>(
+      { method: "POST", url: "/intelligence/tools/run", data: body },
       orgId
     );
   },

@@ -37,10 +37,12 @@ import {
   type IntelligenceAgentStreamEvent,
   type IntelligenceAgentStructuredResult,
   type IntelligenceAgentStructuredResultKind,
+  type IntelligenceProposedAction,
   intelligenceService,
 } from "../../intelligence.service";
 import { type ChartSeriesPoint, ChatResultCard } from "./chat-result-card";
 import { HistoryView } from "./history-view";
+import { ProposedActionCard } from "./proposed-action-card";
 import { SqlBlockchainLoader } from "./sql-blockchain-loader";
 import { SqlResultsTable } from "./sql-results-table";
 import {
@@ -2002,6 +2004,34 @@ export function QueryTab({
   const renderStructuredResult = (
     structuredResult: IntelligenceAgentStructuredResult
   ) => {
+    // A confirm-gated action the agent proposed but did NOT run. Handled before
+    // the "meaningful rows" guard below: a proposal is a single object row (tool
+    // + summary + args), which that guard would otherwise treat as empty.
+    if (structuredResult.kind === "proposed_action") {
+      const row = isJsonObject(structuredResult.rows?.[0])
+        ? (structuredResult.rows[0] as Record<string, unknown>)
+        : {};
+      const tool =
+        typeof row.tool === "string" && row.tool.length > 0
+          ? row.tool
+          : (structuredResult.toolName ?? "");
+      const summary =
+        typeof row.summary === "string" && row.summary.length > 0
+          ? row.summary
+          : (structuredResult.summary ??
+            "The assistant wants to take an action.");
+      const args = isJsonObject(row.args) ? row.args : {};
+      if (tool) {
+        const action: IntelligenceProposedAction = {
+          proposed: true,
+          tool,
+          summary,
+          args,
+        };
+        return <ProposedActionCard action={action} />;
+      }
+    }
+
     const structuredRows = normalizeStructuredRows(structuredResult.rows);
     const holderColumn = findPreferredColumn(structuredRows, [
       "holder",

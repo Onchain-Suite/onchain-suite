@@ -266,6 +266,25 @@ const sanitizeAgentText = (text: string): string =>
     .replace(/^[\s_-]+/, "")
     .trim();
 
+/**
+ * Maps a tool name to the human-facing data source(s) it draws on, so the
+ * thinking timeline can show a small "On-chain" / "CRM" pill under a step (like
+ * the reference design) without leaking internal tool names. Unknown tools get
+ * no chip rather than a wrong one.
+ */
+const TOOL_SOURCE_RULES: Array<[RegExp, string]> = [
+  [/^(wallet_|contract_|token_|chain_)/, "On-chain"],
+  [/^run_intelligence_sql/, "Product data"],
+  [/^(contact_|campaign_|audience_|create_audience|recommend_)/, "CRM"],
+  [/^(apply_play|create_campaign)/, "Automation"],
+];
+const toolSources = (name?: string): string[] | undefined => {
+  const n = (name ?? "").trim().toLowerCase();
+  if (!n) return undefined;
+  for (const [re, label] of TOOL_SOURCE_RULES) if (re.test(n)) return [label];
+  return undefined;
+};
+
 const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
   const eventType = event.type ?? "update";
   const candidates = collectObjectCandidates(event.data);
@@ -317,6 +336,7 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
           `${pickUnknownArray(first?.resources).length || "Relevant"} resources were loaded.`,
         tone: "default" as const,
         kind: "context" as const,
+        sources: ["Memory"],
       };
     case "tools_discovered":
       return {
@@ -343,6 +363,7 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
         detail: detail ?? toolName ?? "The agent selected the next action.",
         tone: "default" as const,
         kind: "decision" as const,
+        sources: toolSources(toolName),
       };
     case "validation_issue":
       return {
@@ -359,6 +380,7 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
           toolName ?? detail ?? "Executing a live tool against the provider.",
         tone: "default" as const,
         kind: "tool" as const,
+        sources: toolSources(toolName),
       };
     case "tool_call_result":
       return {
@@ -369,6 +391,7 @@ const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
           "Received provider output and folded it into the answer.",
         tone: "success" as const,
         kind: "tool" as const,
+        sources: toolSources(toolName),
       };
     case "clarification":
       return {

@@ -827,6 +827,38 @@ body {
   }
 }
 
+/* Agent "thinking" orb: overlapping translucent spheres drifting over one
+   another so their overlaps brighten toward white (mix-blend: screen). Each
+   sphere follows its own slow, slightly different path so the motion reads as
+   organic rather than a spin. */
+@keyframes ocs-orb-a {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(10%, -9%) scale(1.07);
+  }
+}
+@keyframes ocs-orb-b {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-9%, 8%) scale(0.94);
+  }
+}
+@keyframes ocs-orb-c {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(7%, 10%) scale(1.05);
+  }
+}
+
 /* Progress sheen across a bar */
 @keyframes ocs-sheen {
   0% {
@@ -862,6 +894,15 @@ body {
 .ocs-anim-sheen {
   animation: ocs-sheen 1.6s ease-in-out infinite;
 }
+.ocs-anim-orb-a {
+  animation: ocs-orb-a 4.2s ease-in-out infinite;
+}
+.ocs-anim-orb-b {
+  animation: ocs-orb-b 5.3s ease-in-out infinite;
+}
+.ocs-anim-orb-c {
+  animation: ocs-orb-c 4.7s ease-in-out infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .ocs-anim-matrix-fall,
@@ -871,7 +912,10 @@ body {
   .ocs-anim-chain-flow,
   .ocs-anim-hash-flicker,
   .ocs-anim-float-glow,
-  .ocs-anim-sheen {
+  .ocs-anim-sheen,
+  .ocs-anim-orb-a,
+  .ocs-anim-orb-b,
+  .ocs-anim-orb-c {
     animation: none;
   }
 }

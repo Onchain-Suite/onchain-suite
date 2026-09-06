@@ -3,7 +3,6 @@
 import {
   ArrowLeftIcon,
   ArrowPathIcon,
-  ArrowUpRightIcon,
   BoltIcon,
   CheckCircleIcon,
   CheckIcon,
@@ -122,6 +121,24 @@ const asDisplayText = (value: unknown) => {
   if (typeof value === "string" && ISO_TIMESTAMP_RE.test(value)) {
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleString();
+  }
+  // Objects/arrays would render as "[object Object]" - show something readable.
+  if (typeof value === "object") {
+    if (Array.isArray(value)) {
+      return value.length === 0 ? "-" : `${value.length} items`;
+    }
+    const obj = value as Record<string, unknown>;
+    const key = obj.key ?? obj.name ?? obj.label ?? obj.id;
+    if (typeof key === "string") {
+      return obj.count !== undefined && obj.count !== null
+        ? `${key} (${String(obj.count)})`
+        : key;
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "-";
+    }
   }
   return String(value);
 };
@@ -866,24 +883,86 @@ const answerTargetsAudience = (
  * Otherwise they are analytical follow-ups that deepen the same thread.
  */
 const buildNextSteps = (message: ChatMessage): NextStep[] => {
-  const kind = message.structuredResult?.kind;
+  const structured = message.structuredResult;
+  const kind = structured?.kind;
   // The approve/decline card already IS the next step.
   if (kind === "proposed_action") return [];
-  if (kind === "retention_recommendations") {
+
+  // Track the conversation: when the agent ends by OFFERING an action (a
+  // question mentioning a campaign or a Play), suggest taking it rather than
+  // repeating the last question. This is what makes the ghost text feel live.
+  const content = (message.content ?? "").toLowerCase();
+  const asksQuestion = content.includes("?");
+  if (asksQuestion && content.includes("campaign")) {
     return [
       {
-        label: "Apply the top play",
+        label: "Yes, propose that campaign",
         prompt:
-          "Apply the top recommended retention play as a draft automation.",
+          "Yes - save the cohort as a segment and propose that campaign for my approval.",
       },
       {
-        label: "Campaign for the top cohort",
+        label: "Draft an in-app message instead",
         prompt:
-          "Create a campaign for the highest-value cohort in those recommendations and propose it.",
+          "Instead, draft an in-app message for that cohort and propose it.",
       },
     ];
   }
-  if (answerTargetsAudience(message.structuredResult)) {
+  if (
+    asksQuestion &&
+    (content.includes("automation") || content.includes(" play"))
+  ) {
+    return [
+      {
+        label: "Yes, fork that Play",
+        prompt:
+          "Yes - fork a suitable automation Play into a draft for that cohort.",
+      },
+      {
+        label: "Run it as a campaign instead",
+        prompt:
+          "Instead, propose an email campaign for that cohort for my approval.",
+      },
+    ];
+  }
+
+  if (kind === "retention_recommendations") {
+    // Only offer "apply the top play" when the top recommendation actually
+    // carries a Play id; otherwise it maps to a campaign, and suggesting a Play
+    // leads to the "no Play id was returned" dead-end.
+    const top =
+      structured && Array.isArray(structured.rows)
+        ? (structured.rows[0] as Record<string, unknown> | undefined)
+        : undefined;
+    const hasPlay =
+      typeof top?.recommendedPlayId === "string" &&
+      top.recommendedPlayId.length > 0;
+    return hasPlay
+      ? [
+          {
+            label: "Apply the top play",
+            prompt:
+              "Apply the top recommended retention play as a draft automation.",
+          },
+          {
+            label: "Or propose the campaign",
+            prompt:
+              "Propose the top recommended retention campaign for my approval.",
+          },
+        ]
+      : [
+          {
+            label: "Propose the top campaign",
+            prompt:
+              "Save the top cohort as a segment and propose its recommended campaign for my approval.",
+          },
+          {
+            label: "Draft an in-app message",
+            prompt:
+              "Draft an in-app message for the top cohort and propose it.",
+          },
+        ];
+  }
+  if (answerTargetsAudience(structured)) {
     return [
       {
         label: "Draft a follow-up email",
@@ -2156,11 +2235,9 @@ export function QueryTab({
     }
     return undefined;
   }, [chatMessages]);
-  const lastAssistantMessageId = lastAssistantMessage?.id;
 
-  // A single suggested follow-up for the latest answer. Surfaced two ways, like
-  // Claude Code: a subtle line under the answer, and grey ghost text in the input
-  // that Tab fills in. Null while a run is in flight or on an error turn.
+  // A single suggested follow-up for the latest answer, shown as grey ghost text
+  // in the input that Tab fills in. Null while a run is in flight or on an error.
   const suggestedNext = useMemo<NextStep | null>(() => {
     if (!lastAssistantMessage || agentMutation.isPending) return null;
     if (lastAssistantMessage.kind === "error") return null;
@@ -3050,9 +3127,14 @@ export function QueryTab({
                                     {(() => {
                                       const structured =
                                         message.structuredResult;
-                                      const rowCount = meaningfulStructuredRows(
-                                        normalizeStructuredRows(structured.rows)
-                                      ).length;
+                                      // Generic/SQL kinds have no meaningful title
+                                      // ("Generic Rows"); let the prose speak. Named
+                                      // renderers keep their title.
+                                      const genericKind = [
+                                        "generic_rows",
+                                        "generic_object",
+                                        "sql_result",
+                                      ].includes(structured.kind);
                                       const title =
                                         structured.title &&
                                         !structured.title.includes("_")
@@ -3071,19 +3153,11 @@ export function QueryTab({
                                           );
                                       return (
                                         <>
-                                          <div className="flex flex-wrap items-center justify-between gap-3">
+                                          {!genericKind ? (
                                             <div className="text-sm font-medium text-foreground">
                                               {title}
                                             </div>
-                                            {rowCount > 0 ? (
-                                              <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
-                                                {rowCount.toLocaleString()}{" "}
-                                                {rowCount === 1
-                                                  ? "result"
-                                                  : "results"}
-                                              </span>
-                                            ) : null}
-                                          </div>
+                                          ) : null}
                                           {prose.length > 0 ? (
                                             <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/90">
                                               {prose}
@@ -3191,28 +3265,6 @@ export function QueryTab({
                                     </div>
                                   </div>
                                 </div>
-                              ) : null}
-
-                              {message.id === lastAssistantMessageId &&
-                              suggestedNext ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setChatPrompt(suggestedNext.prompt)
-                                  }
-                                  className="group flex items-center gap-2 text-left text-[13px] text-muted-foreground/80 transition-colors hover:text-foreground"
-                                >
-                                  <ArrowUpRightIcon
-                                    className="h-3.5 w-3.5 shrink-0"
-                                    aria-hidden="true"
-                                  />
-                                  <span>
-                                    Suggested next: {suggestedNext.label}
-                                  </span>
-                                  <kbd className="rounded border border-border/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground group-hover:border-primary/40">
-                                    Tab
-                                  </kbd>
-                                </button>
                               ) : null}
 
                               {Array.isArray(message.toolSteps) &&
@@ -3365,14 +3417,6 @@ export function QueryTab({
                           : "Ask anything about onchain activity…"
                       }
                     />
-                    {chatPrompt.length === 0 && suggestedNext ? (
-                      <kbd
-                        className="mb-1.5 hidden shrink-0 self-center rounded border border-border/70 px-1.5 py-1 text-[10px] font-medium text-muted-foreground sm:inline-block"
-                        aria-hidden="true"
-                      >
-                        Tab
-                      </kbd>
-                    ) : null}
                     <Button
                       type="button"
                       aria-label={agentMutation.isPending ? "Stop" : "Send"}

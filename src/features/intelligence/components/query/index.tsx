@@ -155,6 +155,68 @@ const isEmptyCell = (value: unknown): boolean => {
 const prettifyColumnLabel = (value: string) =>
   value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 
+const NUMBERED_LINE_RE = /^\s*(\d+)\.\s+(.*)$/;
+const BULLET_LINE_RE = /^\s*[•·\-*]\s+(.*)$/;
+
+/**
+ * Renders an answer's plain prose with light structure: a ranked "1. 2. 3."
+ * list gets a highlighted number chip per item, bullets get a dot, blank lines
+ * become spacing, and everything else is a paragraph. Keeps answers scannable
+ * without a full markdown renderer.
+ */
+function AnswerProse({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
+  const lines = text.split("\n");
+  return (
+    <div
+      className={cn(
+        "space-y-2 text-sm leading-6 text-foreground/90",
+        className
+      )}
+    >
+      {lines.map((line, index) => {
+        const key = `ln-${index}`;
+        if (line.trim().length === 0) {
+          return <div key={key} className="h-1" aria-hidden="true" />;
+        }
+        const numbered = NUMBERED_LINE_RE.exec(line);
+        if (numbered) {
+          return (
+            <div key={key} className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-md bg-primary/15 px-1.5 text-xs font-semibold tabular-nums text-primary">
+                {numbered[1]}
+              </span>
+              <span className="min-w-0 flex-1">{numbered[2]}</span>
+            </div>
+          );
+        }
+        const bullet = BULLET_LINE_RE.exec(line);
+        if (bullet) {
+          return (
+            <div key={key} className="flex items-start gap-2.5 pl-1">
+              <span
+                className="mt-[0.55rem] h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60"
+                aria-hidden="true"
+              />
+              <span className="min-w-0 flex-1">{bullet[1]}</span>
+            </div>
+          );
+        }
+        return (
+          <p key={key} className="whitespace-pre-wrap">
+            {line}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 const columnsFromRows = (rows: Array<Record<string, unknown>>) => {
   const keys = new Set<string>();
   for (const r of rows) {
@@ -3172,9 +3234,10 @@ export function QueryTab({
                                             </div>
                                           ) : null}
                                           {prose.length > 0 ? (
-                                            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/90">
-                                              {prose}
-                                            </p>
+                                            <AnswerProse
+                                              text={prose}
+                                              className="mt-3"
+                                            />
                                           ) : null}
                                         </>
                                       );
@@ -3195,9 +3258,10 @@ export function QueryTab({
                                     : null}
                                 </div>
                               ) : message.content.trim().length > 0 ? (
-                                <div className="whitespace-pre-wrap text-[15px] leading-7 text-foreground/95">
-                                  {stripMarkdown(message.content)}
-                                </div>
+                                <AnswerProse
+                                  text={stripMarkdown(message.content)}
+                                  className="text-[15px] leading-7 text-foreground/95"
+                                />
                               ) : null}
 
                               {message.kind === "error" &&

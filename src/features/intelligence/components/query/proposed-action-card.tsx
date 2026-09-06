@@ -32,6 +32,7 @@ type Phase = "idle" | "running" | "done" | "error";
 const TOOL_LABELS: Record<string, string> = {
   apply_play: "Create automation from Play",
   create_campaign_from_segment: "Create campaign for segment",
+  create_inapp_message: "Draft in-app message",
 };
 
 const toolLabel = (tool: string): string =>

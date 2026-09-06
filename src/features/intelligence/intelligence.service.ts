@@ -73,7 +73,7 @@ export interface IntelligenceAgentQueryBody {
   contracts?: Array<{ chain?: string; address: string; label?: string }>;
   walletAddress?: string;
   walletAddresses?: string[];
-  mode?: "fast" | "best";
+  mode?: "fast" | "best" | "auto";
   maxSteps?: number;
   useProjectSettings?: boolean;
   useProtocolRegistry?: boolean;

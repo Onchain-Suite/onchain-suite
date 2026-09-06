@@ -45,11 +45,7 @@ import { HistoryView } from "./history-view";
 import { ProposedActionCard } from "./proposed-action-card";
 import { SqlBlockchainLoader } from "./sql-blockchain-loader";
 import { SqlResultsTable } from "./sql-results-table";
-import {
-  type ThinkingKind,
-  ThinkingTimeline,
-  ThoughtProcess,
-} from "./thinking-timeline";
+import { type ThinkingKind, ThinkingTimeline } from "./thinking-timeline";
 import {
   dropFormattedSiblingColumns,
   preferFormattedCell,
@@ -907,6 +903,20 @@ const buildNextSteps = (message: ChatMessage): NextStep[] => {
   // repeating the last question. This is what makes the ghost text feel live.
   const content = (message.content ?? "").toLowerCase();
   const asksQuestion = content.includes("?");
+  if (asksQuestion && content.includes("in-app")) {
+    return [
+      {
+        label: "Yes, draft the in-app message",
+        prompt:
+          "Yes - draft that in-app message for the cohort and propose it.",
+      },
+      {
+        label: "Do an email instead",
+        prompt:
+          "Instead, draft an email campaign for that cohort and propose it.",
+      },
+    ];
+  }
   if (asksQuestion && content.includes("campaign")) {
     return [
       {
@@ -918,6 +928,23 @@ const buildNextSteps = (message: ChatMessage): NextStep[] => {
         label: "Draft an in-app message instead",
         prompt:
           "Instead, draft an in-app message for that cohort and propose it.",
+      },
+    ];
+  }
+  if (
+    asksQuestion &&
+    (content.includes("segment") ||
+      content.includes("audience") ||
+      content.includes("build the"))
+  ) {
+    return [
+      {
+        label: "Yes, build the segment",
+        prompt: "Yes - save that cohort as an audience segment.",
+      },
+      {
+        label: "Then propose a campaign",
+        prompt: "Then propose a campaign to that segment for my approval.",
       },
     ];
   }
@@ -935,6 +962,16 @@ const buildNextSteps = (message: ChatMessage): NextStep[] => {
         label: "Run it as a campaign instead",
         prompt:
           "Instead, propose an email campaign for that cohort for my approval.",
+      },
+    ];
+  }
+  // Any other closing question: a plain affirmative always follows the thread.
+  if (asksQuestion) {
+    return [
+      { label: "Yes, go ahead", prompt: "Yes, go ahead with that." },
+      {
+        label: "What else stands out?",
+        prompt: "Not right now - what else stands out in this data?",
       },
     ];
   }
@@ -3120,78 +3157,88 @@ export function QueryTab({
                           <div key={message.id} className="w-full">
                             <div className="space-y-5">
                               {message.structuredResult ? (
-                                <div className="space-y-4">
-                                  <div className="space-y-1">
-                                    {(() => {
-                                      const structured =
-                                        message.structuredResult;
-                                      // Generic/SQL kinds have no meaningful title
-                                      // ("Generic Rows"); let the prose speak. Named
-                                      // renderers keep their title.
-                                      const genericKind = [
-                                        "generic_rows",
-                                        "generic_object",
-                                        "sql_result",
-                                      ].includes(structured.kind);
-                                      const title =
-                                        structured.title &&
-                                        !structured.title.includes("_")
-                                          ? structured.title
-                                          : prettifyColumnLabel(
-                                              structured.kind
-                                            );
-                                      // Prefer human prose; never render raw
-                                      // tool-envelope dumps as the answer.
-                                      const prose = !isRawToolDump(
-                                        message.content
-                                      )
-                                        ? message.content
-                                        : (structured.summary ?? "");
-                                      return (
-                                        <>
-                                          {!genericKind ? (
-                                            <div className="text-sm font-medium text-foreground">
-                                              {title}
-                                            </div>
-                                          ) : null}
-                                          {prose.trim().length > 0 ? (
-                                            <MarkdownLite
-                                              text={prose}
-                                              className="mt-3 text-sm text-foreground/90"
-                                            />
-                                          ) : null}
-                                        </>
-                                      );
-                                    })()}
-                                  </div>
-
-                                  {/* Not everything is a table: a single metadata
-                                      object (e.g. a "no matches" result) reads as
-                                      noise as a one-row table of internal fields.
-                                      Let the conversational answer carry it; the
-                                      table is for real, multi-row tabular data. */}
-                                  {message.structuredResult.kind !==
-                                  "generic_object" ? (
-                                    <ChatResultCard
-                                      tableContent={renderStructuredResult(
-                                        message.structuredResult
-                                      )}
-                                      series={deriveChatChartSeries(
-                                        message.structuredResult
-                                      )}
-                                    />
-                                  ) : null}
-
-                                  {message.queryReady
-                                    ? renderConversionActions(message.queryId)
-                                    : null}
-                                </div>
+                                (() => {
+                                  const structured = message.structuredResult;
+                                  // Generic/SQL kinds have no meaningful title
+                                  // ("Generic Rows"); let the prose speak. Named
+                                  // renderers keep their title.
+                                  const genericKind = [
+                                    "generic_rows",
+                                    "generic_object",
+                                    "sql_result",
+                                  ].includes(structured.kind);
+                                  const title =
+                                    structured.title &&
+                                    !structured.title.includes("_")
+                                      ? structured.title
+                                      : prettifyColumnLabel(structured.kind);
+                                  // The real answer is the prose. Never fall back
+                                  // to the envelope summary ("Single result
+                                  // object" / "N rows") - it is not an answer.
+                                  const prose = isRawToolDump(message.content)
+                                    ? ""
+                                    : message.content.trim();
+                                  const rows = meaningfulStructuredRows(
+                                    normalizeStructuredRows(structured.rows)
+                                  );
+                                  // A single metadata object reads as noise in a
+                                  // one-row table; suppress it ONLY when the prose
+                                  // carries the answer, so a message is never blank.
+                                  const showTable =
+                                    rows.length > 0 &&
+                                    (structured.kind !== "generic_object" ||
+                                      prose.length === 0);
+                                  const showFallback =
+                                    prose.length === 0 && !showTable;
+                                  return (
+                                    <div className="space-y-4">
+                                      {!genericKind ? (
+                                        <div className="text-sm font-medium text-foreground">
+                                          {title}
+                                        </div>
+                                      ) : null}
+                                      {prose.length > 0 ? (
+                                        <MarkdownLite
+                                          text={prose}
+                                          className="text-sm text-foreground/90"
+                                        />
+                                      ) : null}
+                                      {showTable ? (
+                                        <ChatResultCard
+                                          tableContent={renderStructuredResult(
+                                            structured
+                                          )}
+                                          series={deriveChatChartSeries(
+                                            structured
+                                          )}
+                                        />
+                                      ) : null}
+                                      {showFallback ? (
+                                        <p className="text-sm text-muted-foreground">
+                                          I ran that but there was nothing to
+                                          show. Try rephrasing or adding a bit
+                                          more detail.
+                                        </p>
+                                      ) : null}
+                                      {message.queryReady
+                                        ? renderConversionActions(
+                                            message.queryId
+                                          )
+                                        : null}
+                                    </div>
+                                  );
+                                })()
                               ) : message.content.trim().length > 0 ? (
                                 <MarkdownLite
                                   text={message.content}
                                   className="text-[15px] leading-7 text-foreground/95"
                                 />
-                              ) : null}
+                              ) : message.kind === "error" ? null : (
+                                <p className="text-sm text-muted-foreground">
+                                  I didn&apos;t get a response for that. Please
+                                  try again.
+                                </p>
+                              )}
 
                               {message.kind === "error" &&
                               message.errorReport ? (
@@ -3271,29 +3318,6 @@ export function QueryTab({
                                     </div>
                                   </div>
                                 </div>
-                              ) : null}
-
-                              {Array.isArray(message.toolSteps) &&
-                              message.toolSteps.length > 0 ? (
-                                <ThoughtProcess
-                                  steps={message.toolSteps.map(
-                                    (step, index) => ({
-                                      id:
-                                        step.title ??
-                                        step.toolName ??
-                                        step.description ??
-                                        `tool-step-${index}`,
-                                      label:
-                                        step.title ??
-                                        (step.toolName
-                                          ? prettifyColumnLabel(step.toolName)
-                                          : `Step ${index + 1}`),
-                                      detail: step.description,
-                                      tone: "success" as const,
-                                      kind: "tool" as const,
-                                    })
-                                  )}
-                                />
                               ) : null}
 
                               {message.queryReady ? (

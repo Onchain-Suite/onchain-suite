@@ -239,7 +239,7 @@ export function CommandBar() {
                   </Button>
                 </div>
               ) : ai.answer.length > 0 ? (
-                <MarkdownLite text={ai.answer} />
+                <MarkdownLite text={ai.answer} citations={ai.citations} />
               ) : (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <span className="flex gap-1" aria-hidden="true">

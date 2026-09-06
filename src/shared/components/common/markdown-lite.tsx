@@ -16,8 +16,13 @@ const BULLET_LINE_RE = /^\s*[•·\-*]\s+(.*)$/;
 // Split a line into runs of **bold**, `code`, [1] citations, and plain text.
 const INLINE_RE = /(\*\*[^*]+\*\*|`[^`]+`|\[\d+\])/g;
 
+export type MarkdownCitation = { url: string; title?: string };
+
 /** Render inline emphasis / code / citation markers within a single line. */
-function renderInline(text: string): ReactNode[] {
+function renderInline(
+  text: string,
+  citations?: MarkdownCitation[]
+): ReactNode[] {
   return text
     .split(INLINE_RE)
     .filter((part) => part.length > 0)
@@ -41,13 +46,22 @@ function renderInline(text: string): ReactNode[] {
         );
       }
       if (/^\[\d+\]$/.test(part)) {
+        const n = Number(part.slice(1, -1));
+        const citation = citations?.[n - 1];
+        // A citation marker is only useful as a link to its source. Without a
+        // matching source it is just a stray "1", so drop it.
+        if (!citation) return null;
         return (
-          <sup
+          <a
             key={key}
-            className="ml-0.5 rounded bg-primary/15 px-1 text-[10px] font-medium text-primary"
+            href={citation.url}
+            target="_blank"
+            rel="noreferrer noopener"
+            title={citation.title ?? citation.url}
+            className="ml-0.5 rounded bg-primary/15 px-1 align-super text-[10px] font-medium text-primary underline-offset-2 hover:underline"
           >
-            {part.slice(1, -1)}
-          </sup>
+            {n}
+          </a>
         );
       }
       return <span key={key}>{part}</span>;
@@ -57,9 +71,11 @@ function renderInline(text: string): ReactNode[] {
 export function MarkdownLite({
   text,
   className,
+  citations,
 }: {
   text: string;
   className?: string;
+  citations?: MarkdownCitation[];
 }) {
   const lines = text.split("\n");
   return (
@@ -73,7 +89,7 @@ export function MarkdownLite({
         if (header) {
           return (
             <p key={key} className="pt-1 font-semibold text-foreground">
-              {renderInline(header[1])}
+              {renderInline(header[1], citations)}
             </p>
           );
         }
@@ -85,7 +101,7 @@ export function MarkdownLite({
                 {numbered[1]}
               </span>
               <span className="min-w-0 flex-1">
-                {renderInline(numbered[2])}
+                {renderInline(numbered[2], citations)}
               </span>
             </div>
           );
@@ -98,13 +114,15 @@ export function MarkdownLite({
                 className="mt-[0.55rem] h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60"
                 aria-hidden="true"
               />
-              <span className="min-w-0 flex-1">{renderInline(bullet[1])}</span>
+              <span className="min-w-0 flex-1">
+                {renderInline(bullet[1], citations)}
+              </span>
             </div>
           );
         }
         return (
           <p key={key} className="whitespace-pre-wrap">
-            {renderInline(line)}
+            {renderInline(line, citations)}
           </p>
         );
       })}

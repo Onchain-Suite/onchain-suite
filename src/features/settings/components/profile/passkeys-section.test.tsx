@@ -97,7 +97,7 @@ describe("PasskeysSection", () => {
   });
 
   it("renders registered passkeys with name and created date", async () => {
-    routes["/passkey/list-user-passkeys"] = () => ({
+    routes["/passkey/status"] = () => ({
       body: [samplePasskey],
     });
 
@@ -108,7 +108,7 @@ describe("PasskeysSection", () => {
   });
 
   it("shows the inviting empty-state CTA when the list is empty", async () => {
-    routes["/passkey/list-user-passkeys"] = () => ({ body: [] });
+    routes["/passkey/status"] = () => ({ body: [] });
 
     renderSection();
 
@@ -126,7 +126,7 @@ describe("PasskeysSection", () => {
   });
 
   it("treats a 404 from the list endpoint as empty, not an error", async () => {
-    routes["/passkey/list-user-passkeys"] = () => ({
+    routes["/passkey/status"] = () => ({
       status: 404,
       body: { message: "Passkeys not found" },
     });
@@ -139,7 +139,7 @@ describe("PasskeysSection", () => {
   });
 
   it("treats an empty-ish body ({ passkeys: null }) as empty, not an error", async () => {
-    routes["/passkey/list-user-passkeys"] = () => ({
+    routes["/passkey/status"] = () => ({
       body: { passkeys: null },
     });
 
@@ -151,7 +151,7 @@ describe("PasskeysSection", () => {
 
   it("shows the error state for a real 500 and recovers via Retry", async () => {
     let listCalls = 0;
-    routes["/passkey/list-user-passkeys"] = () => {
+    routes["/passkey/status"] = () => {
       listCalls += 1;
       return listCalls === 1
         ? { status: 500, body: { message: "Internal error" } }
@@ -179,15 +179,15 @@ describe("PasskeysSection", () => {
       clientExtensionResults: {},
     };
 
-    routes["/passkey/list-user-passkeys"] = () => ({
+    routes["/passkey/status"] = () => ({
       body: registered ? [samplePasskey] : [],
     });
-    routes["/passkey/generate-register-options"] = () => {
-      ceremonyOrder.push("generate-register-options");
+    routes["/passkey/register/start"] = () => {
+      ceremonyOrder.push("register/start");
       return { body: { challenge: "base64url-challenge", rp: { id: "app" } } };
     };
-    routes["/passkey/verify-registration"] = () => {
-      ceremonyOrder.push("verify-registration");
+    routes["/passkey/register/finish"] = () => {
+      ceremonyOrder.push("register/finish");
       registered = true;
       return { body: samplePasskey };
     };
@@ -210,15 +210,15 @@ describe("PasskeysSection", () => {
     expect(await screen.findByText("MacBook Touch ID")).toBeTruthy();
 
     expect(ceremonyOrder).toEqual([
-      "generate-register-options",
+      "register/start",
       "startRegistration",
-      "verify-registration",
+      "register/finish",
     ]);
     expect(mockedStartRegistration).toHaveBeenCalledWith({
       optionsJSON: { challenge: "base64url-challenge", rp: { id: "app" } },
     });
     const verifyCall = networkLog.find(
-      (entry) => entry.path === "/passkey/verify-registration"
+      (entry) => entry.path === "/passkey/register/finish"
     );
     expect(parseBody(verifyCall?.init)).toEqual({
       response: attestation,
@@ -227,8 +227,10 @@ describe("PasskeysSection", () => {
   });
 
   it("renames a passkey from its row action", async () => {
-    routes["/passkey/list-user-passkeys"] = () => ({ body: [samplePasskey] });
-    routes["/passkey/update-passkey"] = () => ({ body: { status: true } });
+    routes["/passkey/status"] = () => ({ body: [samplePasskey] });
+    routes["/passkey/pk_1"] = () => ({
+      body: { id: "pk_1", name: "Personal Mac" },
+    });
 
     renderSection();
 
@@ -241,18 +243,16 @@ describe("PasskeysSection", () => {
 
     await waitFor(() => {
       const renameCall = networkLog.find(
-        (entry) => entry.path === "/passkey/update-passkey"
+        (entry) => entry.path === "/passkey/pk_1"
       );
-      expect(parseBody(renameCall?.init)).toEqual({
-        id: "pk_1",
-        name: "Personal Mac",
-      });
+      expect(renameCall?.init?.method).toBe("PATCH");
+      expect(parseBody(renameCall?.init)).toEqual({ name: "Personal Mac" });
     });
   });
 
   it("deletes a passkey from its row action", async () => {
-    routes["/passkey/list-user-passkeys"] = () => ({ body: [samplePasskey] });
-    routes["/passkey/delete-passkey"] = () => ({ body: { status: true } });
+    routes["/passkey/status"] = () => ({ body: [samplePasskey] });
+    routes["/passkey/pk_1"] = () => ({ body: { status: true } });
 
     renderSection();
 
@@ -262,15 +262,15 @@ describe("PasskeysSection", () => {
 
     await waitFor(() => {
       const deleteCall = networkLog.find(
-        (entry) => entry.path === "/passkey/delete-passkey"
+        (entry) => entry.path === "/passkey/pk_1"
       );
-      expect(parseBody(deleteCall?.init)).toEqual({ id: "pk_1" });
+      expect(deleteCall?.init?.method).toBe("DELETE");
     });
   });
 
   it("shows a graceful note when WebAuthn is unsupported", async () => {
     mockedIsSupported.mockReturnValue(false);
-    routes["/passkey/list-user-passkeys"] = () => ({ body: [] });
+    routes["/passkey/status"] = () => ({ body: [] });
 
     renderSection();
 

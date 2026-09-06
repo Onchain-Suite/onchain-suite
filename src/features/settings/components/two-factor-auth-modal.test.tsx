@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { authClient } from "@/lib/auth-client";
+import { getSecurityStatus, setAccountPassword } from "@/lib/passkey";
 
 import TwoFactorAuthModal from "./two-factor-auth-modal";
 
@@ -16,6 +17,11 @@ vi.mock("@/lib/auth-client", () => ({
       disable: vi.fn(),
     },
   },
+}));
+
+vi.mock("@/lib/passkey", () => ({
+  getSecurityStatus: vi.fn(),
+  setAccountPassword: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -49,10 +55,21 @@ const mockedUseSession = vi.mocked(authClient.useSession);
 const mockedEnable = vi.mocked(authClient.twoFactor.enable);
 const mockedVerifyTotp = vi.mocked(authClient.twoFactor.verifyTotp);
 const mockedDisable = vi.mocked(authClient.twoFactor.disable);
+const mockedGetSecurityStatus = vi.mocked(getSecurityStatus);
+const mockedSetAccountPassword = vi.mocked(setAccountPassword);
 
 const setSession = (twoFactorEnabled: boolean) => {
   mockedUseSession.mockReturnValue({
     data: { user: { twoFactorEnabled } },
+  } as never);
+};
+
+/** Default: an account that already has a password (the common case). */
+const setHasPassword = (hasPassword: boolean) => {
+  mockedGetSecurityStatus.mockResolvedValue({
+    passkeys: [],
+    twoFactorEnabled: false,
+    hasPassword,
   } as never);
 };
 
@@ -80,6 +97,9 @@ const goToQrStep = async (password = "Hunter2!Strong") => {
 describe("TwoFactorAuthModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default every test to a password-holding account so the existing flows
+    // hit the "confirm your current password" step; the OAuth suite overrides.
+    setHasPassword(true);
   });
 
   describe("enable flow", () => {
@@ -377,6 +397,68 @@ describe("TwoFactorAuthModal", () => {
 
       expect(await screen.findByText("Incorrect password")).toBeTruthy();
       expect(onOpenChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("OAuth-only account (no password)", () => {
+    it("creates a password inline, then enables 2FA in the same flow", async () => {
+      setSession(false);
+      setHasPassword(false);
+      mockedSetAccountPassword.mockResolvedValue(undefined as never);
+      enableSuccess();
+
+      render(<TwoFactorAuthModal open onOpenChange={vi.fn()} />);
+      // Let the security-status effect settle hasPassword -> false before we act.
+      await waitFor(() =>
+        expect(mockedGetSecurityStatus).toHaveBeenCalledTimes(1)
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Setup 2FA" }));
+
+      // No bounce to another screen — the create-password step appears in-place.
+      expect(
+        await screen.findByText("Create an account password")
+      ).toBeTruthy();
+
+      fireEvent.change(screen.getByPlaceholderText("At least 8 characters"), {
+        target: { value: "Hunter2!Strong" },
+      });
+      fireEvent.change(screen.getByPlaceholderText("Re-enter your password"), {
+        target: { value: "Hunter2!Strong" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+      // The new password is established, then reused to start 2FA enrolment.
+      await waitFor(() =>
+        expect(mockedSetAccountPassword).toHaveBeenCalledWith("Hunter2!Strong")
+      );
+      expect(await screen.findByTestId("qr-code")).toBeTruthy();
+      expect(mockedEnable).toHaveBeenCalledWith({ password: "Hunter2!Strong" });
+    });
+
+    it("blocks mismatched passwords before any network call", async () => {
+      setSession(false);
+      setHasPassword(false);
+
+      render(<TwoFactorAuthModal open onOpenChange={vi.fn()} />);
+      await waitFor(() =>
+        expect(mockedGetSecurityStatus).toHaveBeenCalledTimes(1)
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Setup 2FA" }));
+      await screen.findByText("Create an account password");
+
+      fireEvent.change(screen.getByPlaceholderText("At least 8 characters"), {
+        target: { value: "Hunter2!Strong" },
+      });
+      fireEvent.change(screen.getByPlaceholderText("Re-enter your password"), {
+        target: { value: "Different1!" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+      expect(await screen.findByText("Passwords don't match")).toBeTruthy();
+      expect(mockedSetAccountPassword).not.toHaveBeenCalled();
+      expect(mockedEnable).not.toHaveBeenCalled();
     });
   });
 });

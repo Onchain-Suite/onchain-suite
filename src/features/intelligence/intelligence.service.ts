@@ -77,6 +77,9 @@ export interface IntelligenceAgentQueryBody {
   maxSteps?: number;
   useProjectSettings?: boolean;
   useProtocolRegistry?: boolean;
+  // Id of a file uploaded via /storage/upload/sync; the server resolves it to
+  // text and folds it into the prompt as data (never the raw content client-side).
+  attachmentFileId?: string;
 }
 
 export interface IntelligenceAgentStep {
@@ -805,6 +808,28 @@ export const intelligenceService = {
           c !== null
       );
     return { match, conditions };
+  },
+
+  /**
+   * Upload a chat attachment to Azure via the shared storage endpoint and return
+   * its file id. The agent later resolves that id server-side (ownership-checked)
+   * and folds the extracted text into the prompt - the raw content never rides
+   * the client request.
+   */
+  async uploadAttachment(
+    file: File,
+    orgId?: string
+  ): Promise<{ id: string; name: string }> {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("folder", "chat-attachments");
+    const payload = await request<{ fileId?: string; url?: string }>(
+      { method: "POST", url: "/storage/upload/sync", data: form },
+      orgId
+    );
+    const id = typeof payload?.fileId === "string" ? payload.fileId : "";
+    if (!id) throw new Error("Upload failed");
+    return { id, name: file.name };
   },
 
   runQuery(body: { query: string }, orgId?: string) {

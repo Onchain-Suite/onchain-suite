@@ -244,6 +244,23 @@ const ROWS_PER_PAGE = 8;
  * eight rows a page, with prev/next and a running count once there is more than
  * one page.
  */
+// Internal bookkeeping columns that are noise in a chat answer: opaque record
+// ids, raw rule JSON, internal flags. A marketer asking "how many subscribers"
+// does not want an "id"/"criteria"/"starred" column. Hidden by default and shown
+// only when a caller explicitly lists them in preferredColumns (i.e. the user
+// asked for that field by name).
+const NOISE_COLUMNS = new Set([
+  "id",
+  "criteria",
+  "starred",
+  "organizationid",
+  "organization_id",
+  "orgid",
+  "org_id",
+  "tenantid",
+  "tenant_id",
+]);
+
 function StructuredRowsTable({
   rows,
   preferredColumns,
@@ -254,9 +271,22 @@ function StructuredRowsTable({
   const [page, setPage] = useState(0);
   // Drop columns that are empty in every row (e.g. an always-{} `sentAt`), so the
   // table shows signal, not "{}"/"-" filler.
-  const allColumns = columnsFromRows(rows).filter(
+  const nonEmptyColumns = columnsFromRows(rows).filter(
     (column) => !rows.every((row) => isEmptyCell(row[column]))
   );
+  // Then drop internal-noise columns unless the caller explicitly asked for them.
+  const explicit = new Set(
+    (preferredColumns ?? []).map((c) => c.toLowerCase())
+  );
+  const denoisedColumns = nonEmptyColumns.filter(
+    (column) =>
+      !NOISE_COLUMNS.has(column.toLowerCase()) ||
+      explicit.has(column.toLowerCase())
+  );
+  // Never blank the table: if denoising removed everything, fall back to the
+  // non-empty set so there is always something to render.
+  const allColumns =
+    denoisedColumns.length > 0 ? denoisedColumns : nonEmptyColumns;
   const selectedColumns =
     preferredColumns && preferredColumns.length > 0
       ? preferredColumns.filter((column) => allColumns.includes(column))

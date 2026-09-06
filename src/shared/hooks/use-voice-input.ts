@@ -29,15 +29,20 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-export function useVoiceInput(onTranscript: (text: string) => void) {
+export function useVoiceInput(
+  onTranscript: (text: string) => void,
+  onError?: (message: string) => void
+) {
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(false);
   const recognitionRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(
     null
   );
-  // Keep the latest callback without re-creating `toggle` on every keystroke.
+  // Keep the latest callbacks without re-creating `toggle` on every keystroke.
   const callbackRef = useRef(onTranscript);
   callbackRef.current = onTranscript;
+  const errorRef = useRef(onError);
+  errorRef.current = onError;
 
   useEffect(() => {
     setSupported(getSpeechRecognitionCtor() !== null);
@@ -50,7 +55,10 @@ export function useVoiceInput(onTranscript: (text: string) => void) {
 
   const toggle = useCallback(() => {
     const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) return;
+    if (!Ctor) {
+      errorRef.current?.("Voice input is not supported in this browser.");
+      return;
+    }
     if (listening) {
       stop();
       return;
@@ -58,9 +66,18 @@ export function useVoiceInput(onTranscript: (text: string) => void) {
     const recognition = new Ctor();
     recognitionRef.current = recognition;
     recognition.continuous = false;
-    recognition.interimResults = true;
+    // Final results only: interim results would append the same words repeatedly.
+    recognition.interimResults = false;
     recognition.lang = "en-US";
-    recognition.onerror = () => setListening(false);
+    recognition.onerror = (event: unknown) => {
+      setListening(false);
+      const code = (event as { error?: string })?.error;
+      errorRef.current?.(
+        code === "not-allowed" || code === "service-not-allowed"
+          ? "Microphone access was blocked. Allow it in your browser to dictate."
+          : "Voice input failed. Please try again."
+      );
+    };
     recognition.onend = () => setListening(false);
     recognition.onresult = (event: unknown) => {
       const e = event as {
@@ -75,7 +92,12 @@ export function useVoiceInput(onTranscript: (text: string) => void) {
       if (text.trim().length > 0) callbackRef.current(text.trim());
     };
     setListening(true);
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      // start() throws if called while already active; reset so the next tap works.
+      setListening(false);
+    }
   }, [listening, stop]);
 
   useEffect(() => {

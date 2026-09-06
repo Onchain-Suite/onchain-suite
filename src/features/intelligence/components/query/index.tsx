@@ -3238,13 +3238,17 @@ export function QueryTab({
                                   const rows = meaningfulStructuredRows(
                                     normalizeStructuredRows(structured.rows)
                                   );
-                                  // A single metadata object reads as noise in a
-                                  // one-row table; suppress it ONLY when the prose
-                                  // carries the answer, so a message is never blank.
+                                  // A table earns its place only when it is worth
+                                  // scanning: several rows to compare. A single row
+                                  // (a count, one record) is always covered by the
+                                  // prose - "17 subscribers" needs no "17" table - so
+                                  // with prose present we tabulate only 2+ rows. When
+                                  // there is no prose we still show whatever rows we
+                                  // have, so a message is never blank.
                                   const showTable =
-                                    rows.length > 0 &&
-                                    (structured.kind !== "generic_object" ||
-                                      prose.length === 0);
+                                    prose.length === 0
+                                      ? rows.length > 0
+                                      : rows.length >= 2;
                                   const showFallback =
                                     prose.length === 0 && !showTable;
                                   return (

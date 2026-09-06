@@ -1161,9 +1161,36 @@ const emptyResultMessage = (kind: IntelligenceAgentStructuredResultKind) => {
   return "Nothing was found for this lookup - there's no matching onchain activity.";
 };
 
+// When a row carries both a raw amount ("balance") and its decimal-adjusted
+// twin ("balance_formatted", injected by the backend), collapse the pair: the
+// readable value takes the base key and the "_formatted" twin is dropped. This
+// is why the holders chart and table both show token amounts (131,404) rather
+// than raw base units, and never a redundant second column of the same number.
+const foldFormattedTwins = (
+  row: Record<string, unknown>
+): Record<string, unknown> => {
+  const twins = Object.keys(row).filter((key) => key.endsWith("_formatted"));
+  if (twins.length === 0) return row;
+  const out: Record<string, unknown> = { ...row };
+  for (const key of twins) {
+    const base = key.slice(0, -"_formatted".length);
+    const value = row[key];
+    if (
+      base.length > 0 &&
+      value !== null &&
+      value !== undefined &&
+      value !== ""
+    ) {
+      out[base] = value;
+    }
+    delete out[key];
+  }
+  return out;
+};
+
 const normalizeStructuredRows = (
   rows: IntelligenceAgentStructuredResult["rows"]
-) => rows.map(asRecord);
+) => rows.map(asRecord).map(foldFormattedTwins);
 
 // Column names we treat as the category (x/legend) and the numeric measure when
 // deriving a chart series from an arbitrary structured result.

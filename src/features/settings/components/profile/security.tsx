@@ -76,6 +76,16 @@ const Security = () => {
     setShowTwoFAModal(true);
   };
 
+  // After 2FA is enabled/disabled, pull a fresh session (so the cached
+  // `twoFactorEnabled` the profile falls back to is current) and refetch the
+  // profile the status row reads from - the modal used to force a full reload.
+  const refreshTwoFactorStatus = async () => {
+    if (typeof authClient.getSession === "function") {
+      await authClient.getSession().catch(() => undefined);
+    }
+    await profileQuery.refetch();
+  };
+
   const canShowActions =
     !profileQuery.isPending && !profileQuery.isError && !isEditing;
 
@@ -85,6 +95,7 @@ const Security = () => {
         <TwoFactorAuthModal
           open={showTwoFAModal}
           onOpenChange={setShowTwoFAModal}
+          onStatusChange={refreshTwoFactorStatus}
         />
       ) : null}
       <SettingsCard

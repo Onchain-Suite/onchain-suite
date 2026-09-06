@@ -29,11 +29,18 @@ import { CopyButton } from "@/shared/components/common/copy-button";
 interface TwoFactorAuthModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Called after 2FA is enabled or disabled so the parent can refresh the
+   * session + any status it renders. Without this the Security card kept
+   * showing the pre-change state until a full page reload.
+   */
+  onStatusChange?: () => void;
 }
 
 const TwoFactorAuthModal = ({
   open,
   onOpenChange,
+  onStatusChange,
 }: TwoFactorAuthModalProps) => {
   const { data: session } = authClient.useSession();
   const [twoFACode, setTwoFACode] = useState("");
@@ -126,6 +133,9 @@ const TwoFactorAuthModal = ({
       if (res.data) {
         toast.success("2FA enabled successfully");
         setStep("backup");
+        // 2FA is on now - let the parent refresh the session + status row so
+        // it doesn't keep showing "Needs setup" until a reload.
+        onStatusChange?.();
       } else if (res.error) {
         const message = res.error.message ?? "An error occurred";
         setError(message);
@@ -149,7 +159,8 @@ const TwoFactorAuthModal = ({
       if (res.data) {
         toast.success("2FA disabled");
         onOpenChange(false);
-        window.location.reload();
+        // Refresh session + status in place instead of a full page reload.
+        onStatusChange?.();
       } else {
         const message = res.error?.message ?? "Failed to disable 2FA";
         setError(message);

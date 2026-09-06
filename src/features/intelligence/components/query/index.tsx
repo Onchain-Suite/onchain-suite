@@ -3,6 +3,7 @@
 import {
   ArrowLeftIcon,
   ArrowPathIcon,
+  ArrowUpRightIcon,
   BoltIcon,
   CheckCircleIcon,
   CheckIcon,
@@ -725,6 +726,88 @@ interface ChatMessage {
   queryId?: string;
   structuredResult?: IntelligenceAgentStructuredResult | null;
 }
+
+/** One suggested follow-up shown under an answer; clicking sends `prompt` as a new turn. */
+type NextStep = { label: string; prompt: string };
+
+// Columns that mean the answer names people/wallets, so it can be acted on
+// (email them, message them, save them) rather than only read.
+const AUDIENCE_COLUMN_HINTS = [
+  "wallet",
+  "address",
+  "contact_id",
+  "contactid",
+  "holder",
+  "owner",
+  "recipient",
+];
+
+const answerTargetsAudience = (
+  structured?: IntelligenceAgentStructuredResult | null
+): boolean => {
+  if (!structured) return false;
+  const columns = columnsFromRows(normalizeStructuredRows(structured.rows)).map(
+    (c) => c.toLowerCase()
+  );
+  return columns.some((c) =>
+    AUDIENCE_COLUMN_HINTS.some((hint) => c.includes(hint))
+  );
+};
+
+/**
+ * Recommended next steps under an answer, in the spirit of Claude Code's
+ * follow-ups: turn every result into an obvious next action. When the answer
+ * names an audience (wallets / contacts) the actions are the ones that move the
+ * needle - a follow-up email, an in-app message, saving the list; the write ones
+ * flow back through the agent's confirm gate, so nothing sends without approval.
+ * Otherwise they are analytical follow-ups that deepen the same thread.
+ */
+const buildNextSteps = (message: ChatMessage): NextStep[] => {
+  const kind = message.structuredResult?.kind;
+  // The approve/decline card already IS the next step.
+  if (kind === "proposed_action") return [];
+  if (kind === "retention_recommendations") {
+    return [
+      {
+        label: "Apply the top play",
+        prompt:
+          "Apply the top recommended retention play as a draft automation.",
+      },
+      {
+        label: "Campaign for the top cohort",
+        prompt:
+          "Create a campaign for the highest-value cohort in those recommendations and propose it.",
+      },
+    ];
+  }
+  if (answerTargetsAudience(message.structuredResult)) {
+    return [
+      {
+        label: "Draft a follow-up email",
+        prompt:
+          "Draft a follow-up email campaign for the contacts in that result and propose it.",
+      },
+      {
+        label: "Send an in-app message",
+        prompt: "Draft an in-app message for those wallets and propose it.",
+      },
+      {
+        label: "Save as a segment",
+        prompt: "Save those contacts as a new audience segment.",
+      },
+    ];
+  }
+  return [
+    {
+      label: "Break it down further",
+      prompt: "Break that result down by chain and by engagement level.",
+    },
+    {
+      label: "Recommend a next action",
+      prompt: "Based on that, what retention action should I take next?",
+    },
+  ];
+};
 
 const getFallbackReasoningActivity = (
   recovering: boolean,
@@ -1942,6 +2025,16 @@ export function QueryTab({
       ? getFallbackReasoningActivity(true, lastSubmittedChatPrompt)
       : [];
   }, [streamActivity, streamFallbackUsed, lastSubmittedChatPrompt]);
+
+  // Recommended next steps attach only to the most recent answer, so the thread
+  // does not accumulate a trail of stale suggestions on every past turn.
+  const lastAssistantMessageId = useMemo(() => {
+    for (let i = chatMessages.length - 1; i >= 0; i -= 1) {
+      if (chatMessages[i].role === "assistant") return chatMessages[i].id;
+    }
+    return undefined;
+  }, [chatMessages]);
+
   const renderConversionActions = (forQueryId?: string) => {
     // Point the shared query-scoped mutations at this message's result before
     // the dialog confirms, so actions on older messages target the right run.
@@ -3014,6 +3107,40 @@ export function QueryTab({
                                   </div>
                                 </div>
                               ) : null}
+
+                              {message.id === lastAssistantMessageId &&
+                              message.kind !== "error" &&
+                              !agentMutation.isPending
+                                ? (() => {
+                                    const nextSteps = buildNextSteps(message);
+                                    if (nextSteps.length === 0) return null;
+                                    return (
+                                      <div className="space-y-2">
+                                        <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                                          Recommended next steps
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                          {nextSteps.map((step) => (
+                                            <button
+                                              key={step.label}
+                                              type="button"
+                                              onClick={() =>
+                                                submitChatPrompt(step.prompt)
+                                              }
+                                              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card px-3 py-1.5 text-[13px] text-foreground/85 transition-colors hover:border-primary/40 hover:text-foreground"
+                                            >
+                                              {step.label}
+                                              <ArrowUpRightIcon
+                                                className="h-3.5 w-3.5 text-muted-foreground"
+                                                aria-hidden="true"
+                                              />
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()
+                                : null}
 
                               {Array.isArray(message.toolSteps) &&
                               message.toolSteps.length > 0 ? (

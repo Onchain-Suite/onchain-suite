@@ -823,11 +823,20 @@ export const intelligenceService = {
     const form = new FormData();
     form.append("file", file);
     form.append("folder", "chat-attachments");
-    const payload = await request<{ fileId?: string; url?: string }>(
-      { method: "POST", url: "/storage/upload/sync", data: form },
-      orgId
-    );
-    const id = typeof payload?.fileId === "string" ? payload.fileId : "";
+    const resolvedOrgId = pickOrgId(orgId);
+    // Content-Type must be UNSET so axios sets `multipart/form-data` with the
+    // boundary; the client's default `application/json` would make the backend's
+    // file parser see no file. (Passing the FormData through the shared `request`
+    // helper inherited that JSON default, which is why uploads failed.)
+    const res = await apiClient.post<unknown>("/storage/upload/sync", form, {
+      headers: {
+        "Content-Type": undefined,
+        ...(resolvedOrgId ? { "x-org-id": resolvedOrgId } : {}),
+        "x-onchain-silent-error": "1",
+      },
+    });
+    const data = extractData<{ fileId?: string; url?: string }>(res.data);
+    const id = typeof data?.fileId === "string" ? data.fileId : "";
     if (!id) throw new Error("Upload failed");
     return { id, name: file.name };
   },

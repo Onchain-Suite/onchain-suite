@@ -902,12 +902,18 @@ const buildNextSteps = (message: ChatMessage): NextStep[] => {
   }
   return [
     {
-      label: "Break it down further",
-      prompt: "Break that result down by chain and by engagement level.",
+      label: "How do I retain these customers?",
+      prompt:
+        "Based on that, how can I retain these customers? Recommend concrete next steps.",
     },
     {
-      label: "Recommend a next action",
-      prompt: "Based on that, what retention action should I take next?",
+      label: "How can I boost deliverability?",
+      prompt:
+        "Given this data, how can I improve my email deliverability? Give specific fixes.",
+    },
+    {
+      label: "Break it down further",
+      prompt: "Break that result down by chain and by engagement level.",
     },
   ];
 };
@@ -1112,7 +1118,20 @@ const deriveChatChartSeries = (
     if (label.length === 0) continue;
     points.push({ label, value });
   }
-  return points.slice(0, 8);
+  // A chart earns its place only when there is something to COMPARE: at least
+  // two points, a positive total, and more than one distinct value. A pie of
+  // all-zeros or identical values (e.g. a wallet list with no conversions) says
+  // nothing the table doesn't - so return [] and the Chart tab hides itself,
+  // leaving just the table. We don't always need both.
+  const trimmed = points.slice(0, 8);
+  if (trimmed.length < 2) return [];
+  const total = trimmed.reduce(
+    (sum, p) => sum + (Number.isFinite(p.value) ? p.value : 0),
+    0
+  );
+  const distinctValues = new Set(trimmed.map((p) => p.value)).size;
+  if (total <= 0 || distinctValues < 2) return [];
+  return trimmed;
 };
 
 const findPreferredColumn = (

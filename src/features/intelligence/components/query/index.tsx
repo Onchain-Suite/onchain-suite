@@ -128,6 +128,7 @@ const asDisplayText = (value: unknown) => {
       return value.length === 0 ? "-" : `${value.length} items`;
     }
     const obj = value as Record<string, unknown>;
+    if (Object.keys(obj).length === 0) return "-";
     const key = obj.key ?? obj.name ?? obj.label ?? obj.id;
     if (typeof key === "string") {
       return obj.count !== undefined && obj.count !== null
@@ -141,6 +142,14 @@ const asDisplayText = (value: unknown) => {
     }
   }
   return String(value);
+};
+
+/** True when a cell holds nothing worth a column: null/undefined/""/[]/{}. */
+const isEmptyCell = (value: unknown): boolean => {
+  if (value === null || value === undefined || value === "") return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "object") return Object.keys(value).length === 0;
+  return false;
 };
 
 const prettifyColumnLabel = (value: string) =>
@@ -246,7 +255,11 @@ function StructuredRowsTable({
   preferredColumns?: string[];
 }) {
   const [page, setPage] = useState(0);
-  const allColumns = columnsFromRows(rows);
+  // Drop columns that are empty in every row (e.g. an always-{} `sentAt`), so the
+  // table shows signal, not "{}"/"-" filler.
+  const allColumns = columnsFromRows(rows).filter(
+    (column) => !rows.every((row) => isEmptyCell(row[column]))
+  );
   const selectedColumns =
     preferredColumns && preferredColumns.length > 0
       ? preferredColumns.filter((column) => allColumns.includes(column))

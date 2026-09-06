@@ -50,6 +50,7 @@ import { authClient } from "@/lib/auth-client";
 import { AiCitations } from "@/features/ai-search/ai-citations";
 import { aiSearchService } from "@/features/ai-search/ai-search.service";
 import { useAiAnswer } from "@/features/ai-search/use-ai-answer";
+import { MarkdownLite } from "@/shared/components/common/markdown-lite";
 import { isWipHref, SHOW_WIP_SECTIONS } from "@/shared/config/wip-sections";
 
 type PaletteOptionData =
@@ -543,7 +544,7 @@ export function CommandPaletteProvider({
                       </Button>
                     </div>
                   ) : ai.answer.length > 0 ? (
-                    <div className="whitespace-pre-wrap">{ai.answer}</div>
+                    <MarkdownLite text={ai.answer} />
                   ) : (
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <span className="flex gap-1" aria-hidden="true">

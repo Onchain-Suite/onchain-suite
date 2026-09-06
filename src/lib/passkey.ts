@@ -16,7 +16,7 @@ import { isJsonObject } from "@/lib/utils";
 
 /**
  * Typed passkey (WebAuthn) client against our own passkey controller
- * (src/auth/passkey.controller.ts), proxied at `/api/v1/auth/passkey/*`:
+ * (src/auth/passkey.controller.ts), served at `/api/v1/passkey/*`:
  *
  * - POST   /passkey/register/start                 -> creation options
  * - POST   /passkey/register/finish  { response, name? } -> passkey record
@@ -45,7 +45,10 @@ const getAuthBaseUrl = (): string => {
   if (typeof window === "undefined") {
     throw new Error("Passkey operations are only available in the browser");
   }
-  return `${window.location.origin}/api/v1/auth`;
+  // The passkey controller lives at `/api/v1/passkey/*` (NOT under `/auth`):
+  // AuthController's `@All('*path')` catch-all is mounted at `/auth` and would
+  // otherwise swallow every `/auth/passkey/*` request into better-auth's 404.
+  return `${window.location.origin}/api/v1`;
 };
 
 export const isWebAuthnSupported = (): boolean => {
@@ -215,6 +218,24 @@ export const getSecurityStatus = async (
     // is absent (older backend); we only gate when it is explicitly false.
     hasPassword: root.hasPassword !== false,
   };
+};
+
+/**
+ * Establishes a FIRST account password for an OAuth-only user (no current
+ * password required — the session authorizes it). This is what lets a Google
+ * user enable 2FA inline instead of being bounced to a separate screen: 2FA
+ * enable confirms with a password, and an OAuth account has none until this
+ * runs. Hits our own `POST /api/v1/auth/set-password`; the backend refuses
+ * (409) if a password already exists.
+ */
+export const setAccountPassword = async (
+  newPassword: string
+): Promise<void> => {
+  await fetchAuthJson("/auth/set-password", {
+    method: "POST",
+    body: { newPassword },
+    fallbackError: "Failed to set password",
+  });
 };
 
 export const registerPasskey = async (

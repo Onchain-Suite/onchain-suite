@@ -12,6 +12,7 @@ import {
   EnvelopeOpenIcon,
   LinkIcon,
   MegaphoneIcon,
+  MicrophoneIcon,
   PlayIcon,
   SparklesIcon,
   Square3Stack3DIcon,
@@ -52,6 +53,7 @@ import {
 } from "@/features/intelligence/utils";
 import { toQueryHistoryItems } from "@/features/intelligence/utils/query-history";
 import { MarkdownLite } from "@/shared/components/common/markdown-lite";
+import { useVoiceInput } from "@/shared/hooks/use-voice-input";
 
 const DEFAULT_SQL_QUERY = "";
 
@@ -1461,6 +1463,9 @@ export function QueryTab({
     contactsCreated?: number;
   } | null>(null);
   const [chatPrompt, setChatPrompt] = useState(initialChatPrompt ?? "");
+  const voice = useVoiceInput((text) =>
+    setChatPrompt((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text))
+  );
   const [historyOpenLocal, setHistoryOpenLocal] = useState(false);
   // Controlled when the page drives it from the tab-bar icon, else self-owned.
   const historyOpen = controlledHistoryOpen ?? historyOpenLocal;
@@ -1637,7 +1642,7 @@ export function QueryTab({
       // making interactive answers take ~2 minutes. Sonnet answers these
       // tool-using questions correctly and in a fraction of the time; reserve
       // "best" for offline/deep analysis, not the live chat.
-      mode: "fast" as const,
+      mode: "auto" as const,
       useProjectSettings: true,
       useProtocolRegistry: true,
     }),
@@ -3206,7 +3211,7 @@ export function QueryTab({
                       {chatMessages.map((message) =>
                         message.role === "user" ? (
                           <div key={message.id} className="flex justify-end">
-                            <div className="max-w-[78%] rounded-[28px_28px_12px_28px] border border-primary/30 bg-primary px-4 py-3 text-sm text-primary-foreground shadow-[0_22px_60px_-28px_rgba(86,112,255,0.7)]">
+                            <div className="max-w-[78%] rounded-[14px_14px_4px_14px] border border-primary/30 bg-primary px-4 py-3 text-sm text-primary-foreground shadow-[0_22px_60px_-28px_rgba(86,112,255,0.7)]">
                               <div className="leading-6">{message.content}</div>
                             </div>
                           </div>
@@ -3292,7 +3297,7 @@ export function QueryTab({
                               ) : message.content.trim().length > 0 ? (
                                 <MarkdownLite
                                   text={message.content}
-                                  className="text-[15px] leading-7 text-foreground/95"
+                                  className="text-sm leading-6 text-foreground/90"
                                 />
                               ) : message.kind === "error" ? null : (
                                 <p className="text-sm text-muted-foreground">
@@ -3475,7 +3480,7 @@ export function QueryTab({
 
               <div className="px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
                 <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
-                  <div className="flex items-end gap-2 rounded-[24px] border border-border bg-muted/40 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/25">
+                  <div className="flex items-end gap-2 rounded-[14px] border border-border bg-muted/40 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/25">
                     <textarea
                       id="agent-chat-input"
                       aria-label="Ask the on-chain agent"
@@ -3508,6 +3513,27 @@ export function QueryTab({
                           : "Ask anything about onchain activity…"
                       }
                     />
+                    {voice.supported ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        aria-label={
+                          voice.listening ? "Stop dictation" : "Dictate"
+                        }
+                        title={voice.listening ? "Stop dictation" : "Dictate"}
+                        onClick={voice.toggle}
+                        className="h-11 w-11 shrink-0 rounded-full p-0 text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <MicrophoneIcon
+                          className={
+                            voice.listening
+                              ? "h-5 w-5 animate-pulse text-primary"
+                              : "h-5 w-5"
+                          }
+                          aria-hidden="true"
+                        />
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       aria-label={agentMutation.isPending ? "Stop" : "Send"}

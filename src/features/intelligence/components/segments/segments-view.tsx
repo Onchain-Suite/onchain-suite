@@ -52,6 +52,7 @@ const FIELDS: { value: string; label: string }[] = [
   { value: "last_active", label: "Last active" },
   { value: "transaction_count", label: "Transaction count" },
   { value: "email_opened", label: "Email opened" },
+  { value: "inapp_opened", label: "In-app opened" },
   { value: "token_held", label: "Token held" },
 ];
 
@@ -71,6 +72,7 @@ const FIELD_KIND: Record<string, "numeric" | "recency"> = {
   transaction_count: "numeric",
   token_held: "numeric",
   email_opened: "numeric",
+  inapp_opened: "numeric",
   last_active: "recency",
 };
 const operatorsForField = (field: string) =>

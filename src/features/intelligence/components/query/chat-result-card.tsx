@@ -2,18 +2,7 @@
 
 import { ChartPieIcon, TableCellsIcon } from "@heroicons/react/24/outline";
 import { type ReactNode, useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Cell, Pie, PieChart } from "recharts";
 
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/ui/chart";
 
@@ -31,7 +20,6 @@ const CHART_COLORS = [
 ];
 
 type ResultTab = "table" | "chart";
-type ChartType = "bar" | "line" | "donut";
 
 const formatCompact = (value: number): string => {
   if (!Number.isFinite(value)) return "0";
@@ -51,16 +39,10 @@ const TABS: { id: ResultTab; label: string; icon: typeof TableCellsIcon }[] = [
   { id: "chart", label: "Chart", icon: ChartPieIcon },
 ];
 
-const CHART_TYPES: { id: ChartType; label: string }[] = [
-  { id: "bar", label: "Bar" },
-  { id: "line", label: "Line" },
-  { id: "donut", label: "Donut" },
-];
-
 /**
- * Tabbed result surface for a chat answer: Table (the existing structured
- * render, passed in) and Chart (Bar / Line / Donut derived from the rows). The
- * Chart tab is hidden when there's no numeric series to plot.
+ * Tabbed result surface for a chat answer: Table (the paginated structured
+ * render, passed in) and a single donut Chart derived from the rows. The Chart
+ * tab is hidden when there's no numeric series to plot.
  */
 export function ChatResultCard({
   tableContent,
@@ -71,7 +53,6 @@ export function ChatResultCard({
 }) {
   const hasChart = series.length > 0;
   const [tab, setTab] = useState<ResultTab>("table");
-  const [chartType, setChartType] = useState<ChartType>("donut");
 
   const total = useMemo(
     () =>
@@ -122,151 +103,61 @@ export function ChatResultCard({
       {/* Chart */}
       {tab === "chart" && hasChart ? (
         <div className="p-4">
-          <div className="mb-4 flex items-center gap-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Chart type
-            </span>
-            <div className="inline-flex overflow-hidden rounded-lg border border-border">
-              {CHART_TYPES.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setChartType(c.id)}
-                  aria-pressed={chartType === c.id}
-                  className={cn(
-                    "px-2.5 py-1 text-xs font-medium transition-colors",
-                    chartType === c.id
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {chartType === "donut" ? (
-            <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
-              <div className="relative shrink-0">
-                <ChartContainer config={chartConfig} className="h-44 w-44">
-                  <PieChart>
-                    <ChartTooltip
-                      content={<ChartTooltipContent nameKey="label" />}
-                    />
-                    <Pie
-                      data={chartData}
-                      dataKey="value"
-                      nameKey="label"
-                      innerRadius="62%"
-                      outerRadius="92%"
-                      paddingAngle={2}
-                      strokeWidth={0}
-                    >
-                      {chartData.map((entry, i) => (
-                        <Cell
-                          key={entry.label}
-                          fill={CHART_COLORS[i % CHART_COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ChartContainer>
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-lg font-semibold text-foreground">
-                    {formatCompact(total)}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">
-                    total
-                  </span>
-                </div>
-              </div>
-              <ul className="min-w-0 flex-1 space-y-2">
-                {series.map((p, i) => {
-                  const pct =
-                    total > 0 ? Math.round((p.value / total) * 100) : 0;
-                  return (
-                    <li
-                      key={p.label}
-                      className="flex items-center gap-2 text-sm"
-                    >
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                        style={{
-                          background: CHART_COLORS[i % CHART_COLORS.length],
-                        }}
-                        aria-hidden="true"
+          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+            <div className="relative shrink-0">
+              <ChartContainer config={chartConfig} className="h-44 w-44">
+                <PieChart>
+                  <ChartTooltip
+                    content={<ChartTooltipContent nameKey="label" />}
+                  />
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="label"
+                    innerRadius="62%"
+                    outerRadius="92%"
+                    paddingAngle={2}
+                    strokeWidth={0}
+                  >
+                    {chartData.map((entry, i) => (
+                      <Cell
+                        key={entry.label}
+                        fill={CHART_COLORS[i % CHART_COLORS.length]}
                       />
-                      <span className="min-w-0 flex-1 truncate font-medium text-foreground">
-                        {truncateMiddle(p.label)}
-                      </span>
-                      <span className="shrink-0 tabular-nums text-muted-foreground">
-                        {formatCompact(p.value)} · {pct}%
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-lg font-semibold text-foreground">
+                  {formatCompact(total)}
+                </span>
+                <span className="text-[11px] text-muted-foreground">total</span>
+              </div>
             </div>
-          ) : chartType === "bar" ? (
-            <ChartContainer
-              config={chartConfig}
-              className="aspect-[16/9] w-full"
-            >
-              <BarChart data={chartData}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v: string) => truncateMiddle(String(v))}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={formatCompact}
-                />
-                <ChartTooltip
-                  content={<ChartTooltipContent nameKey="label" />}
-                />
-                <Bar
-                  dataKey="value"
-                  fill="var(--chart-1)"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ChartContainer>
-          ) : (
-            <ChartContainer
-              config={chartConfig}
-              className="aspect-[16/9] w-full"
-            >
-              <LineChart data={chartData}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v: string) => truncateMiddle(String(v))}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={formatCompact}
-                />
-                <ChartTooltip
-                  content={<ChartTooltipContent nameKey="label" />}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="var(--chart-1)"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ChartContainer>
-          )}
+            <ul className="min-w-0 flex-1 space-y-2">
+              {series.map((p, i) => {
+                const pct = total > 0 ? Math.round((p.value / total) * 100) : 0;
+                return (
+                  <li key={p.label} className="flex items-center gap-2 text-sm">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                      style={{
+                        background: CHART_COLORS[i % CHART_COLORS.length],
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                      {truncateMiddle(p.label)}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      {formatCompact(p.value)} · {pct}%
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </div>
       ) : null}
     </div>

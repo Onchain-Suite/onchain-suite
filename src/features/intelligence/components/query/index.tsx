@@ -213,6 +213,109 @@ const createStructuredRowKey = (
   return `${scope}-${hashString(fallbackSeed)}`;
 };
 
+const ROWS_PER_PAGE = 8;
+
+/**
+ * Structured result table with client-side pagination, so a large SQL result
+ * (thousands of rows) does not dump into the thread at once. First five columns,
+ * eight rows a page, with prev/next and a running count once there is more than
+ * one page.
+ */
+function StructuredRowsTable({
+  rows,
+  preferredColumns,
+}: {
+  rows: StructuredResultRow[];
+  preferredColumns?: string[];
+}) {
+  const [page, setPage] = useState(0);
+  const allColumns = columnsFromRows(rows);
+  const selectedColumns =
+    preferredColumns && preferredColumns.length > 0
+      ? preferredColumns.filter((column) => allColumns.includes(column))
+      : allColumns;
+  const visibleColumns = selectedColumns.slice(0, 5);
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
+  const current = Math.min(page, pageCount - 1);
+  const start = current * ROWS_PER_PAGE;
+  const pageRows = rows.slice(start, start + ROWS_PER_PAGE);
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border/60 bg-background/60">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-border/60 text-sm">
+          <thead className="bg-muted/30">
+            <tr>
+              {visibleColumns.map((column) => (
+                <th
+                  key={column}
+                  className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+                >
+                  {prettifyColumnLabel(column)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/40">
+            {pageRows.map((row) => {
+              const rowKey = createStructuredRowKey(
+                row,
+                visibleColumns,
+                "structured-row"
+              );
+              return (
+                <tr key={rowKey} className="bg-background/30">
+                  {visibleColumns.map((column) => (
+                    <td
+                      key={`${rowKey}-${column}`}
+                      className="px-4 py-3 align-top text-foreground/92"
+                    >
+                      {column.toLowerCase().includes("hash") ||
+                      column.toLowerCase().includes("address")
+                        ? asIdentifierText(row[column])
+                        : asDisplayText(preferFormattedCell(row, column))}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > ROWS_PER_PAGE ? (
+        <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">
+          <span className="tabular-nums">
+            Showing {start + 1}-{start + pageRows.length} of{" "}
+            {rows.length.toLocaleString()}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPage(current - 1)}
+              disabled={current === 0}
+              className="rounded-md border border-border/70 px-2 py-1 font-medium transition-colors enabled:hover:text-foreground disabled:opacity-40"
+            >
+              Prev
+            </button>
+            <span className="tabular-nums">
+              {current + 1} / {pageCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage(current + 1)}
+              disabled={current >= pageCount - 1}
+              className="rounded-md border border-border/70 px-2 py-1 font-medium transition-colors enabled:hover:text-foreground disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const collectObjectCandidates = (
   payload: unknown
 ): Array<Record<string, unknown>> => {
@@ -2026,14 +2129,24 @@ export function QueryTab({
       : [];
   }, [streamActivity, streamFallbackUsed, lastSubmittedChatPrompt]);
 
-  // Recommended next steps attach only to the most recent answer, so the thread
-  // does not accumulate a trail of stale suggestions on every past turn.
-  const lastAssistantMessageId = useMemo(() => {
+  // The recommended follow-up attaches only to the most recent answer, so the
+  // thread does not accumulate stale suggestions on every past turn.
+  const lastAssistantMessage = useMemo(() => {
     for (let i = chatMessages.length - 1; i >= 0; i -= 1) {
-      if (chatMessages[i].role === "assistant") return chatMessages[i].id;
+      if (chatMessages[i].role === "assistant") return chatMessages[i];
     }
     return undefined;
   }, [chatMessages]);
+  const lastAssistantMessageId = lastAssistantMessage?.id;
+
+  // A single suggested follow-up for the latest answer. Surfaced two ways, like
+  // Claude Code: a subtle line under the answer, and grey ghost text in the input
+  // that Tab fills in. Null while a run is in flight or on an error turn.
+  const suggestedNext = useMemo<NextStep | null>(() => {
+    if (!lastAssistantMessage || agentMutation.isPending) return null;
+    if (lastAssistantMessage.kind === "error") return null;
+    return buildNextSteps(lastAssistantMessage)[0] ?? null;
+  }, [lastAssistantMessage, agentMutation.isPending]);
 
   const renderConversionActions = (forQueryId?: string) => {
     // Point the shared query-scoped mutations at this message's result before
@@ -2095,59 +2208,12 @@ export function QueryTab({
   const renderStructuredRowsTable = (
     structuredRows: StructuredResultRow[],
     preferredColumns?: string[]
-  ) => {
-    const allColumns = columnsFromRows(structuredRows);
-    const selectedColumns =
-      preferredColumns && preferredColumns.length > 0
-        ? preferredColumns.filter((column) => allColumns.includes(column))
-        : allColumns;
-    const visibleColumns = selectedColumns.slice(0, 5);
-
-    return (
-      <div className="overflow-hidden rounded-2xl border border-border/60 bg-background/60">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-border/60 text-sm">
-            <thead className="bg-muted/30">
-              <tr>
-                {visibleColumns.map((column) => (
-                  <th
-                    key={column}
-                    className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
-                  >
-                    {prettifyColumnLabel(column)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40">
-              {structuredRows.slice(0, 8).map((row) => {
-                const rowKey = createStructuredRowKey(
-                  row,
-                  visibleColumns,
-                  "structured-row"
-                );
-                return (
-                  <tr key={rowKey} className="bg-background/30">
-                    {visibleColumns.map((column) => (
-                      <td
-                        key={`${rowKey}-${column}`}
-                        className="px-4 py-3 align-top text-foreground/92"
-                      >
-                        {column.toLowerCase().includes("hash") ||
-                        column.toLowerCase().includes("address")
-                          ? asIdentifierText(row[column])
-                          : asDisplayText(preferFormattedCell(row, column))}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
+  ) => (
+    <StructuredRowsTable
+      rows={structuredRows}
+      preferredColumns={preferredColumns}
+    />
+  );
   const renderStructuredResult = (
     structuredResult: IntelligenceAgentStructuredResult
   ) => {
@@ -3109,38 +3175,26 @@ export function QueryTab({
                               ) : null}
 
                               {message.id === lastAssistantMessageId &&
-                              message.kind !== "error" &&
-                              !agentMutation.isPending
-                                ? (() => {
-                                    const nextSteps = buildNextSteps(message);
-                                    if (nextSteps.length === 0) return null;
-                                    return (
-                                      <div className="space-y-2">
-                                        <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                                          Recommended next steps
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
-                                          {nextSteps.map((step) => (
-                                            <button
-                                              key={step.label}
-                                              type="button"
-                                              onClick={() =>
-                                                submitChatPrompt(step.prompt)
-                                              }
-                                              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card px-3 py-1.5 text-[13px] text-foreground/85 transition-colors hover:border-primary/40 hover:text-foreground"
-                                            >
-                                              {step.label}
-                                              <ArrowUpRightIcon
-                                                className="h-3.5 w-3.5 text-muted-foreground"
-                                                aria-hidden="true"
-                                              />
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    );
-                                  })()
-                                : null}
+                              suggestedNext ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setChatPrompt(suggestedNext.prompt)
+                                  }
+                                  className="group flex items-center gap-2 text-left text-[13px] text-muted-foreground/80 transition-colors hover:text-foreground"
+                                >
+                                  <ArrowUpRightIcon
+                                    className="h-3.5 w-3.5 shrink-0"
+                                    aria-hidden="true"
+                                  />
+                                  <span>
+                                    Suggested next: {suggestedNext.label}
+                                  </span>
+                                  <kbd className="rounded border border-border/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground group-hover:border-primary/40">
+                                    Tab
+                                  </kbd>
+                                </button>
+                              ) : null}
 
                               {Array.isArray(message.toolSteps) &&
                               message.toolSteps.length > 0 ? (
@@ -3257,7 +3311,7 @@ export function QueryTab({
                 </div>
               </div>
 
-              <div className="border-t border-border/70 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
+              <div className="px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
                 <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
                   <div className="flex items-end gap-2 rounded-[24px] border border-border bg-muted/40 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/25">
                     <textarea
@@ -3266,6 +3320,18 @@ export function QueryTab({
                       value={chatPrompt}
                       onChange={(e) => setChatPrompt(e.target.value)}
                       onKeyDown={(e) => {
+                        // Tab accepts the ghost suggestion (Claude Code style)
+                        // when the input is empty, instead of moving focus.
+                        if (
+                          e.key === "Tab" &&
+                          !e.shiftKey &&
+                          chatPrompt.length === 0 &&
+                          suggestedNext
+                        ) {
+                          e.preventDefault();
+                          setChatPrompt(suggestedNext.prompt);
+                          return;
+                        }
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
                           if (agentMutation.isPending) return;
@@ -3273,9 +3339,21 @@ export function QueryTab({
                         }
                       }}
                       rows={1}
-                      className="max-h-44 min-h-[44px] w-full resize-none bg-transparent px-3 py-2.5 text-sm leading-6 text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
-                      placeholder="Ask anything about onchain activity…"
+                      className="max-h-44 min-h-[44px] w-full resize-none bg-transparent px-3 py-2.5 text-sm leading-6 text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+                      placeholder={
+                        chatPrompt.length === 0 && suggestedNext
+                          ? suggestedNext.prompt
+                          : "Ask anything about onchain activity…"
+                      }
                     />
+                    {chatPrompt.length === 0 && suggestedNext ? (
+                      <kbd
+                        className="mb-1.5 hidden shrink-0 self-center rounded border border-border/70 px-1.5 py-1 text-[10px] font-medium text-muted-foreground sm:inline-block"
+                        aria-hidden="true"
+                      >
+                        Tab
+                      </kbd>
+                    ) : null}
                     <Button
                       type="button"
                       aria-label={agentMutation.isPending ? "Stop" : "Send"}

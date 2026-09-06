@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { authClient } from "@/lib/auth-client";
+import { getSecurityStatus } from "@/lib/passkey";
 
 import { CopyButton } from "@/shared/components/common/copy-button";
 
@@ -58,6 +59,9 @@ const TwoFactorAuthModal = ({
   const [totpURI, setTotpURI] = useState("");
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [error, setError] = useState("");
+  // Default true so a real password user is never wrongly blocked; only an
+  // explicit false (OAuth-only account) gates 2FA behind setting a password.
+  const [hasPassword, setHasPassword] = useState(true);
 
   // Manual-entry secret for authenticator apps that can't scan the QR code.
   const totpSecret = useMemo(() => {
@@ -80,12 +84,25 @@ const TwoFactorAuthModal = ({
       setBackupCodes([]);
       setError("");
       setLoading(false);
+      // Learn whether this account has a password; 2FA enable() needs one.
+      getSecurityStatus()
+        .then((status) => setHasPassword(status.hasPassword))
+        .catch(() => setHasPassword(true));
     }
   }, [open]);
 
   const isEnabled = session?.user?.twoFactorEnabled;
 
   const goToPasswordStep = (action: "enable" | "disable") => {
+    // OAuth-only accounts have no password for the confirmation step. Rather
+    // than a cryptic "An error occurred", tell them to set one first.
+    if (action === "enable" && !hasPassword) {
+      const message =
+        "You signed in with Google, so you have no account password yet. Set one under Security -> Password, then enable 2FA.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
     setPendingAction(action);
     setPassword("");
     setError("");

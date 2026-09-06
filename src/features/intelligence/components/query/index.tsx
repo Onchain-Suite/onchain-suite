@@ -55,6 +55,7 @@ import {
   preferFormattedCell,
 } from "@/features/intelligence/utils";
 import { toQueryHistoryItems } from "@/features/intelligence/utils/query-history";
+import { MarkdownLite } from "@/shared/components/common/markdown-lite";
 
 const DEFAULT_SQL_QUERY = "";
 
@@ -154,68 +155,6 @@ const isEmptyCell = (value: unknown): boolean => {
 
 const prettifyColumnLabel = (value: string) =>
   value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-
-const NUMBERED_LINE_RE = /^\s*(\d+)\.\s+(.*)$/;
-const BULLET_LINE_RE = /^\s*[•·\-*]\s+(.*)$/;
-
-/**
- * Renders an answer's plain prose with light structure: a ranked "1. 2. 3."
- * list gets a highlighted number chip per item, bullets get a dot, blank lines
- * become spacing, and everything else is a paragraph. Keeps answers scannable
- * without a full markdown renderer.
- */
-function AnswerProse({
-  text,
-  className,
-}: {
-  text: string;
-  className?: string;
-}) {
-  const lines = text.split("\n");
-  return (
-    <div
-      className={cn(
-        "space-y-2 text-sm leading-6 text-foreground/90",
-        className
-      )}
-    >
-      {lines.map((line, index) => {
-        const key = `ln-${index}`;
-        if (line.trim().length === 0) {
-          return <div key={key} className="h-1" aria-hidden="true" />;
-        }
-        const numbered = NUMBERED_LINE_RE.exec(line);
-        if (numbered) {
-          return (
-            <div key={key} className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-md bg-primary/15 px-1.5 text-xs font-semibold tabular-nums text-primary">
-                {numbered[1]}
-              </span>
-              <span className="min-w-0 flex-1">{numbered[2]}</span>
-            </div>
-          );
-        }
-        const bullet = BULLET_LINE_RE.exec(line);
-        if (bullet) {
-          return (
-            <div key={key} className="flex items-start gap-2.5 pl-1">
-              <span
-                className="mt-[0.55rem] h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60"
-                aria-hidden="true"
-              />
-              <span className="min-w-0 flex-1">{bullet[1]}</span>
-            </div>
-          );
-        }
-        return (
-          <p key={key} className="whitespace-pre-wrap">
-            {line}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
 
 const columnsFromRows = (rows: Array<Record<string, unknown>>) => {
   const keys = new Set<string>();
@@ -1140,22 +1079,6 @@ const isRawToolDump = (text: string) => {
  * through. Strip it to clean prose - keep the words, drop the markup, and
  * normalise list markers to a real bullet.
  */
-const stripMarkdown = (input: string): string => {
-  if (!input) return input;
-  return input
-    .replace(/```[a-zA-Z0-9]*\n?([\s\S]*?)```/g, "$1") // fenced code -> inner
-    .replace(/`([^`]+)`/g, "$1") // inline code
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // images -> alt
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // links -> text
-    .replace(/^\s{0,3}#{1,6}\s+/gm, "") // headings
-    .replace(/^\s{0,3}>\s?/gm, "") // blockquotes
-    .replace(/^\s*([-*_])\1{2,}\s*$/gm, "") // horizontal rules
-    .replace(/^\s*[-*+]\s+/gm, "• ") // bullet markers
-    .replace(/(\*\*|__)(.*?)\1/g, "$2") // bold
-    .replace(/(\*|_)(.*?)\1/g, "$2") // italic
-    .replace(/[ \t]+\n/g, "\n") // trailing spaces
-    .trim();
-};
 
 /**
  * API envelope/pagination fields that sometimes leak through as "rows"
@@ -3222,10 +3145,8 @@ export function QueryTab({
                                       const prose = !isRawToolDump(
                                         message.content
                                       )
-                                        ? stripMarkdown(message.content)
-                                        : stripMarkdown(
-                                            structured.summary ?? ""
-                                          );
+                                        ? message.content
+                                        : (structured.summary ?? "");
                                       return (
                                         <>
                                           {!genericKind ? (
@@ -3233,10 +3154,10 @@ export function QueryTab({
                                               {title}
                                             </div>
                                           ) : null}
-                                          {prose.length > 0 ? (
-                                            <AnswerProse
+                                          {prose.trim().length > 0 ? (
+                                            <MarkdownLite
                                               text={prose}
-                                              className="mt-3"
+                                              className="mt-3 text-sm text-foreground/90"
                                             />
                                           ) : null}
                                         </>
@@ -3244,22 +3165,30 @@ export function QueryTab({
                                     })()}
                                   </div>
 
-                                  <ChatResultCard
-                                    tableContent={renderStructuredResult(
-                                      message.structuredResult
-                                    )}
-                                    series={deriveChatChartSeries(
-                                      message.structuredResult
-                                    )}
-                                  />
+                                  {/* Not everything is a table: a single metadata
+                                      object (e.g. a "no matches" result) reads as
+                                      noise as a one-row table of internal fields.
+                                      Let the conversational answer carry it; the
+                                      table is for real, multi-row tabular data. */}
+                                  {message.structuredResult.kind !==
+                                  "generic_object" ? (
+                                    <ChatResultCard
+                                      tableContent={renderStructuredResult(
+                                        message.structuredResult
+                                      )}
+                                      series={deriveChatChartSeries(
+                                        message.structuredResult
+                                      )}
+                                    />
+                                  ) : null}
 
                                   {message.queryReady
                                     ? renderConversionActions(message.queryId)
                                     : null}
                                 </div>
                               ) : message.content.trim().length > 0 ? (
-                                <AnswerProse
-                                  text={stripMarkdown(message.content)}
+                                <MarkdownLite
+                                  text={message.content}
                                   className="text-[15px] leading-7 text-foreground/95"
                                 />
                               ) : null}

@@ -13,8 +13,21 @@ import { cn } from "@/lib/utils";
 const HEADER_LINE_RE = /^#{1,6}\s+(.*)$/;
 const NUMBERED_LINE_RE = /^\s*(\d+)\.\s+(.*)$/;
 const BULLET_LINE_RE = /^\s*[•·\-*]\s+(.*)$/;
-// Split a line into runs of **bold**, `code`, [1] citations, and plain text.
-const INLINE_RE = /(\*\*[^*]+\*\*|`[^`]+`|\[\d+\])/g;
+// Split a line into runs of **bold**, `code`, [label](url) links, [1] citations,
+// and plain text. The link alternative comes before the [1] one so a real link is
+// never mistaken for a citation marker.
+const INLINE_RE = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\)|\[\d+\])/g;
+const LINK_RE = /^\[([^\]]+)\]\(([^)]+)\)$/;
+
+// Only same-origin app paths ("/campaigns") and explicit http(s) URLs are allowed
+// as link targets. Anything else (javascript:, data:, mailto crafted by the model)
+// is rendered as plain text, never as a live link.
+const safeHref = (url: string): string | null => {
+  const trimmed = url.trim();
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return null;
+};
 
 export type MarkdownCitation = { url: string; title?: string };
 
@@ -43,6 +56,26 @@ function renderInline(
           >
             {part.slice(1, -1)}
           </code>
+        );
+      }
+      const link = LINK_RE.exec(part);
+      if (link) {
+        const [, label, rawUrl] = link;
+        const href = safeHref(rawUrl);
+        // An unsafe or malformed target degrades to the label as plain text.
+        if (!href) return <span key={key}>{label}</span>;
+        const external = /^https?:\/\//i.test(href);
+        return (
+          <a
+            key={key}
+            href={href}
+            {...(external
+              ? { target: "_blank", rel: "noreferrer noopener" }
+              : {})}
+            className="font-medium text-primary underline-offset-2 hover:underline"
+          >
+            {label}
+          </a>
         );
       }
       if (/^\[\d+\]$/.test(part)) {

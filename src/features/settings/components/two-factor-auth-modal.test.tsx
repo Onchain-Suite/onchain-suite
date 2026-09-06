@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { authClient } from "@/lib/auth-client";
-import { getSecurityStatus, setAccountPassword } from "@/lib/passkey";
+import { getSecurityStatus } from "@/lib/passkey";
 
 import TwoFactorAuthModal from "./two-factor-auth-modal";
 
@@ -21,7 +21,6 @@ vi.mock("@/lib/auth-client", () => ({
 
 vi.mock("@/lib/passkey", () => ({
   getSecurityStatus: vi.fn(),
-  setAccountPassword: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -56,7 +55,6 @@ const mockedEnable = vi.mocked(authClient.twoFactor.enable);
 const mockedVerifyTotp = vi.mocked(authClient.twoFactor.verifyTotp);
 const mockedDisable = vi.mocked(authClient.twoFactor.disable);
 const mockedGetSecurityStatus = vi.mocked(getSecurityStatus);
-const mockedSetAccountPassword = vi.mocked(setAccountPassword);
 
 const setSession = (twoFactorEnabled: boolean) => {
   mockedUseSession.mockReturnValue({
@@ -70,6 +68,7 @@ const setHasPassword = (hasPassword: boolean) => {
     passkeys: [],
     twoFactorEnabled: false,
     hasPassword,
+    twoFactorAllowed: true,
   } as never);
 };
 
@@ -401,10 +400,9 @@ describe("TwoFactorAuthModal", () => {
   });
 
   describe("OAuth-only account (no password)", () => {
-    it("creates a password inline, then enables 2FA in the same flow", async () => {
+    it("enables 2FA without asking for a password, straight to the QR step", async () => {
       setSession(false);
-      setHasPassword(false);
-      mockedSetAccountPassword.mockResolvedValue(undefined as never);
+      setHasPassword(false); // OAuth-only: no account password
       enableSuccess();
 
       render(<TwoFactorAuthModal open onOpenChange={vi.fn()} />);
@@ -415,30 +413,22 @@ describe("TwoFactorAuthModal", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "Setup 2FA" }));
 
-      // No bounce to another screen — the create-password step appears in-place.
-      expect(
-        await screen.findByText("Create an account password")
-      ).toBeTruthy();
-
-      fireEvent.change(screen.getByPlaceholderText("At least 8 characters"), {
-        target: { value: "Hunter2!Strong" },
-      });
-      fireEvent.change(screen.getByPlaceholderText("Re-enter your password"), {
-        target: { value: "Hunter2!Strong" },
-      });
-      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-      // The new password is established, then reused to start 2FA enrolment.
-      await waitFor(() =>
-        expect(mockedSetAccountPassword).toHaveBeenCalledWith("Hunter2!Strong")
-      );
+      // No password prompt, no "create a password" detour — the QR appears.
       expect(await screen.findByTestId("qr-code")).toBeTruthy();
-      expect(mockedEnable).toHaveBeenCalledWith({ password: "Hunter2!Strong" });
+      expect(
+        screen.queryByPlaceholderText("Enter your current password")
+      ).toBeNull();
+      // enable() is called with no password (allowPasswordless on the backend).
+      expect(mockedEnable).toHaveBeenCalledWith({});
     });
 
-    it("blocks mismatched passwords before any network call", async () => {
+    it("toasts a backend error and stays put if passwordless enable fails", async () => {
       setSession(false);
       setHasPassword(false);
+      mockedEnable.mockResolvedValue({
+        data: null,
+        error: { message: "Only workspace owners can enable 2FA" },
+      } as never);
 
       render(<TwoFactorAuthModal open onOpenChange={vi.fn()} />);
       await waitFor(() =>
@@ -446,19 +436,13 @@ describe("TwoFactorAuthModal", () => {
       );
 
       fireEvent.click(screen.getByRole("button", { name: "Setup 2FA" }));
-      await screen.findByText("Create an account password");
 
-      fireEvent.change(screen.getByPlaceholderText("At least 8 characters"), {
-        target: { value: "Hunter2!Strong" },
-      });
-      fireEvent.change(screen.getByPlaceholderText("Re-enter your password"), {
-        target: { value: "Different1!" },
-      });
-      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-      expect(await screen.findByText("Passwords don't match")).toBeTruthy();
-      expect(mockedSetAccountPassword).not.toHaveBeenCalled();
-      expect(mockedEnable).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(
+          "Only workspace owners can enable 2FA"
+        )
+      );
+      expect(screen.queryByTestId("qr-code")).toBeNull();
     });
   });
 });

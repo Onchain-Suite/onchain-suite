@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { authClient } from "@/lib/auth-client";
-import { getSecurityStatus, setAccountPassword } from "@/lib/passkey";
+import { getSecurityStatus } from "@/lib/passkey";
 
 import { CopyButton } from "@/shared/components/common/copy-button";
 
@@ -46,14 +46,10 @@ const TwoFactorAuthModal = ({
   const { data: session } = authClient.useSession();
   const [twoFACode, setTwoFACode] = useState("");
   const [password, setPassword] = useState("");
-  // Only used by the OAuth-only "create a password" step (new password + its
-  // confirmation), kept separate from `password` (which confirms an existing one).
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<
-    "initial" | "create-password" | "password" | "qr" | "backup"
-  >("initial");
+  const [step, setStep] = useState<"initial" | "password" | "qr" | "backup">(
+    "initial"
+  );
   // What the password confirmation is for: enrolling/re-enrolling TOTP
   // ("enable") or turning 2FA off ("disable"). Without this, "Reconfigure
   // 2FA" and "Disable 2FA" would be indistinguishable at the password step.
@@ -63,8 +59,10 @@ const TwoFactorAuthModal = ({
   const [totpURI, setTotpURI] = useState("");
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [error, setError] = useState("");
-  // Default true so a real password user is never wrongly blocked; only an
-  // explicit false (OAuth-only account) gates 2FA behind setting a password.
+  // Whether the account has a password. Password users confirm with it on
+  // enable; OAuth-only users (no password) enable without one, since the
+  // backend's better-auth `allowPasswordless` drops the check for them. Default
+  // true so we never wrongly enable-without-password for a real password user.
   const [hasPassword, setHasPassword] = useState(true);
 
   // Manual-entry secret for authenticator apps that can't scan the QR code.
@@ -84,13 +82,12 @@ const TwoFactorAuthModal = ({
       setPendingAction("enable");
       setTwoFACode("");
       setPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
       setTotpURI("");
       setBackupCodes([]);
       setError("");
       setLoading(false);
-      // Learn whether this account has a password; 2FA enable() needs one.
+      // Learn whether this account has a password, to decide enable-with-password
+      // vs the passwordless (OAuth) path.
       getSecurityStatus()
         .then((status) => setHasPassword(status.hasPassword))
         .catch(() => setHasPassword(true));
@@ -100,14 +97,11 @@ const TwoFactorAuthModal = ({
   const isEnabled = session?.user?.twoFactorEnabled;
 
   const goToPasswordStep = (action: "enable" | "disable") => {
-    // OAuth-only accounts have no password to confirm with. Instead of bouncing
-    // the user to a separate "set a password" screen, let them create one right
-    // here, then continue straight into 2FA setup — one uninterrupted flow.
+    // OAuth-only accounts (no password) enable 2FA without one — the backend's
+    // better-auth `allowPasswordless` skips the confirmation for them. Go
+    // straight to enrolment instead of asking for a password they don't have.
     if (action === "enable" && !hasPassword) {
-      setNewPassword("");
-      setConfirmPassword("");
-      setError("");
-      setStep("create-password");
+      handleEnableWithoutPassword().catch(() => undefined);
       return;
     }
     setPendingAction(action);
@@ -116,40 +110,24 @@ const TwoFactorAuthModal = ({
     setStep("password");
   };
 
-  const handleCreatePasswordSubmit = async () => {
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError("Passwords don't match");
-      return;
-    }
+  const handleEnableWithoutPassword = async () => {
     setLoading(true);
     setError("");
     try {
-      // 1. Establish the account password (OAuth-only accounts had none).
-      await setAccountPassword(newPassword);
-      setHasPassword(true);
-      // 2. Immediately start 2FA enrolment with the password we just set, so the
-      //    user lands on the QR step without re-entering anything.
-      const res = await authClient.twoFactor.enable({ password: newPassword });
+      // No password in the body: allowed for passwordless (OAuth) accounts.
+      const res = await authClient.twoFactor.enable({});
       if (res.data) {
         setTotpURI(res.data.totpURI);
         setBackupCodes(res.data.backupCodes ?? []);
-        setNewPassword("");
-        setConfirmPassword("");
         setStep("qr");
       } else {
         const message = res.error?.message ?? "Failed to start 2FA setup";
         setError(message);
         toast.error(message);
       }
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to set password";
-      setError(message);
-      toast.error(message);
+    } catch {
+      setError("Failed to start 2FA setup");
+      toast.error("Failed to start 2FA setup");
     } finally {
       setLoading(false);
     }
@@ -342,99 +320,6 @@ const TwoFactorAuthModal = ({
                 >
                   Setup 2FA
                 </Button>
-              </motion.div>
-            )}
-
-            {step === "create-password" && (
-              <motion.div
-                key="create-password"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-4"
-              >
-                <div className="rounded-xl bg-primary/5 p-4 border border-primary/10">
-                  <p className="text-sm text-foreground">
-                    Create an account password
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    You signed in with Google, so your account has no password
-                    yet. Set one to secure two-factor authentication — you can
-                    still keep signing in with Google.
-                  </p>
-                </div>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">New password</Label>
-                    <Input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => {
-                        setNewPassword(e.target.value);
-                        if (error) setError("");
-                      }}
-                      placeholder="At least 8 characters"
-                      className="h-11 bg-muted/30"
-                      autoComplete="new-password"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">
-                      Confirm password
-                    </Label>
-                    <Input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => {
-                        setConfirmPassword(e.target.value);
-                        if (error) setError("");
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !loading) {
-                          handleCreatePasswordSubmit();
-                        }
-                      }}
-                      placeholder="Re-enter your password"
-                      className="h-11 bg-muted/30"
-                      autoComplete="new-password"
-                    />
-                  </div>
-                  {error && (
-                    <p className="text-xs text-red-500 flex items-center gap-1.5">
-                      <ExclamationCircleIcon
-                        className="h-3 w-3"
-                        aria-hidden="true"
-                      />{" "}
-                      {error}
-                    </p>
-                  )}
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setError("");
-                      setStep("initial");
-                    }}
-                    className="h-10"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleCreatePasswordSubmit}
-                    disabled={loading || !newPassword || !confirmPassword}
-                    className="h-10 min-w-[100px]"
-                  >
-                    {loading ? (
-                      <ArrowPathIcon
-                        className="mr-2 h-4 w-4 animate-spin"
-                        aria-hidden="true"
-                      />
-                    ) : null}
-                    Continue
-                  </Button>
-                </div>
               </motion.div>
             )}
 

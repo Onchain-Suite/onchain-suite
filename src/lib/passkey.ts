@@ -195,13 +195,19 @@ export const listPasskeys = async (
 export interface SecurityStatus {
   passkeys: PasskeyRecord[];
   twoFactorEnabled: boolean;
-  /** False for OAuth-only accounts with no password set - better-auth's 2FA
-   * enable() needs a password to confirm, so the UI gates on this. */
+  /** False for OAuth-only accounts with no password. With better-auth's
+   * `allowPasswordless` such users enable 2FA without a password, so the UI
+   * only uses this to decide whether to prompt for a password on enable, not
+   * to block it. */
   hasPassword: boolean;
+  /** Whether 2FA is available to this user at all. 2FA is gated to workspace
+   * owners; the backend reports it and the Security tab hides 2FA when false.
+   * Defaults false so a non-owner never sees the option on a stale response. */
+  twoFactorAllowed: boolean;
 }
 
-/** Reads the combined security status (passkeys + 2FA + whether a password is
- * set). Used to gate 2FA setup for OAuth-only accounts. */
+/** Reads the combined security status (passkeys + 2FA availability + whether a
+ * password is set). Drives the Security tab's 2FA gating. */
 export const getSecurityStatus = async (
   signal?: AbortSignal
 ): Promise<SecurityStatus> => {
@@ -214,28 +220,12 @@ export const getSecurityStatus = async (
   return {
     passkeys: normalizePasskeyList(payload),
     twoFactorEnabled: root.twoFactorEnabled === true,
-    // Default true so we never wrongly block a real password user if the field
-    // is absent (older backend); we only gate when it is explicitly false.
+    // Default true so we never wrongly prompt a real password user for a
+    // password they don't need; we only skip the prompt when explicitly false.
     hasPassword: root.hasPassword !== false,
+    // 2FA is owner-only; default false so a non-owner is never shown it.
+    twoFactorAllowed: root.twoFactorAllowed === true,
   };
-};
-
-/**
- * Establishes a FIRST account password for an OAuth-only user (no current
- * password required — the session authorizes it). This is what lets a Google
- * user enable 2FA inline instead of being bounced to a separate screen: 2FA
- * enable confirms with a password, and an OAuth account has none until this
- * runs. Hits our own `POST /api/v1/auth/set-password`; the backend refuses
- * (409) if a password already exists.
- */
-export const setAccountPassword = async (
-  newPassword: string
-): Promise<void> => {
-  await fetchAuthJson("/auth/set-password", {
-    method: "POST",
-    body: { newPassword },
-    fallbackError: "Failed to set password",
-  });
 };
 
 export const registerPasskey = async (

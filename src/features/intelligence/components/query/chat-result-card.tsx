@@ -21,11 +21,21 @@ const CHART_COLORS = [
 
 type ResultTab = "table" | "chart";
 
+// Compact, human-readable across every magnitude (K, M, B, T and beyond) so a
+// raw on-chain balance renders as "1.3T", never "1332204369811403.0M".
+const compactFormatter =
+  typeof Intl !== "undefined" && typeof Intl.NumberFormat === "function"
+    ? new Intl.NumberFormat("en-US", {
+        notation: "compact",
+        maximumFractionDigits: 1,
+      })
+    : null;
+
 const formatCompact = (value: number): string => {
   if (!Number.isFinite(value)) return "0";
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  if (compactFormatter && Math.abs(value) >= 1000) {
+    return compactFormatter.format(value);
+  }
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 };
 

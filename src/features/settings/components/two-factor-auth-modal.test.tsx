@@ -130,8 +130,15 @@ describe("TwoFactorAuthModal", () => {
         data: { status: true },
         error: null,
       } as never);
+      const onStatusChange = vi.fn();
 
-      render(<TwoFactorAuthModal open onOpenChange={vi.fn()} />);
+      render(
+        <TwoFactorAuthModal
+          open
+          onOpenChange={vi.fn()}
+          onStatusChange={onStatusChange}
+        />
+      );
       await goToQrStep();
 
       fireEvent.change(screen.getByPlaceholderText("000000"), {
@@ -148,6 +155,34 @@ describe("TwoFactorAuthModal", () => {
         screen.getByRole("button", { name: "Copy backup codes" })
       ).toBeTruthy();
       expect(toast.success).toHaveBeenCalledWith("2FA enabled successfully");
+      // The parent must be told so it can refresh the status row without a reload.
+      expect(onStatusChange).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not notify the parent when verification fails", async () => {
+      setSession(false);
+      enableSuccess();
+      mockedVerifyTotp.mockResolvedValue({
+        data: null,
+        error: { message: "Invalid TOTP code" },
+      } as never);
+      const onStatusChange = vi.fn();
+
+      render(
+        <TwoFactorAuthModal
+          open
+          onOpenChange={vi.fn()}
+          onStatusChange={onStatusChange}
+        />
+      );
+      await goToQrStep();
+      fireEvent.change(screen.getByPlaceholderText("000000"), {
+        target: { value: "000001" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /Verify/ }));
+
+      expect(await screen.findByText("Invalid TOTP code")).toBeTruthy();
+      expect(onStatusChange).not.toHaveBeenCalled();
     });
 
     it("shows the backend error for a wrong code and stays on the QR step", async () => {
@@ -265,8 +300,15 @@ describe("TwoFactorAuthModal", () => {
         error: null,
       } as never);
       const onOpenChange = vi.fn();
+      const onStatusChange = vi.fn();
 
-      render(<TwoFactorAuthModal open onOpenChange={onOpenChange} />);
+      render(
+        <TwoFactorAuthModal
+          open
+          onOpenChange={onOpenChange}
+          onStatusChange={onStatusChange}
+        />
+      );
       expect(screen.getByText("2FA is currently enabled")).toBeTruthy();
 
       fireEvent.click(screen.getByRole("button", { name: /Disable 2FA/ }));
@@ -290,6 +332,8 @@ describe("TwoFactorAuthModal", () => {
       });
       expect(toast.success).toHaveBeenCalledWith("2FA disabled");
       expect(onOpenChange).toHaveBeenCalledWith(false);
+      // Parent refreshes in place instead of the modal forcing a page reload.
+      await waitFor(() => expect(onStatusChange).toHaveBeenCalledTimes(1));
       expect(mockedEnable).not.toHaveBeenCalled();
     });
 

@@ -285,6 +285,20 @@ const toolSources = (name?: string): string[] | undefined => {
   return undefined;
 };
 
+/**
+ * Agent lifecycle events that are identical on every run (startup, loading the
+ * resource/tool catalogs, a generic "next step") and so carry no per-question
+ * signal. Hidden from the live thinking timeline so it reads as real reasoning,
+ * not boilerplate.
+ */
+const THINKING_NOISE_EVENTS = new Set([
+  "started",
+  "planner_ready",
+  "resource_context",
+  "tools_discovered",
+  "step_started",
+]);
+
 const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
   const eventType = event.type ?? "update";
   const candidates = collectObjectCandidates(event.data);
@@ -764,7 +778,13 @@ const isStructuredResult = (
 const isRawToolDump = (text: string) => {
   const trimmed = text.trim();
   return (
-    /^rendered\s+\S+\s+result\s*:/i.test(trimmed) || trimmed.startsWith("{")
+    // "Rendered <tool> result:" AND the plural "...results:" the list renderer
+    // emits for multi-row payloads (e.g. run_intelligence_sql). Either way it is
+    // a raw JSON dump, never the prose answer, so it must not render as one.
+    /^rendered\s+\S+\s+results?\s*:/i.test(trimmed) ||
+    trimmed.startsWith("{") ||
+    trimmed.startsWith("[") ||
+    /^\d+\.\s*\{/.test(trimmed)
   );
 };
 
@@ -1236,7 +1256,12 @@ export function QueryTab({
         selectedProtocol.contractAddresses.length > 0
           ? selectedProtocol.contractAddresses
           : undefined,
-      mode: "best" as const,
+      // "fast" runs the agent's decision loop on the chat model (Claude Sonnet)
+      // rather than escalating every step to the slow reasoning model, which was
+      // making interactive answers take ~2 minutes. Sonnet answers these
+      // tool-using questions correctly and in a fraction of the time; reserve
+      // "best" for offline/deep analysis, not the live chat.
+      mode: "fast" as const,
       useProjectSettings: true,
       useProtocolRegistry: true,
     }),
@@ -1339,6 +1364,12 @@ export function QueryTab({
               setStreamingAnswer((prev) => prev + answerToken);
               return;
             }
+
+            // Skip the agent's internal scaffolding events (booting, loading the
+            // resource/tool catalogs, generic "next step"). They are the same on
+            // every run and add noise, not insight - the timeline should show the
+            // decisions and tool calls that are specific to THIS question.
+            if (THINKING_NOISE_EVENTS.has(event.type ?? "")) return;
 
             const activityEntry = toStreamActivityEntry(event);
             setStreamActivity((prev) =>
@@ -2821,8 +2852,8 @@ export function QueryTab({
                 chatFill ? "min-h-0 flex-1" : "min-h-[520px] md:min-h-[640px]"
               )}
             >
-              <div className="min-h-0 overflow-y-auto px-5 py-6">
-                <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+              <div className="min-h-0 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+                <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
                   {chatMessages.length > 0 ? (
                     <>
                       {chatMessages.map((message) =>
@@ -2833,202 +2864,187 @@ export function QueryTab({
                             </div>
                           </div>
                         ) : (
-                          <div key={message.id} className="flex justify-start">
-                            <div className="flex w-full max-w-[92%]">
-                              <div className="w-full overflow-hidden rounded-[28px_28px_28px_12px] border border-border bg-card shadow-[0_28px_90px_-46px_rgba(45,102,255,0.5)]">
-                                <div className="space-y-5 px-5 py-5">
-                                  {message.structuredResult ? (
-                                    <div className="space-y-4">
-                                      <div className="rounded-[24px] border border-primary/15 bg-card p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                                        {(() => {
-                                          const structured =
-                                            message.structuredResult;
-                                          const rowCount =
-                                            meaningfulStructuredRows(
-                                              normalizeStructuredRows(
-                                                structured.rows
-                                              )
-                                            ).length;
-                                          const title =
-                                            structured.title &&
-                                            !structured.title.includes("_")
-                                              ? structured.title
-                                              : prettifyColumnLabel(
-                                                  structured.kind
-                                                );
-                                          // Prefer human prose; never render raw
-                                          // tool-envelope dumps as the answer.
-                                          const prose = !isRawToolDump(
-                                            message.content
-                                          )
-                                            ? stripMarkdown(message.content)
-                                            : stripMarkdown(
-                                                structured.summary ?? ""
-                                              );
-                                          return (
-                                            <>
-                                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                                <div className="text-sm font-medium text-foreground">
-                                                  {title}
-                                                </div>
-                                                {rowCount > 0 ? (
-                                                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
-                                                    {rowCount.toLocaleString()}{" "}
-                                                    {rowCount === 1
-                                                      ? "result"
-                                                      : "results"}
-                                                  </span>
-                                                ) : null}
-                                              </div>
-                                              {prose.length > 0 ? (
-                                                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/90">
-                                                  {prose}
-                                                </p>
-                                              ) : null}
-                                            </>
+                          <div key={message.id} className="w-full">
+                            <div className="space-y-5">
+                              {message.structuredResult ? (
+                                <div className="space-y-4">
+                                  <div className="space-y-1">
+                                    {(() => {
+                                      const structured =
+                                        message.structuredResult;
+                                      const rowCount = meaningfulStructuredRows(
+                                        normalizeStructuredRows(structured.rows)
+                                      ).length;
+                                      const title =
+                                        structured.title &&
+                                        !structured.title.includes("_")
+                                          ? structured.title
+                                          : prettifyColumnLabel(
+                                              structured.kind
+                                            );
+                                      // Prefer human prose; never render raw
+                                      // tool-envelope dumps as the answer.
+                                      const prose = !isRawToolDump(
+                                        message.content
+                                      )
+                                        ? stripMarkdown(message.content)
+                                        : stripMarkdown(
+                                            structured.summary ?? ""
                                           );
-                                        })()}
-                                      </div>
-
-                                      <ChatResultCard
-                                        tableContent={renderStructuredResult(
-                                          message.structuredResult
-                                        )}
-                                        series={deriveChatChartSeries(
-                                          message.structuredResult
-                                        )}
-                                      />
-
-                                      {message.queryReady
-                                        ? renderConversionActions(
-                                            message.queryId
-                                          )
-                                        : null}
-                                    </div>
-                                  ) : message.content.trim().length > 0 ? (
-                                    <div className="whitespace-pre-wrap text-[15px] leading-7 text-foreground/95">
-                                      {stripMarkdown(message.content)}
-                                    </div>
-                                  ) : null}
-
-                                  {message.kind === "error" &&
-                                  message.errorReport ? (
-                                    <div className="rounded-[24px] border border-red-400/20 bg-red-400/5 p-4">
-                                      <div className="flex items-center justify-between gap-3">
-                                        <div className="text-[11px] uppercase tracking-[0.16em] text-red-200/90">
-                                          Bug report
-                                        </div>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const report = message.errorReport;
-                                            if (!report) return;
-                                            navigator.clipboard
-                                              .writeText(
-                                                formatAgentFailureReport(report)
-                                              )
-                                              .catch(() => {
-                                                // Copy failure should not block the visible bug report.
-                                              });
-                                            toast.success("Bug details copied");
-                                          }}
-                                          className="inline-flex items-center gap-1 rounded-full border border-red-400/20 bg-red-400/10 px-2.5 py-1 text-[11px] font-medium text-red-100 transition-colors hover:bg-red-400/15"
-                                        >
-                                          <ClipboardDocumentIcon
-                                            className="h-3.5 w-3.5"
-                                            aria-hidden="true"
-                                          />
-                                          Copy
-                                        </button>
-                                      </div>
-                                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                        <div>
-                                          <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                            Status
-                                          </div>
-                                          <div className="mt-1 text-sm text-red-50">
-                                            {message.errorReport.statusCode ??
-                                              "Unknown"}
-                                          </div>
-                                        </div>
-                                        <div>
-                                          <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                            Time
-                                          </div>
-                                          <div className="mt-1 text-sm text-red-50">
-                                            {message.errorReport.at}
-                                          </div>
-                                        </div>
-                                        {message.errorReport.requestId ? (
-                                          <div>
-                                            <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                              Request ID
+                                      return (
+                                        <>
+                                          <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <div className="text-sm font-medium text-foreground">
+                                              {title}
                                             </div>
-                                            <div className="mt-1 break-all font-mono text-xs text-red-50">
-                                              {message.errorReport.requestId}
-                                            </div>
+                                            {rowCount > 0 ? (
+                                              <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
+                                                {rowCount.toLocaleString()}{" "}
+                                                {rowCount === 1
+                                                  ? "result"
+                                                  : "results"}
+                                              </span>
+                                            ) : null}
                                           </div>
-                                        ) : null}
-                                        {message.errorReport.conversationId ? (
-                                          <div>
-                                            <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                              Conversation ID
-                                            </div>
-                                            <div className="mt-1 break-all font-mono text-xs text-red-50">
-                                              {
-                                                message.errorReport
-                                                  .conversationId
-                                              }
-                                            </div>
-                                          </div>
-                                        ) : null}
-                                      </div>
-                                      <div className="mt-3">
-                                        <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                          Failure
-                                        </div>
-                                        <div className="mt-1 text-sm leading-6 text-red-50">
-                                          {message.errorReport.message}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ) : null}
+                                          {prose.length > 0 ? (
+                                            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/90">
+                                              {prose}
+                                            </p>
+                                          ) : null}
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
 
-                                  {Array.isArray(message.toolSteps) &&
-                                  message.toolSteps.length > 0 ? (
-                                    <ThoughtProcess
-                                      steps={message.toolSteps.map(
-                                        (step, index) => ({
-                                          id:
-                                            step.title ??
-                                            step.toolName ??
-                                            step.description ??
-                                            `tool-step-${index}`,
-                                          label:
-                                            step.title ??
-                                            (step.toolName
-                                              ? prettifyColumnLabel(
-                                                  step.toolName
-                                                )
-                                              : `Step ${index + 1}`),
-                                          detail: step.description,
-                                          tone: "success" as const,
-                                          kind: "tool" as const,
-                                        })
-                                      )}
-                                    />
-                                  ) : null}
+                                  <ChatResultCard
+                                    tableContent={renderStructuredResult(
+                                      message.structuredResult
+                                    )}
+                                    series={deriveChatChartSeries(
+                                      message.structuredResult
+                                    )}
+                                  />
 
-                                  {message.queryReady ? (
-                                    <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
-                                      <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
-                                        Turn into report, campaign, or segment
-                                        below
-                                      </span>
-                                    </div>
-                                  ) : null}
+                                  {message.queryReady
+                                    ? renderConversionActions(message.queryId)
+                                    : null}
                                 </div>
-                              </div>
+                              ) : message.content.trim().length > 0 ? (
+                                <div className="whitespace-pre-wrap text-[15px] leading-7 text-foreground/95">
+                                  {stripMarkdown(message.content)}
+                                </div>
+                              ) : null}
+
+                              {message.kind === "error" &&
+                              message.errorReport ? (
+                                <div className="rounded-[24px] border border-red-400/20 bg-red-400/5 p-4">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="text-[11px] uppercase tracking-[0.16em] text-red-200/90">
+                                      Bug report
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const report = message.errorReport;
+                                        if (!report) return;
+                                        navigator.clipboard
+                                          .writeText(
+                                            formatAgentFailureReport(report)
+                                          )
+                                          .catch(() => {
+                                            // Copy failure should not block the visible bug report.
+                                          });
+                                        toast.success("Bug details copied");
+                                      }}
+                                      className="inline-flex items-center gap-1 rounded-full border border-red-400/20 bg-red-400/10 px-2.5 py-1 text-[11px] font-medium text-red-100 transition-colors hover:bg-red-400/15"
+                                    >
+                                      <ClipboardDocumentIcon
+                                        className="h-3.5 w-3.5"
+                                        aria-hidden="true"
+                                      />
+                                      Copy
+                                    </button>
+                                  </div>
+                                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                      <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                        Status
+                                      </div>
+                                      <div className="mt-1 text-sm text-red-50">
+                                        {message.errorReport.statusCode ??
+                                          "Unknown"}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                        Time
+                                      </div>
+                                      <div className="mt-1 text-sm text-red-50">
+                                        {message.errorReport.at}
+                                      </div>
+                                    </div>
+                                    {message.errorReport.requestId ? (
+                                      <div>
+                                        <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                          Request ID
+                                        </div>
+                                        <div className="mt-1 break-all font-mono text-xs text-red-50">
+                                          {message.errorReport.requestId}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                    {message.errorReport.conversationId ? (
+                                      <div>
+                                        <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                          Conversation ID
+                                        </div>
+                                        <div className="mt-1 break-all font-mono text-xs text-red-50">
+                                          {message.errorReport.conversationId}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                  <div className="mt-3">
+                                    <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                      Failure
+                                    </div>
+                                    <div className="mt-1 text-sm leading-6 text-red-50">
+                                      {message.errorReport.message}
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {Array.isArray(message.toolSteps) &&
+                              message.toolSteps.length > 0 ? (
+                                <ThoughtProcess
+                                  steps={message.toolSteps.map(
+                                    (step, index) => ({
+                                      id:
+                                        step.title ??
+                                        step.toolName ??
+                                        step.description ??
+                                        `tool-step-${index}`,
+                                      label:
+                                        step.title ??
+                                        (step.toolName
+                                          ? prettifyColumnLabel(step.toolName)
+                                          : `Step ${index + 1}`),
+                                      detail: step.description,
+                                      tone: "success" as const,
+                                      kind: "tool" as const,
+                                    })
+                                  )}
+                                />
+                              ) : null}
+
+                              {message.queryReady ? (
+                                <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
+                                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
+                                    Turn into report, campaign, or segment below
+                                  </span>
+                                </div>
+                              ) : null}
                             </div>
                           </div>
                         )
@@ -3114,8 +3130,8 @@ export function QueryTab({
                 </div>
               </div>
 
-              <div className="border-t border-border/70 px-5 py-4 backdrop-blur">
-                <div className="mx-auto flex w-full max-w-4xl flex-col gap-3">
+              <div className="border-t border-border/70 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
+                <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
                   <div className="flex items-end gap-2 rounded-[24px] border border-border bg-muted/40 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/25">
                     <textarea
                       id="agent-chat-input"

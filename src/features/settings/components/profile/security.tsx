@@ -3,6 +3,7 @@ import {
   PencilIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -12,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { authClient } from "@/lib/auth-client";
+import { getSecurityStatus } from "@/lib/passkey";
 
 import { fadeInUp } from "../../utils";
 import { DefinitionGrid, SettingsCard, StatusPill } from "../settings-card";
@@ -48,6 +50,17 @@ const Security = () => {
   const passwordChangedLabel = formatSecurityDate(
     profileQuery.data?.passwordChangedAt
   );
+
+  // 2FA is restricted to workspace owners. The backend reports it in the
+  // security status; default to hidden until we know, so a non-owner never sees
+  // the 2FA affordance flash in.
+  const securityStatusQuery = useQuery({
+    queryKey: ["security-status"],
+    queryFn: ({ signal }) => getSecurityStatus(signal),
+    staleTime: 60_000,
+  });
+  const twoFactorAllowed =
+    TWO_FACTOR_ENABLED && securityStatusQuery.data?.twoFactorAllowed === true;
 
   const handlePasswordChange = async () => {
     if (!currentPassword || !newPassword) {
@@ -91,7 +104,7 @@ const Security = () => {
 
   return (
     <>
-      {TWO_FACTOR_ENABLED ? (
+      {twoFactorAllowed ? (
         <TwoFactorAuthModal
           open={showTwoFAModal}
           onOpenChange={setShowTwoFAModal}
@@ -102,7 +115,7 @@ const Security = () => {
         title="Security"
         description="Password and sign-in protection"
         action={
-          canShowActions && TWO_FACTOR_ENABLED ? (
+          canShowActions && twoFactorAllowed ? (
             <Button size="sm" onClick={openTwoFA} className="gap-2">
               <ShieldCheckIcon className="h-4 w-4" aria-hidden="true" />
               {twoFactorEnabled ? "Manage 2FA" : "Set up 2FA"}
@@ -163,7 +176,7 @@ const Security = () => {
               />
             </div>
 
-            {TWO_FACTOR_ENABLED ? (
+            {twoFactorAllowed ? (
               <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -211,7 +224,7 @@ const Security = () => {
           <div className="space-y-6">
             <DefinitionGrid
               items={[
-                ...(TWO_FACTOR_ENABLED
+                ...(twoFactorAllowed
                   ? [
                       {
                         label: "Two-factor authentication",

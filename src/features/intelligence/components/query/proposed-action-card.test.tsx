@@ -24,10 +24,42 @@ const action = {
 describe("ProposedActionCard", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it("humanizes internal template/segment ids in the args and the summary", () => {
+    const campaignAction = {
+      proposed: true as const,
+      tool: "create_campaign_from_segment",
+      summary:
+        'Would create a campaign using template "sys_tpl_product_update" for the chosen segment.',
+      args: {
+        emailTemplateId: "sys_tpl_product_update",
+        segmentQuery: "retention-engaged-but-inactive",
+        name: "MindNest Launch",
+      },
+    };
+    render(<ProposedActionCard action={campaignAction} />);
+
+    // No raw internal ids anywhere.
+    expect(
+      screen.queryByText(/sys_tpl_product_update/)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/retention-engaged-but-inactive/)
+    ).not.toBeInTheDocument();
+    // Friendly labels + values instead.
+    expect(screen.getByText("Template")).toBeInTheDocument();
+    expect(screen.getByText("Product Update")).toBeInTheDocument();
+    expect(screen.getByText("Audience")).toBeInTheDocument();
+    expect(screen.getByText("Engaged But Inactive")).toBeInTheDocument();
+    // The summary reads naturally too.
+    expect(screen.getByText(/"Product Update"/)).toBeInTheDocument();
+  });
+
   it("shows the summary and the exact args that will run", () => {
     render(<ProposedActionCard action={action} />);
     expect(screen.getByText(action.summary)).toBeInTheDocument();
-    expect(screen.getByText("play_winback")).toBeInTheDocument();
+    // The internal template id is humanized, never shown raw.
+    expect(screen.getByText("Play Winback")).toBeInTheDocument();
+    expect(screen.queryByText("play_winback")).not.toBeInTheDocument();
     expect(screen.getByText("Win-back")).toBeInTheDocument();
     // Nothing has run yet.
     expect(
@@ -53,6 +85,32 @@ describe("ProposedActionCard", () => {
     );
     expect(await screen.findByText(/Created "Win-back"/)).toBeInTheDocument();
     expect(mocks.toast.success).toHaveBeenCalled();
+  });
+
+  it("shows an 'Open in campaign builder' link after a campaign is created", async () => {
+    const campaignAction = {
+      proposed: true as const,
+      tool: "create_campaign_from_segment",
+      summary: "Would create a campaign for the chosen segment.",
+      args: {
+        emailTemplateId: "sys_tpl_product_update",
+        segmentQuery: "retention-engaged-but-inactive",
+        name: "MindNest Launch",
+      },
+    };
+    mocks.intelligenceService.runIntelligenceTool.mockResolvedValueOnce({
+      campaign: { id: "camp_1", name: "MindNest Launch" },
+      url: "/campaigns/camp_1",
+    });
+    render(<ProposedActionCard action={campaignAction} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /approve & run/i }));
+
+    const link = await screen.findByRole("link", {
+      name: /open in campaign builder/i,
+    });
+    expect(link).toHaveAttribute("href", "/campaigns/camp_1");
+    expect(screen.getByText(/Created "MindNest Launch"/)).toBeInTheDocument();
   });
 
   it("does not execute anything on decline", () => {

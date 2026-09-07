@@ -39,10 +39,37 @@ const toolLabel = (tool: string): string =>
   TOOL_LABELS[tool] ??
   tool.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 
-/** Compact, readable rendering of one approved argument value. */
-const formatArgValue = (value: unknown): string => {
+/** Turn a machine id into a human phrase: drop internal prefixes, split on
+ * separators/camelCase, and title-case. `sys_tpl_product_update` -> "Product
+ * update"; `retention-engaged-but-inactive` -> "Engaged but inactive". */
+const humanizeId = (raw: string): string => {
+  const cleaned = raw
+    .replace(/^(sys_tpl_|tpl_|sys_)/i, "")
+    .replace(
+      /^(retention|engagement|volume_scoring|wallet_enrichment)[-_]/i,
+      ""
+    )
+    .replace(/[-_]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim();
+  return cleaned.replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+/** Argument keys that hold an internal id we never want to show verbatim. */
+const ID_VALUED_KEYS = new Set([
+  "emailTemplateId",
+  "templateId",
+  "segmentQuery",
+  "segmentId",
+]);
+
+/** Compact, readable rendering of one approved argument value. Internal ids are
+ * humanized so the card never surfaces raw names like `sys_tpl_product_update`. */
+const formatArgValue = (key: string, value: unknown): string => {
   if (value === null || value === undefined) return "-";
-  if (typeof value === "string") return value;
+  if (typeof value === "string") {
+    return ID_VALUED_KEYS.has(key) ? humanizeId(value) : value;
+  }
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
@@ -56,12 +83,52 @@ const formatArgValue = (value: unknown): string => {
   }
 };
 
-/** Human label for an argument key. */
+/** Human label for an argument key — friendlier than raw camelCase for the
+ * ones users actually read. */
+const ARG_LABELS: Record<string, string> = {
+  emailTemplateId: "Template",
+  templateId: "Template",
+  segmentQuery: "Audience",
+  segmentId: "Audience",
+  name: "Name",
+  title: "Title",
+  body: "Message",
+  placement: "Placement",
+  ctaText: "Button",
+  ctaUrl: "Button link",
+};
+
 const argLabel = (key: string): string =>
+  ARG_LABELS[key] ??
   key
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/_/g, " ")
     .replace(/^\w/, (c) => c.toUpperCase());
+
+/** Rewrite any internal template/segment id that leaked into the backend's
+ * prose summary (e.g. `"sys_tpl_product_update"`) into its humanized form, so
+ * the sentence reads naturally too. */
+const humanizeSummary = (summary: string): string =>
+  summary.replace(
+    /"?\b((?:sys_tpl_|tpl_)[a-z0-9_]+)"?/gi,
+    (_m, id: string) => `"${humanizeId(id)}"`
+  );
+
+/** Where to send the user next after a successful action (e.g. the draft
+ * campaign in the builder). Only internal relative paths are trusted, so a
+ * value that isn't a `/…` app path is ignored. */
+const extractActionLink = (
+  result: Record<string, unknown>,
+  tool: string
+): { href: string; label: string } | null => {
+  const href = typeof result.url === "string" ? result.url : null;
+  if (!href || !href.startsWith("/") || href.startsWith("//")) return null;
+  const label =
+    tool === "create_campaign_from_segment"
+      ? "Open in campaign builder"
+      : "Open";
+  return { href, label };
+};
 
 /** A short confirmation line drawn from whatever the executed tool returned. */
 const successLine = (result: Record<string, unknown>): string => {
@@ -85,6 +152,9 @@ export function ProposedActionCard({
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [link, setLink] = useState<{ href: string; label: string } | null>(
+    null
+  );
 
   const argEntries = Object.entries(action.args ?? {}).filter(
     ([, value]) => value !== null && value !== undefined && value !== ""
@@ -105,6 +175,9 @@ export function ProposedActionCard({
       }
       setPhase("done");
       setMessage(successLine(result));
+      setLink(
+        isJsonObject(result) ? extractActionLink(result, action.tool) : null
+      );
       toast.success("Action completed");
     } catch (err) {
       setPhase("error");
@@ -148,8 +221,10 @@ export function ProposedActionCard({
       </div>
 
       <div className="space-y-4 p-4">
-        {/* What the agent will do */}
-        <p className="text-sm text-foreground">{action.summary}</p>
+        {/* What the agent will do (with internal ids humanized inline) */}
+        <p className="text-sm text-foreground">
+          {humanizeSummary(action.summary)}
+        </p>
 
         {/* Exactly what will run */}
         {argEntries.length > 0 ? (
@@ -158,7 +233,7 @@ export function ProposedActionCard({
               <div key={key} className="contents">
                 <dt className="text-muted-foreground">{argLabel(key)}</dt>
                 <dd className="min-w-0 break-words font-medium text-foreground">
-                  {formatArgValue(value)}
+                  {formatArgValue(key, value)}
                 </dd>
               </div>
             ))}
@@ -190,6 +265,17 @@ export function ProposedActionCard({
             ) : null}
             <span>{message}</span>
           </div>
+        ) : null}
+
+        {/* Next step: open the created draft where the user finishes it. */}
+        {phase === "done" && !declined && link ? (
+          <a
+            href={link.href}
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          >
+            {link.label}
+            <span aria-hidden="true">→</span>
+          </a>
         ) : null}
 
         {/* Controls: hidden once the action is resolved (done/declined) */}

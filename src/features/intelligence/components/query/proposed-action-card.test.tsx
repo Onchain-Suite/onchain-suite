@@ -87,6 +87,32 @@ describe("ProposedActionCard", () => {
     expect(mocks.toast.success).toHaveBeenCalled();
   });
 
+  it("shows an 'Open in campaign builder' link after a campaign is created", async () => {
+    const campaignAction = {
+      proposed: true as const,
+      tool: "create_campaign_from_segment",
+      summary: "Would create a campaign for the chosen segment.",
+      args: {
+        emailTemplateId: "sys_tpl_product_update",
+        segmentQuery: "retention-engaged-but-inactive",
+        name: "MindNest Launch",
+      },
+    };
+    mocks.intelligenceService.runIntelligenceTool.mockResolvedValueOnce({
+      campaign: { id: "camp_1", name: "MindNest Launch" },
+      url: "/campaigns/camp_1",
+    });
+    render(<ProposedActionCard action={campaignAction} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /approve & run/i }));
+
+    const link = await screen.findByRole("link", {
+      name: /open in campaign builder/i,
+    });
+    expect(link).toHaveAttribute("href", "/campaigns/camp_1");
+    expect(screen.getByText(/Created "MindNest Launch"/)).toBeInTheDocument();
+  });
+
   it("does not execute anything on decline", () => {
     render(<ProposedActionCard action={action} />);
     fireEvent.click(screen.getByRole("button", { name: /decline/i }));

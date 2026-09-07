@@ -114,6 +114,22 @@ const humanizeSummary = (summary: string): string =>
     (_m, id: string) => `"${humanizeId(id)}"`
   );
 
+/** Where to send the user next after a successful action (e.g. the draft
+ * campaign in the builder). Only internal relative paths are trusted, so a
+ * value that isn't a `/…` app path is ignored. */
+const extractActionLink = (
+  result: Record<string, unknown>,
+  tool: string
+): { href: string; label: string } | null => {
+  const href = typeof result.url === "string" ? result.url : null;
+  if (!href || !href.startsWith("/") || href.startsWith("//")) return null;
+  const label =
+    tool === "create_campaign_from_segment"
+      ? "Open in campaign builder"
+      : "Open";
+  return { href, label };
+};
+
 /** A short confirmation line drawn from whatever the executed tool returned. */
 const successLine = (result: Record<string, unknown>): string => {
   const created = isJsonObject(result.automation)
@@ -136,6 +152,9 @@ export function ProposedActionCard({
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [link, setLink] = useState<{ href: string; label: string } | null>(
+    null
+  );
 
   const argEntries = Object.entries(action.args ?? {}).filter(
     ([, value]) => value !== null && value !== undefined && value !== ""
@@ -156,6 +175,9 @@ export function ProposedActionCard({
       }
       setPhase("done");
       setMessage(successLine(result));
+      setLink(
+        isJsonObject(result) ? extractActionLink(result, action.tool) : null
+      );
       toast.success("Action completed");
     } catch (err) {
       setPhase("error");
@@ -243,6 +265,17 @@ export function ProposedActionCard({
             ) : null}
             <span>{message}</span>
           </div>
+        ) : null}
+
+        {/* Next step: open the created draft where the user finishes it. */}
+        {phase === "done" && !declined && link ? (
+          <a
+            href={link.href}
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          >
+            {link.label}
+            <span aria-hidden="true">→</span>
+          </a>
         ) : null}
 
         {/* Controls: hidden once the action is resolved (done/declined) */}

@@ -3360,6 +3360,7 @@ export function QueryTab({
                                 <MarkdownLite
                                   text={message.content}
                                   className="text-sm leading-6 text-foreground/90"
+                                  copyable
                                 />
                               ) : message.kind === "error" ? null : (
                                 <p className="text-sm text-muted-foreground">

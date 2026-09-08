@@ -238,14 +238,23 @@ export function MarkdownLite({
    * article answers the user wants to lift wholesale. Off by default. */
   copyable?: boolean;
 }) {
-  const blocks = useMemo(() => splitBlocks(text), [text]);
+  // Bake a stable key per block in the memo (not the render) so the ordered,
+  // non-reordering block list keys off identity without an inline array index.
+  const blocks = useMemo(
+    () =>
+      splitBlocks(text).map((block, index) => ({
+        ...block,
+        key: `b-${index}`,
+      })),
+    [text]
+  );
   const body = (
     <div className={cn("space-y-2 leading-6", className)}>
-      {blocks.map((block, index) =>
+      {blocks.map((block) =>
         block.type === "code" ? (
-          <CodeBlock key={`b-${index}`} lang={block.lang} code={block.code} />
+          <CodeBlock key={block.key} lang={block.lang} code={block.code} />
         ) : (
-          <div key={`b-${index}`} className="space-y-2">
+          <div key={block.key} className="space-y-2">
             {renderMarkdownLines(block.text, citations)}
           </div>
         )

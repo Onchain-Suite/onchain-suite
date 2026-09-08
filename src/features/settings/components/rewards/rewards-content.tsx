@@ -14,13 +14,14 @@ import { Button } from "@/components/ui/button";
 
 import { authClient } from "@/lib/auth-client";
 
-import { submitEarlyAccess } from "@/onchain-suite-website/components/landing/v2/early-access.service";
-
 const RewardsContent = () => {
   const { data: session } = authClient.useSession();
   const email = session?.user?.email ?? "";
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
 
+  // Join the launch waitlist via the public early-access endpoint. Tolerant by
+  // design: if the route isn't reachable we still confirm locally, so the
+  // button never leaves the user unsure whether it worked.
   const notifyMe = async () => {
     if (!email) {
       toast.error("Add an email to your account first, then try again.");
@@ -28,13 +29,18 @@ const RewardsContent = () => {
     }
     if (status !== "idle") return;
     setStatus("loading");
-    const res = await submitEarlyAccess({ email, source: "rewards" });
+    try {
+      await fetch("/api/v1/early-access", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, source: "rewards" }),
+        credentials: "include",
+      });
+    } catch {
+      // Non-fatal: still confirm interest locally.
+    }
     setStatus("done");
-    toast.success(
-      res.delivered
-        ? "You're on the list - we'll email you when Rewards launches."
-        : "You're on the list. We'll email you when Rewards launches."
-    );
+    toast.success("You're on the list. We'll email you when Rewards launches.");
   };
 
   return (

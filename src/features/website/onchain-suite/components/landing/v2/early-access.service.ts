@@ -23,7 +23,7 @@ export interface EarlyAccessPayload {
   /** Preferred call time (ISO string) if the user picked one. */
   preferredTime?: string;
   /** Where the signup originated. */
-  source: "hero" | "early-access" | "rewards";
+  source: "hero" | "early-access";
 }
 
 export interface EarlyAccessResult {

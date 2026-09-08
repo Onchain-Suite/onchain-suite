@@ -303,9 +303,7 @@ function WelcomeStep({ onComplete }: OnboardingStepProps) {
         <TrophyIcon aria-hidden="true" className="h-12 w-12 text-primary" />
       </div>
       <div>
-        <h3 className="text-xl font-semibold mb-2">
-          Welcome to Onchain Suite!
-        </h3>
+        <h3 className="text-xl font-semibold mb-2">Welcome to OnchainSuite!</h3>
         <p className="text-muted-foreground">
           You&apos;re about to discover the future of marketing automation.
           Let&apos;s get you set up in just a few minutes.

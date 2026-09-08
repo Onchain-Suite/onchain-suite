@@ -1,14 +1,42 @@
+"use client";
+
 import {
+  CheckIcon,
   EnvelopeIcon,
   GiftIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
-import React from "react";
+import React, { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
+import { authClient } from "@/lib/auth-client";
+
+import { submitEarlyAccess } from "@/onchain-suite-website/components/landing/v2/early-access.service";
+
 const RewardsContent = () => {
+  const { data: session } = authClient.useSession();
+  const email = session?.user?.email ?? "";
+  const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
+
+  const notifyMe = async () => {
+    if (!email) {
+      toast.error("Add an email to your account first, then try again.");
+      return;
+    }
+    if (status !== "idle") return;
+    setStatus("loading");
+    const res = await submitEarlyAccess({ email, source: "rewards" });
+    setStatus("done");
+    toast.success(
+      res.delivered
+        ? "You're on the list - we'll email you when Rewards launches."
+        : "You're on the list. We'll email you when Rewards launches."
+    );
+  };
+
   return (
     <>
       <motion.div
@@ -55,12 +83,26 @@ const RewardsContent = () => {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.5 }}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+        whileHover={status === "idle" ? { scale: 1.02 } : undefined}
+        whileTap={status === "idle" ? { scale: 0.98 } : undefined}
       >
-        <Button className="mt-8 h-11 bg-primary px-8 text-primary-foreground transition-all duration-300 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/10">
-          <EnvelopeIcon className="mr-2 h-4 w-4" aria-hidden="true" />
-          Notify me
+        <Button
+          onClick={notifyMe}
+          disabled={status !== "idle"}
+          aria-live="polite"
+          className="mt-8 h-11 bg-primary px-8 text-primary-foreground transition-all duration-300 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/10"
+        >
+          {status === "done" ? (
+            <>
+              <CheckIcon className="mr-2 h-4 w-4" aria-hidden="true" />
+              You&apos;re on the list
+            </>
+          ) : (
+            <>
+              <EnvelopeIcon className="mr-2 h-4 w-4" aria-hidden="true" />
+              {status === "loading" ? "Adding you…" : "Notify me"}
+            </>
+          )}
         </Button>
       </motion.div>
     </>

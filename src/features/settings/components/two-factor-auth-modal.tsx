@@ -96,6 +96,26 @@ const TwoFactorAuthModal = ({
 
   const isEnabled = session?.user?.twoFactorEnabled;
 
+  // Surface the real reason instead of a blanket "An error occurred": prefer the
+  // server message, then a status/code, so a rejected password, a passwordless
+  // account, or a disabled 2FA route each read differently in the UI and logs.
+  const errText = (err: unknown, fallback: string): string => {
+    if (err && typeof err === "object") {
+      const e = err as {
+        message?: string;
+        statusText?: string;
+        code?: string;
+        status?: number;
+      };
+      if (e.message) return e.message;
+      if (e.statusText) return e.statusText;
+      if (e.code) return `2FA error: ${e.code}`;
+      if (typeof e.status === "number") return `Request failed (${e.status})`;
+    }
+    if (err instanceof Error && err.message) return err.message;
+    return fallback;
+  };
+
   const goToPasswordStep = (action: "enable" | "disable") => {
     // OAuth-only accounts (no password) enable 2FA without one — the backend's
     // better-auth `allowPasswordless` skips the confirmation for them. Go
@@ -121,13 +141,14 @@ const TwoFactorAuthModal = ({
         setBackupCodes(res.data.backupCodes ?? []);
         setStep("qr");
       } else {
-        const message = res.error?.message ?? "Failed to start 2FA setup";
+        const message = errText(res.error, "Failed to start 2FA setup");
         setError(message);
         toast.error(message);
       }
-    } catch {
-      setError("Failed to start 2FA setup");
-      toast.error("Failed to start 2FA setup");
+    } catch (e) {
+      const message = errText(e, "Failed to start 2FA setup");
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -147,13 +168,14 @@ const TwoFactorAuthModal = ({
         setPassword("");
         setStep("qr");
       } else if (res.error) {
-        const message = res.error.message ?? "An error occurred";
+        const message = errText(res.error, "Couldn't start 2FA setup");
         setError(message);
         toast.error(message);
       }
-    } catch {
-      setError("Failed to start 2FA setup");
-      toast.error("Failed to start 2FA setup");
+    } catch (e) {
+      const message = errText(e, "Couldn't start 2FA setup");
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -178,13 +200,17 @@ const TwoFactorAuthModal = ({
         // it doesn't keep showing "Needs setup" until a reload.
         onStatusChange?.();
       } else if (res.error) {
-        const message = res.error.message ?? "An error occurred";
+        const message = errText(
+          res.error,
+          "That code didn't match. Try again."
+        );
         setError(message);
         toast.error(message);
       }
-    } catch {
-      setError("Invalid code");
-      toast.error("Invalid code");
+    } catch (e) {
+      const message = errText(e, "That code didn't match. Try again.");
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -203,13 +229,14 @@ const TwoFactorAuthModal = ({
         // Refresh session + status in place instead of a full page reload.
         onStatusChange?.();
       } else {
-        const message = res.error?.message ?? "Failed to disable 2FA";
+        const message = errText(res.error, "Failed to disable 2FA");
         setError(message);
         toast.error(message);
       }
-    } catch {
-      setError("Failed to disable 2FA");
-      toast.error("Failed to disable 2FA");
+    } catch (e) {
+      const message = errText(e, "Failed to disable 2FA");
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }

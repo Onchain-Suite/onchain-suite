@@ -116,6 +116,69 @@ export const organizationOptions = [
   },
 ];
 
+/**
+ * Web2 sectors — we now onboard non-crypto teams too, so the Sector picker
+ * offers these alongside the Web3 list above.
+ */
+export const web2Options = [
+  {
+    id: "ecommerce-retail",
+    label: "E-commerce or Retail",
+    description: "Selling physical or digital products online.",
+  },
+  {
+    id: "saas-software",
+    label: "SaaS or Software",
+    description: "Building a software product or platform.",
+  },
+  {
+    id: "marketplace",
+    label: "Marketplace",
+    description: "Connecting buyers and sellers of goods or services.",
+  },
+  {
+    id: "media-creator",
+    label: "Media, Content or Creator",
+    description: "Publishing, newsletters, or a creator business.",
+  },
+  {
+    id: "education",
+    label: "Education or EdTech",
+    description: "Courses, training, or learning products.",
+  },
+  {
+    id: "fintech-finance",
+    label: "Fintech or Finance",
+    description: "Payments, banking, investing, or financial services.",
+  },
+  {
+    id: "healthcare-wellness",
+    label: "Healthcare or Wellness",
+    description: "Health, fitness, or wellness products and services.",
+  },
+  {
+    id: "real-estate",
+    label: "Real Estate or PropTech",
+    description: "Property, rentals, or real-estate technology.",
+  },
+  {
+    id: "travel-hospitality",
+    label: "Travel or Hospitality",
+    description: "Travel, events, food, or hospitality.",
+  },
+  {
+    id: "agency-services",
+    label: "Agency or Professional Services",
+    description: "Marketing, consulting, or other client services.",
+  },
+];
+
+/**
+ * Sentinel value for the "Other" sector option. Selecting it reveals a free-text
+ * field so the user can name a sector we didn't list.
+ */
+export const SECTOR_OTHER_VALUE = "__other__";
+
 export const goalOptions = [
   {
     id: "drive-sales",

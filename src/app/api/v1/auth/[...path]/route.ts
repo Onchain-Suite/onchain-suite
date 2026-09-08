@@ -280,6 +280,25 @@ const clearOnchainMirrorCookies = (response: NextResponse) => {
   );
 };
 
+/**
+ * Why `get-session` came back without a session.
+ *
+ * Four different causes collapsed into a body of `null`: no cookie was sent,
+ * the backend rejected the cookie it was sent, the backend was unreachable, or
+ * the profile fallback also came back empty. From the browser they are
+ * identical, so "No active session found. Please sign in again." was the only
+ * thing anyone could report — and it is the one sentence that fits all four.
+ *
+ * A response HEADER rather than a body field: better-auth parses the body and
+ * an extra key risks confusing its client, whereas a header is inert to every
+ * consumer and visible in the Network tab, which is where someone debugging
+ * this is already looking.
+ */
+const withSessionMiss = (res: NextResponse, reason: string) => {
+  res.headers.set("x-session-miss", reason);
+  return res;
+};
+
 const buildFallbackSessionResponse = async (args: {
   backendBase: string;
   cookieHeader: string;
@@ -393,12 +412,15 @@ const forward = async (
         cache: "no-store",
       });
     } catch {
-      return NextResponse.json(
-        {
-          error: "upstream_unreachable",
-          message: "Authentication service is unavailable",
-        },
-        { status: 502 }
+      return withSessionMiss(
+        NextResponse.json(
+          {
+            error: "upstream_unreachable",
+            message: "Authentication service is unavailable",
+          },
+          { status: 502 }
+        ),
+        "upstream-unreachable"
       );
     }
 
@@ -435,6 +457,17 @@ const forward = async (
           if (fallback) return fallback;
         }
         const res = NextResponse.json(json, { status: upstream.status });
+        if (!user) {
+          // The cookie header tells these two apart, and they need opposite
+          // responses: send the user to sign in, or go and look at why a
+          // present cookie was refused.
+          withSessionMiss(
+            res,
+            extractBetterAuthSession(cookieHeader)
+              ? "cookie-rejected-by-backend"
+              : "no-session-cookie-sent"
+          );
+        }
         for (const cookie of getSetCookieHeaders(upstream.headers)) {
           res.headers.append(
             "set-cookie",

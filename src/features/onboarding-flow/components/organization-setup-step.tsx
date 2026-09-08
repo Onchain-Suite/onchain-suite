@@ -170,11 +170,29 @@ export function OrganizationSetupStep({
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
 
-      // Ensure session is fresh
+      // Ensure session is fresh.
+      //
+      // The proxy stamps `x-session-miss` on an empty session naming WHY it is
+      // empty — no cookie sent, cookie rejected by the backend, or the backend
+      // unreachable. Those need opposite responses and used to be one
+      // indistinguishable sentence, which is why "No active session" was
+      // reported for days with nothing to act on. See
+      // src/app/api/v1/auth/[...path]/route.ts.
       const { data: session } = await authClient.getSession();
 
       if (!session) {
-        throw new Error("No active session found. Please sign in again.");
+        const reason = await fetch("/api/v1/auth/get-session", {
+          credentials: "include",
+        })
+          .then((r) => r.headers.get("x-session-miss"))
+          .catch(() => null);
+        throw new Error(
+          reason === "upstream-unreachable"
+            ? "Cannot reach the authentication service. Please try again in a moment."
+            : reason === "cookie-rejected-by-backend"
+              ? "Your session has expired. Please sign in again."
+              : "No active session found. Please sign in again."
+        );
       }
 
       const websiteUrl = normalizeWebsiteUrl(data.websiteUrl);

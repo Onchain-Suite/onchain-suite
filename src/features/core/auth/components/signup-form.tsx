@@ -4,7 +4,7 @@ import { EnvelopeIcon, UserIcon } from "@heroicons/react/24/outline";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -32,10 +32,19 @@ import {
 } from "./shared";
 import { syncUserDataWithGuard } from "@/auth/actions";
 import { type SignUpFormData, signUpSchema } from "@/auth/validation";
+import { AUTH_ROUTES } from "@/shared/config/app-routes";
 
 interface SignUpFormProps {
   onSwitchToSignIn: () => void;
 }
+
+/** Only same-origin relative paths are allowed as a post-auth redirect. */
+const safeRedirectPath = (raw: string | null): string | null => {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  return trimmed;
+};
 
 export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +53,7 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
 
   const { setValue } = useLocalStorage<SignUpFormData | null>("user", null);
 
+  const router = useRouter();
   const searchParams = useSearchParams();
   // Prefill email when arriving from the sign-in "no account" flow
   // (/auth/signup?email=...).
@@ -103,12 +113,20 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
         console.error("Failed to sync user data:", err);
       }
 
-      // Store form data for onboarding
+      // Store form data for onboarding (used after they verify).
       setValue(data);
       toast.success(
-        "Account created successfully! Please check your email to verify your account."
+        "Account created. Check your email to verify your account."
       );
-      form.reset();
+      // Take them to the "check your inbox" page (with resend) instead of
+      // leaving them on the signup form. The email drives the resend action;
+      // an invite redirectTo is carried through to after verification.
+      const params = new URLSearchParams({ email: data.email });
+      const redirectTo = safeRedirectPath(
+        searchParams?.get("redirectTo") ?? null
+      );
+      if (redirectTo) params.set("redirectTo", redirectTo);
+      router.push(`${AUTH_ROUTES.VERIFY_ACCOUNT}?${params.toString()}`);
     } catch (error: unknown) {
       console.error("Sign up error:", error);
       turnstileRef.current?.reset();
@@ -124,14 +142,6 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const safeRedirectPath = (raw: string | null): string | null => {
-    if (!raw) return null;
-    const trimmed = raw.trim();
-    if (!trimmed.startsWith("/")) return null;
-    if (trimmed.startsWith("//")) return null;
-    return trimmed;
   };
 
   const handleOAuthSignUp = async (provider: string) => {

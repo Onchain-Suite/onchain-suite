@@ -1,16 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { toast } from "sonner";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { authClient } from "@/lib/auth-client";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ResetPasswordForm } from "./reset-password-form";
-
-vi.mock("@/lib/auth-client", () => ({
-  authClient: {
-    resetPassword: vi.fn(),
-  },
-}));
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -18,7 +10,19 @@ vi.mock("sonner", () => ({
 
 vi.mock("framer-motion", () => import("@/test/mocks/framer-motion"));
 
-const mockedResetPassword = vi.mocked(authClient.resetPassword);
+// The form posts to our own /auth/reset-password (better-auth's native reset is
+// disabled server-side). Mock fetch and restore it after — the suite runs
+// single-worker, so a mutated global would bleed into later files.
+const originalFetch = global.fetch;
+const mockedFetch = vi.fn<typeof fetch>();
+global.fetch = mockedFetch as unknown as typeof fetch;
+
+const jsonResponse = (status: number, body: unknown) =>
+  ({
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  }) as unknown as Response;
 
 const VALID_PASSWORD = "Str0ng!Passw0rd";
 
@@ -37,6 +41,11 @@ const submit = () =>
 describe("ResetPasswordForm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedFetch.mockReset();
+  });
+
+  afterAll(() => {
+    global.fetch = originalFetch;
   });
 
   it("shows an invalid-link state when the URL has no token", () => {
@@ -49,7 +58,7 @@ describe("ResetPasswordForm", () => {
     expect(requestLink.getAttribute("href")).toBe("/auth/forgot-password");
     // No form is rendered, so the reset call can never fire without a token.
     expect(screen.queryByPlaceholderText("Create a new password")).toBeNull();
-    expect(mockedResetPassword).not.toHaveBeenCalled();
+    expect(mockedFetch).not.toHaveBeenCalled();
   });
 
   it("rejects mismatched passwords before calling the backend", async () => {
@@ -59,7 +68,7 @@ describe("ResetPasswordForm", () => {
     submit();
 
     expect(await screen.findByText("Passwords don't match")).toBeTruthy();
-    expect(mockedResetPassword).not.toHaveBeenCalled();
+    expect(mockedFetch).not.toHaveBeenCalled();
   });
 
   it("rejects weak passwords with the schema message", async () => {
@@ -71,14 +80,13 @@ describe("ResetPasswordForm", () => {
     expect(
       await screen.findByText("Password must be at least 8 characters")
     ).toBeTruthy();
-    expect(mockedResetPassword).not.toHaveBeenCalled();
+    expect(mockedFetch).not.toHaveBeenCalled();
   });
 
   it("resets the password with the URL token and offers the sign-in redirect", async () => {
-    mockedResetPassword.mockResolvedValue({
-      data: { status: true },
-      error: null,
-    } as never);
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { message: "Password reset successfully", user: {} })
+    );
     const onPasswordReset = vi.fn();
 
     render(
@@ -89,10 +97,13 @@ describe("ResetPasswordForm", () => {
     submit();
 
     expect(await screen.findByText("Password reset successful!")).toBeTruthy();
-    expect(mockedResetPassword).toHaveBeenCalledWith({
-      newPassword: VALID_PASSWORD,
-      token: "tok_123",
-    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/v1/auth/reset-password",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ token: "tok_123", newPassword: VALID_PASSWORD }),
+      })
+    );
     expect(toast.success).toHaveBeenCalledWith("Password reset successfully!");
 
     fireEvent.click(
@@ -102,10 +113,12 @@ describe("ResetPasswordForm", () => {
   });
 
   it("renders an expired/invalid token error inline (not just a toast)", async () => {
-    mockedResetPassword.mockResolvedValue({
-      data: null,
-      error: { message: "Invalid or expired reset token" },
-    } as never);
+    mockedFetch.mockResolvedValue(
+      jsonResponse(400, {
+        message: "Failed to reset password",
+        error: "Invalid or expired reset token",
+      })
+    );
 
     render(<ResetPasswordForm token="tok_expired" onPasswordReset={vi.fn()} />);
 
@@ -121,15 +134,16 @@ describe("ResetPasswordForm", () => {
   });
 
   it("clears the inline error on a subsequent successful attempt", async () => {
-    mockedResetPassword
-      .mockResolvedValueOnce({
-        data: null,
-        error: { message: "Invalid or expired reset token" },
-      } as never)
-      .mockResolvedValueOnce({
-        data: { status: true },
-        error: null,
-      } as never);
+    mockedFetch
+      .mockResolvedValueOnce(
+        jsonResponse(400, {
+          message: "Failed to reset password",
+          error: "Invalid or expired reset token",
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, { message: "Password reset successfully", user: {} })
+      );
 
     render(<ResetPasswordForm token="tok_123" onPasswordReset={vi.fn()} />);
 

@@ -17,8 +17,6 @@ import { Button } from "@/ui/button";
 import { Form } from "@/ui/form";
 import { LoadingButton } from "@/ui/loading-button";
 
-import { authClient } from "@/lib/auth-client";
-
 import {
   type ForgotPasswordFormData,
   forgotPasswordSchema,
@@ -45,24 +43,33 @@ export function ForgotPasswordForm({
 
   const email = form.watch("email");
 
-  // better-auth responds with success even for unknown emails
-  // (anti-enumeration), so a fulfilled request always moves to the
-  // "check your email" view.
+  // Uses our own /auth/forgot-password (better-auth's native reset is not
+  // enabled server-side — calling it returns "reset password isn't enabled").
+  // The endpoint is enumeration-safe: it responds 200 for unknown emails too,
+  // so a fulfilled request always moves to the "check your email" view.
   const requestReset = async (targetEmail: string): Promise<boolean> => {
-    const { data, error } = await authClient.requestPasswordReset({
-      email: targetEmail,
-      redirectTo: "/auth/reset-password",
-    });
-
-    if (error) {
-      toast.error(error.message ?? "Failed to send reset email");
+    try {
+      const res = await fetch("/api/v1/auth/forgot-password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: targetEmail }),
+        credentials: "include",
+      });
+      const data = (await res.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      if (!res.ok) {
+        toast.error(data?.message ?? "Failed to send reset email");
+        return false;
+      }
+      toast.success(
+        data?.message ?? "Password reset link sent - check your email"
+      );
+      return true;
+    } catch {
+      toast.error("Failed to send reset email");
       return false;
     }
-    toast.success(
-      (data as { message?: string } | null)?.message ??
-        "Password reset link sent - check your email"
-    );
-    return true;
   };
 
   const onSubmit = async (value: ForgotPasswordFormData) => {

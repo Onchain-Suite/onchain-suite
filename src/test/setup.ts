@@ -3,10 +3,24 @@ import { afterEach } from "vitest";
 const isDom = typeof window !== "undefined" && typeof document !== "undefined";
 
 if (isDom) {
-  import("@testing-library/jest-dom/vitest");
-  import("@testing-library/react").then(({ cleanup }) => {
-    afterEach(() => cleanup());
-  });
+  // Top-level await (not a floating `.then`) so the matchers, cleanup hook and
+  // timeout config below are all in place BEFORE the first test runs — vitest
+  // awaits setup modules, but not promises left dangling inside them.
+  await import("@testing-library/jest-dom/vitest");
+  const { cleanup, configure } = await import("@testing-library/react");
+
+  // Raise RTL's async-utility timeout from its 1000ms default. The suite runs
+  // single-worker (fileParallelism is off in vitest.config), so under full-suite
+  // CPU contention a legitimate multi-step async chain — e.g. the SQL query
+  // tab's react-query run -> status poll -> results fetch, gated on
+  // `enabled` flags flipping across renders — can take longer than 1s to
+  // settle and make `findBy`/`waitFor` flake, even though the same test passes
+  // in isolation. 5s is headroom, not latency: these helpers resolve the
+  // instant the element appears, so passing tests are not slowed; only a
+  // genuine miss now takes longer to surface.
+  configure({ asyncUtilTimeout: 5000 });
+
+  afterEach(() => cleanup());
 
   // jsdom ships without a handful of browser APIs that component trees touch on
   // mount (media queries, observers, imperative scrolling, server-sent events).

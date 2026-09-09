@@ -2,15 +2,24 @@
  * @vitest-environment node
  */
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET, POST } from "./route";
 
+// The suite runs single-worker with fileParallelism disabled, so a global left
+// mutated here bleeds into every file that runs after this one. Capture the
+// real fetch and restore it in afterAll so a later suite's real/own-mocked
+// fetch is never silently replaced by this file's mock.
+const originalFetch = global.fetch;
 const mockedFetch = vi.fn<typeof fetch>();
 global.fetch = mockedFetch as unknown as typeof fetch;
 
 beforeEach(() => {
   mockedFetch.mockReset();
+});
+
+afterAll(() => {
+  global.fetch = originalFetch;
 });
 
 const createUpstreamResponse = (opts: {
@@ -278,6 +287,66 @@ describe("Auth Proxy API", () => {
       })
     );
     expect(mockedFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("forwards the session cookie from the verify-email 302 without following the redirect", async () => {
+    // The backend answers verify-email with a 302 that CARRIES the session
+    // cookie. If the proxy let fetch follow the redirect, that Set-Cookie would
+    // be dropped and onboarding would report "No active session found". So we
+    // fetch with redirect:"manual" and forward the cookie ourselves.
+    mockedFetch.mockResolvedValueOnce(
+      createUpstreamResponse({
+        status: 302,
+        headers: {
+          location: "https://www.onchainsuite.com/dashboard?verified=true",
+          "set-cookie":
+            "__Secure-better-auth.session_token=TOK.SIG; Domain=onchainsuite.com; Path=/; HttpOnly; Secure; SameSite=Lax",
+        },
+      })
+    );
+
+    const req = new NextRequest(
+      "https://www.onchainsuite.com/api/v1/auth/verify-email?token=abc"
+    );
+    const res = await GET(req, {
+      params: Promise.resolve({ path: ["verify-email"] }),
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toEqual({ success: true });
+
+    // The cookie the browser needs actually lands, rewritten cross-subdomain.
+    const setCookie = res.headers.get("set-cookie") ?? "";
+    expect(setCookie).toContain("__Secure-better-auth.session_token=TOK.SIG");
+    expect(setCookie).toMatch(/;\s*Domain=\.onchainsuite\.com/i);
+
+    // And we did NOT let fetch follow the 302.
+    const [, init] = mockedFetch.mock.calls[0] ?? [];
+    expect((init as { redirect?: string })?.redirect).toBe("manual");
+  });
+
+  it("reports a failed verification when the 302 does not land on verified=true", async () => {
+    mockedFetch.mockResolvedValueOnce(
+      createUpstreamResponse({
+        status: 302,
+        headers: {
+          location:
+            "https://www.onchainsuite.com/verify-email?error=token_expired",
+        },
+      })
+    );
+
+    const req = new NextRequest(
+      "https://www.onchainsuite.com/api/v1/auth/verify-email?token=stale"
+    );
+    const res = await GET(req, {
+      params: Promise.resolve({ path: ["verify-email"] }),
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toEqual(expect.objectContaining({ success: false }));
   });
 
   it("clears mirrored onchain cookies on sign-out", async () => {

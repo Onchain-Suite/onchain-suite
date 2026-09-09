@@ -17,8 +17,6 @@ import { Button } from "@/ui/button";
 import { Form } from "@/ui/form";
 import { LoadingButton } from "@/ui/loading-button";
 
-import { authClient } from "@/lib/auth-client";
-
 import { type ResetPasswordFormData, resetPasswordSchema } from "../validation";
 import { AuthHeader, PasswordField, PasswordStrengthIndicator } from "./shared";
 
@@ -53,14 +51,24 @@ export function ResetPasswordForm({
     const { password } = value;
 
     try {
-      const { error } = await authClient.resetPassword({
-        newPassword: password,
-        token,
+      // Completes the reset via our own /auth/reset-password (better-auth's
+      // native reset is not enabled server-side). On success the endpoint also
+      // sets the session cookie, auto-logging the user in.
+      const res = await fetch("/api/v1/auth/reset-password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token, newPassword: password }),
+        credentials: "include",
       });
+      const data = (await res.json().catch(() => null)) as {
+        message?: string;
+        error?: string;
+      } | null;
 
-      if (error) {
+      if (!res.ok) {
         const message =
-          error.message ??
+          data?.error ??
+          data?.message ??
           "This reset link is invalid or has expired. Request a new one.";
         setSubmitError(message);
         toast.error(message);

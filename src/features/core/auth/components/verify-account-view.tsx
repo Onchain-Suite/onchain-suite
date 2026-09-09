@@ -12,7 +12,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { authClient } from "@/lib/auth-client";
 import { cn, isJsonObject } from "@/lib/utils";
 
 import { Button } from "@/shared/components/ui/button";
@@ -34,6 +33,12 @@ function VerifyAccountContent() {
     "verifying" | "success" | "error" | "pending"
   >(token ? "verifying" : "pending");
   const [resending, setResending] = useState(false);
+  // An unverified user can resend the link even when the email isn't in the URL
+  // (e.g. they followed an old link, or refreshed): prefill from `?email=` when
+  // present, otherwise let them type it.
+  const [resendEmail, setResendEmail] = useState(
+    () => searchParams?.get("email") ?? ""
+  );
 
   useEffect(() => {
     if (!token) {
@@ -93,33 +98,35 @@ function VerifyAccountContent() {
   }, [token, router, searchParams]);
 
   const handleResend = async () => {
-    // Better-auth uses sendVerificationEmail
+    const email = resendEmail.trim();
+    // An empty string also fails this, so it covers "no email entered" too.
+    if (!email.includes("@")) {
+      toast.error("Enter your email address to resend the link.");
+      return;
+    }
     setResending(true);
     try {
-      // We need the email to resend, but if we don't have it (e.g. from session)
-      // we might need to ask the user or get it from a query param if provided
-      const email = searchParams?.get("email") ?? null;
-
-      if (!email) {
-        toast.error("Please log in to resend verification email");
-        router.push(AUTH_ROUTES.LOGIN);
+      // Our own resend endpoint (better-auth's native flow isn't the path we
+      // use). It's enumeration-safe and only sends for a still-unverified
+      // account, deduped to one email per minute server-side.
+      const res = await fetch("/api/v1/auth/resend-verification", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+        toast.error(data?.message ?? "Failed to resend verification email");
         return;
       }
-
-      const { error } = await authClient.sendVerificationEmail({
-        email,
-        callbackURL: window.location.origin + AUTH_ROUTES.VERIFY_ACCOUNT,
-      });
-
-      if (error) {
-        toast.error(
-          typeof error?.message === "string" && error.message.length > 0
-            ? error.message
-            : "Failed to resend verification email"
-        );
-      } else {
-        toast.success("Verification email resent!");
-      }
+      // The endpoint responds 200 whether or not the account exists / is still
+      // unverified, so keep the confirmation generic and never leak which.
+      toast.success(
+        "If your account still needs verifying, a new link is on its way."
+      );
     } catch (_e) {
       String(_e);
       toast.error("An unexpected error occurred");
@@ -127,6 +134,38 @@ function VerifyAccountContent() {
       setResending(false);
     }
   };
+
+  // Input + button shared by the "pending" (check your inbox) and "error"
+  // (expired/invalid link) states — both let an unverified user resend.
+  const resendBlock = (
+    <div className="space-y-3">
+      <input
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        value={resendEmail}
+        onChange={(e) => setResendEmail(e.target.value)}
+        placeholder="you@example.com"
+        aria-label="Email address"
+        className="h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition-colors focus:border-(--brand-blue)"
+      />
+      <Button
+        onClick={handleResend}
+        disabled={resending}
+        className="w-full h-12 bg-(--brand-blue) hover:bg-(--brand-blue)/90 text-white rounded-xl shadow-lg shadow-blue-500/20 transition-all duration-300"
+      >
+        {resending ? (
+          <ArrowPathIcon
+            aria-hidden="true"
+            className="mr-2 h-4 w-4 animate-spin"
+          />
+        ) : (
+          <PaperAirplaneIcon aria-hidden="true" className="mr-2 h-4 w-4" />
+        )}
+        Resend Verification Email
+      </Button>
+    </div>
+  );
 
   return (
     <motion.div
@@ -207,24 +246,7 @@ function VerifyAccountContent() {
           )}
           {status === "error" && (
             <div className="space-y-3">
-              <Button
-                onClick={handleResend}
-                disabled={resending}
-                className="w-full h-12 bg-(--brand-blue) hover:bg-(--brand-blue)/90 text-white rounded-xl shadow-lg shadow-blue-500/20 transition-all duration-300"
-              >
-                {resending ? (
-                  <ArrowPathIcon
-                    aria-hidden="true"
-                    className="mr-2 h-4 w-4 animate-spin"
-                  />
-                ) : (
-                  <PaperAirplaneIcon
-                    aria-hidden="true"
-                    className="mr-2 h-4 w-4"
-                  />
-                )}
-                Resend Verification Email
-              </Button>
+              {resendBlock}
               <Button
                 variant="ghost"
                 onClick={() => router.push(AUTH_ROUTES.LOGIN)}
@@ -241,24 +263,7 @@ function VerifyAccountContent() {
                   Confirming your email helps us keep your account secure.
                 </p>
               </div>
-              <Button
-                onClick={handleResend}
-                disabled={resending}
-                className="w-full h-12 bg-(--brand-blue) hover:bg-(--brand-blue)/90 text-white rounded-xl shadow-lg shadow-blue-500/20 transition-all duration-300"
-              >
-                {resending ? (
-                  <ArrowPathIcon
-                    aria-hidden="true"
-                    className="mr-2 h-4 w-4 animate-spin"
-                  />
-                ) : (
-                  <PaperAirplaneIcon
-                    aria-hidden="true"
-                    className="mr-2 h-4 w-4"
-                  />
-                )}
-                Resend Verification Email
-              </Button>
+              {resendBlock}
             </div>
           )}
         </CardContent>

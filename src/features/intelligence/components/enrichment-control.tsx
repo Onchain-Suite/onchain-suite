@@ -50,7 +50,9 @@ export function EnrichmentControl() {
   const enrichMutation = useMutation({
     mutationFn: () => intelligenceService.enrichProtocol(),
     onSuccess: async (res) => {
-      const wallets = res?.walletsEnqueued ?? 0;
+      // Show the audience total being enriched (the whole contact set), not
+      // just the newly-discovered holders.
+      const wallets = res?.contactsEnqueued ?? res?.walletsEnqueued ?? 0;
       toast.success(
         wallets > 0
           ? `Enriching ${wallets.toLocaleString()} wallets - metrics will populate shortly.`

@@ -11,6 +11,7 @@ import {
   DevicePhoneMobileIcon,
   EllipsisHorizontalIcon,
   EnvelopeIcon,
+  InformationCircleIcon,
   PencilSquareIcon,
   PlusIcon,
   ShieldCheckIcon,
@@ -1019,9 +1020,17 @@ export function AudiencePages() {
                         <th className="py-3 pr-4 font-medium">Contact</th>
                         <th className="px-4 py-3 font-medium">Reachable via</th>
                         <th className="px-4 py-3 font-medium">Email</th>
-                        <th className="px-4 py-3 font-medium">Tags</th>
                         <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
-                          Lifetime
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="On-chain lifetime value — the wallet's total portfolio value in USD at its last enrichment. A dash means it has not been enriched yet."
+                          >
+                            Lifetime
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
                         </th>
                         <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
                           Last active
@@ -1160,27 +1169,6 @@ export function AudiencePages() {
                                   />
                                   ZK-verified
                                 </span>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3.5">
-                              {row.tags.length > 0 ? (
-                                <div className="flex items-center gap-1.5">
-                                  {row.tags.slice(0, 2).map((tag) => (
-                                    <span
-                                      key={tag}
-                                      className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {row.tags.length > 2 ? (
-                                    <span className="text-xs text-muted-foreground">
-                                      +{row.tags.length - 2}
-                                    </span>
-                                  ) : null}
-                                </div>
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}

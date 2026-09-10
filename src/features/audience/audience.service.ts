@@ -568,6 +568,39 @@ export const audienceService = {
     });
   },
 
+  /**
+   * The distinct chains each wallet has on-chain activity on, for one audience
+   * page. Backs the Chains column. POST (not GET) because a page of wallet
+   * addresses overflows a query string; the backend caps the batch at 200.
+   * Returns a map keyed by lowercased wallet address; wallets with no activity
+   * are simply absent. A 404 (endpoint not deployed yet) resolves to `{}` so the
+   * column degrades to empty rather than erroring the whole table.
+   */
+  getWalletOnchainSummary(wallets: string[], orgId?: string) {
+    const clean = Array.from(
+      new Set(
+        wallets
+          .filter(
+            (w): w is string => typeof w === "string" && w.trim().length > 0
+          )
+          .map((w) => w.trim())
+      )
+    );
+    if (clean.length === 0)
+      return Promise.resolve<Record<string, string[]>>({});
+    return request<Record<string, string[]>>(
+      {
+        method: "POST",
+        url: "/audience/wallets/onchain-summary",
+        data: { wallets: clean },
+      },
+      orgId
+    ).catch((e) => {
+      if (isNoDataError(e)) return {} as Record<string, string[]>;
+      throw e;
+    });
+  },
+
   listSegments(params?: { q?: string; limit?: number }, orgId?: string) {
     return request<
       | { items?: AudienceSegment[]; data?: AudienceSegment[] }

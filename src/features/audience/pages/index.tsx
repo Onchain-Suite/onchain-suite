@@ -74,6 +74,7 @@ import { audienceService } from "../audience.service";
 import { ApplyTagsPopover } from "../components/apply-tags-popover";
 import { AudienceListDetail } from "../components/audience-list-detail";
 import { AudienceTagsTab } from "../components/audience-tags-tab";
+import { ChainIconCluster } from "../components/chain-icon-cluster";
 import {
   ComposeEmailDialog,
   type EmailRecipient,
@@ -378,6 +379,31 @@ export function AudiencePages() {
     () => (profilesQuery.data?.items ?? []).map(toRow),
     [profilesQuery.data]
   );
+
+  // Wallets on this page, lowercased + de-duped — the key for the Chains
+  // column's batch lookup. Stable string so the query only refires when the
+  // page's wallet set actually changes.
+  const pageWallets = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of rows) {
+      if (row.walletFull) set.add(row.walletFull.toLowerCase());
+    }
+    return [...set];
+  }, [rows]);
+  const pageWalletsKey = pageWallets.join(",");
+
+  // The chains each wallet on this page has on-chain activity on. One batched
+  // POST per page (backend caps at 200); degrades to {} if the endpoint isn't
+  // deployed yet, so the column just shows dashes rather than erroring.
+  const chainsQuery = useQuery({
+    queryKey: ["audience", "wallet-chains", pageWalletsKey],
+    queryFn: () => audienceService.getWalletOnchainSummary(pageWallets),
+    enabled: pageWallets.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60_000,
+  });
+  const walletChains = chainsQuery.data ?? {};
 
   const meta = profilesQuery.data?.meta;
 
@@ -1014,12 +1040,24 @@ export function AudiencePages() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[860px] border-collapse text-sm">
+                  <table className="w-full min-w-[960px] border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs tracking-wide text-muted-foreground uppercase">
                         <th className="py-3 pr-4 font-medium">Contact</th>
                         <th className="px-4 py-3 font-medium">Reachable via</th>
                         <th className="px-4 py-3 font-medium">Email</th>
+                        <th className="px-4 py-3 font-medium">
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="The chains each wallet has on-chain activity on — the tracked contracts it holds plus its DeFi positions. A dash means no on-chain activity has been synced or enriched yet."
+                          >
+                            Chains
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </th>
                         <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
                           <span
                             className="inline-flex cursor-help items-center gap-1"
@@ -1169,6 +1207,19 @@ export function AudiencePages() {
                                   />
                                   ZK-verified
                                 </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {row.walletFull ? (
+                                <ChainIconCluster
+                                  chains={
+                                    walletChains[
+                                      row.walletFull.toLowerCase()
+                                    ] ?? []
+                                  }
+                                />
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}

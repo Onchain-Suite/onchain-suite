@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  chainVisual,
   deriveDisplayName,
   extractChain,
   extractWalletFields,
@@ -144,5 +145,33 @@ describe("chain labels", () => {
 
   it("returns null for a contact with no wallet (never badge email-only rows)", () => {
     expect(extractChain({ attributes: { chain: "base" } }, "")).toBeNull();
+  });
+
+  it("gives curated chains a brand color + ticker, keyed by slug or suffix", () => {
+    expect(chainVisual("eth-mainnet")).toEqual({
+      label: "Ethereum",
+      abbr: "ETH",
+      color: "#627EEA",
+    });
+    expect(chainVisual("base-mainnet")?.color).toBe("#0052FF");
+    expect(chainVisual("SOL")).toEqual({
+      label: "Solana",
+      abbr: "SOL",
+      color: "#14F195",
+    });
+  });
+
+  it("falls back to label initials on a deterministic hue for unknown chains", () => {
+    const v = chainVisual("zksync-era");
+    expect(v?.label).toBe("Zksync Era");
+    expect(v?.abbr).toBe("ZKS");
+    // Deterministic: same input → same hue, so React keys stay stable.
+    expect(v?.color).toBe(chainVisual("zksync-era")?.color);
+    expect(v?.color).toMatch(/^hsl\(/);
+  });
+
+  it("returns null for a blank/non-string chain", () => {
+    expect(chainVisual("")).toBeNull();
+    expect(chainVisual(undefined)).toBeNull();
   });
 });

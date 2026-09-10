@@ -388,6 +388,70 @@ export function formatAttributeValue(value: unknown): string {
   }
 }
 
+/**
+ * A chain's visual identity for the Chains column: a short abbreviation and a
+ * brand color for the icon chip. Curated for the chains we actually enrich; any
+ * other chain falls back to its label's initials on a deterministic hue, so a
+ * new or custom chain still renders a distinct chip rather than vanishing.
+ */
+export interface ChainVisual {
+  /** Full display label, e.g. "Ethereum". */
+  label: string;
+  /** 2-4 char chip text, e.g. "ETH". */
+  abbr: string;
+  /** Chip background color (brand color, or a derived hue for unknowns). */
+  color: string;
+}
+
+// Brand colors + tickers for the chains enrichment covers. Keyed the same way
+// resolveChainLabel matches (bare slug with the network suffix stripped).
+const CHAIN_VISUALS: Record<string, { abbr: string; color: string }> = {
+  eth: { abbr: "ETH", color: "#627EEA" },
+  ethereum: { abbr: "ETH", color: "#627EEA" },
+  mainnet: { abbr: "ETH", color: "#627EEA" },
+  base: { abbr: "BASE", color: "#0052FF" },
+  arb: { abbr: "ARB", color: "#28A0F0" },
+  arbitrum: { abbr: "ARB", color: "#28A0F0" },
+  "arbitrum-one": { abbr: "ARB", color: "#28A0F0" },
+  op: { abbr: "OP", color: "#FF0420" },
+  opt: { abbr: "OP", color: "#FF0420" },
+  optimism: { abbr: "OP", color: "#FF0420" },
+  polygon: { abbr: "POL", color: "#8247E5" },
+  matic: { abbr: "POL", color: "#8247E5" },
+  poly: { abbr: "POL", color: "#8247E5" },
+  bnb: { abbr: "BNB", color: "#F3BA2F" },
+  bsc: { abbr: "BNB", color: "#F3BA2F" },
+  avax: { abbr: "AVAX", color: "#E84142" },
+  avalanche: { abbr: "AVAX", color: "#E84142" },
+  sol: { abbr: "SOL", color: "#14F195" },
+  solana: { abbr: "SOL", color: "#14F195" },
+};
+
+/** Initials for an unknown chain: first 3 chars of the label, upper-cased. */
+function chainInitials(label: string): string {
+  const clean = label.replace(/[^a-zA-Z0-9]/g, "");
+  return (clean.slice(0, 3) || "?").toUpperCase();
+}
+
+/**
+ * Resolve a raw chain value (slug/name/ticker) to its {@link ChainVisual}.
+ * Returns null only for a blank/non-string input; every present chain gets a
+ * chip — curated brand color when known, a deterministic hue otherwise.
+ */
+export function chainVisual(input: unknown): ChainVisual | null {
+  const label = resolveChainLabel(input);
+  if (!label || typeof input !== "string") return null;
+  const key = input.trim().toLowerCase();
+  const bare = key.replace(/-(mainnet|testnet|sepolia|goerli|devnet)$/, "");
+  const curated = CHAIN_VISUALS[key] ?? CHAIN_VISUALS[bare];
+  if (curated) return { label, ...curated };
+  return {
+    label,
+    abbr: chainInitials(label),
+    color: `hsl(${hashHue(label)} 62% 45%)`,
+  };
+}
+
 export function hashHue(input: string): number {
   let hash = 0;
   for (let i = 0; i < input.length; i += 1) {

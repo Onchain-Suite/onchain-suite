@@ -7,10 +7,13 @@ import {
   AtSymbolIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronUpDownIcon,
+  ChevronUpIcon,
   ClipboardDocumentIcon,
   DevicePhoneMobileIcon,
   EllipsisHorizontalIcon,
   EnvelopeIcon,
+  InformationCircleIcon,
   PencilSquareIcon,
   PlusIcon,
   ShieldCheckIcon,
@@ -73,6 +76,7 @@ import { audienceService } from "../audience.service";
 import { ApplyTagsPopover } from "../components/apply-tags-popover";
 import { AudienceListDetail } from "../components/audience-list-detail";
 import { AudienceTagsTab } from "../components/audience-tags-tab";
+import { ChainIconCluster } from "../components/chain-icon-cluster";
 import {
   ComposeEmailDialog,
   type EmailRecipient,
@@ -260,6 +264,10 @@ export function AudiencePages() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Net-worth sort on the Lifetime column. null = the backend's default order
+  // (health score); a click cycles desc → asc → off. Only one sortable column
+  // today, so the key doubles as the "is anything sorted" flag.
+  const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
 
   // Inline "New list" form (no modal, per convention).
   const [creatingList, setCreatingList] = useState(false);
@@ -296,13 +304,14 @@ export function AudiencePages() {
     queryKey: [
       "audience",
       "profiles",
-      { page: currentPage, limit: ITEMS_PER_PAGE },
+      { page: currentPage, limit: ITEMS_PER_PAGE, sortDir },
     ],
     queryFn: async () => {
       const res = await audienceService.listProfiles({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         include: "wallets,attributes,tags,lastAction",
+        ...(sortDir ? { sort: "portfolioValueUsd", direction: sortDir } : {}),
       });
       const obj = res as {
         items?: AudienceProfile[];
@@ -377,6 +386,31 @@ export function AudiencePages() {
     () => (profilesQuery.data?.items ?? []).map(toRow),
     [profilesQuery.data]
   );
+
+  // Wallets on this page, lowercased + de-duped — the key for the Chains
+  // column's batch lookup. Stable string so the query only refires when the
+  // page's wallet set actually changes.
+  const pageWallets = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of rows) {
+      if (row.walletFull) set.add(row.walletFull.toLowerCase());
+    }
+    return [...set];
+  }, [rows]);
+  const pageWalletsKey = pageWallets.join(",");
+
+  // The chains each wallet on this page has on-chain activity on. One batched
+  // POST per page (backend caps at 200); degrades to {} if the endpoint isn't
+  // deployed yet, so the column just shows dashes rather than erroring.
+  const chainsQuery = useQuery({
+    queryKey: ["audience", "wallet-chains", pageWalletsKey],
+    queryFn: () => audienceService.getWalletOnchainSummary(pageWallets),
+    enabled: pageWallets.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60_000,
+  });
+  const walletChains = chainsQuery.data ?? {};
 
   const meta = profilesQuery.data?.meta;
 
@@ -712,6 +746,16 @@ export function AudiencePages() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
+  // Cycle the Lifetime (net-worth) sort: desc → asc → off (default order).
+  // Jumps back to page 1 since the ordering — and so what's on each page —
+  // changes entirely.
+  const cycleNetWorthSort = () => {
+    setSortDir((prev) =>
+      prev === "desc" ? "asc" : prev === "asc" ? null : "desc"
+    );
+    setCurrentPage(1);
+  };
+
   const copyWallet = (row: Row) => {
     if (!row.walletFull) return;
     navigator.clipboard?.writeText(row.walletFull).then(
@@ -1013,15 +1057,59 @@ export function AudiencePages() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[860px] border-collapse text-sm">
+                  <table className="w-full min-w-[960px] border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs tracking-wide text-muted-foreground uppercase">
                         <th className="py-3 pr-4 font-medium">Contact</th>
                         <th className="px-4 py-3 font-medium">Reachable via</th>
                         <th className="px-4 py-3 font-medium">Email</th>
-                        <th className="px-4 py-3 font-medium">Tags</th>
+                        <th className="px-4 py-3 font-medium">
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="The chains each wallet has on-chain activity on — the tracked contracts it holds plus its DeFi positions. A dash means no on-chain activity has been synced or enriched yet."
+                          >
+                            Chains
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </th>
                         <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
-                          Lifetime
+                          <button
+                            type="button"
+                            onClick={cycleNetWorthSort}
+                            aria-label={
+                              sortDir === "desc"
+                                ? "Sorted by lifetime value, highest first. Sort lowest first"
+                                : sortDir === "asc"
+                                  ? "Sorted by lifetime value, lowest first. Clear sort"
+                                  : "Sort by lifetime value"
+                            }
+                            title="On-chain lifetime value — the wallet's total portfolio value in USD at its last enrichment. A dash means it has not been enriched yet. Click to sort."
+                            className={cn(
+                              "ml-auto inline-flex items-center gap-1 transition-colors hover:text-foreground",
+                              sortDir && "text-foreground"
+                            )}
+                          >
+                            Lifetime
+                            {sortDir === "desc" ? (
+                              <ChevronDownIcon
+                                className="size-3.5"
+                                aria-hidden="true"
+                              />
+                            ) : sortDir === "asc" ? (
+                              <ChevronUpIcon
+                                className="size-3.5"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <ChevronUpDownIcon
+                                className="size-3.5 opacity-50"
+                                aria-hidden="true"
+                              />
+                            )}
+                          </button>
                         </th>
                         <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
                           Last active
@@ -1165,22 +1253,14 @@ export function AudiencePages() {
                               )}
                             </td>
                             <td className="px-4 py-3.5">
-                              {row.tags.length > 0 ? (
-                                <div className="flex items-center gap-1.5">
-                                  {row.tags.slice(0, 2).map((tag) => (
-                                    <span
-                                      key={tag}
-                                      className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {row.tags.length > 2 ? (
-                                    <span className="text-xs text-muted-foreground">
-                                      +{row.tags.length - 2}
-                                    </span>
-                                  ) : null}
-                                </div>
+                              {row.walletFull ? (
+                                <ChainIconCluster
+                                  chains={
+                                    walletChains[
+                                      row.walletFull.toLowerCase()
+                                    ] ?? []
+                                  }
+                                />
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}

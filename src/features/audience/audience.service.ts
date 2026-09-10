@@ -53,6 +53,9 @@ export interface WalletTokenChip {
   symbol: string | null;
   name: string | null;
   logoUrl: string | null;
+  /** Chain slug the holding is on; lets a logo-less token (WETH, a synthetic)
+   *  fall back to its chain icon. Absent until the backend field ships. */
+  chain?: string | null;
 }
 
 /** One wallet's on-chain summary from POST /audience/wallets/onchain-summary:

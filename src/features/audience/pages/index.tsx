@@ -784,18 +784,33 @@ export function AudiencePages() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="outline" className="rounded-xl">
-            <Link href={IMPORT_EXPORT_HREF}>
-              <ArrowUpTrayIcon className="mr-2 size-4" aria-hidden="true" />
-              Import CSV
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="rounded-xl">
-            <Link href={IMPORT_EXPORT_HREF}>
-              <ArrowDownTrayIcon className="mr-2 size-4" aria-hidden="true" />
-              Export
-            </Link>
-          </Button>
+          {/* Contact data (CSV in/out) grouped under one menu; the on-chain
+              actions live on the Sync split button beside it. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="rounded-xl">
+                Data
+                <ChevronDownIcon className="ml-2 size-4" aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={IMPORT_EXPORT_HREF}>
+                  <ArrowUpTrayIcon className="mr-2 size-4" aria-hidden="true" />
+                  Import CSV
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={IMPORT_EXPORT_HREF}>
+                  <ArrowDownTrayIcon
+                    className="mr-2 size-4"
+                    aria-hidden="true"
+                  />
+                  Export
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {/* Sync + Import contracts are one control: importing contracts kicks
               off a sync, so they live together instead of as two toolbar buttons. */}
           <div className="inline-flex">

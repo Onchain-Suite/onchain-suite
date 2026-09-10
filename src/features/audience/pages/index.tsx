@@ -7,6 +7,8 @@ import {
   AtSymbolIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronUpDownIcon,
+  ChevronUpIcon,
   ClipboardDocumentIcon,
   DevicePhoneMobileIcon,
   EllipsisHorizontalIcon,
@@ -262,6 +264,10 @@ export function AudiencePages() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Net-worth sort on the Lifetime column. null = the backend's default order
+  // (health score); a click cycles desc → asc → off. Only one sortable column
+  // today, so the key doubles as the "is anything sorted" flag.
+  const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
 
   // Inline "New list" form (no modal, per convention).
   const [creatingList, setCreatingList] = useState(false);
@@ -298,13 +304,14 @@ export function AudiencePages() {
     queryKey: [
       "audience",
       "profiles",
-      { page: currentPage, limit: ITEMS_PER_PAGE },
+      { page: currentPage, limit: ITEMS_PER_PAGE, sortDir },
     ],
     queryFn: async () => {
       const res = await audienceService.listProfiles({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         include: "wallets,attributes,tags,lastAction",
+        ...(sortDir ? { sort: "portfolioValueUsd", direction: sortDir } : {}),
       });
       const obj = res as {
         items?: AudienceProfile[];
@@ -739,6 +746,16 @@ export function AudiencePages() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
+  // Cycle the Lifetime (net-worth) sort: desc → asc → off (default order).
+  // Jumps back to page 1 since the ordering — and so what's on each page —
+  // changes entirely.
+  const cycleNetWorthSort = () => {
+    setSortDir((prev) =>
+      prev === "desc" ? "asc" : prev === "asc" ? null : "desc"
+    );
+    setCurrentPage(1);
+  };
+
   const copyWallet = (row: Row) => {
     if (!row.walletFull) return;
     navigator.clipboard?.writeText(row.walletFull).then(
@@ -1059,16 +1076,40 @@ export function AudiencePages() {
                           </span>
                         </th>
                         <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
-                          <span
-                            className="inline-flex cursor-help items-center gap-1"
-                            title="On-chain lifetime value — the wallet's total portfolio value in USD at its last enrichment. A dash means it has not been enriched yet."
+                          <button
+                            type="button"
+                            onClick={cycleNetWorthSort}
+                            aria-label={
+                              sortDir === "desc"
+                                ? "Sorted by lifetime value, highest first. Sort lowest first"
+                                : sortDir === "asc"
+                                  ? "Sorted by lifetime value, lowest first. Clear sort"
+                                  : "Sort by lifetime value"
+                            }
+                            title="On-chain lifetime value — the wallet's total portfolio value in USD at its last enrichment. A dash means it has not been enriched yet. Click to sort."
+                            className={cn(
+                              "ml-auto inline-flex items-center gap-1 transition-colors hover:text-foreground",
+                              sortDir && "text-foreground"
+                            )}
                           >
                             Lifetime
-                            <InformationCircleIcon
-                              className="size-3.5 opacity-60"
-                              aria-hidden="true"
-                            />
-                          </span>
+                            {sortDir === "desc" ? (
+                              <ChevronDownIcon
+                                className="size-3.5"
+                                aria-hidden="true"
+                              />
+                            ) : sortDir === "asc" ? (
+                              <ChevronUpIcon
+                                className="size-3.5"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <ChevronUpDownIcon
+                                className="size-3.5 opacity-50"
+                                aria-hidden="true"
+                              />
+                            )}
+                          </button>
                         </th>
                         <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
                           Last active

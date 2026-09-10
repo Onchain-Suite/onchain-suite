@@ -224,6 +224,15 @@ const CHAIN_LABELS: Record<string, string> = {
   avalanche: "Avalanche",
   sol: "Solana",
   solana: "Solana",
+  // The rest of the chains Alchemy supports (mirrors ALCHEMY_NETWORK_BY_SLUG),
+  // so the whole supported set gets a real label rather than a title-cased slug.
+  zksync: "zkSync",
+  celo: "Celo",
+  sei: "Sei",
+  adi: "ADI",
+  hyperliquid: "Hyperliquid",
+  monad: "Monad",
+  robinhood: "Robinhood",
 };
 
 /**
@@ -402,8 +411,9 @@ export interface IconVisual {
   abbr: string;
   /** Chip background color (brand color, or a derived hue for unknowns). */
   color: string;
-  /** Logo image, when we have one; the chip falls back to `abbr` if it fails. */
-  logoUrl?: string;
+  /** Ordered logo sources; the chip tries each and falls back to `abbr` once
+   *  they're all exhausted. E.g. a token → [its own logo, its chain icon]. */
+  logoUrls?: string[];
 }
 
 /** @deprecated Use {@link IconVisual}. Kept as an alias for existing callers. */
@@ -439,13 +449,32 @@ function iconInitials(label: string, take = 3): string {
   return (clean.slice(0, take) || "?").toUpperCase();
 }
 
-// Real brand logos come from DefiLlama's public icon CDN, keyed by the resolved
-// display label. It is a convenience layered on top of the colored-ticker chip,
-// not a dependency: IconChip renders the logo and falls back to the ticker chip
-// on any load error (missing slug, 404, CDN outage), so a wrong/absent entry
-// just shows what the column showed before. A chain/protocol with no entry here
-// (e.g. a custom chain, EigenLayer — no clean slug) keeps its ticker chip.
-const CHAIN_LOGO_SLUG: Record<string, string> = {
+// Chain/protocol logos come from two sources, tried in order per chip:
+//   1. Cloudinary — our own CDN (cloud `dwnkqkx8q`), one SVG per chain under
+//      `onchain/chains/<slug>.svg`. Self-hosted and comprehensive: supporting a
+//      new chain's logo is just an upload, no code change, and it's derived from
+//      the chain so it's attempted for EVERY chain.
+//   2. DefiLlama — a public CDN that already has the popular chains, a
+//      no-upload-needed backup for those until Cloudinary is populated.
+// IconChip walks the list and falls back to the inline colored ticker chip once
+// both miss, so a chain we haven't uploaded a logo for still renders.
+const CLOUDINARY = "https://res.cloudinary.com/dwnkqkx8q/image/upload";
+
+// Cloudinary filename per chain (the public_id under onchain/chains/). Most
+// labels lowercase cleanly; only the few with spaces/odd casing are overridden.
+const CHAIN_CLOUDINARY_SLUG: Record<string, string> = {
+  "BNB Chain": "bnb",
+};
+
+function chainCloudinarySlug(label: string): string {
+  return (
+    CHAIN_CLOUDINARY_SLUG[label] ??
+    label.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+  );
+}
+
+// DefiLlama chain-icon slug, for the popular chains it covers.
+const CHAIN_LLAMA_SLUG: Record<string, string> = {
   Ethereum: "ethereum",
   Base: "base",
   Arbitrum: "arbitrum",
@@ -456,16 +485,25 @@ const CHAIN_LOGO_SLUG: Record<string, string> = {
   Solana: "solana",
 };
 
-function chainLogoUrl(label: string): string | undefined {
-  const slug = CHAIN_LOGO_SLUG[label];
-  return slug ? `https://icons.llamao.fi/icons/chains/rsz_${slug}` : undefined;
+/**
+ * Ordered logo sources for a chain by its resolved label: our Cloudinary SVG
+ * first, then DefiLlama for the popular ones. Exported so the Tokens column can
+ * fall a logo-less token back to its chain icon.
+ */
+export function chainLogoUrls(label: string): string[] {
+  const urls = [
+    `${CLOUDINARY}/onchain/chains/${chainCloudinarySlug(label)}.svg`,
+  ];
+  const llama = CHAIN_LLAMA_SLUG[label];
+  if (llama) urls.push(`https://icons.llamao.fi/icons/chains/rsz_${llama}`);
+  return urls;
 }
 
 /**
  * Resolve a raw chain value (slug/name/ticker) to its {@link IconVisual}.
  * Returns null only for a blank/non-string input; every present chain gets a
- * chip — curated brand color when known, a deterministic hue otherwise, with a
- * real logo layered on when we have one.
+ * chip — curated brand color when known, a deterministic hue otherwise, with
+ * real logos layered on (Cloudinary, then DefiLlama).
  */
 export function chainVisual(input: unknown): IconVisual | null {
   const label = resolveChainLabel(input);
@@ -473,13 +511,13 @@ export function chainVisual(input: unknown): IconVisual | null {
   const key = input.trim().toLowerCase();
   const bare = key.replace(/-(mainnet|testnet|sepolia|goerli|devnet)$/, "");
   const curated = CHAIN_VISUALS[key] ?? CHAIN_VISUALS[bare];
-  const logoUrl = chainLogoUrl(label);
-  if (curated) return { label, ...curated, logoUrl };
+  const logoUrls = chainLogoUrls(label);
+  if (curated) return { label, ...curated, logoUrls };
   return {
     label,
     abbr: iconInitials(label),
     color: `hsl(${hashHue(label)} 62% 45%)`,
-    logoUrl,
+    logoUrls,
   };
 }
 
@@ -532,11 +570,11 @@ const PROTOCOL_LOGO_SLUG: Record<string, string> = {
   "Rocket Pool": "rocket-pool",
 };
 
-function protocolLogoUrl(label: string): string | undefined {
+function protocolLogoUrls(label: string): string[] {
   const slug = PROTOCOL_LOGO_SLUG[label];
   return slug
-    ? `https://icons.llamao.fi/icons/protocols/${slug}?w=48&h=48`
-    : undefined;
+    ? [`https://icons.llamao.fi/icons/protocols/${slug}?w=48&h=48`]
+    : [];
 }
 
 /**
@@ -553,7 +591,7 @@ export function protocolVisual(input: unknown): IconVisual | null {
   // Strip a trailing version token: aave_v3 → aave, uniswap-v3 → uniswap.
   const family = key.replace(/[_-]v?\d+(\.\d+)?$/, "");
   const curated = PROTOCOL_VISUALS[key] ?? PROTOCOL_VISUALS[family];
-  if (curated) return { ...curated, logoUrl: protocolLogoUrl(curated.label) };
+  if (curated) return { ...curated, logoUrls: protocolLogoUrls(curated.label) };
   const label = toTitleCase(family.replace(/[_-]+/g, " "));
   return {
     label: label || key,

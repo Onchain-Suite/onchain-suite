@@ -148,21 +148,33 @@ describe("chain labels", () => {
     expect(extractChain({ attributes: { chain: "base" } }, "")).toBeNull();
   });
 
-  it("gives curated chains a brand color, ticker, and real logo", () => {
+  it("cascades chain logos: our Cloudinary SVG first, then DefiLlama", () => {
     expect(chainVisual("eth-mainnet")).toEqual({
       label: "Ethereum",
       abbr: "ETH",
       color: "#627EEA",
-      logoUrl: "https://icons.llamao.fi/icons/chains/rsz_ethereum",
+      logoUrls: [
+        "https://res.cloudinary.com/dwnkqkx8q/image/upload/onchain/chains/ethereum.svg",
+        "https://icons.llamao.fi/icons/chains/rsz_ethereum",
+      ],
     });
-    expect(chainVisual("base-mainnet")?.color).toBe("#0052FF");
-    expect(chainVisual("base-mainnet")?.logoUrl).toContain("rsz_base");
-    expect(chainVisual("SOL")).toMatchObject({
-      label: "Solana",
-      abbr: "SOL",
-      color: "#14F195",
-      logoUrl: "https://icons.llamao.fi/icons/chains/rsz_solana",
-    });
+    // BNB Chain's Cloudinary slug is overridden to "bnb"; DefiLlama uses "binance".
+    expect(chainVisual("bsc-mainnet")?.logoUrls).toEqual([
+      "https://res.cloudinary.com/dwnkqkx8q/image/upload/onchain/chains/bnb.svg",
+      "https://icons.llamao.fi/icons/chains/rsz_binance",
+    ]);
+  });
+
+  it("covers the whole Alchemy set — a non-DefiLlama chain still gets a Cloudinary URL", () => {
+    // ADI, Celo, etc. aren't on DefiLlama; they get a Cloudinary-only source, so
+    // uploading onchain/chains/<slug>.svg is all it takes to add a chain's logo.
+    expect(chainVisual("adi-mainnet")).toMatchObject({ label: "ADI" });
+    expect(chainVisual("adi-mainnet")?.logoUrls).toEqual([
+      "https://res.cloudinary.com/dwnkqkx8q/image/upload/onchain/chains/adi.svg",
+    ]);
+    expect(chainVisual("celo-mainnet")?.logoUrls).toEqual([
+      "https://res.cloudinary.com/dwnkqkx8q/image/upload/onchain/chains/celo.svg",
+    ]);
   });
 
   it("falls back to label initials on a deterministic hue for unknown chains", () => {
@@ -186,10 +198,10 @@ describe("protocolVisual", () => {
       label: "Aave",
       abbr: "AAVE",
       color: "#B6509E",
-      logoUrl: "https://icons.llamao.fi/icons/protocols/aave?w=48&h=48",
+      logoUrls: ["https://icons.llamao.fi/icons/protocols/aave?w=48&h=48"],
     });
     expect(protocolVisual("uniswap-v3")?.label).toBe("Uniswap");
-    expect(protocolVisual("uniswap-v3")?.logoUrl).toContain(
+    expect(protocolVisual("uniswap-v3")?.logoUrls?.[0]).toContain(
       "protocols/uniswap"
     );
     expect(protocolVisual("compound_v2")?.abbr).toBe("COMP");

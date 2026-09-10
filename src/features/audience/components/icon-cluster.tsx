@@ -4,10 +4,12 @@ import { cn } from "@/lib/utils";
 
 import type { WalletTokenChip } from "../audience.service";
 import {
+  chainLogoUrls,
   chainVisual,
   hashHue,
   type IconVisual,
   protocolVisual,
+  resolveChainLabel,
 } from "../utils";
 
 /** Icons overlap this much (px); the negative margin on every chip but the
@@ -22,10 +24,13 @@ interface IconChipProps {
 }
 
 function IconChip({ visual, z, overlap }: IconChipProps) {
-  // A chip with a logo shows the image and falls back to the colored abbr chip
-  // if it fails to load (dead CDN link, missing token logo).
-  const [broken, setBroken] = useState(false);
-  const showLogo = !!visual.logoUrl && !broken;
+  // Ordered logo sources — e.g. a token's own logo, then its chain icon, then
+  // nothing. Each failed <img> advances to the next; once they're exhausted the
+  // chip falls back to the colored abbr, which is fully inline (no network).
+  const urls = visual.logoUrls ?? [];
+  const [idx, setIdx] = useState(0);
+  const src = urls[idx];
+  const showLogo = !!src;
   return (
     <span
       title={visual.label}
@@ -37,15 +42,17 @@ function IconChip({ visual, z, overlap }: IconChipProps) {
       className="inline-flex size-5 items-center justify-center overflow-hidden rounded-full text-[8px] font-bold tracking-tight text-white ring-2 ring-background"
     >
       {showLogo ? (
-        // A 20px avatar from an arbitrary token/protocol logo CDN — next/image
-        // can't optimize cross-origin URLs without per-host remotePatterns, and
-        // the onError → colored-abbr fallback is the whole point here.
+        // A 20px avatar from an external logo CDN — next/image can't optimize
+        // cross-origin URLs without per-host remotePatterns, and the onError
+        // cascade (next source, then the colored abbr) is the whole point here.
+        // `key={src}` remounts on advance so onError re-fires for the new src.
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={visual.logoUrl}
+          key={src}
+          src={src}
           alt={visual.label}
           className="size-full object-cover"
-          onError={() => setBroken(true)}
+          onError={() => setIdx((i) => i + 1)}
         />
       ) : (
         visual.abbr
@@ -168,9 +175,11 @@ export function AppIconCluster({
   );
 }
 
-/** Map a persisted token holding to a chip: its logo when we have one, else a
- *  colored circle with the ticker's initials. Label prefers the symbol, then
- *  the name. */
+/** Map a persisted token holding to a chip. Logo sources cascade: the token's
+ *  own logo first, then its chain's icon — so WETH, a synthetic, or any token we
+ *  have no distinct logo for shows the chain it lives on rather than a generic
+ *  circle. Falls back to the ticker initials once both miss. Label prefers the
+ *  symbol, then the name. */
 function tokenVisual(token: WalletTokenChip): IconVisual | null {
   // First non-empty of symbol/name (an all-whitespace symbol must fall through
   // to the name, so this can't be `??`).
@@ -182,11 +191,16 @@ function tokenVisual(token: WalletTokenChip): IconVisual | null {
     .replace(/[^a-zA-Z0-9]/g, "")
     .slice(0, 4)
     .toUpperCase();
+  const chainLabel = resolveChainLabel(token.chain);
+  const logoUrls = [
+    ...(token.logoUrl ? [token.logoUrl] : []),
+    ...(chainLabel ? chainLogoUrls(chainLabel) : []),
+  ];
   return {
     label,
     abbr: abbr || "?",
     color: `hsl(${hashHue(label)} 58% 45%)`,
-    logoUrl: token.logoUrl ?? undefined,
+    logoUrls,
   };
 }
 

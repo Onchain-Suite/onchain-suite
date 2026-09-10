@@ -48,6 +48,24 @@ export interface AudienceOnchain {
   lifetimeValueUsd?: number | null;
 }
 
+/** One token a wallet holds, for the Tokens column's icon chip. */
+export interface WalletTokenChip {
+  symbol: string | null;
+  name: string | null;
+  logoUrl: string | null;
+}
+
+/** One wallet's on-chain summary from POST /audience/wallets/onchain-summary:
+ *  the chains it's active on, the DeFi protocols it uses, and its top tokens. */
+export interface WalletOnchainSummaryEntry {
+  chains: string[];
+  protocols: string[];
+  tokens: WalletTokenChip[];
+}
+
+/** Keyed by lowercased wallet address; wallets with no activity are absent. */
+export type WalletOnchainSummaryMap = Record<string, WalletOnchainSummaryEntry>;
+
 export interface AudienceProfile {
   id: string;
   name?: string;
@@ -569,12 +587,13 @@ export const audienceService = {
   },
 
   /**
-   * The distinct chains each wallet has on-chain activity on, for one audience
-   * page. Backs the Chains column. POST (not GET) because a page of wallet
-   * addresses overflows a query string; the backend caps the batch at 200.
-   * Returns a map keyed by lowercased wallet address; wallets with no activity
-   * are simply absent. A 404 (endpoint not deployed yet) resolves to `{}` so the
-   * column degrades to empty rather than erroring the whole table.
+   * What each wallet interacts with on-chain, for one audience page — the chains
+   * it has activity on (Chains column) and the DeFi protocols it holds positions
+   * in (Apps column). Backs both columns from one request. POST (not GET)
+   * because a page of wallet addresses overflows a query string; the backend
+   * caps the batch at 200. Keyed by lowercased wallet address; wallets with no
+   * activity are absent. A 404 (endpoint not deployed yet) resolves to `{}` so
+   * the columns degrade to empty rather than erroring the whole table.
    */
   getWalletOnchainSummary(wallets: string[], orgId?: string) {
     const clean = Array.from(
@@ -586,9 +605,9 @@ export const audienceService = {
           .map((w) => w.trim())
       )
     );
-    if (clean.length === 0)
-      return Promise.resolve<Record<string, string[]>>({});
-    return request<Record<string, string[]>>(
+    const empty: WalletOnchainSummaryMap = {};
+    if (clean.length === 0) return Promise.resolve(empty);
+    return request<WalletOnchainSummaryMap>(
       {
         method: "POST",
         url: "/audience/wallets/onchain-summary",
@@ -596,7 +615,7 @@ export const audienceService = {
       },
       orgId
     ).catch((e) => {
-      if (isNoDataError(e)) return {} as Record<string, string[]>;
+      if (isNoDataError(e)) return empty;
       throw e;
     });
   },

@@ -389,19 +389,25 @@ export function formatAttributeValue(value: unknown): string {
 }
 
 /**
- * A chain's visual identity for the Chains column: a short abbreviation and a
- * brand color for the icon chip. Curated for the chains we actually enrich; any
- * other chain falls back to its label's initials on a deterministic hue, so a
- * new or custom chain still renders a distinct chip rather than vanishing.
+ * A visual identity for one on-chain icon chip (a chain, a DeFi protocol, a
+ * token): a short abbreviation and a brand color, plus an optional logo URL for
+ * chips we have a real image for. Curated for what we recognize; anything else
+ * falls back to its label's initials on a deterministic hue, so a new/unknown
+ * value still renders a distinct chip rather than vanishing.
  */
-export interface ChainVisual {
-  /** Full display label, e.g. "Ethereum". */
+export interface IconVisual {
+  /** Full display label, e.g. "Ethereum" / "Aave". */
   label: string;
-  /** 2-4 char chip text, e.g. "ETH". */
+  /** 2-4 char chip text, e.g. "ETH" / "AAVE". */
   abbr: string;
   /** Chip background color (brand color, or a derived hue for unknowns). */
   color: string;
+  /** Logo image, when we have one; the chip falls back to `abbr` if it fails. */
+  logoUrl?: string;
 }
+
+/** @deprecated Use {@link IconVisual}. Kept as an alias for existing callers. */
+export type ChainVisual = IconVisual;
 
 // Brand colors + tickers for the chains enrichment covers. Keyed the same way
 // resolveChainLabel matches (bare slug with the network suffix stripped).
@@ -427,18 +433,18 @@ const CHAIN_VISUALS: Record<string, { abbr: string; color: string }> = {
   solana: { abbr: "SOL", color: "#14F195" },
 };
 
-/** Initials for an unknown chain: first 3 chars of the label, upper-cased. */
-function chainInitials(label: string): string {
+/** Initials for an unknown value: first N chars of the label, upper-cased. */
+function iconInitials(label: string, take = 3): string {
   const clean = label.replace(/[^a-zA-Z0-9]/g, "");
-  return (clean.slice(0, 3) || "?").toUpperCase();
+  return (clean.slice(0, take) || "?").toUpperCase();
 }
 
 /**
- * Resolve a raw chain value (slug/name/ticker) to its {@link ChainVisual}.
+ * Resolve a raw chain value (slug/name/ticker) to its {@link IconVisual}.
  * Returns null only for a blank/non-string input; every present chain gets a
  * chip — curated brand color when known, a deterministic hue otherwise.
  */
-export function chainVisual(input: unknown): ChainVisual | null {
+export function chainVisual(input: unknown): IconVisual | null {
   const label = resolveChainLabel(input);
   if (!label || typeof input !== "string") return null;
   const key = input.trim().toLowerCase();
@@ -447,8 +453,58 @@ export function chainVisual(input: unknown): ChainVisual | null {
   if (curated) return { label, ...curated };
   return {
     label,
-    abbr: chainInitials(label),
+    abbr: iconInitials(label),
     color: `hsl(${hashHue(label)} 62% 45%)`,
+  };
+}
+
+// Curated brand color + label for the DeFi protocols enrichment records. Keyed
+// by the protocol *family* — the slug with any trailing version stripped, so
+// `aave_v3` and `aave_v2` share one Aave chip.
+const PROTOCOL_VISUALS: Record<
+  string,
+  { label: string; abbr: string; color: string }
+> = {
+  aave: { label: "Aave", abbr: "AAVE", color: "#B6509E" },
+  uniswap: { label: "Uniswap", abbr: "UNI", color: "#FF007A" },
+  compound: { label: "Compound", abbr: "COMP", color: "#00D395" },
+  curve: { label: "Curve", abbr: "CRV", color: "#0E6EFD" },
+  lido: { label: "Lido", abbr: "LIDO", color: "#00A3FF" },
+  maker: { label: "Maker", abbr: "MKR", color: "#1AAB9B" },
+  makerdao: { label: "Maker", abbr: "MKR", color: "#1AAB9B" },
+  sky: { label: "Sky", abbr: "SKY", color: "#1AAB9B" },
+  morpho: { label: "Morpho", abbr: "MRP", color: "#2C63FF" },
+  pendle: { label: "Pendle", abbr: "PDL", color: "#33B7A0" },
+  gmx: { label: "GMX", abbr: "GMX", color: "#2D42FC" },
+  sushi: { label: "SushiSwap", abbr: "SUSHI", color: "#FA52A0" },
+  sushiswap: { label: "SushiSwap", abbr: "SUSHI", color: "#FA52A0" },
+  balancer: { label: "Balancer", abbr: "BAL", color: "#414977" },
+  convex: { label: "Convex", abbr: "CVX", color: "#3A3A3A" },
+  spark: { label: "Spark", abbr: "SPK", color: "#F7B32B" },
+  eigenlayer: { label: "EigenLayer", abbr: "EIGN", color: "#1A0C6D" },
+  rocketpool: { label: "Rocket Pool", abbr: "RPL", color: "#FF6B4A" },
+  "rocket-pool": { label: "Rocket Pool", abbr: "RPL", color: "#FF6B4A" },
+};
+
+/**
+ * Resolve a DeFi protocol slug (`aave_v3`, `uniswap-v3`, `compound_v2`) to its
+ * {@link IconVisual} for the Apps column. Strips the trailing version so a
+ * protocol's markets share one chip; unknown protocols fall back to a
+ * title-cased label + initials on a deterministic hue. Null for blank input.
+ */
+export function protocolVisual(input: unknown): IconVisual | null {
+  if (typeof input !== "string") return null;
+  const key = input.trim().toLowerCase();
+  if (!key) return null;
+  // Strip a trailing version token: aave_v3 → aave, uniswap-v3 → uniswap.
+  const family = key.replace(/[_-]v?\d+(\.\d+)?$/, "");
+  const curated = PROTOCOL_VISUALS[key] ?? PROTOCOL_VISUALS[family];
+  if (curated) return curated;
+  const label = toTitleCase(family.replace(/[_-]+/g, " "));
+  return {
+    label: label || key,
+    abbr: iconInitials(label || key, 4),
+    color: `hsl(${hashHue(family)} 55% 42%)`,
   };
 }
 

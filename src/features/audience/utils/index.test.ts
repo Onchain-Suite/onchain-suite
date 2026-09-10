@@ -8,6 +8,7 @@ import {
   hashHue,
   normalizeTags,
   profileReach,
+  protocolVisual,
   resolveChainLabel,
   shortenWallet,
 } from ".";
@@ -173,5 +174,30 @@ describe("chain labels", () => {
   it("returns null for a blank/non-string chain", () => {
     expect(chainVisual("")).toBeNull();
     expect(chainVisual(undefined)).toBeNull();
+  });
+});
+
+describe("protocolVisual", () => {
+  it("maps a curated protocol, stripping the version suffix", () => {
+    expect(protocolVisual("aave_v3")).toEqual({
+      label: "Aave",
+      abbr: "AAVE",
+      color: "#B6509E",
+    });
+    expect(protocolVisual("uniswap-v3")?.label).toBe("Uniswap");
+    expect(protocolVisual("compound_v2")?.abbr).toBe("COMP");
+  });
+
+  it("title-cases an unknown protocol on a deterministic hue", () => {
+    const v = protocolVisual("frax_lend");
+    expect(v?.label).toBe("Frax Lend");
+    expect(v?.color).toMatch(/^hsl\(/);
+    // Same family → same hue regardless of version, so chips stay stable.
+    expect(protocolVisual("frax_lend_v2")?.color).toBe(v?.color);
+  });
+
+  it("returns null for a blank/non-string protocol", () => {
+    expect(protocolVisual("")).toBeNull();
+    expect(protocolVisual(undefined)).toBeNull();
   });
 });

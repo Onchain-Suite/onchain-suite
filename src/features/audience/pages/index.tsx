@@ -76,12 +76,12 @@ import { audienceService } from "../audience.service";
 import { ApplyTagsPopover } from "../components/apply-tags-popover";
 import { AudienceListDetail } from "../components/audience-list-detail";
 import { AudienceTagsTab } from "../components/audience-tags-tab";
-import { ChainIconCluster } from "../components/chain-icon-cluster";
 import {
   ComposeEmailDialog,
   type EmailRecipient,
 } from "../components/compose-email-dialog";
 import { ContactSlideOver } from "../components/contact-slide-over";
+import { AppIconCluster, ChainIconCluster } from "../components/icon-cluster";
 import { ImportContractsDialog } from "../components/import-contracts-dialog";
 import { SuppressedTab } from "../components/suppressed-tab";
 import {
@@ -399,18 +399,19 @@ export function AudiencePages() {
   }, [rows]);
   const pageWalletsKey = pageWallets.join(",");
 
-  // The chains each wallet on this page has on-chain activity on. One batched
-  // POST per page (backend caps at 200); degrades to {} if the endpoint isn't
-  // deployed yet, so the column just shows dashes rather than erroring.
-  const chainsQuery = useQuery({
-    queryKey: ["audience", "wallet-chains", pageWalletsKey],
+  // What each wallet on this page interacts with on-chain — chains (Chains
+  // column) and DeFi protocols (Apps column). One batched POST per page (backend
+  // caps at 200); degrades to {} if the endpoint isn't deployed yet, so the
+  // columns just show dashes rather than erroring.
+  const onchainSummaryQuery = useQuery({
+    queryKey: ["audience", "wallet-onchain-summary", pageWalletsKey],
     queryFn: () => audienceService.getWalletOnchainSummary(pageWallets),
     enabled: pageWallets.length > 0,
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: 5 * 60_000,
   });
-  const walletChains = chainsQuery.data ?? {};
+  const walletOnchain = onchainSummaryQuery.data ?? {};
 
   const meta = profilesQuery.data?.meta;
 
@@ -1057,7 +1058,7 @@ export function AudiencePages() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[960px] border-collapse text-sm">
+                  <table className="w-full min-w-[1040px] border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs tracking-wide text-muted-foreground uppercase">
                         <th className="py-3 pr-4 font-medium">Contact</th>
@@ -1069,6 +1070,18 @@ export function AudiencePages() {
                             title="The chains each wallet has on-chain activity on — the tracked contracts it holds plus its DeFi positions. A dash means no on-chain activity has been synced or enriched yet."
                           >
                             Chains
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </th>
+                        <th className="px-4 py-3 font-medium">
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="The DeFi protocols each wallet holds positions in — e.g. Aave, Uniswap. A dash means no protocol positions have been enriched yet."
+                          >
+                            Apps
                             <InformationCircleIcon
                               className="size-3.5 opacity-60"
                               aria-hidden="true"
@@ -1256,9 +1269,20 @@ export function AudiencePages() {
                               {row.walletFull ? (
                                 <ChainIconCluster
                                   chains={
-                                    walletChains[
-                                      row.walletFull.toLowerCase()
-                                    ] ?? []
+                                    walletOnchain[row.walletFull.toLowerCase()]
+                                      ?.chains ?? []
+                                  }
+                                />
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {row.walletFull ? (
+                                <AppIconCluster
+                                  protocols={
+                                    walletOnchain[row.walletFull.toLowerCase()]
+                                      ?.protocols ?? []
                                   }
                                 />
                               ) : (

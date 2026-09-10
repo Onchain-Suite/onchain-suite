@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { ChainIconCluster } from "./chain-icon-cluster";
+import { AppIconCluster, ChainIconCluster } from "./icon-cluster";
 
 describe("ChainIconCluster", () => {
   it("renders one chip per distinct chain with curated tickers", () => {
@@ -36,5 +36,28 @@ describe("ChainIconCluster", () => {
     expect(
       screen.getByLabelText("Active on Ethereum, Solana")
     ).toBeInTheDocument();
+  });
+});
+
+describe("AppIconCluster", () => {
+  it("renders curated protocol chips with brand tickers", () => {
+    render(<AppIconCluster protocols={["aave_v3", "uniswap_v3"]} />);
+    expect(screen.getByText("AAVE")).toBeInTheDocument();
+    expect(screen.getByText("UNI")).toBeInTheDocument();
+  });
+
+  it("collapses a protocol's markets to one chip (aave_v2 + aave_v3)", () => {
+    render(<AppIconCluster protocols={["aave_v2", "aave_v3"]} />);
+    expect(screen.getAllByText("AAVE")).toHaveLength(1);
+  });
+
+  it("labels the cluster with the Uses verb", () => {
+    render(<AppIconCluster protocols={["aave_v3", "uniswap_v3"]} />);
+    expect(screen.getByLabelText("Uses Aave, Uniswap")).toBeInTheDocument();
+  });
+
+  it("renders a dash when the wallet uses no protocols", () => {
+    render(<AppIconCluster protocols={[]} />);
+    expect(screen.getByText("-")).toBeInTheDocument();
   });
 });

@@ -439,10 +439,33 @@ function iconInitials(label: string, take = 3): string {
   return (clean.slice(0, take) || "?").toUpperCase();
 }
 
+// Real brand logos come from DefiLlama's public icon CDN, keyed by the resolved
+// display label. It is a convenience layered on top of the colored-ticker chip,
+// not a dependency: IconChip renders the logo and falls back to the ticker chip
+// on any load error (missing slug, 404, CDN outage), so a wrong/absent entry
+// just shows what the column showed before. A chain/protocol with no entry here
+// (e.g. a custom chain, EigenLayer — no clean slug) keeps its ticker chip.
+const CHAIN_LOGO_SLUG: Record<string, string> = {
+  Ethereum: "ethereum",
+  Base: "base",
+  Arbitrum: "arbitrum",
+  Optimism: "optimism",
+  Polygon: "polygon",
+  "BNB Chain": "binance",
+  Avalanche: "avalanche",
+  Solana: "solana",
+};
+
+function chainLogoUrl(label: string): string | undefined {
+  const slug = CHAIN_LOGO_SLUG[label];
+  return slug ? `https://icons.llamao.fi/icons/chains/rsz_${slug}` : undefined;
+}
+
 /**
  * Resolve a raw chain value (slug/name/ticker) to its {@link IconVisual}.
  * Returns null only for a blank/non-string input; every present chain gets a
- * chip — curated brand color when known, a deterministic hue otherwise.
+ * chip — curated brand color when known, a deterministic hue otherwise, with a
+ * real logo layered on when we have one.
  */
 export function chainVisual(input: unknown): IconVisual | null {
   const label = resolveChainLabel(input);
@@ -450,11 +473,13 @@ export function chainVisual(input: unknown): IconVisual | null {
   const key = input.trim().toLowerCase();
   const bare = key.replace(/-(mainnet|testnet|sepolia|goerli|devnet)$/, "");
   const curated = CHAIN_VISUALS[key] ?? CHAIN_VISUALS[bare];
-  if (curated) return { label, ...curated };
+  const logoUrl = chainLogoUrl(label);
+  if (curated) return { label, ...curated, logoUrl };
   return {
     label,
     abbr: iconInitials(label),
     color: `hsl(${hashHue(label)} 62% 45%)`,
+    logoUrl,
   };
 }
 
@@ -486,11 +511,40 @@ const PROTOCOL_VISUALS: Record<
   "rocket-pool": { label: "Rocket Pool", abbr: "RPL", color: "#FF6B4A" },
 };
 
+// DefiLlama protocol-icon slugs, keyed by the curated label. EigenLayer has no
+// clean slug on the CDN, so it keeps its ticker chip. Same graceful-fallback
+// contract as CHAIN_LOGO_SLUG.
+const PROTOCOL_LOGO_SLUG: Record<string, string> = {
+  Aave: "aave",
+  Uniswap: "uniswap",
+  Compound: "compound",
+  Curve: "curve",
+  Lido: "lido",
+  Maker: "makerdao",
+  Sky: "sky",
+  Morpho: "morpho",
+  Pendle: "pendle",
+  GMX: "gmx",
+  SushiSwap: "sushi",
+  Balancer: "balancer",
+  Convex: "convex-finance",
+  Spark: "spark",
+  "Rocket Pool": "rocket-pool",
+};
+
+function protocolLogoUrl(label: string): string | undefined {
+  const slug = PROTOCOL_LOGO_SLUG[label];
+  return slug
+    ? `https://icons.llamao.fi/icons/protocols/${slug}?w=48&h=48`
+    : undefined;
+}
+
 /**
  * Resolve a DeFi protocol slug (`aave_v3`, `uniswap-v3`, `compound_v2`) to its
  * {@link IconVisual} for the Apps column. Strips the trailing version so a
  * protocol's markets share one chip; unknown protocols fall back to a
- * title-cased label + initials on a deterministic hue. Null for blank input.
+ * title-cased label + initials on a deterministic hue. A real logo is layered
+ * on when we have one. Null for blank input.
  */
 export function protocolVisual(input: unknown): IconVisual | null {
   if (typeof input !== "string") return null;
@@ -499,7 +553,7 @@ export function protocolVisual(input: unknown): IconVisual | null {
   // Strip a trailing version token: aave_v3 → aave, uniswap-v3 → uniswap.
   const family = key.replace(/[_-]v?\d+(\.\d+)?$/, "");
   const curated = PROTOCOL_VISUALS[key] ?? PROTOCOL_VISUALS[family];
-  if (curated) return curated;
+  if (curated) return { ...curated, logoUrl: protocolLogoUrl(curated.label) };
   const label = toTitleCase(family.replace(/[_-]+/g, " "));
   return {
     label: label || key,

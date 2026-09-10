@@ -148,17 +148,20 @@ describe("chain labels", () => {
     expect(extractChain({ attributes: { chain: "base" } }, "")).toBeNull();
   });
 
-  it("gives curated chains a brand color + ticker, keyed by slug or suffix", () => {
+  it("gives curated chains a brand color, ticker, and real logo", () => {
     expect(chainVisual("eth-mainnet")).toEqual({
       label: "Ethereum",
       abbr: "ETH",
       color: "#627EEA",
+      logoUrl: "https://icons.llamao.fi/icons/chains/rsz_ethereum",
     });
     expect(chainVisual("base-mainnet")?.color).toBe("#0052FF");
-    expect(chainVisual("SOL")).toEqual({
+    expect(chainVisual("base-mainnet")?.logoUrl).toContain("rsz_base");
+    expect(chainVisual("SOL")).toMatchObject({
       label: "Solana",
       abbr: "SOL",
       color: "#14F195",
+      logoUrl: "https://icons.llamao.fi/icons/chains/rsz_solana",
     });
   });
 
@@ -178,13 +181,17 @@ describe("chain labels", () => {
 });
 
 describe("protocolVisual", () => {
-  it("maps a curated protocol, stripping the version suffix", () => {
+  it("maps a curated protocol, stripping the version suffix, with a real logo", () => {
     expect(protocolVisual("aave_v3")).toEqual({
       label: "Aave",
       abbr: "AAVE",
       color: "#B6509E",
+      logoUrl: "https://icons.llamao.fi/icons/protocols/aave?w=48&h=48",
     });
     expect(protocolVisual("uniswap-v3")?.label).toBe("Uniswap");
+    expect(protocolVisual("uniswap-v3")?.logoUrl).toContain(
+      "protocols/uniswap"
+    );
     expect(protocolVisual("compound_v2")?.abbr).toBe("COMP");
   });
 

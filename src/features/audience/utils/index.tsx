@@ -200,6 +200,83 @@ const toTitleCase = (value: string) => {
     .join(" ");
 };
 
+// Common chain inputs (slugs, names, tickers) → a short display label. Covers
+// the granular slugs the enrichment tables use (eth-mainnet, base-mainnet, …),
+// the names/tickers a customer types in a CSV "Chain" column, and the network
+// suffixes get stripped so eth-sepolia still reads as Ethereum.
+const CHAIN_LABELS: Record<string, string> = {
+  eth: "Ethereum",
+  ethereum: "Ethereum",
+  mainnet: "Ethereum",
+  base: "Base",
+  arb: "Arbitrum",
+  arbitrum: "Arbitrum",
+  "arbitrum-one": "Arbitrum",
+  op: "Optimism",
+  optimism: "Optimism",
+  opt: "Optimism",
+  polygon: "Polygon",
+  matic: "Polygon",
+  poly: "Polygon",
+  bnb: "BNB Chain",
+  bsc: "BNB Chain",
+  avax: "Avalanche",
+  avalanche: "Avalanche",
+  sol: "Solana",
+  solana: "Solana",
+};
+
+/**
+ * Normalize a chain value to a display label. Returns null for a blank/non-string
+ * input; an unknown-but-present value is title-cased so a custom chain still
+ * shows rather than vanishing.
+ */
+export function resolveChainLabel(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  const key = input.trim().toLowerCase();
+  if (!key) return null;
+  const bare = key.replace(/-(mainnet|testnet|sepolia|goerli|devnet)$/, "");
+  return CHAIN_LABELS[key] ?? CHAIN_LABELS[bare] ?? toTitleCase(key);
+}
+
+/** Coarse chain family inferred from an address shape, when no explicit chain
+ * is known. EVM = 0x + 40 hex; Solana = base58. Null for anything else. */
+function walletFamilyLabel(wallet: string): string | null {
+  if (!wallet) return null;
+  if (/^0x[0-9a-fA-F]{40}$/.test(wallet)) return "EVM";
+  if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet)) return "Solana";
+  return null;
+}
+
+/**
+ * The chain to badge on a contact row. Prefers an explicit chain from the
+ * profile's `wallets[].chain` or `attributes.chain` (what a CSV import writes),
+ * and falls back to the family inferred from the wallet address. Returns null
+ * when there is no wallet or nothing can be determined — callers only render a
+ * chain for wallet-bearing contacts.
+ */
+export function extractChain(
+  profile: unknown,
+  walletFull: string
+): string | null {
+  if (!walletFull) return null;
+  if (profile && typeof profile === "object") {
+    const { wallets, attributes: attrs } = profile as Record<string, unknown>;
+    const fromWallet =
+      Array.isArray(wallets) && wallets[0] && typeof wallets[0] === "object"
+        ? (wallets[0] as Record<string, unknown>).chain
+        : undefined;
+    const fromAttr =
+      attrs && typeof attrs === "object"
+        ? (attrs as Record<string, unknown>).chain
+        : undefined;
+    const explicit =
+      resolveChainLabel(fromWallet) ?? resolveChainLabel(fromAttr);
+    if (explicit) return explicit;
+  }
+  return walletFamilyLabel(walletFull);
+}
+
 export function deriveDisplayName(input: {
   name?: unknown;
   fullName?: unknown;

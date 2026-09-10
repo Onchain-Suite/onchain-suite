@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   deriveDisplayName,
+  extractChain,
   extractWalletFields,
   hashHue,
   normalizeTags,
   profileReach,
+  resolveChainLabel,
   shortenWallet,
 } from ".";
 
@@ -107,5 +109,40 @@ describe("profileReach", () => {
         status: "pending",
       })
     ).toEqual({ email: false, push: true });
+  });
+});
+
+describe("chain labels", () => {
+  const EVM = "0x1234567890abcdef1234567890abcdef12345678";
+  const SOL = "7EYnhQoR9YM3N7UoaKRoA44Uy8JeaZV3qyouov87awMs";
+
+  it("normalizes slugs, names and tickers to a display label", () => {
+    expect(resolveChainLabel("eth-mainnet")).toBe("Ethereum");
+    expect(resolveChainLabel("Ethereum")).toBe("Ethereum");
+    expect(resolveChainLabel("base")).toBe("Base");
+    expect(resolveChainLabel("SOL")).toBe("Solana");
+    expect(resolveChainLabel("arbitrum")).toBe("Arbitrum");
+    // Unknown-but-present is title-cased, not dropped.
+    expect(resolveChainLabel("zksync-era")).toBe("Zksync Era");
+    expect(resolveChainLabel("")).toBeNull();
+    expect(resolveChainLabel(undefined)).toBeNull();
+  });
+
+  it("prefers an explicit chain from wallets[] or attributes", () => {
+    expect(extractChain({ wallets: [{ chain: "base-mainnet" }] }, EVM)).toBe(
+      "Base"
+    );
+    expect(extractChain({ attributes: { chain: "polygon" } }, EVM)).toBe(
+      "Polygon"
+    );
+  });
+
+  it("falls back to the address family when no explicit chain", () => {
+    expect(extractChain({}, EVM)).toBe("EVM");
+    expect(extractChain({}, SOL)).toBe("Solana");
+  });
+
+  it("returns null for a contact with no wallet (never badge email-only rows)", () => {
+    expect(extractChain({ attributes: { chain: "base" } }, "")).toBeNull();
   });
 });

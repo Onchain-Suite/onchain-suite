@@ -1,7 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { AppIconCluster, ChainIconCluster } from "./icon-cluster";
+import {
+  AppIconCluster,
+  ChainIconCluster,
+  TokenIconCluster,
+} from "./icon-cluster";
 
 describe("ChainIconCluster", () => {
   it("renders one chip per distinct chain with curated tickers", () => {
@@ -58,6 +62,48 @@ describe("AppIconCluster", () => {
 
   it("renders a dash when the wallet uses no protocols", () => {
     render(<AppIconCluster protocols={[]} />);
+    expect(screen.getByText("-")).toBeInTheDocument();
+  });
+});
+
+describe("TokenIconCluster", () => {
+  it("shows a token logo image when present, with the symbol as alt", () => {
+    render(
+      <TokenIconCluster
+        tokens={[
+          { symbol: "USDC", name: "USD Coin", logoUrl: "https://l/usdc.png" },
+        ]}
+      />
+    );
+    const img = screen.getByAltText("USDC");
+    expect(img).toHaveAttribute("src", "https://l/usdc.png");
+  });
+
+  it("falls back to the ticker initials chip when there is no logo", () => {
+    render(
+      <TokenIconCluster
+        tokens={[{ symbol: "WETH", name: "Wrapped Ether", logoUrl: null }]}
+      />
+    );
+    expect(screen.getByText("WETH")).toBeInTheDocument();
+  });
+
+  it("labels the cluster with the Holds verb, preferring symbol then name", () => {
+    render(
+      <TokenIconCluster
+        tokens={[
+          { symbol: "ETH", name: null, logoUrl: null },
+          { symbol: null, name: "Dai Stablecoin", logoUrl: null },
+        ]}
+      />
+    );
+    expect(
+      screen.getByLabelText("Holds ETH, Dai Stablecoin")
+    ).toBeInTheDocument();
+  });
+
+  it("renders a dash when the wallet holds no tokens", () => {
+    render(<TokenIconCluster tokens={[]} />);
     expect(screen.getByText("-")).toBeInTheDocument();
   });
 });

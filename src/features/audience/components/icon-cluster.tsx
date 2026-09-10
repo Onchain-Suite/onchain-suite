@@ -2,7 +2,13 @@ import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { chainVisual, type IconVisual, protocolVisual } from "../utils";
+import type { WalletTokenChip } from "../audience.service";
+import {
+  chainVisual,
+  hashHue,
+  type IconVisual,
+  protocolVisual,
+} from "../utils";
 
 /** Icons overlap this much (px); the negative margin on every chip but the
  *  first pulls each one partly behind its neighbour, the way Formo stacks them. */
@@ -157,6 +163,57 @@ export function AppIconCluster({
       visuals={resolveDistinct(protocols, protocolVisual)}
       max={max}
       ariaVerb="Uses"
+      className={className}
+    />
+  );
+}
+
+/** Map a persisted token holding to a chip: its logo when we have one, else a
+ *  colored circle with the ticker's initials. Label prefers the symbol, then
+ *  the name. */
+function tokenVisual(token: WalletTokenChip): IconVisual | null {
+  // First non-empty of symbol/name (an all-whitespace symbol must fall through
+  // to the name, so this can't be `??`).
+  const label = [token.symbol, token.name]
+    .map((v) => v?.trim())
+    .find((v): v is string => !!v && v.length > 0);
+  if (!label) return null;
+  const abbr = label
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 4)
+    .toUpperCase();
+  return {
+    label,
+    abbr: abbr || "?",
+    color: `hsl(${hashHue(label)} 58% 45%)`,
+    logoUrl: token.logoUrl ?? undefined,
+  };
+}
+
+/** Tokens column: token chips (logo image, colored-ticker fallback), kept in
+ *  the backend's value-desc order and deduped by label. */
+export function TokenIconCluster({
+  tokens,
+  max,
+  className,
+}: {
+  tokens: WalletTokenChip[];
+  max?: number;
+  className?: string;
+}) {
+  const seen = new Set<string>();
+  const visuals: IconVisual[] = [];
+  for (const token of tokens) {
+    const v = tokenVisual(token);
+    if (!v || seen.has(v.label)) continue;
+    seen.add(v.label);
+    visuals.push(v);
+  }
+  return (
+    <IconCluster
+      visuals={visuals}
+      max={max}
+      ariaVerb="Holds"
       className={className}
     />
   );

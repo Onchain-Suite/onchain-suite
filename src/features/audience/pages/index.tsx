@@ -81,7 +81,11 @@ import {
   type EmailRecipient,
 } from "../components/compose-email-dialog";
 import { ContactSlideOver } from "../components/contact-slide-over";
-import { AppIconCluster, ChainIconCluster } from "../components/icon-cluster";
+import {
+  AppIconCluster,
+  ChainIconCluster,
+  TokenIconCluster,
+} from "../components/icon-cluster";
 import { ImportContractsDialog } from "../components/import-contracts-dialog";
 import { SuppressedTab } from "../components/suppressed-tab";
 import {
@@ -1058,7 +1062,7 @@ export function AudiencePages() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1040px] border-collapse text-sm">
+                  <table className="w-full min-w-[1120px] border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs tracking-wide text-muted-foreground uppercase">
                         <th className="py-3 pr-4 font-medium">Contact</th>
@@ -1082,6 +1086,18 @@ export function AudiencePages() {
                             title="The DeFi protocols each wallet holds positions in — e.g. Aave, Uniswap. A dash means no protocol positions have been enriched yet."
                           >
                             Apps
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </th>
+                        <th className="px-4 py-3 font-medium">
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="The tokens each wallet holds, most valuable first — e.g. ETH, USDC. A dash means no token holdings have been enriched yet."
+                          >
+                            Tokens
                             <InformationCircleIcon
                               className="size-3.5 opacity-60"
                               aria-hidden="true"
@@ -1283,6 +1299,18 @@ export function AudiencePages() {
                                   protocols={
                                     walletOnchain[row.walletFull.toLowerCase()]
                                       ?.protocols ?? []
+                                  }
+                                />
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {row.walletFull ? (
+                                <TokenIconCluster
+                                  tokens={
+                                    walletOnchain[row.walletFull.toLowerCase()]
+                                      ?.tokens ?? []
                                   }
                                 />
                               ) : (

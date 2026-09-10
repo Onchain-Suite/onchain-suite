@@ -48,11 +48,19 @@ export interface AudienceOnchain {
   lifetimeValueUsd?: number | null;
 }
 
+/** One token a wallet holds, for the Tokens column's icon chip. */
+export interface WalletTokenChip {
+  symbol: string | null;
+  name: string | null;
+  logoUrl: string | null;
+}
+
 /** One wallet's on-chain summary from POST /audience/wallets/onchain-summary:
- *  the chains it's active on and the DeFi protocols it uses. */
+ *  the chains it's active on, the DeFi protocols it uses, and its top tokens. */
 export interface WalletOnchainSummaryEntry {
   chains: string[];
   protocols: string[];
+  tokens: WalletTokenChip[];
 }
 
 /** Keyed by lowercased wallet address; wallets with no activity are absent. */

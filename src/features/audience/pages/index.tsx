@@ -80,6 +80,7 @@ import { ContactSlideOver } from "../components/contact-slide-over";
 import { SuppressedTab } from "../components/suppressed-tab";
 import {
   deriveDisplayName,
+  extractChain,
   extractSocialHandles,
   extractWalletFields,
   formatRelativeTime,
@@ -116,6 +117,8 @@ interface Row {
   hasNamedIdentity: boolean;
   walletFull: string;
   walletShort: string;
+  /** Chain label to badge — only set when the contact has a wallet. */
+  chain?: string;
   email?: string; // real (non-synthetic) email only
   verified: boolean;
   tags: string[];
@@ -156,6 +159,7 @@ const toRow = (p: AudienceProfile): Row => {
     hasNamedIdentity,
     walletFull,
     walletShort: wallet,
+    chain: extractChain(p, walletFull) ?? undefined,
     email,
     verified,
     tags: normalizeTags(p.tags),
@@ -1056,6 +1060,11 @@ export function AudiencePages() {
                                       <ClipboardDocumentIcon className="size-3.5" />
                                     )}
                                   </button>
+                                ) : null}
+                                {row.walletFull && row.chain ? (
+                                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                    {row.chain}
+                                  </span>
                                 ) : null}
                                 {row.walletFull && row.verified ? (
                                   <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">

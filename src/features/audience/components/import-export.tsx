@@ -903,7 +903,11 @@ export default function ImportExportPage() {
       const query: Record<string, string | number | boolean | undefined> = {
         mode: "upsert",
         onConflict: "update",
-        dedupeKey: "email",
+        // 'auto' identifies each row by email when present, else by wallet, so a
+        // CSV can mix email-only, wallet-only and email+wallet rows. Previously
+        // hardcoded "email", which failed the whole import with "Missing email"
+        // on the first wallet-only row.
+        dedupeKey: "auto",
         maxErrors: 10000,
         // Backend-required: every import lands in a list. Tags (optional) ride
         // as a comma-separated list on top of the list's own tags.

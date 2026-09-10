@@ -77,6 +77,7 @@ import {
   type EmailRecipient,
 } from "../components/compose-email-dialog";
 import { ContactSlideOver } from "../components/contact-slide-over";
+import { ImportContractsDialog } from "../components/import-contracts-dialog";
 import { SuppressedTab } from "../components/suppressed-tab";
 import {
   deriveDisplayName,
@@ -221,6 +222,7 @@ export function AudiencePages() {
   // An import/export started on the import page redirects here with its job id;
   // pick it up so we can show a live progress banner (the job outlives that
   // page's local state).
+  const [contractImportOpen, setContractImportOpen] = useState(false);
   const [importJobId, setImportJobId] = useState<string | null>(null);
   const [importBannerDismissed, setImportBannerDismissed] = useState(false);
   const [exportJobId, setExportJobId] = useState<string | null>(null);
@@ -790,6 +792,15 @@ export function AudiencePages() {
             </Link>
           </Button>
           <Button
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => setContractImportOpen(true)}
+            title="Import contract addresses; Sync wallets then pulls their holders into your audience."
+          >
+            <PlusIcon className="mr-2 size-4" aria-hidden="true" />
+            Import contracts
+          </Button>
+          <Button
             className="rounded-xl"
             disabled={syncMutation.isPending || syncing}
             onClick={() => syncMutation.mutate()}
@@ -819,6 +830,11 @@ export function AudiencePages() {
             </Button>
           ) : null}
         </div>
+        <ImportContractsDialog
+          open={contractImportOpen}
+          onOpenChange={setContractImportOpen}
+          onImported={() => syncMutation.mutate()}
+        />
       </div>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

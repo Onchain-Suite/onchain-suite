@@ -8,16 +8,23 @@ import {
 } from "./icon-cluster";
 
 describe("ChainIconCluster", () => {
-  it("renders one chip per distinct chain with curated tickers", () => {
+  it("renders a real logo per distinct curated chain (alt = label)", () => {
+    // Curated chains carry a logoUrl, so the chip is an <img> (alt = label);
+    // the ticker text only shows on image error.
     render(<ChainIconCluster chains={["eth-mainnet", "base-mainnet"]} />);
-    expect(screen.getByText("ETH")).toBeInTheDocument();
-    expect(screen.getByText("BASE")).toBeInTheDocument();
+    expect(screen.getByAltText("Ethereum")).toBeInTheDocument();
+    expect(screen.getByAltText("Base")).toBeInTheDocument();
   });
 
   it("collapses chains that resolve to the same label", () => {
     // "eth" and "eth-mainnet" are both Ethereum — one chip, not two.
     render(<ChainIconCluster chains={["eth", "eth-mainnet"]} />);
-    expect(screen.getAllByText("ETH")).toHaveLength(1);
+    expect(screen.getAllByAltText("Ethereum")).toHaveLength(1);
+  });
+
+  it("keeps the ticker chip for an uncurated chain (no logo)", () => {
+    render(<ChainIconCluster chains={["zksync-era"]} />);
+    expect(screen.getByText("ZKS")).toBeInTheDocument();
   });
 
   it("shows a +N overflow chip past the max", () => {
@@ -44,15 +51,15 @@ describe("ChainIconCluster", () => {
 });
 
 describe("AppIconCluster", () => {
-  it("renders curated protocol chips with brand tickers", () => {
+  it("renders a real logo per curated protocol (alt = label)", () => {
     render(<AppIconCluster protocols={["aave_v3", "uniswap_v3"]} />);
-    expect(screen.getByText("AAVE")).toBeInTheDocument();
-    expect(screen.getByText("UNI")).toBeInTheDocument();
+    expect(screen.getByAltText("Aave")).toBeInTheDocument();
+    expect(screen.getByAltText("Uniswap")).toBeInTheDocument();
   });
 
   it("collapses a protocol's markets to one chip (aave_v2 + aave_v3)", () => {
     render(<AppIconCluster protocols={["aave_v2", "aave_v3"]} />);
-    expect(screen.getAllByText("AAVE")).toHaveLength(1);
+    expect(screen.getAllByAltText("Aave")).toHaveLength(1);
   });
 
   it("labels the cluster with the Uses verb", () => {

@@ -1068,42 +1068,6 @@ export function AudiencePages() {
                         <th className="py-3 pr-4 font-medium">Contact</th>
                         <th className="px-4 py-3 font-medium">Reachable via</th>
                         <th className="px-4 py-3 font-medium">Email</th>
-                        <th className="px-4 py-3 font-medium">
-                          <span
-                            className="inline-flex cursor-help items-center gap-1"
-                            title="The chains each wallet has on-chain activity on — the tracked contracts it holds plus its DeFi positions. A dash means no on-chain activity has been synced or enriched yet."
-                          >
-                            Chains
-                            <InformationCircleIcon
-                              className="size-3.5 opacity-60"
-                              aria-hidden="true"
-                            />
-                          </span>
-                        </th>
-                        <th className="px-4 py-3 font-medium">
-                          <span
-                            className="inline-flex cursor-help items-center gap-1"
-                            title="The DeFi protocols each wallet holds positions in — e.g. Aave, Uniswap. A dash means no protocol positions have been enriched yet."
-                          >
-                            Apps
-                            <InformationCircleIcon
-                              className="size-3.5 opacity-60"
-                              aria-hidden="true"
-                            />
-                          </span>
-                        </th>
-                        <th className="px-4 py-3 font-medium">
-                          <span
-                            className="inline-flex cursor-help items-center gap-1"
-                            title="The tokens each wallet holds, most valuable first — e.g. ETH, USDC. A dash means no token holdings have been enriched yet."
-                          >
-                            Tokens
-                            <InformationCircleIcon
-                              className="size-3.5 opacity-60"
-                              aria-hidden="true"
-                            />
-                          </span>
-                        </th>
                         <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
                           <button
                             type="button"
@@ -1139,6 +1103,42 @@ export function AudiencePages() {
                               />
                             )}
                           </button>
+                        </th>
+                        <th className="px-4 py-3 font-medium">
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="The chains each wallet has on-chain activity on — the tracked contracts it holds plus its DeFi positions. A dash means no on-chain activity has been synced or enriched yet."
+                          >
+                            Chains
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </th>
+                        <th className="px-4 py-3 font-medium">
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="The DeFi protocols each wallet holds positions in — e.g. Aave, Uniswap. A dash means no protocol positions have been enriched yet."
+                          >
+                            Apps
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </th>
+                        <th className="px-4 py-3 font-medium">
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="The tokens each wallet holds, most valuable first — e.g. ETH, USDC. A dash means no token holdings have been enriched yet."
+                          >
+                            Tokens
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
                         </th>
                         <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
                           Last active
@@ -1281,6 +1281,9 @@ export function AudiencePages() {
                                 <span className="text-muted-foreground">-</span>
                               )}
                             </td>
+                            <td className="px-4 py-3.5 text-right tabular-nums text-foreground">
+                              {lifetime}
+                            </td>
                             <td className="px-4 py-3.5">
                               {row.walletFull ? (
                                 <ChainIconCluster
@@ -1316,9 +1319,6 @@ export function AudiencePages() {
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}
-                            </td>
-                            <td className="px-4 py-3.5 text-right tabular-nums text-foreground">
-                              {lifetime}
                             </td>
                             <td className="px-4 py-3.5 text-right whitespace-nowrap text-muted-foreground">
                               {row.lastActive ?? "-"}

@@ -6,6 +6,7 @@ import {
   ArrowUpTrayIcon,
   AtSymbolIcon,
   CheckIcon,
+  ChevronDownIcon,
   ClipboardDocumentIcon,
   DevicePhoneMobileIcon,
   EllipsisHorizontalIcon,
@@ -783,43 +784,70 @@ export function AudiencePages() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="outline" className="rounded-xl">
-            <Link href={IMPORT_EXPORT_HREF}>
-              <ArrowUpTrayIcon className="mr-2 size-4" aria-hidden="true" />
-              Import CSV
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="rounded-xl">
-            <Link href={IMPORT_EXPORT_HREF}>
-              <ArrowDownTrayIcon className="mr-2 size-4" aria-hidden="true" />
-              Export
-            </Link>
-          </Button>
-          <Button
-            variant="outline"
-            className="rounded-xl"
-            onClick={() => setContractImportOpen(true)}
-            title="Import contract addresses; Sync wallets then pulls their holders into your audience."
-          >
-            <PlusIcon className="mr-2 size-4" aria-hidden="true" />
-            Import contracts
-          </Button>
-          <Button
-            className="rounded-xl"
-            disabled={syncMutation.isPending || syncing}
-            onClick={() => syncMutation.mutate()}
-            title="Pulls holders from your indexed contracts into the audience. This adds new wallets. To refresh metrics on wallets you already have, use Enrich in Intelligence."
-          >
-            <ArrowPathIcon
-              className={cn("mr-2 size-4", syncing && "animate-spin")}
-              aria-hidden="true"
-            />
-            {syncing
-              ? syncProgress > 0
-                ? `Syncing ${syncProgress}%`
-                : "Syncing…"
-              : "Sync wallets"}
-          </Button>
+          {/* Contact data (CSV in/out) grouped under one menu; the on-chain
+              actions live on the Sync split button beside it. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="rounded-xl">
+                Data
+                <ChevronDownIcon className="ml-2 size-4" aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={IMPORT_EXPORT_HREF}>
+                  <ArrowUpTrayIcon className="mr-2 size-4" aria-hidden="true" />
+                  Import CSV
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={IMPORT_EXPORT_HREF}>
+                  <ArrowDownTrayIcon
+                    className="mr-2 size-4"
+                    aria-hidden="true"
+                  />
+                  Export
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {/* Sync + Import contracts are one control: importing contracts kicks
+              off a sync, so they live together instead of as two toolbar buttons. */}
+          <div className="inline-flex">
+            <Button
+              className="rounded-l-xl rounded-r-none"
+              disabled={syncMutation.isPending || syncing}
+              onClick={() => syncMutation.mutate()}
+              title="Pulls holders from your indexed contracts into the audience. This adds new wallets. To refresh metrics on wallets you already have, use Enrich in Intelligence."
+            >
+              <ArrowPathIcon
+                className={cn("mr-2 size-4", syncing && "animate-spin")}
+                aria-hidden="true"
+              />
+              {syncing
+                ? syncProgress > 0
+                  ? `Syncing ${syncProgress}%`
+                  : "Syncing…"
+                : "Sync wallets"}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  className="rounded-l-none rounded-r-xl border-l border-primary-foreground/25 px-2"
+                  disabled={syncMutation.isPending || syncing}
+                  aria-label="More sync options"
+                >
+                  <ChevronDownIcon className="size-4" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setContractImportOpen(true)}>
+                  <PlusIcon className="mr-2 size-4" aria-hidden="true" />
+                  Import contracts…
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           {activeTab === "contacts" && total > 0 ? (
             <Button
               variant="outline"

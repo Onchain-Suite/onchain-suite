@@ -89,6 +89,37 @@ describe("AppIconCluster", () => {
     render(<AppIconCluster protocols={[]} />);
     expect(screen.getByText("-")).toBeInTheDocument();
   });
+
+  it("prefers catalogue chips — name as label, Cloudinary logo first", () => {
+    render(
+      <AppIconCluster
+        protocols={["some_dex_v2"]}
+        chips={[
+          {
+            slug: "some_dex_v2",
+            name: "SomeDEX",
+            logoUrls: [
+              "https://res.cloudinary.com/dwnkqkx8q/image/fetch/f_auto,q_auto/https://icons.llamao.fi/icons/protocols/some-dex",
+              "https://icons.llamao.fi/icons/protocols/some-dex",
+            ],
+          },
+        ]}
+      />
+    );
+    const img = screen.getByAltText("SomeDEX");
+    expect(img).toHaveAttribute("src", expect.stringContaining("cloudinary"));
+  });
+
+  it("falls back to protocolVisual for a chip the catalogue didn't resolve", () => {
+    render(
+      <AppIconCluster
+        protocols={["aave_v3"]}
+        chips={[{ slug: "aave_v3", name: null, logoUrls: [] }]}
+      />
+    );
+    // No catalogue name/logo → resolved locally as Aave.
+    expect(screen.getByAltText("Aave")).toBeInTheDocument();
+  });
 });
 
 describe("TokenIconCluster", () => {

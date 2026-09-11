@@ -58,11 +58,23 @@ export interface WalletTokenChip {
   chain?: string | null;
 }
 
+/** A DeFi protocol resolved against the DefiLlama catalogue (Apps column):
+ *  the wallet's slug, its brand name, and ordered logo sources. */
+export interface WalletProtocolChip {
+  slug: string;
+  name: string | null;
+  logoUrls: string[];
+}
+
 /** One wallet's on-chain summary from POST /audience/wallets/onchain-summary:
  *  the chains it's active on, the DeFi protocols it uses, and its top tokens. */
 export interface WalletOnchainSummaryEntry {
   chains: string[];
+  /** Raw protocol slugs (back-compat); prefer `protocolChips` for display. */
   protocols: string[];
+  /** Protocols resolved to name + logo from the catalogue. Absent on older
+   *  backends, so the client falls back to `protocols`. */
+  protocolChips?: WalletProtocolChip[];
   tokens: WalletTokenChip[];
 }
 

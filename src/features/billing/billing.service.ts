@@ -573,9 +573,15 @@ export interface PaygWallet {
   rates?: Record<string, number | string>;
   ledger?: Array<{
     id?: string;
-    amountUsd?: number;
-    meter?: string;
-    reason?: string;
+    /** Signed micro-USD (÷1e6 = USD); negative = debit, positive = top-up/grant. */
+    deltaMicroUsd?: number;
+    /** 'topup' | 'grant' | 'debit' | 'adjustment'. */
+    kind?: string;
+    /** Which meter a debit charged (aiCredits, messages, goldrushCredits, …). */
+    meter?: string | null;
+    /** Units billed on a debit. */
+    quantity?: number | null;
+    reference?: string | null;
     createdAt?: string;
     [key: string]: unknown;
   }>;

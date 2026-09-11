@@ -290,6 +290,8 @@ export function AudiencePages() {
   const [renameListValue, setRenameListValue] = useState("");
   const [deleteListTarget, setDeleteListTarget] =
     useState<AudienceSegment | null>(null);
+  // Opt-in on the delete-list dialog: also delete the contacts in the list.
+  const [alsoDeleteContacts, setAlsoDeleteContacts] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   // Clicking a contact opens a slide-in detail panel (not a full-page nav).
@@ -643,11 +645,33 @@ export function AudiencePages() {
   });
 
   const deleteListMutation = useMutation({
-    mutationFn: (id: string) => audienceService.deleteSegment(id),
-    onSuccess: (res, id) => {
+    mutationFn: (vars: {
+      id: string;
+      deleteContacts?: boolean;
+      confirmCount?: number;
+    }) =>
+      audienceService.deleteSegment(
+        vars.id,
+        vars.deleteContacts
+          ? { deleteContacts: true, confirmCount: vars.confirmCount }
+          : undefined
+      ),
+    onSuccess: (res, vars) => {
       queryClient.invalidateQueries({ queryKey: ["audience", "segments"] });
-      setSelectedList((prev) => (prev?.id === id ? null : prev));
+      queryClient.invalidateQueries({ queryKey: ["audience", "profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["audience", "overview"] });
+      setSelectedList((prev) => (prev?.id === vars.id ? null : prev));
       setDeleteListTarget(null);
+      setAlsoDeleteContacts(false);
+      const removed = num(res?.contactsDeleted);
+      if (typeof removed === "number" && removed > 0) {
+        toast.success(
+          `List deleted. ${removed.toLocaleString()} contact${
+            removed === 1 ? "" : "s"
+          } removed from your audience.`
+        );
+        return;
+      }
       const kept = num(res?.contactsKept);
       toast.success(
         typeof kept === "number"
@@ -1803,6 +1827,7 @@ export function AudiencePages() {
         onOpenChange={(open) => {
           if (!open && !deleteListMutation.isPending) {
             setDeleteListTarget(null);
+            setAlsoDeleteContacts(false);
           }
         }}
       >
@@ -1810,14 +1835,50 @@ export function AudiencePages() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this list?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the saved view “{deleteListTarget?.name}”.{" "}
-              {typeof deleteListTarget?.count === "number"
-                ? `The ${deleteListTarget.count.toLocaleString()} contact${
-                    deleteListTarget.count === 1 ? "" : "s"
-                  } in it stay in your audience.`
-                : "The contacts in it stay in your audience."}
+              {alsoDeleteContacts ? (
+                <>
+                  This permanently deletes the list “{deleteListTarget?.name}”{" "}
+                  <span className="font-medium text-destructive">
+                    and its{" "}
+                    {typeof deleteListTarget?.count === "number"
+                      ? deleteListTarget.count.toLocaleString()
+                      : ""}{" "}
+                    contact
+                    {deleteListTarget?.count === 1 ? "" : "s"}
+                  </span>
+                  . This can’t be undone.
+                </>
+              ) : (
+                <>
+                  This removes the saved view “{deleteListTarget?.name}”.{" "}
+                  {typeof deleteListTarget?.count === "number"
+                    ? `The ${deleteListTarget.count.toLocaleString()} contact${
+                        deleteListTarget.count === 1 ? "" : "s"
+                      } in it stay in your audience.`
+                    : "The contacts in it stay in your audience."}
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <label className="mt-1 flex items-start gap-2.5 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={alsoDeleteContacts}
+              disabled={deleteListMutation.isPending}
+              onChange={(e) => setAlsoDeleteContacts(e.target.checked)}
+              className="mt-0.5 size-4 shrink-0 accent-destructive"
+            />
+            <span className="text-foreground">
+              Also delete the{" "}
+              {typeof deleteListTarget?.count === "number"
+                ? deleteListTarget.count.toLocaleString()
+                : ""}{" "}
+              contact{deleteListTarget?.count === 1 ? "" : "s"} in this list
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Removes them from your entire audience, not just this list.
+              </span>
+            </span>
+          </label>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteListMutation.isPending}>
               Cancel
@@ -1828,11 +1889,22 @@ export function AudiencePages() {
               onClick={(e) => {
                 e.preventDefault();
                 if (deleteListTarget) {
-                  deleteListMutation.mutate(deleteListTarget.id);
+                  deleteListMutation.mutate({
+                    id: deleteListTarget.id,
+                    deleteContacts: alsoDeleteContacts,
+                    confirmCount:
+                      typeof deleteListTarget.count === "number"
+                        ? deleteListTarget.count
+                        : undefined,
+                  });
                 }
               }}
             >
-              {deleteListMutation.isPending ? "Deleting…" : "Delete list"}
+              {deleteListMutation.isPending
+                ? "Deleting…"
+                : alsoDeleteContacts
+                  ? "Delete list & contacts"
+                  : "Delete list"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

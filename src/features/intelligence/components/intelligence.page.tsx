@@ -98,13 +98,14 @@ function EnrichmentStatus() {
         type="button"
         onClick={() => enrichMutation.mutate()}
         disabled={enrichMutation.isPending}
-        className="inline-flex items-center gap-1.5 font-medium text-foreground transition-colors hover:text-primary disabled:opacity-60"
+        title="Re-enrich your wallets' on-chain data"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 font-medium text-foreground shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/50 disabled:opacity-60"
       >
         <ArrowPathIcon
           aria-hidden="true"
-          className={cn("h-4 w-4", busy && "animate-spin")}
+          className={cn("h-4 w-4 text-primary", busy && "animate-spin")}
         />
-        Refresh
+        {busy ? "Refreshing…" : "Refresh data"}
       </button>
     </div>
   );

@@ -447,7 +447,7 @@ const CHAIN_VISUALS: Record<string, { abbr: string; color: string }> = {
   // it fell through to a hashed hue and, worse, an ADI wallet enriched as
   // eth-mainnet borrowed the ETH chip entirely. The real logo layers on
   // automatically once onchain/chains/adi.svg is uploaded to Cloudinary.
-  adi: { abbr: "ADI", color: "#0FB5AE" },
+  adi: { abbr: "ADI", color: "#FF7A18" },
 };
 
 /** Initials for an unknown value: first N chars of the label, upper-cased. */
@@ -492,15 +492,25 @@ const CHAIN_LLAMA_SLUG: Record<string, string> = {
   Solana: "solana",
 };
 
+// Chains we ship a logo SVG for locally under public/onchain/chains/. Tried
+// first so they render with ZERO external dependency (no Cloudinary, no CDN) —
+// the fallback the product wanted. ADI has no public CDN icon, so its mark lives
+// here; drop a chain's <label>.svg in that folder to give it a local logo.
+const LOCAL_CHAIN_LOGO: Record<string, string> = {
+  ADI: "/onchain/chains/adi.svg",
+};
+
 /**
- * Ordered logo sources for a chain by its resolved label: our Cloudinary SVG
- * first, then DefiLlama for the popular ones. Exported so the Tokens column can
- * fall a logo-less token back to its chain icon.
+ * Ordered logo sources for a chain by its resolved label: a locally-bundled SVG
+ * first (zero external dependency), then our Cloudinary SVG, then DefiLlama for
+ * the popular ones. Exported so the Tokens column can fall a logo-less token back
+ * to its chain icon.
  */
 export function chainLogoUrls(label: string): string[] {
-  const urls = [
-    `${CLOUDINARY}/onchain/chains/${chainCloudinarySlug(label)}.svg`,
-  ];
+  const urls: string[] = [];
+  const local = LOCAL_CHAIN_LOGO[label];
+  if (local) urls.push(local);
+  urls.push(`${CLOUDINARY}/onchain/chains/${chainCloudinarySlug(label)}.svg`);
   const llama = CHAIN_LLAMA_SLUG[label];
   if (llama) urls.push(`https://icons.llamao.fi/icons/chains/rsz_${llama}`);
   return urls;
@@ -981,15 +991,14 @@ export function getChainMeta(raw: unknown): ChainMeta | null {
       name: key === "adi-testnet" ? "ADI Testnet" : "ADI",
       icon: (
         <Svg viewBox="0 0 24 24" className="h-3.5 w-3.5">
-          <circle cx="12" cy="12" r="10" fill="#0FB5AE" />
           <path
-            d="M7.5 16l4.5-9 4.5 9M9.4 13h5.2"
-            stroke="white"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            d="M12 3 18.5 10.5 12 21 5.5 10.5 Z"
             fill="none"
+            stroke="#FF7A18"
+            strokeWidth="2"
+            strokeLinejoin="round"
           />
+          <circle cx="12" cy="10.5" r="1.7" fill="#FF9A45" />
         </Svg>
       ),
     };

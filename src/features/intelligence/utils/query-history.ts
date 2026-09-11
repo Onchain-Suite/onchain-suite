@@ -14,9 +14,13 @@ export interface QueryHistoryItem {
 /**
  * Normalise the raw history payload into displayable rows: pull the query id and
  * text from whichever keys the backend used, flag agent vs. SQL runs, drop rows
- * with no id or text, and cap at 12. Shared by the history panel (render) and the
- * tab-bar History toggle (count), so both agree on exactly what counts.
+ * with no id or text, and cap at {@link HISTORY_MAX}. Shared by the history panel
+ * (render) and the tab-bar History toggle (count), so both agree on exactly what
+ * counts. The panel paginates within this set (see HistoryView).
  */
+// Matches the backend's HISTORY_LIMIT (listCombinedHistory caps at 50); the panel
+// pages through this client-side rather than showing all 50 at once.
+const HISTORY_MAX = 50;
 export const toQueryHistoryItems = (raw: unknown[]): QueryHistoryItem[] =>
   (raw ?? [])
     .map((h) => (isJsonObject(h) ? (h as Record<string, unknown>) : {}))
@@ -55,4 +59,4 @@ export const toQueryHistoryItems = (raw: unknown[]): QueryHistoryItem[] =>
       };
     })
     .filter((x) => x.qid && x.q.length > 0)
-    .slice(0, 12);
+    .slice(0, HISTORY_MAX);

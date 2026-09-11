@@ -5,10 +5,14 @@ import {
   ClockIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
 import type { QueryHistoryItem } from "@/features/intelligence/utils/query-history";
+
+/** Runs revealed per "Load more" click (and the initial page size). */
+const PAGE_SIZE = 15;
 
 /**
  * Full-surface History view: replaces the chat thread when the tab-row History
@@ -28,6 +32,17 @@ export function HistoryView({
   onSelect: (item: QueryHistoryItem) => void;
   onClose: () => void;
 }) {
+  // Page through the runs client-side rather than dumping all of them at once.
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // Collapse back to the first page whenever the underlying set changes size
+  // (e.g. a new run lands or history reloads), so "Load more" stays meaningful.
+  useEffect(() => setVisibleCount(PAGE_SIZE), [items.length]);
+  const visibleItems = useMemo(
+    () => items.slice(0, visibleCount),
+    [items, visibleCount]
+  );
+  const remaining = items.length - visibleItems.length;
+
   return (
     <div
       className={cn(
@@ -47,7 +62,9 @@ export function HistoryView({
           </span>
         </span>
         <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground">
-          {items.length}
+          {items.length > visibleItems.length
+            ? `${visibleItems.length} of ${items.length}`
+            : items.length}
         </span>
         <button
           type="button"
@@ -70,7 +87,7 @@ export function HistoryView({
             chatFill ? "min-h-0 flex-1" : "max-h-[520px]"
           )}
         >
-          {items.map((it) => {
+          {visibleItems.map((it) => {
             const ok = it.status === "completed";
             const failed = it.status === "failed";
             return (
@@ -111,6 +128,21 @@ export function HistoryView({
               </li>
             );
           })}
+          {remaining > 0 ? (
+            <li className="pt-1">
+              <button
+                type="button"
+                onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+                className="w-full rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+              >
+                Load {Math.min(PAGE_SIZE, remaining)} more
+                <span className="text-muted-foreground/70">
+                  {" "}
+                  ({remaining} older)
+                </span>
+              </button>
+            </li>
+          ) : null}
         </ul>
       )}
     </div>

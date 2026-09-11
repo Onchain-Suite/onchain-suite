@@ -691,7 +691,7 @@ export function AudiencePages() {
     onSuccess: (res) => {
       const jobId = typeof res?.jobId === "string" ? res.jobId : null;
       setSyncJobId(jobId);
-      toast.success("Wallet sync started - refreshing your audience.");
+      toast.success("Looking for new wallets from your contracts…");
     },
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Failed to start sync"),
@@ -907,7 +907,7 @@ export function AudiencePages() {
               className="rounded-l-xl rounded-r-none"
               disabled={syncMutation.isPending || syncing}
               onClick={() => syncMutation.mutate()}
-              title="Pulls holders from your indexed contracts into the audience. This adds new wallets. To refresh metrics on wallets you already have, use the Enrich button."
+              title="Finds NEW wallets: pulls the holders of your indexed contracts into the audience. To refresh on-chain data for wallets you already have, use 'Refresh data'."
             >
               <ArrowPathIcon
                 className={cn("mr-2 size-4", syncing && "animate-spin")}
@@ -915,16 +915,16 @@ export function AudiencePages() {
               />
               {syncing
                 ? syncProgress > 0
-                  ? `Syncing ${syncProgress}%`
-                  : "Syncing…"
-                : "Sync wallets"}
+                  ? `Finding ${syncProgress}%`
+                  : "Finding…"
+                : "Find new wallets"}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   className="rounded-l-none rounded-r-xl border-l border-primary-foreground/25 px-2"
                   disabled={syncMutation.isPending || syncing}
-                  aria-label="More sync options"
+                  aria-label="More options"
                 >
                   <ChevronDownIcon className="size-4" aria-hidden="true" />
                 </Button>

@@ -81,6 +81,7 @@ import {
   type EmailRecipient,
 } from "../components/compose-email-dialog";
 import { ContactSlideOver } from "../components/contact-slide-over";
+import { EnrichSelectedControl } from "../components/enrich-selected-control";
 import {
   AppIconCluster,
   ChainIconCluster,
@@ -102,6 +103,7 @@ import {
   profileReach,
   readChannels,
 } from "../utils";
+import { EnrichmentControl } from "@/features/intelligence/components/enrichment-control";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
@@ -560,6 +562,20 @@ export function AudiencePages() {
     [rows, selectedIds]
   );
 
+  // Wallet addresses of the selected rows — the input to targeted, per-chain
+  // enrichment (dedupe here so the count matches what the backend enqueues).
+  const selectedWallets = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          rows
+            .filter((r) => selectedIds.includes(r.id) && r.walletFull)
+            .map((r) => r.walletFull as string)
+        )
+      ),
+    [rows, selectedIds]
+  );
+
   // Reset selection + transient views when the tab changes.
   useEffect(() => {
     setSelectedIds([]);
@@ -867,7 +883,7 @@ export function AudiencePages() {
               className="rounded-l-xl rounded-r-none"
               disabled={syncMutation.isPending || syncing}
               onClick={() => syncMutation.mutate()}
-              title="Pulls holders from your indexed contracts into the audience. This adds new wallets. To refresh metrics on wallets you already have, use Enrich in Intelligence."
+              title="Pulls holders from your indexed contracts into the audience. This adds new wallets. To refresh metrics on wallets you already have, use the Enrich button."
             >
               <ArrowPathIcon
                 className={cn("mr-2 size-4", syncing && "animate-spin")}
@@ -897,6 +913,10 @@ export function AudiencePages() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          {/* Enrichment refresh, surfaced here (not just in Intelligence) so
+              users managing wallets can see when data was last enriched and
+              re-run it. "Sync" adds wallets; "Enrich" refreshes their metrics. */}
+          <EnrichmentControl />
           {activeTab === "contacts" && total > 0 ? (
             <Button
               variant="outline"
@@ -1035,6 +1055,12 @@ export function AudiencePages() {
                         </Button>
                       }
                     />
+                    {selectedWallets.length > 0 ? (
+                      <EnrichSelectedControl
+                        walletAddresses={selectedWallets}
+                        onEnqueued={() => setSelectedIds([])}
+                      />
+                    ) : null}
                     <Button
                       size="sm"
                       variant="outline"

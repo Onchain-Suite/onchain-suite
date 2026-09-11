@@ -497,6 +497,12 @@ export type IntelligenceContactsEnrichmentEnqueueResponse = Record<
   unknown
 >;
 
+export type IntelligenceWalletBatchEnrichmentResponse = {
+  queued: number;
+  skipped: number;
+  chain: string;
+};
+
 export type IntelligenceWalletEnrichmentMetricsResponse = Record<
   string,
   unknown
@@ -1391,6 +1397,27 @@ export const intelligenceService = {
       {
         method: "POST",
         url: "/intelligence/query/enrichment/contacts/enqueue",
+        data: body,
+      },
+      orgId
+    );
+  },
+
+  // Enrich a SELECTED set of wallets on ONE chain (e.g. tick the ADI wallets →
+  // enrich on adi-mainnet). Targeted counterpart to enqueueContactsEnrichment,
+  // which enriches the whole audience on one blanket chain.
+  enqueueWalletBatchEnrichment(
+    body: {
+      walletAddresses: string[];
+      chain: string;
+      forceRefresh?: boolean;
+    },
+    orgId?: string
+  ) {
+    return request<IntelligenceWalletBatchEnrichmentResponse>(
+      {
+        method: "POST",
+        url: "/intelligence/query/enrichment/wallets/enqueue-batch",
         data: body,
       },
       orgId

@@ -241,9 +241,17 @@ export default function IntelligencePage() {
           ) : null}
         </div>
 
-        {activeTab === "chat" || activeTab === "sql" ? (
+        {/* Kept mounted (hidden on other tabs) rather than conditionally
+            rendered, so the chat thread and its conversation id survive a trip
+            to the Segments tab and back instead of resetting to a blank chat. */}
+        <div
+          hidden={activeTab !== "chat" && activeTab !== "sql"}
+          className={
+            activeTab === "chat" ? "flex min-h-0 flex-1 flex-col" : undefined
+          }
+        >
           <QueryTab
-            activeSurface={activeTab === "chat" ? "chat" : "sql"}
+            activeSurface={activeTab === "sql" ? "sql" : "chat"}
             openEmailComposer={openEmailComposer}
             setActiveTab={handleTabChange}
             historyOpen={historyOpen}
@@ -252,7 +260,7 @@ export default function IntelligencePage() {
               activeTab === "chat" ? "flex min-h-0 flex-1 flex-col" : undefined
             }
           />
-        ) : null}
+        </div>
 
         <TabsContent
           value="segments"

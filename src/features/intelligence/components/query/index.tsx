@@ -918,6 +918,37 @@ const answerTargetsAudience = (
   );
 };
 
+// Columns that hold an actual wallet ADDRESS (not, say, contact_id) — used to
+// seed a segment from a chat answer that has no stored query behind it.
+const WALLET_COLUMN_HINTS = ["wallet", "address", "owner", "holder", "account"];
+
+const isWalletAddress = (value: unknown): value is string =>
+  typeof value === "string" &&
+  (/^0x[0-9a-fA-F]{40}$/.test(value.trim()) ||
+    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value.trim()));
+
+/** The distinct wallet addresses in an answer's rows, so an audience answer can
+ *  become a segment even when it has no queryId (agentic/onchain answers). Only
+ *  values that actually look like an address are taken, so a contact_id or a
+ *  label column never leaks in as a fake wallet. */
+const extractWalletsFromMessage = (message: ChatMessage): string[] => {
+  const structured = message.structuredResult;
+  if (!structured) return [];
+  const rows = normalizeStructuredRows(structured.rows);
+  const walletColumns = columnsFromRows(rows).filter((column) => {
+    const lc = column.toLowerCase();
+    return WALLET_COLUMN_HINTS.some((hint) => lc.includes(hint));
+  });
+  const out = new Set<string>();
+  for (const row of rows) {
+    for (const column of walletColumns) {
+      const value = row[column];
+      if (isWalletAddress(value)) out.add(value.trim());
+    }
+  }
+  return [...out];
+};
+
 /**
  * Recommended next steps under an answer, in the spirit of Claude Code's
  * follow-ups: turn every result into an obvious next action. When the answer
@@ -1451,6 +1482,9 @@ export function QueryTab({
   const [sqlCopied, setSqlCopied] = useState(false);
   const sqlCopiedTimeoutRef = useRef<number | null>(null);
   const [queryId, setQueryId] = useState<string | null>(initialQueryId ?? null);
+  // Wallets to seed a segment from when the targeted answer has no stored query
+  // (agentic/onchain answers) — set alongside/instead of queryId by an action.
+  const [segmentWallets, setSegmentWallets] = useState<string[]>([]);
   const [hasRunQuery, setHasRunQuery] = useState(Boolean(initialQueryId));
   // Bounded status polling: once the poll exceeds SQL_STATUS_POLL_TIMEOUT_MS
   // we stop and show an explicit timeout error (with a retry) in the results
@@ -2197,8 +2231,18 @@ export function QueryTab({
 
   const createSegmentMutation = useMutation({
     mutationFn: async (name: string) => {
-      if (!queryId) throw new Error("No query to use");
-      return intelligenceService.createSegmentFromQuery({ queryId, name });
+      // A stored query is preferred; an agentic/onchain answer has none, so seed
+      // the segment from the answer's own wallet rows instead.
+      if (queryId) {
+        return intelligenceService.createSegmentFromQuery({ queryId, name });
+      }
+      if (segmentWallets.length > 0) {
+        return intelligenceService.createSegmentFromWallets({
+          wallets: segmentWallets,
+          name,
+        });
+      }
+      throw new Error("No wallets in this result to build a segment from");
     },
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({
@@ -2392,11 +2436,23 @@ export function QueryTab({
     return buildNextSteps(lastAssistantMessage)[0] ?? null;
   }, [lastAssistantMessage, agentMutation.isPending]);
 
-  const renderConversionActions = (forQueryId?: string) => {
+  const renderConversionActions = (opts: {
+    forQueryId?: string;
+    forWallets?: string[];
+  }) => {
+    const { forQueryId, forWallets } = opts;
+    // Reports and campaigns reference a stored query; a segment can also be
+    // built straight from the answer's wallets, so it's offered even when this
+    // answer has no queryId (agentic/onchain answers).
+    const hasQuery = typeof forQueryId === "string" && forQueryId.length > 0;
+    const walletCount = forWallets?.length ?? 0;
+    const canSegment = hasQuery || walletCount > 0;
+    if (!canSegment) return null;
     // Point the shared query-scoped mutations at this message's result before
     // the dialog confirms, so actions on older messages target the right run.
     const targetQuery = () => {
-      if (forQueryId) setQueryId(forQueryId);
+      setQueryId(hasQuery ? forQueryId : null);
+      setSegmentWallets(forWallets ?? []);
     };
     return (
       <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
@@ -2405,23 +2461,31 @@ export function QueryTab({
             Use this result
           </div>
           <div className="text-xs text-muted-foreground">
-            Add these rows to your reports, or turn the wallets into a segment
-            or campaign.
+            {hasQuery
+              ? "Add these rows to your reports, or turn the wallets into a segment or campaign."
+              : "Turn these wallets into an audience segment."}
           </div>
         </div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              targetQuery();
-              openNameDialog("report");
-            }}
-            disabled={saveReportMutation.isPending}
-            className="justify-start rounded-xl"
-          >
-            Add to reports
-          </Button>
+        <div
+          className={cn(
+            "grid gap-2",
+            hasQuery ? "sm:grid-cols-3" : "sm:grid-cols-1"
+          )}
+        >
+          {hasQuery ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                targetQuery();
+                openNameDialog("report");
+              }}
+              disabled={saveReportMutation.isPending}
+              className="justify-start rounded-xl"
+            >
+              Add to reports
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="outline"
@@ -2434,17 +2498,19 @@ export function QueryTab({
           >
             Create segment
           </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              targetQuery();
-              openNameDialog("campaign");
-            }}
-            disabled={createCampaignMutation.isPending}
-            className="justify-start rounded-xl"
-          >
-            Launch campaign
-          </Button>
+          {hasQuery ? (
+            <Button
+              type="button"
+              onClick={() => {
+                targetQuery();
+                openNameDialog("campaign");
+              }}
+              disabled={createCampaignMutation.isPending}
+              className="justify-start rounded-xl"
+            >
+              Launch campaign
+            </Button>
+          ) : null}
         </div>
       </div>
     );
@@ -3348,11 +3414,25 @@ export function QueryTab({
                                           more detail.
                                         </p>
                                       ) : null}
-                                      {message.queryReady
-                                        ? renderConversionActions(
-                                            message.queryId
-                                          )
-                                        : null}
+                                      {(() => {
+                                        // Full actions when there's a stored
+                                        // query; a segment-only action when the
+                                        // answer just has wallets (no queryId).
+                                        const walletsFromAnswer =
+                                          extractWalletsFromMessage(message);
+                                        if (message.queryReady) {
+                                          return renderConversionActions({
+                                            forQueryId: message.queryId,
+                                            forWallets: walletsFromAnswer,
+                                          });
+                                        }
+                                        if (walletsFromAnswer.length > 0) {
+                                          return renderConversionActions({
+                                            forWallets: walletsFromAnswer,
+                                          });
+                                        }
+                                        return null;
+                                      })()}
                                     </div>
                                   );
                                 })()

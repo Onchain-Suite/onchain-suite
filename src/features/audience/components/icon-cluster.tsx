@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 
-import type { WalletTokenChip } from "../audience.service";
+import type { WalletProtocolChip, WalletTokenChip } from "../audience.service";
 import {
   chainLogoUrls,
   chainVisual,
@@ -133,6 +133,18 @@ function resolveDistinct(
   return out;
 }
 
+/** De-duplicate already-resolved visuals by label, preserving order. */
+function dedupeByLabel(visuals: IconVisual[]): IconVisual[] {
+  const seen = new Set<string>();
+  const out: IconVisual[] = [];
+  for (const v of visuals) {
+    if (seen.has(v.label)) continue;
+    seen.add(v.label);
+    out.push(v);
+  }
+  return out;
+}
+
 /** Chains column: curated chain chips (initials fallback), deduped by label so
  *  "eth" and "eth-mainnet" collapse to one Ethereum chip. */
 export function ChainIconCluster({
@@ -154,20 +166,54 @@ export function ChainIconCluster({
   );
 }
 
-/** Apps column: curated DeFi protocol chips (initials fallback), deduped so a
- *  protocol's markets (aave_v2, aave_v3) collapse to one Aave chip. */
+/** Map a catalogue-resolved protocol chip to an icon visual: the catalogue's
+ *  brand name + logo (Cloudinary→DefiLlama cascade) when it resolved, otherwise
+ *  the local protocolVisual by slug (curated colors / offline registry / title
+ *  case). So the Apps column reflects the full ~8k catalogue, not a small list. */
+function protocolChipVisual(chip: WalletProtocolChip): IconVisual | null {
+  const name = chip.name?.trim();
+  if ((name && name.length > 0) || chip.logoUrls.length > 0) {
+    const text = name && name.length > 0 ? name : chip.slug;
+    const abbr = text
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .slice(0, 4)
+      .toUpperCase();
+    return {
+      label: text,
+      abbr: abbr.length > 0 ? abbr : "?",
+      color: `hsl(${hashHue(text)} 55% 42%)`,
+      logoUrls: chip.logoUrls.length > 0 ? chip.logoUrls : undefined,
+    };
+  }
+  // Not in the catalogue — fall back to the local resolver by slug.
+  return protocolVisual(chip.slug);
+}
+
+/** Apps column. Prefers catalogue-resolved chips (name + logo for the whole
+ *  DefiLlama set); falls back to raw slugs → protocolVisual on older backends.
+ *  Deduped by label so a protocol's markets collapse to one chip. */
 export function AppIconCluster({
   protocols,
+  chips,
   max,
   className,
 }: {
   protocols: string[];
+  chips?: WalletProtocolChip[];
   max?: number;
   className?: string;
 }) {
+  const visuals =
+    chips && chips.length > 0
+      ? dedupeByLabel(
+          chips
+            .map(protocolChipVisual)
+            .filter((v): v is IconVisual => v !== null)
+        )
+      : resolveDistinct(protocols, protocolVisual);
   return (
     <IconCluster
-      visuals={resolveDistinct(protocols, protocolVisual)}
+      visuals={visuals}
       max={max}
       ariaVerb="Uses"
       className={className}

@@ -1303,6 +1303,10 @@ export function AudiencePages() {
                                     walletOnchain[row.walletFull.toLowerCase()]
                                       ?.protocols ?? []
                                   }
+                                  chips={
+                                    walletOnchain[row.walletFull.toLowerCase()]
+                                      ?.protocolChips
+                                  }
                                 />
                               ) : (
                                 <span className="text-muted-foreground">-</span>

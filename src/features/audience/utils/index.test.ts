@@ -166,10 +166,12 @@ describe("chain labels", () => {
   });
 
   it("covers the whole Alchemy set — a non-DefiLlama chain still gets a Cloudinary URL", () => {
-    // ADI, Celo, etc. aren't on DefiLlama; they get a Cloudinary-only source, so
+    // ADI ships a locally-bundled SVG, tried FIRST (zero external dependency),
+    // then the Cloudinary source. Celo has no local logo, so Cloudinary-only —
     // uploading onchain/chains/<slug>.svg is all it takes to add a chain's logo.
     expect(chainVisual("adi-mainnet")).toMatchObject({ label: "ADI" });
     expect(chainVisual("adi-mainnet")?.logoUrls).toEqual([
+      "/onchain/chains/adi.svg",
       "https://res.cloudinary.com/dwnkqkx8q/image/upload/onchain/chains/adi.svg",
     ]);
     expect(chainVisual("celo-mainnet")?.logoUrls).toEqual([

@@ -44,6 +44,7 @@ import {
   type AudienceImportPreset,
   audienceService,
 } from "@/features/audience/audience.service";
+import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { PageHeader } from "@/shared/components/page/page-header";
 
 const fieldOptions = [
@@ -454,6 +455,8 @@ function friendlyImportError(error: unknown): string {
   const text = raw.toUpperCase();
   if (text.includes("IMPORT_LIST_REQUIRED"))
     return "Choose a list for these contacts before importing.";
+  if (text.includes("IMPORT_CHAIN_REQUIRED"))
+    return "Choose the chain these wallets should be enriched on before importing.";
   if (text.includes("IMPORT_LIST_NOT_FOUND"))
     return "That list no longer exists. Pick another one or create a new list.";
   if (text.includes("IMPORT_LIST_NOT_TAG_BACKED"))
@@ -521,6 +524,19 @@ export default function ImportExportPage() {
   const [selectedListId, setSelectedListId] = useState<string>("");
   const [importTags, setImportTags] = useState<string>("");
   const [newListName, setNewListName] = useState<string>("");
+  // Chain every wallet in this import is enriched on (a per-row Chain column
+  // still wins). Required so an ADI file is enriched on ADI, not eth-mainnet.
+  const [selectedChain, setSelectedChain] = useState<string>("");
+
+  const chainsQuery = useQuery({
+    queryKey: ["audience", "import", "supported-chains"],
+    queryFn: () => projectSettingsService.getSupportedChains(),
+    staleTime: 30 * 60 * 1000,
+  });
+  const supportedChains = useMemo(
+    () => chainsQuery.data ?? [],
+    [chainsQuery.data]
+  );
 
   const listsQuery = useQuery({
     queryKey: ["audience", "segments", "for-import"],
@@ -876,6 +892,7 @@ export default function ImportExportPage() {
     mutationFn: async () => {
       if (!uploadedFile) throw new Error("No file selected");
       if (!selectedListId) throw new Error("IMPORT_LIST_REQUIRED");
+      if (!selectedChain) throw new Error("IMPORT_CHAIN_REQUIRED");
       const lower = uploadedFile.name.toLowerCase();
       const format: AudienceImportExportFormat | undefined = lower.endsWith(
         ".csv"
@@ -912,6 +929,9 @@ export default function ImportExportPage() {
         // Backend-required: every import lands in a list. Tags (optional) ride
         // as a comma-separated list on top of the list's own tags.
         listId: selectedListId,
+        // Chain to enrich every wallet on (a per-row Chain column overrides it
+        // server-side). Sent as a query param; the backend normalizes it.
+        defaultChain: selectedChain,
         ...(importTagList.length > 0 ? { tags: importTagList.join(",") } : {}),
       };
 
@@ -1622,6 +1642,47 @@ export default function ImportExportPage() {
                       </p>
                     </div>
                   </div>
+                  <div className="mt-5 border-t border-border pt-5">
+                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                      Enrich wallets on{" "}
+                      <span className="text-destructive">*</span>
+                    </label>
+                    <Select
+                      value={selectedChain}
+                      onValueChange={setSelectedChain}
+                    >
+                      <SelectTrigger className="sm:max-w-xs">
+                        <SelectValue
+                          placeholder={
+                            chainsQuery.isLoading
+                              ? "Loading chains…"
+                              : "Choose a chain (e.g. ADI, Ethereum)"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {supportedChains
+                          .slice()
+                          .sort(
+                            (a, b) =>
+                              Number(a.testnet) - Number(b.testnet) ||
+                              a.label.localeCompare(b.label)
+                          )
+                          .map((c) => (
+                            <SelectItem key={c.slug} value={c.slug}>
+                              {c.label}
+                              {c.testnet ? " (testnet)" : ""}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      The chain we enrich these wallets on. A per-row{" "}
+                      <span className="font-medium">Chain</span> column (mapped
+                      below) overrides this for individual wallets - so an ADI
+                      file is enriched on ADI, not Ethereum.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -2198,7 +2259,9 @@ export default function ImportExportPage() {
                   title={
                     !selectedListId
                       ? "Choose a list on the previous step first"
-                      : undefined
+                      : !selectedChain
+                        ? "Choose the chain to enrich these wallets on"
+                        : undefined
                   }
                   disabled={
                     isImporting ||
@@ -2206,7 +2269,9 @@ export default function ImportExportPage() {
                     !uploadedFile ||
                     !selectedImportFormat ||
                     // Backend requires a list for every import.
-                    !selectedListId
+                    !selectedListId ||
+                    // And a chain to enrich the wallets on (per-row Chain wins).
+                    !selectedChain
                     // Column mapping is optional: the backend alias-matches
                     // headers (wallet, Wallet Address, address, Public Key, …)
                     // case- and punctuation-insensitively, so an unmapped CSV

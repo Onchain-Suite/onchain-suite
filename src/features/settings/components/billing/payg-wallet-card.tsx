@@ -29,6 +29,45 @@ const formatUsd = (value: number) =>
     maximumFractionDigits: 2,
   });
 
+// Ledger amounts can be sub-cent (a single AI-credit debit), so show more
+// precision here than the whole-dollar balance above.
+const formatLedgerUsd = (value: number) =>
+  value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+
+// Humanize a meter key into a readable charge label.
+const METER_LABELS: Record<string, string> = {
+  aiCredits: "AI credits",
+  goldrushCredits: "Wallet-data credits",
+  messages: "Messages",
+  in_app_push: "In-app push",
+  ons_plus: "ONS+ contacts",
+};
+
+/** A one-line description for a usage-wallet ledger entry from its kind + meter
+ *  (+ quantity), so the breakdown reads "AI credits · 1,200" / "Top up" rather
+ *  than a raw meter key. */
+function describeLedgerEntry(entry: {
+  kind?: string;
+  meter?: string | null;
+  quantity?: number | null;
+}): string {
+  if (entry.kind === "topup") return "Top up";
+  if (entry.kind === "grant") return "Credit grant";
+  if (entry.kind === "adjustment") return "Adjustment";
+  const meter = entry.meter ?? "";
+  const base = METER_LABELS[meter] ?? (meter || "Usage");
+  const qty =
+    typeof entry.quantity === "number" && entry.quantity > 0
+      ? ` · ${entry.quantity.toLocaleString()}`
+      : "";
+  return `${base}${qty}`;
+}
+
 /**
  * Prepaid usage wallet (Pay-As-You-Go). Shown for `payg` orgs, and for
  * subscription orgs too - mid-cycle overage falls back to this wallet
@@ -183,13 +222,12 @@ export function PaygWalletCard({ planName }: { planName: string }) {
       {ledger.length > 0 ? (
         <div className="mt-4 space-y-1 border-t border-border/50 pt-3">
           {ledger.map((entry, index) => {
-            const amountValue = Number(entry.amountUsd);
-            const label =
-              typeof entry.meter === "string" && entry.meter.length > 0
-                ? entry.meter
-                : typeof entry.reason === "string" && entry.reason.length > 0
-                  ? entry.reason
-                  : "usage";
+            // Backend sends signed micro-USD, not a `amountUsd` field.
+            const amountValue =
+              typeof entry.deltaMicroUsd === "number"
+                ? entry.deltaMicroUsd / 1_000_000
+                : NaN;
+            const label = describeLedgerEntry(entry);
             const when =
               typeof entry.createdAt === "string"
                 ? new Date(entry.createdAt).toLocaleDateString()
@@ -210,7 +248,7 @@ export function PaygWalletCard({ planName }: { planName: string }) {
                     }
                   >
                     {Number.isFinite(amountValue)
-                      ? formatUsd(amountValue)
+                      ? formatLedgerUsd(amountValue)
                       : "-"}
                   </span>
                 </span>

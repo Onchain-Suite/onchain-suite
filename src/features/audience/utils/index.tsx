@@ -10,6 +10,8 @@ import type { ReactElement } from "react";
 // audience imports keep working.
 import { formatDateTime } from "@/lib/date";
 
+import { PROTOCOL_REGISTRY } from "../protocols.generated";
+
 export type NormalizedTag = string;
 export type SocialHandles = {
   ens?: string;
@@ -590,8 +592,25 @@ export function protocolVisual(input: unknown): IconVisual | null {
   if (!key) return null;
   // Strip a trailing version token: aave_v3 → aave, uniswap-v3 → uniswap.
   const family = key.replace(/[_-]v?\d+(\.\d+)?$/, "");
+  // 1. Curated: hand-picked brand color + logo for the best-known protocols.
   const curated = PROTOCOL_VISUALS[key] ?? PROTOCOL_VISUALS[family];
   if (curated) return { ...curated, logoUrls: protocolLogoUrls(curated.label) };
+  // 2. DefiLlama registry (~110 top protocols, saved locally): proper brand name
+  //    + logo, derived color. Match on the normalized slug or brand token.
+  const registryEntry =
+    PROTOCOL_REGISTRY[key.replace(/[^a-z0-9]/g, "")] ??
+    PROTOCOL_REGISTRY[family.replace(/[^a-z0-9]/g, "")];
+  if (registryEntry) {
+    return {
+      label: registryEntry.name,
+      abbr: iconInitials(registryEntry.name, 4),
+      color: `hsl(${hashHue(registryEntry.name)} 55% 42%)`,
+      logoUrls: [
+        `https://icons.llamao.fi/icons/protocols/${registryEntry.slug}?w=48&h=48`,
+      ],
+    };
+  }
+  // 3. Fallback: a title-cased label on a deterministic hue, no logo.
   const label = toTitleCase(family.replace(/[_-]+/g, " "));
   return {
     label: label || key,

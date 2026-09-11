@@ -24,15 +24,15 @@ describe("toQueryHistoryItems", () => {
     expect(rows.map((r) => r.isAgent)).toEqual([true, true, false]);
   });
 
-  it("drops rows with no id or no text, and caps at 12", () => {
+  it("drops rows with no id or no text, and caps at 50 (the panel paginates within)", () => {
     expect(toQueryHistoryItems([{ query: "no id" }, { id: "x" }])).toHaveLength(
       0
     );
-    const many = Array.from({ length: 20 }, (_, i) => ({
+    const many = Array.from({ length: 60 }, (_, i) => ({
       id: `q${i}`,
       query: `run ${i}`,
     }));
-    expect(toQueryHistoryItems(many)).toHaveLength(12);
+    expect(toQueryHistoryItems(many)).toHaveLength(50);
   });
 
   it("survives non-object rows", () => {

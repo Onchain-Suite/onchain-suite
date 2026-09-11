@@ -129,6 +129,7 @@ export interface DeleteTagResult {
 export interface DeleteSegmentResult {
   deleted?: boolean | number;
   contactsKept?: number;
+  contactsDeleted?: number;
 }
 
 /**
@@ -676,9 +677,21 @@ export const audienceService = {
    * `DELETE /audience/segments/{id}` - remove the saved view only. The backing
    * tag and every contact are left alone; the response reports `contactsKept`.
    */
-  deleteSegment(id: string, orgId?: string) {
+  deleteSegment(
+    id: string,
+    opts?: { deleteContacts?: boolean; confirmCount?: number },
+    orgId?: string
+  ) {
     return request<DeleteSegmentResult>(
-      { method: "DELETE", url: `/audience/segments/${encodeURIComponent(id)}` },
+      {
+        method: "DELETE",
+        url: `/audience/segments/${encodeURIComponent(id)}`,
+        // Only send a body for the destructive variant; the plain delete stays
+        // bodyless. confirmCount must match the live member count server-side.
+        data: opts?.deleteContacts
+          ? { deleteContacts: true, confirmCount: opts.confirmCount }
+          : undefined,
+      },
       orgId
     );
   },

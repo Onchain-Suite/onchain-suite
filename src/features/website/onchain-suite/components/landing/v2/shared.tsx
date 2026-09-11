@@ -22,7 +22,13 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { type ComponentType, type ReactNode, useEffect, useState } from "react";
+import {
+  type ComponentType,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import "./landing-v2.css";
 import { Reveal } from "./primitives";
@@ -370,10 +376,38 @@ function DevelopersMenu() {
 
 type MenuId = "platform" | "developers";
 
+// Left-to-right order of the triggers; drives the slide direction when the user
+// moves between menus (platform → developers slides in from the right, and back
+// from the left), and the panel's target width per menu.
+const MENU_ORDER: Record<MenuId, number> = { platform: 0, developers: 1 };
+const MENU_WIDTH: Record<MenuId, number> = { platform: 720, developers: 640 };
+
+// Horizontal slide for the panel CONTENT when switching menus (resend-style).
+// `dir` is +1 moving right along the nav, -1 moving left; the incoming panel
+// enters from that side and the outgoing leaves to the opposite side.
+const menuSlide = {
+  enter: (dir: number) => ({ x: dir >= 0 ? 26 : -26, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (dir: number) => ({ x: dir >= 0 ? -26 : 26, opacity: 0 }),
+};
+
 export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Which way the last menu switch moved, so the content slides the right way.
+  // Read during render (before the effect updates it), so on the switch render
+  // it still holds the PREVIOUS menu.
+  const prevMenuRef = useRef<MenuId | null>(null);
+  const slideDir =
+    openMenu && prevMenuRef.current && openMenu !== prevMenuRef.current
+      ? MENU_ORDER[openMenu] > MENU_ORDER[prevMenuRef.current]
+        ? 1
+        : -1
+      : 0;
+  useEffect(() => {
+    if (openMenu) prevMenuRef.current = openMenu;
+  }, [openMenu]);
   // While the hero (which has its own CTA) is on screen, the nav CTA stays
   // hidden; it fades in once the user scrolls past the hero. Defaults to the
   // prop so the first paint is correct on both the landing page and pages
@@ -641,11 +675,14 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
         </div>
       ) : null}
 
-      {/* hover mega-menu */}
+      {/* hover mega-menu — one panel stays mounted across menu switches, its
+          width morphs and the CONTENT slides horizontally (resend-style), so
+          moving Platform ↔ Developers reads as the same dropdown sliding rather
+          than one closing and another opening. */}
       <AnimatePresence>
         {openMenu ? (
           <motion.div
-            key={openMenu}
+            key="mega-menu"
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -653,24 +690,48 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
             className="absolute inset-x-0 top-full hidden justify-center px-4 md:flex"
           >
             {/* pt bridges the gap so hover stays continuous */}
-            <div
+            <motion.div
               className="w-full pt-2"
-              style={{ maxWidth: openMenu === "platform" ? 720 : 640 }}
+              animate={{ maxWidth: MENU_WIDTH[openMenu] }}
+              initial={false}
+              style={{ maxWidth: MENU_WIDTH[openMenu] }}
+              transition={{ duration: 0.3, ease: [0.2, 0.7, 0.2, 1] }}
             >
-              <div
-                className="rounded-2xl border p-4 shadow-[0_30px_80px_-30px_rgba(26,24,20,0.3)]"
+              <motion.div
+                layout
+                className="overflow-hidden rounded-2xl border p-4 shadow-[0_30px_80px_-30px_rgba(26,24,20,0.3)]"
                 style={{
                   borderColor: "var(--line)",
                   background:
                     "color-mix(in oklab, var(--surface) 96%, transparent)",
                   backdropFilter: "blur(8px)",
                 }}
+                transition={{ duration: 0.3, ease: [0.2, 0.7, 0.2, 1] }}
               >
-                {openMenu === "platform" ? (
-                  <PlatformMenu />
-                ) : (
-                  <DevelopersMenu />
-                )}
+                {/* Only the menu body slides/cross-fades; the footer is shared. */}
+                <div className="relative">
+                  <AnimatePresence
+                    mode="popLayout"
+                    initial={false}
+                    custom={slideDir}
+                  >
+                    <motion.div
+                      key={openMenu}
+                      custom={slideDir}
+                      variants={menuSlide}
+                      initial="enter"
+                      animate="center"
+                      exit="exit"
+                      transition={{ duration: 0.26, ease: [0.2, 0.7, 0.2, 1] }}
+                    >
+                      {openMenu === "platform" ? (
+                        <PlatformMenu />
+                      ) : (
+                        <DevelopersMenu />
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
                 <div
                   className="mt-5 flex items-center gap-5 border-t pt-4"
                   style={{ borderColor: "var(--line)" }}
@@ -695,8 +756,8 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
                     />
                   </a>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </motion.div>
         ) : null}
       </AnimatePresence>

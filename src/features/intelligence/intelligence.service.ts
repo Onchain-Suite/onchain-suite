@@ -1495,6 +1495,25 @@ export const intelligenceService = {
     );
   },
 
+  /**
+   * Create a segment from a wallet list — used when a chat answer has no stored
+   * queryId (agentic/onchain answers), so the segment is seeded from the answer's
+   * own wallet rows. Same response shape as createSegmentFromQuery.
+   */
+  createSegmentFromWallets(
+    body: { wallets: string[]; name: string; tags?: string[] },
+    orgId?: string
+  ) {
+    return request<IntelligenceSegmentFromQueryResponse>(
+      {
+        method: "POST",
+        url: "/intelligence/query/segments/from-wallets",
+        data: body,
+      },
+      orgId
+    );
+  },
+
   createCampaignFromQuery(
     body: { queryId: string; subject?: string; templateId?: unknown },
     orgId?: string

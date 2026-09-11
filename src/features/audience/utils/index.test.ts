@@ -207,10 +207,20 @@ describe("protocolVisual", () => {
     expect(protocolVisual("compound_v2")?.abbr).toBe("COMP");
   });
 
-  it("title-cases an unknown protocol on a deterministic hue", () => {
+  it("resolves a non-curated protocol from the DefiLlama registry (name + logo)", () => {
+    // Not in the hand-curated set, but in the 110-protocol local registry.
+    const v = protocolVisual("pancakeswap");
+    expect(v?.label).toBe("PancakeSwap");
+    expect(v?.logoUrls?.[0]).toContain("icons/protocols/pancakeswap");
+    // Version suffix still strips to the brand: raydium_v3 → Raydium.
+    expect(protocolVisual("raydium_v3")?.label).toBe("Raydium");
+  });
+
+  it("title-cases a protocol that's in neither the curated set nor the registry", () => {
     const v = protocolVisual("frax_lend");
     expect(v?.label).toBe("Frax Lend");
     expect(v?.color).toMatch(/^hsl\(/);
+    expect(v?.logoUrls).toBeUndefined();
     // Same family → same hue regardless of version, so chips stay stable.
     expect(protocolVisual("frax_lend_v2")?.color).toBe(v?.color);
   });

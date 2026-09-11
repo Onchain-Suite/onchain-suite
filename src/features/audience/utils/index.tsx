@@ -443,6 +443,11 @@ const CHAIN_VISUALS: Record<string, { abbr: string; color: string }> = {
   avalanche: { abbr: "AVAX", color: "#E84142" },
   sol: { abbr: "SOL", color: "#14F195" },
   solana: { abbr: "SOL", color: "#14F195" },
+  // ADI is a first-class chain here (adi-mainnet / adi-testnet). Without an entry
+  // it fell through to a hashed hue and, worse, an ADI wallet enriched as
+  // eth-mainnet borrowed the ETH chip entirely. The real logo layers on
+  // automatically once onchain/chains/adi.svg is uploaded to Cloudinary.
+  adi: { abbr: "ADI", color: "#0FB5AE" },
 };
 
 /** Initials for an unknown value: first N chars of the label, upper-cased. */
@@ -969,6 +974,25 @@ export function getChainMeta(raw: unknown): ChainMeta | null {
     key === "bnbchain"
   ) {
     return { key: "bnb", name: "BNB Chain", icon: <BnbIcon /> };
+  }
+  if (key === "adi" || key === "adi-mainnet" || key === "adi-testnet") {
+    return {
+      key: "adi",
+      name: key === "adi-testnet" ? "ADI Testnet" : "ADI",
+      icon: (
+        <Svg viewBox="0 0 24 24" className="h-3.5 w-3.5">
+          <circle cx="12" cy="12" r="10" fill="#0FB5AE" />
+          <path
+            d="M7.5 16l4.5-9 4.5 9M9.4 13h5.2"
+            stroke="white"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        </Svg>
+      ),
+    };
   }
   const fallbackName = raw && typeof raw === "string" ? raw.trim() : "Chain";
   if (fallbackName.length === 0) return null;

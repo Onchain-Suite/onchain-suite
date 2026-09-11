@@ -24,10 +24,11 @@ import {
 import { cn } from "@/lib/utils";
 
 import {
-  isBranchActive,
-  isNavActive,
+  isBranchRowActive,
+  isRowActive,
   type NavItem,
   navTooltip,
+  resolveActiveNavUrl,
 } from "./nav-utils";
 
 // Dims the glyph on idle rows; the active row inherits the accent color.
@@ -48,6 +49,9 @@ export function NavMain({
 }) {
   // `usePathname` is null while Next resolves the route on first paint.
   const pathname = usePathname() ?? "";
+  // Resolve ONE active row (the most specific match) so a parent route doesn't
+  // stay highlighted on a child that has its own nav entry.
+  const activeUrl = resolveActiveNavUrl(pathname, items);
 
   return (
     <SidebarGroup>
@@ -55,9 +59,13 @@ export function NavMain({
       <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center">
         {items.map((item) =>
           item.items?.length ? (
-            <CollapsibleRow key={item.title} item={item} pathname={pathname} />
+            <CollapsibleRow
+              key={item.title}
+              item={item}
+              activeUrl={activeUrl}
+            />
           ) : (
-            <LinkRow key={item.title} item={item} pathname={pathname} />
+            <LinkRow key={item.title} item={item} activeUrl={activeUrl} />
           )
         )}
       </SidebarMenu>
@@ -66,13 +74,19 @@ export function NavMain({
 }
 
 /** Leaf row - navigates directly, no disclosure. */
-function LinkRow({ item, pathname }: { item: NavItem; pathname: string }) {
+function LinkRow({
+  item,
+  activeUrl,
+}: {
+  item: NavItem;
+  activeUrl: string | undefined;
+}) {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
         asChild
         tooltip={navTooltip(item)}
-        isActive={isNavActive(pathname, item)}
+        isActive={isRowActive(item, activeUrl)}
         className={cn(ROW, item.wip && WIP)}
       >
         <Link href={item.url}>
@@ -94,12 +108,12 @@ function LinkRow({ item, pathname }: { item: NavItem; pathname: string }) {
  */
 function CollapsibleRow({
   item,
-  pathname,
+  activeUrl,
 }: {
   item: NavItem;
-  pathname: string;
+  activeUrl: string | undefined;
 }) {
-  const branchActive = isBranchActive(pathname, item);
+  const branchActive = isBranchRowActive(item, activeUrl);
 
   return (
     <Collapsible
@@ -111,7 +125,7 @@ function CollapsibleRow({
         <CollapsibleTrigger asChild>
           <SidebarMenuButton
             tooltip={navTooltip(item)}
-            isActive={isNavActive(pathname, item)}
+            isActive={branchActive}
             className={cn(ROW, item.wip && WIP)}
           >
             {item.icon ? <item.icon aria-hidden="true" /> : null}
@@ -131,7 +145,7 @@ function CollapsibleRow({
               <SidebarMenuSubItem key={subItem.title}>
                 <SidebarMenuSubButton
                   asChild
-                  isActive={isNavActive(pathname, subItem)}
+                  isActive={isRowActive(subItem, activeUrl)}
                 >
                   <Link href={subItem.url}>
                     <span>{subItem.title}</span>

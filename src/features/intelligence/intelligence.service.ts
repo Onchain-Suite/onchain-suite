@@ -1449,6 +1449,41 @@ export const intelligenceService = {
     );
   },
 
+  // NFT enrichment (ERC-1155/721 holdings) is per-org because it's ~half the
+  // per-wallet cost — on only where a vault/LP contract makes it pay off.
+  // includeNfts: true|false = explicit; null = follows the fleet default.
+  getNftEnrichment(orgId?: string) {
+    return request<{ includeNfts: boolean | null }>(
+      { method: "GET", url: "/intelligence/query/enrichment/nft" },
+      orgId
+    );
+  },
+
+  setNftEnrichment(enabled: boolean, orgId?: string) {
+    return request<{ includeNfts: boolean }>(
+      {
+        method: "PUT",
+        url: "/intelligence/query/enrichment/nft",
+        data: { enabled },
+      },
+      orgId
+    );
+  },
+
+  // Scan the org's tracked contracts and auto-enable NFT if an ERC-1155/721
+  // (vault) token is found.
+  autoDetectNftEnrichment(orgId?: string) {
+    return request<{
+      contractsScanned: number;
+      nftStandardFound: "erc1155" | "erc721" | null;
+      includeNfts: boolean | null;
+      changed: boolean;
+    }>(
+      { method: "POST", url: "/intelligence/query/enrichment/nft/auto-detect" },
+      orgId
+    );
+  },
+
   // Seed Intelligence tables from saved project-settings contracts (or the
   // provided ones). Discovers holders + enqueues per-wallet enrichment.
   enrichProtocol(

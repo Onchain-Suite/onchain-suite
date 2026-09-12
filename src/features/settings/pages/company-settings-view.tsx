@@ -5,6 +5,7 @@ import { useEffect } from "react";
 
 import { BrandingCard } from "../components/account/branding-card";
 import { ContractsCard } from "../components/account/contracts-card";
+import { NftEnrichmentCard } from "../components/account/nft-enrichment-card";
 import { ProfileCompletenessCard } from "../components/account/profile-completeness-card";
 import { ProjectCard } from "../components/account/project-card";
 import { SenderIdentitiesCard } from "../components/account/sender-identities-card";
@@ -42,6 +43,7 @@ export default function CompanySettingsView() {
       <div id={CONTRACTS_SECTION_ID} className="scroll-mt-6">
         <ContractsCard />
       </div>
+      <NftEnrichmentCard />
       <BrandingCard />
       <div id={SENDER_VERIFICATION_SECTION_ID} className="scroll-mt-6">
         <SenderVerificationCard />

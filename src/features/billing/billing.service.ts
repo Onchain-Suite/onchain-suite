@@ -571,6 +571,8 @@ export interface PlanCheckoutResponse {
 export interface PaygWallet {
   balanceUsd: number;
   rates?: Record<string, number | string>;
+  /** Lifetime spend grouped by meter (email, AI, enrichment, imports, …). */
+  spendByMeter?: Array<{ meter: string; spentUsd: number; quantity: number }>;
   ledger?: Array<{
     id?: string;
     /** Signed micro-USD (÷1e6 = USD); negative = debit, positive = top-up/grant. */

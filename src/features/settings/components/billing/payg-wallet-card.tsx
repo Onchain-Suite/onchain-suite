@@ -39,13 +39,15 @@ const formatLedgerUsd = (value: number) =>
     maximumFractionDigits: 4,
   });
 
-// Humanize a meter key into a readable charge label.
+// Humanize a meter key into a readable cost category. These are the things a
+// client actually spends on: email sends, AI actions, wallet enrichment/on-chain
+// reads, and the verification run at import time.
 const METER_LABELS: Record<string, string> = {
+  messages: "Email",
   aiCredits: "AI credits",
-  goldrushCredits: "Wallet-data credits",
-  messages: "Messages",
+  goldrushCredits: "Enrichment & on-chain",
+  ons_plus: "Import verification",
   in_app_push: "In-app push",
-  ons_plus: "ONS+ contacts",
 };
 
 /** A one-line description for a usage-wallet ledger entry from its kind + meter
@@ -149,6 +151,9 @@ export function PaygWalletCard({ planName }: { planName: string }) {
   if (!wallet) return null;
 
   const ledger = (wallet.ledger ?? []).slice(0, 5);
+  const spendByCategory = (wallet.spendByMeter ?? [])
+    .filter((s) => s.spentUsd > 0)
+    .sort((a, b) => b.spentUsd - a.spentUsd);
   const lowBalance = wallet.balanceUsd < 1;
 
   const handleTopUp = async () => {
@@ -219,8 +224,40 @@ export function PaygWalletCard({ planName }: { planName: string }) {
         </Button>
       </div>
 
+      {spendByCategory.length > 0 ? (
+        <div className="mt-4 border-t border-border/50 pt-3">
+          <div className="mb-2 text-xs font-medium text-foreground">
+            Spent by category
+          </div>
+          <div className="space-y-1">
+            {spendByCategory.map((s) => (
+              <div
+                key={s.meter}
+                className="flex items-center justify-between text-xs text-muted-foreground"
+              >
+                <span className="truncate">
+                  {METER_LABELS[s.meter] ?? s.meter}
+                  {s.quantity > 0 ? (
+                    <span className="text-muted-foreground/70">
+                      {" "}
+                      · {s.quantity.toLocaleString()}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 tabular-nums text-foreground">
+                  {formatLedgerUsd(s.spentUsd)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {ledger.length > 0 ? (
         <div className="mt-4 space-y-1 border-t border-border/50 pt-3">
+          <div className="mb-1 text-xs font-medium text-foreground">
+            Recent activity
+          </div>
           {ledger.map((entry, index) => {
             // Backend sends signed micro-USD, not a `amountUsd` field.
             const amountValue =

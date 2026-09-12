@@ -81,6 +81,34 @@ export interface PlanUsageResponse {
   [key: string]: unknown;
 }
 
+/** One priced line from `GET /billing/plan-usage/:org/cost`. */
+export interface PricedUsageLine {
+  meter: string;
+  label: string;
+  used: number;
+  unit: string;
+  unitCostUsd: number;
+  costUsd: number;
+}
+
+/** Response of `GET /billing/plan-usage/:organizationId/cost`: usage → cost. */
+export interface PricedUsageResponse {
+  organizationId: string;
+  organizationName?: string;
+  plan: { key: string; label: string };
+  period: string;
+  lines: PricedUsageLine[];
+  enrichment: {
+    walletsEnriched: number;
+    estCreditsUsed: number;
+    estCostUsd: number;
+    note: string;
+  };
+  usageCostUsd: number;
+  planPriceUsd: number;
+  totalUsd: number;
+}
+
 const pickPlanString = (...values: unknown[]): string | undefined => {
   for (const value of values) {
     if (typeof value === "string" && value.trim().length > 0) {
@@ -892,6 +920,24 @@ export const billingService = {
     }
     return billingRequest<PlanUsageResponse>(
       { method: "GET", url: `/billing/plan-usage/${orgId}` },
+      { ...options, orgId }
+    );
+  },
+
+  /**
+   * Itemised usage→cost breakdown (`GET /billing/plan-usage/:org/cost`): each
+   * meter's usage priced at the rate card, a wallet-enrichment line, and the
+   * period total (plan base + metered usage).
+   */
+  getPricedUsage(organizationId?: string, options?: BillingServiceOptions) {
+    const orgId = organizationId ?? pickOrgId(options);
+    if (!orgId) {
+      return Promise.reject(
+        new Error("No organization selected for usage cost.")
+      );
+    }
+    return billingRequest<PricedUsageResponse>(
+      { method: "GET", url: `/billing/plan-usage/${orgId}/cost` },
       { ...options, orgId }
     );
   },

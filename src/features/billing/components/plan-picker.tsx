@@ -86,7 +86,12 @@ const PAYG_INCLUDED: [string, string][] = [
 ];
 
 const SUITE_MIN = 0;
-const SUITE_MAX = 150_000;
+// Slider ceiling. Past this, the Contacts input takes a custom number and the
+// quote prices it at the same rate - the pricing curve is linear, so there's no
+// cliff at the top, just a bigger number.
+const SUITE_MAX = 500_000;
+// Upper bound for a typed custom contact count above the slider ceiling.
+const SUITE_INPUT_MAX = 5_000_000;
 const SEND_MAX = 100_000;
 
 const LINES: { id: Selection; name: string; sub: string }[] = [
@@ -296,7 +301,14 @@ export function PlanPicker({
 
   const sliderMin = selection === "send" ? SEND_MIN_SUBSCRIBERS : SUITE_MIN;
   const sliderMax = selection === "send" ? SEND_MAX : SUITE_MAX;
-  const sliderPct = ((units - sliderMin) / (sliderMax - sliderMin)) * 100;
+  // The Contacts input accepts a custom number above the slider ceiling (Suite
+  // only), so large lists can be quoted; the slider handle pins at the ceiling.
+  const inputMax = selection === "suite" ? SUITE_INPUT_MAX : sliderMax;
+  const isCustomVolume = selection === "suite" && contacts > SUITE_MAX;
+  const sliderPct =
+    ((clamp(units, sliderMin, sliderMax) - sliderMin) /
+      (sliderMax - sliderMin)) *
+    100;
 
   // Headline = plan + seats, straight from the quote (backend prices seats with
   // the same function checkout charges, so this equals what's billed).
@@ -450,13 +462,13 @@ export function PlanPicker({
               <input
                 type="number"
                 min={sliderMin}
-                max={sliderMax}
+                max={inputMax}
                 value={units}
                 onChange={(e) => {
                   const v = clamp(
                     Math.round(Number(e.target.value) || 0),
                     sliderMin,
-                    sliderMax
+                    inputMax
                   );
                   if (selection === "send") setSubscribers(v);
                   else setContacts(v);
@@ -484,6 +496,20 @@ export function PlanPicker({
               background: `linear-gradient(90deg, var(--primary) ${sliderPct}%, var(--border) ${sliderPct}%)`,
             }}
           />
+
+          {/* Custom volume: past the 500k slider ceiling the Contacts input
+              takes an exact number and the quote above prices it. */}
+          {isCustomVolume ? (
+            <p className="mt-3 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+              Custom volume:{" "}
+              <span className="font-medium text-foreground">
+                {contacts.toLocaleString()} contacts
+              </span>
+              , above the {SUITE_MAX.toLocaleString()} slider ceiling. Type an
+              exact amount in the Contacts field; the price above updates at the
+              same per-contact rate.
+            </p>
+          ) : null}
 
           {/* Suite tier stops. */}
           {selection === "suite" ? (

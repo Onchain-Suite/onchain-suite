@@ -229,8 +229,12 @@ function SendView() {
   const [subs, setSubs] = useState(10000);
   const price = useMemo(() => SEND_BASE + SEND_RATE * (subs / 1000), [subs]);
   const min = 1000;
-  const max = 100000;
-  const pct = ((subs - min) / (max - min)) * 100;
+  const max = 500000;
+  // Past the slider ceiling, the exact-count field takes a custom number; Send
+  // is linear ($3.95 / 1,000), so a bigger list is just a bigger number.
+  const inputMax = 5000000;
+  const isCustom = subs > max;
+  const pct = ((Math.min(Math.max(subs, min), max) - min) / (max - min)) * 100;
 
   return (
     <div>
@@ -260,7 +264,7 @@ function SendView() {
               min={min}
               max={max}
               step={1000}
-              value={subs}
+              value={Math.min(Math.max(subs, min), max)}
               onChange={(e) => setSubs(Number(e.target.value))}
               aria-label="Email subscribers"
               className="ocs2-range mt-4 w-full"
@@ -268,6 +272,37 @@ function SendView() {
                 background: `linear-gradient(90deg, var(--acc) ${pct}%, var(--line) ${pct}%)`,
               }}
             />
+            <div className="mt-4 flex items-center gap-2">
+              <label htmlFor="send-subs-exact" className="text-[12px] t-muted2">
+                Exact count
+              </label>
+              <input
+                id="send-subs-exact"
+                type="number"
+                min={min}
+                max={inputMax}
+                value={subs}
+                onChange={(e) =>
+                  setSubs(
+                    Math.min(
+                      Math.max(Math.round(Number(e.target.value) || min), min),
+                      inputMax
+                    )
+                  )
+                }
+                className="mono h-9 w-32 rounded-lg px-3 text-right text-[13px] tabular-nums t-ink"
+                style={{
+                  border: "1px solid var(--line)",
+                  background: "transparent",
+                }}
+              />
+            </div>
+            {isCustom ? (
+              <p className="mt-2 text-[12px] leading-relaxed t-muted2">
+                Custom volume above {max.toLocaleString()} subscribers, priced
+                at the same ${SEND_RATE} / 1,000 rate.
+              </p>
+            ) : null}
           </div>
           <div
             className="rounded-2xl px-6 py-5 text-center md:min-w-[200px]"

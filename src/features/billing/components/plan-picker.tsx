@@ -86,13 +86,13 @@ const PAYG_INCLUDED: [string, string][] = [
 ];
 
 const SUITE_MIN = 0;
-// Slider ceiling. Past this, the Contacts input takes a custom number and the
-// quote prices it at the same rate - the pricing curve is linear, so there's no
-// cliff at the top, just a bigger number.
-const SUITE_MAX = 500_000;
-// Upper bound for a typed custom contact count above the slider ceiling.
-const SUITE_INPUT_MAX = 5_000_000;
-const SEND_MAX = 100_000;
+const SUITE_MAX = 150_000;
+// Send slider ceiling. Past this, the Subscribers input takes a custom number
+// and the quote prices it at the same linear rate - Send has no tier cliff, so
+// a bigger list is just a bigger number.
+const SEND_MAX = 500_000;
+// Upper bound for a typed custom subscriber count above the slider ceiling.
+const SEND_INPUT_MAX = 5_000_000;
 
 const LINES: { id: Selection; name: string; sub: string }[] = [
   { id: "suite", name: "Suite", sub: "Wallet + email" },
@@ -301,10 +301,10 @@ export function PlanPicker({
 
   const sliderMin = selection === "send" ? SEND_MIN_SUBSCRIBERS : SUITE_MIN;
   const sliderMax = selection === "send" ? SEND_MAX : SUITE_MAX;
-  // The Contacts input accepts a custom number above the slider ceiling (Suite
+  // The Subscribers input accepts a custom number above the slider ceiling (Send
   // only), so large lists can be quoted; the slider handle pins at the ceiling.
-  const inputMax = selection === "suite" ? SUITE_INPUT_MAX : sliderMax;
-  const isCustomVolume = selection === "suite" && contacts > SUITE_MAX;
+  const inputMax = selection === "send" ? SEND_INPUT_MAX : sliderMax;
+  const isCustomVolume = selection === "send" && subscribers > SEND_MAX;
   const sliderPct =
     ((clamp(units, sliderMin, sliderMax) - sliderMin) /
       (sliderMax - sliderMin)) *
@@ -497,17 +497,17 @@ export function PlanPicker({
             }}
           />
 
-          {/* Custom volume: past the 500k slider ceiling the Contacts input
+          {/* Custom volume: past the 500k slider ceiling the Subscribers input
               takes an exact number and the quote above prices it. */}
           {isCustomVolume ? (
             <p className="mt-3 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
               Custom volume:{" "}
               <span className="font-medium text-foreground">
-                {contacts.toLocaleString()} contacts
+                {subscribers.toLocaleString()} subscribers
               </span>
-              , above the {SUITE_MAX.toLocaleString()} slider ceiling. Type an
-              exact amount in the Contacts field; the price above updates at the
-              same per-contact rate.
+              , above the {SEND_MAX.toLocaleString()} slider ceiling. Type an
+              exact amount in the Subscribers field; the price above updates at
+              the same per-subscriber rate.
             </p>
           ) : null}
 

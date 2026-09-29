@@ -47,7 +47,10 @@ export const campaignFormSchema = z
     selectedTemplate: z.string().optional(),
     emailSubject: z.string().min(1, "Subject line is required"),
     previewText: z.string().optional(),
+    // Empty means "inherit from the linked identity" — the default. A value
+    // is a deliberate per-campaign override.
     senderName: z.string().optional(),
+    senderIdentityId: z.string().optional().nullable(),
     senderEmail: z
       .email("Please enter a valid email address")
       .optional()
@@ -96,14 +99,22 @@ export const campaignFormSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.channel !== "in-app-push") {
+      // A blank sender name is valid when an identity is linked: the name is
+      // inherited from it at render time. Requiring one here is what forced the
+      // UI to copy the identity's name into the form, which is how a stale
+      // snapshot ended up on every campaign in the first place.
+      const hasLinkedIdentity =
+        typeof data.senderIdentityId === "string" &&
+        data.senderIdentityId.trim().length > 0;
       if (
-        typeof data.senderName !== "string" ||
-        data.senderName.trim().length === 0
+        !hasLinkedIdentity &&
+        (typeof data.senderName !== "string" ||
+          data.senderName.trim().length === 0)
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["senderName"],
-          message: "Sender name is required",
+          message: "Pick a sender address, or enter a sender name",
         });
       }
       if (

@@ -255,8 +255,11 @@ const persistCampaignContent = async (
   await campaignsService.updateContent(campaignId, {
     subject: data.emailSubject,
     previewText: data.previewText,
+    // "" is meaningful: it clears the override so the campaign inherits the
+    // identity's name and a correction in Settings flows through.
     senderName: data.senderName ?? "",
     senderEmail: data.senderEmail ?? "",
+    senderIdentityId: data.senderIdentityId ?? null,
     replyToEmail: data.useReplyTo ? data.replyToEmail : undefined,
   });
   if (data.selectedTemplate && data.selectedTemplate.length > 0) {
@@ -1175,6 +1178,7 @@ export function CreateCampaignPage() {
       emailSubject: "",
       previewText: "",
       senderName: "",
+      senderIdentityId: null,
       senderEmail: "",
       useReplyTo: true,
       replyToEmail: "",
@@ -1390,14 +1394,15 @@ export function CreateCampaignPage() {
       shouldValidate: true,
     });
 
-    const currentSenderName = (form.getValues("senderName") ?? "").trim();
-    if (currentSenderName.length === 0) {
-      form.setValue("senderName", preferredSender.name, {
-        shouldDirty: false,
-        shouldTouch: false,
-        shouldValidate: true,
-      });
-    }
+    // Set the LINK, never copy the name. Copying is what made sender_name a
+    // dead snapshot: it happened once here and nothing refreshed it, so a
+    // correction in Settings never reached the campaign. An empty name means
+    // "inherit", which is resolved fresh on every render.
+    form.setValue("senderIdentityId", preferredSender.id, {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: true,
+    });
   }, [form, verifiedSenderIdentities]);
 
   useEffect(() => {
@@ -1553,6 +1558,7 @@ export function CreateCampaignPage() {
             previewText,
             senderName,
             senderEmail,
+            senderIdentityId,
             replyToEmail,
           } = cObj;
           if (typeof subject === "string" || subject === null) {
@@ -1566,6 +1572,14 @@ export function CreateCampaignPage() {
           }
           if (typeof senderEmail === "string" || senderEmail === null) {
             nextValues.senderEmail = String(senderEmail ?? "");
+          }
+          // Restore the LINK so reopening a draft keeps inheriting rather than
+          // falling back to address matching.
+          if (
+            typeof senderIdentityId === "string" ||
+            senderIdentityId === null
+          ) {
+            nextValues.senderIdentityId = senderIdentityId ?? null;
           }
           if ("replyToEmail" in cObj) {
             const reply = typeof replyToEmail === "string" ? replyToEmail : "";

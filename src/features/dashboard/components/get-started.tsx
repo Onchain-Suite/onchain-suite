@@ -209,6 +209,25 @@ export function useOrganizationId() {
 }
 
 /** Per-task completion booleans derived from existing service reads. */
+/**
+ * How long the setup checklist may hold the dashboard behind a skeleton.
+ *
+ * Generous enough that a normal cold load resolves well inside it (the
+ * endpoints answer in well under a second), short enough that a stall is a
+ * blink rather than the minute a 30s-timeout-plus-retry would cost.
+ */
+const CHECKLIST_SKELETON_DEADLINE_MS = 4000;
+
+/** True once `ms` has elapsed since mount. Timer is cleared on unmount. */
+function useElapsed(ms: number): boolean {
+  const [elapsed, setElapsed] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setElapsed(true), ms);
+    return () => clearTimeout(id);
+  }, [ms]);
+  return elapsed;
+}
+
 export function useTaskCompletion(organizationId: string | null) {
   const orgId = organizationId ?? undefined;
   const enabled = Boolean(organizationId);
@@ -320,7 +339,24 @@ export function useTaskCompletion(organizationId: string | null) {
     automationsQuery,
     intelligenceQuery,
   ];
-  const isLoading = enabled && queries.some((query) => query.isPending);
+  // A DEADLINE, not just a pending check.
+  //
+  // `queries.some(isPending)` fans seven independent requests into one boolean,
+  // so ANY single one that does not settle holds the whole dashboard on the
+  // skeleton. React Query has no request timeout of its own, and the shared
+  // axios client allows 30s with `retry: 1` behind it — so one stalled call can
+  // pin the page for a minute while the other six have long since answered.
+  // That is the "stuck on the skeleton until I refresh" report: the refresh is
+  // not fixing anything, it is just abandoning the stalled request.
+  //
+  // The checklist is advisory. Every task it cannot confirm is simply treated
+  // as not-yet-done, which is already what an errored query does here
+  // (`data === true` is the completion test, so undefined reads as incomplete).
+  // Waiting past this point buys a slightly more accurate checklist at the cost
+  // of an unusable dashboard, which is the wrong trade.
+  const pastDeadline = useElapsed(CHECKLIST_SKELETON_DEADLINE_MS);
+  const isLoading =
+    enabled && !pastDeadline && queries.some((query) => query.isPending);
 
   const completionById = useMemo<Record<string, boolean>>(
     () => ({

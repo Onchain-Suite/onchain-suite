@@ -406,10 +406,20 @@ const forward = async (
     const backendBase = getBackendBaseUrl();
     let upstream: Response;
     try {
+      // Bounded. This is the first request of every page load, and a server
+      // component awaits it, so an unbounded stall here holds the whole RSC
+      // render on `loading.tsx` until the user refreshes. The catch below
+      // already turns a failure into a clean 502 "session miss", so a timeout
+      // degrades to "not signed in" — recoverable — instead of hanging.
+      //
+      // 8s matches `fetchWithTimeout`'s default and the budget the caller in
+      // auth-session.ts allows; the backend answers this in ~0.5s, so anything
+      // near the cap is a stall rather than slowness.
       upstream = await fetch(`${backendBase}/auth/get-session`, {
         method: "GET",
         headers: upstreamHeaders,
         cache: "no-store",
+        signal: AbortSignal.timeout(8000),
       });
     } catch {
       return withSessionMiss(

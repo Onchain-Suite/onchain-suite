@@ -212,9 +212,19 @@ export interface CampaignTrackingSettings {
 export interface CampaignContentMetadata {
   subject: string;
   previewText?: string;
+  /**
+   * DELIBERATE override of the sender display name. Empty means "inherit from
+   * the linked identity", which is the default — so correcting a name in
+   * Settings fixes every campaign that did not deliberately override it.
+   * Sending a value here opts this campaign out of that.
+   */
   senderName: string;
   senderEmail: string;
   replyToEmail?: string;
+  /** Which verified identity this campaign sends as. Preferred over senderEmail. */
+  senderIdentityId?: string | null;
+  /** True when senderName is the identity's, not a per-campaign override. */
+  senderNameInherited?: boolean;
   [key: string]: unknown;
 }
 

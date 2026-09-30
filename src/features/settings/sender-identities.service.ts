@@ -362,6 +362,27 @@ export const senderIdentitiesService = {
     );
   },
 
+  /**
+   * `PATCH /sender-identities/{id}` - change the display name only.
+   *
+   * The name is what recipients read above the subject; the address is
+   * immutable here because a different address needs its own verification.
+   * Renaming does NOT reset verification — no email-auth mechanism binds the
+   * display name — so a verified sender stays verified through this.
+   *
+   * Send an empty string to clear the name and send from the bare address.
+   */
+  renameSenderIdentity(senderIdentityId: string, name: string, orgId?: string) {
+    return request<unknown>(
+      {
+        method: "PATCH",
+        url: `/sender-identities/${senderIdentityId}`,
+        data: { name },
+      },
+      orgId
+    );
+  },
+
   /** `DELETE /sender-identities/{id}`. */
   deleteSenderIdentity(senderIdentityId: string, orgId?: string) {
     return request<unknown>(

@@ -24,6 +24,11 @@ export function SenderIdentitiesCard() {
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ email: "", name: "" });
+  // Which row is being renamed, and the in-progress value. Inline rather
+  // than a dialog: it is one short field, and the list is the context.
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(
+    null
+  );
 
   const sendersQuery = useQuery({
     queryKey: sendersKey(organizationId),
@@ -69,6 +74,25 @@ export function SenderIdentitiesCard() {
     },
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Failed to set default"),
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      senderIdentitiesService.renameSenderIdentity(
+        id,
+        name,
+        organizationId ?? undefined
+      ),
+    onSuccess: async () => {
+      await invalidate();
+      setRenaming(null);
+      // Campaigns that inherit this name render it fresh, so their cached
+      // content is stale the moment this succeeds.
+      await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      toast.success("Sender name updated");
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Failed to rename sender"),
   });
 
   const recheckMutation = useMutation({
@@ -185,9 +209,58 @@ export function SenderIdentitiesCard() {
                     <StatusPill tone="neutral">Default</StatusPill>
                   ) : null}
                 </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {sender.name}
-                </div>
+                {renaming?.id === sender.id ? (
+                  <form
+                    className="mt-1 flex items-center gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      renameMutation.mutate({
+                        id: sender.id,
+                        name: renaming.name,
+                      });
+                    }}
+                  >
+                    <Input
+                      autoFocus
+                      value={renaming.name}
+                      maxLength={78}
+                      placeholder="Sender name"
+                      aria-label={`Display name for ${sender.email}`}
+                      onChange={(e) =>
+                        setRenaming({ id: sender.id, name: e.target.value })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setRenaming(null);
+                      }}
+                      className="h-8 max-w-[260px] text-xs"
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={
+                        renameMutation.isPending ||
+                        renaming.name.trim() === (sender.name ?? "").trim()
+                      }
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setRenaming(null)}
+                      disabled={renameMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                  </form>
+                ) : (
+                  <div className="truncate text-xs text-muted-foreground">
+                    {sender.name || (
+                      <span className="italic">No display name</span>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <StatusPill
@@ -222,6 +295,16 @@ export function SenderIdentitiesCard() {
                     Recheck
                   </Button>
                 ) : null}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setRenaming({ id: sender.id, name: sender.name ?? "" })
+                  }
+                  disabled={renameMutation.isPending}
+                >
+                  Rename
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"

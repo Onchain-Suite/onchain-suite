@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { isChainRequired as chainRequired } from "../imports/chain-requirement";
@@ -55,5 +57,35 @@ describe("import chain requirement", () => {
     expect(chainRequired({ format: "csv", mappings: ["email", ""] })).toBe(
       false
     );
+  });
+});
+
+/**
+ * The pure rule above is necessary but not sufficient: the wizard enforced the
+ * chain in TWO places — the button's `disabled` prop and a separate throw
+ * inside the submit handler — and fixing only the first left the second
+ * rejecting every email-only import with IMPORT_CHAIN_REQUIRED at the last
+ * step. A user who got past the button hit a wall one click later.
+ *
+ * So this asserts the source itself: every chain guard must go through the
+ * shared rule. A source scan is a blunt instrument, but it is the only thing
+ * that catches a second call site being added later, which is exactly how this
+ * broke the first time.
+ */
+describe("import-export.tsx chain guards", () => {
+  const source = readFileSync(join(__dirname, "import-export.tsx"), "utf8");
+
+  it("has no unguarded `!selectedChain` throw", () => {
+    const unguarded = /if\s*\(\s*!selectedChain\s*\)/.test(source);
+    expect(unguarded).toBe(false);
+  });
+
+  it("derives every chain guard from the shared rule", () => {
+    expect(source).toContain("isChainRequired");
+    // Each place that blocks on a missing chain pairs it with `chainRequired`.
+    const guards = source.match(/!selectedChain/g) ?? [];
+    const paired = source.match(/chainRequired && !selectedChain/g) ?? [];
+    expect(guards.length).toBeGreaterThan(0);
+    expect(paired.length).toBe(guards.length);
   });
 });

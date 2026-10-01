@@ -889,11 +889,24 @@ export default function ImportExportPage() {
     );
   };
 
+  // See `isChainRequired`: the picker is only meaningful when the file carries
+  // wallets and nothing else says which chain they are on. Email-only imports
+  // used to be blocked here by a field about a column they do not contain.
+  const chainRequired = isChainRequired({
+    format: selectedImportFormat as "csv" | "json" | undefined,
+    mappings: csvColumns.map((c) => c.mappedTo ?? ""),
+  });
+
   const importMutation = useMutation({
     mutationFn: async () => {
       if (!uploadedFile) throw new Error("No file selected");
       if (!selectedListId) throw new Error("IMPORT_LIST_REQUIRED");
-      if (!selectedChain) throw new Error("IMPORT_CHAIN_REQUIRED");
+      // Same rule as the button's disabled state, deliberately re-derived here
+      // rather than trusting it: this is the guard that actually stops a bad
+      // request, and the button can be bypassed (keyboard, a stale render).
+      // Both must agree, which is why the condition lives in one module.
+      if (chainRequired && !selectedChain)
+        throw new Error("IMPORT_CHAIN_REQUIRED");
       const lower = uploadedFile.name.toLowerCase();
       const format: AudienceImportExportFormat | undefined = lower.endsWith(
         ".csv"
@@ -1332,14 +1345,6 @@ export default function ImportExportPage() {
   };
 
   const mappedCount = csvColumns.filter((c) => c.mappedTo).length;
-
-  // See `isChainRequired`: the picker is only meaningful when the file carries
-  // wallets and nothing else says which chain they are on. Email-only imports
-  // used to be blocked here by a field about a column they do not contain.
-  const chainRequired = isChainRequired({
-    format: selectedImportFormat as "csv" | "json" | undefined,
-    mappings: csvColumns.map((c) => c.mappedTo ?? ""),
-  });
 
   useEffect(() => {
     if (!importStatus) return;

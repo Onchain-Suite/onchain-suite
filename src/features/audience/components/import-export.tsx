@@ -36,6 +36,7 @@ import {
 
 import { cn, getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import { isChainRequired } from "../imports/chain-requirement";
 import {
   type AudienceExportJobStatus,
   type AudienceImportExportFormat,
@@ -1332,6 +1333,14 @@ export default function ImportExportPage() {
 
   const mappedCount = csvColumns.filter((c) => c.mappedTo).length;
 
+  // See `isChainRequired`: the picker is only meaningful when the file carries
+  // wallets and nothing else says which chain they are on. Email-only imports
+  // used to be blocked here by a field about a column they do not contain.
+  const chainRequired = isChainRequired({
+    format: selectedImportFormat as "csv" | "json" | undefined,
+    mappings: csvColumns.map((c) => c.mappedTo ?? ""),
+  });
+
   useEffect(() => {
     if (!importStatus) return;
     const state = String(importStatus.state ?? "");
@@ -1645,7 +1654,13 @@ export default function ImportExportPage() {
                   <div className="mt-5 border-t border-border pt-5">
                     <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                       Enrich wallets on{" "}
-                      <span className="text-destructive">*</span>
+                      {chainRequired ? (
+                        <span className="text-destructive">*</span>
+                      ) : (
+                        <span className="font-normal text-muted-foreground">
+                          (optional — no wallet column in this file)
+                        </span>
+                      )}
                     </label>
                     <Select
                       value={selectedChain}
@@ -2259,7 +2274,7 @@ export default function ImportExportPage() {
                   title={
                     !selectedListId
                       ? "Choose a list on the previous step first"
-                      : !selectedChain
+                      : chainRequired && !selectedChain
                         ? "Choose the chain to enrich these wallets on"
                         : undefined
                   }
@@ -2270,8 +2285,10 @@ export default function ImportExportPage() {
                     !selectedImportFormat ||
                     // Backend requires a list for every import.
                     !selectedListId ||
-                    // And a chain to enrich the wallets on (per-row Chain wins).
-                    !selectedChain
+                    // A chain only when the file actually carries wallets and
+                    // no per-row Chain column already answers it. Email-only
+                    // imports have no chain to pick. See `chainRequired`.
+                    (chainRequired && !selectedChain)
                     // Column mapping is optional: the backend alias-matches
                     // headers (wallet, Wallet Address, address, Public Key, …)
                     // case- and punctuation-insensitively, so an unmapped CSV

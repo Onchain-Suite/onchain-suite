@@ -555,8 +555,17 @@ function PerformanceByChannel({
       label: "Email",
       icon: EnvelopeIcon,
       sent: email?.sent,
-      engagedRate: email?.openRate,
-      clickRate: email?.clickRate,
+      // Same rule as the headline and the list — see engagement-rates.ts.
+      // Reading the deprecated `openRate` here showed the of-sent number in
+      // this table beside an of-delivered headline on the SAME page.
+      engagedRate:
+        email?.openRateOfDelivered ??
+        email?.openRateOfAudience ??
+        email?.openRate,
+      clickRate:
+        email?.clickRateOfDelivered ??
+        email?.clickRateOfAudience ??
+        email?.clickRate,
     });
   }
   if (channels.inapp) {

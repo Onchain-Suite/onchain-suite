@@ -129,7 +129,15 @@ export interface CampaignEmailFunnel {
   totalClicks?: number;
   uniqueClicks?: number;
   deliveryRate?: number;
+  /** Over everyone the campaign was sent to. */
+  openRateOfAudience?: number;
+  clickRateOfAudience?: number;
+  /** Over what actually arrived — what every ESP reports for a finished send. */
+  openRateOfDelivered?: number;
+  clickRateOfDelivered?: number;
+  /** @deprecated Computed over `sent`; the name never stated its denominator. */
   openRate?: number;
+  /** @deprecated Computed over `sent`. */
   clickRate?: number;
   clickToOpenRate?: number;
   bounceRate?: number;

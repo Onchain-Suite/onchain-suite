@@ -113,8 +113,7 @@ export function AudienceStep({
   // Full "Don't send to" breakdown from the last estimate (real backend counts).
   const [estimateBreakdown, setEstimateBreakdown] =
     useState<CampaignAudienceEstimate | null>(null);
-  // Internal/team wallets are an exclusion filter the sender can toggle off.
-  const [includeInternal, setIncludeInternal] = useState(false);
+
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [sendTab, setSendTab] = useState<SendTab>("everyone");
@@ -318,12 +317,20 @@ export function AudienceStep({
   const everyoneReachable = ((): number | null => {
     const pick = (v: unknown) =>
       typeof v === "number" && Number.isFinite(v) ? v : null;
-    const breakdownTotal = allSelected
-      ? pick(estimateBreakdown?.totalWallets)
+    // The backend estimate, when Everyone is the live selection. Read
+    // `emailReachable`, NOT `totalWallets`: totalWallets is every contact in
+    // the selection including the wallet-only ones, so this row said
+    // "Everyone with an email · 950" for an org whose 950 contacts all carry
+    // the synthetic @wallet.onchainsuite.local placeholder and none of whom
+    // can be emailed. `emailReachable` is the count the send will produce.
+    const fromEstimate = allSelected
+      ? isPush
+        ? pick(estimateBreakdown?.totalWallets)
+        : pick(estimateBreakdown?.emailReachable)
       : null;
     if (isPush) {
       return (
-        breakdownTotal ??
+        fromEstimate ??
         computedPushReachable ??
         pick(overview?.pushReachable) ??
         pick(overview?.withWallet) ??
@@ -332,7 +339,7 @@ export function AudienceStep({
       );
     }
     return (
-      breakdownTotal ??
+      fromEstimate ??
       computedEmailReachable ??
       pick(overview?.emailReachable) ??
       pick(overview?.total) ??
@@ -621,30 +628,68 @@ export function AudienceStep({
   // excludedBySmartSending === messagedRecently). Counts come from the estimate.
   const asCount = (v: unknown) =>
     typeof v === "number" && Number.isFinite(v) ? v : null;
-  const suppressedCount = asCount(estimateBreakdown?.suppressed);
   const internalCount = asCount(estimateBreakdown?.internal);
-  // `missingEmail` = selected contacts with no email address at all (wallet-only
-  // contacts, which an email campaign can't reach). `totalWallets` is the whole
-  // selected audience, not a wallet count - so the copy says "recipients", and
-  // the banner only shows when someone is actually skipped (never "0 of N").
+  // `missingEmail` = selected contacts with no usable address: none at all, or
+  // the synthetic @wallet.onchainsuite.local placeholder a wallet-only contact
+  // carries. `totalWallets` is the whole selected audience, not a wallet count -
+  // so the copy says "recipients", and the banner only shows when someone is
+  // actually skipped (never "0 of N").
   const missingEmailCount = asCount(estimateBreakdown?.missingEmail);
   const totalRecipientCount = asCount(estimateBreakdown?.totalWallets);
+  // One row per reason the backend reports, in the order it applies them. The
+  // buckets are disjoint and partition the selection, so "15 selected, 14 will
+  // receive it" can always account for the difference - which is what the old
+  // panel could not do: its four counts overlapped and did not sum, so a
+  // sender seeing a smaller number than their contact list had no way to find
+  // out where the rest went.
   const exclusions = [
     {
       key: "suppressed",
-      label: "Suppressed & unsubscribed",
-      count: suppressedCount,
+      label: "Hard-bounced & complained",
+      count: asCount(estimateBreakdown?.suppressed),
       applied: true,
-      locked: true,
+      hint: "Always excluded — mailing a hard bounce or a complaint is what drives the domain into its warm-up stop.",
     },
     {
-      key: "internal",
-      label: isPush ? "Internal / team wallets" : "Internal / team contacts",
-      count: internalCount,
-      applied: !includeInternal,
-      locked: false,
+      key: "unsubscribed",
+      label: "Unsubscribed",
+      count: asCount(estimateBreakdown?.unsubscribed),
+      applied: true,
+      hint: "Always excluded — they asked not to receive this.",
     },
-  ];
+    {
+      key: "invalidAddress",
+      label: "Address does not exist",
+      count: asCount(estimateBreakdown?.invalidAddress),
+      applied: true,
+      hint: "Always excluded — the verifier established the mailbox does not exist, so this is a guaranteed hard bounce.",
+    },
+    {
+      key: "pendingOptin",
+      label: "Never confirmed their subscription",
+      count: asCount(estimateBreakdown?.pendingOptin),
+      applied: true,
+      hint: "Always excluded — double opt-in was never confirmed, so nobody has agreed to this.",
+    },
+    {
+      key: "quarantined",
+      label: "Held over plan capacity or pending verification",
+      count: asCount(estimateBreakdown?.quarantined),
+      applied: true,
+      hint: "Held until the reason clears — over the plan's contact capacity, or waiting on verification.",
+    },
+    {
+      // Informational. The send path does not drop internal/team tags, so
+      // `estimate` includes them and this row must not claim otherwise.
+      key: "internal",
+      label: isPush
+        ? "Internal / team wallets (included)"
+        : "Internal / team contacts (included)",
+      count: internalCount,
+      applied: false,
+      hint: "Shown for information. These ARE included in the estimate — nothing on the send path excludes internal or team tags.",
+    },
+  ].filter((row) => row.count === null || row.count > 0);
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -976,27 +1021,14 @@ export function AudienceStep({
         </p>
         <div className="flex flex-wrap gap-2">
           {exclusions.map((ex) => (
-            <button
+            <span
               key={ex.key}
-              type="button"
-              aria-pressed={ex.applied}
-              disabled={ex.locked}
-              onClick={
-                ex.locked ? undefined : () => setIncludeInternal((v) => !v)
-              }
-              title={
-                ex.locked
-                  ? `Always excluded - suppressed and unsubscribed ${isPush ? "wallets" : "contacts"} can't be messaged`
-                  : ex.applied
-                    ? `Excluded. Click to include internal / team ${isPush ? "wallets" : "contacts"}`
-                    : `Included. Click to exclude internal / team ${isPush ? "wallets" : "contacts"}`
-              }
+              title={ex.hint}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors",
-                ex.locked && "cursor-default",
+                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm",
                 ex.applied
                   ? "border-primary/40 bg-primary/[0.08] text-primary"
-                  : "border-border bg-card text-muted-foreground line-through decoration-muted-foreground/40 hover:text-foreground"
+                  : "border-border bg-card text-muted-foreground"
               )}
             >
               {ex.applied ? (
@@ -1010,12 +1042,13 @@ export function AudienceStep({
                   · {ex.count.toLocaleString()}
                 </span>
               ) : null}
-            </button>
+            </span>
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
-          Suppressed and unsubscribed wallets are always excluded, and are
-          already removed from the estimate.
+          {totalRecipientCount !== null && everyoneReachable !== null
+            ? `${totalRecipientCount.toLocaleString()} selected · ${everyoneReachable.toLocaleString()} can receive this. Every one of the rest is listed above.`
+            : "Everything listed above is already removed from the estimate."}
         </p>
       </div>
 

@@ -46,13 +46,32 @@ export interface CampaignAudienceEstimate {
   /** Canonical field per POST /campaigns/{id}/audience/estimate. */
   recipientCount?: number;
   excludedBySmartSending?: number;
-  // Full "Don't send to" breakdown (docs/backend.md 2026-08-xx): every count is
-  // a real query over the same resolved audience.
-  // recipientCount = max(0, totalWallets − missingEmail − suppressed −
-  // messagedRecently − internal). `excludedBySmartSending === messagedRecently`.
+  /**
+   * Full "Don't send to" breakdown. The reason buckets are DISJOINT and
+   * PARTITION the selection, so the arithmetic always closes:
+   *
+   *   totalWallets = emailReachable + noEmail + syntheticEmail + suppressed
+   *                + invalidAddress + unsubscribed + pendingOptin + quarantined
+   *   recipientCount = max(0, emailReachable − messagedRecently)
+   *
+   * `excludedBySmartSending === messagedRecently`. `internal` is informational
+   * and INCLUDED in recipientCount — nothing on the send path drops it.
+   *
+   * `totalWallets` is the whole selection, including contacts with no email at
+   * all; `emailReachable` is the one to show next to anything that says "with
+   * an email".
+   */
   totalWallets?: number;
-  missingEmail?: number;
+  emailReachable?: number;
+  noEmail?: number;
+  syntheticEmail?: number;
   suppressed?: number;
+  invalidAddress?: number;
+  unsubscribed?: number;
+  pendingOptin?: number;
+  quarantined?: number;
+  /** `noEmail + syntheticEmail`, kept for the single "no usable email" line. */
+  missingEmail?: number;
   messagedRecently?: number;
   internal?: number;
   [key: string]: unknown;

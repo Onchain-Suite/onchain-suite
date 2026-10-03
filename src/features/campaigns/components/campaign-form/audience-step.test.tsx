@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import React from "react";
 import { useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
@@ -121,5 +123,46 @@ describe("AudienceStep links", () => {
     expect(
       screen.getByText(/choose segments, lists, tags, contacts, or everyone/i)
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * Source invariants for the "Everyone" count.
+ *
+ * These are the two mistakes the backend breakdown was built to end, and a
+ * rendering test cannot see either: both depend on which field of the estimate
+ * the component reads, and the component renders a number either way.
+ */
+describe("the Everyone count reads the right field", () => {
+  const source = readFileSync(join(__dirname, "audience-step.tsx"), "utf8");
+
+  it("reads emailReachable, not totalWallets, for an email campaign", () => {
+    // `totalWallets` is every contact in the selection INCLUDING wallet-only
+    // ones. One production org has 950 contacts, all carrying the synthetic
+    // @wallet.onchainsuite.local placeholder — this row read "Everyone with an
+    // email · 950" for an audience that can reach nobody.
+    expect(source).toContain("estimateBreakdown?.emailReachable");
+  });
+
+  it("does not claim internal/team contacts are excluded", () => {
+    // Nothing on the send path drops those tags, so the old toggle offered a
+    // choice the backend did not implement.
+    expect(source).not.toContain("setIncludeInternal");
+    expect(source).toContain("(included)");
+  });
+
+  it("lists every exclusion reason the backend reports", () => {
+    // The buckets partition the selection, so the panel can account for the
+    // whole gap between "selected" and "will receive this". A reason the panel
+    // omits is a contact the sender cannot find.
+    for (const reason of [
+      "suppressed",
+      "unsubscribed",
+      "invalidAddress",
+      "pendingOptin",
+      "quarantined",
+    ]) {
+      expect(source).toContain(`estimateBreakdown?.${reason}`);
+    }
   });
 });

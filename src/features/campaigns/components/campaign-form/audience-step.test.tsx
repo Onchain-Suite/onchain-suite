@@ -144,11 +144,19 @@ describe("the Everyone count reads the right field", () => {
     expect(source).toContain("estimateBreakdown?.emailReachable");
   });
 
-  it("does not claim internal/team contacts are excluded", () => {
-    // Nothing on the send path drops those tags, so the old toggle offered a
-    // choice the backend did not implement.
-    expect(source).not.toContain("setIncludeInternal");
-    expect(source).toContain("(included)");
+  it("sends the internal/team exclusion to the server", () => {
+    // The toggle existed for the whole life of the feature while nothing read
+    // it, so the exclusion it claimed was not happening. The state is only
+    // meaningful if it reaches the audience payload AND the sync deps.
+    expect(source).toContain("excludeInternal: inputs.excludeInternal");
+    expect(source).toContain("setExcludeInternal");
+  });
+
+  it("defaults the exclusion to off", () => {
+    // Defaulting to ON would silently withhold mail from every campaign
+    // already saved, since those contacts have been receiving it all along.
+    expect(source).toContain("useState(false)");
+    expect(source).not.toMatch(/excludeInternal[^\n]*useState\(true\)/);
   });
 
   it("lists every exclusion reason the backend reports", () => {
@@ -164,5 +172,10 @@ describe("the Everyone count reads the right field", () => {
     ]) {
       expect(source).toContain(`estimateBreakdown?.${reason}`);
     }
+    // The internal row is the policy one: it shows how many carry the tags
+    // (counted either way) and renders its state from the stored flag, which
+    // is why it reads `internal` rather than the `excludedInternal` bucket.
+    expect(source).toContain("estimateBreakdown?.internal");
+    expect(source).toContain("estimate.excludeInternal");
   });
 });

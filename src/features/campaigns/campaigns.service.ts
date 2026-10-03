@@ -36,6 +36,15 @@ export interface CampaignAudienceSelection {
    * Sent (and echoed back by GET) only when set.
    */
   all?: boolean;
+  /**
+   * Withhold the campaign from contacts tagged `internal`/`team`.
+   *
+   * Always sent, never omitted when false: turning the exclusion back off has
+   * to reach the server, and an omitted key would leave a stored `true` alone.
+   * Absent on audiences saved before the flag existed, which read as false —
+   * those campaigns have been mailing their internal contacts all along.
+   */
+  excludeInternal?: boolean;
   /** @deprecated Read-only fallback for audiences saved by older builds. */
   listIds?: string[];
 }
@@ -51,11 +60,17 @@ export interface CampaignAudienceEstimate {
    * PARTITION the selection, so the arithmetic always closes:
    *
    *   totalWallets = emailReachable + noEmail + syntheticEmail + suppressed
-   *                + invalidAddress + unsubscribed + pendingOptin + quarantined
+   *                + invalidAddress + unsubscribed + pendingOptin
+   *                + quarantined + excludedInternal
    *   recipientCount = max(0, emailReachable − messagedRecently)
    *
-   * `excludedBySmartSending === messagedRecently`. `internal` is informational
-   * and INCLUDED in recipientCount — nothing on the send path drops it.
+   * `excludedBySmartSending === messagedRecently`.
+   *
+   * `internal` and `excludedInternal` are DIFFERENT numbers and both are
+   * needed: `internal` is how many of the selection carry the `internal`/`team`
+   * tags, counted either way so the row can show a figure; `excludedInternal`
+   * is how many are actually being withheld, which is 0 unless
+   * `excludeInternal` is set. Only the second is part of the partition.
    *
    * `totalWallets` is the whole selection, including contacts with no email at
    * all; `emailReachable` is the one to show next to anything that says "with
@@ -70,6 +85,10 @@ export interface CampaignAudienceEstimate {
   unsubscribed?: number;
   pendingOptin?: number;
   quarantined?: number;
+  /** Internal/team contacts actually withheld; 0 unless `excludeInternal`. */
+  excludedInternal?: number;
+  /** The campaign's stored policy, echoed back so the row renders from it. */
+  excludeInternal?: boolean;
   /** `noEmail + syntheticEmail`, kept for the single "no usable email" line. */
   missingEmail?: number;
   messagedRecently?: number;
@@ -716,9 +735,13 @@ export const campaignsService = {
       segmentIds: string[];
       profileIds: string[];
       all?: boolean;
+      excludeInternal: boolean;
     } = {
       segmentIds: Array.isArray(body.segmentIds) ? body.segmentIds : [],
       profileIds: Array.isArray(body.profileIds) ? body.profileIds : [],
+      // Sent unconditionally, unlike `all`: this one has an off state that
+      // must be writable.
+      excludeInternal: body.excludeInternal === true,
     };
     if (body.all) payload.all = true;
     return request<{ success?: boolean }>(

@@ -113,6 +113,17 @@ export function AudienceStep({
   // Full "Don't send to" breakdown from the last estimate (real backend counts).
   const [estimateBreakdown, setEstimateBreakdown] =
     useState<CampaignAudienceEstimate | null>(null);
+  /**
+   * Withhold this campaign from contacts tagged `internal`/`team`.
+   *
+   * Defaults to FALSE, and that default is deliberate: this was a toggle for
+   * the whole life of the feature while the send path ignored it, so those
+   * contacts have been receiving campaign mail. Defaulting to exclusion would
+   * silently withhold mail from every already-saved campaign. Seeded once from
+   * the server's stored value, then owned here.
+   */
+  const [excludeInternal, setExcludeInternal] = useState(false);
+  const hasSeededInternalRef = useRef(false);
 
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -438,6 +449,7 @@ export function AudienceStep({
     profileOptions,
     utmParams,
     windowOverride,
+    excludeInternal,
   });
   syncInputsRef.current = {
     selectedAudiences,
@@ -446,6 +458,7 @@ export function AudienceStep({
     profileOptions,
     utmParams,
     windowOverride,
+    excludeInternal,
   };
 
   // Live autosync. The backend rate-limits these endpoints (3 requests/10s),
@@ -487,6 +500,10 @@ export function AudienceStep({
           segmentIds: Array.from(new Set([...segmentIds, ...listSegmentIds])),
           profileIds: mergedProfileIds,
           ...(all ? { all: true } : {}),
+          // Always sent, not omitted when false: turning the exclusion back OFF
+          // has to reach the server, and an omitted key would leave the stored
+          // `true` in place.
+          excludeInternal: inputs.excludeInternal,
         },
         tracking: {
           smartSending: Boolean(smartSending),
@@ -517,6 +534,14 @@ export function AudienceStep({
         if (estimate) {
           setEstimatedRecipients(getEstimatedRecipientsValue(estimate));
           setEstimateBreakdown(estimate);
+          // Hydrate the stored policy once, then leave it to the sender —
+          // after that the server is echoing back what we just sent it.
+          if (!hasSeededInternalRef.current) {
+            hasSeededInternalRef.current = true;
+            if (typeof estimate.excludeInternal === "boolean") {
+              setExcludeInternal(estimate.excludeInternal);
+            }
+          }
         }
         setIsSyncing(false);
       } catch (error) {
@@ -555,6 +580,7 @@ export function AudienceStep({
     windowOverride,
     trackingParameters,
     utmKey,
+    excludeInternal,
   ]);
 
   const displayedEstimatedRecipients =
@@ -679,17 +705,25 @@ export function AudienceStep({
       hint: "Held until the reason clears — over the plan's contact capacity, or waiting on verification.",
     },
     {
-      // Informational. The send path does not drop internal/team tags, so
-      // `estimate` includes them and this row must not claim otherwise.
+      // The one row the sender can change. It was clickable long before the
+      // send path read it, so the exclusion it claimed was not happening;
+      // now it is, and the estimate moves with it.
       key: "internal",
-      label: isPush
-        ? "Internal / team wallets (included)"
-        : "Internal / team contacts (included)",
+      label: isPush ? "Internal / team wallets" : "Internal / team contacts",
       count: internalCount,
-      applied: false,
-      hint: "Shown for information. These ARE included in the estimate — nothing on the send path excludes internal or team tags.",
+      applied: excludeInternal,
+      toggle: true,
+      hint: excludeInternal
+        ? `Withheld from this campaign. Click to include internal / team ${isPush ? "wallets" : "contacts"}.`
+        : `Included in this campaign. Click to withhold it from internal / team ${isPush ? "wallets" : "contacts"}.`,
     },
-  ].filter((row) => row.count === null || row.count > 0);
+    // A locked row with nothing in it says nothing, so it is dropped — the
+    // panel stays short on a clean list. The toggle always shows: its whole
+    // job is to be available before anyone is tagged.
+  ].filter((row) => {
+    if (row.toggle === true) return true;
+    return row.count === null || row.count > 0;
+  });
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -1020,30 +1054,41 @@ export function AudienceStep({
           Don&apos;t send to
         </p>
         <div className="flex flex-wrap gap-2">
-          {exclusions.map((ex) => (
-            <span
-              key={ex.key}
-              title={ex.hint}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm",
-                ex.applied
-                  ? "border-primary/40 bg-primary/[0.08] text-primary"
-                  : "border-border bg-card text-muted-foreground"
-              )}
-            >
-              {ex.applied ? (
-                <CheckIcon className="size-4" aria-hidden="true" />
-              ) : (
-                <span className="size-4" aria-hidden="true" />
-              )}
-              {ex.label}
-              {ex.count !== null ? (
-                <span className="tabular-nums opacity-70">
-                  · {ex.count.toLocaleString()}
-                </span>
-              ) : null}
-            </span>
-          ))}
+          {exclusions.map((ex) => {
+            const Tag = ex.toggle ? "button" : "span";
+            return (
+              <Tag
+                key={ex.key}
+                {...(ex.toggle
+                  ? {
+                      type: "button" as const,
+                      "aria-pressed": ex.applied,
+                      onClick: () => setExcludeInternal((v) => !v),
+                    }
+                  : {})}
+                title={ex.hint}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm",
+                  ex.toggle && "transition-colors hover:border-primary/40",
+                  ex.applied
+                    ? "border-primary/40 bg-primary/[0.08] text-primary"
+                    : "border-border bg-card text-muted-foreground"
+                )}
+              >
+                {ex.applied ? (
+                  <CheckIcon className="size-4" aria-hidden="true" />
+                ) : (
+                  <span className="size-4" aria-hidden="true" />
+                )}
+                {ex.label}
+                {ex.count !== null ? (
+                  <span className="tabular-nums opacity-70">
+                    · {ex.count.toLocaleString()}
+                  </span>
+                ) : null}
+              </Tag>
+            );
+          })}
         </div>
         <p className="text-xs text-muted-foreground">
           {totalRecipientCount !== null && everyoneReachable !== null

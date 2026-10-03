@@ -40,14 +40,23 @@ export const campaignRates = (
 ): { open: number | undefined; click: number | undefined } => {
   const preferEmail = campaignUsesEmail(campaign);
   return {
+    // Of-delivered first. An open rate measured against people who never
+    // received the message is not a rate of anything, and it is what made the
+    // campaigns list and a campaign's own detail page disagree (69.2% vs 52.9%
+    // for the same send). The bare `openRate` is the deprecated of-sent value
+    // and is kept only as a last resort for responses that predate the split.
     open: pickRate(
       preferEmail,
-      analytics?.email?.openRate,
+      analytics?.email?.openRateOfDelivered ??
+        analytics?.email?.openRateOfAudience ??
+        analytics?.email?.openRate,
       analytics?.inapp?.viewRate
     ),
     click: pickRate(
       preferEmail,
-      analytics?.email?.clickRate,
+      analytics?.email?.clickRateOfDelivered ??
+        analytics?.email?.clickRateOfAudience ??
+        analytics?.email?.clickRate,
       analytics?.inapp?.clickRate
     ),
   };

@@ -27,6 +27,10 @@ describe("audience utils", () => {
     expect(shortenWallet("0x1234567890abcdef1234567890abcdef12345678")).toBe(
       "0x1234…5678"
     );
+    // Solana base58 (no 0x) must truncate too, not display in full.
+    expect(shortenWallet("2s2ecWW7srS3mG22sN29qFYKTPVcvi6a57kETen29jy8")).toBe(
+      "2s2ecW…9jy8"
+    );
   });
 
   it("extracts wallet fields from different shapes", () => {

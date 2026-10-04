@@ -141,8 +141,12 @@ export function shortenWallet(input: unknown): string {
   if (typeof input !== "string") return "";
   const s = input.trim();
   if (s.length === 0) return "";
-  if (!s.startsWith("0x") || s.length < 10) return s;
-  if (s.length <= 18) return s;
+  // Middle-truncate real wallet addresses — EVM (0x…) AND Solana (base58, 32–44
+  // chars). Solana ids are not 0x-prefixed, so the old 0x-only guard left them
+  // displayed in full. Short or non-address strings are returned unchanged.
+  const isEvm = s.startsWith("0x") && s.length >= 10;
+  const isSolana = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s);
+  if ((!isEvm && !isSolana) || s.length <= 18) return s;
   return `${s.slice(0, 6)}…${s.slice(-4)}`;
 }
 

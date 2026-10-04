@@ -1273,9 +1273,11 @@ export function AudiencePages() {
                                   </button>
                                 ) : null}
                                 {row.walletFull && row.chain ? (
-                                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                    {row.chain}
-                                  </span>
+                                  <ChainIconCluster
+                                    chains={[row.chain]}
+                                    max={1}
+                                    className="shrink-0"
+                                  />
                                 ) : null}
                                 {row.walletFull && row.verified ? (
                                   <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">

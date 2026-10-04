@@ -5,6 +5,7 @@ import {
   ArrowLeftIcon,
   ArrowPathIcon,
   ArrowRightIcon,
+  ArrowUpTrayIcon,
   BoltIcon,
   ChartBarIcon,
   CheckCircleIcon,
@@ -2072,6 +2073,44 @@ const CreateAutomationContent = () => {
     saveMutation.mutate();
   };
 
+  // Explicit publish: validate, persist the current draft, then promote it to
+  // the live (published) version the runtime actually matches against. Needed
+  // because an ACTIVE automation's later draft edits don't go live until it's
+  // re-published — flipping the Active toggle doesn't re-publish an already-on
+  // flow, which silently leaves the live trigger stale.
+  const handlePublish = async () => {
+    setIsSaving(true);
+    let parsed: BuilderIssue[] = [];
+    try {
+      parsed = await runValidation();
+    } catch (err) {
+      if (
+        isBuilderInvalidError(err) ||
+        parseBuilderErrorIssues(err).length > 0
+      ) {
+        setIsSaving(false);
+        reportGraphError(err, "Failed to publish");
+        return;
+      }
+    }
+    const blocking = parsed.filter((issue) => issue.severity === "error");
+    if (blocking.length > 0) {
+      setIsSaving(false);
+      toast.error(`Can't publish yet - ${summarizeIssues(parsed)}`);
+      return;
+    }
+    try {
+      // Save the latest canvas first — publish promotes the server's draft.
+      await saveMutation.mutateAsync();
+      await publishMutation.mutateAsync();
+      toast.success("Published — the live automation now runs these changes.");
+    } catch (err) {
+      reportGraphError(err, "Failed to publish");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
@@ -2841,7 +2880,7 @@ const CreateAutomationContent = () => {
             </button>
           ) : null}
           <button
-            className="flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground shadow-[0_10px_28px_-14px_rgba(86,112,255,0.9)] transition-colors hover:bg-primary/90 disabled:opacity-80"
+            className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-80"
             onClick={handleSave}
             disabled={isSaving}
           >
@@ -2854,6 +2893,22 @@ const CreateAutomationContent = () => {
               <ArrowDownTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
             )}
             Save draft
+          </button>
+          <button
+            className="flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground shadow-[0_10px_28px_-14px_rgba(86,112,255,0.9)] transition-colors hover:bg-primary/90 disabled:opacity-80"
+            onClick={handlePublish}
+            disabled={isSaving || publishMutation.isPending}
+            title="Save and make these changes live. The running automation only matches the published version — re-publish after every edit."
+          >
+            {isSaving || publishMutation.isPending ? (
+              <ArrowPathIcon
+                aria-hidden="true"
+                className="h-3.5 w-3.5 animate-spin"
+              />
+            ) : (
+              <ArrowUpTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
+            )}
+            Publish
           </button>
         </div>
       </header>

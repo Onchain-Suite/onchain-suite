@@ -10,5 +10,7 @@ export const HomeMotion: FC;
 export const SiteChrome: FC<{ children?: ReactNode }>;
 export const PricingPage: FC;
 export const PricingBody: FC;
+export const CompareHub: FC;
+export const ComparePage: FC<{ params: { slug: string } }>;
 declare const App: FC;
 export default App;

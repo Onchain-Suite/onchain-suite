@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { CompareIndexPage } from "@/onchain-suite-website/components/landing/v2/compare-index-page";
+import { NsCompareHub } from "@/onchain-suite-website/components/site/ns-compare-hub";
 
 export const metadata: Metadata = {
   title: "Comparisons · OnchainSuite",
@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <CompareIndexPage />;
+  return <NsCompareHub />;
 }

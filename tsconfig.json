@@ -52,5 +52,8 @@
     ".next\\dev/types/**/*.ts",
     ".next\\dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "src/features/website/onchain-suite/components/site/site-bundle.jsx"
+  ]
 }

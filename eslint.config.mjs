@@ -68,6 +68,11 @@ const eslintConfig = [
       // Design-system reference bundle (standalone .jsx mockups + assets, not
       // app source). Outside tsconfig's project, so it fails the same way.
       "Onchain Suite Design System v2/**",
+      // Vendored redesign bundle: a generated single-file export of the site
+      // redesign, compiled by SWC and typed via a sibling .d.ts. It is not
+      // hand-authored source, so it's exempt from lint/filename rules; it gets
+      // decomposed into real components over the phased rebuild.
+      "src/features/website/onchain-suite/components/site/site-bundle.jsx",
       // PayloadCMS-owned files. These are generated or copied verbatim from
       // Payload's template and get rewritten by `generate:types` /
       // `generate:importmap`, so they satisfy neither our KEBAB_CASE filename

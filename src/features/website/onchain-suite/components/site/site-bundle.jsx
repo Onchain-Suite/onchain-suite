@@ -1749,7 +1749,7 @@ var PRICING_FAQ = [
 ];
 
 // components/ns/PricingPlans.jsx
-var SEND_STOPS = [500, 1e3, 2500, 5e3, 1e4, 25e3, 5e4, 1e5, 25e4];
+var SEND_STOPS = [500, 1e3, 2500, 5e3, 1e4, 25e3, 5e4, 1e5, 25e4, 5e5];
 function PricingPlans() {
   const { line, setLine } = usePricingLine();
   const [cur, setCur] = useState4("usd");
@@ -1992,8 +1992,10 @@ var metadata = {
   }
 };
 function PricingPage() {
-  return <SiteChrome>
-      <PricingLineProvider>
+  return <SiteChrome><PricingBody /></SiteChrome>;
+}
+function PricingBody() {
+  return <PricingLineProvider>
       <div className="wrap">
         <section className="phero">
           <h1 className="h1 load" style={{ animationDelay: ".08s" }}>Pricing that grows with the customers you bring in.</h1>
@@ -2012,8 +2014,7 @@ function PricingPage() {
         <Faq items={PRICING_FAQ} />
         <CloseCta />
       </div>
-      </PricingLineProvider>
-    </SiteChrome>;
+      </PricingLineProvider>;
 }
 
 // components/ns/PointArt.jsx
@@ -5774,5 +5775,9 @@ function App() {
 export {
   App as default,
   Home,
+  HomeBody,
+  HomeMotion,
   SiteChrome,
+  PricingPage,
+  PricingBody,
 };

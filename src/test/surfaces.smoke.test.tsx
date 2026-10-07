@@ -150,7 +150,10 @@ function renderWithClient(ui: React.ReactElement) {
   );
 }
 
-const HEADING_TIMEOUT = { timeout: 5000 } as const;
+// 15s, not 5s: these smoke tests mount large real page trees, and under full
+// parallel suite load (and a dev server competing for CPU) the first paint can
+// take >5s, which flaked "renders every Settings tab" intermittently.
+const HEADING_TIMEOUT = { timeout: 15000 } as const;
 
 const dashboardUser = {
   projectName: "Test Project",
@@ -296,5 +299,7 @@ describe("settings tabs smoke", () => {
         await screen.findAllByText(content, undefined, HEADING_TIMEOUT)
       ).not.toHaveLength(0);
     }
-  });
+    // This test mounts SettingsPage and clicks through every tab, so it needs
+    // more than vitest's default 5s per-test budget under full suite load.
+  }, 30000);
 });

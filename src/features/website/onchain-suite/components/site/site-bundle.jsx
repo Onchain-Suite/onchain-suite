@@ -3363,7 +3363,7 @@ var tone = (v) => v === "Yes" ? "yes" : v === "No" ? "no" : "part";
 function CompareHub() {
   const comps = ORDER.map((s) => COMPETITORS.find((c) => c.slug === s)).filter(Boolean);
   const cards = comps.map((c) => ({ slug: c.slug, name: c.name, kind: c.kind, group: GROUP[c.slug] ?? "Email platforms", line: firstSentence(c.intro) }));
-  return <SiteChrome>
+  return <>
       <div className="wrap">
         <PageHero
     tag="Compare"
@@ -3391,7 +3391,7 @@ function CompareHub() {
         </section>
         <CloseCta />
       </div>
-    </SiteChrome>;
+    </>;
 }
 
 // app/compare/[slug]/page.jsx
@@ -3411,7 +3411,7 @@ function ComparePage({ params }) {
     "@type": "FAQPage",
     mainEntity: c.faqs.map((f3) => ({ "@type": "Question", name: f3.q, acceptedAnswer: { "@type": "Answer", text: f3.a } }))
   };
-  return <SiteChrome>
+  return <>
       <div className="wrap">
         <section className="vs-hero">
           <Link className="crumb load" href="/compare">← All comparisons</Link>
@@ -3467,7 +3467,7 @@ function ComparePage({ params }) {
         <CloseCta />
       </div>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
-    </SiteChrome>;
+    </>;
 }
 
 // components/ns/ToolArt.jsx
@@ -5780,4 +5780,6 @@ export {
   SiteChrome,
   PricingPage,
   PricingBody,
+  CompareHub,
+  ComparePage,
 };

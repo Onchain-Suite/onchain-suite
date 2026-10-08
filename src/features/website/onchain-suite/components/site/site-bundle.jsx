@@ -8,6 +8,9 @@ import { useEffect as useEffect6, useSyncExternalStore, useEffect, useEffect as 
 
 import NextLink from "next/link";
 import { usePathname as __useNextPathname } from "next/navigation";
+// Functional UI icons use Heroicons (house convention, CLAUDE.md §5). The
+// bespoke product-mockup glyphs stay on the local sprite.
+import { BookOpenIcon, CalculatorIcon, ChevronDownIcon, NewspaperIcon, ScaleIcon } from "@heroicons/react/24/outline";
 function usePathname() { return __useNextPathname() || "/"; }
 function navigate(href) { if (typeof window !== "undefined") window.location.assign(href); }
 function notFound() { return null; }
@@ -239,14 +242,15 @@ function MobileMenu({ links }) {
 var RESOURCES = [
   { href: "/compare", title: "Compare", desc: "OnchainSuite next to the tools you already use, fairly.", icon: "cmp" },
   { href: "/tools", title: "Free tools", desc: "Calculators for churn, reachability and lifetime value.", icon: "tool" },
-  { href: null, title: "Blog", desc: "Lifecycle marketing for blockchain companies.", icon: "blog", soon: true },
+  { href: "/blog", title: "Blog", desc: "Lifecycle marketing for blockchain companies.", icon: "blog" },
   { href: DOCS_URL, title: "Docs", desc: "Guides for setting up, sending and building on the API.", icon: "docs", external: true }
 ];
+// Heroicons for the Resources dropdown (functional UI icons).
 var ICONS = {
-  cmp: <path d="M3 4h4v9H3zM9 7h4v6H9z" />,
-  tool: <><rect x="3" y="2.5" width="10" height="11" rx="1.5" /><path d="M5.5 5.5h5M5.5 8h1M8 8h1M10.5 8h0M5.5 10.5h1M8 10.5h1" /></>,
-  blog: <path d="M3.5 3.5h9M3.5 6.5h9M3.5 9.5h6M3.5 12.5h4" />,
-  docs: <><path d="M4 2.5h6l2.5 2.5v8.5H4z" /><path d="M9.5 2.5V5H12" /></>
+  cmp: ScaleIcon,
+  tool: CalculatorIcon,
+  blog: NewspaperIcon,
+  docs: BookOpenIcon
 };
 function NavMenu() {
   const [open, setOpen] = useState2(false);
@@ -279,12 +283,13 @@ function NavMenu() {
   return <nav className="links" aria-label="Main">
       <div className="dd" ref={wrap5} onMouseEnter={enter} onMouseLeave={leave}>
         <button type="button" className="dd-btn" aria-expanded={open} aria-controls="dd-res" onClick={() => setOpen((o) => !o)}>
-          Resources<svg aria-hidden="true"><use href="#i-down" /></svg>
+          Resources<ChevronDownIcon aria-hidden="true" />
         </button>
         <div className={"dd-panel" + (open ? " open" : "")} id="dd-res" role="menu" hidden={!open}>
           {RESOURCES.map((r) => {
+    const Icon = ICONS[r.icon];
     const inner = <>
-                <span className="dd-ic"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">{ICONS[r.icon]}</svg></span>
+                <span className="dd-ic">{Icon ? <Icon aria-hidden="true" /> : null}</span>
                 <span><b>{r.title}{r.soon && <em>Soon</em>}</b><small>{r.desc}</small></span>
               </>;
     if (!r.href) return <div key={r.title} className="dd-item off" role="menuitem" aria-disabled="true">{inner}</div>;
@@ -982,59 +987,33 @@ var NAV_LINKS = [
   { href: "/pricing", label: "Pricing" }
 ];
 var DOC = "https://docs.onchainsuite.com";
+// Reference-site footer: four single-group columns (Platform / Resources /
+// Company / Legal). Kept in sync with the live redesign footer.
 var FOOT = [
   [
     { title: "Platform", items: [
       { label: "Audience", href: "/platform/audience" },
       { label: "Segments", href: "/platform/segments" },
       { label: "Loops", href: "/platform/loops" },
-      { label: "Intelligence MCP", href: "/platform/intelligence-mcp", tag: "New" },
+      { label: "Intelligence MCP", href: "/platform/intelligence-mcp" },
       { label: "How we use data", href: "/platform/data" },
       { label: "Pricing", href: "/pricing" }
-    ] },
-    { title: "Company", items: [
-      { label: "Team", href: "/team" },
-      { label: "Our hypothesis", href: "/hypothesis" },
-      { label: "Refer a team", href: "/refer", tag: "New" }
-    ] }
-  ],
-  [
-    { title: "OnchainSuite for", items: [
-      { label: "Blockchain companies", href: "/for/blockchain-companies" },
-      { label: "Mainstream companies", href: "/for/mainstream-companies" }
-    ] },
-    { title: "Switching from", items: [
-      { label: "Klaviyo", href: "/compare/klaviyo" },
-      { label: "Customer.io", href: "/compare/customer-io" },
-      { label: "Braze", href: "/compare/braze" },
-      { label: "Brevo", href: "/compare/brevo" },
-      { label: "SendGrid", href: "/compare/sendgrid" },
-      { label: "Dotdigital", href: "/compare/dotdigital" },
-      { label: "EmailOctopus", href: "/compare/emailoctopus" }
-    ] }
-  ],
-  [
-    { title: "Integrations", items: [
-      { label: "In-app SDK", href: `${DOC}/integrations/in-app-notifications` },
-      { label: "Mobile push", href: `${DOC}/integrations/in-app-notifications` },
-      { label: "Server API", href: `${DOC}/integrations/server-api` },
-      { label: "Webhooks", href: `${DOC}/api/webhooks` },
-      { label: "Custom events", href: `${DOC}/integrations/custom-events` },
-      { label: "Forms", href: `${DOC}/integrations/forms` },
-      { label: "Wallet and contract data", href: `${DOC}/integrations/wallet-and-contract-data` },
-      { label: "CSV and JSON import", href: `${DOC}/audience/imports-and-exports` }
     ] }
   ],
   [
     { title: "Resources", items: [
       { label: "Compare", href: "/compare" },
       { label: "Free tools", href: "/tools" },
-      { label: "Docs", href: DOC },
-      { label: "Help centre", href: `${DOC}/help/faq` },
-      { label: "Troubleshooting", href: `${DOC}/help/troubleshooting` },
-      { label: "Hire an expert", href: "/pricing#cmp-h" },
-      { label: "Trust centre", href: "/platform/data" }
-    ] },
+      { label: "Docs", href: DOC }
+    ] }
+  ],
+  [
+    { title: "Company", items: [
+      { label: "Team", href: "/team" },
+      { label: "Book a walkthrough", href: "/early-access" }
+    ] }
+  ],
+  [
     { title: "Legal", items: [
       { label: "Terms", href: "/terms" },
       { label: "Privacy", href: "/privacy" },
@@ -1055,13 +1034,26 @@ function Logo({ dark = false }) {
       OnchainSuite
     </Link>;
 }
-function SiteChrome({ children }) {
+// Navbar uses the real brand logo image (not the hand-built wordmark). Two
+// official variants swap by nav state: the coloured-dark lockup on the light
+// navbar, the light (white) lockup when the nav sits over a dark section
+// (.nav.is-dark). CSS in ns.css toggles which <img> shows.
+var LOGO_IMG_DARK = "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761095341/full_logo_horizontal_coloured_dark_kpiv6u.png";
+var LOGO_IMG_LIGHT = "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761095267/full_logo_horizontal_coloured_light_kl0irx.png";
+function NavLogo() {
+  return <Link className="logo logo-img" href="/" aria-label="OnchainSuite home">
+      <img className="logo-dark" src={LOGO_IMG_DARK} alt="OnchainSuite" width={89} height={28} />
+      <img className="logo-light" src={LOGO_IMG_LIGHT} alt="" aria-hidden="true" width={89} height={28} />
+    </Link>;
+}
+// headerless: skip the bundle's own navbar so a host can supply its own
+// (NsShell renders the real <SiteHeader/> above this chrome).
+function SiteChrome({ children, headerless = false }) {
   return <div className="ns">
       <Sprite />
-      <div className="bar"><Link href="/#platform"><b>OnchainSuite v2.7</b> adds lifecycle stages, health scores and holdouts<span>→</span></Link></div>
-      <header className="nav" id="nav">
+      {headerless ? null : <header className="nav" id="nav">
         <div className="nav-in">
-          <Logo />
+          <NavLogo />
           <NavMenu />
           <div className="acts">
             <a className="btn" href={APP_URL}>Sign in</a>
@@ -1069,7 +1061,7 @@ function SiteChrome({ children }) {
             <MobileMenu links={NAV_LINKS} />
           </div>
         </div>
-      </header>
+      </header>}
       <main>{children}</main>
       <footer className="dark" data-dark>
         <div className="wrap" style={{ border: 0 }}>
@@ -1193,7 +1185,7 @@ function HomeBody() {
 
       <div className="hero-win"><div className="winbar" aria-hidden="true"><i /><i /><i /></div>
         <div className="u u-app" style={{ height: "calc(100% - 32px)" }} role="img" aria-label="OnchainSuite Home: a greeting, a question typed to the Intelligence MCP, four headline numbers and recent on-chain activity arriving.">
-          <aside className="u-side"><div className="lg"><svg className="mark"><use href="#ocs-mark" fill="url(#mg)" /></svg></div><div className="u-nav on"><svg><use href="#a-home" /></svg>Home</div><div className="u-nav"><svg><use href="#a-camp" /></svg>Campaigns</div><div className="u-nav"><svg><use href="#a-aud" /></svg>Audience</div><div className="u-nav"><svg><use href="#a-brain" /></svg>Intelligence MCP</div><div className="u-nav"><svg><use href="#a-dash" /></svg>Dashboard</div><div className="u-nav"><svg><use href="#a-data" /></svg>Data</div><div className="u-user"><span className="u-av" style={{ background: "#E04E12" }}>EC</span><div><b>Emma Carter</b><small>Acme</small></div><span className="u-ver">v2.7</span></div></aside>
+          <aside className="u-side"><div className="lg"><svg className="mark"><use href="#ocs-mark" fill="url(#mg)" /></svg></div><div className="u-nav on"><svg><use href="#a-home" /></svg>Home</div><div className="u-nav"><svg><use href="#a-camp" /></svg>Campaigns</div><div className="u-nav"><svg><use href="#a-aud" /></svg>Audience</div><div className="u-nav"><svg><use href="#a-brain" /></svg>Intelligence MCP</div><div className="u-nav"><svg><use href="#a-dash" /></svg>Dashboard</div><div className="u-nav"><svg><use href="#a-data" /></svg>Data</div><div className="u-user"><span className="u-av" style={{ background: "#E04E12" }}>EC</span><div><b>Emma Carter</b><small>OnchainSuite</small></div><span className="u-ver">v2.7</span></div></aside>
           <div className="u-main">
             <div className="u-top">Home / <b>Home</b><span className="u-search"><svg width="13" height="13"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.3" /><path d="M9.5 9.5L12 12" stroke="currentColor" strokeWidth="1.3" /></svg>Search…<kbd>⌘K</kbd></span></div>
             <div className="u-body">
@@ -1220,7 +1212,7 @@ function HomeBody() {
   </section>
 
   <div className="logos" aria-label="Paying customers">
-    <div className="rv"><img src="/site/logos/predict-street.png" alt="" />Predict Street</div><div className="rv"><img src="/site/logos/yauga.jpg" alt="" />Yauga</div><div className="rv"><img src="/site/logos/rehitage.svg" alt="" />Rehitage</div><div className="rv"><img src="/site/logos/surgence.jpg" alt="" />Surgence Labs</div>
+    <a className="rv" href="https://adipredictstreet.com/" target="_blank" rel="noreferrer" aria-label="Predict Street"><img src="/site/logos/predict-street.png" alt="" />Predict Street</a><a className="rv" href="https://www.yauga.com/" target="_blank" rel="noreferrer" aria-label="Yauga"><img src="/site/logos/yauga.jpg" alt="" />Yauga</a><a className="rv" href="https://rehitagestays.co.uk/" target="_blank" rel="noreferrer" aria-label="Rehitage"><img src="/site/logos/rehitage.svg" alt="" />Rehitage</a><a className="rv" href="https://surgence.io/" target="_blank" rel="noreferrer" aria-label="Surgence Labs"><img src="/site/logos/surgence.jpg" alt="" />Surgence Labs</a>
   </div>
 
   <section className="state" id="platform" aria-labelledby="platform-h">
@@ -1413,8 +1405,8 @@ function HomeBody() {
       <div><p className="u-label" style={{ marginTop: "6px" }}>Contract address, project name or website</p><div className="u-sel v" style={{ height: "36px", borderColor: "#1727E0", boxShadow: "0 0 0 2px #E4EAFF" }}><span className="u-addr" data-type="0x3F4a…8a21" /></div>
         <p style={{ fontSize: "11.5px", color: "#767B83", margin: "6px 0 0" }}>We read the holder list and the contracts deployed alongside it. Nothing is sent anywhere.</p></div>
       <div data-found style={{ display: "grid", gap: "8px" }}>
-        <div className="u-link"><span className="ic" style={{ background: "#F0F4FF", color: "#1727E0" }}><svg><use href="#a-data" /></svg></span>Acme Packs<em className="u-addr">ERC-721 · Base</em><svg className="ok"><use href="#a-check" /></svg></div>
-        <div className="u-link"><span className="ic" style={{ background: "#F0F4FF", color: "#1727E0" }}><svg><use href="#a-data" /></svg></span>Acme Staking<em className="u-addr">Vault · Base</em><svg className="ok"><use href="#a-check" /></svg></div>
+        <div className="u-link"><span className="ic" style={{ background: "#F0F4FF", color: "#1727E0" }}><svg><use href="#a-data" /></svg></span>OnchainSuite Packs<em className="u-addr">ERC-721 · Base</em><svg className="ok"><use href="#a-check" /></svg></div>
+        <div className="u-link"><span className="ic" style={{ background: "#F0F4FF", color: "#1727E0" }}><svg><use href="#a-data" /></svg></span>OnchainSuite Staking<em className="u-addr">Vault · Base</em><svg className="ok"><use href="#a-check" /></svg></div>
         <div className="u-link"><span className="ic" style={{ background: "#F0F4FF", color: "#1727E0" }}><svg><use href="#a-aud" /></svg></span>Holders found<em data-holders>746</em></div>
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end" }}><span className="u-btn p">Continue</span></div>
@@ -1521,8 +1513,8 @@ function HomeBody() {
           <li className="rv"><b>REST API</b><span>Send custom events to start Loops and read results back.</span></li>
           <li className="rv"><b>Intelligence MCP</b><span>Question your app and contract data from the tools your team already uses.</span></li>
         </ul><p className="bridge rv dk"><a href="#stmt-h">We built it this way for one reason.<span aria-hidden="true">↓</span></a></p></div>
-      <div><div className="code" data-scene="code"><div className="code-h"><b>app.ts</b><span>npm i @onchainsuite/web</span></div>
-<pre><span className="ln"><span className="k">import</span> {"{"} OnchainSuite {"}"} <span className="k">from</span> <span className="s">'@onchainsuite/web'</span>;</span><span className="ln">&nbsp;</span><span className="ln"><span className="k">const</span> os = OnchainSuite.init({"{"} key: <span className="s">'pk_live_…'</span> {"}"});</span><span className="ln">&nbsp;</span><span className="ln"><span className="c">// Tell us which wallet is connected.</span></span><span className="ln">os.identify({"{"} wallet: address {"}"});</span><span className="ln">&nbsp;</span><span className="ln"><span className="c">// Wallet addresses only. identify() rejects email,</span></span><span className="ln"><span className="c">// so you never hold the wallet-to-person mapping.</span></span></pre></div></div>
+      <div><div className="code" data-scene="code"><div className="code-h"><b>app.ts</b><span>npm i @onchainsuite/sdk</span></div>
+<pre><span className="ln"><span className="k">import</span> {"{"} OnchainSuite {"}"} <span className="k">from</span> <span className="s">'@onchainsuite/sdk'</span>;</span><span className="ln">&nbsp;</span><span className="ln"><span className="k">const</span> ocs = OnchainSuite.init({"{"} project: <span className="s">'pk_live_…'</span> {"}"});</span><span className="ln">&nbsp;</span><span className="ln"><span className="c">// Reaches 100% of connected wallets, no extra identifier.</span></span><span className="ln">ocs.connect(wallet.address);</span><span className="ln">&nbsp;</span><span className="ln"><span className="c">// Fire an in-app push the moment a wallet acts.</span></span><span className="ln"><span className="k">await</span> ocs.push({"{"} wallet, title: <span className="s">'Your stake dropped'</span> {"}"});</span></pre></div></div>
     </section>
   </div>
 </div>
@@ -1931,21 +1923,21 @@ function CompareTable() {
 
 // components/ns/Blocks.jsx
 var CUSTOMERS = [
-  { name: "Predict Street", logo: "/site/logos/predict-street.png" },
-  { name: "Yauga", logo: "/site/logos/yauga.jpg" },
-  { name: "Rehitage", logo: "/site/logos/rehitage.svg" },
-  { name: "Surgence Labs", logo: "/site/logos/surgence.jpg" }
+  { name: "Predict Street", logo: "/site/logos/predict-street.png", href: "https://adipredictstreet.com/" },
+  { name: "Yauga", logo: "/site/logos/yauga.jpg", href: "https://www.yauga.com/" },
+  { name: "Rehitage", logo: "/site/logos/rehitage.svg", href: "https://rehitagestays.co.uk/" },
+  { name: "Surgence Labs", logo: "/site/logos/surgence.jpg", href: "https://surgence.io/" }
 ];
 function LogoRow({ label }) {
   return <div className="logorow">
       {label && <p className="logorow-l">{label}</p>}
       <div className="logos" aria-label="Paying customers">
-        {CUSTOMERS.map((c) => <div key={c.name} className="rv">
+        {CUSTOMERS.map((c) => <a key={c.name} className="rv" href={c.href} target="_blank" rel="noreferrer" aria-label={c.name}>
             {
     /* eslint-disable-next-line @next/next/no-img-element */
   }
-            <img src={c.logo} alt="" width={28} height={28} />{c.name}
-          </div>)}
+            <img src={c.logo} alt="" width={48} height={48} />{c.name}
+          </a>)}
       </div>
     </div>;
 }

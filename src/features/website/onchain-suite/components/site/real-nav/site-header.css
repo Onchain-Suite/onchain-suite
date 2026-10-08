@@ -1,0 +1,101 @@
+/* Hover/focus + responsive helpers for the real marketing navbar (SiteHeader).
+   Ported from the onchainsuite-marketing globals.css. These classes are global
+   (prefixed `ocs-`) because the navbar renders OUTSIDE the `.ns` scope so the
+   two styling systems never collide. --acc/--acc-h fall back to brand values. */
+
+@keyframes ocsFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.ocs-navlink {
+  font-size: 14.5px;
+  color: #3d4a63;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+.ocs-navlink:hover { color: #1a1a17; }
+
+.ocs-btn-primary {
+  /* subtle top-light sheen layered over the solid accent fill */
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0)) !important;
+  transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+.ocs-btn-primary:hover {
+  background-color: var(--acc-h, #1320b8) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1),
+    0 8px 20px -8px color-mix(in oklab, var(--acc, #1727e0) 45%, transparent) !important;
+}
+
+.ocs-link-muted {
+  color: #51607a;
+  transition: color 0.15s;
+}
+.ocs-link-muted:hover { color: #1a1a17; }
+
+.ocs-card-hover {
+  transition: transform 0.22s ease, box-shadow 0.28s ease, border-color 0.22s ease;
+  will-change: transform;
+}
+.ocs-card-hover:hover {
+  transform: translateY(-3px);
+  border-color: #cdd9ec;
+  box-shadow: 0 2px 4px rgba(26, 24, 20, 0.04),
+    0 22px 44px -26px rgba(26, 24, 20, 0.22) !important;
+}
+
+.ocs-chip-hover {
+  transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.18s ease;
+}
+.ocs-chip-hover:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklab, var(--acc, #1727e0) 28%, #dce7f5) !important;
+  box-shadow: 0 1px 2px rgba(26, 24, 20, 0.04),
+    0 12px 22px -16px rgba(26, 24, 20, 0.2) !important;
+}
+
+/* Nav dropdown + mobile menu */
+.ocs-nav-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14.5px;
+  color: #3d4a63;
+  font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+  transition: color 0.15s;
+}
+.ocs-nav-trigger:hover,
+.ocs-nav-trigger.open { color: #1a1a17; }
+.ocs-nav-caret { transition: transform 0.2s ease; }
+.ocs-nav-caret.open { transform: rotate(180deg); }
+.ocs-menu-item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+.ocs-menu-item:hover { background: #ffffff; }
+.ocs-hamburger {
+  display: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  border: 1px solid #dce7f5;
+  background: #fff;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+}
+
+/* Tablet and below: hamburger instead of mega-menus so panels never overflow. */
+@media (max-width: 1024px) {
+  [data-navlinks] { display: none !important; }
+  .ocs-hamburger { display: inline-flex; }
+}

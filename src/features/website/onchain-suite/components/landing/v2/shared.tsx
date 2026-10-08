@@ -498,11 +498,13 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
           maxWidth: scrolled ? "min(940px, calc(100% - 24px))" : 1320,
           height: scrolled ? 62 : 82,
           padding: scrolled ? "0 14px 0 18px" : "0 28px",
+          // Translucent when retracted (scrolled) so the page shows through the
+          // floating pill; the blur keeps text legible over whatever scrolls under.
           background: scrolled
-            ? "color-mix(in oklab, var(--surface) 88%, transparent)"
+            ? "color-mix(in oklab, var(--surface) 70%, transparent)"
             : "transparent",
-          backdropFilter: scrolled ? "saturate(150%) blur(14px)" : "none",
-          WebkitBackdropFilter: scrolled ? "saturate(150%) blur(14px)" : "none",
+          backdropFilter: scrolled ? "saturate(160%) blur(16px)" : "none",
+          WebkitBackdropFilter: scrolled ? "saturate(160%) blur(16px)" : "none",
           border: scrolled ? "1px solid var(--line)" : "1px solid transparent",
           borderRadius: scrolled ? 999 : 0,
           boxShadow: scrolled
@@ -517,13 +519,10 @@ export function Nav({ ctaWatchesHero = false }: { ctaWatchesHero?: boolean }) {
           className="flex min-w-0 items-center"
           aria-label="OnchainSuite home"
         >
-          {/* smaller on phones so logo + hamburger never overflow ~360px */}
-          <Logo
-            height={52}
-            className={
-              scrolled ? "h-8 w-auto sm:h-10" : "h-9 w-auto sm:h-[52px]"
-            }
-          />
+          {/* Numeric height (not Tailwind height classes) so next/image keeps a
+              valid width:auto aspect ratio - the class path tripped the
+              "width or height modified but not the other" warning. */}
+          <Logo height={scrolled ? 30 : 40} />
         </Link>
         <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-1 md:flex">
           {(["platform", "developers"] as MenuId[]).map((id) => (

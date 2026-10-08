@@ -1962,20 +1962,26 @@ const CreateAutomationContent = () => {
   const draftSaveMutation = useMutation({
     mutationFn: async () => {
       if (isNew) return;
-      await automationService.saveBuilderDraft(
-        automationId,
-        toWireGraph({ nodes, edges })
-      );
+      // Include flow-level settings (conversion goal, re-entry, frequency cap).
+      // Omitting them let the 1s autosave overwrite draftGraph.settings with {},
+      // silently wiping a goal the user had just set — it survived only a full
+      // save/publish, so it "saved for some automations" and not others.
+      await automationService.saveBuilderDraft(automationId, {
+        ...toWireGraph({ nodes, edges }),
+        settings: flowSettings,
+      });
     },
   });
 
   useEffect(() => {
     if (isNew) return;
+    // flowSettings is a dependency so setting a goal (which changes no node or
+    // edge) still triggers the autosave — without it the goal was never saved.
     const t = window.setTimeout(() => {
       draftSaveMutation.mutate();
     }, 1000);
     return () => window.clearTimeout(t);
-  }, [automationId, draftSaveMutation, edges, isNew, nodes]);
+  }, [automationId, draftSaveMutation, edges, flowSettings, isNew, nodes]);
 
   const onConnect = useCallback(
     (params: Connection) => {

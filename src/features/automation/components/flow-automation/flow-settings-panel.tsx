@@ -1,5 +1,8 @@
 "use client";
 
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import { useState } from "react";
+
 import { isJsonObject } from "@/lib/utils";
 
 import {
@@ -159,6 +162,10 @@ export function FlowSettingsPanel({
     onChange({ ...value, goal: { event: e, windowDays } });
   };
 
+  // Retractable: the header toggles the body so the panel can fold away and
+  // leave the canvas more room. Defaults open.
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
     <div
       className={
@@ -166,71 +173,88 @@ export function FlowSettingsPanel({
         "hidden w-[344px] shrink-0 overflow-y-auto rounded-xl border border-border bg-card p-6 md:block"
       }
     >
-      <h3 className="font-semibold tracking-tight text-foreground">
-        Flow settings
-      </h3>
-      <div className="mt-6 space-y-5">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm text-foreground">Re-entry</span>
-          <PropertySelect
-            value={reentryUi}
-            onChange={setReentry}
-            className="w-40"
-            options={REENTRY_OPTIONS}
-          />
-        </div>
-        <FlowToggle
-          label="Max 1 message / 10h"
-          checked={freqOn}
-          onChange={setFreq}
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        aria-expanded={!collapsed}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <h3 className="font-semibold tracking-tight text-foreground">
+          Flow settings
+        </h3>
+        <ChevronDownIcon
+          aria-hidden="true"
+          className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+            collapsed ? "-rotate-90" : ""
+          }`}
         />
-      </div>
+      </button>
+      {collapsed ? null : (
+        <>
+          <div className="mt-6 space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-foreground">Re-entry</span>
+              <PropertySelect
+                value={reentryUi}
+                onChange={setReentry}
+                className="w-40"
+                options={REENTRY_OPTIONS}
+              />
+            </div>
+            <FlowToggle
+              label="Max 1 message / 10h"
+              checked={freqOn}
+              onChange={setFreq}
+            />
+          </div>
 
-      {/* Goal — the outcome that counts as "this flow worked". A matching event
+          {/* Goal — the outcome that counts as "this flow worked". A matching event
           within the window marks the enrolment converted; the rate shows on the
           Stats tab. */}
-      <div className="mt-7 border-t border-border pt-5">
-        <label className={PROPERTY_LABEL_CLASS}>Conversion goal</label>
-        <PropertySelect
-          value={goalEvent}
-          onChange={(e) => setGoal(e, goalWindow)}
-          className="mt-2 w-full"
-          placeholder="No goal"
-          options={GOAL_EVENT_OPTIONS}
-        />
-        <p className={`${PROPERTY_HINT_CLASS} mt-2`}>
-          What a contact has to do for this flow to have worked. It counts once
-          per enrolment, and only if they do it within the window.
-        </p>
-        {goalEvent && goalEvent === triggerEventType ? (
-          <p className="mt-2 text-xs leading-5 text-amber-500">
-            This is the same event that starts the flow, so every enrolment
-            converts the moment it begins. Pick a different outcome to measure
-            anything.
-          </p>
-        ) : null}
-        {goalEvent ? (
-          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-            <span>within</span>
-            <input
-              type="number"
-              min={1}
-              className={`${PROPERTY_INPUT_CLASS} w-16 py-1.5 text-center`}
-              value={goalWindow}
-              onChange={(e) =>
-                setGoal(goalEvent, Math.max(1, Number(e.target.value) || 7))
-              }
+          <div className="mt-7 border-t border-border pt-5">
+            <label className={PROPERTY_LABEL_CLASS}>Conversion goal</label>
+            <PropertySelect
+              value={goalEvent}
+              onChange={(e) => setGoal(e, goalWindow)}
+              className="mt-2 w-full"
+              placeholder="No goal"
+              options={GOAL_EVENT_OPTIONS}
             />
-            <span>days of enrolling</span>
+            <p className={`${PROPERTY_HINT_CLASS} mt-2`}>
+              What a contact has to do for this flow to have worked. It counts
+              once per enrolment, and only if they do it within the window.
+            </p>
+            {goalEvent && goalEvent === triggerEventType ? (
+              <p className="mt-2 text-xs leading-5 text-amber-500">
+                This is the same event that starts the flow, so every enrolment
+                converts the moment it begins. Pick a different outcome to
+                measure anything.
+              </p>
+            ) : null}
+            {goalEvent ? (
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <span>within</span>
+                <input
+                  type="number"
+                  min={1}
+                  className={`${PROPERTY_INPUT_CLASS} w-16 py-1.5 text-center`}
+                  value={goalWindow}
+                  onChange={(e) =>
+                    setGoal(goalEvent, Math.max(1, Number(e.target.value) || 7))
+                  }
+                />
+                <span>days of enrolling</span>
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
 
-      <p className="mt-6 text-xs leading-5 text-muted-foreground">
-        Re-entry limits how often a contact can start this flow; the cap limits
-        how many messages it sends one contact per window; the goal measures
-        whether it worked. Select a node to configure it.
-      </p>
+          <p className="mt-6 text-xs leading-5 text-muted-foreground">
+            Re-entry limits how often a contact can start this flow; the cap
+            limits how many messages it sends one contact per window; the goal
+            measures whether it worked. Select a node to configure it.
+          </p>
+        </>
+      )}
     </div>
   );
 }

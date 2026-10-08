@@ -8,6 +8,9 @@ import { useEffect as useEffect6, useSyncExternalStore, useEffect, useEffect as 
 
 import NextLink from "next/link";
 import { usePathname as __useNextPathname } from "next/navigation";
+// Functional UI icons use Heroicons (house convention, CLAUDE.md §5). The
+// bespoke product-mockup glyphs stay on the local sprite.
+import { BookOpenIcon, CalculatorIcon, ChevronDownIcon, NewspaperIcon, ScaleIcon } from "@heroicons/react/24/outline";
 function usePathname() { return __useNextPathname() || "/"; }
 function navigate(href) { if (typeof window !== "undefined") window.location.assign(href); }
 function notFound() { return null; }
@@ -239,14 +242,15 @@ function MobileMenu({ links }) {
 var RESOURCES = [
   { href: "/compare", title: "Compare", desc: "OnchainSuite next to the tools you already use, fairly.", icon: "cmp" },
   { href: "/tools", title: "Free tools", desc: "Calculators for churn, reachability and lifetime value.", icon: "tool" },
-  { href: null, title: "Blog", desc: "Lifecycle marketing for blockchain companies.", icon: "blog", soon: true },
+  { href: "/blog", title: "Blog", desc: "Lifecycle marketing for blockchain companies.", icon: "blog" },
   { href: DOCS_URL, title: "Docs", desc: "Guides for setting up, sending and building on the API.", icon: "docs", external: true }
 ];
+// Heroicons for the Resources dropdown (functional UI icons).
 var ICONS = {
-  cmp: <path d="M3 4h4v9H3zM9 7h4v6H9z" />,
-  tool: <><rect x="3" y="2.5" width="10" height="11" rx="1.5" /><path d="M5.5 5.5h5M5.5 8h1M8 8h1M10.5 8h0M5.5 10.5h1M8 10.5h1" /></>,
-  blog: <path d="M3.5 3.5h9M3.5 6.5h9M3.5 9.5h6M3.5 12.5h4" />,
-  docs: <><path d="M4 2.5h6l2.5 2.5v8.5H4z" /><path d="M9.5 2.5V5H12" /></>
+  cmp: ScaleIcon,
+  tool: CalculatorIcon,
+  blog: NewspaperIcon,
+  docs: BookOpenIcon
 };
 function NavMenu() {
   const [open, setOpen] = useState2(false);
@@ -279,12 +283,13 @@ function NavMenu() {
   return <nav className="links" aria-label="Main">
       <div className="dd" ref={wrap5} onMouseEnter={enter} onMouseLeave={leave}>
         <button type="button" className="dd-btn" aria-expanded={open} aria-controls="dd-res" onClick={() => setOpen((o) => !o)}>
-          Resources<svg aria-hidden="true"><use href="#i-down" /></svg>
+          Resources<ChevronDownIcon aria-hidden="true" />
         </button>
         <div className={"dd-panel" + (open ? " open" : "")} id="dd-res" role="menu" hidden={!open}>
           {RESOURCES.map((r) => {
+    const Icon = ICONS[r.icon];
     const inner = <>
-                <span className="dd-ic"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">{ICONS[r.icon]}</svg></span>
+                <span className="dd-ic">{Icon ? <Icon aria-hidden="true" /> : null}</span>
                 <span><b>{r.title}{r.soon && <em>Soon</em>}</b><small>{r.desc}</small></span>
               </>;
     if (!r.href) return <div key={r.title} className="dd-item off" role="menuitem" aria-disabled="true">{inner}</div>;
@@ -1029,13 +1034,24 @@ function Logo({ dark = false }) {
       OnchainSuite
     </Link>;
 }
+// Navbar uses the real brand logo image (not the hand-built wordmark). Two
+// official variants swap by nav state: the coloured-dark lockup on the light
+// navbar, the light (white) lockup when the nav sits over a dark section
+// (.nav.is-dark). CSS in ns.css toggles which <img> shows.
+var LOGO_IMG_DARK = "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761095341/full_logo_horizontal_coloured_dark_kpiv6u.png";
+var LOGO_IMG_LIGHT = "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761095267/full_logo_horizontal_coloured_light_kl0irx.png";
+function NavLogo() {
+  return <Link className="logo logo-img" href="/" aria-label="OnchainSuite home">
+      <img className="logo-dark" src={LOGO_IMG_DARK} alt="OnchainSuite" width={89} height={28} />
+      <img className="logo-light" src={LOGO_IMG_LIGHT} alt="" aria-hidden="true" width={89} height={28} />
+    </Link>;
+}
 function SiteChrome({ children }) {
   return <div className="ns">
       <Sprite />
-      <div className="bar"><Link href="/#platform"><b>OnchainSuite v2.7</b> adds lifecycle stages, health scores and holdouts<span>→</span></Link></div>
       <header className="nav" id="nav">
         <div className="nav-in">
-          <Logo />
+          <NavLogo />
           <NavMenu />
           <div className="acts">
             <a className="btn" href={APP_URL}>Sign in</a>
@@ -1167,7 +1183,7 @@ function HomeBody() {
 
       <div className="hero-win"><div className="winbar" aria-hidden="true"><i /><i /><i /></div>
         <div className="u u-app" style={{ height: "calc(100% - 32px)" }} role="img" aria-label="OnchainSuite Home: a greeting, a question typed to the Intelligence MCP, four headline numbers and recent on-chain activity arriving.">
-          <aside className="u-side"><div className="lg"><svg className="mark"><use href="#ocs-mark" fill="url(#mg)" /></svg></div><div className="u-nav on"><svg><use href="#a-home" /></svg>Home</div><div className="u-nav"><svg><use href="#a-camp" /></svg>Campaigns</div><div className="u-nav"><svg><use href="#a-aud" /></svg>Audience</div><div className="u-nav"><svg><use href="#a-brain" /></svg>Intelligence MCP</div><div className="u-nav"><svg><use href="#a-dash" /></svg>Dashboard</div><div className="u-nav"><svg><use href="#a-data" /></svg>Data</div><div className="u-user"><span className="u-av" style={{ background: "#E04E12" }}>EC</span><div><b>Emma Carter</b><small>Acme</small></div><span className="u-ver">v2.7</span></div></aside>
+          <aside className="u-side"><div className="lg"><svg className="mark"><use href="#ocs-mark" fill="url(#mg)" /></svg></div><div className="u-nav on"><svg><use href="#a-home" /></svg>Home</div><div className="u-nav"><svg><use href="#a-camp" /></svg>Campaigns</div><div className="u-nav"><svg><use href="#a-aud" /></svg>Audience</div><div className="u-nav"><svg><use href="#a-brain" /></svg>Intelligence MCP</div><div className="u-nav"><svg><use href="#a-dash" /></svg>Dashboard</div><div className="u-nav"><svg><use href="#a-data" /></svg>Data</div><div className="u-user"><span className="u-av" style={{ background: "#E04E12" }}>EC</span><div><b>Emma Carter</b><small>OnchainSuite</small></div><span className="u-ver">v2.7</span></div></aside>
           <div className="u-main">
             <div className="u-top">Home / <b>Home</b><span className="u-search"><svg width="13" height="13"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.3" /><path d="M9.5 9.5L12 12" stroke="currentColor" strokeWidth="1.3" /></svg>Search…<kbd>⌘K</kbd></span></div>
             <div className="u-body">
@@ -1387,8 +1403,8 @@ function HomeBody() {
       <div><p className="u-label" style={{ marginTop: "6px" }}>Contract address, project name or website</p><div className="u-sel v" style={{ height: "36px", borderColor: "#1727E0", boxShadow: "0 0 0 2px #E4EAFF" }}><span className="u-addr" data-type="0x3F4a…8a21" /></div>
         <p style={{ fontSize: "11.5px", color: "#767B83", margin: "6px 0 0" }}>We read the holder list and the contracts deployed alongside it. Nothing is sent anywhere.</p></div>
       <div data-found style={{ display: "grid", gap: "8px" }}>
-        <div className="u-link"><span className="ic" style={{ background: "#F0F4FF", color: "#1727E0" }}><svg><use href="#a-data" /></svg></span>Acme Packs<em className="u-addr">ERC-721 · Base</em><svg className="ok"><use href="#a-check" /></svg></div>
-        <div className="u-link"><span className="ic" style={{ background: "#F0F4FF", color: "#1727E0" }}><svg><use href="#a-data" /></svg></span>Acme Staking<em className="u-addr">Vault · Base</em><svg className="ok"><use href="#a-check" /></svg></div>
+        <div className="u-link"><span className="ic" style={{ background: "#F0F4FF", color: "#1727E0" }}><svg><use href="#a-data" /></svg></span>OnchainSuite Packs<em className="u-addr">ERC-721 · Base</em><svg className="ok"><use href="#a-check" /></svg></div>
+        <div className="u-link"><span className="ic" style={{ background: "#F0F4FF", color: "#1727E0" }}><svg><use href="#a-data" /></svg></span>OnchainSuite Staking<em className="u-addr">Vault · Base</em><svg className="ok"><use href="#a-check" /></svg></div>
         <div className="u-link"><span className="ic" style={{ background: "#F0F4FF", color: "#1727E0" }}><svg><use href="#a-aud" /></svg></span>Holders found<em data-holders>746</em></div>
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end" }}><span className="u-btn p">Continue</span></div>

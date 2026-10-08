@@ -716,19 +716,15 @@ export default function SiteHeader() {
         <Link
           href="/"
           onClick={closeAll}
+          aria-label="OnchainSuite home"
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 9,
             flex: "none",
           }}
         >
-          <OnchainLogo size={26} gradientId="ocsLogoNav" />
-          <span
-            style={{ fontWeight: 700, fontSize: 16, letterSpacing: "-.01em" }}
-          >
-            OnchainSuite
-          </span>
+          {/* Our own logo mark (no wordmark), sized up for presence. */}
+          <OnchainLogo size={40} gradientId="ocsLogoNav" />
         </Link>
 
         {/* desktop links */}

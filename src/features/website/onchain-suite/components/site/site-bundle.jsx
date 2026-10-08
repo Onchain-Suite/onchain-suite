@@ -1046,10 +1046,12 @@ function NavLogo() {
       <img className="logo-light" src={LOGO_IMG_LIGHT} alt="" aria-hidden="true" width={89} height={28} />
     </Link>;
 }
-function SiteChrome({ children }) {
+// headerless: skip the bundle's own navbar so a host can supply its own
+// (NsShell renders the real <SiteHeader/> above this chrome).
+function SiteChrome({ children, headerless = false }) {
   return <div className="ns">
       <Sprite />
-      <header className="nav" id="nav">
+      {headerless ? null : <header className="nav" id="nav">
         <div className="nav-in">
           <NavLogo />
           <NavMenu />
@@ -1059,7 +1061,7 @@ function SiteChrome({ children }) {
             <MobileMenu links={NAV_LINKS} />
           </div>
         </div>
-      </header>
+      </header>}
       <main>{children}</main>
       <footer className="dark" data-dark>
         <div className="wrap" style={{ border: 0 }}>
@@ -1210,7 +1212,7 @@ function HomeBody() {
   </section>
 
   <div className="logos" aria-label="Paying customers">
-    <div className="rv"><img src="/site/logos/predict-street.png" alt="" />Predict Street</div><div className="rv"><img src="/site/logos/yauga.jpg" alt="" />Yauga</div><div className="rv"><img src="/site/logos/rehitage.svg" alt="" />Rehitage</div><div className="rv"><img src="/site/logos/surgence.jpg" alt="" />Surgence Labs</div>
+    <a className="rv" href="https://adipredictstreet.com/" target="_blank" rel="noreferrer" aria-label="Predict Street"><img src="/site/logos/predict-street.png" alt="" />Predict Street</a><a className="rv" href="https://www.yauga.com/" target="_blank" rel="noreferrer" aria-label="Yauga"><img src="/site/logos/yauga.jpg" alt="" />Yauga</a><a className="rv" href="https://rehitagestays.co.uk/" target="_blank" rel="noreferrer" aria-label="Rehitage"><img src="/site/logos/rehitage.svg" alt="" />Rehitage</a><a className="rv" href="https://surgence.io/" target="_blank" rel="noreferrer" aria-label="Surgence Labs"><img src="/site/logos/surgence.jpg" alt="" />Surgence Labs</a>
   </div>
 
   <section className="state" id="platform" aria-labelledby="platform-h">
@@ -1511,8 +1513,8 @@ function HomeBody() {
           <li className="rv"><b>REST API</b><span>Send custom events to start Loops and read results back.</span></li>
           <li className="rv"><b>Intelligence MCP</b><span>Question your app and contract data from the tools your team already uses.</span></li>
         </ul><p className="bridge rv dk"><a href="#stmt-h">We built it this way for one reason.<span aria-hidden="true">↓</span></a></p></div>
-      <div><div className="code" data-scene="code"><div className="code-h"><b>app.ts</b><span>npm i @onchainsuite/web</span></div>
-<pre><span className="ln"><span className="k">import</span> {"{"} OnchainSuite {"}"} <span className="k">from</span> <span className="s">'@onchainsuite/web'</span>;</span><span className="ln">&nbsp;</span><span className="ln"><span className="k">const</span> os = OnchainSuite.init({"{"} key: <span className="s">'pk_live_…'</span> {"}"});</span><span className="ln">&nbsp;</span><span className="ln"><span className="c">// Tell us which wallet is connected.</span></span><span className="ln">os.identify({"{"} wallet: address {"}"});</span><span className="ln">&nbsp;</span><span className="ln"><span className="c">// Wallet addresses only. identify() rejects email,</span></span><span className="ln"><span className="c">// so you never hold the wallet-to-person mapping.</span></span></pre></div></div>
+      <div><div className="code" data-scene="code"><div className="code-h"><b>app.ts</b><span>npm i @onchainsuite/sdk</span></div>
+<pre><span className="ln"><span className="k">import</span> {"{"} OnchainSuite {"}"} <span className="k">from</span> <span className="s">'@onchainsuite/sdk'</span>;</span><span className="ln">&nbsp;</span><span className="ln"><span className="k">const</span> ocs = OnchainSuite.init({"{"} project: <span className="s">'pk_live_…'</span> {"}"});</span><span className="ln">&nbsp;</span><span className="ln"><span className="c">// Reaches 100% of connected wallets, no extra identifier.</span></span><span className="ln">ocs.connect(wallet.address);</span><span className="ln">&nbsp;</span><span className="ln"><span className="c">// Fire an in-app push the moment a wallet acts.</span></span><span className="ln"><span className="k">await</span> ocs.push({"{"} wallet, title: <span className="s">'Your stake dropped'</span> {"}"});</span></pre></div></div>
     </section>
   </div>
 </div>
@@ -1921,21 +1923,21 @@ function CompareTable() {
 
 // components/ns/Blocks.jsx
 var CUSTOMERS = [
-  { name: "Predict Street", logo: "/site/logos/predict-street.png" },
-  { name: "Yauga", logo: "/site/logos/yauga.jpg" },
-  { name: "Rehitage", logo: "/site/logos/rehitage.svg" },
-  { name: "Surgence Labs", logo: "/site/logos/surgence.jpg" }
+  { name: "Predict Street", logo: "/site/logos/predict-street.png", href: "https://adipredictstreet.com/" },
+  { name: "Yauga", logo: "/site/logos/yauga.jpg", href: "https://www.yauga.com/" },
+  { name: "Rehitage", logo: "/site/logos/rehitage.svg", href: "https://rehitagestays.co.uk/" },
+  { name: "Surgence Labs", logo: "/site/logos/surgence.jpg", href: "https://surgence.io/" }
 ];
 function LogoRow({ label }) {
   return <div className="logorow">
       {label && <p className="logorow-l">{label}</p>}
       <div className="logos" aria-label="Paying customers">
-        {CUSTOMERS.map((c) => <div key={c.name} className="rv">
+        {CUSTOMERS.map((c) => <a key={c.name} className="rv" href={c.href} target="_blank" rel="noreferrer" aria-label={c.name}>
             {
     /* eslint-disable-next-line @next/next/no-img-element */
   }
-            <img src={c.logo} alt="" width={28} height={28} />{c.name}
-          </div>)}
+            <img src={c.logo} alt="" width={48} height={48} />{c.name}
+          </a>)}
       </div>
     </div>;
 }

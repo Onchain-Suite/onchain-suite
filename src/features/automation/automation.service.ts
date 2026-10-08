@@ -908,6 +908,24 @@ export const automationService = {
     );
   },
 
+  /** Per-message delivery counts (sent/delivered/opened/clicked) keyed by node. */
+  getMessageStats(automationId: string, orgId?: string) {
+    return request<{
+      messages: {
+        nodeId: string;
+        sent: number;
+        delivered: number;
+        opened: number;
+        clicked: number;
+        bounced: number;
+        failed: number;
+      }[];
+    }>(
+      { method: "GET", url: `/automations/${automationId}/stats/messages` },
+      orgId
+    );
+  },
+
   getStatsPreview(automationId: string, orgId?: string) {
     return request<Record<string, unknown>>(
       { method: "GET", url: `/automations/${automationId}/stats/preview` },

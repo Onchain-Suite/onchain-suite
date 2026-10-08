@@ -1206,6 +1206,18 @@ const CreateAutomationContent = () => {
     refetchOnWindowFocus: false,
   });
 
+  const statsMessagesQuery = useQuery({
+    queryKey: ["automations", automationId, "stats", "messages"],
+    queryFn: () => automationService.getMessageStats(automationId),
+    enabled:
+      !isNew &&
+      activeTab === "stats" &&
+      typeof automationId === "string" &&
+      automationId.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
   const statsRevenueQuery = useQuery({
     queryKey: ["automations", automationId, "stats", "revenue"],
     queryFn: () => automationService.getStatsRevenue(automationId),
@@ -1307,8 +1319,9 @@ const CreateAutomationContent = () => {
     return mapped;
   }, [statsEntriesQuery.data]);
 
-  // "Messages in this flow" is derived from the flow's send steps. Per-message
-  // delivery counts have no backend endpoint yet, so metrics render as "-".
+  // "Messages in this flow" is the flow's send steps, each joined to its
+  // per-message delivery counts from the backend (keyed by node id). A node with
+  // no counts yet carries nulls, which the table renders as "-".
   const messageRows = useMemo(() => {
     const sendTypes = new Set([
       "send_email",
@@ -1317,6 +1330,25 @@ const CreateAutomationContent = () => {
       "inapp",
       "dispatch_campaign",
     ]);
+    const counts = new Map<
+      string,
+      { sent: number; delivered: number; opened: number; clicked: number }
+    >();
+    const raw = (statsMessagesQuery.data as { messages?: unknown } | undefined)
+      ?.messages;
+    if (Array.isArray(raw)) {
+      for (const m of raw) {
+        if (!isJsonObject(m)) continue;
+        const nodeId = asString((m as Record<string, unknown>).nodeId);
+        if (!nodeId) continue;
+        counts.set(nodeId, {
+          sent: asNumber((m as Record<string, unknown>).sent),
+          delivered: asNumber((m as Record<string, unknown>).delivered),
+          opened: asNumber((m as Record<string, unknown>).opened),
+          clicked: asNumber((m as Record<string, unknown>).clicked),
+        });
+      }
+    }
     return nodes
       .filter((n) => typeof n.type === "string" && sendTypes.has(n.type))
       .map((n) => {
@@ -1334,9 +1366,16 @@ const CreateAutomationContent = () => {
           asString(data.title) ||
           asString(data.label) ||
           channel;
-        return { id: n.id, title, channel };
+        return { id: n.id, title, channel, counts: counts.get(n.id) ?? null };
       });
-  }, [nodes]);
+  }, [nodes, statsMessagesQuery.data]);
+
+  // In-app read receipts are not wired yet, so only email sends get real
+  // delivered/opened/clicked numbers; the note stays while any counts are absent.
+  const hasMessageCounts = useMemo(
+    () => messageRows.some((row) => row.counts !== null),
+    [messageRows]
+  );
 
   const isStatsLoading =
     !isNew &&
@@ -4803,14 +4842,18 @@ const CreateAutomationContent = () => {
                                 </p>
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-right tabular-nums text-muted-foreground">
-                              -
+                            <td className="px-6 py-4 text-right tabular-nums text-foreground">
+                              {m.counts ? m.counts.sent.toLocaleString() : "-"}
                             </td>
-                            <td className="px-6 py-4 text-right tabular-nums text-muted-foreground">
-                              -
+                            <td className="px-6 py-4 text-right tabular-nums text-foreground">
+                              {m.counts
+                                ? m.counts.opened.toLocaleString()
+                                : "-"}
                             </td>
-                            <td className="px-6 py-4 text-right tabular-nums text-muted-foreground">
-                              -
+                            <td className="px-6 py-4 text-right tabular-nums text-foreground">
+                              {m.counts
+                                ? m.counts.clicked.toLocaleString()
+                                : "-"}
                             </td>
                           </tr>
                         ))
@@ -4829,8 +4872,9 @@ const CreateAutomationContent = () => {
                 </div>
                 <div className="border-t border-border/50 px-6 py-3 text-xs leading-relaxed text-muted-foreground">
                   Each message is measured against the wallets that reached it.
-                  Per-message delivery counts populate once the backend exposes
-                  them.
+                  {hasMessageCounts
+                    ? " Opens and clicks are counted once per recipient; in-app read receipts aren't tracked yet."
+                    : " Per-message delivery counts appear here once a message has sent."}
                 </div>
               </div>
               {isStatsLoading &&

@@ -214,6 +214,10 @@ const CHAIN_LABELS: Record<string, string> = {
   eth: "Ethereum",
   ethereum: "Ethereum",
   mainnet: "Ethereum",
+  // The coarse family label for a 0x wallet whose specific chain isn't known.
+  // Kept as "EVM" (not title-cased to "Evm") and given the Ethereum mark below,
+  // so an EVM contact shows a logo rather than the bare text "EVM".
+  evm: "EVM",
   base: "Base",
   arb: "Arbitrum",
   arbitrum: "Arbitrum",
@@ -447,6 +451,9 @@ const CHAIN_VISUALS: Record<string, { abbr: string; color: string }> = {
   avalanche: { abbr: "AVAX", color: "#E84142" },
   sol: { abbr: "SOL", color: "#14F195" },
   solana: { abbr: "SOL", color: "#14F195" },
+  // The EVM family shows the Ethereum mark (the universal EVM symbol); ETH blue
+  // and an "ETH" ticker are the fallback when the logo can't load.
+  evm: { abbr: "ETH", color: "#627EEA" },
   // ADI is a first-class chain here (adi-mainnet / adi-testnet). Without an entry
   // it fell through to a hashed hue and, worse, an ADI wallet enriched as
   // eth-mainnet borrowed the ETH chip entirely. The real logo layers on
@@ -475,6 +482,8 @@ const CLOUDINARY = "https://res.cloudinary.com/dwnkqkx8q/image/upload";
 // labels lowercase cleanly; only the few with spaces/odd casing are overridden.
 const CHAIN_CLOUDINARY_SLUG: Record<string, string> = {
   "BNB Chain": "bnb",
+  // The EVM family borrows the Ethereum logo (the universal EVM symbol).
+  EVM: "ethereum",
 };
 
 function chainCloudinarySlug(label: string): string {
@@ -487,6 +496,7 @@ function chainCloudinarySlug(label: string): string {
 // DefiLlama chain-icon slug, for the popular chains it covers.
 const CHAIN_LLAMA_SLUG: Record<string, string> = {
   Ethereum: "ethereum",
+  EVM: "ethereum",
   Base: "base",
   Arbitrum: "arbitrum",
   Optimism: "optimism",

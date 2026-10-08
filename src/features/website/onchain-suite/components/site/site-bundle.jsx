@@ -982,59 +982,33 @@ var NAV_LINKS = [
   { href: "/pricing", label: "Pricing" }
 ];
 var DOC = "https://docs.onchainsuite.com";
+// Reference-site footer: four single-group columns (Platform / Resources /
+// Company / Legal). Kept in sync with the live redesign footer.
 var FOOT = [
   [
     { title: "Platform", items: [
       { label: "Audience", href: "/platform/audience" },
       { label: "Segments", href: "/platform/segments" },
       { label: "Loops", href: "/platform/loops" },
-      { label: "Intelligence MCP", href: "/platform/intelligence-mcp", tag: "New" },
+      { label: "Intelligence MCP", href: "/platform/intelligence-mcp" },
       { label: "How we use data", href: "/platform/data" },
       { label: "Pricing", href: "/pricing" }
-    ] },
-    { title: "Company", items: [
-      { label: "Team", href: "/team" },
-      { label: "Our hypothesis", href: "/hypothesis" },
-      { label: "Refer a team", href: "/refer", tag: "New" }
-    ] }
-  ],
-  [
-    { title: "OnchainSuite for", items: [
-      { label: "Blockchain companies", href: "/for/blockchain-companies" },
-      { label: "Mainstream companies", href: "/for/mainstream-companies" }
-    ] },
-    { title: "Switching from", items: [
-      { label: "Klaviyo", href: "/compare/klaviyo" },
-      { label: "Customer.io", href: "/compare/customer-io" },
-      { label: "Braze", href: "/compare/braze" },
-      { label: "Brevo", href: "/compare/brevo" },
-      { label: "SendGrid", href: "/compare/sendgrid" },
-      { label: "Dotdigital", href: "/compare/dotdigital" },
-      { label: "EmailOctopus", href: "/compare/emailoctopus" }
-    ] }
-  ],
-  [
-    { title: "Integrations", items: [
-      { label: "In-app SDK", href: `${DOC}/integrations/in-app-notifications` },
-      { label: "Mobile push", href: `${DOC}/integrations/in-app-notifications` },
-      { label: "Server API", href: `${DOC}/integrations/server-api` },
-      { label: "Webhooks", href: `${DOC}/api/webhooks` },
-      { label: "Custom events", href: `${DOC}/integrations/custom-events` },
-      { label: "Forms", href: `${DOC}/integrations/forms` },
-      { label: "Wallet and contract data", href: `${DOC}/integrations/wallet-and-contract-data` },
-      { label: "CSV and JSON import", href: `${DOC}/audience/imports-and-exports` }
     ] }
   ],
   [
     { title: "Resources", items: [
       { label: "Compare", href: "/compare" },
       { label: "Free tools", href: "/tools" },
-      { label: "Docs", href: DOC },
-      { label: "Help centre", href: `${DOC}/help/faq` },
-      { label: "Troubleshooting", href: `${DOC}/help/troubleshooting` },
-      { label: "Hire an expert", href: "/pricing#cmp-h" },
-      { label: "Trust centre", href: "/platform/data" }
-    ] },
+      { label: "Docs", href: DOC }
+    ] }
+  ],
+  [
+    { title: "Company", items: [
+      { label: "Team", href: "/team" },
+      { label: "Book a walkthrough", href: "/early-access" }
+    ] }
+  ],
+  [
     { title: "Legal", items: [
       { label: "Terms", href: "/terms" },
       { label: "Privacy", href: "/privacy" },

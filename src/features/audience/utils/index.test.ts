@@ -169,6 +169,20 @@ describe("chain labels", () => {
     ]);
   });
 
+  it("gives the EVM family the Ethereum mark instead of a bare 'EVM' text chip", () => {
+    // A 0x contact's coarse family label is "EVM"; it should render the ETH logo
+    // (the universal EVM symbol), not the word "EVM".
+    expect(chainVisual("EVM")).toEqual({
+      label: "EVM",
+      abbr: "ETH",
+      color: "#627EEA",
+      logoUrls: [
+        "https://res.cloudinary.com/dwnkqkx8q/image/upload/onchain/chains/ethereum.svg",
+        "https://icons.llamao.fi/icons/chains/rsz_ethereum",
+      ],
+    });
+  });
+
   it("covers the whole Alchemy set — a non-DefiLlama chain still gets a Cloudinary URL", () => {
     // ADI ships a locally-bundled SVG, tried FIRST (zero external dependency),
     // then the Cloudinary source. Celo has no local logo, so Cloudinary-only —

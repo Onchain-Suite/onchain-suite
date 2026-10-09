@@ -1,18 +1,18 @@
 "use client";
 
 import {
-  AudioWaveformIcon,
+  BoltIcon,
   BookOpenIcon,
-  ChartColumnIcon,
-  CommandIcon,
+  ChartBarIcon,
+  Cog6ToothIcon,
+  CommandLineIcon,
   CreditCardIcon,
-  LayoutGridIcon,
-  LifeBuoyIcon,
-  SettingsIcon,
-  TriangleIcon,
+  LifebuoyIcon,
+  PlayIcon,
+  SignalIcon,
+  Squares2X2Icon,
   UsersIcon,
-  ZapIcon,
-} from "lucide-react";
+} from "@heroicons/react/24/outline";
 import type * as React from "react";
 
 import { useCommandPalette } from "@/components/common/command-palette";
@@ -36,12 +36,12 @@ import { TeamSwitcher } from "./team-switcher";
 // pathname on their own (see `isNavActive`).
 const data = {
   teams: [
-    { name: "Vercel", logo: TriangleIcon, plan: "Enterprise" },
-    { name: "OnchainSuite", logo: AudioWaveformIcon, plan: "Startup" },
-    { name: "Evil Corp.", logo: CommandIcon, plan: "Free" },
+    { name: "Vercel", logo: PlayIcon, plan: "Enterprise" },
+    { name: "OnchainSuite", logo: SignalIcon, plan: "Startup" },
+    { name: "Evil Corp.", logo: CommandLineIcon, plan: "Free" },
   ],
   navMain: [
-    { title: "Overview", url: "#", icon: LayoutGridIcon, isActive: true },
+    { title: "Overview", url: "#", icon: Squares2X2Icon, isActive: true },
     {
       title: "Customers",
       url: "#",
@@ -65,14 +65,14 @@ const data = {
     {
       title: "Revenue",
       url: "#",
-      icon: ChartColumnIcon,
+      icon: ChartBarIcon,
       badge: "dot",
     },
-    { title: "Automation", url: "#", icon: ZapIcon },
-    { title: "Support", url: "#", icon: LifeBuoyIcon },
+    { title: "Automation", url: "#", icon: BoltIcon },
+    { title: "Support", url: "#", icon: LifebuoyIcon },
   ] satisfies NavItem[],
   navSecondary: [
-    { title: "Settings", url: "#", icon: SettingsIcon },
+    { title: "Settings", url: "#", icon: Cog6ToothIcon },
     { title: "Invite Team", url: "#", icon: UsersIcon },
     { title: "Documentation", url: "#", icon: BookOpenIcon },
   ] satisfies NavItem[],

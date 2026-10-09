@@ -53,7 +53,7 @@ var ACCENT = "#1727E0";
 var ACCENT_HOVER = "#1320B8";
 var OK = "#2BC48A";
 var SITE_URL = "https://www.onchainsuite.com";
-var DOCS_URL = "https://onchainsuite-9506e41f.mintlify.app";
+var DOCS_URL = "https://docs.onchainsuite.com";
 var APP_URL = "https://app.onchainsuite.com";
 var CAL_LINK = "onchainsuite/15min";
 var CAL_URL = `https://cal.com/${CAL_LINK}`;
@@ -986,7 +986,7 @@ var NAV_LINKS = [
   { href: DOCS_URL, label: "Developers" },
   { href: "/pricing", label: "Pricing" }
 ];
-var DOC = "https://onchainsuite-9506e41f.mintlify.app";
+var DOC = "https://docs.onchainsuite.com";
 // Reference-site footer: four single-group columns (Platform / Resources /
 // Company / Legal). Kept in sync with the live redesign footer.
 var FOOT = [

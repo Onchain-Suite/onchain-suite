@@ -162,26 +162,36 @@ export function FlowSettingsPanel({
     onChange({ ...value, goal: { event: e, windowDays } });
   };
 
-  // Retractable: the header toggles the body so the panel can fold away and
-  // leave the canvas more room. Defaults open.
+  // Collapsible: on desktop (no override className) the whole column narrows to
+  // a thin rail when collapsed, so the ReactFlow canvas reclaims the ~290px.
+  // Defaults open. On mobile (className passed) it just folds the body away.
   const [collapsed, setCollapsed] = useState(false);
+  const railed = collapsed && className === undefined;
 
   return (
     <div
       className={
         className ??
-        "hidden w-[344px] shrink-0 overflow-y-auto rounded-xl border border-border bg-card p-6 md:block"
+        `hidden shrink-0 overflow-y-auto rounded-xl border border-border bg-card transition-[width,padding] duration-200 md:block ${
+          collapsed ? "w-12 p-2" : "w-[344px] p-6"
+        }`
       }
     >
       <button
         type="button"
         onClick={() => setCollapsed((c) => !c)}
         aria-expanded={!collapsed}
-        className="flex w-full items-center justify-between gap-3 text-left"
+        aria-label={collapsed ? "Expand flow settings" : undefined}
+        title={railed ? "Flow settings" : undefined}
+        className={`flex w-full items-center gap-3 text-left ${
+          railed ? "justify-center" : "justify-between"
+        }`}
       >
-        <h3 className="font-semibold tracking-tight text-foreground">
-          Flow settings
-        </h3>
+        {railed ? null : (
+          <h3 className="font-semibold tracking-tight text-foreground">
+            Flow settings
+          </h3>
+        )}
         <ChevronDownIcon
           aria-hidden="true"
           className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${

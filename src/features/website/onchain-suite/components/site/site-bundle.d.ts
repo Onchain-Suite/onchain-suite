@@ -8,10 +8,24 @@ import type { FC, ReactNode } from "react";
 export const Home: FC;
 export const HomeBody: FC;
 export const HomeMotion: FC;
-export const SiteChrome: FC<{ children?: ReactNode; headerless?: boolean }>;
+export const SiteChrome: FC<{ children?: ReactNode }>;
 export const PricingPage: FC;
 export const PricingBody: FC;
 export const CompareHub: FC;
 export const ComparePage: FC<{ params: { slug: string } }>;
+// Platform pages: each is a full ProductPage that brings its own SiteChrome.
+export const AudiencePage: FC;
+export const SegmentsPage: FC;
+export const LoopsPage: FC;
+export const McpPage: FC;
+export const DataPage: FC;
+// Legal pages: each is a full LegalShell that brings its own SiteChrome.
+export const LegalPage: FC;
+export const PrivacyPage: FC;
+export const TermsPage: FC;
+export const DpaPage: FC;
+export const CookiesPage: FC;
+export const SubprocessorsPage: FC;
+export const DataTransfersPage: FC;
 declare const App: FC;
 export default App;

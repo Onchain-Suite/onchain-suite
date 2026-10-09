@@ -34,7 +34,9 @@
    one dark run in the middle, column footer. Single committed look, colours set explicitly. */
 &{
   color-scheme: light;
-  --bg:#FFFFFF; --ink:#1C1D1F; --grey:#75777C; --soft:#5E6168; --line:#E9E9EC; --panel:#F3F6FC; --hover:#EDF2FC;
+  /* Text is brand Midnight navy, not near-black (brand.md): ink for strong
+     text/headlines, navy-tinted greys for secondary text. */
+  --bg:#FFFFFF; --ink:#010F31; --grey:#5E6B85; --soft:#3C486A; --line:#E6EAF2; --panel:#F3F6FC; --hover:#EDF2FC;
   /* Brand palette (brand.md): Electric Blue primary, Midnight dark surfaces,
      Cloud soft wash, Sky secondary highlight, Accent Orange sparingly. */
   --btn:#1727E0; --btn-hover:#0F1CC0; --accent:#1727E0; --accent-soft:#E9F1FF;
@@ -47,7 +49,9 @@
    de-nest to `.ns .ns` and never match the single root), so the page carries its
    own opaque light background + ink text and does not inherit the app's dark
    `html.dark` body. min-height fills the viewport when content is short. */
-&{ background:var(--bg); color:var(--ink); margin:0; min-height:100vh; font:400 16px/1.55 var(--sans); font-optical-sizing:auto; -webkit-font-smoothing:antialiased; }
+/* Brand Cloud -> Sky wash at the top of the page so the hero reads brand, not
+   flat white, then settles to white (brand.md: Cloud for soft backgrounds). */
+&{ background:var(--bg); background-image:linear-gradient(180deg, var(--cloud) 0%, color-mix(in oklab, var(--sky) 10%, var(--cloud)) 18%, var(--bg) 62%); background-repeat:no-repeat; background-size:100% 820px; color:var(--ink); margin:0; min-height:100vh; font:400 16px/1.55 var(--sans); font-optical-sizing:auto; -webkit-font-smoothing:antialiased; }
 *,*::before,*::after{ box-sizing:border-box; }
 a{ color:inherit; text-decoration:none; }
 button{ font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; }
@@ -65,11 +69,6 @@ img{ max-width:100%; display:block; }
 .logo{ display:flex; align-items:center; gap:8px; font-weight:600; font-size:17.5px; letter-spacing:-.02em; }
 /* Navbar real-logo image: swap the coloured-dark lockup for the white one when
    the nav sits over a dark section (.nav.is-dark). */
-.nav .logo-img{ gap:0; }
-.nav .logo-img img{ height:26px; width:auto; display:block; }
-.nav .logo-img .logo-light{ display:none; }
-.nav.is-dark .logo-img .logo-dark{ display:none; }
-.nav.is-dark .logo-img .logo-light{ display:block; }
 .logo .mark{ width:13px; height:20px; }
 .links{ display:flex; gap:24px; font-size:14px; font-weight:500; color:#3B3D42; }
 .links a{ display:flex; align-items:center; gap:4px; } .links a:hover{ color:var(--ink); }
@@ -459,7 +458,9 @@ footer.dark{ padding:72px 0 0; }
 .u-node .ic{ width:24px; height:24px; border-radius:3px; display:grid; place-items:center; flex:none; } .u-node .ic svg{ width:13px; height:13px; }
 .u-conn{ width:1px; height:22px; background:#C4C7CC; transform-origin:top; }
 .u-exit{ font-size:11px; color:var(--u-3); border:1px dashed #C4C7CC; border-radius:3px; padding:3px 9px; background:#fff; position:relative; z-index:1; }
-.u-token{ position:absolute; left:50%; top:0; width:10px; height:10px; margin-left:-5px; border-radius:50%; background:var(--u-blue); box-shadow:0 0 0 4px rgba(23,39,224,.18); opacity:0; z-index:2; }
+/* z-index:0 so the travelling dot runs BEHIND the trigger/action nodes
+   (which are z-index:1), not over them. */
+.u-token{ position:absolute; left:50%; top:0; width:10px; height:10px; margin-left:-5px; border-radius:50%; background:var(--u-blue); box-shadow:0 0 0 4px rgba(23,39,224,.18); opacity:0; z-index:0; }
 
 /* lifecycle */
 .u-life{ padding:14px 16px; }

@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
 
-import { LEGAL_DOCS } from "@/onchain-suite-website/components/landing/v2/legal-content";
-import { LegalDocPage } from "@/onchain-suite-website/components/landing/v2/legal-doc-page";
+import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standalone";
+import { TermsPage } from "@/onchain-suite-website/components/site/site-bundle";
 
 export const metadata: Metadata = {
   title: "Terms of Service · OnchainSuite",
-  description: LEGAL_DOCS.terms.subtitle,
+  description:
+    "The agreement for access to and use of the OnchainSuite platform.",
 };
 
 export default function Page() {
-  return <LegalDocPage doc={LEGAL_DOCS.terms} />;
+  return (
+    <NsStandalone>
+      <TermsPage />
+    </NsStandalone>
+  );
 }

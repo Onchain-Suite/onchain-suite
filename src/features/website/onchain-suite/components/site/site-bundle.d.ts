@@ -27,5 +27,14 @@ export const DpaPage: FC;
 export const CookiesPage: FC;
 export const SubprocessorsPage: FC;
 export const DataTransfersPage: FC;
+// Team + Free tools pages (each brings its own SiteChrome).
+export const TeamPage: FC;
+export const ToolsHub: FC;
+export const CpaPage: FC;
+export const ChurnCalculatorPage: FC;
+export const DormantPage: FC;
+export const LtvCalculatorPage: FC;
+export const WalletChurnRatePage: FC;
+export const ReachabilityPage: FC;
 declare const App: FC;
 export default App;

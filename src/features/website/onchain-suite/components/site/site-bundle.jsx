@@ -53,7 +53,7 @@ var ACCENT = "#1727E0";
 var ACCENT_HOVER = "#1320B8";
 var OK = "#2BC48A";
 var SITE_URL = "https://www.onchainsuite.com";
-var DOCS_URL = "https://docs.onchainsuite.com";
+var DOCS_URL = "https://onchainsuite-9506e41f.mintlify.app";
 var APP_URL = "https://app.onchainsuite.com";
 var CAL_LINK = "onchainsuite/15min";
 var CAL_URL = `https://cal.com/${CAL_LINK}`;
@@ -986,7 +986,7 @@ var NAV_LINKS = [
   { href: DOCS_URL, label: "Developers" },
   { href: "/pricing", label: "Pricing" }
 ];
-var DOC = "https://docs.onchainsuite.com";
+var DOC = "https://onchainsuite-9506e41f.mintlify.app";
 // Reference-site footer: four single-group columns (Platform / Resources /
 // Company / Legal). Kept in sync with the live redesign footer.
 var FOOT = [
@@ -1042,7 +1042,7 @@ function SiteChrome({ children }) {
           <Logo />
           <NavMenu />
           <div className="acts">
-            <a className="btn" href={APP_URL}>Sign in</a>
+            <Link className="btn" href="/auth/signin">Sign in</Link>
             <Link className="btn solid" href="/early-access">Book a walkthrough</Link>
             <MobileMenu links={NAV_LINKS} />
           </div>
@@ -5772,4 +5772,12 @@ export {
   CookiesPage,
   SubprocessorsPage,
   DataTransfersPage,
+  TeamPage,
+  ToolsHub,
+  CpaPage,
+  ChurnCalculatorPage,
+  DormantPage,
+  LtvCalculatorPage,
+  WalletChurnRatePage,
+  ReachabilityPage,
 };

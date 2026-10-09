@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
 
-import { ToolsIndexPage } from "@/onchain-suite-website/components/landing/v2/tools-index-page";
+import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standalone";
+import { ToolsHub } from "@/onchain-suite-website/components/site/site-bundle";
 
 export const metadata: Metadata = {
   title: "Free tools · OnchainSuite",
   description:
-    "Free on-chain growth calculators: cost per acquisition, dormant wallet reactivation, wallet reachability and churn. No signup, no email gate, every formula on the page.",
+    "Free calculators for churn, wallet reachability, lifetime value and acquisition cost. No signup, no email gate - every tool runs in your browser.",
 };
 
 export default function Page() {
-  return <ToolsIndexPage />;
+  return (
+    <NsStandalone>
+      <ToolsHub />
+    </NsStandalone>
+  );
 }

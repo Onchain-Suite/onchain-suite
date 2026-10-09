@@ -80,7 +80,7 @@ img{ max-width:100%; display:block; }
 .btn.solid:hover{ background:var(--btn-hover); }
 .btn.lg{ height:40px; padding:0 15px; font-size:15px; }
 .dark .btn{ background:transparent; border-color:#33363C; color:var(--dark-ink); } .dark .btn:hover{ background:#1C1E22; }
-.dark .btn.solid{ background:#F2F3F5; color:#111; border-color:#F2F3F5; }
+.dark .btn.solid{ background:var(--btn); color:#fff; border-color:var(--btn); } .dark .btn.solid:hover{ background:var(--btn-hover); border-color:var(--btn-hover); }
 
 /* type */
 .tag{ display:inline-flex; height:22px; align-items:center; padding:0 7px; border-radius:6px; background:var(--accent-soft); color:var(--accent); font-size:13px; font-weight:500; }
@@ -177,7 +177,10 @@ img{ max-width:100%; display:block; }
 /* dark run */
 /* Dark sections: Midnight base with a soft Sky→Electric brand glow (brand.md
    gradients) for premium depth instead of a flat near-black field. */
-.dark{ background:var(--dark); background-image:radial-gradient(120% 130% at 85% 0%, rgba(47,148,255,.16) 0%, rgba(23,39,224,.12) 24%, transparent 56%); color:var(--dark-ink); }
+/* Re-assert the brand --accent inside ns dark sections: the app's shadcn `.dark`
+   theme sets --accent to a dark slate, and that `.dark` class collides with our
+   dark-section `.dark`, so var(--accent) would otherwise go grey here. */
+.dark{ --accent:#1727E0; background:var(--dark); background-image:radial-gradient(120% 130% at 85% 0%, rgba(47,148,255,.16) 0%, rgba(23,39,224,.12) 24%, transparent 56%); color:var(--dark-ink); }
 .dk-sec{ border-top:1px solid var(--dark-line); }
 .concept{ padding:120px 0 0; text-align:center; overflow:hidden; }
 .giant{ margin:22px 0 0; font-weight:600; font-size:clamp(48px,8vw,96px); line-height:1; letter-spacing:-.024em; background:linear-gradient(180deg,#FFFFFF 30%, #9EA3B0); -webkit-background-clip:text; background-clip:text; color:transparent; }
@@ -208,7 +211,7 @@ img{ max-width:100%; display:block; }
 .push .ic{ grid-row:span 3; width:32px; height:32px; border-radius:9px; background:var(--accent); display:grid; place-items:center; }
 .push .ic .mark{ width:10px; height:15px; }
 .push b{ font-weight:600; font-size:14.5px; } .push span{ font-size:13px; color:var(--soft); }
-.push em{ justify-self:start; margin-top:6px; font-style:normal; font-weight:600; font-size:12.5px; color:#fff; background:var(--ink); padding:5px 10px; border-radius:7px; }
+.push em{ justify-self:start; margin-top:6px; font-style:normal; font-weight:600; font-size:12.5px; color:#fff; background:var(--accent); padding:5px 10px; border-radius:7px; }
 .vs{ font:500 11px var(--mono); color:#5D616A; text-align:center; letter-spacing:.06em; }
 .fine{ margin:24px 0 0; display:flex; gap:24px; flex-wrap:wrap; font-size:13.5px; color:var(--dark-grey); }
 .fine span{ display:flex; gap:8px; align-items:center; } .fine svg{ width:15px; height:15px; flex:none; }
@@ -308,10 +311,12 @@ footer.dark{ padding:72px 0 0; }
 /* nav switches to dark over dark sections */
 .nav{ transition:background-color .3s, border-color .3s; }
 .nav .links a,.nav .logo{ transition:color .3s; }
-.nav.is-dark{ background:rgba(12,13,15,.9); border-color:#24262B; }
-.nav.is-dark .logo,.nav.is-dark .links a{ color:#E9EAEE; }
-.nav.is-dark .btn{ background:transparent; border-color:#33363C; color:#E9EAEE; }
-.nav.is-dark .btn.solid{ background:#F2F3F5; color:#111; border-color:#F2F3F5; }
+/* Over dark sections the nav uses brand Midnight + a brand-blue CTA, not a
+   generic near-black bar with a white button. */
+.nav.is-dark{ background:color-mix(in oklab, var(--dark) 88%, transparent); border-color:var(--dark-line); }
+.nav.is-dark .logo,.nav.is-dark .links a{ color:var(--dark-ink); }
+.nav.is-dark .btn{ background:transparent; border-color:var(--dark-line); color:var(--dark-ink); }
+.nav.is-dark .btn.solid{ background:var(--btn); color:#fff; border-color:var(--btn); } .nav.is-dark .btn.solid:hover{ background:var(--btn-hover); border-color:var(--btn-hover); }
 
 /* entrance: blur to sharp */
 .rv-pre{ opacity:0; filter:blur(8px); transform:translateY(8px); }
@@ -433,7 +438,9 @@ footer.dark{ padding:72px 0 0; }
 .u-desc svg{ width:15px; height:15px; color:var(--u-blue); flex:none; } .u-desc .t{ flex:1; font-size:12.5px; }
 /* The Generate button sizes to its label and never shrinks, so it stays fitted
    as the "describe your audience" text types in. */
-.u-desc .u-btn{ flex:none; }
+/* Compact Generate button so it fits the describe-audience bar, not fill it. */
+.u-desc .u-btn{ flex:none; height:24px; padding:0 9px; font-size:11.5px; gap:5px; }
+.u-desc .u-btn svg{ width:12px; height:12px; }
 .u-rule{ display:grid; grid-template-columns:44px repeat(3,minmax(0,1fr)) 16px; gap:6px; align-items:center; padding:8px; background:#F5F6F7; border-radius:4px; font-size:12px; }
 .u-rule > span:first-child{ color:var(--u-2); font-size:11.5px; }
 .u-sel{ height:28px; border:1px solid var(--u-line); background:#fff; border-radius:4px; display:flex; align-items:center; padding:0 8px; justify-content:space-between; white-space:nowrap; overflow:hidden; }

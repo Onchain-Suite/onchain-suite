@@ -1416,11 +1416,11 @@ function HomeBody() {
         <div className="onb-p">Verify a sending domain for email, add the SDK for in-app, or do both.</div>
         <div className="onb-ch">
           <div className="onb-chh"><span className="ic"><svg><use href="#a-mail" /></svg></span><b>Email</b><span className="u-chip g"><i />Verified</span></div>
-          <div className="onb-dns"><span>SPF</span><svg className="ok"><use href="#a-check" /></svg><span>DKIM</span><svg className="ok"><use href="#a-check" /></svg><span>DMARC</span><svg className="ok"><use href="#a-check" /></svg><em className="u-addr">acme.xyz</em></div>
+          <div className="onb-dns"><span>SPF</span><svg className="ok"><use href="#a-check" /></svg><span>DKIM</span><svg className="ok"><use href="#a-check" /></svg><span>DMARC</span><svg className="ok"><use href="#a-check" /></svg><em className="u-addr">onchainsuite.xyz</em></div>
         </div>
         <div className="onb-ch">
           <div className="onb-chh"><span className="ic"><svg><use href="#a-phone" /></svg></span><b>In-app</b><span className="u-chip g"><i />Connected</span></div>
-          <div className="onb-dns"><em className="u-addr">app.acme.xyz</em><span>First wallet seen 2 minutes ago</span></div>
+          <div className="onb-dns"><em className="u-addr">app.onchainsuite.xyz</em><span>First wallet seen 2 minutes ago</span></div>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end" }}><span className="u-btn p">Send your first campaign</span></div>
       </div>

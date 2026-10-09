@@ -1,49 +1,61 @@
 import type { Metadata } from "next";
-import type { ComponentType } from "react";
+import { notFound } from "next/navigation";
+import type { FC } from "react";
 
-import { ComingSoonPage } from "@/onchain-suite-website/components/landing/v2/coming-soon-page";
-import { DormantWalletPage } from "@/onchain-suite-website/components/landing/v2/dormant-wallet-page";
-import { WalletChurnPage } from "@/onchain-suite-website/components/landing/v2/wallet-churn-page";
-import { WalletReachabilityPage } from "@/onchain-suite-website/components/landing/v2/wallet-reachability-page";
+import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standalone";
+import {
+  ChurnCalculatorPage,
+  DormantPage,
+  LtvCalculatorPage,
+  ReachabilityPage,
+  WalletChurnRatePage,
+} from "@/onchain-suite-website/components/site/site-bundle";
+
+export const dynamicParams = false;
 
 interface ToolDef {
   name: string;
   description: string;
-  Component: ComponentType;
+  Component: FC;
 }
 
-/** Live calculators keyed by slug. Cost per acquisition has its own route. */
+/** Free-tool calculators keyed by slug (cost-per-acquisition has its own route). */
 const TOOLS: Record<string, ToolDef> = {
+  "churn-calculator": {
+    name: "Wallet churn cost calculator",
+    description:
+      "What the wallets you lose each month cost you in revenue over a year.",
+    Component: ChurnCalculatorPage,
+  },
+  "ltv-calculator": {
+    name: "Wallet lifetime value calculator",
+    description:
+      "Lifetime value per wallet, and how much it rises when retention improves.",
+    Component: LtvCalculatorPage,
+  },
   "wallet-churn-rate": {
     name: "Wallet churn rate calculator",
     description:
-      "Churn measured on wallets, not accounts. Enter one period and see what it compounds to over a year, and how long a wallet lasts at that rate.",
-    Component: WalletChurnPage,
+      "One cohort over one period, then the compounding annual rate and the wallet lifespan it implies.",
+    Component: WalletChurnRatePage,
   },
   "wallet-reachability-score": {
     name: "Wallet reachability score",
     description:
-      "Score how much of your base is addressable today across email, wallet inbox, push and socials, weighted by how durable each channel really is.",
-    Component: WalletReachabilityPage,
+      "How much of your base you can message by email, in-app and socials, with each person counted once.",
+    Component: ReachabilityPage,
   },
   "dormant-wallet-reactivation": {
     name: "Dormant wallet reactivation calculator",
     description:
-      "Put a number on the revenue sitting in the wallets that stopped showing up, and see how much of it reachability is costing you.",
-    Component: DormantWalletPage,
+      "Put a number on the revenue sitting in the wallets that stopped showing up.",
+    Component: DormantPage,
   },
 };
 
 export function generateStaticParams() {
   return Object.keys(TOOLS).map((slug) => ({ slug }));
 }
-
-const nameFor = (slug: string) =>
-  TOOLS[slug]?.name ??
-  slug
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 
 export async function generateMetadata({
   params,
@@ -52,9 +64,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const tool = TOOLS[slug];
+  if (!tool) return { title: "Free tools · OnchainSuite" };
   return {
-    title: `${nameFor(slug)} · OnchainSuite`,
-    ...(tool ? { description: tool.description } : {}),
+    title: `${tool.name} · OnchainSuite`,
+    description: tool.description,
   };
 }
 
@@ -65,15 +78,11 @@ export default async function Page({
 }) {
   const { slug } = await params;
   const tool = TOOLS[slug];
-  if (tool) {
-    const { Component } = tool;
-    return <Component />;
-  }
+  if (!tool) notFound();
+  const { Component } = tool;
   return (
-    <ComingSoonPage
-      eyebrow="Free tools"
-      title={nameFor(slug)}
-      sub="This tool is on the way. In the meantime, try the cost-per-acquisition calculator or talk to us about your on-chain audience."
-    />
+    <NsStandalone>
+      <Component />
+    </NsStandalone>
   );
 }

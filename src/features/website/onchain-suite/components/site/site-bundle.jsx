@@ -1034,26 +1034,12 @@ function Logo({ dark = false }) {
       OnchainSuite
     </Link>;
 }
-// Navbar uses the real brand logo image (not the hand-built wordmark). Two
-// official variants swap by nav state: the coloured-dark lockup on the light
-// navbar, the light (white) lockup when the nav sits over a dark section
-// (.nav.is-dark). CSS in ns.css toggles which <img> shows.
-var LOGO_IMG_DARK = "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761095341/full_logo_horizontal_coloured_dark_kpiv6u.png";
-var LOGO_IMG_LIGHT = "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761095267/full_logo_horizontal_coloured_light_kl0irx.png";
-function NavLogo() {
-  return <Link className="logo logo-img" href="/" aria-label="OnchainSuite home">
-      <img className="logo-dark" src={LOGO_IMG_DARK} alt="OnchainSuite" width={89} height={28} />
-      <img className="logo-light" src={LOGO_IMG_LIGHT} alt="" aria-hidden="true" width={89} height={28} />
-    </Link>;
-}
-// headerless: skip the bundle's own navbar so a host can supply its own
-// (NsShell renders the real <SiteHeader/> above this chrome).
-function SiteChrome({ children, headerless = false }) {
+function SiteChrome({ children }) {
   return <div className="ns">
       <Sprite />
-      {headerless ? null : <header className="nav" id="nav">
+      <header className="nav" id="nav">
         <div className="nav-in">
-          <NavLogo />
+          <Logo />
           <NavMenu />
           <div className="acts">
             <a className="btn" href={APP_URL}>Sign in</a>
@@ -1061,7 +1047,7 @@ function SiteChrome({ children, headerless = false }) {
             <MobileMenu links={NAV_LINKS} />
           </div>
         </div>
-      </header>}
+      </header>
       <main>{children}</main>
       <footer className="dark" data-dark>
         <div className="wrap" style={{ border: 0 }}>
@@ -1430,11 +1416,11 @@ function HomeBody() {
         <div className="onb-p">Verify a sending domain for email, add the SDK for in-app, or do both.</div>
         <div className="onb-ch">
           <div className="onb-chh"><span className="ic"><svg><use href="#a-mail" /></svg></span><b>Email</b><span className="u-chip g"><i />Verified</span></div>
-          <div className="onb-dns"><span>SPF</span><svg className="ok"><use href="#a-check" /></svg><span>DKIM</span><svg className="ok"><use href="#a-check" /></svg><span>DMARC</span><svg className="ok"><use href="#a-check" /></svg><em className="u-addr">acme.xyz</em></div>
+          <div className="onb-dns"><span>SPF</span><svg className="ok"><use href="#a-check" /></svg><span>DKIM</span><svg className="ok"><use href="#a-check" /></svg><span>DMARC</span><svg className="ok"><use href="#a-check" /></svg><em className="u-addr">onchainsuite.xyz</em></div>
         </div>
         <div className="onb-ch">
           <div className="onb-chh"><span className="ic"><svg><use href="#a-phone" /></svg></span><b>In-app</b><span className="u-chip g"><i />Connected</span></div>
-          <div className="onb-dns"><em className="u-addr">app.acme.xyz</em><span>First wallet seen 2 minutes ago</span></div>
+          <div className="onb-dns"><em className="u-addr">app.onchainsuite.xyz</em><span>First wallet seen 2 minutes ago</span></div>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end" }}><span className="u-btn p">Send your first campaign</span></div>
       </div>
@@ -5774,4 +5760,16 @@ export {
   PricingBody,
   CompareHub,
   ComparePage,
+  AudiencePage,
+  SegmentsPage,
+  LoopsPage,
+  McpPage,
+  DataPage,
+  LegalPage,
+  PrivacyPage,
+  TermsPage,
+  DpaPage,
+  CookiesPage,
+  SubprocessorsPage,
+  DataTransfersPage,
 };

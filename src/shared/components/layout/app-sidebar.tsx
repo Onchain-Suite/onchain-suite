@@ -37,7 +37,7 @@ import { TeamSwitcher } from "./team-switcher";
 const data = {
   teams: [
     { name: "Vercel", logo: TriangleIcon, plan: "Enterprise" },
-    { name: "Acme Corp.", logo: AudioWaveformIcon, plan: "Startup" },
+    { name: "OnchainSuite", logo: AudioWaveformIcon, plan: "Startup" },
     { name: "Evil Corp.", logo: CommandIcon, plan: "Free" },
   ],
   navMain: [

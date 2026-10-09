@@ -8,7 +8,7 @@ import type { FC, ReactNode } from "react";
 export const Home: FC;
 export const HomeBody: FC;
 export const HomeMotion: FC;
-export const SiteChrome: FC<{ children?: ReactNode; headerless?: boolean }>;
+export const SiteChrome: FC<{ children?: ReactNode }>;
 export const PricingPage: FC;
 export const PricingBody: FC;
 export const CompareHub: FC;

@@ -1,7 +1,7 @@
 "use client";
 
+import { Bars3Icon } from "@heroicons/react/24/outline";
 import { cva, type VariantProps } from "class-variance-authority";
-import { PanelLeftIcon } from "lucide-react";
 import { Slot } from "radix-ui";
 import * as React from "react";
 
@@ -274,7 +274,7 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      <PanelLeftIcon />
+      <Bars3Icon />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   );

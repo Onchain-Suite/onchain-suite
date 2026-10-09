@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import type * as React from "react";
 

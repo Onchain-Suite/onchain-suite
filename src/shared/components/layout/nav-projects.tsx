@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  Folder,
-  Forward,
-  type LucideIcon,
-  MoreHorizontal,
-  Trash2,
-} from "lucide-react";
+  EllipsisHorizontalIcon,
+  FolderIcon,
+  ShareIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
+import type { ComponentType, SVGProps } from "react";
 
 import {
   DropdownMenu,
@@ -31,7 +31,7 @@ export function NavProjects({
   projects: {
     name: string;
     url: string;
-    icon: LucideIcon;
+    icon: ComponentType<SVGProps<SVGSVGElement>>;
   }[];
 }) {
   const { isMobile } = useSidebar();
@@ -51,7 +51,7 @@ export function NavProjects({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuAction showOnHover>
-                  <MoreHorizontal />
+                  <EllipsisHorizontalIcon />
                   <span className="sr-only">More</span>
                 </SidebarMenuAction>
               </DropdownMenuTrigger>
@@ -61,16 +61,16 @@ export function NavProjects({
                 align={isMobile ? "end" : "start"}
               >
                 <DropdownMenuItem>
-                  <Folder className="text-muted-foreground" />
+                  <FolderIcon className="text-muted-foreground" />
                   <span>View Project</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <Forward className="text-muted-foreground" />
+                  <ShareIcon className="text-muted-foreground" />
                   <span>Share Project</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
-                  <Trash2 className="text-muted-foreground" />
+                  <TrashIcon className="text-muted-foreground" />
                   <span>Delete Project</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -79,7 +79,7 @@ export function NavProjects({
         ))}
         <SidebarMenuItem>
           <SidebarMenuButton className="text-sidebar-foreground/70">
-            <MoreHorizontal className="text-sidebar-foreground/70" />
+            <EllipsisHorizontalIcon className="text-sidebar-foreground/70" />
             <span>More</span>
           </SidebarMenuButton>
         </SidebarMenuItem>

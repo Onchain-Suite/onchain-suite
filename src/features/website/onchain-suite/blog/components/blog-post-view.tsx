@@ -3,18 +3,19 @@ import Link from "next/link";
 
 import { formatPostDate, toIsoDate } from "../blog.format";
 import type { BlogPost } from "../blog.types";
+import { BlogShell } from "./blog-shell";
 import { BlogRichText } from "./rich-text";
-import { PageShell } from "@/onchain-suite-website/components/landing/v2/shared";
 
 /**
  * A single post. Server Component: the entire article, including the rich-text
- * body, is rendered on the server and ships zero JS of its own.
+ * body, is rendered on the server and ships zero JS of its own. `BlogShell`
+ * provides the ns chrome (navbar + footer).
  */
 export function BlogPostView({ post }: { post: BlogPost }) {
   const published = formatPostDate(post.publishedAt);
 
   return (
-    <PageShell>
+    <BlogShell>
       <article>
         <section className="relative overflow-hidden pb-8 pt-16 md:pt-20">
           <div className="grid-bg" />
@@ -114,6 +115,6 @@ export function BlogPostView({ post }: { post: BlogPost }) {
           </section>
         ) : null}
       </article>
-    </PageShell>
+    </BlogShell>
   );
 }

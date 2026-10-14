@@ -46,10 +46,17 @@ the reference uses.
   wires `--color-<key>` so marks, tooltips and legend stay in sync. The Sankey
   helpers (`FunnelNode` / `FlowNode`) are deferred to the step that first needs
   them (step 4, the org funnel).
-- [ ] **2. Tab shell + routing (FE).** Port the tabbed dashboard shell
-  (Overview / Conversions / Engagement / Retention, URL-addressable) FROM
-  `AnalyticsScreen.tsx` INTO `src/features/analytics/analytics-page.tsx` (+ route
-  segments). Apply decision 1. Keep every gated tab's honest empty state.
+- [x] **2. Tab shell + routing (FE).** Done: promoted Analytics to a top-level
+  `/analytics` route with URL-addressable tabs (`/analytics/<tab>`,
+  Overview / Conversions / Engagement / Retention). `analytics-dashboard.tsx`
+  owns the title + tab bar; the Overview tab renders the existing real analytics
+  (extracted from `AnalyticsPage` into a header-less `AnalyticsOverview`), the
+  other three are honest "in migration" empty states. `/analytics` redirects to
+  `/analytics/overview`, the old `/intelligence/analytics` redirects there too,
+  and `PRIVATE_ROUTES.ANALYTICS` points at `/analytics`. Tab constants live in a
+  server-safe `analytics-tabs.ts` (the route segment validates `[tab]` against
+  them - importing from the `"use client"` dashboard handed the server a
+  client-reference stub, caught in the dev-server compile check).
 - [ ] **3. Overview tab - cheap wins (FE where data exists).** Relayout the real
   KPI strip (already wired: `/dashboard/overview` + pooled open rate). "Messages
   by channel" / "Conversion rate": email-vs-in-app volume from

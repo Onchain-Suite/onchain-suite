@@ -185,7 +185,7 @@ const seriesPoints = (
     .join(" ");
 };
 
-export function AnalyticsPage() {
+export function AnalyticsOverview() {
   const overviewQuery = useQuery({
     queryKey: ["analytics", "dashboard", "overview"],
     queryFn: () => analyticsService.getDashboardOverview(),
@@ -228,10 +228,9 @@ export function AnalyticsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6">
-      {/* Header */}
+    <div className="space-y-6">
+      {/* Overview controls (the title + tab bar are owned by the dashboard). */}
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold text-foreground">Analytics</h1>
         <div className="ml-auto flex items-center gap-2">
           <span
             className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground"

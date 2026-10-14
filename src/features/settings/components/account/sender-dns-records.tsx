@@ -83,14 +83,14 @@ export function SenderDnsRecords({
     if (dns && dns.records.length > 0) {
       return dns.records.map((r) => ({
         type: r.type,
-        host: r.host,
+        name: r.fqdn ?? r.host,
         value: r.recommended ?? r.value,
       }));
     }
     return (provision?.providers ?? [])
       .filter((p) => !HIDDEN_PROVIDERS.has(p.provider.toLowerCase()))
       .flatMap((p) =>
-        p.records.map((r) => ({ type: r.type, host: r.host, value: r.value }))
+        p.records.map((r) => ({ type: r.type, name: r.host, value: r.value }))
       );
   }, [dns, provision]);
 
@@ -248,7 +248,7 @@ function ConflictRecord({ record }: { record: DnsRecordRow }) {
       <p className="mt-0.5 text-[11px] text-muted-foreground">{stage.hint}</p>
 
       <div className="mt-2 space-y-2">
-        <DnsField label="Host" value={record.host} />
+        <DnsField label="Name" value={record.fqdn ?? record.host} />
         <CurrentInDns current={record.current} />
         <DnsField
           label={
@@ -288,7 +288,7 @@ function CompactRecord({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-mono text-xs text-foreground">
-            {record.host}
+            {record.fqdn ?? record.host}
           </span>
           <span className="block truncate text-[11px] text-muted-foreground">
             {stage.hint}
@@ -305,7 +305,7 @@ function CompactRecord({
       </button>
       {open ? (
         <div className="space-y-2 border-t border-border/50 px-3 py-3">
-          <DnsField label="Host" value={record.host} />
+          <DnsField label="Name" value={record.fqdn ?? record.host} />
           <CurrentInDns current={record.current} />
           <DnsField
             label={

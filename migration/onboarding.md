@@ -140,10 +140,15 @@ em-dashes in copy (CLAUDE.md 0.5 directive 5).
   its data source (not `features/onboarding`) for cohesion; the shared sidebar
   imports it.
 
-- [ ] **6. Guided product tour - FE-only.**
-  Port reference `data/tour.ts` + `CerebraTour.tsx` (9 stops) into
-  `src/features/onboarding/`, re-skinned. Triggered after the wizard / from the
-  checklist; dismissible; remembers completion.
+- [x] **6. Guided product tour - FE-only.** Done (`3e381ce`):
+  `src/features/onboarding/data/tour.ts` (8 section stops mapped to
+  `PRIVATE_ROUTES`), `hooks/use-tour.ts` (persisted store; skip == finish, never
+  returns on its own), `components/product-tour.tsx` (non-modal bottom-right
+  callout, Esc/Skip to end). Auto-starts once for a brand-new empty workspace
+  (`useWorkspaceMode`); the checklist's "Take the tour" button replays it.
+  Reimplemented as a fixed card rather than the reference's sidebar-row DOM
+  anchoring, which is brittle against the app's dynamic nav. Render-tested (5
+  cases).
 
 - [ ] **7. Role branch (builder vs operator) in the wizard - mixed.**
   Port reference `data/guidedOnboarding.ts` role branching into `onboarding-flow/`

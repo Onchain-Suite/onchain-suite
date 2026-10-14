@@ -11,6 +11,7 @@ import {
   PaperAirplaneIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-import type { AudienceProfile, AudienceSegment } from "../audience.service";
+import {
+  type AudienceProfile,
+  type AudienceSegment,
+  audienceService,
+} from "../audience.service";
 import {
   deriveDisplayName,
   extractSocialHandles,
@@ -35,6 +40,11 @@ import {
 } from "../utils";
 import { stageForProfile } from "../utils/lifecycle";
 import { ApplyTagsPopover } from "./apply-tags-popover";
+import {
+  AppIconCluster,
+  ChainIconCluster,
+  TokenIconCluster,
+} from "./icon-cluster";
 import { StageBadge } from "./stage-badge";
 import {
   Sheet,
@@ -195,6 +205,27 @@ export function ContactSlideOver({
     };
   }, [profile]);
 
+  // Holdings for the one wallet. Keyed per wallet so it is cached independently;
+  // only fetched while the sheet is open and the contact has a wallet. The entry
+  // is keyed by the lowercased address (wallets with no activity are absent).
+  const walletFull = derived?.walletFull ?? "";
+  const walletKey = walletFull.toLowerCase();
+  const holdingsQuery = useQuery({
+    queryKey: ["audience", "wallet-onchain-summary", "one", walletKey],
+    queryFn: () => audienceService.getWalletOnchainSummary([walletFull]),
+    enabled: open && walletKey.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60_000,
+  });
+  const holdings = walletKey ? holdingsQuery.data?.[walletKey] : undefined;
+  const hasHoldings = Boolean(
+    holdings &&
+    (holdings.chains.length > 0 ||
+      holdings.protocols.length > 0 ||
+      holdings.tokens.length > 0)
+  );
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -240,6 +271,54 @@ export function ContactSlideOver({
                   </p>
                 </div>
               </div>
+
+              {derived.walletFull ? (
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Holdings
+                  </p>
+                  {holdingsQuery.isLoading ? (
+                    <p className="text-sm text-muted-foreground">
+                      Loading holdings…
+                    </p>
+                  ) : hasHoldings && holdings ? (
+                    <div className="space-y-2.5">
+                      {holdings.chains.length > 0 ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm text-muted-foreground">
+                            Chains
+                          </span>
+                          <ChainIconCluster chains={holdings.chains} max={6} />
+                        </div>
+                      ) : null}
+                      {holdings.protocols.length > 0 ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm text-muted-foreground">
+                            Apps
+                          </span>
+                          <AppIconCluster
+                            protocols={holdings.protocols}
+                            chips={holdings.protocolChips}
+                            max={6}
+                          />
+                        </div>
+                      ) : null}
+                      {holdings.tokens.length > 0 ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm text-muted-foreground">
+                            Tokens
+                          </span>
+                          <TokenIconCluster tokens={holdings.tokens} max={6} />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No on-chain activity synced yet.
+                    </p>
+                  )}
+                </div>
+              ) : null}
 
               <div>
                 <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">

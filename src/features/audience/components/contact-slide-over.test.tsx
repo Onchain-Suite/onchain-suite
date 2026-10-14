@@ -1,25 +1,45 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { AudienceProfile } from "../audience.service";
+import type * as AudienceService from "../audience.service";
 import { ContactSlideOver } from "./contact-slide-over";
+
+type AudienceProfile = AudienceService.AudienceProfile;
+
+vi.mock("../audience.service", async (importOriginal) => {
+  const actual = await importOriginal<typeof AudienceService>();
+  return {
+    ...actual,
+    audienceService: {
+      ...actual.audienceService,
+      // Holdings query resolves empty so the slide-over renders without network.
+      getWalletOnchainSummary: vi.fn(async () => ({})),
+    },
+  };
+});
 
 const noop = vi.fn();
 
 function renderSlideOver(profile: AudienceProfile) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <ContactSlideOver
-      profile={profile}
-      open
-      onOpenChange={noop}
-      availableTags={[]}
-      applyingTags={false}
-      onApplyTags={noop}
-      onCompose={noop}
-      segments={[]}
-      addingToSegment={false}
-      onAddToSegment={noop}
-    />
+    <QueryClientProvider client={client}>
+      <ContactSlideOver
+        profile={profile}
+        open
+        onOpenChange={noop}
+        availableTags={[]}
+        applyingTags={false}
+        onApplyTags={noop}
+        onCompose={noop}
+        segments={[]}
+        addingToSegment={false}
+        onAddToSegment={noop}
+      />
+    </QueryClientProvider>
   );
 }
 

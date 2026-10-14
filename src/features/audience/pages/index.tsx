@@ -88,6 +88,7 @@ import {
   TokenIconCluster,
 } from "../components/icon-cluster";
 import { ImportContractsDialog } from "../components/import-contracts-dialog";
+import { StageBadge } from "../components/stage-badge";
 import { SuppressedTab } from "../components/suppressed-tab";
 import {
   deriveDisplayName,
@@ -103,6 +104,7 @@ import {
   profileReach,
   readChannels,
 } from "../utils";
+import { type LifecycleStage, stageForProfile } from "../utils/lifecycle";
 import { EnrichmentControl } from "@/features/intelligence/components/enrichment-control";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
@@ -137,6 +139,8 @@ interface Row {
   lastActive?: string;
   lifetimeUsd?: number;
   reach: { email: boolean; push: boolean; x: boolean };
+  /** Derived lifecycle stage (FE-first; see utils/lifecycle). */
+  stage: LifecycleStage;
 }
 
 const toRow = (p: AudienceProfile): Row => {
@@ -187,6 +191,7 @@ const toRow = (p: AudienceProfile): Row => {
       ...profileReach(p),
       x: channels ? Boolean(channels.x) : Boolean(socials.twitter),
     },
+    stage: stageForProfile(p),
   };
 };
 
@@ -1116,6 +1121,18 @@ export function AudiencePages() {
                     <thead>
                       <tr className="border-b border-border text-left text-xs tracking-wide text-muted-foreground uppercase">
                         <th className="py-3 pr-4 font-medium">Contact</th>
+                        <th className="px-4 py-3 font-medium">
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="Lifecycle stage, derived from health, engagement and recent activity. New, Activated, Engaged, At risk or Dormant."
+                          >
+                            Stage
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </th>
                         <th className="px-4 py-3 font-medium">Reachable via</th>
                         <th className="px-4 py-3 font-medium">Email</th>
                         <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
@@ -1289,6 +1306,9 @@ export function AudiencePages() {
                                   </span>
                                 ) : null}
                               </div>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <StageBadge stage={row.stage} />
                             </td>
                             <td className="px-4 py-3.5">
                               <div className="flex items-center gap-1.5">

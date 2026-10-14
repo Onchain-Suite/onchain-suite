@@ -95,12 +95,22 @@ driven by the backend `campaign-types` / `ensureChannels` contract
   per-campaign only). Backend contract needed - this is "how often a person hears
   from you" across all channels.
 
-- [ ] **6. Push composer parity (low effort).**
-  The app push composer (`campaigns/validations/campaign.ts:69-92`,
-  `in-app-message-step.tsx`) already mirrors the reference `PushContent`. Reconcile
-  naming (`slide-in` <-> `slidein`, `mobile-push` <-> `mobile`, `pushExpiresDays`
-  <-> `ttlDays`) and port `PushPreview` / `PushCard` from
-  `reference/v2.7/web/src/screens/PushComposer.tsx` if wanted.
+- [x] **6. Push composer parity (verified - no port needed).** Checked the app's
+  composer (`campaigns/validations/campaign.ts:69-92`,
+  `campaign-form/in-app-message-step.tsx`, 681 lines) against the reference
+  `PushComposer.tsx`:
+  - **Fields:** every reference `PushContent` field maps to an app field
+    (surface->pushPlacement, ttlDays->pushExpiresDays, maxPerSession->
+    pushMaxPerSession, title/body/ctaLabel/ctaUrl/accent/dismissible/delivery/
+    frequency), and the app adds `pushDismissible`. The name differences are the
+    app's canonical backend contract (`channelsContent.inapp`), so they stay -
+    renaming to match the reference would break the backend.
+  - **Preview:** the app's `InAppPreview` (a live, placement-aware preview with a
+    mock browser frame rendering the composed title/body/cta) already covers, and
+    exceeds, the reference's `PushPreview` / `PushCard`. Nothing to port.
+  - **Only gap:** the reference's `route` / `delay` trigger variants (the app has
+    wallet-connect / page-view / manual). Adding them needs backend support for
+    those trigger semantics, so it is left for when that lands.
 
 ## Deferred / cross-cutting (coordinate with `v2.7-analytics`)
 

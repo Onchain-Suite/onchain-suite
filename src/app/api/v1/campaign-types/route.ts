@@ -1,11 +1,38 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { SeverityNumber } from "@opentelemetry/api-logs";
+import { after, type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSession } from "@/lib/auth-session";
 
 import { campaignTypeStore } from "./store";
+import { loggerProvider } from "@/instrumentation";
 
 export const dynamic = "force-dynamic";
+
+const posthogLogger = loggerProvider.getLogger("posthog-campaign-types");
+
+const emitCampaignTypeLog = (
+  operation: "list" | "create",
+  status: 200 | 201,
+  latencyMs: number,
+  itemCount?: number
+) => {
+  posthogLogger.emit({
+    body: `Campaign types ${operation} completed`,
+    severityNumber: SeverityNumber.INFO,
+    attributes: {
+      route: "/api/v1/campaign-types",
+      operation,
+      status,
+      latency_ms: latencyMs,
+      ...(itemCount === undefined ? {} : { item_count: itemCount }),
+    },
+  });
+
+  after(async () => {
+    await loggerProvider.forceFlush();
+  });
+};
 
 const pickNonEmpty = (...values: Array<string | undefined | null>) => {
   for (const value of values) {
@@ -176,6 +203,8 @@ export async function GET(req: NextRequest) {
       count: items.length,
     });
 
+    emitCampaignTypeLog("list", 200, Date.now() - startedAt, items.length);
+
     return okJson(req, { data: items }, 200);
   } catch (e) {
     console.error("[api] campaign-types list error", e);
@@ -246,6 +275,8 @@ export async function POST(req: NextRequest) {
       latencyMs: Date.now() - startedAt,
       id: record.id,
     });
+
+    emitCampaignTypeLog("create", 201, Date.now() - startedAt);
 
     return okJson(req, { data: record }, 201);
   } catch (e) {

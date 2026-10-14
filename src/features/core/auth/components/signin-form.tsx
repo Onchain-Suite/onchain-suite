@@ -4,6 +4,7 @@ import { EnvelopeIcon, FingerPrintIcon } from "@heroicons/react/24/outline";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
+import posthog from "posthog-js";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -222,6 +223,7 @@ export function SignInForm({
         return;
       }
 
+      posthog.capture("user_signed_in", { method: "password" });
       toast.success("Successfully signed in!");
       redirectAfterSignIn();
     } catch (error: unknown) {
@@ -243,6 +245,7 @@ export function SignInForm({
     setFailedEmail(null);
     try {
       await signInWithPasskey();
+      posthog.capture("user_signed_in", { method: "passkey" });
       toast.success("Successfully signed in!");
       redirectAfterSignIn();
     } catch (error: unknown) {
@@ -275,6 +278,9 @@ export function SignInForm({
         return;
       }
 
+      posthog.capture("user_signed_in", {
+        method: useBackupCode ? "two_factor_backup_code" : "two_factor_totp",
+      });
       toast.success("Successfully signed in!");
       redirectAfterSignIn();
     } catch (error: unknown) {

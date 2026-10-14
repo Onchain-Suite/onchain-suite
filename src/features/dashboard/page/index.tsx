@@ -10,6 +10,7 @@ import {
   useTaskCompletion,
 } from "../components/get-started";
 import { MetricsDashboard } from "../components/metrics-dashboard";
+import { useTimeToValue } from "@/features/onboarding/hooks/use-time-to-value";
 
 interface UserData {
   projectName: string;
@@ -60,6 +61,10 @@ export function MainDashboard({
 }: MainDashboardProps) {
   const greeting = getGreeting(userData.timezone);
   const name = userData.fullName ?? "there";
+
+  // Close the time-to-value clock once this workspace first reads as live
+  // (reports once, only when the wizard set a first-mile start stamp).
+  useTimeToValue();
 
   // New / not-yet-onboarded workspaces see the setup checklist (task cards);
   // once every step is done the dashboard flips to the live metrics view. The

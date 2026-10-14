@@ -14,6 +14,11 @@ import {
   useOnboardingTracking,
 } from "./hooks";
 import { type OnboardingData } from "./types";
+import { useOnboardingAbandonment } from "@/features/onboarding/hooks/use-onboarding-abandonment";
+import {
+  FIRST_MILE_STARTED_KEY,
+  WIZARD_STARTED_KEY,
+} from "@/features/onboarding/utils/onboarding-timing";
 import { AUTH_ROUTES, PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 export function OnboardingFlow() {
@@ -59,10 +64,20 @@ export function OnboardingFlow() {
 
   React.useEffect(() => {
     if (!isPending && session) {
-      const key = "onchain.onboarding.startedAt";
-      const existing = sessionStorage.getItem(key);
-      if (!existing) {
-        sessionStorage.setItem(key, String(Date.now()));
+      const now = String(Date.now());
+      // Per-session wizard clock (cleared on completion).
+      if (!sessionStorage.getItem(WIZARD_STARTED_KEY)) {
+        sessionStorage.setItem(WIZARD_STARTED_KEY, now);
+      }
+      // Durable first-mile clock: survives the hop to the dashboard and reloads,
+      // so time-to-value can be measured through to the workspace going live.
+      // Not cleared here - `useTimeToValue` closes it.
+      try {
+        if (!localStorage.getItem(FIRST_MILE_STARTED_KEY)) {
+          localStorage.setItem(FIRST_MILE_STARTED_KEY, now);
+        }
+      } catch {
+        // storage blocked (private mode); time-to-value simply won't report
       }
     }
   }, [session, isPending]);
@@ -79,6 +94,15 @@ export function OnboardingFlow() {
   const [stepStartedAtMs, setStepStartedAtMs] = React.useState<number>(
     Date.now()
   );
+
+  // Report wizard time for protocols that leave before finishing. Measures the
+  // current step's partial time (prior steps already sent their completed
+  // times); `markCompleted` disarms it so a normal finish is not double-logged.
+  const { markCompleted } = useOnboardingAbandonment({
+    enabled: Boolean(user?.id),
+    startedAtMs: stepStartedAtMs,
+    stepName: currentStep === 2 ? "plan_selection" : "organization_setup",
+  });
   // The server-side resume block seeds the starting step exactly once per
   // mount; afterwards local navigation + progress sync own the step.
   const resumeAppliedRef = React.useRef(false);
@@ -122,9 +146,11 @@ export function OnboardingFlow() {
   const handleOnboardingComplete = async (
     stepData: Partial<OnboardingData>
   ) => {
+    // A normal finish must not also fire the abandonment flush.
+    markCompleted();
     const finalData = { ...formData, ...stepData };
 
-    const startRaw = sessionStorage.getItem("onchain.onboarding.startedAt");
+    const startRaw = sessionStorage.getItem(WIZARD_STARTED_KEY);
     const startedAtMs = startRaw ? Number(startRaw) : Date.now();
     const totalSeconds = Math.max(
       0,
@@ -134,7 +160,7 @@ export function OnboardingFlow() {
     const seconds = totalSeconds % 60;
     const formatted = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 
-    sessionStorage.removeItem("onchain.onboarding.startedAt");
+    sessionStorage.removeItem(WIZARD_STARTED_KEY);
     localStorage.setItem(
       "onchain.onboarding.durationSeconds",
       String(totalSeconds)

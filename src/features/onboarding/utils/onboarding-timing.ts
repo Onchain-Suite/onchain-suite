@@ -36,6 +36,13 @@ export const TIME_TO_VALUE_REPORTED_KEY =
   "onchain.onboarding.timeToValueReported";
 
 /**
+ * The sector the protocol picked in onboarding (localStorage), stamped durably
+ * so the dashboard first-mile can tell a web2 client (skip contract indexing)
+ * from a web3 one. Empty/absent when onboarding predates this or never ran.
+ */
+export const FIRST_MILE_SECTOR_KEY = "onchain.onboarding.sector";
+
+/**
  * Whole seconds between a start timestamp and now, never negative. A missing or
  * non-finite start yields 0 (nothing to measure), so a cleared stamp or a
  * garbage value reads as "no elapsed time" rather than a huge or negative one.

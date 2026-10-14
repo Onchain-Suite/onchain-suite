@@ -10,6 +10,7 @@ import {
   useTaskCompletion,
 } from "../components/get-started";
 import { MetricsDashboard } from "../components/metrics-dashboard";
+import { StartHereBanner } from "@/features/onboarding/components/start-here-banner";
 import { useTimeToValue } from "@/features/onboarding/hooks/use-time-to-value";
 
 interface UserData {
@@ -86,6 +87,8 @@ export function MainDashboard({
           Here is what moved across your workspace today.
         </p>
       </div>
+
+      <StartHereBanner />
 
       <CommandBar />
 

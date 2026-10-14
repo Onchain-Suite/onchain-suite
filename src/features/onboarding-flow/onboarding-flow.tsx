@@ -16,6 +16,7 @@ import {
 import { type OnboardingData } from "./types";
 import { useOnboardingAbandonment } from "@/features/onboarding/hooks/use-onboarding-abandonment";
 import {
+  FIRST_MILE_SECTOR_KEY,
   FIRST_MILE_STARTED_KEY,
   WIZARD_STARTED_KEY,
 } from "@/features/onboarding/utils/onboarding-timing";
@@ -149,6 +150,18 @@ export function OnboardingFlow() {
     // A normal finish must not also fire the abandonment flush.
     markCompleted();
     const finalData = { ...formData, ...stepData };
+
+    // Stamp the sector durably so the dashboard first-mile can skip the
+    // "index your contract" nudge for web2 clients (indexing is optional; for
+    // web2 it does not apply at all).
+    try {
+      if (finalData.sector?.trim()) {
+        localStorage.setItem(FIRST_MILE_SECTOR_KEY, finalData.sector.trim());
+      }
+    } catch {
+      // storage blocked (private mode); the banner falls back to offering the
+      // optional index nudge, which is safe.
+    }
 
     const startRaw = sessionStorage.getItem(WIZARD_STARTED_KEY);
     const startedAtMs = startRaw ? Number(startRaw) : Date.now();

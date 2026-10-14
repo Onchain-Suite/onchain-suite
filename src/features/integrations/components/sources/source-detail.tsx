@@ -7,20 +7,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import { FRESHNESS, LANE_LABEL, SOURCE_KINDS } from "../../data/sources";
-import type { DataSource } from "../../types/sources";
+import type { DataSource, SourceStatus } from "../../types/sources";
 import { setupDocUrl } from "../../utils/sources";
 import { SourceMark } from "./source-visuals";
 
 export function SourceDetail({
   source,
+  status,
   onBack,
   onConnect,
 }: {
   source: DataSource;
+  status?: SourceStatus;
   onBack: () => void;
   onConnect: (source: DataSource) => void;
 }) {
   const kindLabel = SOURCE_KINDS.find((k) => k.id === source.kind)?.label;
+  const effective = status ?? source.status;
 
   return (
     <div className="space-y-6">
@@ -41,14 +44,14 @@ export function SourceDetail({
           </h2>
           <p className="text-sm text-muted-foreground">{source.gives}</p>
         </div>
-        {source.status === "connected" ? (
+        {effective === "connected" ? (
           <Badge
             variant="outline"
             className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
           >
             Connected
           </Badge>
-        ) : source.status === "soon" ? (
+        ) : effective === "soon" ? (
           <Badge variant="outline" className="text-muted-foreground">
             Not available yet
           </Badge>

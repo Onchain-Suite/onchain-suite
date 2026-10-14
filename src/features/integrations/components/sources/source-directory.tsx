@@ -7,6 +7,7 @@ import {
   Squares2X2Icon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ComponentType, SVGProps } from "react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -21,7 +22,7 @@ import {
   requestSource,
   useRequestedSources,
 } from "../../hooks/use-requested-sources";
-import type { DataSource, SourceKind } from "../../types/sources";
+import type { DataSource, SourceKind, SourceStatus } from "../../types/sources";
 import {
   fallbackSources,
   searchSources,
@@ -32,6 +33,10 @@ import { ConnectSourceDialog } from "./connect-source-dialog";
 import { SourceCard } from "./source-card";
 import { SourceDetail } from "./source-detail";
 import { KIND_ICON } from "./source-visuals";
+import { ImportContractsDialog } from "@/features/audience/components/import-contracts-dialog";
+import { projectSettingsKey } from "@/features/settings/components/account/project-card";
+import { useAccountOrg } from "@/features/settings/components/account/use-account-org";
+import { projectSettingsService } from "@/features/settings/project-settings.service";
 
 /**
  * The Sources tab: a search box over everything, a category rail for browsing,
@@ -45,18 +50,67 @@ export function SourceDirectory() {
   const [cat, setCat] = useState<SourceKind | "all">("all");
   const [detail, setDetail] = useState<DataSource | null>(null);
   const [connecting, setConnecting] = useState<DataSource | null>(null);
+  const [contractsOpen, setContractsOpen] = useState(false);
   const requested = useRequestedSources();
+
+  const { organizationId } = useAccountOrg();
+  const queryClient = useQueryClient();
+
+  // Live status for the one connector whose state is real today: "Your
+  // contracts" is connected once the workspace has indexed any. Everything else
+  // uses the static catalog status until its backend lands.
+  const settingsQuery = useQuery({
+    queryKey: projectSettingsKey(organizationId),
+    enabled: Boolean(organizationId),
+    retry: false,
+    queryFn: () =>
+      projectSettingsService.getProjectSettings(organizationId ?? undefined),
+  });
+  const contractCount = settingsQuery.data?.contractAddresses?.length ?? 0;
+
+  const statusFor = (s: DataSource): SourceStatus =>
+    s.id === "contracts"
+      ? contractCount > 0
+        ? "connected"
+        : "available"
+      : s.status;
+
+  // "Your contracts" opens the real contract-import dialog; everything else
+  // opens the (stubbed) connect dialog.
+  const handleConnect = (s: DataSource) => {
+    if (s.id === "contracts") {
+      setContractsOpen(true);
+      return;
+    }
+    setConnecting(s);
+  };
 
   const term = q.trim();
   const results = useMemo(() => searchSources(q), [q]);
 
+  const contractsDialog = (
+    <ImportContractsDialog
+      open={contractsOpen}
+      onOpenChange={setContractsOpen}
+      onImported={() => {
+        queryClient.invalidateQueries({
+          queryKey: projectSettingsKey(organizationId),
+        });
+      }}
+    />
+  );
+
   if (detail) {
     return (
-      <SourceDetail
-        source={detail}
-        onBack={() => setDetail(null)}
-        onConnect={(s) => setConnecting(s)}
-      />
+      <>
+        <SourceDetail
+          source={detail}
+          status={statusFor(detail)}
+          onBack={() => setDetail(null)}
+          onConnect={handleConnect}
+        />
+        {contractsDialog}
+      </>
     );
   }
 
@@ -162,7 +216,12 @@ export function SourceDirectory() {
               )}
               <div className="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-3">
                 {fallbackSources().map((s) => (
-                  <SourceCard key={s.id} source={s} onOpen={setDetail} />
+                  <SourceCard
+                    key={s.id}
+                    source={s}
+                    status={statusFor(s)}
+                    onOpen={setDetail}
+                  />
                 ))}
               </div>
             </section>
@@ -174,7 +233,12 @@ export function SourceDirectory() {
                 </h2>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {g.items.map((s) => (
-                    <SourceCard key={s.id} source={s} onOpen={setDetail} />
+                    <SourceCard
+                      key={s.id}
+                      source={s}
+                      status={statusFor(s)}
+                      onOpen={setDetail}
+                    />
                   ))}
                 </div>
               </section>
@@ -189,6 +253,7 @@ export function SourceDirectory() {
           if (!open) setConnecting(null);
         }}
       />
+      {contractsDialog}
     </div>
   );
 }

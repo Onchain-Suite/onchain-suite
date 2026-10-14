@@ -7,20 +7,25 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 import { LANE_LABEL } from "../../data/sources";
-import type { DataSource } from "../../types/sources";
+import type { DataSource, SourceStatus } from "../../types/sources";
 import { FreshChip, SourceMark } from "./source-visuals";
 
 /** One connector in the directory grid. Names who maintains it, because a
- *  connector we own and one the vendor owns fail on different timescales. */
+ *  connector we own and one the vendor owns fail on different timescales.
+ *  `status` overrides the catalog value for connectors whose state is live
+ *  (e.g. "Your contracts"); it falls back to the catalog status. */
 export function SourceCard({
   source,
+  status,
   onOpen,
 }: {
   source: DataSource;
+  status?: SourceStatus;
   onOpen: (source: DataSource) => void;
 }) {
-  const soon = source.status === "soon";
-  const connected = source.status === "connected";
+  const effective = status ?? source.status;
+  const soon = effective === "soon";
+  const connected = effective === "connected";
 
   return (
     <button

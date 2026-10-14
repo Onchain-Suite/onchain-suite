@@ -85,7 +85,14 @@ richer. Adopt the reference's layout, not its behaviour.
   exists (CSV, contracts, dev SDK); keep "Authorise" as a stubbed toast for OAuth
   connectors not yet implemented, matching the reference.
 
-- [ ] **4. On-chain connector -> the real contract flow (do not rebuild the mock).**
+- [x] **4. On-chain connector -> the real contract flow (do not rebuild the mock).**
+  Done: the "Your contracts" card now shows a live status (connected once the
+  workspace has indexed any contract, via `projectSettingsService` +
+  `projectSettingsKey`), and its Connect action opens the real
+  `ImportContractsDialog` instead of the stubbed dialog; a successful import
+  invalidates the settings query so the card flips to connected. `SourceCard`
+  and `SourceDetail` gained an optional `status` override. (CSV live status is
+  still static - no "has imported" signal yet; left for later.)
   FROM `reference/v2.7/web/src/components/AddContract.tsx` + `ContractResolver.tsx`
   (richer paste-address/deployer/explorer/website resolver UX, if wanted).
   INTO the existing real path `src/features/audience/components/import-contracts-dialog.tsx`

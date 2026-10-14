@@ -123,12 +123,22 @@ em-dashes in copy (CLAUDE.md 0.5 directive 5).
   not apply to them; their empty -> live transition is driven by the first
   imported contacts. `SectionEmpty`'s `indexing` prop stays null for web2.
 
-- [ ] **5. Sidebar-pinned, self-removing checklist - mixed.**
-  Port reference `GettingStarted.tsx` + `data/setup.ts` (`useSetupSteps`, 6
-  data-derived steps) into a sidebar-pinned checklist, replacing the in-page
-  `get-started.tsx` carousel. FE-only for the UI + self-removal; keep deriving the
-  6 steps from the app's existing live state. Unify with `get-started.tsx` so
-  there is one checklist, not two.
+- [x] **5. Sidebar-pinned, self-removing checklist - FE-only.** Done
+  (`0a7e825`): `dashboard/components/getting-started.tsx` (`GettingStarted`),
+  pinned in the sidebar footer, replaces the in-page carousel. It is the single
+  checklist, reading a new exported `useSetupSteps()` built on the SAME
+  `TASK_DEFINITIONS` + `useTaskCompletion` the dashboard already derived (one
+  source, no drift). Self-removes at 100%, hides while completion reads load
+  (never flashes a wrong count), collapses to its header (persisted per viewer),
+  and is hidden in the icon-rail. Kept the app's 8 live-state steps rather than
+  forcing the reference's 6. Unified: the old carousel is gone and
+  `GetStartedSection` is reduced to `OnboardingResumeBanner` (owner-only resume
+  redirect + "finish onboarding" banner preserved); the dashboard body now always
+  renders `MetricsDashboard` (honest empty states), guided by the sidebar
+  checklist + Start-here banner, dropping the checklist-vs-metrics skeleton gate.
+  Render-tested (4 cases). NOTE: the panel lives in `features/dashboard` beside
+  its data source (not `features/onboarding`) for cohesion; the shared sidebar
+  imports it.
 
 - [ ] **6. Guided product tour - FE-only.**
   Port reference `data/tour.ts` + `CerebraTour.tsx` (9 stops) into

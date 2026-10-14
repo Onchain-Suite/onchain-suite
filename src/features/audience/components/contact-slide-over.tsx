@@ -1,10 +1,13 @@
 "use client";
 
 import {
+  AtSymbolIcon,
+  ChatBubbleLeftRightIcon,
   CheckCircleIcon,
   DevicePhoneMobileIcon,
   EnvelopeIcon,
   FingerPrintIcon,
+  HashtagIcon,
   PaperAirplaneIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
@@ -30,7 +33,9 @@ import {
   normalizeTags,
   readChannels,
 } from "../utils";
+import { stageForProfile } from "../utils/lifecycle";
 import { ApplyTagsPopover } from "./apply-tags-popover";
+import { StageBadge } from "./stage-badge";
 import {
   Sheet,
   SheetContent,
@@ -70,6 +75,44 @@ function Channel({
     </div>
   );
 }
+
+/**
+ * Social channels shown as sibling rows under Email + In-app push (CLAUDE.md
+ * 0.5.4). `channelKey` is the reachability flag on `AudienceChannels`;
+ * `handleKey` is where the visible handle lives in `extractSocialHandles` (X's
+ * handle is `twitter`), if any. A row renders only when the channel is actually
+ * reachable, so an empty contact shows just the channels it has.
+ */
+const SOCIAL_CHANNELS: Array<{
+  channelKey: "x" | "telegram" | "discord" | "farcaster";
+  label: string;
+  icon: React.ReactNode;
+  handleKey?: "twitter" | "telegram" | "discord";
+}> = [
+  {
+    channelKey: "x",
+    label: "X",
+    icon: <AtSymbolIcon className="size-4" aria-hidden="true" />,
+    handleKey: "twitter",
+  },
+  {
+    channelKey: "telegram",
+    label: "Telegram",
+    icon: <PaperAirplaneIcon className="size-4" aria-hidden="true" />,
+    handleKey: "telegram",
+  },
+  {
+    channelKey: "discord",
+    label: "Discord",
+    icon: <ChatBubbleLeftRightIcon className="size-4" aria-hidden="true" />,
+    handleKey: "discord",
+  },
+  {
+    channelKey: "farcaster",
+    label: "Farcaster",
+    icon: <HashtagIcon className="size-4" aria-hidden="true" />,
+  },
+];
 
 export function ContactSlideOver({
   profile,
@@ -119,15 +162,32 @@ export function ContactSlideOver({
     // Prefer the server's real per-channel reachability; fall back to a
     // heuristic only when the API didn't return a `channels` object.
     const channels = readChannels(profile);
+    // Identity source from data, not a hardcoded literal. Fall back to an
+    // honest inference from what we do know rather than claiming "ZK-verified".
+    const rawSource =
+      typeof profile.identitySource === "string"
+        ? profile.identitySource.trim()
+        : "";
+    const identitySource =
+      rawSource ||
+      (verified
+        ? "ZK-verified link"
+        : walletFull
+          ? "Wallet sign-in"
+          : "Imported or form signup");
     return {
       title: named ?? (walletFull ? wallet : deriveDisplayName(profile)),
       walletFull,
       walletShort: wallet,
       email,
       verified,
+      stage: stageForProfile(profile),
       tags: normalizeTags(profile.tags),
       homeChain: chain?.name ?? primaryWallet?.chain ?? "-",
       lifetimeUsd: lifetimeUsd(profile),
+      channels,
+      socials,
+      identitySource,
       emailLinked: channels
         ? Boolean(channels.email)
         : Boolean(email) || verified,
@@ -156,6 +216,9 @@ export function ContactSlideOver({
                   {derived.walletShort}
                 </p>
               ) : null}
+              <div className="pt-1">
+                <StageBadge stage={derived.stage} />
+              </div>
             </SheetHeader>
 
             <div className="space-y-6 p-6">
@@ -202,13 +265,29 @@ export function ContactSlideOver({
                     status={derived.hasPush ? "device signed in" : "no device"}
                     linked={derived.hasPush}
                   />
+                  {SOCIAL_CHANNELS.map((c) => {
+                    const linked = Boolean(derived.channels?.[c.channelKey]);
+                    if (!linked) return null;
+                    const handle = c.handleKey
+                      ? derived.socials[c.handleKey]
+                      : undefined;
+                    return (
+                      <Channel
+                        key={c.channelKey}
+                        icon={c.icon}
+                        label={c.label}
+                        status={handle ?? "connected"}
+                        linked
+                      />
+                    );
+                  })}
                 </div>
               </div>
 
               {derived.walletFull ? (
                 <p className="text-xs leading-5 text-muted-foreground">
-                  Identity source: ZK-verified link. The wallet is the record;
-                  channels attach to it and resolve lazily.
+                  Identity source: {derived.identitySource}. The wallet is the
+                  record; channels attach to it and resolve lazily.
                 </p>
               ) : null}
 
@@ -285,7 +364,11 @@ export function ContactSlideOver({
               </Popover>
               <Button
                 className="rounded-xl"
-                disabled={!derived.email}
+                // Gate on reachability, not a plaintext address: a ZK-protected
+                // contact is email-reachable with the address hidden, and a
+                // push-reachable contact has no email at all. Both were wrongly
+                // blocked by `!derived.email`.
+                disabled={!derived.emailLinked && !derived.hasPush}
                 onClick={() => onCompose(profile)}
               >
                 <PaperAirplaneIcon

@@ -74,10 +74,30 @@ em-dashes in copy (CLAUDE.md 0.5 directive 5).
   simulated index timer as dishonest; an authoritative `workspaceMode` + indexing
   status stays BACKEND-GATED (step 4).
 
-- [ ] **2. Unified `SectionEmpty` component - FE-only.**
-  Port reference `components/SectionEmpty.tsx` to `src/shared/components/` (2+
-  features consume it). One consistent empty state (icon, title, body, CTA) that
-  dashboard / audience / campaigns / analytics all render when `mode === empty`.
+- [x] **2. Unified `SectionEmpty` component - FE-only.** Done (`db5503e`):
+  `src/shared/components/common/section-empty.tsx` is a presentational, prop-driven
+  empty state (icon, title, body, optional action + an optional "waiting on your
+  first indexed contract" / "indexing X, on its way" hint). Owns no data reads, so
+  it stays decoupled from the backend-gated indexing signal (step 4) and reads the
+  same everywhere; the caller renders it when `useWorkspaceMode()` is `empty`.
+  Icons are heroicon components, not a string registry (CLAUDE.md section 5).
+  Matches the app's Card empty-state idiom + semantic tokens. Render-tested (6
+  cases). Not yet wired into any surface (steps 3+ consume it).
+
+- [x] **(Added, per product) Onboarding time per protocol.** Done
+  (`58f6c7f`): time-on-onboarding was only reported when a protocol *finished* the
+  wizard, and only covered the 2-step form. Closed both gaps:
+  (a) **Abandonment flush** - `hooks/use-onboarding-abandonment.ts` beacons the
+  current step's elapsed time (`action: "abandoned"`) on `visibilitychange`-hidden
+  / `pagehide`, so protocols that drop partway still count; `markCompleted()`
+  disarms it on a normal finish. (b) **Time-to-value** - the wizard stamps a
+  durable first-mile start; `hooks/use-time-to-value.ts` (mounted on the dashboard)
+  closes the clock the first time the workspace reads `live` and reports once (no
+  stamp -> never reports, so existing protocols are untouched). Pure timing math in
+  `utils/onboarding-timing.ts` (unit-tested). The `workspace_live` milestone rides
+  the existing `POST /onboarding/track` metadata; a first-class backend
+  `timeToValueSeconds` field stays BACKEND-GATED. Per-protocol aggregates surface
+  in the separate `onchain-admin` app (`GET /onboarding/admin/summary`).
 
 - [ ] **3. "Start here: index your contract" banner - FE-only.**
   Port the reference `DataScreen` banner into the dashboard (extend

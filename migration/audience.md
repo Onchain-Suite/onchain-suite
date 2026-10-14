@@ -90,7 +90,7 @@ renders from data the app already returns; BACKEND-GATED = needs a new/extended
   `pages/index.tsx`; port the `coverageFor` concept. Needs backend product-event
   coverage per wallet. Honest empty state until it ships.
 
-- [~] **4. Enrich the contact slide-over - mixed.** (a) Done (`f1e7fbe`):
+- [x] **4. Enrich the contact slide-over - mixed.** (a) Done (`f1e7fbe`):
   `components/contact-slide-over.tsx` now shows the lifecycle stage badge,
   sibling channel rows for X/Telegram/Discord/Farcaster (rendered only when
   `readChannels` marks them reachable, handle from `extractSocialHandles`),
@@ -98,9 +98,9 @@ renders from data the app already returns; BACKEND-GATED = needs a new/extended
   fallback (no more hardcoded `"ZK-verified link"`), and a fixed "Send a test"
   gated on reachability (`emailLinked || hasPush`) instead of a plaintext address
   so ZK-protected + push-reachable contacts aren't wrongly blocked. Render-tested
-  (5 cases). (b) STILL BACKEND-GATED - add a Holdings block (reuse
-  `icon-cluster.tsx` + `getWalletOnchainSummary`); `getWalletOnchainSummary`
-  exists, so this is wire-able as the next increment.
+  (5 cases). (b) Done (`8c636fb`): Holdings block (Chains/Apps/Tokens logo
+  clusters) from a per-wallet `getWalletOnchainSummary` query, fetched only while
+  the sheet is open; honest loading / per-type / "no on-chain activity" states.
 
 - [ ] **5. Interleaved both-lane timeline + "Quiet for N days" - BACKEND-GATED.**
   Port `LaneTimeline`/`timelineFor`/`quietSince` (`data/timeline.ts`) into

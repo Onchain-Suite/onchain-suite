@@ -1,51 +1,11 @@
-import { SeverityNumber } from "@opentelemetry/api-logs";
-import { after, type NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSession } from "@/lib/auth-session";
 
 import { campaignTypeStore } from "./store";
-import { loggerProvider } from "@/instrumentation";
 
 export const dynamic = "force-dynamic";
-
-const posthogLogger = loggerProvider.getLogger("posthog-campaign-types");
-
-const emitCampaignTypeLog = (
-  operation: "list" | "create",
-  status: 200 | 201,
-  latencyMs: number,
-  itemCount?: number
-) => {
-  // Telemetry is best-effort and must never affect the response. In particular
-  // `after` only works inside a request scope and throws anywhere else (unit
-  // tests, non-request contexts), which previously made the handler return 500.
-  try {
-    posthogLogger.emit({
-      body: `Campaign types ${operation} completed`,
-      severityNumber: SeverityNumber.INFO,
-      attributes: {
-        route: "/api/v1/campaign-types",
-        operation,
-        status,
-        latency_ms: latencyMs,
-        ...(itemCount === undefined ? {} : { item_count: itemCount }),
-      },
-    });
-
-    // Flush after the response when we are in a request scope; outside one the
-    // batch processor flushes on its own interval, so skipping it is harmless.
-    try {
-      after(async () => {
-        await loggerProvider.forceFlush();
-      });
-    } catch {
-      // not in a request scope (e.g. tests) - safe to skip the explicit flush
-    }
-  } catch {
-    // never let telemetry break the route
-  }
-};
 
 const pickNonEmpty = (...values: Array<string | undefined | null>) => {
   for (const value of values) {
@@ -216,8 +176,6 @@ export async function GET(req: NextRequest) {
       count: items.length,
     });
 
-    emitCampaignTypeLog("list", 200, Date.now() - startedAt, items.length);
-
     return okJson(req, { data: items }, 200);
   } catch (e) {
     console.error("[api] campaign-types list error", e);
@@ -288,8 +246,6 @@ export async function POST(req: NextRequest) {
       latencyMs: Date.now() - startedAt,
       id: record.id,
     });
-
-    emitCampaignTypeLog("create", 201, Date.now() - startedAt);
 
     return okJson(req, { data: record }, 201);
   } catch (e) {

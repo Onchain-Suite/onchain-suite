@@ -14,6 +14,8 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { SourceDirectory } from "../components/sources/source-directory";
+
 /**
  * The Integrations screen shell (v2.7). One top-level screen with six tabs -
  * "every connection in and out: sources in, channels out". This step ports the
@@ -138,7 +140,11 @@ export default function IntegrationsPage() {
 
         {TABS.map((tab) => (
           <TabsContent key={tab.id} value={tab.id} className="min-h-0">
-            <TabPlaceholder tab={tab} />
+            {tab.id === "sources" ? (
+              <SourceDirectory />
+            ) : (
+              <TabPlaceholder tab={tab} />
+            )}
           </TabsContent>
         ))}
       </Tabs>

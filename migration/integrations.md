@@ -67,7 +67,16 @@ richer. Adopt the reference's layout, not its behaviour.
   (or keep localStorage short-term). Keep the `Freshness`/`Lane`/`status`
   taxonomies verbatim - they are load-bearing for the UX.
 
-- [ ] **3. Sources tab (catalog UI).**
+- [x] **3. Sources tab (catalog UI).** Done: search over the whole catalog, a
+  category rail with counts (hidden while searching), vendor-favicon cards
+  (DuckDuckGo favicon over a monogram fallback), a connector detail view, the
+  connect dialog (stubbed "Authorise" toast + the real setup-doc handoff), and
+  the search-miss "request a source" flow with the two fallbacks. Files under
+  `src/features/integrations/components/sources/` (source-directory, source-card,
+  source-detail, connect-source-dialog, source-visuals); wired into the screen's
+  `sources` tab. `icons.duckduckgo.com` added to the CSP img-src allowlist.
+  Live status for contracts/CSV is still the static catalog value - wired in
+  step 4.
   FROM `reference/v2.7/web/src/components/SourceDirectory.tsx` (search + category
   rail + cards + detail + connect modal + search-miss "request a source" flow) and
   `source-directory.css`.

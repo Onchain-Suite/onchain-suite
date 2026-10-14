@@ -17,21 +17,34 @@ const emitCampaignTypeLog = (
   latencyMs: number,
   itemCount?: number
 ) => {
-  posthogLogger.emit({
-    body: `Campaign types ${operation} completed`,
-    severityNumber: SeverityNumber.INFO,
-    attributes: {
-      route: "/api/v1/campaign-types",
-      operation,
-      status,
-      latency_ms: latencyMs,
-      ...(itemCount === undefined ? {} : { item_count: itemCount }),
-    },
-  });
+  // Telemetry is best-effort and must never affect the response. In particular
+  // `after` only works inside a request scope and throws anywhere else (unit
+  // tests, non-request contexts), which previously made the handler return 500.
+  try {
+    posthogLogger.emit({
+      body: `Campaign types ${operation} completed`,
+      severityNumber: SeverityNumber.INFO,
+      attributes: {
+        route: "/api/v1/campaign-types",
+        operation,
+        status,
+        latency_ms: latencyMs,
+        ...(itemCount === undefined ? {} : { item_count: itemCount }),
+      },
+    });
 
-  after(async () => {
-    await loggerProvider.forceFlush();
-  });
+    // Flush after the response when we are in a request scope; outside one the
+    // batch processor flushes on its own interval, so skipping it is harmless.
+    try {
+      after(async () => {
+        await loggerProvider.forceFlush();
+      });
+    } catch {
+      // not in a request scope (e.g. tests) - safe to skip the explicit flush
+    }
+  } catch {
+    // never let telemetry break the route
+  }
 };
 
 const pickNonEmpty = (...values: Array<string | undefined | null>) => {

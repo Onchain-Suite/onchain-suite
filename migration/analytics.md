@@ -57,10 +57,14 @@ the reference uses.
   server-safe `analytics-tabs.ts` (the route segment validates `[tab]` against
   them - importing from the `"use client"` dashboard handed the server a
   client-reference stub, caught in the dev-server compile check).
-- [ ] **3. Overview tab - cheap wins (FE where data exists).** Relayout the real
-  KPI strip (already wired: `/dashboard/overview` + pooled open rate). "Messages
-  by channel" / "Conversion rate": email-vs-in-app volume from
-  `/campaigns/analytics/overview` (FE); per-day-by-channel series is **BE**.
+- [x] **3. Overview tab - cheap wins (FE where data exists).** Done (FE part):
+  added a real **"Messages sent by channel"** bar chart to the Overview tab,
+  built on the step-1 `AnalyticsBarChart` and the real `/campaigns/analytics/overview`
+  (email vs in-app `sent`), sharing the Campaigns overview's query key, with
+  loading + "no messages yet" states. The KPI strip stays as-is (already wired:
+  `/dashboard/overview` + pooled open rate). **Still BE:** the per-day-by-channel
+  series (overview returns aggregates, not daily-by-channel) and the "Conversion
+  rate over time" line chart.
 - [ ] **4. Normalized funnel model + org funnel (FE types, BE data).** Port
   `Funnel` / `ChannelSlice` / `ENGAGED_LABEL` + goal/route types FROM
   `data/campaignModel.ts` + `attribution.ts` INTO

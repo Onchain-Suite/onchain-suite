@@ -32,16 +32,13 @@ export const loggerProvider = new LoggerProvider({
 export function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  if (!projectToken && process.env.NODE_ENV === "development") {
-    throw new Error(
-      "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN is configured"
+  // Missing config warns (dev only) instead of throwing, so the server still
+  // boots without the PostHog keys - the log exporter just stays inert.
+  if ((!projectToken || !host) && process.env.NODE_ENV === "development") {
+    console.warn(
+      "[posthog] NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN and NEXT_PUBLIC_POSTHOG_HOST are not set; server log export is disabled."
     );
-  }
-
-  if (!host && process.env.NODE_ENV === "development") {
-    throw new Error(
-      "NEXT_PUBLIC_POSTHOG_HOST variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once NEXT_PUBLIC_POSTHOG_HOST is configured"
-    );
+    return;
   }
 
   logs.setGlobalLoggerProvider(loggerProvider);

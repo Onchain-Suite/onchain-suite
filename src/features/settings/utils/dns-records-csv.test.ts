@@ -33,30 +33,38 @@ describe("csvCell", () => {
 
 describe("buildDnsCsv", () => {
   it("emits a header and one CRLF-terminated row per record", () => {
+    // Names are FULL record names (fqdn), so a DNS admin can't place them one
+    // zone level too high — the subdomain-vs-apex mistake this export prevents.
     const records: DnsCsvRecord[] = [
-      { type: "TXT", host: "@", value: "v=spf1 include:acme.net -all" },
+      {
+        type: "TXT",
+        name: "mg.acme.xyz",
+        value: "v=spf1 include:acme.net -all",
+      },
       {
         type: "CNAME",
-        host: "s1._domainkey",
+        name: "s1._domainkey.mg.acme.xyz",
         value: "s1.dkim.acme.net",
       },
     ];
     expect(buildDnsCsv(records)).toBe(
       [
-        "Type,Host,Value",
-        "TXT,@,v=spf1 include:acme.net -all",
-        "CNAME,s1._domainkey,s1.dkim.acme.net",
+        "Type,Name,Value",
+        "TXT,mg.acme.xyz,v=spf1 include:acme.net -all",
+        "CNAME,s1._domainkey.mg.acme.xyz,s1.dkim.acme.net",
       ].join("\r\n")
     );
   });
 
   it("emits just the header for an empty record set", () => {
-    expect(buildDnsCsv([])).toBe("Type,Host,Value");
+    expect(buildDnsCsv([])).toBe("Type,Name,Value");
   });
 
   it("quotes a value containing a comma", () => {
-    const csv = buildDnsCsv([{ type: "TXT", host: "@", value: "a, b, c" }]);
-    expect(csv).toBe('Type,Host,Value\r\nTXT,@,"a, b, c"');
+    const csv = buildDnsCsv([
+      { type: "TXT", name: "mg.acme.xyz", value: "a, b, c" },
+    ]);
+    expect(csv).toBe('Type,Name,Value\r\nTXT,mg.acme.xyz,"a, b, c"');
   });
 });
 

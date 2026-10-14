@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { MigrateList } from "../components/migrate-list";
 import { SourceDirectory } from "../components/sources/source-directory";
 
 /**
@@ -142,6 +143,8 @@ export default function IntegrationsPage() {
           <TabsContent key={tab.id} value={tab.id} className="min-h-0">
             {tab.id === "sources" ? (
               <SourceDirectory />
+            ) : tab.id === "migrate" ? (
+              <MigrateList />
             ) : (
               <TabPlaceholder tab={tab} />
             )}

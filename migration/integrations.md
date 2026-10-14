@@ -98,7 +98,13 @@ richer. Adopt the reference's layout, not its behaviour.
   `projectSettingsService.contractAddresses`; the product-events table needs a
   backend (none today - flag as new work or seed-only).
 
-- [ ] **6. Migrate tab.**
+- [x] **6. Migrate tab.** Done: a note banner (CSV fallback + "Ask us"), search
+  over the 14 migration targets, a row per tool stating what it brings and what
+  it leaves, and a "Migrate from X" dialog (suppressed-safe copy) with a stubbed
+  "Connect X" toast. File: `src/features/integrations/components/migrate-list.tsx`,
+  wired into the `migrate` tab. Reuses the already-ported `MIGRATIONS` +
+  `searchMigrations`. Per-tool importers and the real CSV-fallback wiring are
+  still stubbed (toast), pending backend.
   FROM `reference/v2.7/web/src/components/MigrateList.tsx` + `migrate.css` +
   `MIGRATIONS` (14 tools, from `sources.ts`).
   INTO `src/features/integrations/components/migrate-list.tsx`. The CSV-fallback path

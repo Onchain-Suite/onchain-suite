@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { MigrateList } from "../components/migrate-list";
 import { SourceDirectory } from "../components/sources/source-directory";
+import { DeveloperApiCard } from "@/features/settings/components/integrations/developer-api";
 
 /**
  * The Integrations screen shell (v2.7). One top-level screen with six tabs -
@@ -145,6 +146,18 @@ export default function IntegrationsPage() {
               <SourceDirectory />
             ) : tab.id === "migrate" ? (
               <MigrateList />
+            ) : tab.id === "api" ? (
+              <DeveloperApiCard
+                only="keys"
+                title="API"
+                description="Keys, base URL and the endpoint reference."
+              />
+            ) : tab.id === "webhooks" ? (
+              <DeveloperApiCard
+                only="webhooks"
+                title="Webhooks"
+                description="Signed delivery and contact events to your own endpoints."
+              />
             ) : (
               <TabPlaceholder tab={tab} />
             )}

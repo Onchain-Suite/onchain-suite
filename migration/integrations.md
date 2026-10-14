@@ -111,7 +111,16 @@ richer. Adopt the reference's layout, not its behaviour.
   reuses `import-export.tsx` / `audienceService`; per-tool migrations are stubbed
   toasts initially.
 
-- [ ] **7. API + Webhooks tabs (relocation, not rebuild).**
+- [x] **7. API + Webhooks tabs (relocation, not rebuild).** Done: the existing
+  real `DeveloperApiCard` gained an `only?: "keys" | "webhooks"` prop (plus
+  `title`/`description` overrides) that gates its sections and queries. The
+  Integrations `api` tab renders `only="keys"` (base URL + keys + endpoint
+  reference, including the `/identify` wallet-only note), the `webhooks` tab
+  renders `only="webhooks"` (endpoints + the HMAC verification block). No
+  behaviour change; Settings still renders the full card (default props).
+  Follow-up (not blocking): `developer-api.tsx` is a 1,200-line over-budget file
+  - the keys and webhooks sections should be extracted into their own components
+  when next touched.
   FROM `reference/v2.7/web/src/components/ApiPanel.tsx` (tab split `only="keys"` /
   `only="webhooks"`, the endpoint reference, the `/identify` wallet-only note).
   INTO the existing real `developer-api.tsx` + `developer.service.ts`. Keep app

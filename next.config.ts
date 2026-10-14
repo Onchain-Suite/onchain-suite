@@ -68,8 +68,9 @@ const APP_CSP_REPORT_ONLY = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   // Logo CDNs for the audience on-chain columns: chain/protocol icons from
   // DefiLlama, token icons from Covalent (the latter already loaded via
-  // backend-provided logoUrl). Declared so they survive the flip to enforce.
-  "img-src 'self' data: blob: https://res.cloudinary.com https://*.clarity.ms https://icons.llamao.fi https://logos.covalenthq.com",
+  // backend-provided logoUrl); vendor favicons for the integrations connector
+  // cards from DuckDuckGo. Declared so they survive the flip to enforce.
+  "img-src 'self' data: blob: https://res.cloudinary.com https://*.clarity.ms https://icons.llamao.fi https://logos.covalenthq.com https://icons.duckduckgo.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self' https://*.clarity.ms https://challenges.cloudflare.com",
   "frame-src 'self' https://challenges.cloudflare.com",

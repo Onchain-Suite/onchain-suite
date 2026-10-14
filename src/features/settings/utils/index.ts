@@ -144,27 +144,3 @@ export const invoices = [
     status: "paid",
   },
 ];
-
-export const integrationsList = [
-  { name: "Zapier", desc: "Automate workflows", connected: true },
-  { name: "Segment", desc: "Customer data platform", connected: false },
-  { name: "Slack", desc: "Team notifications", connected: true },
-  { name: "Discord", desc: "Community alerts", connected: false },
-  { name: "Telegram", desc: "Bot messaging", connected: false },
-  { name: "Shopify", desc: "E-commerce sync", connected: false },
-];
-
-export const webhooks = [
-  {
-    url: "https://api.myapp.com/webhooks/onchain",
-    events: ["email.sent", "email.opened"],
-    status: "active",
-    lastTriggered: "2 min ago",
-  },
-  {
-    url: "https://hooks.zapier.com/abc123",
-    events: ["subscriber.created"],
-    status: "active",
-    lastTriggered: "1h ago",
-  },
-];

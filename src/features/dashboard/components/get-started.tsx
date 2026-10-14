@@ -1,10 +1,7 @@
 "use client";
 
 import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
   BoltIcon,
-  CheckIcon,
   CpuChipIcon,
   DocumentTextIcon,
   EnvelopeIcon,
@@ -16,9 +13,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-
-import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect, useMemo, useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
 import { getSelectedOrganizationId } from "@/lib/utils";
@@ -44,6 +39,8 @@ interface TaskDefinition {
   id: string;
   title: string;
   description: string;
+  /** Short "what to do" line for the sidebar checklist; falls back to description. */
+  hint?: string;
   icon: React.ReactNode;
   href: string;
   cta: string;
@@ -123,32 +120,6 @@ const TASK_DEFINITIONS: TaskDefinition[] = [
     cta: "Open intelligence",
   },
 ];
-
-/**
- * Cards per carousel page tracks the page grid's column count so one "page"
- * is exactly one screenful: 1 on mobile, 2 at `md`, 3 at `lg+`. Defaults to 3
- * (the SSR markup) and corrects itself after hydration via matchMedia.
- */
-function useCardsPerPage() {
-  const [cardsPerPage, setCardsPerPage] = useState(3);
-
-  useEffect(() => {
-    const mdQuery = window.matchMedia("(min-width: 768px)");
-    const lgQuery = window.matchMedia("(min-width: 1024px)");
-    const sync = () => {
-      setCardsPerPage(lgQuery.matches ? 3 : mdQuery.matches ? 2 : 1);
-    };
-    sync();
-    mdQuery.addEventListener("change", sync);
-    lgQuery.addEventListener("change", sync);
-    return () => {
-      mdQuery.removeEventListener("change", sync);
-      lgQuery.removeEventListener("change", sync);
-    };
-  }, []);
-
-  return cardsPerPage;
-}
 
 /**
  * True only for an explicit verified status. Checks pending/failed markers
@@ -383,16 +354,30 @@ export function useTaskCompletion(organizationId: string | null) {
   return { completionById, isLoading };
 }
 
-function TaskCardSkeleton() {
-  return (
-    <div className="flex flex-col rounded-xl border border-border bg-background p-5 md:p-6">
-      <Skeleton className="mb-4 h-12 w-12 rounded-xl" />
-      <Skeleton className="mb-2 h-5 w-3/4" />
-      <Skeleton className="mb-1 h-4 w-full" />
-      <Skeleton className="mb-4 h-4 w-2/3" />
-      <Skeleton className="h-9 w-28 rounded-lg" />
-    </div>
+/** One setup step: its static definition plus whether live state marks it done. */
+export interface SetupStep extends TaskDefinition {
+  done: boolean;
+}
+
+/**
+ * The single source of truth for the setup checklist, consumed by the
+ * sidebar-pinned `GettingStarted` panel. Resolves the org the same way the
+ * dashboard does and maps each static task to a `done` flag from live reads, so
+ * there is one checklist derived from one set of queries (no second, drifting
+ * copy). `isLoading` is true until the org syncs and completion resolves.
+ */
+export function useSetupSteps(): { steps: SetupStep[]; isLoading: boolean } {
+  const { organizationId, isSynced } = useOrganizationId();
+  const { completionById, isLoading } = useTaskCompletion(organizationId);
+  const steps = useMemo<SetupStep[]>(
+    () =>
+      TASK_DEFINITIONS.map((task) => ({
+        ...task,
+        done: completionById[task.id] === true,
+      })),
+    [completionById]
   );
+  return { steps, isLoading: !isSynced || isLoading };
 }
 
 /**
@@ -402,9 +387,16 @@ function TaskCardSkeleton() {
  */
 const RESUME_REDIRECT_SESSION_KEY = "onchain.onboarding.resumeRedirected";
 
-export function GetStartedSection() {
+/**
+ * The owner-only "finish onboarding" banner plus the resume redirect that
+ * bounces an owner who abandoned the wizard back to /onboarding (once per
+ * session). The setup CHECKLIST itself now lives in the sidebar
+ * (`GettingStarted`), so this is no longer a checklist host, only the resume
+ * affordance. Renders nothing for members, completed owners, or once the
+ * onboarding-complete cookie is set.
+ */
+export function OnboardingResumeBanner() {
   const router = useRouter();
-  const [currentIndex, setCurrentIndex] = useState(0);
   const {
     progress,
     resume,
@@ -419,11 +411,6 @@ export function GetStartedSection() {
   // counts as not-owner so members are never yanked out of the dashboard.
   const { role: myOrgRole } = useMyOrgRole();
   const isOrgOwner = myOrgRole === "OWNER";
-
-  const { organizationId, isSynced } = useOrganizationId();
-  const { completionById, isLoading: isCompletionLoading } =
-    useTaskCompletion(organizationId);
-  const isChecklistLoading = !isSynced || isCompletionLoading;
 
   useEffect(() => {
     const cookieHeader =
@@ -465,207 +452,34 @@ export function GetStartedSection() {
     router,
   ]);
 
-  const tasks = useMemo(
-    () =>
-      TASK_DEFINITIONS.map((task) => ({
-        ...task,
-        completed: completionById[task.id] === true,
-      })),
-    [completionById]
-  );
-  const completedCount = tasks.filter((t) => t.completed).length;
-
-  const cardsPerPage = useCardsPerPage();
-  const totalPages = Math.ceil(TASK_DEFINITIONS.length / cardsPerPage);
-
-  // Re-clamp when a resize shrinks the page count (e.g. rotating a tablet).
-  useEffect(() => {
-    setCurrentIndex((prev) => Math.min(prev, totalPages - 1));
-  }, [totalPages]);
-
-  const goToPrevious = () => {
-    setCurrentIndex((prev) => Math.max(0, prev - 1));
-  };
-
-  const goToNext = () => {
-    setCurrentIndex((prev) => Math.min(totalPages - 1, prev + 1));
-  };
-
-  const goToSlide = (index: number) => {
-    setCurrentIndex(index);
-  };
-
-  // Touch swipe between pages (the pager buttons/dots still work everywhere).
-  const touchStartXRef = useRef<number | null>(null);
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    touchStartXRef.current = e.touches[0]?.clientX ?? null;
-  };
-  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    const startX = touchStartXRef.current;
-    touchStartXRef.current = null;
-    if (startX === null) return;
-    const endX = e.changedTouches[0]?.clientX ?? startX;
-    const delta = endX - startX;
-    if (Math.abs(delta) < 48) return;
-    if (delta < 0) goToNext();
-    else goToPrevious();
-  };
+  if (
+    !isOrgOwner ||
+    isOnboardingLoading ||
+    onboardingCompleteCookie ||
+    progress?.is_completed
+  ) {
+    return null;
+  }
 
   return (
-    <div className="my-6 md:my-8">
-      {isOrgOwner &&
-        !isOnboardingLoading &&
-        !onboardingCompleteCookie &&
-        !progress?.is_completed && (
-          <div className="mb-4 rounded-xl border border-border bg-background p-4 md:mb-6 md:p-5">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="text-sm font-semibold text-foreground">
-                  Finish onboarding to unlock your dashboard
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {typeof progress?.completion_percentage === "number"
-                    ? `${progress.completion_percentage}% complete. Continue where you left off.`
-                    : "Continue where you left off to personalize your workspace and set up your organization."}
-                </div>
-              </div>
-              <Link
-                href="/onboarding"
-                className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90"
-              >
-                Continue onboarding
-              </Link>
-            </div>
+    <div className="rounded-xl border border-border bg-background p-4 md:p-5">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="text-sm font-semibold text-foreground">
+            Finish onboarding to unlock your dashboard
           </div>
-        )}
-      <div className="mb-4 flex items-center justify-between md:mb-6">
-        <div className="flex items-center gap-2 md:gap-3">
-          <h2 className="text-lg font-semibold text-foreground md:text-xl">
-            Get started
-          </h2>
-          {isChecklistLoading ? (
-            <Skeleton
-              aria-hidden="true"
-              className="h-5 w-20 rounded-full md:w-24"
-            />
-          ) : (
-            <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground md:px-2.5">
-              {completedCount} of {tasks.length} done
-            </span>
-          )}
+          <div className="text-sm text-muted-foreground">
+            {typeof progress?.completion_percentage === "number"
+              ? `${progress.completion_percentage}% complete. Continue where you left off.`
+              : "Continue where you left off to personalize your workspace and set up your organization."}
+          </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={goToPrevious}
-            disabled={currentIndex === 0}
-            className="flex h-10 w-10 items-center cursor-pointer justify-center rounded-lg bg-transparent text-muted-foreground transition-all hover:bg-accent/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground md:h-8 md:w-8"
-            aria-label="Previous step"
-          >
-            <ArrowLeftIcon aria-hidden="true" className="h-4 w-4" />
-          </button>
-          <button
-            onClick={goToNext}
-            disabled={currentIndex === totalPages - 1}
-            className="flex h-10 w-10 items-center cursor-pointer justify-center rounded-lg bg-transparent text-muted-foreground transition-all hover:bg-accent/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground md:h-8 md:w-8"
-            aria-label="Next step"
-          >
-            <ArrowRightIcon aria-hidden="true" className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      <div
-        className="overflow-hidden rounded-xl border border-border bg-card shadow-sm md:rounded-2xl"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        {isChecklistLoading ? (
-          <div className="min-w-full p-4 md:p-8">
-            <div className="grid gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
-              {TASK_DEFINITIONS.slice(0, cardsPerPage).map((task) => (
-                <TaskCardSkeleton key={task.id} />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div
-            className="flex transition-transform duration-500 ease-in-out"
-            style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-          >
-            {Array.from({ length: totalPages }).map((_, pageIndex) => {
-              const pageTasks = tasks.slice(
-                pageIndex * cardsPerPage,
-                (pageIndex + 1) * cardsPerPage
-              );
-              return (
-                <div
-                  key={pageTasks[0]?.id ?? `page-${pageIndex}`}
-                  className="min-w-full p-4 md:p-8"
-                >
-                  <div className="grid gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
-                    {pageTasks.map((task) => {
-                      return (
-                        <Link
-                          key={task.id}
-                          href={task.href}
-                          className="group flex flex-col rounded-xl border border-border bg-background p-5 text-left transition-all hover:shadow-md md:p-6"
-                        >
-                          <div
-                            className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl transition-all ${
-                              task.completed
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-accent text-accent-foreground"
-                            }`}
-                          >
-                            {task.completed ? (
-                              <CheckIcon
-                                aria-hidden="true"
-                                className="h-6 w-6"
-                              />
-                            ) : (
-                              task.icon
-                            )}
-                          </div>
-                          <h3 className="mb-2 text-base font-semibold text-foreground">
-                            {task.title}
-                          </h3>
-                          <p className="mb-4 flex-1 text-sm leading-relaxed text-muted-foreground">
-                            {task.description}
-                          </p>
-                          <div className="self-start rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all group-hover:bg-primary/90">
-                            {task.cta}
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-4 flex items-center justify-center gap-1">
-        {Array.from({ length: totalPages }).map((_, index) => (
-          <button
-            // eslint-disable-next-line react/no-array-index-key
-            key={index}
-            onClick={() => goToSlide(index)}
-            className="group flex cursor-pointer items-center justify-center p-2"
-            aria-label={`Go to page ${index + 1}`}
-          >
-            <span
-              aria-hidden="true"
-              className={`h-2 rounded-full transition-all duration-300 ${
-                index === currentIndex
-                  ? "w-6 bg-primary"
-                  : "w-2 bg-muted/70 group-hover:bg-muted-foreground/90"
-              }`}
-            />
-          </button>
-        ))}
+        <Link
+          href="/onboarding"
+          className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90"
+        >
+          Continue onboarding
+        </Link>
       </div>
     </div>
   );

@@ -99,15 +99,29 @@ em-dashes in copy (CLAUDE.md 0.5 directive 5).
   `timeToValueSeconds` field stays BACKEND-GATED. Per-protocol aggregates surface
   in the separate `onchain-admin` app (`GET /onboarding/admin/summary`).
 
-- [ ] **3. "Start here: index your contract" banner - FE-only.**
-  Port the reference `DataScreen` banner into the dashboard (extend
-  `contract-address-nudge.tsx`). Shows while workspace is empty; CTA opens the
-  contract-index flow; self-hides once a contract is indexed.
+- [x] **3. "Start here" first-mile banner - FE-only.** Done (`8700f68`):
+  `src/features/onboarding/components/start-here-banner.tsx`, mounted at the top of
+  the dashboard, shown while `useWorkspaceMode()` is `empty`. Per product
+  direction, **indexing is optional and web2 clients skip it**: for web3/unknown
+  sectors the banner offers "Index a contract" as the fast path *plus* an equal
+  "Import an audience instead" CTA and a "Skip for now" dismiss; for a **web2**
+  client (sector picked in onboarding) there is no contract to index, so the
+  contract nudge is dropped and the banner points straight at import. The web2
+  signal is a durable sector stamp the wizard writes, classified by a pure,
+  unit-tested `utils/sector.ts` (matched against the picker's own web2/web3 option
+  lists); absent/unknown falls back to the web3 copy. Self-hides while loading and
+  once the workspace is live or dismissed. Reuses `SETTINGS_CONTRACTS_HREF` and
+  `/audience/import-export`. (Note: this extends, rather than edits,
+  `settings/.../contract-address-nudge.tsx`, which stays the Intelligence/automation
+  enrichment nudge.)
 
 - [ ] **4. Index-in-progress state - BACKEND-GATED.**
   Add an "indexing your contract" interim surface between empty and live. Needs a
   backend indexing-status field (job state + progress). Until then, show an honest
   "indexing can take a few minutes" placeholder, not a fake live audience.
+  **Web3 only**: web2 clients never index a contract (step 3), so this state does
+  not apply to them; their empty -> live transition is driven by the first
+  imported contacts. `SectionEmpty`'s `indexing` prop stays null for web2.
 
 - [ ] **5. Sidebar-pinned, self-removing checklist - mixed.**
   Port reference `GettingStarted.tsx` + `data/setup.ts` (`useSetupSteps`, 6

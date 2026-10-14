@@ -64,11 +64,15 @@ hand-built CSS-token UI). FE-only = renders from state the app already has;
 BACKEND-GATED = needs a new/extended `docs/backend.md` field + service type. No
 em-dashes in copy (CLAUDE.md 0.5 directive 5).
 
-- [ ] **1. Workspace mode (`empty | live`) - foundation, FE-first.**
-  New `src/features/onboarding/utils/workspace.ts` porting reference
-  `data/workspace.ts` (`WorkspaceMode`). Derive `empty` client-side from existing
-  audience/contract reads (no contract indexed + zero contacts = empty).
-  BACKEND-GATED later for an authoritative `workspaceMode` + indexing status.
+- [x] **1. Workspace mode (`empty | live`) - foundation, FE-first.** Done
+  (`aa86014`): `src/features/onboarding/utils/workspace.ts` holds a pure,
+  unit-tested `deriveWorkspaceMode` (empty = no contract tracked + zero contacts,
+  live otherwise) and `hooks/use-workspace-mode.ts` derives it from the dashboard
+  checklist's existing project-settings + audience-overview reads (shared query
+  keys dedupe, no new endpoints). Holds `live` while loading so teaching UI never
+  flashes at a populated account. Dropped the reference's persisted demo toggle +
+  simulated index timer as dishonest; an authoritative `workspaceMode` + indexing
+  status stays BACKEND-GATED (step 4).
 
 - [ ] **2. Unified `SectionEmpty` component - FE-only.**
   Port reference `components/SectionEmpty.tsx` to `src/shared/components/` (2+

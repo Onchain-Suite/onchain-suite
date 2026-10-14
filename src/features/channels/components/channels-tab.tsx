@@ -2,11 +2,15 @@
 
 import {
   ArrowLeftIcon,
-  ChatBubbleLeftRightIcon,
+  ChatBubbleBottomCenterTextIcon,
   ChevronRightIcon,
   DevicePhoneMobileIcon,
   EnvelopeIcon,
+  HashtagIcon,
   InformationCircleIcon,
+  MegaphoneIcon,
+  PaperAirplaneIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import type { ComponentType, SVGProps } from "react";
 import { useState } from "react";
@@ -14,12 +18,14 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { CHANNEL_META } from "../data/channels";
 import { useChannelReadiness } from "../hooks/use-channel-readiness";
 import type {
   ChannelId,
   ChannelReadiness,
   ChannelReadinessStatus,
 } from "../types/channel";
+import { SocialConnect } from "./social-connect";
 import { XConnect } from "./x-connect";
 import { SenderVerificationCard } from "@/features/settings/components/account/sender-verification-card";
 import InAppIntegration from "@/features/settings/components/integrations/inapp";
@@ -28,34 +34,20 @@ import { PushCredentialsCard } from "@/features/settings/components/integrations
 type IconType = ComponentType<SVGProps<SVGSVGElement>>;
 
 /**
- * Integrations -> Channels: where messages go out. Reads like the Sources
- * directory next door - the state of every channel first, one row each, with
- * what is blocking it in plain words; open a row for its setup. Web and mobile
- * push are one channel with two installs. Detail panels reuse the real settings
- * cards. The "send setup to someone" handoff and the X panel are later steps.
+ * Integrations -> Channels: where messages go out. The state of every channel
+ * first, one row each, with what is blocking it in plain words; open a row for
+ * its setup. Email and push reuse the real settings cards, X has its own panel,
+ * and the remaining social channels show a connect panel backed by a pending
+ * backend. Channel copy lives in the catalog (../data/channels).
  */
-const CHANNEL_META: Record<
-  ChannelId,
-  { icon: IconType; reaches: string; setup: string }
-> = {
-  email: {
-    icon: EnvelopeIcon,
-    reaches: "Anyone with an email address",
-    setup:
-      "Verify a sending domain so mail leaves as you rather than as us. Until it resolves, email cannot send.",
-  },
-  push: {
-    icon: DevicePhoneMobileIcon,
-    reaches: "Wallets connected to your dApp or app",
-    setup:
-      "Install the SDK. Push cannot send until it has reported a connected wallet or a registered device.",
-  },
-  x: {
-    icon: ChatBubbleLeftRightIcon,
-    reaches: "Followers who have linked a wallet",
-    setup:
-      "Authorise DM access. X only allows DMs to accounts that follow you, so reach grows with linked followers.",
-  },
+const CHANNEL_ICON: Record<ChannelId, IconType> = {
+  email: EnvelopeIcon,
+  push: DevicePhoneMobileIcon,
+  x: HashtagIcon,
+  whatsapp: ChatBubbleBottomCenterTextIcon,
+  telegram: PaperAirplaneIcon,
+  discord: UserGroupIcon,
+  farcaster: MegaphoneIcon,
 };
 
 function StatusBadge({ status }: { status: ChannelReadinessStatus }) {
@@ -119,7 +111,7 @@ export function ChannelsTab() {
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
           {readiness.map((c) => {
             const meta = CHANNEL_META[c.id];
-            const Icon = meta.icon;
+            const Icon = CHANNEL_ICON[c.id];
             return (
               <li key={c.id}>
                 <button
@@ -161,7 +153,7 @@ function ChannelDetail({
   onBack: () => void;
 }) {
   const meta = CHANNEL_META[channel.id];
-  const Icon = meta.icon;
+  const Icon = CHANNEL_ICON[channel.id];
   return (
     <div className="space-y-6">
       <button
@@ -196,14 +188,18 @@ function ChannelDetail({
         </p>
       ) : null}
 
-      {channel.id === "email" ? <SenderVerificationCard /> : null}
-      {channel.id === "push" ? (
+      {channel.id === "email" ? (
+        <SenderVerificationCard />
+      ) : channel.id === "push" ? (
         <div className="space-y-6">
           <InAppIntegration />
           <PushCredentialsCard />
         </div>
-      ) : null}
-      {channel.id === "x" ? <XConnect /> : null}
+      ) : channel.id === "x" ? (
+        <XConnect />
+      ) : (
+        <SocialConnect channel={channel.id} />
+      )}
     </div>
   );
 }

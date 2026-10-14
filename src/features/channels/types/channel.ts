@@ -1,12 +1,24 @@
 /**
  * Channel domain types (v2.7). The sending channels, and whether each can send
- * right now. Email and in-app push are real today; X is modelled but not built
- * until the X connector lands (migration/channels.md step 3). Discord, Telegram,
- * Farcaster and WhatsApp are driven by the backend campaign-types contract, not
- * ported from the reference (which only built email, push and X).
+ * right now.
+ *
+ * Email and in-app push are built end to end. The social channels differ in
+ * shape (see `kind`): WhatsApp is a per-recipient DM (phone + opt-in +
+ * templates), while X, Telegram, Discord and Farcaster are broadcast/"post"
+ * channels. Their send backends are net-new and not deployed, so they surface
+ * here with a connect panel but read as not connected until their backend ships.
+ * Only X was in the reference; the rest are driven by the backend campaign-types
+ * contract.
  */
 
-export type ChannelId = "email" | "push" | "x";
+export type ChannelId =
+  "email" | "push" | "x" | "whatsapp" | "telegram" | "discord" | "farcaster";
+
+/** How a channel reaches people, which drives its analytics and compliance. */
+export type ChannelKind = "email" | "inapp" | "dm" | "post";
+
+/** The backend-pending social channels (everything except email and push). */
+export type SocialChannelId = Exclude<ChannelId, "email" | "push">;
 
 export type ChannelReadinessStatus = "connected" | "pending" | "none";
 

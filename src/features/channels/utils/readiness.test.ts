@@ -88,3 +88,31 @@ describe("deriveChannelReadiness - x stub", () => {
     ).toBe("connected");
   });
 });
+
+describe("deriveChannelReadiness - all channels", () => {
+  it("emits every channel in catalog order", () => {
+    expect(deriveChannelReadiness(base).map((r) => r.id)).toEqual([
+      "email",
+      "push",
+      "x",
+      "whatsapp",
+      "telegram",
+      "discord",
+      "farcaster",
+    ]);
+  });
+
+  it("defaults the social channels to not connected", () => {
+    expect(byId(base).whatsapp.status).toBe("none");
+    expect(byId(base).discord.blocker).toMatch(/not connected/i);
+  });
+
+  it("reflects a connected social channel when its state is threaded through", () => {
+    const r = byId({
+      ...base,
+      social: { telegram: { connected: true, pending: false } },
+    });
+    expect(r.telegram.status).toBe("connected");
+    expect(r.telegram.blocker).toBeNull();
+  });
+});

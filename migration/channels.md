@@ -23,6 +23,16 @@ reference.** Discord / Telegram / Farcaster / WhatsApp are net-new and must be
 driven by the backend `campaign-types` / `ensureChannels` contract
 (`inapp/telegram/discord/x`) and the channels scoping doc, not by v2.7 code.
 
+**Update (per product direction):** the product wants the full set surfaced -
+X, WhatsApp, Telegram, Discord, Farcaster. All seven channels are now in the
+catalog (`data/channels.ts`), the readiness model, and the Channels tab, each
+with the right sending model (`kind`: WhatsApp is a per-recipient `dm`; X,
+Telegram, Discord, Farcaster are `post`/broadcast). Email and push are live; X
+has its own panel (3a); the other four show a `SocialConnect` panel backed by a
+pending backend and read as "not connected" until it ships. Enabling any social
+channel as a *sendable* campaign/automation channel stays gated on its send
+backend (see 3b) so users can't build campaigns that silently fail.
+
 ## Preserve (the app already does these better)
 
 - Email sender verification: `src/features/settings/components/account/sender-verification-card.tsx`

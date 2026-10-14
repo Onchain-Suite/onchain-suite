@@ -1,6 +1,9 @@
+import { CHANNEL_META, CHANNEL_ORDER } from "../data/channels";
 import type {
+  ChannelId,
   ChannelReadiness,
   ChannelReadinessStatus,
+  SocialChannelId,
 } from "../types/channel";
 import type { DomainStatus } from "@/features/settings/components/account/domain-status";
 
@@ -14,9 +17,25 @@ export interface ReadinessInputs {
   domainStatuses: DomainStatus[];
   webPush: { hasKey: boolean; sessionCount: number | null };
   mobilePush: { hasCredential: boolean; hasVerified: boolean };
-  /** X is not built yet (step 3); both false until then. */
   x: { connected: boolean; pending: boolean };
+  /**
+   * The remaining social channels. Their send backends are not deployed, so
+   * these default to not connected; connect-state is threaded through once each
+   * lands.
+   */
+  social?: Partial<
+    Record<
+      Exclude<SocialChannelId, "x">,
+      { connected: boolean; pending: boolean }
+    >
+  >;
 }
+
+const entry = (
+  id: ChannelId,
+  status: ChannelReadinessStatus,
+  blocker: string | null
+): ChannelReadiness => ({ id, label: CHANNEL_META[id].label, status, blocker });
 
 /** Web in-app push: the SDK is provisioned once a publishable key exists, and
  *  proven live once it has reported a session. */
@@ -41,23 +60,16 @@ export function mobilePushStatus({
 }
 
 function emailEntry(domainStatuses: DomainStatus[]): ChannelReadiness {
-  if (domainStatuses.includes("verified")) {
-    return { id: "email", label: "Email", status: "connected", blocker: null };
-  }
+  if (domainStatuses.includes("verified"))
+    return entry("email", "connected", null);
   if (domainStatuses.includes("pending")) {
-    return {
-      id: "email",
-      label: "Email",
-      status: "pending",
-      blocker: "A sending domain is waiting on DKIM and SPF",
-    };
+    return entry(
+      "email",
+      "pending",
+      "A sending domain is waiting on DKIM and SPF"
+    );
   }
-  return {
-    id: "email",
-    label: "Email",
-    status: "none",
-    blocker: "No verified sending domain",
-  };
+  return entry("email", "none", "No verified sending domain");
 }
 
 function pushEntry(
@@ -70,7 +82,6 @@ function pushEntry(
       : web === "pending" || mobile === "pending"
         ? "pending"
         : "none";
-
   const blocker =
     status === "connected"
       ? null
@@ -79,23 +90,24 @@ function pushEntry(
         : mobile === "pending"
           ? "A mobile push credential is added but not verified"
           : "In-app push not set up";
-
-  return { id: "push", label: "In-app push", status, blocker };
+  return entry("push", status, blocker);
 }
 
-function xEntry(x: ReadinessInputs["x"]): ChannelReadiness {
-  const status: ChannelReadinessStatus = x.connected
-    ? "connected"
-    : x.pending
-      ? "pending"
-      : "none";
-  const blocker =
-    status === "connected"
-      ? null
-      : status === "pending"
+function socialEntry(
+  id: SocialChannelId,
+  conn: { connected: boolean; pending: boolean }
+): ChannelReadiness {
+  if (conn.connected) return entry(id, "connected", null);
+  if (conn.pending) {
+    return entry(
+      id,
+      "pending",
+      id === "x"
         ? "Authorised. No followers with a linked wallet yet"
-        : "Not connected";
-  return { id: "x", label: "X", status, blocker };
+        : "Authorised, finishing setup"
+    );
+  }
+  return entry(id, "none", "Not connected yet");
 }
 
 /** Every channel's readiness in one list, so the UI never has to know how each
@@ -103,12 +115,29 @@ function xEntry(x: ReadinessInputs["x"]): ChannelReadiness {
 export function deriveChannelReadiness(
   inputs: ReadinessInputs
 ): ChannelReadiness[] {
-  return [
-    emailEntry(inputs.domainStatuses),
-    pushEntry(
+  const byId: Record<ChannelId, ChannelReadiness> = {
+    email: emailEntry(inputs.domainStatuses),
+    push: pushEntry(
       webPushStatus(inputs.webPush),
       mobilePushStatus(inputs.mobilePush)
     ),
-    xEntry(inputs.x),
-  ];
+    x: socialEntry("x", inputs.x),
+    whatsapp: socialEntry(
+      "whatsapp",
+      inputs.social?.whatsapp ?? { connected: false, pending: false }
+    ),
+    telegram: socialEntry(
+      "telegram",
+      inputs.social?.telegram ?? { connected: false, pending: false }
+    ),
+    discord: socialEntry(
+      "discord",
+      inputs.social?.discord ?? { connected: false, pending: false }
+    ),
+    farcaster: socialEntry(
+      "farcaster",
+      inputs.social?.farcaster ?? { connected: false, pending: false }
+    ),
+  };
+  return CHANNEL_ORDER.map((id) => byId[id]);
 }

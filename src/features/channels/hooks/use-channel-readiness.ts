@@ -5,6 +5,7 @@ import { useMemo } from "react";
 
 import type { ChannelReadiness } from "../types/channel";
 import { deriveChannelReadiness } from "../utils/readiness";
+import { X_STATUS_KEY, xService } from "../x.service";
 import { normalizeDomainStatus } from "@/features/settings/components/account/domain-status";
 import { useAccountOrg } from "@/features/settings/components/account/use-account-org";
 import { inAppService } from "@/features/settings/inapp.service";
@@ -13,9 +14,9 @@ import { senderIdentitiesService } from "@/features/settings/sender-identities.s
 
 /**
  * Derives the readiness of every sending channel from the real email / in-app /
- * push services (migration/channels.md step 1). The UI consumes this one list
- * instead of knowing how each channel's setup works. X is stubbed until its
- * connector lands (step 3).
+ * push / X services (migration/channels.md step 1). The UI consumes this one
+ * list instead of knowing how each channel's setup works. X reads as not
+ * connected until its backend ships (step 3).
  */
 export function useChannelReadiness(): {
   readiness: ChannelReadiness[];
@@ -47,6 +48,15 @@ export function useChannelReadiness(): {
     queryFn: () => pushCredentialsService.list(orgId),
   });
 
+  // Shares the cache with the X panel (same key + read). Reads as not connected
+  // until the X backend ships.
+  const xQuery = useQuery({
+    queryKey: X_STATUS_KEY(organizationId),
+    enabled,
+    retry: false,
+    queryFn: () => xService.getStatus(orgId),
+  });
+
   const readiness = useMemo(() => {
     const domainStatuses = (domainsQuery.data ?? []).map((d) =>
       normalizeDomainStatus(d.status)
@@ -56,6 +66,7 @@ export function useChannelReadiness(): {
       Boolean(status?.publishableKeys.production) ||
       Boolean(status?.publishableKeys.test);
     const creds = pushQuery.data ?? [];
+    const x = xQuery.data;
 
     return deriveChannelReadiness({
       domainStatuses,
@@ -64,14 +75,19 @@ export function useChannelReadiness(): {
         hasCredential: creds.length > 0,
         hasVerified: creds.some((c) => c.verified),
       },
-      // X connector is step 3; not connected until then.
-      x: { connected: false, pending: false },
+      x: {
+        connected: x?.status === "connected",
+        pending: x?.status === "pending",
+      },
     });
-  }, [domainsQuery.data, inappQuery.data, pushQuery.data]);
+  }, [domainsQuery.data, inappQuery.data, pushQuery.data, xQuery.data]);
 
   return {
     readiness,
     isLoading:
-      domainsQuery.isLoading || inappQuery.isLoading || pushQuery.isLoading,
+      domainsQuery.isLoading ||
+      inappQuery.isLoading ||
+      pushQuery.isLoading ||
+      xQuery.isLoading,
   };
 }

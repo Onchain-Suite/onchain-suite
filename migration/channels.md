@@ -66,16 +66,21 @@ driven by the backend `campaign-types` / `ensureChannels` contract
   Integrations screen. The detail view reuses `sender-verification-card.tsx`
   (email) and `inapp.tsx` + `push-credentials.tsx` (push web + mobile).
 
-- [ ] **3. X channel, end to end.**
-  FROM `reference/v2.7/web/src/components/SocialConnect.tsx` (`XPanel`) + the
-  `XInstall` store/actions (`connectX`/`checkX`/`removeX`); note reach is bounded by
-  `reachableFollowers` (followers with a linked wallet).
-  INTO `src/features/channels/components/x-connect.tsx` + a new
-  `src/features/channels/x.service.ts`. Then: flip `campaignChannels` in
-  `src/features/campaigns/validations/campaign.ts:7`, un-stub the UI in
-  `create-campaign-sheet.tsx:228-239`, and add a `send_x` node to
-  `src/features/automation/utils/builder-catalog.ts` (+ `builder-graph.ts`,
-  `node-icons.tsx`, `builder-issues.ts`).
+- [x] **3a. X connect surface + readiness (done).** `x.service.ts` (typed
+  `XConnection`, `getStatus` that reads `/channels/x/status` and degrades to "not
+  connected" when the backend is absent) + `components/x-connect.tsx` (the panel:
+  two-part connection + reachable-followers, pending = authorised-but-no-reachable
+  audience; OAuth "Authorise" stubbed until the backend ships). Wired into
+  `useChannelReadiness` and swapped into the Channels tab's X detail. Ported from
+  `reference/.../SocialConnect.tsx`.
+- [ ] **3b. Enable X as a sendable channel (gated on backend).** Flip
+  `campaignChannels` in `campaigns/validations/campaign.ts:7`, un-stub
+  `create-campaign-sheet.tsx:228-239`, add a `send_x` node to
+  `automation/utils/builder-catalog.ts` (+ `builder-graph.ts`, `node-icons.tsx`,
+  `builder-issues.ts`). **Deliberately deferred:** the backend cannot send on X
+  yet, so exposing X as a selectable campaign/automation channel now would let
+  users build campaigns that silently fail. Do this once the X send backend
+  (OAuth + send path) exists.
 
 - [ ] **4. Setup handoff ("send setup to someone").**
   FROM `reference/v2.7/web/src/components/Handoff.tsx` + `data/handoff.ts` +

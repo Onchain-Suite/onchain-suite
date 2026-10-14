@@ -20,6 +20,7 @@ import type {
   ChannelReadiness,
   ChannelReadinessStatus,
 } from "../types/channel";
+import { XConnect } from "./x-connect";
 import { SenderVerificationCard } from "@/features/settings/components/account/sender-verification-card";
 import InAppIntegration from "@/features/settings/components/integrations/inapp";
 import { PushCredentialsCard } from "@/features/settings/components/integrations/push-credentials";
@@ -202,13 +203,7 @@ function ChannelDetail({
           <PushCredentialsCard />
         </div>
       ) : null}
-      {channel.id === "x" ? (
-        <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center text-sm text-muted-foreground">
-          X connection is coming in the v2.7 channels work. It will authorise DM
-          access and show how many followers have a linked wallet (the ceiling
-          on reach) here.
-        </div>
-      ) : null}
+      {channel.id === "x" ? <XConnect /> : null}
     </div>
   );
 }

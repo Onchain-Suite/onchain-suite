@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventsTab } from "../components/events-tab";
 import { MigrateList } from "../components/migrate-list";
 import { SourceDirectory } from "../components/sources/source-directory";
+import { ChannelsTab } from "@/features/channels/components/channels-tab";
 import { DeveloperApiCard } from "@/features/settings/components/integrations/developer-api";
 
 /**
@@ -62,7 +63,6 @@ const TABS: IntegrationsTab[] = [
     label: "Channels",
     icon: PaperAirplaneIcon,
     blurb: "How messages reach people: email, push and social.",
-    note: "Built on the v2.7-channels branch; it slots into this tab.",
   },
   {
     id: "webhooks",
@@ -147,6 +147,8 @@ export default function IntegrationsPage() {
               <SourceDirectory />
             ) : tab.id === "events" ? (
               <EventsTab />
+            ) : tab.id === "channels" ? (
+              <ChannelsTab />
             ) : tab.id === "migrate" ? (
               <MigrateList />
             ) : tab.id === "api" ? (

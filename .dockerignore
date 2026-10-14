@@ -1,0 +1,23 @@
+# Keep the build context small; never ship host-built artifacts into the image.
+node_modules
+.next
+.git
+.github
+# Vendored v2.7 reference bundle - build-excluded in the app, GBs of context.
+reference
+# Local/editor/agent scratch and large local-only dirs.
+.claude
+.cursor
+.idea
+.vscode
+marketing
+Onchain Suite Design System v2
+*.zip
+coverage
+test-results
+playwright-report
+.vercel
+.env*
+!.env.example
+.DS_Store
+npm-debug.log*

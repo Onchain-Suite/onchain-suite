@@ -106,6 +106,61 @@ environment set `NEXT_PUBLIC_APP_URL` to the app's public HTTPS domain and
 `BACKEND_URL` to the backend's `/api/v1` origin - over HTTPS, so the session
 cookie is accepted.
 
+### Deploying this frontend to Coolify
+
+The repo ships a production [`Dockerfile`](Dockerfile) (Next.js + Payload on bun,
+`next start`). Coolify builds it directly.
+
+**Why one domain matters.** Auth is cookie-based and the backend scopes cookies
+to `.onchainsuite.com` (cross-subdomain). So the frontend and backend must be on
+`onchainsuite.com` subdomains over HTTPS, or Google OAuth and the email links
+break. Staging serves **everything from `api-next.onchainsuite.com`**: the
+frontend answers `/*`, and its built-in `/api/v1/*` proxy forwards to the backend
+privately. That keeps the session cookie on one origin, so sign-in, sign-up,
+Google OAuth and email verification all work without localhost.
+
+**1. Create the Coolify application** from this repo, build pack **Dockerfile**,
+exposed port **3000**, domain `https://api-next.onchainsuite.com` (HTTPS).
+
+**2. Build variables** (inlined into the client bundle at build time - these MUST
+be set as Coolify *build* args, not just runtime env):
+
+```
+NEXT_PUBLIC_APP_URL=https://api-next.onchainsuite.com
+NEXT_PUBLIC_BACKEND_URL=https://api-next.onchainsuite.com/api/v1
+NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=<token>
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+```
+
+**3. Runtime environment variables:**
+
+```
+BACKEND_URL=<the NestJS backend's reachable URL>/api/v1   # e.g. the Coolify
+            # internal service URL, or a private backend subdomain. The browser
+            # never sees this; the /api/v1 proxy uses it server-side.
+BACKEND_API_KEY=<if the backend requires a server key, else empty>
+DATABASE_URI=<Coolify Postgres for Payload CMS /admin>
+PAYLOAD_SECRET=<random secret>
+```
+
+**4. On the backend (`onchain-backend`) app**, point it at this frontend:
+
+```
+FRONTEND_URL=https://api-next.onchainsuite.com
+APP_BASE_URL=https://api-next.onchainsuite.com/api/v1
+```
+
+`APP_BASE_URL` is the public URL the browser reaches (through the frontend's
+`/api/v1` proxy), so better-auth builds OAuth callbacks and email links on
+`api-next` - the one domain. Add `https://api-next.onchainsuite.com` as an
+Authorized JavaScript origin in the Google OAuth console (the
+`.../api/v1/auth/callback/google` redirect URI is already allowed).
+
+> The frontend must reach the backend at `BACKEND_URL`. Since the frontend now
+> owns the public `api-next` domain, the backend should be reachable at a private
+> URL (Coolify internal service or a separate subdomain), not the public
+> `api-next` origin - otherwise the proxy would point at itself.
+
 ## Links
 
 - Website: https://onchainsuite.com

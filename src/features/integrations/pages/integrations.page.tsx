@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { EventsTab } from "../components/events-tab";
 import { MigrateList } from "../components/migrate-list";
 import { SourceDirectory } from "../components/sources/source-directory";
 import { DeveloperApiCard } from "@/features/settings/components/integrations/developer-api";
@@ -144,6 +145,8 @@ export default function IntegrationsPage() {
           <TabsContent key={tab.id} value={tab.id} className="min-h-0">
             {tab.id === "sources" ? (
               <SourceDirectory />
+            ) : tab.id === "events" ? (
+              <EventsTab />
             ) : tab.id === "migrate" ? (
               <MigrateList />
             ) : tab.id === "api" ? (

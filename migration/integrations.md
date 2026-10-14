@@ -99,7 +99,12 @@ richer. Adopt the reference's layout, not its behaviour.
   + `src/features/settings/project-settings.service.ts`. The "Your contracts" card
   and the Events tab read/write this, not a new store.
 
-- [ ] **5. Events tab (indexed contracts + product events).**
+- [x] **5. Events tab (indexed contracts + product events).** Done:
+  `events-tab.tsx` wired into the `events` tab. Indexed contracts are real (table
+  from `projectSettingsService.contractAddresses` + chain labels, "Add contract"
+  opens `ImportContractsDialog`, empty state otherwise). Product events have no
+  backend yet, so that section is an honest empty state pointing at the SDK /
+  analytics connectors rather than seeded mock data.
   FROM `reference/v2.7/web/src/screens/DataScreen.tsx:93-169` + `data/productEvents.ts`.
   INTO `src/features/integrations/components/events-tab.tsx`. Indexed contracts <-
   `projectSettingsService.contractAddresses`; the product-events table needs a

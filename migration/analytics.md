@@ -38,11 +38,14 @@ the reference uses.
 
 ## Steps (FE = frontend-only, BE = needs a new/changed endpoint)
 
-- [ ] **1. Charting foundation (FE).** Port the reference chart primitives
-  (`LineChart` / `BarChart` / `HBarChart`, and the Sankey `FunnelNode` / `FlowNode`
-  helpers) FROM `reference/.../screens/dashCharts.tsx` + `retentionCharts.tsx`
-  INTO `src/features/analytics/components/charts/`, re-skinned to Tailwind /
-  heroicons on top of the existing `src/shared/components/ui/chart.tsx` + recharts.
+- [x] **1. Charting foundation (FE).** Done: reusable, typed Cartesian primitives
+  in `src/features/analytics/components/charts/` on top of the shared
+  `ChartContainer` + recharts - `AnalyticsBarChart` (single/stacked),
+  `AnalyticsLineChart` (multi-series time series), `AnalyticsHBarChart`
+  (labelled breakdowns), plus a pure `seriesConfig` helper (unit-tested) that
+  wires `--color-<key>` so marks, tooltips and legend stay in sync. The Sankey
+  helpers (`FunnelNode` / `FlowNode`) are deferred to the step that first needs
+  them (step 4, the org funnel).
 - [ ] **2. Tab shell + routing (FE).** Port the tabbed dashboard shell
   (Overview / Conversions / Engagement / Retention, URL-addressable) FROM
   `AnalyticsScreen.tsx` INTO `src/features/analytics/analytics-page.tsx` (+ route

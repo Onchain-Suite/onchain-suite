@@ -492,6 +492,11 @@ export const nodeSetupIssue = (
       return field(data, "title") || field(data, "body")
         ? null
         : { code: "INVALID_INAPP_CONFIG", message: "Needs a title or body" };
+    case "telegram":
+    case "send_telegram":
+      return field(data, "text")
+        ? null
+        : { code: "INVALID_TELEGRAM_CONFIG", message: "Needs a message" };
     case "wait":
       return parseDurationToSeconds(
         data.seconds ?? data.delaySeconds ?? data.duration ?? data.minutes

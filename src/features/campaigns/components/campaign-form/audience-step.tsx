@@ -7,6 +7,7 @@ import {
   EnvelopeIcon,
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
+  PaperAirplaneIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
@@ -98,6 +99,10 @@ export function AudienceStep({
   const accountSettingsHref = `${PRIVATE_ROUTES.SETTINGS}?tab=account`;
   const channel = form.watch("channel");
   const isPush = channel === "in-app-push";
+  const isTelegram = channel === "telegram";
+  // Telegram, like in-app push, reaches wallets (a verified Telegram chat id),
+  // not email - so it uses the wallet-reachable audience path everywhere.
+  const isWalletChannel = isPush || isTelegram;
   const selectedAudiences = form.watch("selectedAudiences");
   const smartSending = form.watch("smartSending");
   const windowOverrideDraft = form.watch("smartSendingWindowHours");
@@ -335,11 +340,11 @@ export function AudienceStep({
     // the synthetic @wallet.onchainsuite.local placeholder and none of whom
     // can be emailed. `emailReachable` is the count the send will produce.
     const fromEstimate = allSelected
-      ? isPush
+      ? isWalletChannel
         ? pick(estimateBreakdown?.totalWallets)
         : pick(estimateBreakdown?.emailReachable)
       : null;
-    if (isPush) {
+    if (isWalletChannel) {
       return (
         fromEstimate ??
         computedPushReachable ??
@@ -590,7 +595,7 @@ export function AudienceStep({
     onEstimateChange?.(displayedEstimatedRecipients);
   }, [displayedEstimatedRecipients, onEstimateChange]);
 
-  const setChannel = (next: "email" | "in-app-push") =>
+  const setChannel = (next: "email" | "in-app-push" | "telegram") =>
     form.setValue("channel", next, { shouldDirty: true });
 
   const toggleSelection = (id: string) => {
@@ -709,13 +714,15 @@ export function AudienceStep({
       // send path read it, so the exclusion it claimed was not happening;
       // now it is, and the estimate moves with it.
       key: "internal",
-      label: isPush ? "Internal / team wallets" : "Internal / team contacts",
+      label: isWalletChannel
+        ? "Internal / team wallets"
+        : "Internal / team contacts",
       count: internalCount,
       applied: excludeInternal,
       toggle: true,
       hint: excludeInternal
-        ? `Withheld from this campaign. Click to include internal / team ${isPush ? "wallets" : "contacts"}.`
-        : `Included in this campaign. Click to withhold it from internal / team ${isPush ? "wallets" : "contacts"}.`,
+        ? `Withheld from this campaign. Click to include internal / team ${isWalletChannel ? "wallets" : "contacts"}.`
+        : `Included in this campaign. Click to withhold it from internal / team ${isWalletChannel ? "wallets" : "contacts"}.`,
     },
     // A locked row with nothing in it says nothing, so it is dropped — the
     // panel stays short on a clean list. The toggle always shows: its whole
@@ -740,7 +747,7 @@ export function AudienceStep({
       {/* Campaign type */}
       <div className="space-y-2">
         <p className="text-sm font-medium text-foreground">Campaign type</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
             {
               key: "email" as const,
@@ -754,9 +761,15 @@ export function AudienceStep({
               title: "In-app push",
               sub: "Sent to connected wallets",
             },
+            {
+              key: "telegram" as const,
+              icon: PaperAirplaneIcon,
+              title: "Telegram",
+              sub: "Sent to opted-in wallets",
+            },
           ].map((opt) => {
             const active =
-              opt.key === "email" ? !isPush : channel === "in-app-push";
+              opt.key === "email" ? !isWalletChannel : channel === opt.key;
             return (
               <button
                 key={opt.key}
@@ -804,9 +817,11 @@ export function AudienceStep({
           })}
         </div>
         <p className="text-xs text-muted-foreground">
-          {isPush
-            ? "Delivered in-app to connected wallets."
-            : "Delivered by email - contacts need an email address."}
+          {isTelegram
+            ? "Delivered on Telegram to wallets that opted in via your bot."
+            : isPush
+              ? "Delivered in-app to connected wallets."
+              : "Delivered by email - contacts need an email address."}
         </p>
       </div>
 
@@ -842,8 +857,9 @@ export function AudienceStep({
                   "string"
                     ? (s as { description?: string }).description
                     : undefined,
-                count: reachChannelCount(s.reachable, isPush) ?? s.count,
-                ...reachabilityGate(s.reachableVia, isPush),
+                count:
+                  reachChannelCount(s.reachable, isWalletChannel) ?? s.count,
+                ...reachabilityGate(s.reachableVia, isWalletChannel),
               }))}
               loading={segmentsLoading}
               searchPlaceholder="Search segments…"
@@ -864,8 +880,9 @@ export function AudienceStep({
               rows={lists.map((l) => ({
                 id: l.id,
                 title: l.name,
-                count: reachChannelCount(l.reachable, isPush) ?? l.count,
-                ...reachabilityGate(l.reachableVia, isPush),
+                count:
+                  reachChannelCount(l.reachable, isWalletChannel) ?? l.count,
+                ...reachabilityGate(l.reachableVia, isWalletChannel),
               }))}
               searchPlaceholder="Search lists…"
               emptyText="No lists yet - save a segment or tag to reuse it."
@@ -879,14 +896,17 @@ export function AudienceStep({
                 // count (the tags API historically sent none); else the raw tag
                 // count. A backend 0 is real - don't fall through it.
                 const count =
-                  reachChannelCount(t.reachable, isPush) ??
-                  reachChannelCount(computedTagReach?.[t.name], isPush) ??
+                  reachChannelCount(t.reachable, isWalletChannel) ??
+                  reachChannelCount(
+                    computedTagReach?.[t.name],
+                    isWalletChannel
+                  ) ??
                   t.count;
                 return {
                   id: t.id,
                   title: t.name,
                   count,
-                  ...reachabilityGate(t.reachableVia, isPush),
+                  ...reachabilityGate(t.reachableVia, isWalletChannel),
                 };
               })}
               searchPlaceholder="Search tags…"
@@ -909,13 +929,15 @@ export function AudienceStep({
             <SelectList
               rows={contacts.map((c) => {
                 const hasWallet = (c.walletAddress ?? "").length > 0;
-                const reachable = isPush ? hasWallet : c.email.length > 0;
+                const reachable = isWalletChannel
+                  ? hasWallet
+                  : c.email.length > 0;
                 return {
                   id: c.id,
                   title: c.name,
                   // Show the identity the current channel actually uses (wallet
                   // for in-app, email for direct); the other is irrelevant here.
-                  trailing: isPush
+                  trailing: isWalletChannel
                     ? (c.walletShort ?? c.walletAddress ?? "")
                     : c.email,
                   // Everyone is listed; a contact the current channel can't
@@ -924,7 +946,9 @@ export function AudienceStep({
                     ? {}
                     : {
                         disabled: true,
-                        disabledHint: isPush ? "No wallet" : "No email",
+                        disabledHint: isWalletChannel
+                          ? "No wallet"
+                          : "No email",
                       }),
                 };
               })}
@@ -939,7 +963,7 @@ export function AudienceStep({
               }
               footerNote={
                 fetchedContacts.length >= CONTACTS_PAGE_LIMIT
-                  ? `Showing the first ${CONTACTS_PAGE_LIMIT.toLocaleString()}. Search by name${isPush ? "" : " or email"} to find anyone, or send to a segment, list, or Everyone.`
+                  ? `Showing the first ${CONTACTS_PAGE_LIMIT.toLocaleString()}. Search by name${isWalletChannel ? "" : " or email"} to find anyone, or send to a segment, list, or Everyone.`
                   : null
               }
               isSelected={isSelected}
@@ -967,15 +991,19 @@ export function AudienceStep({
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-foreground">
-                  {isPush ? "Every connected wallet" : "Everyone with an email"}
+                  {isWalletChannel
+                    ? "Every connected wallet"
+                    : "Everyone with an email"}
                   {everyoneReachable !== null
                     ? ` · ${everyoneReachable.toLocaleString()}`
                     : ""}
                 </span>
                 <span className="block text-xs text-muted-foreground">
-                  {isPush
-                    ? "Sends an in-app push to every wallet signed in to the app, minus the exclusions below."
-                    : "Sends to every email-reachable contact, minus the exclusions below."}
+                  {isTelegram
+                    ? "Sends a Telegram message to every opted-in wallet, minus the exclusions below."
+                    : isPush
+                      ? "Sends an in-app push to every wallet signed in to the app, minus the exclusions below."
+                      : "Sends to every email-reachable contact, minus the exclusions below."}
                 </span>
               </span>
             </button>
@@ -1001,7 +1029,7 @@ export function AudienceStep({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          {isPush
+          {isWalletChannel
             ? "Overlapping wallets are only messaged once."
             : "Overlapping contacts are only emailed once."}
         </p>
@@ -1017,7 +1045,7 @@ export function AudienceStep({
           </p>
         ) : null}
 
-        {!isPush &&
+        {!isWalletChannel &&
         missingEmailCount !== null &&
         missingEmailCount > 0 &&
         totalRecipientCount !== null ? (

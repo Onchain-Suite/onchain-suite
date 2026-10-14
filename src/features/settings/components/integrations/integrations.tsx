@@ -15,6 +15,7 @@ import { SettingsCard, SettingsStepper } from "../settings-card";
 import { DeveloperApiCard } from "./developer-api";
 import InAppIntegration from "./inapp";
 import { PushCredentialsCard } from "./push-credentials";
+import { TelegramCard } from "./telegram";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -308,6 +309,8 @@ export default function IntegrationsSettings() {
       </SettingsCard>
 
       <PushCredentialsCard />
+
+      <TelegramCard />
 
       <DeveloperApiCard />
 

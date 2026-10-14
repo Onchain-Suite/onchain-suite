@@ -4,6 +4,7 @@ import {
   ArrowPathIcon,
   DevicePhoneMobileIcon,
   EnvelopeIcon,
+  PaperAirplaneIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
@@ -79,10 +80,12 @@ export function CreateCampaignSheet({
   const [name, setName] = useState("");
   const [type, setType] = useState<CampaignTypeId>("email-blast");
   const [isCreating, setIsCreating] = useState(false);
+  // Smart campaigns pick their delivery channel; other types send email.
+  const [smartChannel, setSmartChannel] =
+    useState<CampaignChannel>("in-app-push");
 
-  // Smart campaigns are in-app push only for now; other types send email.
   const channel: CampaignChannel =
-    type === "smart-sending" ? "in-app-push" : "email";
+    type === "smart-sending" ? smartChannel : "email";
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -211,31 +214,61 @@ export function CreateCampaignSheet({
           {type === "smart-sending" ? (
             <div className="space-y-3">
               <Label className="text-sm font-medium">Channel</Label>
-              <div className="flex items-center gap-3 rounded-xl border-2 border-primary bg-primary/5 p-4">
-                <DevicePhoneMobileIcon
-                  aria-hidden="true"
-                  className="h-5 w-5 text-primary"
-                />
-                <div>
-                  <div className="text-sm font-medium text-foreground">
-                    In-app Push
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Deliver this campaign as a push notification in your app
-                  </p>
-                </div>
+              <div className="grid grid-cols-2 gap-3">
+                {(
+                  [
+                    {
+                      id: "in-app-push" as const,
+                      icon: DevicePhoneMobileIcon,
+                      title: "In-app Push",
+                      desc: "A push notification in your app",
+                    },
+                    {
+                      id: "telegram" as const,
+                      icon: PaperAirplaneIcon,
+                      title: "Telegram",
+                      desc: "A message via your Telegram bot",
+                    },
+                  ] satisfies {
+                    id: CampaignChannel;
+                    icon: typeof DevicePhoneMobileIcon;
+                    title: string;
+                    desc: string;
+                  }[]
+                ).map((opt) => {
+                  const active = smartChannel === opt.id;
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setSmartChannel(opt.id)}
+                      className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-colors ${
+                        active
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <Icon
+                        aria-hidden="true"
+                        className={`h-5 w-5 shrink-0 ${
+                          active ? "text-primary" : "text-muted-foreground"
+                        }`}
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-foreground">
+                          {opt.title}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {opt.desc}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-              {/*
-                Social channels are intentionally disabled for now - smart
-                campaigns support in-app push only. Restore these options once
-                the social send pipeline lands:
-
-                <button type="button">Telegram</button>
-                <button type="button">Discord</button>
-                <button type="button">X</button>
-              */}
               <p className="text-xs text-muted-foreground">
-                Telegram, Discord, and X channels are coming soon.
+                Discord and X channels are coming soon.
               </p>
             </div>
           ) : null}

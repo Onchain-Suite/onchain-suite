@@ -85,6 +85,7 @@ import {
   InappNode,
   PlaceholderNode,
   TagNode,
+  TelegramNode,
   TriggerNode,
   WaitNode,
   WebhookNode,
@@ -247,6 +248,7 @@ const WaitNodeA = withNodeStats(WaitNode);
 const BranchNodeA = withNodeStats(BranchNode);
 const EmailNodeA = withNodeStats(EmailNode);
 const InappNodeA = withNodeStats(InappNode);
+const TelegramNodeA = withNodeStats(TelegramNode);
 const TagNodeA = withNodeStats(TagNode);
 const AddToListNodeA = withNodeStats(AddToListNode);
 const WebhookNodeA = withNodeStats(WebhookNode);
@@ -259,6 +261,7 @@ const nodeTypes = {
   branch: BranchNodeA,
   email: EmailNodeA,
   inapp: InappNodeA,
+  telegram: TelegramNodeA,
   tag: TagNodeA,
   list: AddToListNodeA,
   webhook: WebhookNodeA,
@@ -269,6 +272,7 @@ const nodeTypes = {
   // the correct styled node when loaded onto the canvas.
   send_email: EmailNodeA,
   send_inapp: InappNodeA,
+  send_telegram: TelegramNodeA,
   add_tag: TagNodeA,
   add_to_list: AddToListNodeA,
   dispatch_campaign: DispatchCampaignNodeA,
@@ -306,6 +310,8 @@ const NODE_PANEL_LABELS: Record<string, string> = {
   send_email: "Send email",
   inapp: "Send in-app push",
   send_inapp: "Send in-app push",
+  telegram: "Send Telegram",
+  send_telegram: "Send Telegram",
   wait: "Wait",
   branch: "Branch",
   tag: "Add tag",
@@ -332,6 +338,7 @@ const nodePanelLabel = (type?: string) => {
 const ACTION_NODE_RENDERER: Record<string, string> = {
   send_email: "email",
   send_inapp: "inapp",
+  send_telegram: "telegram",
   dispatch_campaign: "dispatch",
   add_tag: "tag",
   add_to_list: "list",

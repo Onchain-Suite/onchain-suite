@@ -35,7 +35,15 @@ driven by the backend `campaign-types` / `ensureChannels` contract
 
 ## Steps
 
-- [ ] **1. Channel-readiness model (foundation).**
+- [x] **1. Channel-readiness model (foundation).** Done: new `src/features/channels/`
+  with `types/channel.ts` (`ChannelId`/`ChannelReadiness`), a pure, unit-tested
+  `utils/readiness.ts` (`deriveChannelReadiness` + web/mobile push status), and
+  `hooks/use-channel-readiness.ts` that derives email/push readiness from the
+  real `sender-identities` / `inAppService` / `pushCredentialsService` reads.
+  Email = any verified domain; push = web (key + live session) OR mobile
+  (verified APNs/FCM credential); X is stubbed until step 3. Note: mobile has no
+  device-token signal in the app yet, so a verified credential reads as
+  connected (reference also gates on a registered device).
   FROM `reference/v2.7/web/src/data/store.ts` (`ChannelReadiness`,
   `useChannelReadiness`, `SenderDomain`/`PushInstall`/`MobilePushInstall`/`XInstall`,
   the `mobileConnected = (apns||fcm) && tokenSeen` gate).

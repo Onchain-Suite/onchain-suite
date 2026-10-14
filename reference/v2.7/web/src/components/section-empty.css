@@ -1,0 +1,21 @@
+/* An empty section: centred in its own bordered panel, so it reads as this section's state
+   rather than as the page failing to load. */
+.sempty { display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px;
+  padding:56px 28px 52px; border:1px solid var(--border-subtle); border-radius:var(--radius-lg);
+  background:var(--bg-surface); }
+.sempty__ic { width:48px; height:48px; border-radius:var(--radius-lg); display:flex; align-items:center;
+  justify-content:center; background:var(--bg-brand-subtle); color:var(--action-primary); margin-bottom:4px; }
+.sempty h2 { margin:0; font-size:17px; font-weight:600; letter-spacing:-0.2px; color:var(--text-primary); }
+.sempty > p { margin:0; max-width:52ch; font-size:14px; line-height:1.6; color:var(--text-secondary); }
+.sempty .sempty__wait { display:inline-flex; align-items:center; gap:7px; padding:5px 11px;
+  border-radius:var(--radius-round); background:var(--surface-subtle); font-size:12.5px; color:var(--text-tertiary); }
+.sempty__wait.is-busy { background:var(--bg-selected); color:var(--action-primary); }
+.sempty__wait.is-busy svg { animation:sempty-spin 900ms linear infinite; }
+.sempty__btn { display:inline-flex; align-items:center; gap:8px; margin-top:8px; padding:9px 16px;
+  border-radius:var(--radius-md); background:var(--action-primary); color:var(--text-inverse);
+  font-size:14px; font-weight:500; text-decoration:none; }
+.sempty__btn:hover { background:var(--action-primary-hover); }
+.sempty__btn:focus-visible { outline:none; box-shadow:0 0 0 3px var(--focus-ring); }
+.sempty > button { margin-top:8px; }
+@keyframes sempty-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .sempty__wait.is-busy svg { animation:none; } }

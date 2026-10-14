@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+
+
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="30.8749mm" height="46.3975mm" version="1.1" style="shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd" viewBox="0 0 3087.48 4639.73" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xodm="http://www.corel.com/coreldraw/odm/2003">
+ <defs>
+  
+   <mask id="id0">
+  <linearGradient id="id1" gradientUnits="userSpaceOnUse" x1="464.55" y1="3474.9" x2="2622.96" y2="1316.49">
+   <stop offset="0" style="stop-opacity:1; stop-color:white"></stop>
+   <stop offset="1" style="stop-opacity:0.301961; stop-color:white"></stop>
+  </linearGradient>
+    <rect style="fill:url(#id1)" width="3087.48" height="4639.73"></rect>
+   </mask>
+ </defs>
+ <g id="Layer_x0020_1">
+  <metadata id="CorelCorpID_0Corel-Layer"></metadata>
+  <path class="fil0" fill="#FEFEFE" style="mask:url(#id0)" d="M1695.03 4075.85c781.88,-73.08 1392.45,-706.69 1392.45,-1477.57 0,-773.75 -615.2,-1409.26 -1401.78,-1478.32 -80.42,-12.55 -141.97,-82.12 -141.97,-166.08l0 -220.26c0,-97.62 79.16,-176.77 176.78,-176.77l294.43 0c47.13,0 85.65,-38.53 85.65,-85.66l0 -385.55c0,-47.13 -38.52,-85.65 -85.65,-85.65l-385.55 0c-47.13,0 -85.66,38.52 -85.66,85.65l0 303.29c0,88.97 -65.77,162.6 -151.3,174.95 -781.88,73.08 -1392.44,706.69 -1392.44,1477.57 0,773.78 615.19,1409.21 1401.78,1478.32 80.42,12.55 141.96,82.12 141.96,166.08l0 220.26c0,97.62 -79.15,176.77 -176.77,176.77l-294.43 0c-47.13,0 -85.66,38.53 -85.66,85.66l0 385.55c0,47.13 38.53,85.65 85.66,85.65l385.55 0c47.13,0 85.65,-38.52 85.65,-85.65l0 -303.29c0,-88.97 65.77,-162.6 151.3,-174.95zm2 -561.54c-82.19,7.51 -153.3,-55.91 -153.3,-138.96l0 -311.17c0,-60.82 -47.5,-94.41 -107.18,-100.69 -482.84,-50.77 -857.82,-444.49 -857.82,-922.04 0,-462.2 351.58,-845.35 811.98,-916.05 4.43,-0.41 8.88,-0.64 13.38,-0.64 77.13,0 139.64,62.51 139.64,139.62l0 311.17c0,60.82 47.51,94.41 107.19,100.69 482.84,50.77 857.81,444.49 857.81,922.04 0,462.23 -351.65,845.45 -811.7,916.03z"></path>
+ </g>
+</svg>

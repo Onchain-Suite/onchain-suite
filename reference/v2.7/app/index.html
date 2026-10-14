@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OnchainSuite — Product app</title>
+<link rel="icon" href="assets/logos/icon-coloured-light.svg" />
+<!-- Design system tokens + base -->
+<link rel="stylesheet" href="ds/styles.css" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; }
+  #root { min-height: 100vh; }
+  /* Loading veil until React + the DS bundle mount */
+  #boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: var(--bg-page, #FBFBFC); color: var(--text-tertiary, #64748b);
+    font-family: 'Instrument Sans', system-ui, sans-serif; font-size: 14px; z-index: 9999; }
+  #boot.hide { display: none; }
+</style>
+<!-- React 18 (UMD) — must load before the DS bundle, which reads global React -->
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<!-- Lucide UMD — the Icon component reads window.lucide -->
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<!-- Onchain Suite design system (exposes window.OnchainSuiteDesignSystem_070d6e) -->
+<script src="ds/ds-bundle.js"></script>
+<!-- Babel standalone: transpile the app JSX in the browser (design-canvas convention) -->
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<div id="boot">Loading OnchainSuite…</div>
+<script type="text/babel" data-presets="react" src="app.jsx"></script>
+</body>
+</html>

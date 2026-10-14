@@ -1,0 +1,41 @@
+.gs { border:1px solid var(--border-subtle); border-radius:var(--radius-lg); background:var(--bg-surface);
+  box-shadow:var(--elevation-1); padding:12px 12px 10px; display:flex; flex-direction:column; gap:9px; }
+.gs__head { display:flex; align-items:flex-start; gap:8px; }
+.gs__title { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.gs__title b { font-size:13px; font-weight:600; color:var(--text-primary); }
+.gs__title span { font-size:11.5px; color:var(--text-tertiary); }
+.gs__title i { font-style:normal; opacity:.5; }
+.gs__fold { border:0; background:none; cursor:pointer; color:var(--text-tertiary); padding:2px;
+  display:inline-flex; border-radius:var(--radius-sm); }
+.gs__fold:hover { color:var(--text-primary); background:var(--surface-hover); }
+
+.gs__bar { display:flex; gap:3px; }
+.gs__bar i { flex:1; height:3px; border-radius:99px; background:var(--surface-subtle); }
+.gs__bar i.is-done { background:var(--action-primary); }
+
+.gs__list { list-style:none; margin:2px 0 0; padding:0; display:flex; flex-direction:column; gap:1px; }
+.gs__step { display:flex; align-items:center; gap:9px; width:100%; padding:6px 6px; border:0; cursor:pointer;
+  background:none; font:inherit; font-size:12.5px; color:var(--text-primary); border-radius:var(--radius-md);
+  text-align:left; }
+.gs__step:hover { background:var(--surface-hover); }
+.gs__ic { width:22px; height:22px; flex-shrink:0; border-radius:var(--radius-sm); display:flex;
+  align-items:center; justify-content:center; color:var(--text-secondary); border:1px solid var(--border-subtle); }
+.gs__label { flex:1; min-width:0; }
+.gs__chev { flex-shrink:0; color:var(--text-tertiary); }
+
+/* Done reads as struck through and dimmed, with the tick carrying the colour — the row stays
+   clickable because "I already did that, take me back to it" is a real thing to want. */
+.gs__step.is-done .gs__label { text-decoration:line-through; color:var(--text-tertiary); }
+.gs__step.is-done .gs__ic { color:var(--text-disabled); border-color:transparent; }
+.gs__tick { width:16px; height:16px; flex-shrink:0; border-radius:50%; background:var(--action-primary);
+  color:#fff; display:flex; align-items:center; justify-content:center; }
+
+.gs__hint { padding:2px 6px 8px 37px; display:flex; flex-direction:column; gap:7px; align-items:flex-start; }
+.gs__hint p { margin:0; font-size:11.5px; line-height:1.5; color:var(--text-tertiary); }
+.gs__hint button { display:inline-flex; align-items:center; gap:5px; border:0; background:none; cursor:pointer;
+  font:inherit; font-size:11.5px; font-weight:500; color:var(--action-primary); padding:0; }
+
+.gs--collapsed { padding-bottom:12px; }
+
+/* Ringed while Cerebra's tour is pointing at it, the same way a sidebar row is. */
+.gs--tour { box-shadow:0 0 0 2px var(--action-primary); }

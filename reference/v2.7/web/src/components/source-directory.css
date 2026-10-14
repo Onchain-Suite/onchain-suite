@@ -1,0 +1,88 @@
+/* The source directory — browse down one side, cards in the other. */
+.sdir { display:flex; flex-direction:column; gap:20px; }
+.sdir__search { display:flex; align-items:center; gap:10px; padding:0 14px; height:44px;
+  border:1px solid var(--border-default); border-radius:var(--radius-lg); background:var(--bg-surface); }
+.sdir__search:focus-within { border-color:var(--border-focus); box-shadow:0 0 0 3px var(--focus-ring); }
+.sdir__search > svg { flex-shrink:0; color:var(--text-tertiary); }
+.sdir__search input { flex:1; min-width:0; border:0; outline:0; background:none; font:inherit;
+  font-size:14px; color:var(--text-primary); }
+.sdir__search input::placeholder { color:var(--text-tertiary); }
+.sdir__search > button { display:inline-flex; align-items:center; justify-content:center; width:22px;
+  height:22px; border:0; border-radius:50%; cursor:pointer; color:var(--text-tertiary);
+  background:var(--surface-subtle); }
+
+.sdir__cols { display:grid; grid-template-columns:210px minmax(0,1fr); gap:28px; align-items:start; }
+.sdir__rail { display:flex; flex-direction:column; gap:1px; position:sticky; top:8px; }
+.sdir__rail button { display:flex; align-items:center; gap:9px; padding:7px 10px; border:0; cursor:pointer;
+  background:none; font:inherit; font-size:13.5px; color:var(--text-secondary);
+  border-radius:var(--radius-md); text-align:left; }
+.sdir__rail button:hover { background:var(--surface-hover); color:var(--text-primary); }
+.sdir__rail button.on { background:var(--bg-selected); color:var(--action-primary); font-weight:500; }
+.sdir__rail button i { margin-left:auto; font-style:normal; font-size:11.5px; color:var(--text-tertiary);
+  font-variant-numeric:tabular-nums; }
+
+.sdir__main { display:flex; flex-direction:column; gap:26px; min-width:0; }
+.sdir__gh { margin:0 0 12px; font-size:15px; font-weight:600; color:var(--text-primary); }
+.sdir__grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px; }
+.sdir__grid--alt { margin-top:20px; }
+
+.sdir__card { display:flex; flex-direction:column; gap:10px; padding:16px; cursor:pointer; text-align:left;
+  border:1px solid var(--border-subtle); border-radius:var(--radius-lg); background:var(--bg-surface);
+  font:inherit; }
+.sdir__card:hover { border-color:var(--border-default); box-shadow:var(--elevation-1); }
+.sdir__card.is-soon { opacity:.66; }
+.sdir__top { display:flex; align-items:center; gap:10px; }
+.sdir__mark { width:34px; height:34px; flex-shrink:0; border-radius:var(--radius-md); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600;
+  overflow:hidden; }
+/* A real icon sits on a neutral tile rather than a coloured one — the vendor's own mark
+   carries the colour, and a brand square behind a brand logo fights it. */
+.sdir__mark.has-img { background:var(--surface-subtle); box-shadow:inset 0 0 0 1px var(--border-subtle); }
+.sdir__mark img { width:22px; height:22px; object-fit:contain; }
+.sdir__name { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.sdir__name b { display:inline-flex; align-items:center; gap:5px; font-size:14px; font-weight:600;
+  color:var(--text-primary); }
+.sdir__name span { font-size:11.5px; color:var(--text-tertiary); }
+.sdir__verified { color:var(--green-600); }
+.sdir__desc { font-size:12.5px; line-height:1.5; color:var(--text-secondary); flex:1; }
+.sdir__meta { display:flex; align-items:center; gap:9px; }
+.sdir__meta i { font-style:normal; font-size:11px; color:var(--text-tertiary); }
+
+.sdir__miss h2 { margin:0 0 6px; font-size:17px; font-weight:600; color:var(--text-primary); }
+.sdir__miss p { margin:0 0 14px; font-size:13px; line-height:1.6; color:var(--text-secondary); max-width:70ch; }
+.sdir__miss code { font-family:var(--font-mono); font-size:12px; padding:1px 4px;
+  border-radius:var(--radius-sm); background:var(--surface-subtle); }
+.sdir__asked { display:flex; align-items:center; gap:6px; color:var(--green-700); }
+
+/* ---- Detail ---- */
+.sdet { display:flex; flex-direction:column; gap:22px; }
+.sdet__back { display:inline-flex; align-items:center; gap:6px; align-self:flex-start; border:0;
+  background:none; cursor:pointer; font:inherit; font-size:13px; color:var(--text-secondary); padding:0; }
+.sdet__back:hover { color:var(--text-primary); }
+.sdet__head { display:flex; align-items:center; gap:14px; padding-bottom:20px;
+  border-bottom:1px solid var(--border-subtle); }
+.sdet__head > div { flex:1; min-width:0; }
+.sdet__head h2 { margin:0; font-size:20px; font-weight:600; letter-spacing:-.3px; color:var(--text-primary); }
+.sdet__head p { margin:3px 0 0; font-size:13.5px; color:var(--text-secondary); }
+.sdet__body { display:grid; grid-template-columns:210px minmax(0,1fr); gap:36px; align-items:start; }
+.sdet__meta { display:flex; flex-direction:column; gap:16px; }
+.sdet__meta > div { display:flex; flex-direction:column; gap:3px; }
+.sdet__meta span { font-size:11.5px; color:var(--text-tertiary); }
+.sdet__meta b { font-size:13.5px; font-weight:500; color:var(--text-primary); }
+.sdet__link { display:inline-flex; align-items:center; gap:5px; align-self:flex-start; border:0;
+  background:none; cursor:pointer; font:inherit; font-size:13.5px; font-weight:500;
+  color:var(--action-primary); padding:0; }
+.sdet__prose { min-width:0; max-width:72ch; }
+.sdet__prose h3 { margin:0 0 8px; font-size:16px; font-weight:600; color:var(--text-primary); }
+.sdet__prose h3:not(:first-child) { margin-top:26px; }
+.sdet__prose p { margin:0; font-size:14px; line-height:1.65; color:var(--text-secondary); }
+.sdet__prose ul { margin:0; padding-left:20px; display:flex; flex-direction:column; gap:7px; }
+.sdet__prose li { font-size:14px; line-height:1.6; color:var(--text-secondary); }
+.sdet__lead { margin:0; font-size:14px; line-height:1.6; color:var(--text-secondary); }
+.sdet__can { display:flex; align-items:flex-start; gap:9px; margin:0; font-size:12.5px; line-height:1.5;
+  color:var(--text-tertiary); }
+
+@media (max-width: 900px) {
+  .sdir__cols, .sdet__body { grid-template-columns:minmax(0,1fr); }
+  .sdir__rail { position:static; flex-direction:row; flex-wrap:wrap; }
+}

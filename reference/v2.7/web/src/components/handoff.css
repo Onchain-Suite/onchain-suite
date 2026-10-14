@@ -1,0 +1,82 @@
+/* Setup handoff — shared by onboarding, Settings and the dashboard. */
+
+.ho { display: flex; flex-direction: column; gap: 18px; }
+.ho__list { display: flex; flex-direction: column; gap: 8px; }
+
+.ho__task { border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-surface); }
+.ho__task.on { border-color: var(--action-primary); background: var(--bg-selected); }
+
+.ho__row { display: flex; align-items: center; gap: 11px; padding: 13px 14px; cursor: pointer; }
+.ho__row input { position: absolute; opacity: 0; width: 0; height: 0; }
+.ho__tick { width: 18px; height: 18px; flex-shrink: 0; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-strong); color: transparent;
+  display: flex; align-items: center; justify-content: center; }
+.ho__task.on .ho__tick { background: var(--action-primary); border-color: var(--action-primary); color: #fff; }
+.ho__row input:focus-visible + .ho__tick { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.ho__ic { width: 30px; height: 30px; flex-shrink: 0; border-radius: var(--radius-md);
+  background: var(--bg-brand-subtle); color: var(--action-primary);
+  display: flex; align-items: center; justify-content: center; }
+.ho__tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ho__tx b { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.ho__tx span { font-size: 12px; color: var(--text-tertiary); }
+
+.ho__peek { display: inline-flex; align-items: center; gap: 5px; border: none; background: none;
+  padding: 0 14px 11px 57px; margin: -4px 0 0; cursor: pointer; font-family: inherit;
+  font-size: 12px; font-weight: 500; color: var(--action-primary); }
+.ho__steps { padding: 0 14px 14px 57px; }
+.ho__steps ol { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; }
+.ho__steps li { font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.ho__gotcha { display: flex; align-items: flex-start; gap: 7px; margin: 10px 0 0; padding: 9px 11px;
+  background: var(--surface-subtle); border-radius: var(--radius-md);
+  font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+.ho__gotcha svg { flex-shrink: 0; margin-top: 1px; color: var(--orange-600); }
+
+.ho__send { display: flex; flex-direction: column; gap: 8px; }
+.ho__send label { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+.ho__sendrow { display: flex; gap: 10px; align-items: stretch; }
+.ho__input { flex: 1; min-width: 0; border: 1px solid var(--border-default);
+  border-radius: var(--radius-md); background: var(--bg-surface); padding: 2px; }
+.ho__input:focus-within { border-color: var(--action-primary); }
+.ho__input input { width: 100%; box-sizing: border-box; border: none; outline: none; background: none;
+  padding: 9px 12px; font-family: inherit; font-size: 14.5px; color: var(--text-primary); }
+.ho__note { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-tertiary); }
+
+.ho__done { display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  font-size: 13.5px; color: var(--text-secondary); }
+.ho__doneic { color: var(--green-600); display: flex; flex-shrink: 0; }
+
+/* Pending state */
+.ho__pending { display: flex; flex-wrap: wrap; align-items: center; gap: 11px; padding: 12px 14px;
+  border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  background: var(--bg-selected); }
+.ho__pendic { width: 28px; height: 28px; flex-shrink: 0; border-radius: var(--radius-md);
+  background: var(--bg-surface); color: var(--action-primary);
+  display: flex; align-items: center; justify-content: center; }
+.ho__pendtx { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ho__pendtx b { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.ho__pendtx > span { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.ho__resend { flex-shrink: 0; border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  background: var(--bg-surface); padding: 6px 12px; cursor: pointer; font-family: inherit;
+  font-size: 12.5px; font-weight: 500; color: var(--text-primary); }
+.ho__resend:hover { border-color: var(--action-primary); color: var(--action-primary); }
+
+.ho--compact .ho__row { padding: 10px 12px; }
+.ho--compact .ho__peek, .ho--compact .ho__steps { padding-left: 53px; }
+
+/* Inline handoff — the affordance version, for any blocked panel. */
+.hoi { display: inline-flex; align-items: center; gap: 6px; border: none; background: none; padding: 0;
+  cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--action-primary); }
+.hoi:hover { text-decoration: underline; }
+.hoi--sent { color: var(--text-tertiary); cursor: default; }
+.hoi--sent:hover { text-decoration: none; }
+.hoi--compact { font-size: 12px; }
+
+/* Liveness on a pending handoff (2.7) */
+.ho__watch { flex-basis:100%; display:flex; align-items:center; gap:7px; margin-top:9px;
+  padding-top:9px; border-top:1px dashed var(--border-subtle);
+  font-size:11.5px; line-height:1.5; color:var(--text-tertiary); }
+.ho__pulse { flex-shrink:0; width:6px; height:6px; border-radius:50%;
+  background:var(--action-primary); animation:ho-pulse 1.8s ease-in-out infinite; }
+@keyframes ho-pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.35; transform:scale(.72); } }
+@media (prefers-reduced-motion: reduce) { .ho__pulse { animation:none; } }

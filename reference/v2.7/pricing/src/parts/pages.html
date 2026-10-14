@@ -1,0 +1,1232 @@
+<!-- ==================== 01 OVERVIEW ==================== -->
+<section class="page" id="p-overview">
+  <div class="ph">
+    <div class="ix">01 &middot; Orientation</div>
+    <h1>The finance single source of truth</h1>
+    <p>Every number the company plans against, with its derivation. Each figure is either an input or is calculated from one.</p>
+  </div>
+
+  <h2>Where we stand today</h2>
+  <div class="kpis">
+    <div class="kpi"><div class="v" data-d="blendGP" data-f="m0"></div><div class="l">Gross profit per customer per month, blended at <span data-d="util" data-f="p0"></span> utilisation</div></div>
+    <div class="kpi"><div class="v" data-d="minFloorGM" data-f="p0"></div><div class="l">Worst-case gross margin, any tier, any usage</div></div>
+    <div class="kpi"><div class="v" data-d="beFull" data-f="n0"></div><div class="l">Customers to cover infrastructure and current opex</div></div>
+    <div class="kpi"><div class="v" data-d="fin.breakevenMonth" data-f="mon"></div><div class="l">First month <span class="tt q" data-tip="Earnings before interest, tax, depreciation and amortisation. In this model it is simply revenue minus every cost, including salaries. Positive EBITDA means the company pays for itself.">EBITDA</span> turns positive, on the base case</div></div>
+    <div class="kpi"><div class="v" data-d="fin.raiseNeeded" data-f="m0"></div><div class="l">Funding needed to bridge to profitability</div></div>
+  </div>
+
+  <h2>How to read this</h2>
+  <p><strong>02&ndash;05</strong> what we sell, what it costs, what a customer is worth. <strong>06&ndash;08</strong> the same, projected forward. <strong>09&ndash;10</strong> what is still assumed, and the rules that hold the model together.</p>
+  <ul class="bul">
+    <li><b>Blue figures are inputs.</b> Click and type; everything downstream recalculates.</li>
+    <li><b>Amber figures are edits</b> away from the agreed baseline. <em>Reset</em> restores it.</li>
+    <li><b>Save / Load</b> writes and reads the full input set as JSON.</li>
+    <li><b>Bear / Base / Bull</b> move the assumptions that actually swing the outcome: <span class="tt q" data-tip="The share of customers who cancel each month. 5% monthly means an average customer stays 20 months. It is the single number that decides whether the unit economics add up to a business.">churn</span>, how many customers arrive, how fast that rate grows, and which tier they land on. Bear also assumes customers enrich only half their list. <b>Utilisation and overage were removed from the scenarios on 19 Sep</b> and no longer move with them.</li>
+  </ul>
+
+  <h2>How much of this is measured</h2>
+  <p>The register on page 09 carries every input and its basis.</p>
+  <div class="kpis">
+    <div class="kpi"><div class="v" data-d="dq.measured" data-f="n0"></div><div class="l">Assumptions measured from real data</div></div>
+    <div class="kpi"><div class="v" data-d="dq.estimated" data-f="n0"></div><div class="l">Estimated from vendor pricing</div></div>
+    <div class="kpi"><div class="v" data-d="dq.assumed" data-f="n0"></div><div class="l">Assumed, with nothing behind them yet</div></div>
+    <div class="kpi"><div class="v" data-d="dq.infraItemised" data-f="p0"></div><div class="l">Of the infrastructure base itemised by line</div></div>
+  </div>
+  <div class="status warn" id="dqBox"><span class="ico">Caveat</span><p id="dqTxt"></p></div>
+
+  <h2>How the model is wired</h2>
+  <p>Each layer consumes only the one above it. Nothing loops back.</p>
+  <div class="tw">
+  <table>
+    <caption>Derivation chain</caption>
+    <thead><tr><th>Layer</th><th>Takes</th><th>Produces</th><th>Page</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Vendor rates</td><td class="wrap">Contracts and price lists</td><td class="wrap">Raw cost per unit</td><td>03</td></tr>
+      <tr><td class="k">Cost model</td><td class="wrap">Raw cost, filter and cache rates, buffer</td><td class="wrap">Loaded cost per meter</td><td>03&ndash;04</td></tr>
+      <tr><td class="k">Unit economics</td><td class="wrap">Loaded cost, list prices, plan allowances</td><td class="wrap">Ceiling cost, <span class="tt q" data-tip="Plan price minus ceiling cost. The least we can make on that customer in a month, guaranteed, however heavily they use the product.">floor profit</span>, margin per tier</td><td>05</td></tr>
+      <tr><td class="k">Financial model</td><td class="wrap">Per-tier economics, customer mix, acquisition, churn</td><td class="wrap">P&amp;L, <span class="tt q" data-tip="Earnings before interest, tax, depreciation and amortisation. In this model it is simply revenue minus every cost, including salaries. Positive EBITDA means the company pays for itself.">EBITDA</span>, cash</td><td>06</td></tr>
+      <tr class="tot"><td class="k">Decisions</td><td class="wrap">All of the above</td><td class="wrap">Pricing, hiring, fundraising</td><td>08&ndash;10</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="pager" data-pager></div>
+</section>
+
+<!-- ==================== 02 MARKET RESEARCH ==================== -->
+<section class="page" id="p-market">
+  <div class="ph">
+    <div class="ix">02 &middot; The market</div>
+    <h1>Market research</h1>
+    <p>OnchainSuite against the field, head to head. <span data-d="marketCount" data-f="n0"></span> published price ladders collected 21 August 2026, each fitted to <b>price = a &times; volume<sup>b</sup></b> and converted onto one axis, then scored on what the product actually does. Both our lines are benchmarked: <b>Suite</b> on the contact meter every rival uses, <b>Send</b> on the same.</p>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v" data-d="marketProductCount" data-f="n0"></div><div class="l">Products compared</div></div>
+    <div class="kpi"><div class="v" data-d="suiteScore" data-f="n1"></div><div class="l"><span class="tt q" data-tip="Capabilities we ship, out of the eleven this market sells. Partial credit for anything that is an add-on or shallow. SMS is our only outright zero; ecommerce is the one partial score.">Capability score</span>, out of 11</div></div>
+    <div class="kpi"><div class="v" data-d="suiteVsMedian" data-f="pd0"></div><div class="l">Suite vs median at 10,000</div></div>
+    <div class="kpi"><div class="v" data-d="marketVsMedian10k" data-f="pd0"></div><div class="l">Send vs median at 10,000</div></div>
+  </div>
+
+  <div class="status ok"><span class="ico">The finding</span><p>At 10,000 contacts Suite costs <b><span data-d="suiteAt10k" data-f="m0"></span></b> against a market median of <b><span data-d="marketMedian10k" data-f="m0"></span></b> &mdash; near parity with Mailchimp Standard, and cheaper than Kit Pro. <b>The wallet channel and on-chain triggers come inside that price, not on top of it.</b> That is the whole commercial argument for Suite, and it survives contact with the field.</p></div>
+
+  <h2>Head to head</h2>
+  <p>Every product in the field at <b>10,000 contacts</b>, against both our lines. Capability is scored out of 11 on the same scale for everyone: full marks for a real feature, half for an add-on or a shallow one.</p>
+  <div class="tw">
+  <table>
+    <caption>OnchainSuite against each product &middot; price and capability at 10,000 contacts</caption>
+    <thead><tr><th>Product</th><th>Sells to</th><th class="n">Their price</th><th class="n">Suite vs</th><th class="n">Send vs</th><th class="n">Capability</th><th>What they have that we do not</th></tr></thead>
+    <tbody id="tbH2H"></tbody>
+  </table>
+  </div>
+  <p class="note">A dash in the price column means 10,000 contacts sits outside the range that vendor publishes. Negative means we are cheaper.</p>
+
+  <h2>Capability matrix</h2>
+  <p>What each company actually ships. <b>&#9679;</b> full, <b>&#9680;</b> partial or a paid add-on, <span class="dim">&ndash;</span> absent. Scored the same way for us as for them. <b>CRM &amp; journeys</b> means a contact record with the history of what that person did &mdash; our <b>Audience</b> section, and the thing ActiveCampaign, Brevo and HubSpot sell as a CRM.</p>
+  <div class="tw">
+  <table>
+    <caption>The whole field, us included</caption>
+    <thead id="thCaps"></thead>
+    <tbody id="tbCaps"></tbody>
+  </table>
+  </div>
+  <div class="status warn"><span class="ico">Where we lose</span><p id="gapTxt"></p></div>
+
+  <h2>Price by list size</h2>
+  <p>Both our lines against the spread of the field. Vendors are only quoted inside the range they publish, at <span data-d="send.ratio" data-f="n0"></span> sends per subscriber for the ones that meter emails rather than contacts.</p>
+  <div class="tw">
+  <table>
+    <caption>Suite and Send against the market spread</caption>
+    <thead><tr><th class="n">Contacts</th><th class="n">Suite</th><th class="n">Send</th><th class="n">Market median</th><th class="n">Suite vs median</th><th>Cheapest product</th><th class="n">Dearer than Suite</th></tr></thead>
+    <tbody id="tbMktSize"></tbody>
+  </table>
+  </div>
+  <p class="note">Suite is quoted on the Growth line (&times;<span data-d="suite.mult.growth" data-f="n2"></span>), the mainstream tier and the fair like-for-like. Launch is <span data-d="suite.mult.launch" data-f="n2"></span> of it and Pro <span data-d="suite.mult.pro" data-f="n2"></span>.</p>
+
+  <h2>Two things get called competitors</h2>
+  <p>A <b>product</b> is sold to a marketer and does campaigns, lists, automation and reporting. <b>Infrastructure</b> is sold to an engineer and does delivery only. Infrastructure is the floor every product is marked up from, ours included &mdash; comparing us to raw sending is the same error as comparing a restaurant to a wholesaler. <span data-d="marketProductCount" data-f="n0"></span> of the ladders here are products; <span data-d="marketInfraCount" data-f="n0"></span> are infrastructure and are excluded from every comparison above.</p>
+
+  <h2>By audience</h2>
+  <p>The field is not one market. It is seventeen segments with different buyers, and only some of them are ours.</p>
+  <div class="tw">
+  <table>
+    <caption>Segments &middot; who each group serves and what the cheapest of them charges at 10,000</caption>
+    <thead><tr><th>Segment</th><th>Their buyer</th><th class="n">Vendors</th><th class="n">Cheapest at 10k</th><th>Which</th><th class="n">Threat</th></tr></thead>
+    <tbody id="tbMktSeg"></tbody>
+  </table>
+  </div>
+
+  <h2>What the research says</h2>
+  <p><strong>Suite is priced at the market rate for email alone.</strong> At 10,000 contacts we are <span data-d="suiteVsMedian" data-f="pd0"></span> against the median and cheaper than <span data-d="suiteDearerCount" data-f="n0"></span> of the <span data-d="suitePricedCount" data-f="n0"></span> products that publish a price there. A buyer is not paying a premium for the wallet channel; they are paying roughly what Mailchimp costs and getting it.</p>
+  <p><strong>Suite gets expensive on large lists.</strong> At 100,000 contacts we run <span data-d="suiteVs100k" data-f="pd0"></span> above the median, because our line is close to linear while the field discounts steeply. Large-list Suite deals have to be won on the on-chain capability or quoted specially. This is the same structural fact as on the Send side, and it is the strongest argument for revisiting the Suite curve before chasing enterprise logos.</p>
+  <p><strong>Send still undercuts the market badly &mdash; just not EmailOctopus at the top.</strong> <span data-d="marketVsMedian10k" data-f="pd0"></span> against the median at 10,000 subscribers. Against the specialists that price near cost, we now sit above them past the crossover; against the incumbents a buyer actually shortlists, we remain far cheaper.</p>
+  <p><strong>We are narrower than the incumbents in one place only.</strong> We score <span data-d="suiteScore" data-f="n1"></span> of 11 on capability. <b>SMS is the single thing we do not sell at all</b>, and ecommerce is the only shallow one. Everything else in this market we ship, including a transactional API and the contact record and journey view that ActiveCampaign and Brevo charge for as a CRM &mdash; ours is <b>Audience</b>.</p>
+  <p><strong>Nothing in this field has a wallet channel.</strong> All <span data-d="marketCount" data-f="n0"></span> ladders price one thing: how many people you can email. Zero of them price in-app wallet messaging, on-chain triggers or wallet enrichment. That is not a gap we found in their pricing &mdash; it is a capability none of them has, and it is the only durable reason Suite exists.</p>
+  <div class="pager" data-pager></div>
+</section>
+
+<!-- ==================== 02 CATALOGUE ==================== -->
+<section class="page" id="p-catalogue">
+  <div class="ph">
+    <div class="ix">03 &middot; The business as it is</div>
+    <h1>Catalogue &amp; pricing</h1>
+    <p>Two lines, both priced the same way: a fixed monthly fee plus a rate. <b>Suite</b> is three capability tiers sold on the wallet channel, all running off one contact curve. <b>Send</b> is email only, for customers with no on-chain audience. Monthly billing only. No free tier, no annual discount, no trial beyond the 5-wallet signup preview.</p>
+  </div>
+
+  <p class="note"><b>Repriced 21 Aug 2026.</b> Both lines moved to fixed fee plus a rate, reopening the 20 Aug freeze deliberately. Suite is <b><span data-d="suite.fixed" data-f="m0"></span> + <span data-d="suite.rate" data-f="m2"></span> per 1,000 contacts</b>, multiplied by tier; Send is <b><span data-d="send.fixed" data-f="m0"></span> + <span data-d="send.rate" data-f="m2"></span> per 1,000 subscribers</b>. Scale is retired. The v4 ladder ($49 / $349 / $799 / $2,299) and the earlier $29 / $199 / $499 document are both superseded. Any pricing figure not on this page is out of date.</p>
+
+  <h2>The two curves</h2>
+  <p>Plan prices are <b>derived, not typed</b>. Change a curve input and every price, margin and projection in this document moves with it.</p>
+  <div class="rail">
+    <div class="f"><label>Suite base fee <span class="tt q" data-tip="The part of the price that does not scale with usage, which makes it the natural home for costs that do not scale either - hosting, backups, domains. It is also what stops margin collapsing on small accounts.">?</span></label><div class="row"><span class="cur">$</span><input class="ed w6" data-k="suite.fixed" data-f="m0" aria-label="Suite base fee"><span class="unit">/ month</span></div></div>
+    <div class="f"><label>Suite rate</label><div class="row"><span class="cur">$</span><input class="ed w6" data-k="suite.rate" data-f="m2" aria-label="Suite rate per 1,000 contacts"><span class="unit">/ 1,000 contacts</span></div></div>
+    <div class="f"><label>Send base fee</label><div class="row"><span class="cur">$</span><input class="ed w6" data-k="send.fixed" data-f="m0" aria-label="Send base fee"><span class="unit">/ month</span></div></div>
+    <div class="f"><label>Send rate</label><div class="row"><span class="cur">$</span><input class="ed w6" data-k="send.rate" data-f="m2" aria-label="Send rate per 1,000 subscribers"><span class="unit">/ 1,000 subs</span></div></div>
+  </div>
+  <div class="rail">
+    <div class="f"><label>Launch multiplier <span class="tt q" data-tip="Each Suite tier is the same contact curve multiplied by a number. The multiplier prices the capability the tier unlocks; contacts price the size of the customer. The multiplier is set so that Launch clears the floor-profit rule at every list size, so any cap on it is a product decision rather than a margin one.">?</span></label><div class="row"><input class="ed w6" data-k="suite.mult.launch" data-f="x2" aria-label="Launch multiplier"></div></div>
+    <div class="f"><label>Growth multiplier</label><div class="row"><input class="ed w6" data-k="suite.mult.growth" data-f="x2" aria-label="Growth multiplier"></div></div>
+    <div class="f"><label>Pro multiplier</label><div class="row"><input class="ed w6" data-k="suite.mult.pro" data-f="x2" aria-label="Pro multiplier"></div></div>
+    <div class="f"><label>Send margin floor <span class="tt q" data-tip="Cost is linear in volume and so is price, so margin converges to a floor instead of sliding forever. This is the number it settles at, which is why the Send plan needs no cap.">?</span></label><div class="row"><span data-d="sendFloor" data-f="p1" class="big"></span><span class="unit">as lists grow</span></div></div>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="nm">Pay as you go</div>
+      <div class="pr"><span class="cur">$0</span><span class="per">&nbsp;+ usage</span></div>
+      <div class="desc">Every capability, no discount. Prepaid wallet, <span data-d="payg.topup" data-f="m0"></span> minimum top-up. Hard caps keep it from substituting for a plan; everything metered bills at full list.</div>
+      <ul>
+        <li>Contacts <input class="ed" data-k="payg.contacts" data-f="n0" aria-label="PAYG contacts"></li>
+        <li>Seats <input class="ed w6" data-k="payg.seats" data-f="n0" aria-label="PAYG seats"></li>
+        <li>Automations <input class="ed w6" data-k="payg.autos" data-f="n0" aria-label="PAYG automations"></li>
+        <li>Metered at <b>list</b></li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="nm">Launch</div>
+      <div class="pr"><span class="cur">$</span><span data-d="plans.launch.price" data-f="n0"></span><span class="per">/mo</span></div>
+      <div class="desc">Email and the wallet channel. Campaigns (Direct + In-app), Automations, Audience, Intelligence at sample size. No Forms, no dedicated IP.</div>
+      <ul>
+        <li>Contacts <input class="ed" data-k="plans.launch.contacts" data-f="n0" aria-label="Launch contacts"></li>
+        <li>Emails <input class="ed" data-k="plans.launch.emails" data-f="n0" aria-label="Launch emails"></li>
+        <li>In-app push <input class="ed" data-k="plans.launch.push" data-f="n0" aria-label="Launch in-app push"></li>
+        <li>On-chain <input class="ed" data-k="plans.launch.chain" data-f="n0" aria-label="Launch on-chain credits"></li>
+        <li>AI credits <input class="ed" data-k="plans.launch.ai" data-f="n0" aria-label="Launch AI credits"></li>
+        <li>ONS+ <input class="ed" data-k="plans.launch.ons" data-f="n0" aria-label="Launch ONS+"></li>
+        <li>Seats <input class="ed w6" data-k="plans.launch.seats" data-f="n0" aria-label="Launch seats"></li>
+      </ul>
+    </div>
+    <div class="card feat">
+      <div class="nm">Growth</div>
+      <div class="pr"><span class="cur">$</span><span data-d="plans.growth.price" data-f="n0"></span><span class="per">/mo</span></div>
+      <div class="desc">Adds Forms and a dedicated IP, and takes the wallet channel from sample size to campaign size.</div>
+      <ul>
+        <li>Contacts <input class="ed" data-k="plans.growth.contacts" data-f="n0" aria-label="Growth contacts"></li>
+        <li>Emails <input class="ed" data-k="plans.growth.emails" data-f="n0" aria-label="Growth emails"></li>
+        <li>In-app push <input class="ed" data-k="plans.growth.push" data-f="n0" aria-label="Growth in-app push"></li>
+        <li>On-chain <input class="ed" data-k="plans.growth.chain" data-f="n0" aria-label="Growth on-chain credits"></li>
+        <li>AI credits <input class="ed" data-k="plans.growth.ai" data-f="n0" aria-label="Growth AI credits"></li>
+        <li>ONS+ <input class="ed" data-k="plans.growth.ons" data-f="n0" aria-label="Growth ONS+"></li>
+        <li>Dedicated IP <input class="ed w6" data-k="plans.growth.ip" data-f="n0" aria-label="Growth dedicated IPs"></li>
+        <li>Seats <input class="ed w6" data-k="plans.growth.seats" data-f="n0" aria-label="Growth seats"></li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="nm">Pro</div>
+      <div class="pr"><span class="cur">$</span><span data-d="plans.pro.price" data-f="n0"></span><span class="per">/mo</span></div>
+      <div class="desc">Intelligence at working scale. Enrichment, segmentation and on-chain triggers run continuously across a large list.</div>
+      <ul>
+        <li>Contacts <input class="ed" data-k="plans.pro.contacts" data-f="n0" aria-label="Pro contacts"></li>
+        <li>Emails <input class="ed" data-k="plans.pro.emails" data-f="n0" aria-label="Pro emails"></li>
+        <li>In-app push <input class="ed" data-k="plans.pro.push" data-f="n0" aria-label="Pro in-app push"></li>
+        <li>On-chain <input class="ed" data-k="plans.pro.chain" data-f="n0" aria-label="Pro on-chain credits"></li>
+        <li>AI credits <input class="ed" data-k="plans.pro.ai" data-f="n0" aria-label="Pro AI credits"></li>
+        <li>ONS+ <input class="ed" data-k="plans.pro.ons" data-f="n0" aria-label="Pro ONS+"></li>
+        <li>Dedicated IP <input class="ed w6" data-k="plans.pro.ip" data-f="n0" aria-label="Pro dedicated IPs"></li>
+        <li>Seats <input class="ed w6" data-k="plans.pro.seats" data-f="n0" aria-label="Pro seats"></li>
+      </ul>
+    </div>
+  </div>
+  <p class="note">Prices shown are each tier at its reference contact count. Contacts are a slider: a Pro customer at 25,000 contacts pays <span data-d="proAt25k" data-f="m0"></span>, not <span data-d="plans.pro.price" data-f="m0"></span>. The tier sets capability, the slider sets size.</p>
+
+  <div class="tw">
+  <table>
+    <caption>Annual contract value &middot; the figure a business plan quotes</caption>
+    <thead><tr><th>Plan</th><th class="n">Monthly</th><th class="n">Annual</th><th class="n">Share of customers</th></tr></thead>
+    <tbody id="tbAcv"></tbody>
+  </table>
+  </div>
+
+  <h2>Feature ladder</h2>
+  <div class="tw">
+  <table>
+    <caption>What each tier unlocks</caption>
+    <thead><tr><th>Capability</th><th class="n">PAYG</th><th class="n">Launch</th><th class="n">Growth</th><th class="n">Pro</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Campaigns (Direct)</td><td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td></tr>
+      <tr><td class="k">Audience</td><td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td></tr>
+      <tr><td class="k">ONS+ list protection</td><td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td></tr>
+      <tr><td class="k">Automations</td><td class="n dim"><span data-d="payg.autos" data-f="n0"></span> max</td><td>&check;</td><td>&check;</td><td>&check;</td></tr>
+      <tr><td class="k">Campaigns (In-app)</td><td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td></tr>
+      <tr><td class="k">Intelligence</td><td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td></tr>
+      <tr><td class="k">Forms</td><td>&check;</td><td>&check;</td><td>&check;</td><td>&check;</td></tr>
+      <tr><td class="k">Dedicated IP</td><td class="dim">&mdash;</td><td class="dim">&mdash;</td><td class="n"><span data-d="plans.growth.ip" data-f="n0"></span>*</td><td class="n"><span data-d="plans.pro.ip" data-f="n0"></span>*</td></tr>
+      <tr><td class="k">Concierge <span class="tt q" data-tip="Hands-on help delivered by us. Sold separately at the list hourly rate rather than bundled into any plan, because we do not expect many customers to take it. Every hour sold is profit on top of the forecast, never part of it.">add-on</span></td><td class="dim">by the hour</td><td class="dim">by the hour</td><td class="dim">by the hour</td><td class="dim">by the hour</td></tr>
+      <tr class="tot"><td class="k">Team seats</td><td class="n"><span data-d="payg.seats" data-f="n0"></span></td><td class="n"><span data-d="plans.launch.seats" data-f="n0"></span></td><td class="n"><span data-d="plans.growth.seats" data-f="n0"></span></td><td class="n"><span data-d="plans.pro.seats" data-f="n0"></span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">* Provisioned automatically above 100,000 sends a month. Below that, a warm shared pool delivers better than a cold dedicated IP.</p>
+
+  <h2>Send plan &mdash; email only</h2>
+  <p>For customers with no wallet audience. Same product with the wallet channel switched off, sold as <b>Suite off</b> against <b>Suite on</b>. One plan, no tiers, a subscriber slider: <span data-d="send.fixed" data-f="m0"></span> a month plus <span data-d="send.rate" data-f="m2"></span> per 1,000 subscribers, assuming <span data-d="send.ratio" data-f="n0"></span> sends per subscriber.</p>
+
+  <div class="rail">
+    <div class="f"><label>Sends per subscriber <span class="tt q" data-tip="How many emails an average subscriber receives each month. It is the only thing standing between the price and the cost: a customer who sends twice as often costs us twice as much and pays the same.">?</span></label><div class="row"><input class="ed w6" data-k="send.ratio" data-f="n0" aria-label="Sends per subscriber per month"><span class="unit">&times; / month</span></div></div>
+    <div class="f"><label>Loaded cost <span class="tt q" data-tip="AWS SES plus the buffer, plus the share of hosting that sending causes. Hosting is already paid for in operating cost, so this is a pricing check rather than a second bill.">?</span></label><div class="row"><span data-d="bEmailFull" data-f="m3" class="big"></span><span class="unit">/ 1,000 emails</span></div></div>
+    <div class="f"><label>Margin at the smallest list</label><div class="row"><span data-d="sendMarginMax" data-f="p1" class="big"></span><span class="unit">the base fee carries it</span></div></div>
+    <div class="f"><label>Margin floor <span class="tt q" data-tip="Where margin settles as the list grows. Because price and cost are both linear in volume, the gap between them stops closing - so the plan never needs a margin cap.">?</span></label><div class="row"><span data-d="sendFloor" data-f="p1" class="big"></span><span class="unit">converged</span></div></div>
+  </div>
+
+  <div class="tw">
+  <table>
+    <caption>Send plan by list size &middot; against a real EmailOctopus invoice</caption>
+    <thead><tr><th class="n">Subscribers</th><th class="n">Emails / mo</th><th class="n">Our price</th><th class="n">Email cost</th><th class="n">Card fee</th><th class="n">Gross</th><th class="n">Margin</th><th class="n">EmailOctopus</th><th class="n">vs them</th></tr></thead>
+    <tbody id="tbSend"></tbody>
+  </table>
+  </div>
+  <p class="note">EmailOctopus figures are their published Pro ladder, corrected 21 Aug 2026. Our own invoice matches it exactly at 5,000, 10,000 and 20,000, which is why the rungs we never invoiced are trusted too. The figures we had before were an estimate at 2,500 ($24 against a real $20) and an extrapolation at 100,000 ($287 against a real $345).</p>
+  <div class="status warn"><span class="ico">Below 2,500</span><p>EmailOctopus is <b>free</b> to <span data-d="send.octopusFree.subs" data-f="n0"></span> subscribers and <span data-d="send.octopusFree.emails" data-f="n0"></span> emails a month. Under that size the competing price is zero, not a discount, so the bottom rung of Send converts on product and deliverability &mdash; never on price. Judge it on conversion, not margin.</p></div>
+
+  <h3>Why fixed plus a rate, and not a curve</h3>
+  <p>Every competitor prices email on a sublinear power curve, <b>price &prop; subscribers<sup>e</sup></b>, with <b>e</b> below 1 &mdash; each extra thousand subscribers costs the customer less than the last. EmailOctopus measures <b>e&nbsp;=&nbsp;<span data-d="eoExp" data-f="n3"></span></b> across our range <span class="tt q" data-tip="Fitted to prices taken from a customer invoice. An exponent below 1 is what a volume discount looks like written as a number.">?</span>.</p>
+  <p>A base fee plus a flat rate is not a power curve, but across the range we actually sell it behaves like one: its effective exponent is <b><span data-d="sendExp" data-f="n3"></span></b> between 1,000 and 100,000 subscribers <span class="tt q" data-tip="Measured, not assumed. The fixed fee dominates at the bottom and fades at the top, which bends the line in log-log space the same way a volume discount does - without giving one.">?</span>. It buys the shape of a discount curve while keeping our own arithmetic linear, which is the point: <strong>our cost is linear in volume, so a linear price keeps margin from decaying.</strong> Margin settles at <span data-d="sendFloor" data-f="p1"></span> instead of sliding, so the plan needs no cap.</p>
+  <p>Against EmailOctopus we are <span data-d="sendVs5k" data-f="pd0"></span> at 5,000 subscribers and <span data-d="sendVs100k" data-f="pd0"></span> at 100,000: the two lines <b><span data-d="sendCrossText"></span></b>. <strong>Below the crossover we win on price; above it we do not.</strong> That was accepted when Send was repriced on 24 Aug: at the corrected email cost, price leadership at the top of the range and a healthy margin at scale could not both be had.</p>
+  <p class="note">Margin runs <span data-d="sendMarginMax" data-f="p1"></span> at 1,000 subscribers down to <span data-d="sendMarginMin" data-f="p1"></span> at 100,000 &mdash; the opposite way round to a flat rate, where the smallest accounts were the worst. The base fee is what fixed that: card fees take <span data-d="sendStripeShare1k" data-f="p1"></span> of a 1,000-subscriber bill now, against a quarter of it before.</p>
+
+  <h2>Which AWS plan we send on</h2>
+  <p>Verified against Amazon&rsquo;s published rate card on 23 August 2026. The plan we are on sets the single largest variable cost in the business, and it is a choice rather than a given.</p>
+  <div class="tw">
+  <table>
+    <caption>Amazon SES outbound, 0&ndash;10M emails a month</caption>
+    <thead><tr><th>Plan</th><th class="n">Per 1,000</th><th class="n">Monthly fee</th><th class="n">vs ours</th><th>Note</th></tr></thead>
+    <tbody id="tbSes"></tbody>
+  </table>
+  </div>
+  <div class="status"><span class="ico">Settled</span><p>Confirmed 24 Aug 2026: <b>we stay on Essentials at <span data-d="ses" data-f="m2"></span></b>. The saving from &agrave; la carte was not worth losing the bundled deliverability tooling. Prices were adjusted instead &mdash; see the decision log. The model carried <b>$0.10</b> until 23 Aug. That figure is real, but it is the <b>&agrave; la carte</b> rate &mdash; we are on <b>Essentials at $0.16</b>, 60% higher. Correcting it took Launch&rsquo;s floor margin to <b>54.0%</b> and Send&rsquo;s to <b>56.4%</b> before Send was repriced on 24 Aug. Neither breached the actual rule &mdash; a plan&rsquo;s price must exceed the cost of its own full allowance &mdash; which every plan still passes; the 70% floor this box used to cite was retracted on 17 Sep. <b>Before repricing anything, confirm which plan we actually need:</b> moving to &agrave; la carte restores every margin with no price change and saves roughly <span data-d="sesSavingYear" data-f="m0"></span> a year at year-three volumes. Essentials only earns its premium if the bundled deliverability tooling is something we would otherwise buy.</p></div>
+
+  <h2>Hosting capacity</h2>
+  <p>Measured 21 Aug 2026. Hosting steps with the size of the base, and every customer counts toward it &mdash; Send and Suite alike.</p>
+  <div class="tw">
+  <table>
+    <caption>What each tier carries</caption>
+    <thead><tr><th>Tier</th><th class="n">Carries</th><th class="n">Droplet</th><th class="n">All-in / month</th><th class="n">Per customer</th></tr></thead>
+    <tbody id="tbTiers"></tbody>
+  </table>
+  </div>
+  <p class="note">Beyond the largest tier we add another full block per <span data-d="topTierUsers" data-f="n0"></span> customers. Hosting is the one cost that genuinely falls per customer as the base grows; everything else in cost of revenue arrives with the customer.</p>
+
+
+
+  <h2>The rule that makes this safe</h2>
+  <p><strong>A plan&rsquo;s price must exceed the cost of its own full allowance.</strong> If that holds, the plan cannot lose money at any usage level. That is the whole rule &mdash; a floor-profit test, not a margin target. Margins below are reported because they are useful, not because any number is being defended.</p>
+  <div class="tw">
+  <table>
+    <caption>The rule &middot; price against the cost of a full allowance</caption>
+    <thead><tr><th>Line</th><th class="n">Price</th><th class="n">Cost at full allowance</th><th class="n">Floor profit</th><th class="n">Margin</th><th class="n">Rule</th></tr></thead>
+    <tbody id="tbFloors"></tbody>
+  </table>
+  </div>
+  <p class="note">ONS+ is granted 1:1 with contacts, so verifications are the largest line in every Suite ceiling &mdash; <span data-d="onsCostLaunch" data-f="m2"></span> of Launch&rsquo;s <span data-d="eco.launch.ceiling" data-f="m2"></span>. Every plan still clears the rule. The catch rate that sets that cost has never been measured; at a zero catch rate the same figure is <span data-d="onsCostLaunchZero" data-f="m2"></span>.</p>
+
+  <h2>Standing risks in the ladder</h2>
+  <p><strong>Shared sending reputation.</strong> PAYG and Launch share a sending pool, so one bad sender degrades deliverability for all of them. ONS+ at upload and the 2% bounce auto-suspension are the only defences.</p>
+  <p><strong>No capability is gated.</strong> Every tier including PAYG gets campaigns, Forms, automations and Intelligence. Tiers differ on allowance depth, seats, dedicated IP and discount depth only. Growth is <span data-d="lgMult" data-f="x0"></span> Launch&rsquo;s email capacity and <span data-d="gChainMult" data-f="x0"></span> its on-chain allowance.</p>
+  <div class="pager" data-pager></div>
+</section>
+
+
+<!-- ==================== 03 COST MODEL ==================== -->
+<section class="page" id="p-costs">
+  <div class="ph">
+    <div class="ix">04 &middot; The business as it is</div>
+    <h1>Cost model</h1>
+    <p>What a unit of each thing costs us, from the vendor invoice. Every price on page 05 is a multiple of a number on this page.</p>
+  </div>
+
+  <h2>Who we buy from</h2>
+  <div class="tw">
+  <table>
+    <caption>Vendor register &middot; contracted rates</caption>
+    <thead><tr><th>Vendor</th><th>What we buy</th><th class="n">List rate</th><th>Feeds</th><th>Basis</th></tr></thead>
+    <tbody>
+      <tr><td class="k">AWS SES</td><td class="wrap">Outbound email, per send</td><td class="n"><span data-d="ses" data-f="m2"></span> / 1,000</td><td>Email meter</td><td><span class="chip m">Measured</span></td></tr>
+      <tr><td class="k">Kickbox</td><td class="wrap">Email verification, per address checked</td><td class="n"><span data-d="kickbox" data-f="m3"></span> each</td><td>ONS+ meter</td><td><span class="chip m">Measured</span></td></tr>
+      <tr><td class="k">Alchemy</td><td class="wrap">Wallet data, metered in arrears at <span data-d="grPrice" data-f="m2"></span> per <span data-d="grBlock" data-f="n0"></span> billed credits. That is <span data-d="grPerCredit" data-f="m5"></span> a credit, so <span data-d="grPer10k" data-f="m2"></span> per 10,000 &mdash; the same contract, expressed in the unit we sell in</td><td class="n"><span data-d="goldrush" data-f="m2"></span> / 10,000</td><td>On-chain meter</td><td><span class="chip m">Measured</span></td></tr>
+      <tr><td class="k">DeepSeek v4 flash</td><td class="wrap">LLM chat, per million tokens. Peak rates &mdash; off-peak is half</td><td class="n"><span data-d="aiPriceInMiss" data-f="m2"></span> in / <span data-d="aiPriceOut" data-f="m2"></span> out</td><td>AI meter</td><td><span class="chip m">Measured</span></td></tr>
+      <tr><td class="k">DeepSeek v4 flash, cached</td><td class="wrap">Repeated prompt prefixes, charged at 3% of the uncached rate</td><td class="n"><span data-d="aiPriceInHit" data-f="m3"></span> in</td><td>AI meter</td><td><span class="chip m">Measured</span></td></tr>
+      <tr><td class="k">DeepSeek v4 pro</td><td class="wrap">Available if quality demands it, three times the cost</td><td class="n">$1.32 in / $3.96 out</td><td class="dim">not in use</td><td><span class="chip m">Measured</span></td></tr>
+      <tr><td class="k">OpenAI</td><td class="wrap">Embeddings, text-embedding-3-small</td><td class="n"><span data-d="embedPrice" data-f="m2"></span> / 1M</td><td>AI meter</td><td><span class="chip m">Measured</span></td></tr>
+      <tr><td class="k">DigitalOcean</td><td class="wrap">Droplet, 8 GiB / 4 vCPU / 160 GiB SSD / 5,000 GiB transfer. Runs the app, worker, Postgres and Redis</td><td class="n">$48 / mo</td><td>Hosting</td><td><span class="chip m">Measured</span></td></tr>
+      <tr><td class="k">DigitalOcean</td><td class="wrap">Weekly backups, charged as a percentage of droplet spend</td><td class="n">20%</td><td>Hosting</td><td><span class="chip m">Measured</span></td></tr>
+      <tr><td class="k">Dedicated IP</td><td class="wrap">Reserved sending IP, per month</td><td class="n"><span data-d="ipCost" data-f="m2"></span> / mo</td><td>Fixed, per account</td><td><span class="chip m">Measured</span></td></tr>
+      <tr><td class="k">Stripe</td><td class="wrap">Card acquiring on every charge</td><td class="n"><span data-d="stripePct" data-f="p2"></span> + <span data-d="stripeFix" data-f="m2"></span></td><td>All revenue</td><td><span class="chip m">Measured</span></td></tr>
+      <tr><td class="k">Concierge delivery</td><td class="wrap">Loaded cost of an hour of our own time</td><td class="n"><span data-d="conciergeCost" data-f="m2"></span> / hr</td><td>Optional add-on</td><td><span class="chip a">Assumed</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><strong>AWS only.</strong> Email runs on SES at <span data-d="ses" data-f="m2"></span> per 1,000. Azure Communication Services cost $0.262 per 1,000, so the migration took 39% off every send.</p>
+
+  <h2>What we actually spend</h2>
+  <p>The only observed cost figure we hold. Everything else is a contracted rate.</p>
+  <div class="kpis">
+    <div class="kpi"><div class="v" data-d="spend.actual" data-f="m2"></div><div class="l">July 2026 spend, all providers</div></div>
+    <div class="kpi"><div class="v" data-d="spend.users" data-f="n0"></div><div class="l">Users on the platform</div></div>
+    <div class="kpi"><div class="v" data-d="spendPerUser" data-f="m2"></div><div class="l">Cost per user, actual</div></div>
+    <div class="kpi"><div class="v" data-d="spendBudget" data-f="m2"></div><div class="l">Monthly budget including the <span data-d="spend.budgetBuffer" data-f="p0"></span> safety buffer</div></div>
+    <div class="kpi"><div class="v" data-d="spendAnnual" data-f="m0"></div><div class="l">Annualised at this rate</div></div>
+  </div>
+  <div class="rail">
+    <div class="f"><label>July actual spend</label><div class="row"><input class="ed w7" data-k="spend.actual" data-f="m2" aria-label="Actual monthly spend"><span class="unit">/ mo</span></div></div>
+    <div class="f"><label>Users on platform</label><div class="row"><input class="ed w6" data-k="spend.users" data-f="n0" aria-label="Users"><span class="unit">accounts</span></div></div>
+    <div class="f"><label>Spend safety buffer</label><div class="row"><input class="ed w6" data-k="spend.budgetBuffer" data-f="p0" aria-label="Spend safety buffer"><span class="unit">% headroom</span></div></div>
+  </div>
+  <p><strong>Spend rule.</strong> Up to <span data-d="spendBudget" data-f="m2"></span> a month without discussion; above that needs a one-line justification. <span data-d="budgetInLaunch" data-f="n1"></span> Launch subscriptions cover it. Separate from the <span data-d="buffer" data-f="p1"></span> unit-cost buffer on the meters.</p>
+
+  <div class="railcap">Cost inputs &middot; everything below derives from these</div>
+  <div class="rail">
+    <div class="f"><label>SES send cost</label><div class="row"><input class="ed w7" data-k="ses" data-f="m3" aria-label="SES send cost per 1,000"><span class="unit">/ 1,000</span></div></div>
+    <div class="f"><label>In-app push cost</label><div class="row"><input class="ed w7" data-k="pushCost" data-f="m3" aria-label="In-app push cost per 1,000"><span class="unit">/ 1,000</span></div></div>
+    <div class="f"><label>Kickbox verification</label><div class="row"><input class="ed w7" data-k="kickbox" data-f="m3" aria-label="Kickbox cost per verification"><span class="unit">each</span></div></div>
+    <div class="f"><label>Stage-one catch rate</label><div class="row"><input class="ed w6" data-k="stage1" data-f="p0" aria-label="Stage one catch rate"><span class="unit">% cleared free</span></div></div>
+    <div class="f"><label>Alchemy, measured <span class="tt q" data-tip="Measured from production on 11 Sep 2026: 1,000 enrichments consumed 905,520 compute units costing $0.41 and billed 2,950 credits. Our own run, not a list price.">?</span></label><div class="row"><input class="ed w7" data-k="goldrush" data-f="m2" aria-label="Alchemy measured cost per 10,000"><span class="unit">/ 10,000</span></div></div>
+    <div class="f"><label>On-chain yield step <span class="tt q" data-tip="Zero, and not as a reduction: we bill per live call, so a cache hit costs the customer nothing and costs us nothing. The gap a yield step described has closed - caching now moves both sides of the line together.">?</span></label><div class="row"><input class="ed w6" data-k="cacheHit" data-f="p0" aria-label="On-chain yield step"><span class="unit">% hit</span></div></div>
+    <div class="f"><label>AI tokens in, per action</label><div class="row"><input class="ed w7" data-k="aiTokensIn" data-f="n0" aria-label="AI input tokens per action"><span class="unit">tokens</span></div></div>
+    <div class="f"><label>AI tokens out, per action</label><div class="row"><input class="ed w7" data-k="aiTokensOut" data-f="n0" aria-label="AI output tokens per action"><span class="unit">tokens</span></div></div>
+    <div class="f"><label>AI cache-hit rate</label><div class="row"><input class="ed w6" data-k="aiCacheHit" data-f="p0" aria-label="AI cache hit rate"><span class="unit">% of input</span></div></div>
+    <div class="f"><label>LLM input, uncached</label><div class="row"><input class="ed w7" data-k="aiPriceInMiss" data-f="m2" aria-label="LLM uncached input price per million"><span class="unit">/ 1M</span></div></div>
+    <div class="f"><label>LLM input, cached</label><div class="row"><input class="ed w7" data-k="aiPriceInHit" data-f="m3" aria-label="LLM cached input price per million"><span class="unit">/ 1M</span></div></div>
+    <div class="f"><label>LLM output price</label><div class="row"><input class="ed w7" data-k="aiPriceOut" data-f="m2" aria-label="LLM output price per million tokens"><span class="unit">/ 1M</span></div></div>
+    <div class="f"><label>Concierge delivery</label><div class="row"><input class="ed w7" data-k="conciergeCost" data-f="m2" aria-label="Concierge cost per hour"><span class="unit">/ hour</span></div></div>
+    <div class="f"><label>Dedicated IP</label><div class="row"><input class="ed w7" data-k="ipCost" data-f="m2" aria-label="Dedicated IP cost per month"><span class="unit">/ month</span></div></div>
+    <div class="f"><label>Company buffer</label><div class="row"><input class="ed w6" data-k="buffer" data-f="p1" aria-label="Company buffer"><span class="unit">% on cost</span></div></div>
+    <div class="f"><label>Stripe rate</label><div class="row"><input class="ed w7" data-k="stripePct" data-f="p3" aria-label="Stripe percentage"><span class="unit">% per charge</span></div></div>
+    <div class="f"><label>Stripe fixed fee</label><div class="row"><input class="ed w7" data-k="stripeFix" data-f="m2" aria-label="Stripe fixed fee"><span class="unit">per charge</span></div></div>
+    <div class="f"><label>Stripe cross-currency</label><div class="row"><input class="ed w7" data-k="stripeFx" data-f="p2" aria-label="Stripe cross currency rate"><span class="unit">% if FX</span></div></div>
+  </div>
+
+  <h2>From vendor rate to loaded cost</h2>
+  <p>Two steps sit between invoice and planning number: a <b>yield step</b>, where our own filtering or caching means we do not pay for every unit consumed, and the <b>buffer</b>, contingency against vendor price rises and payment failures. The buffer is held, never counted as margin.</p>
+  <div class="tw">
+  <table>
+    <caption>Cost build-up per meter</caption>
+    <thead><tr><th>Meter</th><th class="n">Vendor rate</th><th>Yield step</th><th class="n">Effective</th><th class="n">+ buffer</th><th class="n">Loaded cost</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Email &middot; per 1,000</td><td class="n"><span data-d="ses" data-f="m2"></span></td><td class="wrap">None. Every send goes through SES at one rate</td><td class="n" data-d="emailRaw" data-f="m3"></td><td class="n" data-d="bufPct" data-f="p1"></td><td class="n hi" data-d="bEmail" data-f="m3"></td></tr>
+      <tr><td class="k">In-app push &middot; per 1,000</td><td class="n" data-d="pushCost" data-f="m3"></td><td class="wrap">None. Rides the fixed base, costed at zero in plan ceilings</td><td class="n" data-d="pushCost" data-f="m3"></td><td class="n" data-d="bufPct" data-f="p1"></td><td class="n hi" data-d="bPush" data-f="m3"></td></tr>
+      <tr><td class="k">ONS+ &middot; per 1,000 submitted</td><td class="n" data-d="onsGross" data-f="m2"></td><td class="wrap">Stage one clears <span data-d="stage1" data-f="p0"></span> in-house free; only <span data-d="onsEsc" data-f="n0"></span> escalate</td><td class="n" data-d="onsRaw" data-f="m2"></td><td class="n" data-d="bufPct" data-f="p1"></td><td class="n hi" data-d="bOns" data-f="m2"></td></tr>
+      <tr><td class="k">On-chain &middot; per 10,000</td><td class="n" data-d="goldrush" data-f="m2"></td><td class="wrap">Measured from a production run, not a list rate. No yield step: we bill per live call, so a cache hit is free on both meters.</td><td class="n" data-d="chainRaw" data-f="m2"></td><td class="n" data-d="bufPct" data-f="p1"></td><td class="n hi" data-d="bChain" data-f="m2"></td></tr>
+      <tr><td class="k">AI actions &middot; per 1,000</td><td class="n" data-d="aiPriceInMiss" data-f="m2"></td><td class="wrap"><span data-d="aiCacheHit" data-f="p0"></span> of input tokens served from cache at <span data-d="aiPriceInHit" data-f="m3"></span>, blending input to <span data-d="aiBlendedIn" data-f="m3"></span> / 1M</td><td class="n" data-d="aiCost" data-f="m2"></td><td class="n" data-d="bufPct" data-f="p1"></td><td class="n hi" data-d="bAi" data-f="m2"></td></tr>
+      <tr><td class="k">Concierge &middot; per hour</td><td class="n" data-d="conciergeCost" data-f="m2"></td><td class="wrap">None. Founder time today, but never modelled at zero</td><td class="n" data-d="conciergeCost" data-f="m2"></td><td class="n" data-d="bufPct" data-f="p1"></td><td class="n hi" data-d="bConcierge" data-f="m2"></td></tr>
+      <tr><td class="k">Dedicated IP &middot; per month</td><td class="n" data-d="ipCost" data-f="m2"></td><td class="wrap">None</td><td class="n" data-d="ipCost" data-f="m2"></td><td class="n" data-d="bufPct" data-f="p1"></td><td class="n hi" data-d="bIp" data-f="m2"></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><strong>ONS+.</strong> We charge per address submitted and pay per address escalated. Bundling both stages into one SKU stops a customer declining stage two and taking stage one free.</p>
+
+  <h2>Hosting</h2>
+  <p>Paid whether or not anyone signs up. Bills that arrive <em>with</em> a customer are cost of revenue and sit on page 04, not here.</p>
+  <p class="note">20 Aug 2026: Render, Neon, Upstash and Vercel replaced by DigitalOcean Droplets, with Postgres and Redis self-hosted. Cost falls; backups, failover and patching become ours and are priced nowhere.</p>
+  <p class="note">5 Aug 2026: the <b>$715</b> previously carried here was the all-in cost of ten customers, not a hosting bill, so it double-counted every per-customer cost. It is a cross-check now, below.</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v" data-d="infraTotal" data-f="m2"></div><div class="l">Hosting per month, independent of customers</div></div>
+    <div class="kpi"><div class="v" data-d="spend.actual" data-f="m2"></div><div class="l">Actually invoiced last month, all providers</div></div>
+    <div class="kpi"><div class="v" data-d="dq.infraItemised" data-f="p0"></div><div class="l">Of hosting reconstructed from contracted rates</div></div>
+    <div class="kpi"><div class="v" data-d="beZero" data-f="n0"></div><div class="l">Customers needed to cover hosting</div></div>
+  </div>
+
+  <h3>Build-up</h3>
+  <div class="tw">
+  <table>
+    <caption>Monthly hosting</caption>
+    <thead><tr><th>Line</th><th class="n">Quantity</th><th class="n">Rate</th><th class="n">Per month</th><th class="n">Share</th><th>Confirm</th></tr></thead>
+    <tbody id="tbInfra"></tbody>
+  </table>
+  </div>
+  <div class="rail">
+    <div class="f"><label>Droplets</label><div class="row"><input class="ed w6" data-k="infraSpec.droplets" data-f="n0" aria-label="Droplet count"><span class="unit">&times; <input class="ed w6" data-k="infraSpec.dropletRate" data-f="m0" aria-label="Droplet monthly rate"> ea</span></div></div>
+    <div class="f"><label>Backups</label><div class="row"><input class="ed w6" data-k="infraSpec.backupPct" data-f="p0" aria-label="Backup percentage"><span class="unit">% of droplets</span></div></div>
+    <div class="f"><label>Domains &amp; misc</label><div class="row"><input class="ed w6" data-k="infraSpec.domains" data-f="m0" aria-label="Domains and misc"><span class="unit">/ mo</span></div></div>
+    <div class="f"><label>Not yet attributed</label><div class="row"><input class="ed w7" data-k="infraSpec.unallocated" data-f="m2" aria-label="Unallocated remainder"><span class="unit">/ mo</span></div></div>
+  </div>
+  <div class="status warn"><span class="ico">Confirm</span><p id="infraTxt"></p></div>
+
+  <h3>Cross-check</h3>
+  <p>Kept as a test, not an input: hosting plus what <span data-d="bmUsers" data-f="n0"></span> customers consume should land on it.</p>
+  <div class="tw">
+  <table>
+    <caption>Does the model reproduce the all-in cost of <span data-d="bmUsers" data-f="n0"></span> customers?</caption>
+    <thead><tr><th>Component</th><th>What it covers</th><th class="n">Per month</th></tr></thead>
+    <tbody id="tbBench"></tbody>
+  </table>
+  </div>
+  <div class="rail">
+    <div class="f"><label>All-in figure to test against</label><div class="row"><input class="ed w7" data-k="benchmark.total" data-f="m0" aria-label="Benchmark total"><span class="unit">/ mo</span></div></div>
+    <div class="f"><label>At how many customers</label><div class="row"><input class="ed w6" data-k="benchmark.users" data-f="n0" aria-label="Benchmark users"><span class="unit">customers</span></div></div>
+  </div>
+  <div class="status" id="bmBox"><span class="ico">Check</span><p id="bmTxt"></p></div>
+
+  <h3>How hosting grows</h3>
+  <p>Hosting could stay flat as we grow or step in tiers. Nobody has said which.</p>
+  <div class="rail">
+    <div class="f"><label>Customers per hosting tier</label><div class="row"><input class="ed w6" data-k="infraCapacity.users" data-f="n0" aria-label="Customers per hosting tier"><span class="unit">before upgrade</span></div></div>
+    <div class="f"><label>Scaling</label><div class="row"><select class="ed" id="capMode" aria-label="Infrastructure scaling mode"><option value="flat">Flat &middot; one tier forever</option><option value="stepped">Stepped &middot; a tier per capacity</option></select></div></div>
+  </div>
+  <div class="status" id="capBox"><span class="ico">Effect</span><p id="capTxt"></p></div>
+
+  <h2>What moves the cost line</h2>
+  <p>Ten points of movement in each driver, against blended gross profit per customer. This is the order to measure in.</p>
+  <div class="tw">
+  <table>
+    <caption>Cost sensitivity &middot; ranked by impact</caption>
+    <thead><tr><th>Driver</th><th class="n">Now</th><th class="n">Move</th><th class="n">Blended GP</th><th class="n">Change</th><th>Owner</th></tr></thead>
+    <tbody id="tbSens"></tbody>
+  </table>
+  </div>
+
+  <h2>Costs not yet in the model</h2>
+  <ul class="bul">
+    <li><b>Storage growth.</b> Every other cost stops when a customer stops. Contacts, wallets, event history and automation logs only grow, including for dormant accounts. Needs a retention policy before the data exists.</li>
+    <li><b>Support at scale.</b> Modelled at zero &mdash; founders support customers directly. Real time, not free time, and it becomes a cost the day it moves to payroll.</li>
+    <li><b>Tax.</b> VAT and US state sales tax appear nowhere. B2B in the UK and EU is usually reverse charge; consumer sales and US nexus are not, and both are expensive to unwind retroactively.</li>
+    <li><b>Wallets per contact.</b> Set to <span data-d="walletsPerContact" data-f="n1"></span> but not measured. Enrichment is priced per wallet, so every on-chain cost is a lower bound until it is.</li>
+  </ul>
+  <div class="pager" data-pager></div>
+</section>
+
+<!-- ==================== 04 COST TO SERVE ==================== -->
+<section class="page" id="p-serve">
+  <div class="ph">
+    <div class="ix">05 &middot; The business as it is</div>
+    <h1>What it costs to run the company, per user</h1>
+    <p>Two costs sit inside this question: one that arrives with the customer and never changes, one that is shared out and shrinks with scale.</p>
+  </div>
+
+  <h2>The short answer</h2>
+  <div class="kpis">
+    <div class="kpi"><div class="v" data-d="varPerCustomer" data-f="m2"></div><div class="l"><span class="tt q" data-tip="What one more customer costs us in a month: their metered usage, dedicated IP, card fees and support time. It is the same whether we have 10 customers or 10,000, because it arrives with the customer.">Variable cost</span> to serve one customer, any scale</div></div>
+    <div class="kpi"><div class="v" data-d="infraPerUserCap" data-f="m2"></div><div class="l"><span class="tt q" data-tip="Servers, database, queues and hosting. We pay this whether anyone signs up or not, so the cost per user falls as users are added.">Fixed infrastructure</span> per user at <span data-d="capUsers" data-f="n0"></span> users</div></div>
+    <div class="kpi"><div class="v" data-d="serveAtCap" data-f="m2"></div><div class="l">Total cost per user at <span data-d="capUsers" data-f="n0"></span> users</div></div>
+    <div class="kpi"><div class="v" data-d="serveAtEnd" data-f="m2"></div><div class="l">Total cost per user at <span data-d="fin.endCustomers" data-f="n0"></span> users</div></div>
+    <div class="kpi"><div class="v" data-d="marginCeiling" data-f="p0"></div><div class="l"><span class="tt q" data-tip="Revenue per customer minus the variable cost, as a percentage. No amount of scale beats this, because variable cost never goes away.">Best margin possible</span> at any scale</div></div>
+  </div>
+  <p>Every customer costs <strong><span data-d="varPerCustomer" data-f="m2"></span> a month to serve</strong> regardless of scale. Fixed hosting is shared across the base: <span data-d="infraPerUserCap" data-f="m2"></span> each at <span data-d="capUsers" data-f="n0"></span> users, <span data-d="infraPerUserEnd" data-f="m2"></span> at <span data-d="fin.endCustomers" data-f="n0"></span>.</p>
+
+  <h2>The part that never changes</h2>
+  <p>Arrives with the customer, so it cannot be spread. Every line is a payment to a named vendor except support, which is our own time.</p>
+  <div class="tw">
+  <table>
+    <caption>Cost to serve one customer for one month, at <span data-d="util" data-f="p0"></span> <span class="tt q" data-tip="How much of their monthly allowance a typical customer actually uses. At 100% every customer is assumed to consume their whole allowance, which is the stress case this document uses, so we spend the full metered cost.">utilisation</span></caption>
+    <thead><tr><th>Tier</th><th class="n">Metered usage</th><th class="n">Dedicated IP</th><th class="n">Concierge</th><th class="n">Card fees</th><th class="n">Total</th><th class="n">Of their price</th></tr></thead>
+    <tbody id="tbServe"></tbody>
+  </table>
+  </div>
+  <p class="note">Concierge is an optional add-on, not bundled, so it costs nothing here and earns nothing in the forecast. Each hour sold is <span data-d="conciergeUpside" data-f="m2"></span> of profit on top.</p>
+
+  <h2>The part that shrinks as we grow</h2>
+  <p>One bill divided across the base.</p>
+  <div class="tw">
+  <table>
+    <caption>Cost per user as users are added &middot; fixed base of <span data-d="infraTotal" data-f="m0"></span></caption>
+    <thead><tr><th>Users</th><th class="n">Infrastructure each</th><th class="n">Variable each</th><th class="n">Total per user</th><th class="n">Revenue per user</th><th class="n"><span class="tt q" data-tip="What is left of the revenue after paying to serve that customer, before salaries and marketing.">Margin</span></th></tr></thead>
+    <tbody id="tbScale"></tbody>
+  </table>
+  </div>
+  <div class="status" id="scaleBox"><span class="ico">Note</span><p id="scaleTxt"></p></div>
+
+  <h2>What if the capacity ceiling is real</h2>
+  <p>If hosting only covers <span data-d="capUsers" data-f="n0"></span> users, it never amortises; we buy another tier instead.</p>
+  <div class="tw">
+  <table>
+    <caption>Cost per user if capacity has to be bought in blocks</caption>
+    <thead><tr><th>Users</th><th class="n">Blocks needed</th><th class="n">Infrastructure bill</th><th class="n">Infrastructure each</th><th class="n">Total per user</th><th class="n">Margin</th></tr></thead>
+    <tbody id="tbStep"></tbody>
+  </table>
+  </div>
+  <div class="status bad"><span class="ico">The gap</span><p id="stepTxt"></p></div>
+
+  <h2>Running the whole company, not just the servers</h2>
+  <p>Running the company also means paying people and winning customers. Those costs dominate early and fall fastest.</p>
+  <div class="tw">
+  <table>
+    <caption>All-in monthly cost per customer, read off the projection</caption>
+    <thead><tr><th>Month</th><th class="n">Customers</th><th class="n">Infrastructure</th><th class="n">Serving them</th><th class="n"><span class="tt q" data-tip="Founder draws plus any engineer on the payroll that month, divided by the customer count.">Salaries</span></th><th class="n"><span class="tt q" data-tip="What we spend winning the new customers who arrived that month, divided across the whole base.">Acquisition</span></th><th class="n">All-in each</th><th class="n">Revenue each</th></tr></thead>
+    <tbody id="tbAllIn"></tbody>
+  </table>
+  </div>
+  <div class="status" id="allInBox"><span class="ico">Crossover</span><p id="allInTxt"></p></div>
+  <div class="pager" data-pager></div>
+</section>
+
+<!-- ==================== 05 UNIT ECONOMICS ==================== -->
+<section class="page" id="p-unit">
+  <div class="ph">
+    <div class="ix">06 &middot; The business as it is</div>
+    <h1>Unit economics</h1>
+    <p>Meters earn by <strong>markup</strong>. Plans earn by <strong>difference</strong>. One rule connects them and makes floor profit a guarantee.</p>
+  </div>
+
+  <h2>The rate card</h2>
+  <div class="tw">
+  <table>
+    <caption>List price against loaded cost</caption>
+    <thead><tr><th>Meter</th><th class="n">Loaded cost</th><th class="n">We charge</th><th class="n">Profit</th><th class="n">Markup</th><th class="n">Margin</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Email &middot; per 1,000</td><td class="n" data-d="bEmail" data-f="m3"></td><td class="n"><input class="ed w7" data-k="pEmail" data-f="m2" aria-label="Email list price per 1,000"></td><td class="n pos" data-d="rate.email.profit" data-f="m2"></td><td class="n" data-d="rate.email.markup" data-f="x1"></td><td class="n hi" data-d="rate.email.margin" data-f="p1"></td></tr>
+      <tr><td class="k">In-app push &middot; per 1,000</td><td class="n" data-d="bPush" data-f="m3"></td><td class="n"><input class="ed w7" data-k="pPush" data-f="m2" aria-label="In-app push list price per 1,000"></td><td class="n pos" data-d="rate.push.profit" data-f="m2"></td><td class="n" data-d="rate.push.markup" data-f="x0"></td><td class="n hi" data-d="rate.push.margin" data-f="p1"></td></tr>
+      <tr><td class="k">ONS+ &middot; per 1,000</td><td class="n" data-d="bOns" data-f="m2"></td><td class="n"><input class="ed w7" data-k="pOns" data-f="m2" aria-label="ONS+ list price per 1,000"></td><td class="n pos" data-d="rate.ons.profit" data-f="m2"></td><td class="n" data-d="rate.ons.markup" data-f="x1"></td><td class="n hi" data-d="rate.ons.margin" data-f="p1"></td></tr>
+      <tr><td class="k">On-chain &middot; per 10,000</td><td class="n" data-d="bChain" data-f="m2"></td><td class="n"><input class="ed w7" data-k="pChain" data-f="m2" aria-label="On-chain list price per 10,000"></td><td class="n pos" data-d="rate.chain.profit" data-f="m2"></td><td class="n" data-d="rate.chain.markup" data-f="x1"></td><td class="n hi" data-d="rate.chain.margin" data-f="p1"></td></tr>
+      <tr><td class="k">AI actions &middot; per 1,000</td><td class="n" data-d="bAi" data-f="m2"></td><td class="n"><input class="ed w7" data-k="pAi" data-f="m2" aria-label="AI list price per 1,000"></td><td class="n pos" data-d="rate.ai.profit" data-f="m2"></td><td class="n" data-d="rate.ai.markup" data-f="x1"></td><td class="n hi" data-d="rate.ai.margin" data-f="p1"></td></tr>
+      <tr><td class="k">Concierge &middot; per hour</td><td class="n" data-d="bConcierge" data-f="m2"></td><td class="n"><input class="ed w7" data-k="pConcierge" data-f="m2" aria-label="Concierge list price per hour"></td><td class="n pos" data-d="rate.concierge.profit" data-f="m2"></td><td class="n" data-d="rate.concierge.markup" data-f="x1"></td><td class="n hi" data-d="rate.concierge.margin" data-f="p1"></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Ceiling cost and floor profit</h2>
+  <p><strong>The rule.</strong> A plan&rsquo;s price must exceed the cost of its own full allowance. If that holds, the plan cannot lose money at any usage level.</p>
+  <p><strong>Ceiling cost</strong> is a customer consuming every unit of every allowance, plus dedicated IP, bundled concierge and the card fee. <strong>Floor profit</strong> is price minus ceiling cost.</p>
+  <div class="tw">
+  <table>
+    <caption>Worst case for every tier</caption>
+    <thead><tr><th>Plan</th><th class="n">Price</th><th class="n">Metered</th><th class="n">Ded. IP</th><th class="n">Concierge</th><th class="n">Stripe</th><th class="n">Ceiling cost</th><th class="n">Floor profit</th><th class="n">Floor GM</th></tr></thead>
+    <tbody id="tbEco"></tbody>
+  </table>
+  </div>
+  <p class="note">In-app push is costed at zero: it rides the fixed base rather than a per-unit vendor bill. It still counts at list in the allowances column.</p>
+
+  <h2>Why profit is a V</h2>
+  <p>One <span data-d="v.name"></span> customer pays <span data-d="v.price" data-f="m0"></span> a month whatever they do. What changes is what we spend serving them.</p>
+  <p class="note">Showing <select class="ed" id="vSel" aria-label="Plan for the walkthrough"><option value="launch">Launch</option><option value="growth" selected>Growth</option><option value="pro">Pro</option><option value="scale">Scale</option></select> &middot; the last row assumes every meter runs <span data-d="v.overPct" data-f="p0"></span> past its allowance.</p>
+  <div class="tw">
+  <table>
+    <caption>One <span data-d="v.name"></span> customer, four different months</caption>
+    <thead><tr><th>What they do</th><th class="n">Emails sent</th><th class="n">We collect</th><th class="n">We spend</th><th class="n">Profit</th></tr></thead>
+    <tbody id="tbV"></tbody>
+  </table>
+  </div>
+  <p>Profit falls to a minimum at full allowance, then rises: past the allowance every extra 1,000 emails bills at <span data-d="pEmail" data-f="m2"></span> against a <span data-d="bEmail" data-f="m3"></span> cost.</p>
+
+  <figure>
+    <figcaption>Gross profit as a percentage of plan price, by allowance utilisation</figcaption>
+    <div id="chartHost"></div>
+    <div class="legend">
+      <span><i style="background:var(--amber)"></i>Launch</span>
+      <span><i style="background:var(--blue)"></i>Growth</span>
+      <span><i style="background:var(--teal)"></i>Pro</span>
+      <span><i style="background:var(--rose)"></i>Scale</span>
+    </div>
+  </figure>
+  <p><strong>What this guarantees.</strong> The worst case is known before we sign anyone. Light users are highly profitable; heavy users more so. There is no usage level at which a customer costs us money.</p>
+
+  <h2>Why <span class="tt q" data-tip="What a customer pays once they use more than their allowance. It bills at full list price with no plan discount, which is why heavy users are the most profitable ones we have.">overage</span> is the strongest revenue line</h2>
+  <p>A plan is a discount on list price. Overage is not discounted. A Pro customer effectively buys units at <span data-d="proImplied" data-f="p0"></span> of list inside their allowance; the moment they exceed it they pay 100% of list, which is <span data-d="eco.pro.overMult" data-f="x2"></span> more per unit.</p>
+  <div class="tw">
+  <table>
+    <caption>Plan price against the same allowances bought at list</caption>
+    <thead><tr><th>Plan</th><th class="n">Allowances at list</th><th class="n">Plan price</th><th class="n">Customer saves</th><th class="n">Overage costs them</th></tr></thead>
+    <tbody id="tbOver"></tbody>
+  </table>
+  </div>
+  <p>Overage should price the exceptional, not the normal. An overage multiple near 1.0&times; means the plan is not a plan.</p>
+
+  <h2>Does the on-chain allowance cover a contact list?</h2>
+  <p>A contact owns <input class="ed w6" data-k="walletsPerContact" data-f="n1" aria-label="Wallets per contact"> wallets on average, and enrichment is priced per wallet at <input class="ed w6" data-k="creditsPerWallet" data-f="n1" aria-label="Credits per wallet"> credit each. So enriching a full list once needs contacts &times; wallets &times; credits. Compare that to what each plan bundles.</p>
+  <div class="tw">
+  <table>
+    <caption>One full enrichment pass over the whole contact list</caption>
+    <thead><tr><th>Plan</th><th class="n">Contacts</th><th class="n">Credits needed</th><th class="n">Credits bundled</th><th class="n">Covered</th><th class="n">Shortfall at list</th></tr></thead>
+    <tbody id="tbEnrich"></tbody>
+  </table>
+  </div>
+  <div class="status warn"><span class="ico">Read this</span><p id="enrichTxt"></p></div>
+  <div class="pager" data-pager></div>
+</section>
+
+<!-- ==================== 05 FINANCIAL MODEL ==================== -->
+<section class="page" id="p-model">
+  <div class="ph">
+    <div class="ix">07 &middot; The business as projected</div>
+    <h1>Financial model</h1>
+    <p>A <span data-d="fin.months" data-f="n0"></span>-month projection built from page 05. Customers arrive, churn, consume allowances and pay card fees.</p>
+  </div>
+
+  <h2>Where we start from</h2>
+  <p>Trading to date. The projection begins here, not from zero.</p>
+  <div class="tw">
+  <table>
+    <caption>Actuals</caption>
+    <thead><tr><th>Month</th><th class="n">Customers</th><th class="n">Revenue</th><th class="n">Cost</th><th class="n">Net</th><th class="n">Cumulative</th></tr></thead>
+    <tbody id="tbActuals"></tbody>
+  </table>
+  </div>
+  <div class="status" id="actBox"><span class="ico">Read</span><p id="actTxt"></p></div>
+
+  <div class="railcap">Model drivers</div>
+  <div class="rail">
+    <div class="f"><label>Projection length</label><div class="row"><input class="ed w6" data-k="fin.months" data-f="n0" aria-label="Projection months"><span class="unit">months</span></div></div>
+    <div class="f"><label>Opening book &middot; Launch</label><div class="row"><input class="ed w6" data-k="fin.startBook.launch" data-f="n0" aria-label="Opening Launch customers"><span class="unit">today</span></div></div>
+    <div class="f"><label>Opening book &middot; Growth</label><div class="row"><input class="ed w6" data-k="fin.startBook.growth" data-f="n0" aria-label="Opening Growth customers"><span class="unit">today</span></div></div>
+    <div class="f"><label>Opening book &middot; Pro</label><div class="row"><input class="ed w6" data-k="fin.startBook.pro" data-f="n0" aria-label="Opening Pro customers"><span class="unit">today</span></div></div>
+    <div class="f"><label>Opening book &middot; Send</label><div class="row"><input class="ed w6" data-k="fin.startBook.send" data-f="n0" aria-label="Opening Send customers"><span class="unit">today</span></div></div>
+    <div class="f"><label>Starting cash</label><div class="row"><input class="ed w7" data-k="fin.startCash" data-f="m0" aria-label="Starting cash"><span class="unit">in bank</span></div></div>
+    <div class="f"><label>New customers, month 1</label><div class="row"><input class="ed w6" data-k="fin.newPerMonth" data-f="n1" aria-label="New customers in month one"><span class="unit">/ month</span></div></div>
+    <div class="f"><label>Acquisition growth</label><div class="row"><input class="ed w6" data-k="fin.newGrowth" data-f="p0" aria-label="Acquisition growth rate"><span class="unit">% m/m</span></div></div>
+    <div class="f"><label>Monthly churn</label><div class="row"><input class="ed w6" data-k="fin.churn" data-f="p0" aria-label="Monthly churn"><span class="unit">% of base</span></div></div>
+    <div class="f"><label>Allowance utilisation</label><div class="row"><input class="ed w6" data-k="util" data-f="p0" aria-label="Allowance utilisation"><span class="unit">% of allowance</span></div></div>
+    <div class="f"><label>Overage revenue</label><div class="row"><input class="ed w6" data-k="fin.overageRate" data-f="p0" aria-label="Overage revenue rate"><span class="unit">% of subs</span></div></div>
+    <div class="f"><label>Mix &middot; Launch</label><div class="row"><input class="ed w6" data-k="mixL" data-f="p0" aria-label="Mix Launch"><span class="unit">% of base</span></div></div>
+    <div class="f"><label>Mix &middot; Growth</label><div class="row"><input class="ed w6" data-k="mixG" data-f="p0" aria-label="Mix Growth"><span class="unit">% of base</span></div></div>
+    <div class="f"><label>Mix &middot; Pro</label><div class="row"><input class="ed w6" data-k="mixP" data-f="p0" aria-label="Mix Pro"><span class="unit">% of base</span></div></div>
+  </div>
+  <p class="note" id="mixWarn" hidden></p>
+  <div class="status warn"><span class="ico">Read twice</span><p>Every EBITDA figure marked <b>founders unpaid</b> assumes three people work for nothing. That is a runway fact, not profit. With the <span data-d="fin.founderCostYear" data-f="m0"></span> pool charged, year one is <span data-d="fin.y1EbitdaPaid" data-f="m0"></span> and year two <span data-d="fin.y2EbitdaPaid" data-f="m0"></span>. <b>The cumulative deficit across those two years is the honest size of a raise</b> &mdash; not survival cost, which is covered on page 09, but the cost of paying the people building it.</p></div>
+  <p class="note">Mix shares are of <b>Suite</b> customers only. Send is modelled separately below, because it is a different customer at a different price.</p>
+
+  <div class="railcap">Launch and ramp</div>
+  <div class="rail">
+    <div class="f"><label>Public beta launches <span class="tt q" data-tip="The forecast is anchored here, not to the date the document was written. Before this month we are testing, not selling, so signups are design partners rather than a sales motion.">?</span></label><div class="row"><input class="ed w6" data-k="launch.month" data-f="n0" aria-label="Public beta launch month"><span class="unit"><span data-d="launchLabel"></span></span></div></div>
+    <div class="f"><label>Signups before launch</label><div class="row"><input class="ed w6" data-k="launch.preLaunch" data-f="n1" aria-label="Pre-launch signups per month"><span class="unit">/ month</span></div></div>
+    <div class="f"><label>Ramp to full velocity <span class="tt q" data-tip="Months from public beta to the full run rate. A straight line: nobody goes from a private beta to four signups a month overnight, and claiming so is the fastest way to lose a reader.">?</span></label><div class="row"><input class="ed w6" data-k="launch.rampMonths" data-f="n0" aria-label="Ramp months"><span class="unit">months</span></div></div>
+  </div>
+  <p>Signups run at <span data-d="launch.preLaunch" data-f="n1"></span> a month until <b><span data-d="launchLabel"></span></b>, then climb in a straight line to <span data-d="fin.newPerMonth" data-f="n1"></span> a month over <span data-d="rampMonths" data-f="n0"></span> months. Only after that does acquisition compound at <span data-d="fin.newGrowth" data-f="p0"></span>. <strong>Nothing in this forecast assumes we can sell at full velocity before the product is public.</strong></p>
+
+  <h3>What the ramp actually claims</h3>
+  <div class="kpis">
+    <div class="kpi"><div class="v" data-d="actualsRevenue" data-f="m0"></div><div class="l">Revenue to date, private beta</div></div>
+    <div class="kpi"><div class="v" data-d="assessor.cust90" data-f="n1"></div><div class="l">Customers at day 90</div></div>
+    <div class="kpi"><div class="v" data-d="assessor.addsFirst6" data-f="n1"></div><div class="l">Customers added in the first six months</div></div>
+    <div class="kpi"><div class="v" data-d="assessor.revYearAfterLaunch" data-f="m0"></div><div class="l">Revenue, first 12 months after launch</div></div>
+  </div>
+  <p>We are in private beta. Revenue to date is <span data-d="actualsRevenue" data-f="m0"></span> across <span data-d="actualsCustomers" data-f="n0"></span> customers because we are testing, not selling &mdash; and the forecast now says the same thing. In the first 90 days it adds <b><span data-d="assessor.added90" data-f="n1"></span> customers</b>, not fifteen. Over the first six months it adds <span data-d="assessor.addsFirst6" data-f="n1"></span> in total.</p>
+  <p>The number worth quoting is the <b>first twelve months after launch</b>, <span data-d="assessor.revYearAfterLaunch" data-f="m0"></span> &mdash; it describes the business being asked about, rather than a calendar year that is half pre-launch. <strong>Once there is post-launch trading, quote the measured figures instead of any of this.</strong></p>
+  <div class="status" id="rdBox"><span class="ico">Open</span><p><b>R&amp;D cost curve is not modelled.</b> Development effort should fall per customer as the product matures, and that belongs here as a visible curve. It is deliberately not built yet: cost is not what makes this forecast hard to defend, the revenue ramp was, and adding a cost curve now would dress up the same problem. Build it once there is post-launch data to fit it to.</p></div>
+
+  <div class="railcap">The Send line</div>
+  <div class="rail">
+    <div class="f"><label>Send share of signups, month 1</label><div class="row"><input class="ed w6" data-k="sendPlan.share0" data-f="p0" aria-label="Send share of signups at month one"><span class="unit">% of new</span></div></div>
+    <div class="f"><label>Send share, final month <span class="tt q" data-tip="The share drifts in a straight line between these two figures. Send should take a growing share of signups because the web2 market is larger and the plan is easier to say yes to.">?</span></label><div class="row"><input class="ed w6" data-k="sendPlan.shareEnd" data-f="p0" aria-label="Send share of signups at the final month"><span class="unit">% of new</span></div></div>
+    <div class="f"><label>Average Send list <span class="tt q" data-tip="What an average Send customer holds. It sets Send revenue per customer directly, and it is assumed - we have no Send customers yet to measure.">?</span></label><div class="row"><input class="ed w7" data-k="sendPlan.avgSubs" data-f="n0" aria-label="Average Send subscriber count"><span class="unit">subscribers</span></div></div>
+    <div class="f"><label>Send revenue per customer</label><div class="row"><span data-d="arpuSend" data-f="m0" class="big"></span><span class="unit">/ month</span></div></div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v" data-d="arpu" data-f="m0"></div><div class="l"><span class="tt q" data-tip="Mix-weighted across Launch, Growth and Pro. This is the figure to quote for a Suite customer, and it is the one that flatters the business.">Suite ARPU</span></div></div>
+    <div class="kpi"><div class="v" data-d="arpuSend" data-f="m0"></div><div class="l">Send ARPU</div></div>
+    <div class="kpi"><div class="v" data-d="arpuAll" data-f="m0"></div><div class="l"><span class="tt q" data-tip="Both lines blended at the Send share reached by the final month. Send is most of the customers and a small part of the revenue, so this is well below Suite ARPU. Quote this one.">Blended ARPU</span>, both lines</div></div>
+    <div class="kpi"><div class="v" data-d="plateau" data-f="n0"></div><div class="l"><span class="tt q" data-tip="Where the customer base settles if monthly signups stop growing: new signups divided by churn. Acquisition sets how fast we get there; churn sets whether there is anywhere further to go.">Ceiling</span> at flat intake</div></div>
+  </div>
+  <p>At <span data-d="fin.newPerMonth" data-f="n1"></span> signups a month and <span data-d="fin.churn" data-f="p0"></span> monthly churn, a flat intake settles at <strong><span data-d="plateau" data-f="n0"></span> customers</strong> and stops. Everything above that line in the projection is bought with <span data-d="fin.newGrowth" data-f="p0"></span> a month of acquisition growth, which is an assumption about sales effort, not a property of the product. <strong>Churn is the binding constraint, and it is not measured.</strong></p>
+
+  <div class="status ok"><span class="ico">Team today</span><p><b>Two developers</b> &mdash; one a contractor paid personally by a founder, not by the company &mdash; and <b>two data and lifecycle staff</b>. The core systems are covered by people already here. <b>Nothing in this projection hires anyone before the raise</b>, and no salary appears in any month until capital lands. The contractor is a real cost carried personally, in the same category as unpaid founder time: it does not appear in the numbers below, and it will have to when the company takes it on.</p></div>
+
+  <div class="railcap">Founder pay and hiring &middot; both gated on the raise, not scheduled</div>
+  <p class="note">Founders draw nothing until <b>both</b> hold: capital secured, and gross profit covering every other cost with the full draw left over. Target raise at zero means nobody is paid. Grants are excluded &mdash; non-equity and uncertain, so upside only.</p>
+  <div class="status" id="payBox"><span class="ico">Trigger</span><p id="payTxt"></p></div>
+
+  <div class="railcap">Channel &middot; agency and foundation partners</div>
+  <p class="note">A partner programme carries a revenue share, which is a cost on revenue and comes off gross margin. Coverage is the share of customers arriving via a partner; the cut is what they take. Both default to zero &mdash; nothing is signed.</p>
+  <div class="rail">
+    <div class="f"><label>Customers via partners</label><div class="row"><input class="ed w6" data-k="partner.coverage" data-f="p0" aria-label="Share of customers arriving via partners"><span class="unit">% of base</span></div></div>
+    <div class="f"><label>Partner cut</label><div class="row"><input class="ed w6" data-k="partner.cut" data-f="p0" aria-label="Partner revenue share"><span class="unit">% of their revenue</span></div></div>
+  </div>
+  <div class="status" id="partnerBox"><span class="ico">Effect</span><p id="partnerTxt"></p></div>
+
+  <div class="railcap">Operating cost drivers</div>
+  <div class="rail">
+    <div class="f"><label>Founders</label><div class="row"><input class="ed w6" data-k="fin.founders" data-f="n0" aria-label="Number of founders"><span class="unit">people</span></div></div>
+    <div class="f"><label>Founder pool, once triggered</label><div class="row"><input class="ed w7" data-k="raise.founderTotalYear" data-f="m0" aria-label="Total founder pay per year"><span class="unit">/ yr, all of them</span></div></div>
+    <div class="f"><label>Target raise</label><div class="row"><input class="ed w7" data-k="raise.amount" data-f="m0" aria-label="Target fundraise amount"><span class="unit">external capital</span></div></div>
+    <div class="f"><label>Raise lands in month</label><div class="row"><input class="ed w6" data-k="raise.month" data-f="n0" aria-label="Month the raise lands"><span class="unit">month</span></div></div>
+    <div class="f"><label>Support per customer</label><div class="row"><input class="ed w6" data-k="fin.supportMin" data-f="n0" aria-label="Support minutes per customer per month"><span class="unit">min / mo</span></div></div>
+    <div class="f"><label>Loaded hourly rate</label><div class="row"><input class="ed w7" data-k="fin.loadedHourly" data-f="m0" aria-label="Loaded hourly rate"><span class="unit">/ hour</span></div></div>
+    <div class="f"><label>Acquisition cost</label><div class="row"><input class="ed w7" data-k="cac" data-f="m0" aria-label="Cost to acquire a customer"><span class="unit">per new customer</span></div></div>
+  </div>
+
+  <h2>Where it lands</h2>
+  <div class="kpis">
+    <div class="kpi"><div class="v" data-d="fin.endCustomers" data-f="n0"></div><div class="l">Customers at month <span data-d="fin.months" data-f="n0"></span></div></div>
+    <div class="kpi"><div class="v" data-d="fin.endMrr" data-f="m0"></div><div class="l">MRR at month <span data-d="fin.months" data-f="n0"></span></div></div>
+    <div class="kpi"><div class="v" data-d="fin.y1Rev" data-f="m0"></div><div class="l">Year 1 revenue</div></div>
+    <div class="kpi"><div class="v" data-d="fin.y1EbitdaPaid" data-f="m0"></div><div class="l"><span class="tt q" data-tip="Year one profit with the full founder pool charged every month, whether or not the trigger has opened. The unpaid line is a runway fact; this is what the business costs to run.">Year 1 EBITDA</span>, founders paid</div></div>
+    <div class="kpi"><div class="v" data-d="fin.y1GM" data-f="p0"></div><div class="l">Year 1 gross margin</div></div>
+    <div class="kpi"><div class="v" data-d="fin.breakevenMonth" data-f="mon"></div><div class="l">EBITDA turns positive</div></div>
+    <div class="kpi"><div class="v" data-d="fin.peakBurn" data-f="m0"></div><div class="l">Lowest the cash balance gets</div></div>
+  </div>
+  <div class="status" id="finBox"><span class="ico">Reading it</span><p id="finTxt"></p></div>
+
+  <h2>The sheet</h2>
+  <p class="note">Scroll sideways for later months. Year columns are totals, except cash and customer counts which are point-in-time.</p>
+  <div class="sheet" id="sheetHost"></div>
+
+  <h2>Where the money goes</h2>
+  <p>Year one and two, against revenue collected.</p>
+  <div class="tw">
+  <table>
+  <h2>Profit and loss &middot; five statutory years</h2>
+  <p>Years are cut on the <b>31 July</b> year end at Companies House, not on the month the model happens to start. FY2027 is therefore an 11-month stub &mdash; September 2026 to July 2027 &mdash; and the August 2026 actual belongs to it as well.</p>
+  <div class="tw">
+  <table>
+    <caption>Profit and loss &middot; statutory years to 31 July</caption>
+    <thead id="thPL5"></thead>
+    <tbody id="tbPL5"></tbody>
+  </table>
+  </div>
+  <p class="note">Corporation tax is charged at <span data-d="tax.smallRate" data-f="p0"></span> to the lower limit and <span data-d="tax.mainRate" data-f="p0"></span> above the upper, with marginal relief between, on profit after depreciation. Losses carry forward. Tax is <b>paid nine months after the year end</b>, so the charge and the payment sit in different years &mdash; which is why the balance sheet carries a tax creditor.</p>
+
+  <h2>Customers and MRR at each year end</h2>
+  <div class="tw">
+  <table>
+    <caption>Position at 31 July each year</caption>
+    <thead id="thYE"></thead>
+    <tbody id="tbYE"></tbody>
+  </table>
+  </div>
+
+  <h2>Revenue by line</h2>
+  <p>Subscription revenue for each product line, plus the on-chain overage that enrichment beyond the bundled allowance bills at.</p>
+  <div class="tw">
+  <table>
+    <caption>Full-year revenue by line</caption>
+    <thead id="thLine"></thead>
+    <tbody id="tbLine"></tbody>
+  </table>
+  </div>
+
+  <h2>Cash flow</h2>
+  <p>Cash is not profit. This reconciles the two: operating cash is EBITDA less the tax <b>actually paid</b> and the movement in working capital; investing is equipment; financing is the founder bridge and the raise.</p>
+  <div class="tw">
+  <table>
+    <caption>Cash flow statement, by financial year</caption>
+    <thead id="thCF"></thead>
+    <tbody id="tbCF"></tbody>
+  </table>
+  </div>
+  <div class="status" id="cfBox"><span class="ico">Check</span><p id="cfTxt"></p></div>
+
+  <h2>Bear, base and bull</h2>
+  <p>Each scenario moves the four things that decide the outcome: how many customers arrive, how fast that grows, how many stay, and which tier they land on. Bear also assumes customers enrich only half their list.</p>
+  <div class="tw">
+  <table>
+    <caption>Scenario outputs</caption>
+    <thead><tr><th>Line</th><th class="n">Bear</th><th class="n">Base</th><th class="n">Bull</th></tr></thead>
+    <tbody id="tbScen"></tbody>
+  </table>
+  </div>
+  <div class="status" id="scenBox"><span class="ico">Read</span><p id="scenTxt"></p></div>
+
+  <h2>Statement of financial position</h2>
+  <p>At each year end. <strong>Assets must equal liabilities plus equity</strong>; the model checks it and prints the difference, which should be zero.</p>
+  <div class="tw">
+  <table>
+    <caption>Projected statement of financial position</caption>
+    <thead id="thBS"></thead>
+    <tbody id="tbBS"></tbody>
+  </table>
+  </div>
+  <div class="status" id="bsBox"><span class="ico">Check</span><p id="bsTxt"></p></div>
+
+  <h2>What the team costs</h2>
+  <div class="tw">
+  <table>
+    <caption>Hires &middot; UK market rates, researched 19 September 2026</caption>
+    <thead><tr><th>Role</th><th class="n">Salary</th><th class="n">Loaded</th><th>Starts</th><th>Note</th></tr></thead>
+    <tbody id="tbHires"></tbody>
+  </table>
+  </div>
+  <p class="note">Loaded adds <span data-d="fin.employerOncost" data-f="p0"></span> for employer national insurance and pension. Recruitment is <span data-d="perHire.recruitPct" data-f="p0"></span> of first-year salary and equipment is GBP <span data-d="perHire.equipmentGbp" data-f="n0"></span>, both one-off in the month a hire starts; equipment is capitalised and written off over <span data-d="perHire.equipLifeMonths" data-f="n0"></span> months. <strong>Nobody is hired before the raise lands.</strong></p>
+
+  <h2>Company overheads</h2>
+  <p>Estimates, not invoices &mdash; these were listed as open on page 09 and a plan cannot be built without them. Replace each with the real figure as bills arrive.</p>
+  <div class="tw">
+  <table>
+    <caption>UK overheads &middot; billed in sterling, converted at <span data-d="fx.gbpUsd" data-f="n4"></span></caption>
+    <thead><tr><th>Line</th><th class="n">GBP / month</th><th class="n">USD / month</th><th class="n">USD / year</th></tr></thead>
+    <tbody id="tbOvh"></tbody>
+  </table>
+  </div>
+
+  <div class="tw">
+  <table>
+    <caption>Profit and loss &middot; three years</caption>
+    <thead id="thPL"><tr><th>Line</th><th class="n">Year 1</th><th class="n">% rev</th><th class="n">Year 2</th><th class="n">% rev</th><th class="n">Year 3</th><th class="n">% rev</th></tr></thead>
+    <tbody id="tbPL"></tbody>
+  </table>
+  </div>
+  <div class="pager" data-pager></div>
+</section>
+
+<!-- ==================== 06 GROWTH & RETENTION ==================== -->
+<section class="page" id="p-growth">
+  <div class="ph">
+    <div class="ix">08 &middot; The business as projected</div>
+    <h1>Growth &amp; retention</h1>
+    <p>Gross profit per month means nothing without knowing how many months. Churn decides everything here and is not yet measured.</p>
+  </div>
+
+  <div class="railcap">Retention assumptions</div>
+  <div class="rail">
+    <div class="f"><label>Planning churn</label><div class="row"><input class="ed w6" data-k="planChurn" data-f="p0" aria-label="Planning churn"><span class="unit">% monthly</span></div></div>
+    <div class="f"><label>Acquisition cost</label><div class="row"><input class="ed w7" data-k="cac" data-f="m0" aria-label="Acquisition cost"><span class="unit">per customer</span></div></div>
+    <div class="f"><label>Allowance utilisation</label><div class="row"><input class="ed w6" data-k="util" data-f="p0" aria-label="Utilisation"><span class="unit">% of allowance</span></div></div>
+    <div class="f"><label>LTV to <span class="tt q" data-tip="Customer acquisition cost: everything spent on sales and marketing to win one new customer.">CAC</span> target</label><div class="row"><input class="ed w6" data-k="ltvCacTarget" data-f="n1" aria-label="LTV to CAC ratio target"><span class="unit">: 1</span></div></div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v" data-d="blendGP" data-f="m0"></div><div class="l">Blended gross profit per customer per month</div></div>
+    <div class="kpi"><div class="v" data-d="ltvBlend" data-f="m0"></div><div class="l">Blended <span class="tt q" data-tip="Lifetime value: total gross profit one customer produces before they leave. Blended gross profit divided by monthly churn.">LTV</span> at <span data-d="planChurn" data-f="p0"></span> churn</div></div>
+    <div class="kpi"><div class="v" data-d="cacCeiling" data-f="m0"></div><div class="l">Max sane CAC at <span data-d="ltvCacTarget" data-f="n1"></span>:1</div></div>
+    <div class="kpi"><div class="v" data-d="payback" data-f="mo1"></div><div class="l">CAC payback at <span data-d="cac" data-f="m0"></span></div></div>
+    <div class="kpi"><div class="v" data-d="ltvCacActual" data-f="x1"></div><div class="l">Actual LTV to CAC at <span data-d="cac" data-f="m0"></span></div></div>
+  </div>
+
+  <h2>Lifetime value by churn rate</h2>
+  <div class="tw">
+  <table>
+    <caption>Gross profit basis, <span data-d="util" data-f="p0"></span> utilisation</caption>
+    <thead><tr><th>Monthly churn</th><th class="n">Avg life</th><th class="n">Launch</th><th class="n">Growth</th><th class="n">Pro</th><th class="n">Blended</th><th class="n">CAC ceiling</th></tr></thead>
+    <tbody id="tbLtv"></tbody>
+  </table>
+  </div>
+  <p>Web3 infrastructure churn runs high because protocols die. Plan against the 5&ndash;8% band until cohort data exists.</p>
+
+  <h2>How a cohort decays</h2>
+  <p>100 customers signed in one month, at <span data-d="planChurn" data-f="p0"></span> monthly churn.</p>
+  <div class="tw">
+  <table>
+    <caption>Cohort survival and cumulative gross profit per 100 customers</caption>
+    <thead><tr><th>Month</th><th class="n">Still active</th><th class="n">Gross profit that month</th><th class="n">Cumulative</th><th class="n">Cumulative less CAC</th></tr></thead>
+    <tbody id="tbCohort"></tbody>
+  </table>
+  </div>
+
+  <h2>CAC payback</h2>
+  <div class="tw">
+  <table>
+    <caption>Months to recover acquisition cost &middot; blended</caption>
+    <thead><tr><th>Acquisition cost</th><th class="n">Months to recover</th><th class="n">LTV : CAC</th><th>Verdict</th></tr></thead>
+    <tbody id="tbPayback"></tbody>
+  </table>
+  </div>
+  <p>CAC is <span data-d="cac" data-f="m0"></span> for years one and two: customers arrive through MOUs, not paid acquisition. Payback and LTV:CAC only carry information once we pay to win a customer. The thresholds are agreed here in advance.</p>
+  <div class="pager" data-pager></div>
+</section>
+
+<!-- ==================== 07 BREAK-EVEN & RUNWAY ==================== -->
+<section class="page" id="p-runway">
+  <div class="ph">
+    <div class="ix">09 &middot; The business as projected</div>
+    <h1>Break-even &amp; runway</h1>
+    <p>Two different questions, two different answers.</p>
+  </div>
+
+  <h2>Break-even, statically</h2>
+  <p><strong>&ldquo;Can we run the servers?&rdquo;</strong> Blended gross profit is <span data-d="blendGP" data-f="m0"></span> per customer per month against a <span data-d="infraTotal" data-f="m0"></span> monthly infrastructure base. That is <strong><span data-d="beZero" data-f="n0"></span> customers</strong>. The figure is true and nearly useless, because it assumes nobody is paid.</p>
+  <p><strong>Can we pay ourselves?</strong> Not yet, by rule &mdash; see the trigger on page 06. The table below is what each level of opex demands.</p>
+  <div class="tw">
+  <table>
+    <caption>Customers required to cover infrastructure plus operating cost</caption>
+    <thead><tr><th>Monthly opex</th><th>What it funds</th><th class="n">Customers needed</th><th class="n">MRR at that point</th><th class="n">Months away</th></tr></thead>
+    <tbody id="tbBE"></tbody>
+  </table>
+  </div>
+  <p class="note">MRR uses the blended <span class="tt q" data-tip="Average revenue per user: the mix-weighted average plan price. Revenue, not profit, and it excludes overage.">ARPU</span> of <span data-d="arpu" data-f="m0"></span> from the mix on page 06. &ldquo;Months away&rdquo; reads the customer count off the projection, so it moves when acquisition or churn move.</p>
+
+  <h2>Cash and runway</h2>
+  <div class="kpis">
+    <div class="kpi"><div class="v" data-d="fin.startCash" data-f="m0"></div><div class="l">Cash today</div></div>
+    <div class="kpi"><div class="v" data-d="fin.peakBurn" data-f="m0"></div><div class="l">Lowest the cash balance gets</div></div>
+    <div class="kpi"><div class="v" data-d="fin.runway" data-f="mon"></div><div class="l">Months before cash goes negative</div></div>
+    <div class="kpi"><div class="v" data-d="fin.raiseNeeded" data-f="m0"></div><div class="l">Minimum raise to reach EBITDA positive</div></div>
+  </div>
+  <div class="status" id="runwayBox"><span class="ico">Means</span><p id="runwayTxt"></p></div>
+
+  <h2>Runway: what 12 months costs if nothing goes right</h2>
+  <p>Founder pay is excluded &mdash; it starts when funding lands, so it is not what the funding is for. This is the cost of keeping the company alive for a year on the worst credible assumptions.</p>
+  <div class="rail">
+    <div class="f"><label>Months</label><div class="row"><input class="ed w6" data-k="worst.months" data-f="n0" aria-label="Runway months"><span class="unit">horizon</span></div></div>
+    <div class="f"><label>New customers</label><div class="row"><input class="ed w6" data-k="worst.newPerMonth" data-f="n1" aria-label="Worst case new customers"><span class="unit">/ month</span></div></div>
+    <div class="f"><label>Employer on-costs <span class="tt q" data-tip="Employer national insurance and pension on top of gross salary. A hire costs more than the salary line, and this is where that lands in month 13.">?</span></label><div class="row"><input class="ed w6" data-k="fin.employerOncost" data-f="p0" aria-label="Employer on-costs"><span class="unit">on salary</span></div></div>
+    <div class="f"><label>Monthly churn</label><div class="row"><input class="ed w6" data-k="worst.churn" data-f="p0" aria-label="Worst case churn"><span class="unit">% of base</span></div></div>
+    <div class="f"><label>Allowance usage</label><div class="row"><input class="ed w6" data-k="worst.util" data-f="p0" aria-label="Worst case utilisation"><span class="unit">% of allowance</span></div></div>
+    <div class="f"><label>Droplets provisioned</label><div class="row"><input class="ed w6" data-k="worst.droplets" data-f="n0" aria-label="Worst case droplets"><span class="unit">at full capacity</span></div></div>
+    <div class="f"><label>Miscellaneous &amp; contingency</label><div class="row"><input class="ed w6" data-k="worst.contingency" data-f="p0" aria-label="Contingency percentage"><span class="unit">% on cost</span></div></div>
+  </div>
+  <div class="tw">
+  <table>
+    <caption>Worst case, <span data-d="worstCase.months" data-f="n0"></span> months, founders unpaid</caption>
+    <thead><tr><th>Line</th><th>What it covers</th><th class="n">Total</th></tr></thead>
+    <tbody id="tbWorst"></tbody>
+  </table>
+  </div>
+  <div class="status" id="worstBox"><span class="ico">The number</span><p id="worstTxt"></p></div>
+
+  <h3>Company overheads</h3>
+  <p>The cost of being a company rather than running a product. Billed in pounds, converted at the rate shown; every other figure in this document is US dollars.</p>
+  <div class="rail">
+    <div class="f"><label>Legal</label><div class="row"><input class="ed w7" data-k="overheads.legal" data-f="n2" aria-label="Legal"><span class="unit">&pound; / mo</span></div></div>
+    <div class="f"><label>Accounting</label><div class="row"><input class="ed w7" data-k="overheads.accounting" data-f="n2" aria-label="Accounting"><span class="unit">&pound; / mo</span></div></div>
+    <div class="f"><label>Insurance <span class="tt q" data-tip="Professional indemnity and cyber. Paid annually in advance, which is what puts a prepayment on the balance sheet.">?</span></label><div class="row"><input class="ed w7" data-k="overheads.insurance" data-f="n2" aria-label="Insurance"><span class="unit">&pound; / mo</span></div></div>
+    <div class="f"><label>Software</label><div class="row"><input class="ed w7" data-k="overheads.software" data-f="n2" aria-label="Software"><span class="unit">&pound; / mo</span></div></div>
+    <div class="f"><label>Office <span class="tt q" data-tip="Zero because the company is remote. Kept as a line so taking space is a visible decision rather than a silent one.">?</span></label><div class="row"><input class="ed w7" data-k="overheads.office" data-f="n2" aria-label="Office"><span class="unit">&pound; / mo</span></div></div>
+    <div class="f"><label>Marketing and events</label><div class="row"><input class="ed w7" data-k="overheads.marketing" data-f="n2" aria-label="Marketing"><span class="unit">&pound; / mo</span></div></div>
+    <div class="f"><label>Bank charges</label><div class="row"><input class="ed w7" data-k="overheads.bank" data-f="n2" aria-label="Bank"><span class="unit">&pound; / mo</span></div></div>
+    <div class="f"><label>ICO fee</label><div class="row"><input class="ed w7" data-k="overheads.ico" data-f="n2" aria-label="ICO fee"><span class="unit">&pound; / mo</span></div></div>
+    <div class="f"><label>Operations and filings</label><div class="row"><input class="ed w7" data-k="overheads.operations" data-f="n2" aria-label="Operations"><span class="unit">&pound; / mo</span></div></div>
+    <div class="f"><label>GBP to USD</label><div class="row"><input class="ed w7" data-k="fx.gbpUsd" data-f="n4" aria-label="GBP to USD rate"><span class="unit">rate</span></div></div>
+  </div>
+  </div>
+  <div class="status warn" id="ovhBox"><span class="ico">Gap</span><p id="ovhTxt"></p></div>
+
+  <h2>Working capital: retired with the supplier</h2>
+  <p>GoldRush sold wallet data as <b>prepaid blocks &mdash; 300,000 credits for $250, bought before the usage happened</b>. That made every bundled on-chain allowance a cash-flow question as well as a margin one, and it sat open on this page for three weeks.</p>
+  <p><strong>It is moot. Alchemy is metered in arrears</strong>, so there is no block to buy ahead and no working capital to plan around. Cash still arrives before it leaves, but now by default rather than by design.</p>
+  <div class="status ok"><span class="ico">Closed</span><p>The <b>prepaid</b> question is answered by the supplier changing, not by resolving it. Nothing in the product buys on-chain capacity ahead of use any more.</p></div>
+
+
+  <h2>Sensitivity of the whole business</h2>
+  <p>Each driver moved alone, ranked by effect on month-<span data-d="fin.months" data-f="n0"></span> cash.</p>
+  <div class="tw">
+  <table>
+    <caption>Whole-model sensitivity</caption>
+    <thead><tr><th>Driver</th><th class="n">Base</th><th class="n">Tested at</th><th class="n">End cash</th><th class="n">Swing</th></tr></thead>
+    <tbody id="tbBizSens"></tbody>
+  </table>
+  </div>
+  <div class="pager" data-pager></div>
+</section>
+
+<!-- ==================== 08 ASSUMPTIONS ==================== -->
+<section class="page" id="p-assumptions">
+  <div class="ph">
+    <div class="ix">10 &middot; Control</div>
+    <h1>Assumptions register</h1>
+    <p>Every input, its basis, its owner, and what breaks if it is wrong.</p>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v pos" data-d="dq.measured" data-f="n0"></div><div class="l">Measured from our own data or a contract</div></div>
+    <div class="kpi"><div class="v" data-d="dq.estimated" data-f="n0"></div><div class="l">Estimated from vendor pricing or a reasonable proxy</div></div>
+    <div class="kpi"><div class="v neg" data-d="dq.assumed" data-f="n0"></div><div class="l">Assumed outright, no evidence yet</div></div>
+    <div class="kpi"><div class="v" data-d="dq.pctMeasured" data-f="p0"></div><div class="l">Of the register that is measured</div></div>
+  </div>
+
+  <h2>The register</h2>
+  <p class="note">Ranked by consequence.</p>
+  <div class="tw">
+  <table>
+    <caption>Assumptions, ranked by what they break</caption>
+    <thead><tr><th>Input</th><th class="n">Currently</th><th>Basis</th><th>Owner</th><th>What it decides</th></tr></thead>
+    <tbody id="tbAssum"></tbody>
+  </table>
+  </div>
+
+  <h2>How to retire one</h2>
+  <ul class="bul">
+    <li><b>Churn</b> needs three months of cohort data. Until then every LTV figure on page 06 is arithmetic on a guess, and the CAC ceiling that follows from it should not be spent against.</li>
+    <li><b>Credits per wallet</b> is now measured &mdash; 1,000 enrichments billed 2,950 credits, about 3 per wallet. <b>Wallets per contact</b> is still an instrumentation job, not an analysis job. It can be answered in a week by logging what enrichment actually consumes.</li>
+    <li><b>Utilisation</b> comes free once billing runs: it is consumed units over allowance, per account, per month.</li>
+    <li><b>The infrastructure base</b> is now part-itemised on page 03 from the provider price sheet. The remainder has no invoice behind it and is the largest single unexplained number in the model. Reading one month of invoices closes it.</li>
+    <li><b>Overage rate</b> cannot be measured until customers have exceeded an allowance, which cannot happen until allowances are live. It is modelled at <span data-d="fin.overageRate" data-f="p0"></span> deliberately, so the projection never claims credit for revenue the document argues is our strongest line.</li>
+  </ul>
+  <div class="status bad"><span class="ico">Summary</span><p id="assumTxt"></p></div>
+  <div class="pager" data-pager></div>
+</section>
+
+<!-- ==================== 09 GOVERNANCE ==================== -->
+<section class="page" id="p-governance">
+  <div class="ph">
+    <div class="ix">11 &middot; Control</div>
+    <h1>Governance &amp; definitions</h1>
+    <p>The rules that hold the model together and the definitions that stop two people computing different numbers. Every decision and correction is logged on page 11.</p>
+  </div>
+
+  <h2>Design rules</h2>
+  <p>Checked live against the current inputs on every render.</p>
+  <div class="tw">
+  <table>
+    <caption>Rules, checked live against the current inputs</caption>
+    <thead><tr><th class="n">#</th><th>Rule</th><th>Why it exists</th><th class="n">Status</th></tr></thead>
+    <tbody id="tbRules"></tbody>
+  </table>
+  </div>
+  <div class="status" id="ruleBox"><span class="ico">Live check</span><p id="ruleTxt"></p></div>
+
+  <h2>Definitions</h2>
+  <p>The only meanings this document uses.</p>
+  <div class="tw">
+  <table>
+    <caption>Glossary</caption>
+    <thead><tr><th>Term</th><th>Means exactly</th><th>Not to be confused with</th></tr></thead>
+    <tbody>
+      <tr><td class="k">MRR</td><td class="wrap">Sum of plan prices for active subscriptions in the month. Excludes overage and excludes prepaid wallet top-ups.</td><td class="wrap">Revenue, which includes overage</td></tr>
+      <tr><td class="k">Revenue</td><td class="wrap">MRR plus overage billed in the month. Recognised when the usage happens, not when the wallet is topped up.</td><td class="wrap">Cash collected</td></tr>
+      <tr><td class="k">Metered cost</td><td class="wrap">Loaded per-unit cost times units consumed. In-app push is zero because it has no per-unit vendor bill.</td><td class="wrap">Vendor invoice, which is pre-buffer</td></tr>
+      <tr><td class="k">Ceiling cost</td><td class="wrap">What one customer costs if they consume every unit of every allowance, plus dedicated IP, concierge and Stripe.</td><td class="wrap">Average cost to serve</td></tr>
+      <tr><td class="k">Floor profit</td><td class="wrap">Plan price minus ceiling cost. The guaranteed minimum on that tier at any usage level.</td><td class="wrap">Gross profit at expected usage</td></tr>
+      <tr><td class="k">Gross profit</td><td class="wrap">Revenue minus metered cost, dedicated IPs, concierge delivery and Stripe fees. Infrastructure is opex, not <span class="tt q" data-tip="Cost of goods sold: what it costs to serve customers who are already paying. Vendor usage, dedicated IPs and card fees. Salaries and servers sit outside it.">COGS</span>.</td><td class="wrap">EBITDA</td></tr>
+      <tr><td class="k">Blended GP</td><td class="wrap">Gross profit per customer per month, weighted by the tier mix, at the modelled <span class="tt q" data-tip="How much of their monthly allowance a typical customer actually uses. At 100% every customer is assumed to use their whole allowance, which is the stress case this document uses.">utilisation</span>.</td><td class="wrap">ARPU, which is revenue not profit</td></tr>
+      <tr><td class="k">ARPU</td><td class="wrap">Mix-weighted average plan price. Excludes overage.</td><td class="wrap">Blended GP</td></tr>
+      <tr><td class="k">LTV</td><td class="wrap">Blended GP divided by monthly churn. Gross profit basis, never revenue basis.</td><td class="wrap">Lifetime revenue</td></tr>
+      <tr><td class="k">CAC payback</td><td class="wrap">Acquisition cost divided by blended GP, in months.</td><td class="wrap">Time to profitability</td></tr>
+      <tr><td class="k">The buffer</td><td class="wrap">A <span data-d="buffer" data-f="p1"></span> uplift added to every vendor cost as contingency. Held, never spent, never counted as margin.</td><td class="wrap">Margin</td></tr>
+      <tr><td class="k">Utilisation</td><td class="wrap">Units consumed over units allowed, per account per month. Above 100% the excess bills as overage.</td><td class="wrap">Active usage rate</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+<h2>Maintaining this document</h2>
+  <ul class="bul">
+    <li><b>Source of truth is the file, not a screenshot.</b> It lives in the repository at <code>pricing/src/parts/</code> and deploys with one command.</li>
+    <li><b>Scenarios are files.</b> <em>Save</em> writes the entire input set to JSON. Attach that file to any decision that depended on it, so the numbers can be reproduced exactly later.</li>
+    <li><b>Edits in the browser are local to your browser.</b> They persist across reloads on your machine and are visible to nobody else. Changing the agreed baseline means changing the defaults in the source.</li>
+    <li><b>The register on page 09 is the backlog.</b> When an assumption gets measured, update its basis there in the same commit that updates the number.</li>
+  </ul>
+  <div class="pager" data-pager></div>
+</section>
+
+<!-- ==================== 11 COMPANY DECISIONS ==================== -->
+<section class="page" id="p-decisions">
+  <div class="ph">
+    <div class="ix">12 &middot; Control</div>
+    <h1>Company decisions</h1>
+    <p>Every decision, pivot and correction, with the date it was taken and what it changed. Dates before August 2026 are estimated from the documents they appear in.</p>
+  </div>
+
+  <h2>Pricing and packaging</h2>
+  <div class="tw">
+  <table>
+    <caption>Decisions affecting what we sell and for how much</caption>
+    <thead><tr><th class="n">Date</th><th>Decision</th><th class="n">From</th><th class="n">To</th><th>Reason</th></tr></thead>
+    <tbody>
+      <tr><td class="n k">~Jun 2026</td><td class="k">Original catalogue</td><td class="n dim">&mdash;</td><td class="n">$29 / $199 / $499 + PAYG</td><td class="wrap">First public lineup. Annual at two months free, PAYG capped at 25,000 contacts.</td></tr>
+      <tr><td class="n k">4 Aug 2026</td><td class="k">Pricing v4</td><td class="n">$29 / $199 / $499</td><td class="n hi">$49 / $349 / $799 / $2,299</td><td class="wrap">Nine decisions in one revision. Scale introduced; Starter and Pro&nbsp;Plus retired.</td></tr>
+      <tr><td class="n k">4 Aug 2026</td><td class="k">On-chain credit rate</td><td class="n">$2.50 / 10k</td><td class="n hi">$10.00 / 10k</td><td class="wrap">$2.50 sat below the uncached GoldRush cost of $8.33. Every sale lost money unless the cache held.</td></tr>
+      <tr><td class="n k">4 Aug 2026</td><td class="k">Bundled on-chain allowance</td><td class="n">200,000 (Pro)</td><td class="n">25,000 (Pro)</td><td class="wrap">GoldRush capacity is prepaid. Smaller bundles keep cash in before it goes out.</td></tr>
+      <tr><td class="n k">4 Aug 2026</td><td class="k">Annual discount</td><td class="n">2 months free</td><td class="n hi">removed</td><td class="wrap">No discounting until there is churn data worth trading against.</td></tr>
+      <tr><td class="n k">4 Aug 2026</td><td class="k">Send multiplier</td><td class="n">1&times; contacts</td><td class="n">10× contacts</td><td class="wrap">At 1&times; the sticker price was fiction and overage priced ordinary use.</td></tr>
+      <tr><td class="n k">4 Aug 2026</td><td class="k">ONS+ list protection</td><td class="n dim">n/a</td><td class="n">$10 / 1,000</td><td class="wrap">New meter. Two-stage filter: 65% cleared in-house free, 35% escalated to Kickbox.</td></tr>
+      <tr><td class="n k">4 Aug 2026</td><td class="k">PAYG contact cap</td><td class="n">25,000</td><td class="n">1,000</td><td class="wrap">25,000 free contacts made Launch unsellable.</td></tr>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">Intelligence opened to every paid tier</td><td class="n">Pro &amp; Scale</td><td class="n hi">Launch upward</td><td class="wrap">Launch bundles 1,000 credits, 10% of Growth&rsquo;s. It could not be given to Launch alone: Growth already carried credits, and a capability cannot exist at $49, vanish at $349 and return at $799.</td></tr>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">In-app push opened to Launch</td><td class="n">Growth upward</td><td class="n hi">25,000 (Launch)</td><td class="wrap">Push costs nothing per unit and reaches wallets with no email address. Withholding it protected no margin. Side effect: Launch&rsquo;s overage multiple moved 1.12&times; to 1.66&times;.</td></tr>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">PAYG gets every capability</td><td class="n">gated</td><td class="n hi">ungated</td><td class="wrap">Nothing is capability-gated at any tier. Tiers differ on allowance depth, seats, dedicated IP and discount depth. PAYG pays full list and keeps hard caps.</td></tr>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">Concierge unbundled</td><td class="n">5 hrs in Scale</td><td class="n hi">optional add-on</td><td class="wrap">Few customers are expected to take it, so no plan price and no forecast leans on it. Scale became the best-margin tier, 68.4% to 83.7%.</td></tr>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">Standalone Push SKU</td><td class="n">proposed</td><td class="n">declined</td><td class="wrap">Push Lite / Growth / Pro at $39 / $149 / $449 was considered. The offers are priced together.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">AI list price</td><td class="n">$5.00 / 1k</td><td class="n hi">$6.00 / 1k</td><td class="wrap">DeepSeek v4 rates are three times the old ones. At $5.00 the meter ran at &minus;14%.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">Two-tier split</td><td class="n">proposed</td><td class="n">declined</td><td class="wrap">Base messaging tier plus an Intelligence tier. Killed by the arithmetic: Intelligence is 8&ndash;17% of each plan&rsquo;s price, so the premium would have been $2 on Launch.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">Intelligence as an add-on</td><td class="n">proposed</td><td class="n">shelved</td><td class="wrap">Sized to one full enrichment pass a month: Launch $5, Growth $75, Pro $195, Scale $415. No downside with plan prices held. Shelved when pricing was closed.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">Send plan introduced</td><td class="n dim">n/a</td><td class="n hi">$3.95 / 1,000 subs</td><td class="wrap">A web2 line for customers with no wallet audience, sold as Suite&nbsp;off. Priced flat per subscriber rather than in tiers. Trialled at 60% margin and at $3 and $5 per 1,000 before settling here.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">Send excludes ONS+ and Kickbox</td><td class="n">bundled</td><td class="n">removed</td><td class="wrap">List cleaning is a Suite capability. Send carries AWS SES and its hosting share only, so the two lines do not cross-subsidise. No dedicated IP either.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">Hosting recovered once, not twice</td><td class="n">priced into Send</td><td class="n hi">operating cost only</td><td class="wrap">Hosting is already carried in opex. It stays a pricing check on the Send rate rather than a second charge, which would have double-counted it.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">Flat rate over a volume curve</td><td class="n">proposed</td><td class="n">accepted</td><td class="wrap">Competitors price at an exponent near 0.72; ours is 0.80. Accepted knowing a flat rate wins small lists on price and loses large ones. Superseded 21 Aug by the base-fee shape, which wins both.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">Pricing closed</td><td class="n">open</td><td class="n">frozen</td><td class="wrap">Plan and meter prices fixed. Changes require reopening deliberately.</td></tr>
+      <tr><td class="n k">21 Aug 2026</td><td class="k">Freeze reopened</td><td class="n">frozen</td><td class="n hi">repriced</td><td class="wrap">Reopened deliberately after a competitor study of 27 published ladders. Both lines moved to fixed fee plus a rate; meter list prices unchanged.</td></tr>
+      <tr><td class="n k">21 Aug 2026</td><td class="k">Send plan reshaped</td><td class="n">$2.60 / 1,000 flat</td><td class="n hi">$6 + $2.60 / 1,000</td><td class="wrap">A flat rate decayed margin at the bottom, where Stripe&rsquo;s fixed fee took a quarter of a small bill. The base fee reverses that and margin now settles at 70.2% instead of sliding, so no cap is needed.</td></tr>
+      <tr><td class="n k">21 Aug 2026</td><td class="k">Suite priced off one curve</td><td class="n">4 typed prices</td><td class="n hi">$16 + $13.30 / 1,000 contacts</td><td class="wrap">Tiers become capability multipliers on a shared contact curve, so contacts are a slider. Growth at 25,000 is unchanged at $349, protecting the 60% cohort.</td></tr>
+      <tr><td class="n k">21 Aug 2026</td><td class="k">Launch repriced</td><td class="n">$49</td><td class="n hi">$39</td><td class="wrap">At 0.79× the Launch line clears the floor-profit rule at any list size, so its contact cap becomes a product decision rather than a margin one.</td></tr>
+      <tr><td class="n k">21 Aug 2026</td><td class="k">Pro repriced</td><td class="n">$799</td><td class="n hi">$1,622</td><td class="wrap">At 1.60× on the curve, at its 75,000-contact reference size. A Pro customer at 25,000 contacts pays $558; the tier no longer carries a fixed allowance.</td></tr>
+      <tr><td class="n k">21 Aug 2026</td><td class="k">Competitor data corrected</td><td class="n">2 estimates</td><td class="n hi">published ladder</td><td class="wrap">EmailOctopus at 2,500 was an estimate ($24 against a real $20) and 100,000 was extrapolated ($287 against a real $345). Their free tier to 2,500 subscribers was missing entirely.</td></tr>
+      <tr><td class="n k">21 Aug 2026</td><td class="k">Hosting capacity measured</td><td class="n">10 users / tier, assumed</td><td class="n hi">150, then 500</td><td class="wrap">This tier carries 150 customers; the $80 droplet carries 500. Replaces a placeholder that had been flagged unresolved since 20 Aug.</td></tr>
+      <tr><td class="n k">21 Aug 2026</td><td class="k">Send enters the projection</td><td class="n">priced only</td><td class="n hi">a customer segment</td><td class="wrap">Send customers were priced but never modelled. They now arrive, churn and carry hosting like any other customer, at an assumed 8,000-subscriber average list.</td></tr>
+      <tr><td class="n k">21 Aug 2026</td><td class="k">Stress case is the default</td><td class="n">45% utilisation</td><td class="n hi">100%</td><td class="wrap">Every figure in this document now assumes customers consume their whole allowance. Nothing depends on light usage.</td></tr>
+      <tr><td class="n k">21 Aug 2026</td><td class="k">Tier mix revised</td><td class="n">20 / 60 / 20</td><td class="n hi">20 / 50 / 20</td><td class="wrap">Pro trimmed as a share of new business. Superseded on 19 Sep, when the go-to-market moved to large accounts and the mix became 20 / 50 / 30.</td></tr>
+      <tr><td class="n k">21 Aug 2026</td><td class="k">Projection extended</td><td class="n">24 months</td><td class="n hi">59 months</td><td class="wrap">Acquisition growth cut from 10% to 5% a month: 10% compounding implied 84 signups in month 36, which is a sales organisation we do not have.</td></tr>
+      <tr class="tot"><td class="n k">21 Aug 2026</td><td class="k">Scale retired</td><td class="n">$2,299</td><td class="n hi">withdrawn</td><td class="wrap">It gated no capability Pro did not already have, and sat 44% above its own curve. Nothing in the forecast moves: its share of the mix was already 0%.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Infrastructure and vendors</h2>
+  <div class="tw">
+  <table>
+    <caption>What we run on and what we pay for it</caption>
+    <thead><tr><th class="n">Date</th><th>Decision</th><th class="n">From</th><th class="n">To</th><th>Reason</th></tr></thead>
+    <tbody>
+      <tr><td class="n k">~Jul 2026</td><td class="k">Email provider</td><td class="n">Azure ACS $0.262 / 1k</td><td class="n hi">AWS SES $0.16 / 1k</td><td class="wrap">39% off every send at the corrected $0.16 Essentials rate (62% at the $0.10 we then believed we were paying). Now exclusively AWS; no Azure line remains.</td></tr>
+      <tr><td class="n k">4 Aug 2026</td><td class="k">Payment rail</td><td class="n">Blockradar 0.75%</td><td class="n">Stripe 3.33% + $0.25</td><td class="wrap">4.4&times; more expensive, and now an explicit cost line in every plan price rather than a rounding error.</td></tr>
+      <tr><td class="n k">4 Aug 2026</td><td class="k">Dedicated IPs</td><td class="n">2 per customer</td><td class="n">1 + shared pool</td><td class="wrap">Halves the fixed cost per account and the volume needed before dedicated sending helps.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">Hosting</td><td class="n">Render, Neon, Upstash, Vercel</td><td class="n hi">DigitalOcean Droplets</td><td class="wrap">Managed-service cost was scaling 2.7&times; while revenue grew 1.2&times;. Postgres and Redis now self-hosted. Backups, failover and patching become ours and are priced nowhere.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">Managed warm pool</td><td class="n">$0.08 / 1k surcharge</td><td class="n">removed</td><td class="wrap">Email is SES only at one rate. Loaded cost fell from $0.128 to $0.104.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">AI model</td><td class="n">$0.14 / $0.28 per 1M</td><td class="n hi">DeepSeek v4 flash</td><td class="wrap">$0.44 in / $1.32 out at peak, with cached input at $0.014. v4-pro available at three times the cost, not in use.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Company and commercial</h2>
+  <div class="tw">
+  <table>
+    <caption>How the company is run</caption>
+    <thead><tr><th class="n">Date</th><th>Decision</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td class="n k">Jul 2026</td><td class="k">First paying customer</td><td class="wrap">vault777, on the old Growth plan at $125, sending 52,000 emails. Revenue $125 against $72.05 of cost.</td></tr>
+      <tr><td class="n k">Aug 2026</td><td class="k">Three customers, all Launch</td><td class="wrap">Yauga, Surgence and Datum Labs at $49 each. Revenue $147 against $196 of cost, the month that triggered the hosting move.</td></tr>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">Founder pay is triggered, not scheduled</td><td class="wrap">No draw until external capital is secured <b>and</b> gross profit covers everything else with the full draw left over. Pool is $54,000 a year across three founders.</td></tr>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">No paid acquisition</td><td class="wrap">Customers arrive through agency and foundation partners. CAC modelled at $0 for years one and two.</td></tr>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">Founders do support</td><td class="wrap">No support headcount and no cash cost. Real time, not free time; it becomes a cost the day it moves to payroll.</td></tr>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">Grants are upside only</td><td class="wrap">Non-equity and uncertain, so absent from every projection. Anything won beats plan.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Forecast anchored to the public beta</td><td class="wrap">Signups run at 0.5 a month until November 2026, then ramp to full velocity over 6 months. Previously the model sold at full velocity from month one, while still in private beta.</td></tr>
+      <tr class="tot"><td class="n k">11 Sep 2026</td><td class="k">GoldRush replaced by Alchemy</td><td class="wrap">Alchemy is the sole on-chain provider. The <code>goldrush*</code> identifiers survive in the codebase &mdash; renaming them means a migration and a plan-catalog change &mdash; but they meter Alchemy. Wherever the word appears it is an identifier, never a supplier.</td></tr>
+      <tr><td class="n k">11 Sep 2026</td><td class="k">On-chain cost measured, not modelled</td><td class="wrap">1,000 production enrichments consumed 905,520 compute units costing <b>$0.41</b> and billed 2,950 credits: $1.38 per 10,000. Vendor rate was $8.33. Cross-checked against a 7.2&times; markup computed independently from the same run.</td></tr>
+      <tr><td class="n k">11 Sep 2026</td><td class="k">On-chain yield step removed</td><td class="wrap">Not reduced to zero &mdash; the gap it described closed. We bill per live call, so a cache hit costs the customer nothing and costs us nothing. Loaded cost $3.02 &rarr; $1.43, on-chain margin 69.8% &rarr; 85.7%.</td></tr>
+      <tr><td class="n k">11 Sep 2026</td><td class="k">Credits per wallet measured</td><td class="wrap">Was assumed at 1 and flagged as a possible 30&times; error. Measured at 2.95 &mdash; 2,950 billed credits over 1,000 wallets. The question is closed.</td></tr>
+      <tr><td class="n k">11 Sep 2026</td><td class="k">Prepaid working capital retired</td><td class="wrap">GoldRush sold 300,000-credit blocks at $250 bought before use. Alchemy meters in arrears, so the cash-flow question dies with the supplier rather than being resolved.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Horizon extended to five statutory years</td><td class="wrap">59 forecast months, September 2026 to July 2031. Years are cut on the <b>31 July</b> year end at Companies House rather than the month the model starts, so FY2027 is an 11-month stub and the August 2026 actual belongs to it.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Opening book corrected</td><td class="wrap">Yauga on Launch, ADI Predict Street on Growth, Vault777 and Surgence Lab on Send. The model had applied the <i>target mix</i> to a headcount of three, which put two thirds of a Pro customer on the books and <b>overstated opening MRR by 82%</b> &mdash; $705 against a real $463. Tiers are now stocks seeded by name; the mix describes who we win, not who we have.</td></tr>
+      <tr class="tot"><td class="n k">19 Sep 2026</td><td class="k">Raise set at $150,000, for infrastructure</td><td class="wrap">$300,000 to $150,000 to $250,000 and back to <b>$150,000</b>. The purpose is <b>owning the on-chain stack</b> &mdash; running our own nodes rather than reading Alchemy. <b>This is a capability argument, not a cost saving:</b> Alchemy costs <b>$207,402 across the whole five years</b>, 4.6% of revenue &mdash; <b>corrected 23 Sep 2026</b>, having been stated as $8,424, which counted only the bundled allowance and ignored the overage turned on in the row above. The case for owning nodes is Sei being unenrichable, ADI having no data plane and no price feed, and single-supplier risk &mdash; not the bill.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Marketer hired after all</td><td class="wrap">Ruled out twice, then added once the raise had a purpose and the mix moved to large accounts. UK content marketer at GBP 38,000 from August 2029, the first month of FY2030. Recorded as a reversal rather than quietly slipped in.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Stale hiring controls removed</td><td class="wrap">Page 07 still carried an <b>Engineers</b> count, an engineer salary and an earliest-hire month left over from before the hire list existed. They drove nothing but read as headcount, and a break-even rung was hardcoded to <i>&ldquo;founder pool plus 3 engineers&rdquo;</i>. The ladder now builds itself from the hire list, so it cannot drift from the plan again.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Two junior hires, at researched UK rates</td><td class="wrap"><b>Junior backend developer at GBP 32,000</b> (UK average GBP 31,061, London GBP 31,461, range GBP 24&ndash;38k) and <b>junior data engineer at GBP 35,000</b> (UK average GBP 33,817, London GBP 34,645, graduates GBP 28&ndash;38k). Each sits just above its own average rather than at a London senior rate. A <b>content marketer at GBP 38,000</b> joins in August 2029 &mdash; UK content marketing roles average GBP 39,561. One hire per financial year, which is what keeps every year profitable.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Customer success and product manager added</td><td class="wrap"><b>Customer success at GBP 45,000 from August 2029</b> as the base crosses 100 customers, against a UK base range of GBP 42&ndash;68k. <b>Product manager at GBP 60,000 from August 2030</b>, against a UK average of GBP 60&ndash;68k.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">No sales hire, and what that means</td><td class="wrap">An account executive was modelled at GBP 55,000 and then removed. <b>71% of the FY2031 book is Pro &mdash; about 45 accounts at $1,622 &mdash; and nobody in this plan is paid to win them.</b> Founders carry the entire sales motion for five years alongside everything else. That is a deliberate choice, recorded here because the revenue line depends on it holding.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Cash flow statement added</td><td class="wrap">Operating cash is EBITDA less <b>tax actually paid</b> and the movement in working capital; investing is equipment; financing is the bridge and the raise. Closing cash ties to the balance sheet in every year, so the two statements are consistent and neither has to be derived from the other.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Bear and bull rebuilt</td><td class="wrap">The old scenarios moved <code>util</code> and <code>overageRate</code>, neither of which drives the model any more. They now move churn, intake, acquisition growth and mix, with bear also assuming customers enrich only half their list.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Founder bridge capped at the raise</td><td class="wrap">The bridge sized itself to keep cash at zero with <b>no ceiling</b>, so the bear case quietly drew <b>$185,025</b> of founder money and still reported a zero cash floor. It now covers only the months before the raise; after that a negative balance reads as the funding gap it is. <b>Bear needed $182,063 beyond the raise when this was written; at the corrected overheads it is $134,063.</b></td></tr>
+      <tr class="tot"><td class="n k">19 Sep 2026</td><td class="k">Overage turned on: customers enrich everything</td><td class="wrap">Confirmed by the founder. A full enrichment pass is <b>22.1&times; the bundled on-chain allowance</b>, so the plan bundles about a twenty-fifth and the rest bills at the list rate. The model previously charged the bundled allowance and collected nothing for the rest &mdash; <b>wrong in both directions, and much larger on the revenue side</b>. FY2031 revenue $1,125,993 &rarr; <b>$1,624,168</b>. On-chain overage runs at an 85.7% margin.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Owning the node stack: noted, not modelled</td><td class="wrap">The raise is for bringing on-chain data in house. It is <b>deliberately not in the model</b> &mdash; there is no spec yet for chains, node count or archive versus full. What is known: Alchemy is variable at $1.43 per 10,000 while nodes are a fixed bill, so it is purely a volume question. <b>Under about $4,000 a month, owning pays back inside the plan; above $8,000 it does not</b> at full-pass volumes. Model it when the spec exists.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Wallet transaction rate: unquantified</td><td class="wrap">Re-enrichment fires on ingested events, so cost can scale with transaction volume rather than list size. <b>There is not enough data to estimate it</b> and nothing in this model assumes any. The 15-minute debounce is what bounds it; if that ever regresses the exposure is unbounded. Left out rather than guessed.</td></tr>
+      <tr class="tot"><td class="n k">19 Sep 2026</td><td class="k">Mix reweighted to the upper tiers</td><td class="wrap">Launch 40/50/10 becomes <b>20% / 50% / 30%</b>. The go-to-market is large accounts, so most Suite customers land in Growth and Pro and Launch becomes the entry point rather than the bulk. Intake rises from 4 to 5 a month. FY2031 revenue moves $482,531 &rarr; <b>$1,125,993</b>.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Concentration risk this creates</td><td class="wrap"><b>Pro becomes 22% of customers and 71% of revenue</b> &mdash; about 45 accounts at $1,622 carrying $72,263 of a $101,219 monthly book. <b>No customer has ever bought Pro.</b> The highest price ever invoiced is $349. The mix is a decision about who we sell to, not an observation, and this plan does not work if those accounts do not land.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Data engineer pushed to FY2029</td><td class="wrap">Start moved from March 2028 to <b>August 2028</b>, the first month of FY2029, so the two hires land in different financial years. Salaries split $46,922 / $107,174 across FY2028 and FY2029 instead of stacking. <b>Every year is now profitable after tax</b> &mdash; FY2028 goes from &minus;$283 to <b>+$13,724</b> &mdash; and retained earnings are positive throughout.</td></tr>
+      <tr class="tot"><td class="n k">19 Sep 2026</td><td class="k">Junior hires remove the loss year entirely</td><td class="wrap">Loaded payroll falls from $191,952 to <b>$107,174</b> a year. FY2028 was the only year in deficit at &minus;$46,130, because both hires landed while gross profit was $98,231; at junior rates salaries are $70,249 and <b>FY2028 turns positive</b>. Retained earnings never go negative, and FY2031 EBITDA rises from $40,941 to <b>$125,720</b>.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Acquisition growth decays</td><td class="wrap">5% a month decaying to a 1% floor. Compounding 5% for sixty months is a sales organisation we do not have. <b>Churn stays flat at 5%</b> &mdash; it has never been measured and assuming it improves would be inventing good news.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">Corporation tax modelled</td><td class="wrap">19% to GBP 50,000, 25% above GBP 250,000, marginal relief between, charged on profit after depreciation. Losses carry forward. Paid nine months after the year end, which is why the charge and the payment sit in different years.</td></tr>
+      <tr><td class="n k">19 Sep 2026</td><td class="k">UK overheads filled in</td><td class="wrap">Ten lines &mdash; legal, accounting, insurance, software, office, marketing, bank, ICO, operations &mdash; plus recruitment and equipment per hire. Open on page 09 since August. GBP 798 a month against GBP 175 before; office is zero because the company is remote.</td></tr>
+      <tr class="tot"><td class="n k">19 Sep 2026</td><td class="k">Balance sheet added</td><td class="wrap">Cash, prepayments and equipment against payroll and tax creditors, share capital, founder investment, capital raised and retained earnings. <b>It balances to zero in every year</b>, including an opening retained deficit for share capital issued and spent before the model starts.</td></tr>
+      <tr class="tot"><td class="n k">23 Sep 2026</td><td class="k">vault777 churned &mdash; opening book 4 &rarr; 3</td><td class="wrap">The first paying customer, won in July 2026, is no longer paying. Send falls <b>2 &rarr; 1</b> and the book is <b>Yauga on Launch, ADI Predict Street on Growth, Surgence Lab on Send</b>. Opening MRR <b>$463.20 &rarr; $425.60</b>, down 8.1%. The forecast moves far less: FY2027 revenue $99,531 &rarr; <b>$99,223</b>, FY2031 $1,624,168 &rarr; <b>$1,624,139</b>. That is the real lesson here &mdash; at 5% monthly churn only <b>4.8% of today&rsquo;s book survives to month 59</b>, so the five-year plan rests almost entirely on customers not yet won, and losing a current one barely touches it. <b>Churn stays at 5%</b>: one loss out of four is not a rate, and moving the assumption on a single event would be fitting a curve to one point. It is, however, the <b>first churn this company has measured</b>; the 5% remains an assumption.</td></tr>
+      <tr class="tot"><td class="n k">23 Sep 2026</td><td class="k">Overheads corrected to what we actually pay</td><td class="wrap">The ten overhead lines added on 19 September were <b>researched estimates, never checked against a bank statement</b>, and four of them were wrong. <b>Marketing GBP 200 &rarr; 0</b> &mdash; it contradicted the standing decision that holds CAC at zero. <b>Software GBP 150 &rarr; 0</b> &mdash; Notion and GitHub are on free tiers and the website is ours; paid tooling sits in cost of revenue. <b>Legal GBP 150 &rarr; 0</b> &mdash; there is no retainer, and legal spend is lumpy rather than monthly. <b>Accounting GBP 200 &rarr; GBP 16.67</b> &mdash; accounting runs on Tide and an accountant is bought by the hour at year end. <b>ICO GBP 40 &rarr; GBP 52 a year</b> &mdash; the tier 1 fee rose in February 2024 and ours is already paid, so that line is an invoice rather than an estimate. Insurance, domains and bank charges stand. Overheads <b>GBP 798 &rarr; GBP 116 a month</b>, and the 12-month worst-case funding requirement falls <b>$15,143 &rarr; $1,804</b> &mdash; a burn of $584 a month rather than $1,696. Software returns as a cost when the team reaches about five people.</td></tr>
+      <tr class="tot"><td class="n k">23 Sep 2026</td><td class="k">Five-auditor review: what it found</td><td class="wrap">Three CFA reviews, a chartered accountant and a financial analyst read the whole document independently. The material findings are logged separately below. The pattern worth recording: <b>almost every error was a sentence that stayed true to a decision after the decision changed</b> &mdash; retracted rules still asserted, figures pinned to a superseded input, and live bindings inside dated records that rewrote their own history. Numbers were mostly right; the prose around them had drifted.</td></tr>
+      <tr class="tot"><td class="n k">23 Sep 2026</td><td class="k">The scenario buttons were destroying the document</td><td class="wrap">Bear, Base and Bull each blanked the utilisation input, because the handler still assigned <code>sc.util</code> and <code>sc.overageRate</code> after <b>SCENARIOS stopped carrying them on 19 Sep</b>. Utilisation multiplies every metered cost, so one click zeroed every number on every page &mdash; including &ldquo;Base&rdquo;, which anyone would press to get back. It also applied only 2 of the 5 levers. Now applies churn, intake, growth, mix and enrichment passes, and nothing else. The scenario <i>table</i> on page 08 was always correct; only the buttons were stale.</td></tr>
+      <tr class="tot"><td class="n k">23 Sep 2026</td><td class="k">&ldquo;Funding needed: $0&rdquo; was a circular measurement</td><td class="wrap"><code>raiseNeeded</code>, <code>peakBurn</code> and <code>gapBeforeRaise</code> were all read off the cash path <b>after</b> the raise and the founder bridge had been injected &mdash; asking how much we need given we already have it, which can only answer zero. The cover KPI read <b>$0</b>, page 08 read &ldquo;cash goes negative in month <b>0</b>&rdquo; from floating-point residue of &minus;4.5e&minus;14. All three now measure the <b>pre-financing</b> path. Base needs $442; on the same basis bear needs about <b>$285,000</b> against a $150,000 round, and bear has no trough inside the horizon &mdash; it is still widening at month 59.</td></tr>
+      <tr class="tot"><td class="n k">23 Sep 2026</td><td class="k">Alchemy was understated 24&times;, and it is the argument for the raise</td><td class="wrap">The 19 Sep entry quoted <b>$8,424 across five years, 0.3% of revenue</b>. That was the <b>bundled allowance only</b> &mdash; and the entry two rows above it had just turned on full-pass overage, which adds <b>$199,015</b>. True cost <b>$207,402</b>, <b>4.6% of revenue</b>, reaching about <b>$6,200 a month</b> by FY2031. That lands inside the band where this document says owning nodes is a live financial question, so &ldquo;capability argument, not a cost saving&rdquo; no longer follows from its own arithmetic. Now derived, not typed.</td></tr>
+      <tr class="tot"><td class="n k">23 Sep 2026</td><td class="k">Datum Labs was never a paying customer</td><td class="wrap">August 2026 was recorded as <b>three customers at $147</b> &mdash; Yauga, Surgence and Datum Labs. Datum Labs is the founders&rsquo; own company and <b>has never paid</b>. The actual month is <b>two customers at $98</b>. This matters beyond the $49: a third of the only revenue this company has ever recorded was booked against itself, and any external reader counting customers was counting one that did not exist.</td></tr>
+      <tr><td class="n k">23 Sep 2026</td><td class="k">ADI Predict Street onboarded</td><td class="wrap">Signed in <b>September 2026</b>, on <b>Growth</b>. This is what takes the book from the August actual of $98 to an opening MRR of $425.60 &mdash; a step that previously appeared in the model with nothing next to it explaining where it came from.</td></tr>
+      <tr class="tot"><td class="n k">23 Sep 2026</td><td class="k">Founder pay is waived, not deferred</td><td class="wrap">Confirmed by the founder: the <b>$54,000 a year</b> the founders do not draw before the raise is <b>given up, not owed</b>. So no creditor arises and the model is right to charge nothing &mdash; but the distinction is worth <b>$49,500</b> of FY2027 liability and roughly <b>$9,500</b> of tax, so it should not rest on a conversation. <b>Get it signed and dated by all three founders</b>, covering the pre-raise period. Without that an accountant can argue it accrued, and it becomes a debt nobody intended.</td></tr>
+      <tr class="tot"><td class="n k">23 Sep 2026</td><td class="k">Datum Labs is an associated company: tax rises</td><td class="wrap">The founders control Datum Labs as well, and companies under common control <b>share one set of corporation tax limits</b>. The bands halve: the 19% rate now stops at <b>GBP 25,000</b>, not GBP 50,000. Combined with pro-rating the limits for the <b>11-month FY2027</b> stub &mdash; which the model had not been doing either &mdash; FY2027 tax goes <b>$13,070 &rarr; $15,823</b> and the five-year charge rises about <b>$3,765</b>. Small, because from FY2029 the profits sit above the upper limit regardless. <b>Worth confirming with the accountant: it is a control test, not an ownership one.</b></td></tr>
+      <tr class="tot"><td class="n k">17 Sep 2026</td><td class="k">Retracted: an invented margin rule and an unsanctioned ONS+ policy</td><td class="wrap">This document had carried a <b>70% gross-margin floor</b> that appears nowhere in the pricing source of truth. The source&rsquo;s rule is <i>&ldquo;a plan&rsquo;s price must exceed the cost of its own full allowance&rdquo;</i> &mdash; a floor-profit test, which every plan passes. Acting on the invented rule, an <b>import-then-meter ONS+ policy</b> was applied to Suite; that proposal belongs to Send, sits in section 7d as a lever <b>not yet taken</b>, and was never about contacts. Both removed. ONS+ stays 1:1 with contacts as decided on 24 Aug.</td></tr>
+      <tr><td class="n k">24 Aug 2026</td><td class="k">ONS+ granted 1:1 with contacts</td><td class="wrap">Joshua: <i>&ldquo;ONS+ should match the contacts they paid for.&rdquo;</i> 2,500 / 25,000 / 75,000, reversing the 10&times; cut made in the 22 Aug enforcement PR. A customer who cannot clean their list without an overage bill will not clean it. <b>This breaks the margin rule on Launch and Growth &mdash; see page 04.</b> Send stays at a tenth: its rate cannot carry 1:1.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Tiers are contact bands</td><td class="wrap">Launch 0&ndash;24,999, Growth 25,000&ndash;74,999, Pro 75,000+. Confirmed with Joshua: the bands are the intent, and the slider reading on this page was what needed correcting. There is no Pro at 25,000 contacts &mdash; that size is Growth.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Minimum sellable size per tier</td><td class="wrap">Launch 2,500 &middot; Growth 5,000 &middot; Pro 7,500 contacts; Send 5,000 subscribers. The margin rule had only ever been checked at the three reference counts; below them it was false &mdash; at 2,500 contacts Growth cost $77 against a $49 price.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Extra seats priced</td><td class="wrap">$10 per seat per month above a tier&rsquo;s included count, capped at 50 per checkout. A delta, never a total. Priced under the Launch-to-Growth step so a seat never cannibalises the upgrade it defers.</td></tr>
+      <tr><td class="n k">25 Aug 2026</td><td class="k">In-app push got its own meter</td><td class="wrap">It had gated on <code>emailsPerMonth</code>: a Growth customer sending 250,000 pushes exhausted their entire email allowance without sending one email. The allowances were always sized as separate lines; only the meter was shared.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Scale retired, not deleted</td><td class="wrap">Marked <code>sellable: false</code> with price and limits preserved, so nothing reprices underneath a live subscriber.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Both live customers moved to Send</td><td class="wrap">Surgence Labs and vault777 held <b>zero wallets and zero in-app sends</b> &mdash; pure email on Suite plans. MRR fell $398 &rarr; $160, &minus;60%. That is the cost of pricing what people actually use, and it leaves the book below monthly opex.</td></tr>
+      <tr><td class="n k">23 Aug 2026</td><td class="k">AWS SES corrected to $0.16 per 1,000</td><td class="wrap">Verified against Amazon&rsquo;s published rate card. The model had carried $0.10, which is the &agrave; la carte rate, not the Essentials rate we are on. Email cost rose 60% and broke the margin rule on Launch and on Send.</td></tr>
+      <tr><td class="n k">24 Aug 2026</td><td class="k">Staying on SES Essentials</td><td class="wrap">&Agrave; la carte at $0.10 would have restored every margin with no price change and saved about $38,608 a year, but Essentials keeps the bundled deliverability tooling. Cost accepted; prices adjusted instead.</td></tr>
+      <tr><td class="n k">24 Aug 2026</td><td class="k">Launch repriced to $39</td><td class="wrap">Multiplier 0.79×, up from 0.55. At the corrected email cost the old $27 gave a 58.6% floor, below the rule. Growth and Pro still clear it and do not move.</td></tr>
+      <tr class="tot"><td class="n k">24 Aug 2026</td><td class="k">Send repriced to the same floor as Suite</td><td class="wrap">Rate <b>$2.60 &rarr; $3.95</b> per 1,000 subscribers, lifting the floor to 70.2%. <b>One margin rule now covers both lines.</b> The cost is price leadership at the top of the range: we cross EmailOctopus at 9,411 subscribers and are dearer beyond it. A briefly-declared lower floor for Send was considered and rejected in favour of holding one rule.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Raise sized at $150,000</td><td class="wrap">Target for the year-two raise, modelled as landing in month 13. It funds founder pay and the first hires; neither begins before it lands. Founder pay first draws in the month gross profit can carry it, not on the day the money arrives.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Suite is the main product; Send held at 25%</td><td class="wrap">Send takes a flat quarter of new signups rather than growing to a majority. At that share it is 25% of customers and about 2% of revenue &mdash; market coverage and a route into web2 accounts, not a revenue line. An earlier 70% assumption was the model&rsquo;s, never the company&rsquo;s.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Capability scoring corrected</td><td class="wrap">CRM scores full via <b>Audience</b>, which holds the contact record and the journey of every user, and the transactional API scores full. Both had been marked absent in the market comparison. SMS is the only capability in the field we do not ship.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Hiring is gated on the raise</td><td class="wrap">No hire appears in any month until capital lands, the same trigger as founder pay. Previously the first engineer was scheduled at month 13 regardless, which made a slow ramp look like a funding gap when it was really a discretionary hire. Removing it, the downside case never runs out of cash.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Team recorded</td><td class="wrap">Two developers (one a contractor paid personally by a founder) and two data and lifecycle staff. Core systems are covered without hiring. The contractor is an off-books cost, in the same category as unpaid founder time.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Employer on-costs added</td><td class="wrap">National insurance and pension at 18% on salary. A hire costs that much more than its salary line, and the hire list together comes to $335,918 a year loaded.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">Quote measured numbers once they exist</td><td class="wrap">Post-launch trading replaces the forecast as soon as there is any. Until then the figure to quote is the first twelve months after launch, not a calendar year that is half pre-launch.</td></tr>
+      <tr><td class="n k">22 Aug 2026</td><td class="k">R&amp;D cost curve deferred</td><td class="wrap">Development cost per customer should fall as the product matures and belongs in the model as a visible curve. Deferred deliberately: the revenue ramp was the credibility problem, not cost. Build it against post-launch data.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">Raise targeted at year two</td><td class="wrap">Runway funding first, covering operating cost only. Founder pay begins when that capital lands, not before.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Model corrections</h2>
+  <p>Errors found in this document and what they were costing us.</p>
+  <div class="tw">
+  <table>
+    <caption>Corrections</caption>
+    <thead><tr><th class="n">Date</th><th>What was wrong</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">$715 was treated as a hosting bill</td><td class="wrap">It is the all-in monthly cost of ten customers. Carrying it as hosting counted every per-customer cost twice: ten customers appeared to cost $1,490 instead of $715.</td></tr>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">Concierge was buffered inconsistently</td><td class="wrap">The static v4 document charged concierge into the plan ceiling at the raw rate while buffering every other meter.</td></tr>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">Overage row contradicted the chart</td><td class="wrap">The static document labelled a 50%-over month as email-only overage while its stated profit assumed every meter. The all-meter reading is used throughout.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">Projection collected no overage</td><td class="wrap">Above 100% usage it charged the extra cost but never billed the customer. At 150% usage year-one EBITDA was understated by $107,000.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">Design rule 1 checked one meter</td><td class="wrap">It tested on-chain only, so it sat silent while AI went underwater. It now tests every meter against its loaded cost.</td></tr>
+      <tr><td class="n k">20 Aug 2026</td><td class="k">July spend was Render alone</td><td class="wrap">Recorded as $45.61 when the real total across all providers was $72.05.</td></tr>
+      <tr><td class="n k">5 Aug 2026</td><td class="k">Scale concierge was bundled and mis-buffered</td><td class="wrap">The static v4 document bundled 5 hours into the Scale price and charged them into the ceiling at the raw $60/hr while buffering every other meter. Concierge became an optional add-on, which took Scale&rsquo;s floor margin from 68.4% to 83.7%. Scale itself was retired on 21 Aug 2026.</td></tr>
+      <tr class="tot"><td class="n k">20 Aug 2026</td><td class="k">Projection started from zero</td><td class="wrap">It began with no customers and no cash instead of the actual position: 3 customers and $3.95 of accumulated trading profit.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Still open</h2>
+  <div class="tw">
+  <table>
+    <caption>Decisions not yet taken</caption>
+    <thead><tr><th>Question</th><th>Owner</th><th>Why it is waiting</th></tr></thead>
+    <tbody>
+      <tr class="tot"><td class="k">How many wallets does one contact hold?</td><td>Engineering</td><td class="wrap">Set to <b>3</b> and never measured. Credits per wallet was settled on 11 September (1,000 <i>wallets</i> billed 2,950 credits &mdash; confirmed by the founder 23 Sep, so the 3&times; sits <b>on top of</b> it and nothing is double counted). This multiplier is what is left: it scales the enrichment line that is <b>30.7% of revenue in every projected year</b>. At 2 wallets the line falls by a third. It is the same query that measured the credits.</td></tr>
+      <tr><td class="k">What cut does an agency partner take?</td><td>Founders</td><td class="wrap">Modelled at zero because nothing is signed. Every point of effective share comes straight off gross margin.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="pager" data-pager></div>
+</section>
+  </div></main></div>
+<div class="toastwrap"><div class="toast" id="toast" role="status" aria-live="polite"></div></div>

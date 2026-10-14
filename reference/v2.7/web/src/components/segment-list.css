@@ -1,0 +1,40 @@
+/* Segments, wherever they are read.
+ *
+ * These lived in intelligence.css, which is imported by the Intelligence screen alone — so
+ * the same component rendered on Audience arrived with no styles at all and the tab was a
+ * wall of run-together text. Segments are read in two places by design; the rules that draw
+ * them belong with the component rather than with whichever screen used it first.
+ */
+.seglist { background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-lg); overflow:hidden; }
+.seglist__row { display:flex; align-items:center; gap:14px; padding:14px 20px; border-bottom:1px solid var(--border-subtle); }
+.seglist__row:last-child { border-bottom:none; }
+.seglist__row:hover { background:var(--surface-hover); }
+.seglist__ic { width:34px; height:34px; border-radius:var(--radius-sm); background:var(--bg-selected); color:var(--action-primary); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.seglist__meta { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.seglist__meta b { font-size:14px; font-weight:600; color:var(--text-primary); }
+.seglist__meta span { font-size:12px; color:var(--text-tertiary); }
+.seglist__count { margin-left:auto; text-align:right; }
+.seglist__count b { font-size:15px; font-weight:600; color:var(--text-primary); font-variant-numeric:tabular-nums; display:block; }
+.seglist__count span { font-size:12px; color:var(--text-tertiary); }
+
+/* Saved segment row — usage, per-channel reach, rules as chips (2.7) */
+.segrow { border:1px solid var(--border-subtle); border-radius:var(--radius-md);
+  background:var(--bg-surface); padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+.segrow__top { display:flex; align-items:flex-start; gap:10px; }
+.segrow__name { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+.segrow__name > b { font-size:13.5px; font-weight:600; color:var(--text-primary); }
+.segrow__chips { display:flex; flex-wrap:wrap; gap:5px; }
+.segchip { font-style:normal; font-size:11px; padding:2px 7px; border-radius:999px;
+  background:var(--bg-subtle, var(--bg-selected)); color:var(--text-secondary);
+  border:1px solid var(--border-subtle); white-space:nowrap; }
+.segrow__reach { display:flex; flex-wrap:wrap; gap:6px 22px; padding-top:9px;
+  border-top:1px dashed var(--border-subtle); }
+.segreach { display:flex; align-items:baseline; gap:5px; }
+.segreach b { font-size:13px; font-weight:600; color:var(--text-primary); font-variant-numeric:tabular-nums; }
+.segreach span { font-size:11.5px; color:var(--text-tertiary); }
+.segreach--nil b { color:var(--text-tertiary); }
+.segused { margin:0; display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+  font-size:11.5px; line-height:1.5; color:var(--text-secondary); }
+.segused b { font-weight:600; }
+.segused--live { color:var(--amber-700); }
+.segused__names { width:100%; color:var(--text-tertiary); font-size:11px; }

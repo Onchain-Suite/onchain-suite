@@ -1,0 +1,22 @@
+{
+  "$schema": "../web/node_modules/wrangler/config-schema.json",
+  // SUPERSEDED, 23 Sep 2026. The live document is the app in ../finance-ssot, which deploys to
+  // this same Worker name and therefore this same URL. Deploying from here would silently put the
+  // old single-file document back in front of everyone. Kept because it still builds and is the
+  // fallback if the app has to be rolled back; deploy it only on purpose.
+  "name": "onchainsuitepricing",
+  "compatibility_date": "2026-07-28",
+
+  // Assets-only: Cloudflare serves ./public straight from the edge, no Worker.
+  //
+  // To put the password gate back in front of it, add these two lines and
+  // redeploy (src/worker.js is already written and expects them):
+  //   "main": "src/worker.js",
+  //   and inside "assets": "binding": "ASSETS", "run_worker_first": true
+  // then set the password with:  wrangler secret put SITE_PASSWORD
+  // Without run_worker_first the asset router answers first and the gate
+  // never runs, which silently serves the whole document.
+  "assets": {
+    "directory": "./public"
+  }
+}

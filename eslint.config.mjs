@@ -68,6 +68,10 @@ const eslintConfig = [
       // Design-system reference bundle (standalone .jsx mockups + assets, not
       // app source). Outside tsconfig's project, so it fails the same way.
       "Onchain Suite Design System v2/**",
+      // v2.7 migration reference: the standalone React/Vite dashboard and design
+      // mockups we migrate the app toward (reference/v2.7). Not app source and
+      // outside tsconfig's project, so linting it fails on every file.
+      "reference/**",
       // Vendored redesign bundle: a generated single-file export of the site
       // redesign, compiled by SWC and typed via a sibling .d.ts. It is not
       // hand-authored source, so it's exempt from lint/filename rules; it gets

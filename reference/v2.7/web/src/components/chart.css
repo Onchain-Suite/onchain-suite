@@ -1,0 +1,68 @@
+/* shadcn chart styling, as real CSS.
+   Same class names and the same measurements as the Tailwind original — rounded-lg border,
+   px-2.5/py-1.5, text-xs, shadow-xl tooltip; 2.5x2.5 rounded-[2px] dot; centred legend with
+   gap-4 and pt-3 — so the result is recognisably shadcn without pulling Tailwind into an app
+   that already has a token stylesheet. */
+
+.chart { display: flex; justify-content: center; width: 100%; font-size: 12px; }
+
+/* Recharts' own defaults, overridden the way ChartContainer does with arbitrary variants. */
+.chart .recharts-cartesian-axis-tick text { fill: var(--text-tertiary); }
+.chart .recharts-cartesian-grid line[stroke='#ccc'] { stroke: var(--border-subtle); }
+.chart .recharts-curve.recharts-tooltip-cursor { stroke: var(--border-default); }
+.chart .recharts-rectangle.recharts-tooltip-cursor { fill: var(--surface-subtle); }
+.chart .recharts-polar-grid [stroke='#ccc'] { stroke: var(--border-subtle); }
+.chart .recharts-radial-bar-background-sector { fill: var(--surface-subtle); }
+.chart .recharts-reference-line [stroke='#ccc'] { stroke: var(--border-default); }
+.chart .recharts-dot[stroke='#fff'] { stroke: transparent; }
+.chart .recharts-sector[stroke='#fff'] { stroke: transparent; }
+.chart .recharts-layer,
+.chart .recharts-sector { outline: none; }
+
+/* The chart surface itself keeps its ring. Recharts sets tabIndex on it, so every chart in
+   the product is a real Tab stop — and it was one that showed nothing when focused. */
+.chart .recharts-surface:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+
+/* ---- Tooltip ---- */
+.chart-tip { display: grid; min-width: 8rem; align-items: start; gap: 6px;
+  border-radius: var(--radius-lg); border: 1px solid var(--border-subtle);
+  background: var(--bg-surface); padding: 6px 10px; font-size: 12px;
+  box-shadow: var(--elevation-3); }
+.chart-tip__label { font-weight: 500; color: var(--text-primary); }
+.chart-tip__rows { display: grid; gap: 6px; }
+.chart-tip__row { display: flex; width: 100%; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+.chart-tip__row.is-dot { align-items: center; }
+.chart-tip__ind { flex-shrink: 0; border-radius: 2px; background: var(--color-bg); border-color: var(--color-border); }
+.chart-tip__ind--dot { width: 10px; height: 10px; }
+.chart-tip__ind--line { width: 4px; }
+.chart-tip__ind--dashed { width: 0; background: transparent; border: 1.5px dashed var(--color-border); }
+.chart-tip__body { display: flex; flex: 1; align-items: center; justify-content: space-between;
+  line-height: 1; gap: 14px; }
+.chart-tip__body.is-nested { align-items: flex-end; }
+.chart-tip__names { display: grid; gap: 6px; }
+.chart-tip__name { color: var(--text-tertiary); }
+.chart-tip__value { font-family: var(--font-mono); font-weight: 500; color: var(--text-primary);
+  font-variant-numeric: tabular-nums; }
+
+/* ---- Legend ---- */
+.chart-legend { display: flex; align-items: center; justify-content: center;
+  flex-wrap: wrap; gap: 6px 16px; }
+.chart-legend--bottom { padding-top: 12px; }
+.chart-legend--top { padding-bottom: 12px; }
+.chart-legend__item { display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.chart-legend__item--btn { border: none; background: none; font-family: inherit; cursor: pointer;
+  padding: 2px 0; }
+.chart-legend__item--btn:hover { color: var(--text-primary); }
+.chart-legend__item--btn.is-off { color: var(--text-secondary); text-decoration: line-through; }
+.chart-legend__dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.chart-legend__hint { font-size: 10.5px; color: var(--text-secondary); white-space: nowrap; }
+@media (max-width: 720px) { .chart-legend__hint { display: none; } }
+
+/* ---- Card footer trend, as shadcn's CardFooter ---- */
+.chart-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  padding: 14px 20px 18px; font-size: 13px; }
+.chart-foot__trend { display: flex; align-items: center; gap: 8px; line-height: 1;
+  font-weight: 500; color: var(--text-primary); }
+.chart-foot__period { display: flex; align-items: center; gap: 8px; line-height: 1;
+  color: var(--text-tertiary); }

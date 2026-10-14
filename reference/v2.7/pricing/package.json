@@ -1,0 +1,14 @@
+{
+  "name": "onchainsuitepricing",
+  "private": true,
+  "type": "module",
+  "description": "Internal pricing & profit model, served as a static page from Cloudflare Workers",
+  "scripts": {
+    "build": "node build.mjs",
+    "deploy": "npm run build && wrangler deploy",
+    "preview": "npm run build && wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.137.0"
+  }
+}

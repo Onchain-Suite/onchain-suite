@@ -1,0 +1,54 @@
+<div class="app">
+
+<aside class="sb">
+  <div class="sb-head">
+    <div class="sb-mark">OnchainSuite &middot; Finance</div>
+    <div class="sb-title">Single Source<br>of Truth</div>
+    <div class="sb-meta">
+      Rev <b>v4.1</b> &middot; <span data-d="today"></span><br>
+      Owner <b>Founders</b> &middot; Internal
+    </div>
+    <button class="btn sbtoggle" id="navToggle" style="margin-top:12px" aria-expanded="false">Contents</button>
+  </div>
+
+  <nav class="sb-nav" id="nav" aria-label="Document contents">
+    <div class="grp">Orientation</div>
+    <a href="#/overview"    data-p="overview"><span class="ix">01</span><span>Overview</span></a>
+    <a href="#/market"      data-p="market"><span class="ix">02</span><span>Market research</span></a>
+    <div class="grp">The business as it is</div>
+    <a href="#/catalogue"   data-p="catalogue"><span class="ix">03</span><span>Catalogue &amp; pricing</span></a>
+    <a href="#/costs"       data-p="costs"><span class="ix">04</span><span>Cost model</span></a>
+    <a href="#/serve"       data-p="serve"><span class="ix">05</span><span>Cost per user</span></a>
+    <a href="#/unit"        data-p="unit"><span class="ix">06</span><span>Unit economics</span></a>
+    <div class="grp">The business as projected</div>
+    <a href="#/model"       data-p="model"><span class="ix">07</span><span>Financial model</span></a>
+    <a href="#/growth"      data-p="growth"><span class="ix">08</span><span>Growth &amp; retention</span></a>
+    <a href="#/runway"      data-p="runway"><span class="ix">09</span><span>Break-even &amp; runway</span></a>
+    <div class="grp">Control</div>
+    <a href="#/assumptions" data-p="assumptions"><span class="ix">10</span><span>Assumptions register</span></a>
+    <a href="#/governance"  data-p="governance"><span class="ix">11</span><span>Governance &amp; definitions</span></a>
+    <a href="#/decisions"   data-p="decisions"><span class="ix">12</span><span>Company decisions</span></a>
+  </nav>
+
+  <div class="sb-foot">
+    <button class="btn" id="btnTheme" title="Switch between light and dark">Theme</button>
+    <button class="btn" id="btnPrint">Print all</button>
+  </div>
+</aside>
+
+<main>
+  <div class="topbar" id="topbar">
+    <div class="state"><span class="dot"></span><span id="stateTxt">Baseline</span></div>
+    <div class="segs" id="scenSegs" role="group" aria-label="Scenario">
+      <button data-scen="bear">Bear</button><button data-scen="base" class="on">Base</button><button data-scen="bull">Bull</button>
+    </div>
+    <div class="segs" id="ccySegs" role="group" aria-label="Currency">
+      <button data-ccy="usd">$</button><button data-ccy="gbp">&pound;</button><button data-ccy="both" class="on">$&thinsp;&pound;</button>
+    </div>
+    <button class="btn" id="btnReset" disabled>Reset</button>
+    <button class="btn" id="btnImport">Load</button>
+    <button class="btn" id="btnExport">Save</button>
+    <input type="file" id="fileIn" accept="application/json,.json" hidden>
+  </div>
+
+  <div class="inner" id="pages">

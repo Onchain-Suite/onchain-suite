@@ -1,0 +1,54 @@
+/* Integrations → Channels. The same vocabulary as the Sources directory beside it — bordered
+   rows that open into a detail view with a Back link — so the two tabs read as one product. */
+.chsetup { display:flex; flex-direction:column; gap:18px; }
+
+.chsetup__head { display:flex; align-items:flex-start; gap:16px; }
+.chsetup__head > div { flex:1; min-width:0; }
+.chsetup__head h2 { margin:0; font-size:17px; font-weight:600; letter-spacing:-.2px; color:var(--text-primary); }
+.chsetup__head p { margin:4px 0 0; max-width:64ch; font-size:13.5px; line-height:1.55; color:var(--text-secondary); }
+
+/* One row per channel: state first. Status sits in a fixed column so three badges line up and
+   can be compared at a glance, which is the whole job of this view. */
+.chsetup__list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column;
+  border:1px solid var(--border-subtle); border-radius:var(--radius-lg); background:var(--bg-surface); overflow:hidden; }
+.chsetup__list li + li { border-top:1px solid var(--border-subtle); }
+.chsetup__row { display:grid; grid-template-columns:auto minmax(0,1fr) 120px auto; align-items:center; gap:14px;
+  width:100%; padding:16px 18px; border:0; background:none; cursor:pointer; font:inherit; text-align:left; }
+.chsetup__row:hover { background:var(--surface-hover); }
+/* Grid cells stretch their child by default; the badge should be as wide as its words. */
+.chsetup__row > .badge { justify-self:start; }
+.chsetup__row:focus-visible { outline:none; box-shadow:inset 0 0 0 2px var(--action-primary); }
+.chsetup__ic { width:38px; height:38px; flex-shrink:0; border-radius:var(--radius-md); display:flex;
+  align-items:center; justify-content:center; background:var(--bg-brand-subtle); color:var(--action-primary); }
+.chsetup__ic--lg { width:46px; height:46px; border-radius:var(--radius-lg); }
+.chsetup__tx { display:flex; flex-direction:column; gap:3px; min-width:0; }
+.chsetup__tx b { font-size:14.5px; font-weight:600; color:var(--text-primary); }
+.chsetup__tx span { font-size:13px; color:var(--text-tertiary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.chsetup__go { display:inline-flex; align-items:center; gap:4px; font-size:13px; font-weight:500; color:var(--action-primary); }
+
+.chsetup__back { display:inline-flex; align-items:center; gap:6px; align-self:flex-start; border:0; background:none;
+  cursor:pointer; font:inherit; font-size:13px; color:var(--text-secondary); padding:0; }
+.chsetup__back:hover { color:var(--text-primary); }
+.chsetup__dhead { display:flex; align-items:center; gap:14px; padding-bottom:18px; border-bottom:1px solid var(--border-subtle); }
+.chsetup__dhead > div { flex:1; min-width:0; }
+.chsetup__dhead h2 { margin:0; font-size:20px; font-weight:600; letter-spacing:-.3px; color:var(--text-primary); }
+.chsetup__dhead p { margin:4px 0 0; max-width:66ch; font-size:13.5px; line-height:1.55; color:var(--text-secondary); }
+.chsetup__blocker { display:flex; align-items:center; gap:8px; margin:0; padding:10px 13px; border-radius:var(--radius-md);
+  background:var(--bg-warning-subtle); font-size:13px; color:var(--text-primary); }
+.chsetup__blocker svg { flex-shrink:0; color:var(--amber-700); }
+
+/* Push is one channel with two installs; each gets a labelled part rather than a page section. */
+.chsetup__part { display:flex; flex-direction:column; gap:8px; }
+.chsetup__part h3 { margin:0; font-size:13px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; color:var(--text-tertiary); }
+.chsetup__part > p { margin:0; font-size:13px; color:var(--text-tertiary); }
+.chsetup__part + .chsetup__part { padding-top:18px; border-top:1px solid var(--border-subtle); }
+
+.chsetup__hand { display:flex; flex-direction:column; gap:8px; padding-top:18px; border-top:1px solid var(--border-subtle); }
+.chsetup__hand > b { font-size:14px; font-weight:600; color:var(--text-primary); }
+.chsetup__modalsub { margin:0 0 14px; font-size:13.5px; line-height:1.55; color:var(--text-secondary); }
+
+@media (max-width:720px) {
+  .chsetup__head { flex-direction:column; }
+  .chsetup__row { grid-template-columns:auto minmax(0,1fr) auto; }
+  .chsetup__go { display:none; }
+}

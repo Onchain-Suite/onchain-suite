@@ -1,0 +1,59 @@
+/* The one contract box (2.7)
+ *
+ * These live with the component, not with the screen that happened to use it first. They
+ * started in data.css; first-run then rendered the same markup with none of the rules and
+ * got a textarea with no width.
+ *
+ * One input for contracts (2.7) ------------------------------------------------------------ */
+.addc { display:flex; flex-direction:column; gap:18px; }
+.addc__in textarea { width:100%; box-sizing:border-box; resize:vertical; padding:11px 13px;
+  font:inherit; font-size:13.5px; line-height:1.6; color:var(--text-primary);
+  border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--bg-surface); }
+.addc__in textarea:focus { outline:0; border-color:var(--action-primary);
+  box-shadow:0 0 0 3px var(--action-primary-subtle); }
+.addc__in textarea::placeholder { color:var(--text-tertiary); }
+.addc__act { display:flex; align-items:flex-end; gap:14px; margin-top:10px; }
+.addc__guess { flex:1; margin:0; font-size:12.5px; line-height:1.55; color:var(--text-tertiary); }
+.addc__guess b { color:var(--text-primary); font-weight:600; }
+.addc__res { display:flex; flex-direction:column; gap:12px; padding-top:16px;
+  border-top:1px solid var(--border-subtle); }
+.addc__res > button { align-self:flex-start; }
+.addc__sum { margin:0; font-size:13px; line-height:1.6; color:var(--text-secondary); }
+.addc__note { display:flex; align-items:flex-start; gap:8px; margin:0; font-size:12px; line-height:1.55;
+  color:var(--text-tertiary); }
+.addc__note svg { flex-shrink:0; margin-top:2px; color:var(--action-primary); }
+
+.cands { display:flex; flex-direction:column; gap:8px; }
+.cand { display:grid; grid-template-columns:auto 1fr auto; grid-template-areas:'p main abi' 'p meta meta' 'p ev ev';
+  gap:4px 12px; padding:12px 14px; border:1px solid var(--border-subtle); border-radius:var(--radius-md);
+  background:var(--bg-surface); }
+.cand.on { border-color:var(--action-primary); background:var(--action-primary-subtle); }
+.cand--noise { opacity:.72; }
+.cand__pick { grid-area:p; display:flex; align-items:flex-start; padding-top:2px; }
+.cand__pick input { width:15px; height:15px; cursor:pointer; accent-color:var(--action-primary); }
+.cand__main { grid-area:main; display:flex; align-items:baseline; gap:9px; min-width:0; }
+.cand__main b { font-size:13.5px; font-weight:600; color:var(--text-primary); }
+.cand__addr { font-size:11.5px; color:var(--text-tertiary); }
+.cand__meta { grid-area:meta; display:flex; flex-wrap:wrap; gap:10px; }
+.cand__meta i { font-style:normal; font-size:11.5px; color:var(--text-tertiary); }
+.cand__ev { grid-area:ev; display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:4px; }
+.cand__ev button { font:inherit; font-size:11px; padding:3px 8px; cursor:pointer;
+  border:1px solid var(--border-subtle); border-radius:var(--radius-sm);
+  background:none; color:var(--text-tertiary); }
+/* Selected is a tint, not a solid primary fill. Every event is on by default, so a filled
+   chip per event turns each row into a wall of buttons competing with the one real action. */
+.cand__ev button.on { border-color:transparent; color:var(--action-primary);
+  background:var(--action-primary-subtle); }
+.cand:not(.on) .cand__ev { opacity:.7; }
+.cand__warn { font-style:normal; font-size:11.5px; color:var(--orange-600); margin-left:4px; }
+.cand__abi { grid-area:abi; display:inline-flex; align-items:center; gap:4px; height:fit-content;
+  font-size:10.5px; font-weight:500; letter-spacing:.2px; text-transform:uppercase;
+  padding:2px 7px; border-radius:var(--radius-sm); cursor:help; white-space:nowrap; }
+.cand__abi--verified, .cand__abi--sourcify, .cand__abi--pasted {
+  color:var(--green-700); background:var(--green-50); }
+.cand__abi--inferred { color:var(--orange-600); background:var(--orange-50); }
+
+.addc__hand { display:inline-flex; align-items:center; gap:6px; align-self:flex-start; padding:0;
+  font:inherit; font-size:12.5px; cursor:pointer; border:0; background:none;
+  color:var(--text-tertiary); text-decoration:underline; text-underline-offset:3px; }
+.addc__hand:hover { color:var(--action-primary); }

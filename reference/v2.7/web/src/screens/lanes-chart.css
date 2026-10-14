@@ -1,0 +1,12 @@
+/* Three lanes, one axis (2.7) --------------------------------------------------------------- */
+.lanes { display:flex; flex-direction:column; gap:14px; margin-bottom:18px; }
+.lanes__strip { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
+.lanes__tile { display:flex; flex-direction:column; gap:3px; padding:14px 16px;
+  border:1px solid var(--border-subtle); border-radius:var(--radius-lg); background:var(--bg-surface); }
+.lanes__lbl { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500;
+  letter-spacing:.2px; color:var(--text-secondary); }
+.lanes__lbl i { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.lanes__tile b { font-size:24px; font-weight:600; letter-spacing:-.5px; color:var(--text-primary);
+  font-variant-numeric:tabular-nums; }
+.lanes__sub { font-size:11.5px; color:var(--text-tertiary); }
+@media (max-width: 720px) { .lanes__strip { grid-template-columns:1fr; } }

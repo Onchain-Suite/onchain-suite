@@ -1,0 +1,104 @@
+/* Campaign detail — the full-page record view. Shares the back bar, KPI strip and stat
+   cards with the automation detail (those live in ui.css); everything here is specific to
+   a campaign: the activity feed and the comparison table. */
+
+.cgrid { display:grid; grid-template-columns:minmax(0,3fr) minmax(0,2fr); gap:16px; align-items:start; }
+@media (max-width:1080px) { .cgrid { grid-template-columns:minmax(0,1fr); } }
+
+/* Deltas against a previous campaign */
+.cdelta { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:500;
+  font-variant-numeric:tabular-nums; white-space:nowrap; }
+.cdelta--up { color:var(--sky-600); }
+.cdelta--down { color:var(--orange-600); }
+.cdelta--flat { color:var(--text-tertiary); font-weight:400; }
+
+/* Recent activity feed */
+.cact { display:flex; flex-direction:column; }
+.cact__row { display:flex; align-items:center; gap:10px; padding:10px 0;
+  border-bottom:1px solid var(--border-subtle); font-size:14px; }
+.cact__row:last-child { border-bottom:none; }
+.cact__row > b { font-family:var(--font-mono); font-size:12.5px; font-weight:500; color:var(--text-primary);
+  width:104px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cact__via { font-size:11.5px; color:var(--text-tertiary); }
+.cact__at { margin-left:auto; font-size:12px; color:var(--text-secondary);
+  font-variant-numeric:tabular-nums; flex-shrink:0; }
+
+/* Comparison table */
+.cmp { border:1px solid var(--border-default); border-radius:var(--radius-md); overflow:hidden; }
+.cmp__head, .cmp__row { display:grid; grid-template-columns:minmax(0,2.4fr) repeat(3,minmax(0,1fr));
+  gap:14px; align-items:center; padding:11px 14px; }
+.cmp__head { background:var(--surface-subtle); border-bottom:1px solid var(--border-subtle);
+  font-size:11px; font-weight:600; letter-spacing:0.3px; text-transform:uppercase; color:var(--text-tertiary); }
+.cmp__row { border-bottom:1px solid var(--border-subtle); font-size:13.5px; }
+.cmp__row:last-child { border-bottom:none; }
+/* The current campaign is the reference every delta is measured from, so it reads as the anchor. */
+.cmp__row--this { background:var(--bg-selected); }
+.cmp__name { display:inline-flex; align-items:center; gap:8px; min-width:0; }
+.cmp__name b { font-weight:500; color:var(--text-primary);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cmp__tag { font-size:10px; font-weight:600; letter-spacing:0.3px; text-transform:uppercase;
+  color:var(--action-primary); background:var(--bg-surface); border:1px solid var(--action-primary);
+  border-radius:var(--radius-sm); padding:1px 6px; flex-shrink:0; }
+.cmp__mix { font-size:11px; color:var(--text-tertiary); font-style:italic; white-space:nowrap; }
+.cmp__n { display:flex; align-items:baseline; gap:7px; font-variant-numeric:tabular-nums;
+  color:var(--text-primary); flex-wrap:wrap; }
+
+@media (max-width:820px) {
+  .cmp__head { display:none; }
+  .cmp__row { grid-template-columns:1fr 1fr; row-gap:8px; }
+  .cmp__name { grid-column:1 / -1; }
+}
+
+/* Normalised outcome funnel (2.5) */
+.funnel { border:1px solid var(--border-subtle); border-radius:var(--radius-lg); background:var(--bg-surface);
+  margin-bottom:20px; overflow:hidden; }
+.funnel__head { padding:14px 18px 12px; border-bottom:1px solid var(--border-subtle); }
+.funnel__head h3 { margin:0; font-size:14px; font-weight:600; color:var(--text-primary); }
+.funnel__sub { display:block; margin-top:3px; font-size:12px; color:var(--text-tertiary); }
+.funnel__steps { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0; }
+.funnel__step { display:flex; flex-direction:column; gap:3px; padding:16px 18px; border-right:1px solid var(--border-subtle); }
+.funnel__step:last-child { border-right:none; }
+.funnel__lbl { font-size:11px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; color:var(--text-tertiary); }
+.funnel__n { font-size:24px; font-weight:600; letter-spacing:-.5px; color:var(--text-primary); font-variant-numeric:tabular-nums; }
+.funnel__pct { font-size:12px; color:var(--text-tertiary); }
+.funnel__bar { display:block; height:4px; margin-top:8px; border-radius:var(--radius-round);
+  background:var(--surface-subtle); overflow:hidden; }
+.funnel__bar i { display:block; height:100%; border-radius:var(--radius-round); }
+.funnel__step--loss .funnel__n { color:var(--text-secondary); }
+.funnel__split { border-top:1px solid var(--border-subtle); background:var(--surface-subtle); }
+.funnel__chan { display:flex; align-items:center; gap:12px; padding:10px 18px; font-size:12.5px; }
+.funnel__chan + .funnel__chan { border-top:1px solid var(--border-subtle); }
+.funnel__chanlbl { font-weight:500; color:var(--text-primary); min-width:96px; }
+.funnel__chanstat { color:var(--text-tertiary); }
+.funnel__chanstat b { font-family:var(--font-mono); font-weight:500; color:var(--text-secondary);
+  font-variant-numeric:tabular-nums; }
+.funnel__chanstat--goal { margin-left:auto; }
+.funnel__chanstat--goal b { color:var(--green-600); }
+
+/* Campaign lift (2.7) — the verdict sits above the funnel it qualifies. */
+.lift { border:1px solid var(--border-default); border-radius:var(--radius-md); padding:16px 18px;
+  margin-bottom:18px; display:flex; flex-direction:column; gap:8px; }
+.lift--good { border-color:var(--green-500); background:var(--green-50); }
+.lift--flat { background:var(--surface-subtle); }
+.lift--unknown { border-style:dashed; background:var(--surface-subtle); }
+.lift__main { display:flex; align-items:baseline; gap:14px; }
+.lift__lbl { font-size:12px; font-weight:600; letter-spacing:.3px; text-transform:uppercase;
+  color:var(--text-secondary); }
+.lift__val { margin-left:auto; font-size:28px; font-weight:600; letter-spacing:-.6px;
+  color:var(--green-600); font-variant-numeric:tabular-nums; }
+.lift--flat .lift__val { color:var(--text-secondary); }
+.lift__none { margin-left:auto; font-size:17px; font-weight:600; color:var(--text-tertiary); }
+.lift__say { margin:0; font-size:13px; line-height:1.6; color:var(--text-secondary); max-width:74ch; }
+
+/* Direct vs influenced (2.7) */
+.attrsplit { display:flex; flex-wrap:wrap; align-items:flex-start; gap:10px 28px; margin-top:16px;
+  padding-top:14px; border-top:1px solid var(--border-subtle); }
+.attrsplit__lbl { width:100%; font-size:11px; font-weight:600; letter-spacing:.3px;
+  text-transform:uppercase; color:var(--text-tertiary); }
+.attrsplit__v { display:flex; flex-direction:column; gap:1px; }
+.attrsplit__v b { font-size:19px; font-weight:600; letter-spacing:-.4px; color:var(--text-secondary);
+  font-variant-numeric:tabular-nums; }
+.attrsplit__v span { font-size:11.5px; color:var(--text-tertiary); }
+.attrsplit__v--direct b { color:var(--green-600); }
+.attrsplit__v--soft b { color:var(--text-tertiary); }
+.lift__note { margin:2px 0 6px; font-size:11.5px; color:var(--text-tertiary); }

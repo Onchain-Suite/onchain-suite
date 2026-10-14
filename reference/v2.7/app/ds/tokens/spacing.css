@@ -1,0 +1,26 @@
+/* Onchain Suite — spacing tokens. Strict base-4 scale.
+   4/8 inside components · 12/16 between related elements · 24/32 between components · 48–128 between sections. */
+
+:root {
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+
+  /* Semantic aliases */
+  --space-field-gap: var(--space-2);
+  --space-card-padding: var(--space-6);
+  --space-section-app: var(--space-8);
+  --space-section-marketing: var(--space-24);
+  --space-section-marketing-mobile: var(--space-16);
+}

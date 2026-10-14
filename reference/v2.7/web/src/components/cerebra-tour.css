@@ -1,0 +1,36 @@
+/* Cerebra's tour callout. Anchored, it sits beside the sidebar row it is describing with an
+   arrow pointing at that row (top/left and the arrow's offset are set from the row's
+   position). Unanchored — nothing to measure — it falls back to speaking from the launcher
+   bottom-right, tail pointing down at it. Above the page, below every modal. */
+.ctour { position:fixed; right:24px; bottom:90px; z-index:var(--z-sticky);
+  width:min(360px, calc(100vw - 32px)); padding:16px 18px 14px; display:flex; flex-direction:column; gap:8px;
+  border:1px solid var(--border-default); border-radius:var(--radius-lg); background:var(--bg-surface);
+  box-shadow:var(--elevation-3); animation:ctour-in 180ms ease-out; }
+.ctour::after { content:''; position:absolute; right:20px; bottom:-7px; width:12px; height:12px;
+  background:var(--bg-surface); border-right:1px solid var(--border-default); border-bottom:1px solid var(--border-default);
+  transform:rotate(45deg); }
+.ctour__head { display:flex; align-items:center; gap:8px; }
+.ctour__av { width:26px; height:26px; flex-shrink:0; border-radius:var(--radius-round); display:flex;
+  align-items:center; justify-content:center; background:var(--action-primary); color:var(--text-inverse); }
+.ctour__head b { font-size:13px; font-weight:600; color:var(--text-primary); }
+.ctour__count { font-size:12px; color:var(--text-tertiary); font-variant-numeric:tabular-nums; }
+.ctour__skip { margin-left:auto; border:0; background:none; cursor:pointer; padding:2px 4px; font:inherit;
+  font-size:12.5px; color:var(--text-tertiary); border-radius:var(--radius-sm); }
+.ctour__skip:hover { color:var(--text-primary); }
+.ctour__skip:focus-visible { outline:none; box-shadow:0 0 0 3px var(--focus-ring); }
+.ctour h2 { margin:4px 0 0; font-size:16px; font-weight:600; letter-spacing:-0.2px; color:var(--text-primary); }
+.ctour p { margin:0; font-size:13.5px; line-height:1.6; color:var(--text-secondary); }
+.ctour__dots { display:flex; gap:4px; margin-top:4px; }
+.ctour__dots i { flex:1; height:3px; border-radius:99px; background:var(--surface-subtle); }
+.ctour__dots i.is-done { background:var(--border-strong); }
+.ctour__dots i.is-on { background:var(--action-primary); }
+.ctour__foot { display:flex; align-items:center; justify-content:space-between; margin-top:4px; }
+/* Anchored: placed by the row's coordinates, arrow on the left edge pointing at the row. */
+.ctour--anchored { right:auto; bottom:auto; animation-name:ctour-in-side; }
+/* A rotated square shows the corner between its two drawn borders: left + bottom points left. */
+.ctour--anchored::after { right:auto; bottom:auto; left:-7px; top:calc(var(--ctour-arrow) - 6px);
+  border-right:0; border-left:1px solid var(--border-default); }
+
+@keyframes ctour-in-side { from { opacity:0; transform:translateX(-6px); } to { opacity:1; transform:none; } }
+@keyframes ctour-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce) { .ctour { animation:none; } }

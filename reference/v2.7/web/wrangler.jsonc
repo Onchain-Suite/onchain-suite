@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "onchainsuite",
+  "compatibility_date": "2026-07-20",
+  // The Worker exists for one thing: published dashboards need a record both the publisher
+  // and the reader can reach. Everything else is still a static asset served straight from
+  // the edge — the fetch handler hands anything that is not /api/published to ASSETS.
+  "main": "./worker/index.ts",
+  "assets": {
+    // React Router owns the routes — unmatched paths must serve index.html so a deep link
+    // like /audience or /settings resolves client-side instead of 404-ing at the edge.
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  // Where published dashboards live. The Worker treats this binding as optional, so if it
+  // ever goes missing the app still serves and publishing says sharing is not configured
+  // rather than handing someone a link to nothing.
+  "kv_namespaces": [{ "binding": "PUBLISHED", "id": "1da77d7d69024a8490af32e4bd5478c3" }],
+  "observability": {
+    "enabled": true
+  }
+}

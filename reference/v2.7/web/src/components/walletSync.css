@@ -1,0 +1,61 @@
+/* Wallet sync — progress and results.
+   Lived in intelligence.css until the dialog became shared; Audience does not import that
+   file, so the same modal would have rendered unstyled there. It travels with its component
+   now, which is the only way two screens cannot drift apart. */
+/* Enrichment: progress, then what it found (2.7) */
+.enr__run { display:flex; flex-direction:column; gap:10px; padding:10px 0 6px; }
+.enr__step { display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--text-tertiary); }
+.enr__step.is-now { color:var(--text-primary); font-weight:500; }
+.enr__step.is-done { color:var(--text-secondary); }
+.enr__dot { width:20px; height:20px; border-radius:50%; flex-shrink:0; display:flex;
+  align-items:center; justify-content:center; font-size:10px; font-weight:600;
+  background:var(--surface-subtle); color:var(--text-tertiary); }
+.enr__step.is-now .enr__dot { background:var(--bg-selected); color:var(--action-primary); }
+.enr__step.is-done .enr__dot { background:var(--green-500); color:#fff; }
+
+.enr__done { display:flex; flex-direction:column; gap:4px; }
+.enr__top { display:flex; align-items:baseline; gap:8px; margin-bottom:6px; }
+.enr__top b { font-size:30px; font-weight:600; letter-spacing:-.8px; color:var(--text-primary);
+  font-variant-numeric:tabular-nums; }
+.enr__top span { font-size:13px; color:var(--text-secondary); }
+.enr__lbl { margin:14px 0 8px; font-size:11px; font-weight:600; letter-spacing:.4px;
+  text-transform:uppercase; color:var(--text-tertiary); }
+.enr__fields { display:flex; flex-direction:column; gap:9px; }
+.enr__field { display:grid; grid-template-columns:minmax(0,1fr) 96px auto; gap:10px; align-items:center; }
+.enr__fname { font-size:13px; color:var(--text-primary); }
+.enr__ftrack { height:6px; border-radius:999px; background:var(--surface-subtle); overflow:hidden; }
+.enr__ftrack i { display:block; height:100%; border-radius:999px; background:var(--action-primary); }
+.enr__fnote { font-size:11.5px; color:var(--text-tertiary); white-space:nowrap; }
+.enr__disc { display:flex; flex-wrap:wrap; gap:6px; }
+.enr__chip { display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border-radius:999px;
+  border:1px solid var(--border-subtle); background:var(--surface-subtle); font-size:12px;
+  color:var(--text-secondary); }
+.enr__chip b { font-weight:500; color:var(--text-primary); }
+.enr__chip i { font-style:normal; font-variant-numeric:tabular-nums; color:var(--text-tertiary); }
+.enr__finds { display:flex; flex-direction:column; gap:8px; }
+.enr__find { display:flex; align-items:baseline; gap:12px; padding:9px 11px; border-radius:var(--radius-md);
+  background:var(--surface-subtle); }
+.enr__find > b { font-size:17px; font-weight:600; color:var(--text-primary);
+  font-variant-numeric:tabular-nums; min-width:34px; }
+.enr__find > span { display:flex; flex-direction:column; gap:1px; font-size:11.5px; color:var(--text-tertiary); }
+.enr__find > span b { font-size:13px; font-weight:500; color:var(--text-primary); }
+.enr__pair { display:flex; gap:32px; flex-wrap:wrap; }
+.enr__srcs { display:flex; flex-direction:column; gap:6px; }
+.enr__src { display:flex; align-items:baseline; gap:10px; padding:8px 11px; border-radius:var(--radius-md);
+  background:var(--surface-subtle); font-size:13px; color:var(--text-primary); }
+.enr__src i { font-style:normal; font-size:11.5px; color:var(--text-tertiary); }
+.enr__src b { margin-left:auto; font-weight:600; color:var(--green-600); font-variant-numeric:tabular-nums; }
+
+/* Credit cost of a run, shown before it starts (2.7) */
+.cred { display:flex; flex-direction:column; gap:8px; padding:12px 14px;
+  border:1px solid var(--border-subtle); border-radius:var(--radius-md); background:var(--surface-subtle); }
+.cred--short { border-color:var(--orange-400); background:var(--bg-warning-subtle); }
+.cred__row { display:flex; align-items:baseline; gap:10px; font-size:12.5px; color:var(--text-secondary); }
+.cred__row b { margin-left:auto; font-size:13.5px; font-weight:600; color:var(--text-primary);
+  font-variant-numeric:tabular-nums; }
+.cred__row i { font-style:normal; font-size:11.5px; color:var(--text-tertiary); min-width:120px; text-align:right; }
+.cred__warn { display:flex; align-items:flex-start; gap:8px; margin:2px 0 0; font-size:12px;
+  line-height:1.55; color:var(--amber-700); }
+.cred__warn svg { flex-shrink:0; margin-top:2px; }
+.cred__warn button { border:none; background:none; font-family:inherit; font-size:12px;
+  font-weight:600; color:inherit; text-decoration:underline; cursor:pointer; padding:0; margin-left:6px; }

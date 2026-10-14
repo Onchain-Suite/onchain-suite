@@ -1,0 +1,73 @@
+/* Onchain Suite — radius, elevation, blur, opacity, motion, z-index tokens. */
+
+:root {
+  /* ---- Radius (restrained — minimal rounding, no pills on rectangles) ---- */
+  --radius-sm: 2px;    /* tags, inputs' inner elements */
+  --radius-md: 4px;    /* buttons, inputs, small cards — the workhorse */
+  --radius-lg: 6px;    /* cards, modals */
+  --radius-xl: 10px;   /* marketing feature cards, hero media only */
+  --radius-round: 9999px; /* circular ONLY — avatars, identicons, status dots, switch track. Never on buttons/cards/chips/badges. */
+
+  /* ---- Elevation (restrained Oxford-blue shadows, never pure black).
+     Resting surfaces use borders; shadows only on elements that float. ---- */
+  --elevation-0: none;
+  --elevation-1: 0 1px 2px rgba(1, 15, 49, 0.07);
+  --elevation-2: 0 2px 8px rgba(1, 15, 49, 0.10);
+  --elevation-3: 0 8px 24px rgba(1, 15, 49, 0.14);
+  --elevation-4: 0 16px 48px rgba(1, 15, 49, 0.18);
+
+  /* ---- Borders ---- */
+  --border-width-default: 1px;
+  --border-width-strong: 2px;
+
+  /* ---- Blur (overlay = modal scrims; glass = marketing nav only) ---- */
+  --blur-overlay: 8px; /* @kind other */
+  --blur-glass: 16px; /* @kind other */
+
+  /* ---- Opacity ---- */
+  --opacity-disabled: 0.45; /* @kind other */
+  --opacity-scrim: 0.4; /* @kind other */
+  --opacity-motif-bg: 0.08; /* @kind other */
+  --opacity-hover-tint: 0.06; /* @kind other */
+  --opacity-pressed-tint: 0.1; /* @kind other */
+  --opacity-logo-secondary: 0.3; /* @kind other */
+
+  /* ---- Interaction tint overlays (neutral, theme-aware) ---- */
+  --tint-hover: rgba(18, 20, 23, 0.06); /* @kind color */
+  --tint-pressed: rgba(18, 20, 23, 0.10); /* @kind color */
+
+  /* ---- Motion: durations ---- */
+  --duration-instant: 0ms; /* @kind other */
+  --duration-fast: 100ms; /* @kind other */
+  --duration-base: 180ms; /* @kind other */
+  --duration-slow: 280ms; /* @kind other */
+  --duration-deliberate: 400ms; /* @kind other */
+  /* expressive: marketing only */
+  --duration-expressive: 700ms; /* @kind other */
+
+  /* ---- Motion: easings (no springs — signal doesn't overshoot) ---- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1); /* @kind other */
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1); /* @kind other */
+  --ease-emphasized: cubic-bezier(0.2, 0, 0.1, 1); /* @kind other */
+
+  /* ---- Z-index ---- */
+  --z-base: 0; /* @kind other */
+  --z-raised: 10; /* @kind other */
+  --z-sticky: 100; /* @kind other */
+  --z-overlay: 1000; /* @kind other */
+  --z-modal: 1010; /* @kind other */
+  --z-popover: 1020; /* @kind other */
+  --z-toast: 1030; /* @kind other */
+  --z-tooltip: 1040; /* @kind other */
+  --z-spotlight: 1050; /* @kind other */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms; /* @kind other */
+    --duration-base: 0ms; /* @kind other */
+    --duration-slow: 0ms; /* @kind other */
+    --duration-deliberate: 0ms; /* @kind other */
+    --duration-expressive: 0ms; /* @kind other */
+  }
+}

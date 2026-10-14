@@ -1,0 +1,5 @@
+/* Onchain Suite — webfonts.
+   Instrument Sans (brand voice) + Geist Mono (code, wallet addresses).
+   Loaded from Google Fonts — no font binaries were provided with the brand kit.
+   Replace with self-hosted @font-face rules when licensed WOFF2 files are supplied. */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Geist+Mono:wght@400;500;600&display=swap');

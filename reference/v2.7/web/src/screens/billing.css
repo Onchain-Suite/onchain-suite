@@ -1,0 +1,53 @@
+/* Billing — usage meters, rate table, push tiers, plan picker. */
+.bmeters { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px 24px; }
+.bmeter__top { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:6px; }
+.bmeter__lbl { font-size:13px; color:var(--text-secondary); }
+.bmeter__val { font-size:13px; font-weight:600; color:var(--text-primary); font-variant-numeric:tabular-nums; }
+.bmeter__val.over { color:var(--orange-700); }
+.bmeter__val span { font-weight:400; color:var(--text-tertiary); }
+.bmeter__track { height:6px; border-radius:2px; background:var(--surface-subtle); overflow:hidden; }
+.bmeter__fill { height:100%; border-radius:2px; }
+.bmeter__over { display:block; margin-top:5px; font-size:11.5px; color:var(--orange-700); }
+
+.bnote { display:flex; gap:8px; align-items:flex-start; margin:16px 0 0; padding:11px 13px;
+  background:var(--surface-subtle); border:1px solid var(--border-subtle); border-radius:var(--radius-md);
+  font-size:12.5px; line-height:1.5; color:var(--text-secondary); }
+
+.rates { border:1px solid var(--border-default); border-radius:var(--radius-md); overflow:hidden; }
+.rates__head, .rates__row { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1.4fr); gap:14px; padding:10px 14px; align-items:center; }
+.rates__head { background:var(--surface-subtle); border-bottom:1px solid var(--border-subtle);
+  font-size:11px; font-weight:600; letter-spacing:0.3px; text-transform:uppercase; color:var(--text-tertiary); }
+.rates__row { border-bottom:1px solid var(--border-subtle); font-size:13.5px; }
+.rates__row:last-child { border-bottom:none; }
+.rates__lbl { color:var(--text-primary); font-weight:500; }
+.rates__price { font-variant-numeric:tabular-nums; color:var(--text-primary); font-weight:600; }
+.rates__note { font-size:12px; color:var(--text-tertiary); }
+
+.ptiers { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+.ptier { display:flex; flex-direction:column; gap:4px; text-align:left; cursor:pointer; padding:14px 16px;
+  border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--bg-surface); font-family:inherit; }
+.ptier:hover { border-color:var(--border-strong); }
+.ptier.on { border-color:var(--action-primary); background:var(--bg-selected); }
+.ptier__name { display:flex; align-items:center; gap:7px; font-size:13.5px; font-weight:600; color:var(--text-primary); }
+.ptier__price { font-size:22px; font-weight:600; color:var(--text-primary); letter-spacing:-0.4px; }
+.ptier__price small { font-size:12px; font-weight:500; color:var(--text-tertiary); letter-spacing:0; }
+.ptier__annual { font-size:11.5px; color:var(--text-tertiary); }
+.ptier__meta { font-size:12px; color:var(--text-secondary); margin-top:2px; }
+
+.cycle { display:inline-flex; background:var(--surface-subtle); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:3px; gap:2px; align-self:flex-start; }
+.cycle button { display:inline-flex; align-items:center; gap:7px; border:none; background:none; cursor:pointer;
+  font-family:inherit; font-size:13px; font-weight:500; color:var(--text-secondary); padding:7px 14px; border-radius:var(--radius-sm); }
+.cycle button.on { background:var(--bg-surface); color:var(--text-primary); box-shadow:var(--elevation-1); }
+.cycle__save { font-size:10.5px; font-weight:600; color:var(--action-primary); background:var(--bg-selected); border-radius:var(--radius-sm); padding:1px 6px; }
+
+.plans { display:flex; flex-direction:column; gap:10px; }
+.plan { display:flex; flex-direction:column; gap:4px; text-align:left; cursor:pointer; padding:14px 16px;
+  border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--bg-surface); font-family:inherit; }
+.plan:hover:not(:disabled) { border-color:var(--action-primary); background:var(--bg-selected); }
+.plan.on { border-color:var(--action-primary); background:var(--bg-selected); cursor:default; }
+.plan--legacy { cursor:default; opacity:0.75; }
+.plan__name { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; color:var(--text-primary); }
+.plan__price { font-size:20px; font-weight:600; color:var(--text-primary); letter-spacing:-0.3px; }
+.plan__price small { font-size:12px; font-weight:500; color:var(--text-tertiary); letter-spacing:0; }
+.plan__blurb { font-size:12.5px; color:var(--text-secondary); line-height:1.45; }
+.plan__allow { font-size:12px; color:var(--text-tertiary); margin-top:2px; }

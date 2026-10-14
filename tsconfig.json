@@ -54,6 +54,7 @@
   ],
   "exclude": [
     "node_modules",
-    "src/features/website/onchain-suite/components/site/site-bundle.jsx"
+    "src/features/website/onchain-suite/components/site/site-bundle.jsx",
+    "reference"
   ]
 }

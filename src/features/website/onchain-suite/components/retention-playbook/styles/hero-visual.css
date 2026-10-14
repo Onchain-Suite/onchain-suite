@@ -1,0 +1,143 @@
+/* /retention-playbook hero picture: the site's .stage/.win product window
+   (site/ns.css) holding the six stages, with At risk lit, and the Slipping
+   Loop. The Loop flow reuses .rp-flow from flows.css. */
+
+.ns .rp-hero-stage {
+  margin-top: 56px;
+}
+.ns .rp-hero-stage .win {
+  max-width: 940px;
+  margin: 0 auto;
+}
+/* ns.css caps .win at 460px on small screens for screenshots; this window
+   holds text, so let it grow. */
+.ns .rp-hero-stage .win {
+  max-height: none;
+  overflow: visible;
+}
+.ns .rp-win-body {
+  display: grid;
+  gap: 22px;
+  padding: 24px 24px 28px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: #fff;
+}
+
+/* ---------- six stages ---------- */
+.ns .rp-mini-stages {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+.ns .rp-mini-stages::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: var(--line);
+}
+.ns .rp-mini-stages li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--grey);
+}
+.ns .rp-mini-dot {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--tone);
+  border-radius: 50%;
+  background: #fff;
+}
+.ns .rp-mini-name {
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.ns .rp-mini-stages li.is-on {
+  color: var(--ink);
+  font-weight: 600;
+}
+.ns .rp-mini-stages li.is-on .rp-mini-dot {
+  background: var(--tone);
+}
+.ns .rp-mini-stages li.is-on .rp-mini-dot::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border: 2px solid var(--tone);
+  border-radius: 50%;
+  animation: ring 1.8s ease-out infinite;
+}
+.ns .rp-mini-stages li.is-on .rp-mini-name {
+  background: var(--tone-soft);
+}
+
+/* ---------- the Loop that acts at At risk ---------- */
+.ns .rp-hero-loop {
+  padding: 16px 18px 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--orange);
+  border-radius: 12px;
+}
+.ns .rp-hero-loop-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 16.5px;
+  font-weight: 600;
+}
+
+@media (max-width: 1000px) {
+  .ns .rp-hero-stage {
+    margin-top: 40px;
+  }
+}
+/* Phones: keep the six stages on one line and label only At risk (the window
+   is one image to assistive tech, so hidden names lose nothing), and tighten
+   the stacked Loop steps so the hero stays short. */
+@media (max-width: 640px) {
+  .ns .rp-win-body {
+    gap: 18px;
+    padding: 18px 14px 20px;
+  }
+  .ns .rp-mini-stages li:not(.is-on) .rp-mini-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .ns .rp-mini-stages li.is-on .rp-mini-name {
+    white-space: nowrap;
+  }
+  .ns .rp-hero-loop {
+    padding: 14px 14px 16px;
+  }
+  .ns .rp-hero-loop .rp-flow {
+    gap: 18px;
+  }
+  .ns .rp-hero-loop .rp-flow-step {
+    padding: 10px 12px;
+  }
+  .ns .rp-hero-loop .rp-flow-v {
+    font-size: 14px;
+  }
+  .ns .rp-hero-loop .rp-flow-arrow {
+    bottom: -18px;
+  }
+}

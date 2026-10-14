@@ -1,0 +1,140 @@
+/* /retention-playbook hand-drawn layer: graph-paper artifacts, pen strokes
+   that draw in on scroll, the hand underline and margin notes. Everything is
+   drawn in the server HTML; the Annotator adds .rp-anim to the page and
+   .is-drawn to each piece as it enters view. Under reduced motion it never
+   runs, and ns.css switches off transitions, so all of it stays drawn. */
+
+.ns .rp-hand {
+  font-family: var(--font-hand), "Caveat", cursive;
+  fill: var(--ink);
+}
+.ns .rp-hand.is-soft {
+  fill: var(--soft);
+}
+
+.ns .rp-ink {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 1s cubic-bezier(0.35, 0.6, 0.25, 1)
+    calc(var(--i, 0) * 70ms);
+}
+.ns .rp-ink.ink-orange {
+  stroke: var(--orange);
+}
+.ns .rp-ink.ink-grey {
+  stroke: var(--grey);
+}
+.ns .rp-ink.ink-navy {
+  stroke: var(--ink);
+}
+.ns .rp-hand {
+  transition: opacity 0.5s ease calc(var(--i, 0) * 70ms + 250ms);
+}
+.ns .rp-anim [data-draw]:not(.is-drawn) .rp-ink {
+  stroke-dashoffset: 1;
+}
+.ns .rp-anim [data-draw]:not(.is-drawn) .rp-hand {
+  opacity: 0;
+}
+
+/* ---------- artifacts ---------- */
+.ns .rp-artifact {
+  margin: 8px 0 26px;
+}
+.ns .rp-art-paper {
+  padding: 22px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background-color: #fcfcfe;
+  background-image:
+    linear-gradient(rgba(23, 39, 224, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 39, 224, 0.055) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.ns .rp-art-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.ns .rp-art-narrow {
+  display: none;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* ---------- hand underline ---------- */
+.ns .rp-ul {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'%3E%3Cpath d='M2 8 Q 40 4 80 7 T 160 6 T 198 5' fill='none' stroke='%231727E0' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 0.42em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  padding-bottom: 0.1em;
+  transition: background-size 0.9s cubic-bezier(0.35, 0.6, 0.25, 1);
+}
+.ns .rp-anim .rp-ul:not(.is-drawn) {
+  background-size: 0% 0.42em;
+}
+
+/* ---------- margin notes ---------- */
+.ns .rp-noted {
+  position: relative;
+}
+.ns .rp-note {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 10px;
+  max-width: 520px;
+  margin: 10px 0 0;
+}
+.ns .rp-note svg {
+  width: 12px;
+  height: 100%;
+  min-height: 28px;
+  overflow: visible;
+}
+.ns .rp-note-text {
+  margin: 0;
+  font-family: var(--font-hand), "Caveat", cursive;
+  font-size: 21px;
+  line-height: 1.2;
+  color: var(--accent);
+  transition: opacity 0.5s ease 0.3s;
+}
+.ns .rp-anim .rp-note:not(.is-drawn) .rp-note-text {
+  opacity: 0;
+}
+
+/* Wide screens: the note takes its own column beside its block, so a long
+   note pushes the next block down instead of overlapping it. */
+@media (min-width: 1180px) {
+  .ns .rp-noted {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 150px;
+    column-gap: 28px;
+    align-items: start;
+    max-width: 818px;
+  }
+  .ns .rp-note {
+    margin: 2px 0 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .ns .rp-art-wide {
+    display: none;
+  }
+  .ns .rp-art-narrow {
+    display: block;
+  }
+  .ns .rp-art-paper {
+    padding: 16px 12px;
+  }
+}

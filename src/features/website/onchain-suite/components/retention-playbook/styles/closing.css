@@ -1,0 +1,127 @@
+/* /retention-playbook: playbook endings, the getting-started timeline, the
+   glossary and the closing call to action. */
+
+/* ---------- playbook endings ---------- */
+.ns .rp-playbook-end {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px dashed var(--line);
+}
+
+/* ---------- getting started timeline ---------- */
+.ns .rp-steps {
+  list-style: none;
+  margin: 24px 0 8px;
+  padding: 0;
+}
+.ns .rp-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 16px;
+  padding-bottom: 24px;
+}
+.ns .rp-step::before {
+  content: "";
+  position: absolute;
+  top: 44px;
+  bottom: 4px;
+  left: 19px;
+  width: 2px;
+  background: var(--line);
+}
+.ns .rp-step:last-child::before {
+  display: none;
+}
+.ns .rp-step-n {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+}
+.ns .rp-step-body {
+  padding-top: 8px;
+  min-width: 0;
+}
+.ns .rp-step-text {
+  margin: 0 0 8px;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.ns .rp-need {
+  display: inline-block;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--soft);
+}
+.ns .rp-need-k {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* ---------- glossary ---------- */
+.ns .rp-glossary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0 0;
+}
+.ns .rp-glossary > div {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.ns .rp-glossary dt {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.ns .rp-glossary dd {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--soft);
+}
+
+/* ---------- next step ---------- */
+.ns .rp-sec.rp-next {
+  background: var(--dark);
+  color: var(--dark-ink);
+  background-image: radial-gradient(
+    120% 130% at 85% 0%,
+    rgba(47, 148, 255, 0.16) 0%,
+    rgba(23, 39, 224, 0.12) 24%,
+    transparent 56%
+  );
+}
+.ns .rp-next .rp-h2 {
+  color: #fff;
+}
+.ns .rp-next .rp-next-text {
+  margin-bottom: 24px;
+  color: var(--dark-ink);
+  font-size: 18px;
+}
+.ns .rp-cta-lg {
+  height: 48px;
+  padding: 0 22px;
+  font-size: 16px;
+}
+
+@media (max-width: 640px) {
+  .ns .rp-glossary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

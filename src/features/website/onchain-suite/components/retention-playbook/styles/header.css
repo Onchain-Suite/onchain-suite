@@ -1,0 +1,64 @@
+/* /retention-playbook top bar. The page renders inside the site chrome (for
+   the footer, motion and the Cal.com booking handler), so the site nav is
+   hidden here, on this page only, and the Surgence Labs bar takes its place. */
+
+.ns:has(.rp-page) > .nav {
+  display: none;
+}
+
+.ns .rp-brandbar {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 10;
+  background: var(--dark);
+  border-bottom: 1px solid var(--dark-line);
+}
+.ns .rp-brandbar-in {
+  width: min(1200px, 100%);
+  height: 60px;
+  margin: 0 auto;
+  padding-inline: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ns .rp-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border-radius: 8px;
+}
+.ns .rp-brand img {
+  width: 36px;
+  height: 36px;
+}
+.ns .rp-brand span {
+  white-space: nowrap;
+}
+/* Phones: a smaller mark and a compact button keep the name on one line. */
+@media (max-width: 520px) {
+  .ns .rp-brandbar-in {
+    padding-inline: 16px;
+    gap: 10px;
+  }
+  .ns .rp-brand {
+    gap: 8px;
+    font-size: 15px;
+  }
+  .ns .rp-brand img {
+    width: 30px;
+    height: 30px;
+  }
+  .ns .rp-brandbar .btn {
+    padding: 0 10px;
+    font-size: 13.5px;
+  }
+  .ns .rp-brandbar .btn svg {
+    display: none;
+  }
+}

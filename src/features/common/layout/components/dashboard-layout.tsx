@@ -3,6 +3,7 @@
 import {
   BoltIcon,
   ChartBarIcon,
+  CircleStackIcon,
   Cog6ToothIcon,
   CpuChipIcon,
   DocumentTextIcon,
@@ -72,6 +73,11 @@ const NAV_MAIN: NavItem[] = withWipFlags([
     icon: CpuChipIcon,
   },
   { title: "Analytics", url: PRIVATE_ROUTES.ANALYTICS, icon: ChartBarIcon },
+  {
+    title: "Integrations",
+    url: PRIVATE_ROUTES.INTEGRATIONS,
+    icon: CircleStackIcon,
+  },
   { title: "Settings", url: PRIVATE_ROUTES.SETTINGS, icon: Cog6ToothIcon },
 ]);
 

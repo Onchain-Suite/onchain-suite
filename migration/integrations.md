@@ -32,7 +32,13 @@ richer. Adopt the reference's layout, not its behaviour.
 
 ## Steps
 
-- [ ] **1. Scaffold the screen, route, and nav.**
+- [x] **1. Scaffold the screen, route, and nav.** Done: top-level `/integrations`
+  route + sidebar entry (between Analytics and Settings) + a six-tab screen shell
+  (`sources/events/migrate/channels/webhooks/api`) with `?tab=` deep-linking and
+  per-tab placeholders. Files: `src/app/(dashboard)/integrations/page.tsx`,
+  `src/features/integrations/pages/integrations.page.tsx`, route in
+  `src/shared/config/app-routes.ts`, nav in the dashboard layout. The old unused
+  `INTEGRATIONS: "settings/integrations"` route constant was removed.
   FROM `reference/v2.7/web/src/screens/DataScreen.tsx` (tab frame, empty-state
   "Start here: index your contract" nudge) and `shell/Shell.tsx:34` (nav entry).
   INTO new route `src/app/(dashboard)/integrations/page.tsx` + feature dir

@@ -43,10 +43,10 @@ export const PRIVATE_ROUTES = {
   INTELLIGENCE_SEGMENT: (id: string | number) =>
     `/intelligence/segments/${id}` as const,
   INTELLIGENCE_REPORTS: "/intelligence?tab=reports",
+  INTEGRATIONS: "/integrations",
   SETTINGS: "/settings",
   NOTIFICATIONS: "settings/notifications",
   BILLING: "settings/billing",
   PROFILE: "settings/profile",
   REWARDS: "settings/rewards",
-  INTEGRATIONS: "settings/integrations",
 } as const;

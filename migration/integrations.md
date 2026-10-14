@@ -47,7 +47,15 @@ richer. Adopt the reference's layout, not its behaviour.
   Integrations tab becomes (redirect to the new screen, or an "API & SDKs" tab).
   Use app shells (`PageHeader`, `SettingsCard`, Tabs), not reference CSS.
 
-- [ ] **2. Port the connector data-seam.**
+- [x] **2. Port the connector data-seam.** Done: catalog ported verbatim (~20
+  connectors, 5 kinds, 14 migrations) into `src/features/integrations/` as
+  `types/sources.ts` (domain types), `data/sources.ts` (static catalog +
+  `FRESHNESS`/`LANE_LABEL`/`SOURCE_KINDS`/`SOURCES`/`MIGRATIONS`/`FALLBACK_IDS`),
+  `utils/sources.ts` (pure `searchSources`/`sourcesOfKind`/`sourceCount`/
+  `fallbackSources`/`setupDocUrl`/`searchMigrations`, unit-tested), and
+  `hooks/use-requested-sources.ts` (the "request a source" store, localStorage
+  short-term, SSR-safe). Icons are kept as a `SourceKindIcon` key the UI maps to
+  Heroicons. Em-dashes from the reference converted to hyphens per house style.
   FROM `reference/v2.7/web/src/data/sources.ts` (whole file: `DataSource`,
   `SourceKind`, `SourceStatus`, `Freshness`+`FRESHNESS`, `Lane`+`LANE_LABEL`,
   `SOURCE_KINDS`, `SOURCES` (~20 connectors), `searchSources`/`sourcesOfKind`/

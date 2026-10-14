@@ -90,12 +90,17 @@ renders from data the app already returns; BACKEND-GATED = needs a new/extended
   `pages/index.tsx`; port the `coverageFor` concept. Needs backend product-event
   coverage per wallet. Honest empty state until it ships.
 
-- [ ] **4. Enrich the contact slide-over - mixed.**
-  In `components/contact-slide-over.tsx`: (a) FE-only - add stage, add X/Farcaster/
-  Telegram/Discord channel rows from `readChannels`/`extractSocialHandles`, drive
-  identity-source from data (not the hardcoded `"ZK-verified link"` literal), fix
-  "Send a test" to allow push when push-reachable; (b) BACKEND-GATED - add a
-  Holdings block (reuse `icon-cluster.tsx` + `getWalletOnchainSummary`).
+- [~] **4. Enrich the contact slide-over - mixed.** (a) Done (`f1e7fbe`):
+  `components/contact-slide-over.tsx` now shows the lifecycle stage badge,
+  sibling channel rows for X/Telegram/Discord/Farcaster (rendered only when
+  `readChannels` marks them reachable, handle from `extractSocialHandles`),
+  identity-source driven from `profile.identitySource` with an honest inferred
+  fallback (no more hardcoded `"ZK-verified link"`), and a fixed "Send a test"
+  gated on reachability (`emailLinked || hasPush`) instead of a plaintext address
+  so ZK-protected + push-reachable contacts aren't wrongly blocked. Render-tested
+  (5 cases). (b) STILL BACKEND-GATED - add a Holdings block (reuse
+  `icon-cluster.tsx` + `getWalletOnchainSummary`); `getWalletOnchainSummary`
+  exists, so this is wire-able as the next increment.
 
 - [ ] **5. Interleaved both-lane timeline + "Quiet for N days" - BACKEND-GATED.**
   Port `LaneTimeline`/`timelineFor`/`quietSince` (`data/timeline.ts`) into

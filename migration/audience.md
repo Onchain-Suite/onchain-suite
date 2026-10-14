@@ -70,17 +70,20 @@ Port FROM reference -> INTO app, re-skinned to Tailwind v4 + shadcn. FE-only =
 renders from data the app already returns; BACKEND-GATED = needs a new/extended
 `docs/backend.md` field + `audience.service.ts` type. No em-dashes (0.5.5).
 
-- [ ] **1. Lifecycle stage model - FE-first, then backend.**
-  Port reference `data/lifecycle.ts` -> `src/features/audience/utils/lifecycle.ts`.
-  FE-only if derived client-side from existing `healthScore` + `lastActive`;
-  BACKEND-GATED for authoritative `stage` / `stageHistory` + movement counts. Add
-  `stage?` to `AudienceProfile` in `audience.service.ts`.
+- [x] **1. Lifecycle stage model - FE-first.** Done (`27b9505`):
+  `src/features/audience/utils/lifecycle.ts` ports the reference model
+  (new/activated/engaged/at_risk/dormant, priority-ordered first-match) as a pure,
+  unit-tested `deriveStage` + `stageForProfile` adapter that reads the fields the
+  profile already returns (`healthScore`, `engagement`, last-action recency) - no
+  backend change needed. `reactivated` + stage MOVEMENTS need a backend
+  `stageHistory` so they are intentionally NOT derived (kept in the type + metadata
+  for when that ships); authoritative `stage`/movement counts remain BACKEND-GATED.
 
-- [ ] **2. Stage column in the contacts table - FE-only.**
-  Add a Stage column (port `StageCell`) to `pages/index.tsx`. Decide with the user
-  whether to also trim Chains/Apps/Tokens columns (reference moved them to the
-  drawer to kill horizontal scroll) or keep the data-dense table. Flag as a UX
-  decision, do not silently drop columns.
+- [x] **2. Stage column in the contacts table - FE-only.** Done (`27b9505`):
+  `StageBadge` (toned pills) in a new Stage column right after Contact (the
+  reference's second column), derived via `stageForProfile`. Kept the data-dense
+  8-column table for now (did NOT trim Chains/Apps/Tokens) - that trim is a
+  still-open UX decision for the user, not something to drop silently.
 
 - [ ] **3. "Both lanes" coverage - BACKEND-GATED.**
   Add a coverage/`bothLanes` figure to `AudienceOverview` + a 5th KPI card in

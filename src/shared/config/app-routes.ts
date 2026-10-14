@@ -34,7 +34,7 @@ export const PRIVATE_ROUTES = {
     `/audience/segments/${id}/edit` as const,
   COMMUNITY: "/community",
   INTELLIGENCE: "/intelligence",
-  ANALYTICS: "/intelligence/analytics",
+  ANALYTICS: "/analytics",
   ADVANCED_ANALYTICS: "/intelligence/analytics/advanced",
   // Segments and Reports are tabs on /intelligence, not their own routes -
   // only /intelligence/segments/create and the /[id] detail pages exist. Deep

@@ -142,9 +142,9 @@ richer. Adopt the reference's layout, not its behaviour.
 - [ ] **8. Channels tab slot.** This branch provides the tab slot in the shell; the
   implementation lands via `v2.7-channels` (`docs/migration/channels.md`).
 
-- [ ] **9. Cleanup.** Remove the stale marketing `integrationsList` and `webhooks`
-  demo arrays in `src/features/settings/utils/index.ts:148-170` once the real
-  catalog lands (confirm no remaining references first).
+- [x] **9. Cleanup.** Done: removed the stale marketing `integrationsList` and
+  `webhooks` demo arrays from `src/features/settings/utils/index.ts` (confirmed
+  zero references across the repo; tsc clean after removal).
 
 ## Gotchas
 

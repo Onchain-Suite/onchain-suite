@@ -52,7 +52,13 @@ driven by the backend `campaign-types` / `ensureChannels` contract
   `push-credentials.service.ts`. Reuse the app's status types; add an `x` entry
   (stub until step 3).
 
-- [ ] **2. Channels tab UI.**
+- [x] **2. Channels tab UI.** Done: `channels-tab.tsx` wired into the Integrations
+  screen's `channels` tab. A readiness list ("{live} of {n} can send", one row per
+  channel with its blocker and a Connected/Waiting/Not-set-up badge); opening a
+  row shows that channel's setup, reusing the real settings cards -
+  `SenderVerificationCard` (email), `InAppIntegration` + `PushCredentialsCard`
+  (push web + mobile). X is a placeholder until step 3. The "send setup to
+  someone" handoff is step 4.
   FROM `reference/v2.7/web/src/components/ChannelsTab.tsx` + `ChannelDetail` +
   `channels.css` - the "{live} of {n} can send" header, a readiness row per channel
   (icon, label, blocker, status badge, Set up / Manage), detail on open.

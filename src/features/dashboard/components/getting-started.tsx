@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 import { useSetupSteps } from "./get-started";
+import { startTour } from "@/features/onboarding/hooks/use-tour";
 
 /** Per-viewer collapsed state for the sidebar checklist. */
 const COLLAPSED_KEY = "onchain.gettingStarted.collapsed";
@@ -178,6 +179,16 @@ export function GettingStarted() {
             );
           })}
         </ul>
+      )}
+
+      {!collapsed && (
+        <button
+          type="button"
+          onClick={startTour}
+          className="mt-1 w-full rounded-md px-2 py-1.5 text-left text-[11px] font-medium text-primary transition-colors hover:bg-accent"
+        >
+          Take the tour
+        </button>
       )}
     </section>
   );

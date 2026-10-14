@@ -3,6 +3,7 @@
 import { CommandBar } from "../components/command-bar";
 import { OnboardingResumeBanner } from "../components/get-started";
 import { MetricsDashboard } from "../components/metrics-dashboard";
+import { ProductTour } from "@/features/onboarding/components/product-tour";
 import { StartHereBanner } from "@/features/onboarding/components/start-here-banner";
 import { useTimeToValue } from "@/features/onboarding/hooks/use-time-to-value";
 
@@ -80,6 +81,9 @@ export function MainDashboard({ userData }: MainDashboardProps) {
           empty workspace sees the real dashboard (guided by the sidebar
           checklist and the Start-here banner) rather than a separate gate. */}
       <MetricsDashboard />
+
+      {/* Non-modal; auto-starts once for a brand-new empty workspace. */}
+      <ProductTour />
     </div>
   );
 }

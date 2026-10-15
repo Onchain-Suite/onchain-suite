@@ -465,9 +465,8 @@ const CHAIN_VISUALS: Record<string, { abbr: string; color: string }> = {
   // automatically once onchain/chains/adi.svg is uploaded to Cloudinary.
   adi: { abbr: "ADI", color: "#FF7A18" },
   // Sovren (sovr-1), a Cosmos chain. Full slug as the key — the `-1` is not a
-  // network suffix so it is not stripped. Brand indigo, distinct from Polygon's
-  // violet and ETH blue; the real logo layers on once onchain/chains/sovren.svg
-  // is uploaded to Cloudinary (the label "Sovren" drives that slug).
+  // network suffix so it is not stripped. Brand indigo is the fallback chip
+  // color behind the local logo (LOCAL_CHAIN_LOGO["Sovren"]).
   "sovr-1": { abbr: "SOVR", color: "#5B4BC4" },
   sovren: { abbr: "SOVR", color: "#5B4BC4" },
 };
@@ -523,6 +522,9 @@ const CHAIN_LLAMA_SLUG: Record<string, string> = {
 // here; drop a chain's <label>.svg in that folder to give it a local logo.
 const LOCAL_CHAIN_LOGO: Record<string, string> = {
   ADI: "/onchain/chains/adi.svg",
+  // Sovren (sovr-1) — a Cosmos chain with no public CDN icon. Its brand mark
+  // (the hexagon grid from sovrentech.io) ships locally as a PNG.
+  Sovren: "/onchain/chains/sovren.png",
 };
 
 /**

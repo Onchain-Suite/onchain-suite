@@ -3,21 +3,18 @@ import { Annotator } from "@/onchain-suite-website/components/retention-playbook
 import { ChapterShell } from "@/onchain-suite-website/components/retention-playbook/chapter-shell";
 import { InitialHashScroll } from "@/onchain-suite-website/components/retention-playbook/initial-hash-scroll";
 import { LegacyHashRedirect } from "@/onchain-suite-website/components/retention-playbook/legacy-hash-redirect";
-import { NextPageLink } from "@/onchain-suite-website/components/retention-playbook/next-page-link";
 import { handFont } from "@/onchain-suite-website/components/retention-playbook/playbook-fonts";
 import { PlaybookHeader } from "@/onchain-suite-website/components/retention-playbook/playbook-header";
 import { ReadingProgress } from "@/onchain-suite-website/components/retention-playbook/reading-progress";
 import { PlaybookHero } from "@/onchain-suite-website/components/retention-playbook/sections/playbook-hero";
+import { StrategyLinks } from "@/onchain-suite-website/components/retention-playbook/strategy-links";
 import { NsShell } from "@/onchain-suite-website/components/site/ns-shell";
-import {
-  OVERVIEW,
-  SUMMARY,
-} from "@/onchain-suite-website/data/retention-playbook";
+import { SUMMARY } from "@/onchain-suite-website/data/retention-playbook";
 
 /**
  * /retention-playbook: the landing page. The hero, then the short case for
- * retention on-chain in one centred column, with no rail. Each growth and
- * retention strategy is its own page, starting from the link at the foot.
+ * retention on-chain in one centred column, with no rail. All three growth
+ * and retention strategies are listed at the foot, each its own page.
  */
 export function RetentionPlaybookPage() {
   return (
@@ -31,7 +28,7 @@ export function RetentionPlaybookPage() {
           <PlaybookHero />
           <div className="rp-solo">
             <ChapterShell chapter={SUMMARY} showHead={false} />
-            <NextPageLink currentId={OVERVIEW.id} />
+            <StrategyLinks />
           </div>
         </div>
         <Annotator />

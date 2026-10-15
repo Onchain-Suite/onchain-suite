@@ -109,6 +109,15 @@
   color: var(--grey);
 }
 
+/* The landing page's foot: all three strategies, one under another. */
+.ns .rp-strategies {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
 /* ---------- the playbook map (rail) ---------- */
 .ns .rp-chaps {
   list-style: none;

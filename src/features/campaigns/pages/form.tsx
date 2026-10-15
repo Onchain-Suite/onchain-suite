@@ -1405,6 +1405,37 @@ export function CreateCampaignPage() {
     });
   }, [form, verifiedSenderIdentities]);
 
+  // Re-link a verified sender whose ADDRESS survived a round-trip but whose
+  // identity LINK did not. The email editor flush persists `senderEmail` without
+  // `senderIdentityId`, so on return the "Send as" dropdown still shows the
+  // sender (it matches purely by address) while the link is gone. The schema
+  // only waives the sender NAME when the link is present, so without this,
+  // Continue fails validation on a blank name — and the offending field sits
+  // below the fold, so the button just reads as dead. Matching by address is
+  // safe: the dropdown already treats this identity as the selected one.
+  const watchedSenderEmail = form.watch("senderEmail");
+  const watchedSenderIdentityId = form.watch("senderIdentityId");
+  useEffect(() => {
+    if (verifiedSenderIdentities.length === 0) return;
+    const email = (watchedSenderEmail ?? "").trim().toLowerCase();
+    if (!email) return;
+    const link = (watchedSenderIdentityId ?? "").toString().trim();
+    if (link) return;
+    const match = verifiedSenderIdentities.find(
+      (identity) => identity.email.toLowerCase() === email
+    );
+    if (!match) return;
+    form.setValue("senderIdentityId", match.id, {
+      shouldDirty: false,
+      shouldValidate: true,
+    });
+  }, [
+    form,
+    verifiedSenderIdentities,
+    watchedSenderEmail,
+    watchedSenderIdentityId,
+  ]);
+
   useEffect(() => {
     const current = form.getValues("timezone");
     if (current === activeTimezone) return;
@@ -1796,7 +1827,24 @@ export function CreateCampaignPage() {
 
     const isValid = await form.trigger(fieldsToValidate);
 
-    if (!isValid) return;
+    if (!isValid) {
+      // Never fail silently. A blocked Continue with no feedback reads as a
+      // dead button (the reported bug). Focus and announce the first offending
+      // field — most often `senderName`, required when the sender-identity link
+      // is missing and the name is blank, on a field below the fold.
+      const { errors } = form.formState;
+      const firstInvalid = fieldsToValidate.find((field) => errors[field]);
+      if (firstInvalid) {
+        form.setFocus(firstInvalid);
+        const message = errors[firstInvalid]?.message;
+        toast.error(
+          typeof message === "string" && message.length > 0
+            ? message
+            : "Fix the highlighted field to continue."
+        );
+      }
+      return;
+    }
     if (!campaignId) {
       if (bootstrapError) {
         toast.error(bootstrapError);

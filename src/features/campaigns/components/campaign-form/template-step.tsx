@@ -71,6 +71,11 @@ export function TemplateStep({
             previewText: form.getValues("previewText") ?? "",
             senderName: form.getValues("senderName") ?? "",
             senderEmail: form.getValues("senderEmail") ?? "",
+            // Persist the sender-identity LINK too. Flushing name+address while
+            // dropping the link is what left a returning draft "linkless": the
+            // name stays blank (inherited) but the schema then treats it as a
+            // required field, so Continue fails validation silently.
+            senderIdentityId: form.getValues("senderIdentityId") ?? null,
             replyToEmail: form.getValues("useReplyTo")
               ? form.getValues("replyToEmail")
               : undefined,

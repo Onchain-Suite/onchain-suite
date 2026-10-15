@@ -50,6 +50,7 @@ function Harness() {
       previewText: "Catch up on this week",
       senderName: "Sender",
       senderEmail: "sender@example.com",
+      senderIdentityId: "ident_1",
       useReplyTo: false,
     } as Partial<CampaignFormData> as CampaignFormData,
   });
@@ -90,6 +91,21 @@ describe("TemplateStep openEditor", () => {
     );
     expect(pushMock).toHaveBeenCalledWith(
       expect.stringContaining("campaign=camp_1")
+    );
+  });
+
+  it("flushes the sender-identity link so it survives the editor round-trip", async () => {
+    // Regression: the flush dropped senderIdentityId, so a returning draft had
+    // the address but no link. The schema then treats the blank sender name as
+    // required and Continue fails validation silently — the "dead button" bug.
+    render(<Harness />);
+    fireEvent.click(screen.getByText("create-editor"));
+
+    await waitFor(() => expect(updateContentMock).toHaveBeenCalled());
+
+    expect(updateContentMock).toHaveBeenCalledWith(
+      "camp_1",
+      expect.objectContaining({ senderIdentityId: "ident_1" })
     );
   });
 });

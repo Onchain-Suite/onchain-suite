@@ -115,6 +115,7 @@ import {
   buildCatalog,
   type CatalogEntry,
   CLIENT_TRIGGER_TYPES,
+  COSMOS_SOVREN_TRIGGER_TYPES,
   CURATED_ACTION_COPY,
   CURATED_TRIGGER_COPY,
   FIXED_ACTIONS,
@@ -771,9 +772,23 @@ const CreateAutomationContent = () => {
         }),
     [filteredTriggerCatalog, svmByTriggerType, flowChain]
   );
+  // Cosmos / Sovren triggers (Custom Events API) get their own palette group so
+  // they're discoverable as "the Sovren triggers" instead of being lost among
+  // the generic off-chain triggers.
+  const filteredSovrenTriggers = useMemo(
+    () =>
+      filteredTriggerCatalog.filter((t) =>
+        COSMOS_SOVREN_TRIGGER_TYPES.has(t.type)
+      ),
+    [filteredTriggerCatalog]
+  );
   const filteredOffchainTriggers = useMemo(
     () =>
-      filteredTriggerCatalog.filter((t) => !ON_CHAIN_TRIGGER_TYPES.has(t.type)),
+      filteredTriggerCatalog.filter(
+        (t) =>
+          !ON_CHAIN_TRIGGER_TYPES.has(t.type) &&
+          !COSMOS_SOVREN_TRIGGER_TYPES.has(t.type)
+      ),
     [filteredTriggerCatalog]
   );
   const filteredActionCatalog = useMemo(
@@ -3030,6 +3045,11 @@ const CreateAutomationContent = () => {
                       nodes={filteredOnchainTriggers}
                     />
                     <NodeLibrarySection
+                      title="Cosmos / Sovren"
+                      accent="violet"
+                      nodes={filteredSovrenTriggers}
+                    />
+                    <NodeLibrarySection
                       title="Off-chain triggers"
                       accent="sky"
                       nodes={filteredOffchainTriggers}
@@ -3281,9 +3301,17 @@ const CreateAutomationContent = () => {
                             ),
                           },
                           {
+                            title: "Cosmos / Sovren",
+                            items: triggerCatalog.filter((t) =>
+                              COSMOS_SOVREN_TRIGGER_TYPES.has(t.type)
+                            ),
+                          },
+                          {
                             title: "Off-chain triggers",
                             items: triggerCatalog.filter(
-                              (t) => !ON_CHAIN_TRIGGER_TYPES.has(t.type)
+                              (t) =>
+                                !ON_CHAIN_TRIGGER_TYPES.has(t.type) &&
+                                !COSMOS_SOVREN_TRIGGER_TYPES.has(t.type)
                             ),
                           },
                         ] as const

@@ -32,13 +32,12 @@ import type { PlaybookChapter } from "@/onchain-suite-website/types/retention-pl
 export const DEFI: PlaybookChapter = {
   id: "defi",
   number: "03",
-  kicker: "Chapter 03 · DeFi: lending, vaults, liquidity",
-  title: "The DeFi playbook",
+  title: "DeFi growth and retention strategy",
   dek: "How email and in-app keep deposits in place, warn borrowers before liquidation, and bring capital back after it moves.",
   tldr: [
     "In DeFi, keeping a user means keeping their capital, and capital moves when the spread moves. sUSDe's staked deposits fell from $6.16B to $1.21B as its yield went from 7.5% to 4.9%. One month after Arbitrum's STIP incentives ended, WOOFi had lost more than half its TVL.",
     "It is also concentrated. On Aave V3 Ethereum, ==the 50 largest holders of USDT deposits hold 55% of the market==. Retention starts with knowing who those depositors are and talking to them before they move.",
-    `This playbook sets out how email and in-app do that, in five parts: campaigns, automation, lifecycle, retention triggers and the newsletter. ${RULES_LINE}`,
+    `This strategy sets out how email and in-app do that, in five parts: campaigns, automation, lifecycle, retention triggers and the newsletter. ${RULES_LINE}`,
   ],
   sections: [
     {
@@ -70,7 +69,7 @@ export const DEFI: PlaybookChapter = {
     },
     {
       id: "campaigns",
-      title: "1. Campaigns",
+      title: "Campaigns",
       whw: {
         what: "A campaign is one message sent to a chosen segment at a set moment, because something is happening they should hear about. In DeFi, the moments are launches, parameter changes and votes.",
         how: [
@@ -108,7 +107,7 @@ export const DEFI: PlaybookChapter = {
     },
     {
       id: "automation",
-      title: "2. Automation",
+      title: "Automation",
       whw: {
         what: "An automated message sends itself to one person when their position changes, and stops as soon as they take the step it asks for. In OnchainSuite these are Loops.",
         how: [
@@ -170,7 +169,7 @@ export const DEFI: PlaybookChapter = {
     },
     {
       id: "lifecycle",
-      title: "3. Lifecycle",
+      title: "Lifecycle",
       whw: {
         what: "Lifecycle is the path from first deposit to depositor who adds more over time. We follow wallets and capital separately, because they move differently.",
         how: [
@@ -265,7 +264,7 @@ export const DEFI: PlaybookChapter = {
     },
     {
       id: "retention-triggers",
-      title: "4. Retention triggers",
+      title: "Retention triggers",
       whw: {
         what: "A retention trigger is a single message sent the same day something happens to a user's position. These are service messages: no offer, no forecast.",
         how: [
@@ -324,7 +323,7 @@ export const DEFI: PlaybookChapter = {
     },
     {
       id: "newsletter",
-      title: "5. Newsletter",
+      title: "Newsletter",
       whw: {
         what: "One email every two weeks to depositors who opted in to news.",
         how: [

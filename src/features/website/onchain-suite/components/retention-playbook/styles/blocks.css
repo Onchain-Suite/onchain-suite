@@ -42,13 +42,13 @@
   vertical-align: top;
   line-height: 1.5;
 }
+/* Column heads read as plain words, not small-caps labels. */
 .ns .rp-table thead th {
   border-top: 0;
   background: var(--panel);
-  font: 500 11px var(--mono);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--grey);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
 }
 .ns .rp-table thead th:first-child {
   border-top-left-radius: 12px;
@@ -131,9 +131,8 @@
 }
 .ns .rp-says-k {
   margin: 0 0 10px;
-  font: 600 11.5px var(--mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
 }
 .ns .is-always .rp-says-k {
   color: var(--accent);
@@ -241,9 +240,8 @@
     content: attr(data-label);
     display: block;
     margin: 6px 0 2px;
-    font: 500 10.5px var(--mono);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    font-size: 13px;
+    font-weight: 600;
     color: var(--grey);
   }
   .ns .rp-path-list li {

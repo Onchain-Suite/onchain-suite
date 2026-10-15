@@ -6,19 +6,29 @@ import { SITE_CONFIG_META } from "@/onchain-suite-website/config";
 import { PLAYBOOK_CHAPTERS } from "@/onchain-suite-website/data/playbooks";
 import type { PlaybookChapter } from "@/onchain-suite-website/types/retention-playbook";
 import {
-  isCategoryId,
+  categoryOfSlug,
   playbookPath,
-  sanitizeClientName,
 } from "@/onchain-suite-website/utils/retention-playbook-params";
 
-function chapterFor(category: string): PlaybookChapter | undefined {
-  return isCategoryId(category)
+function chapterFor(slug: string): PlaybookChapter | undefined {
+  const category = categoryOfSlug(slug);
+  return category
     ? PLAYBOOK_CHAPTERS.find((c) => c.id === category)
     : undefined;
 }
 
+/** The three sector pages are known at build time, so they are prerendered. */
+export function generateStaticParams() {
+  return PLAYBOOK_CHAPTERS.map((c) => ({
+    category: playbookPath(c.id).split("/").pop() as string,
+  }));
+}
+
+/** Only the three sector slugs exist; anything else is a 404. */
+export const dynamicParams = false;
+
 // Same as the landing page: out of search results, but a proper preview card
-// when the link is pasted into a chat. Each playbook gets its own card.
+// when the link is pasted into a chat. Each sector gets its own card.
 export async function generateMetadata({
   params,
 }: {
@@ -52,21 +62,13 @@ export async function generateMetadata({
 
 export default async function Page({
   params,
-  searchParams,
 }: {
   params: Promise<{ category: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { category } = await params;
   const chapter = chapterFor(category);
   if (!chapter) {
     notFound();
   }
-  const search = await searchParams;
-  return (
-    <PlaybookChapterPage
-      chapter={chapter}
-      client={sanitizeClientName(search.client)}
-    />
-  );
+  return <PlaybookChapterPage chapter={chapter} />;
 }

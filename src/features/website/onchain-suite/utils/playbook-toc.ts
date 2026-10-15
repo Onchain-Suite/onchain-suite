@@ -1,73 +1,67 @@
+import {
+  CATEGORIES,
+  OVERVIEW,
+} from "@/onchain-suite-website/data/retention-playbook";
 import type { Chapter } from "@/onchain-suite-website/types/retention-playbook";
+import {
+  PLAYBOOK_BASE,
+  playbookPath,
+} from "@/onchain-suite-website/utils/retention-playbook-params";
 
 /** DOM id of a section inside a chapter: "defi-retention-triggers". */
 export const sectionAnchor = (chapterId: string, sectionId: string) =>
   `${chapterId}-${sectionId}`;
 
-export interface TocSection {
-  id: string;
-  label: string;
-}
-
-export interface TocChapter {
+/** One entry in the rail: a page on the landing page, a section on a strategy page. */
+export interface MapEntry {
+  /** A page id ("overview", a category id) or a section's DOM anchor. */
   id: string;
   number: string;
   label: string;
-  /**
-   * Set when the chapter lives on another page: the rail links there instead
-   * of scrolling, and the chapter is left out of the reading count.
-   */
-  href?: string;
-  sections: TocSection[];
+  /** The one-line focus under the name. The overview has none. */
+  line?: string;
+  /** A page path, or "#anchor" for a section on this page. */
+  href: string;
 }
 
-/** Contents for the rail and mobile bar, in page order. */
-export function buildToc(
-  chapters: (Chapter & { href?: string; tocLabel?: string })[]
-): TocChapter[] {
-  return chapters.map((c) => ({
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * The landing page's rail: the landing page itself, then one growth and
+ * retention strategy per sector, each its own page.
+ */
+export const PLAYBOOK_MAP: MapEntry[] = [
+  { id: OVERVIEW.id, number: "00", label: OVERVIEW.label, href: PLAYBOOK_BASE },
+  ...CATEGORIES.map((c, i) => ({
     id: c.id,
-    number: c.number,
-    label: c.tocLabel ?? c.title,
-    href: c.href,
-    sections: c.sections.map((s) => ({
-      id: sectionAnchor(c.id, s.id),
-      label: s.title,
-    })),
-  }));
+    number: pad(i + 1),
+    label: c.label,
+    line: c.line,
+    href: playbookPath(c.id),
+  })),
+];
+
+/** The page after this one, for the link at the foot of each page. */
+export function nextEntry(currentId: string): MapEntry | undefined {
+  const i = PLAYBOOK_MAP.findIndex((e) => e.id === currentId);
+  return i >= 0 ? PLAYBOOK_MAP[i + 1] : undefined;
 }
 
 /**
- * The anchors the reader moves through on this page, in order: each chapter's
- * opening, then its sections. The opening counts too, so a reader on a
- * chapter's title and contents box already sees that chapter as current.
- * Chapters that live on another page have no anchors here.
+ * A strategy page's rail, Atlas style: everything in that strategy, in reading
+ * order. 00 is the opening, then each section, all on the page.
  */
-export function trackedIds(toc: TocChapter[]): string[] {
-  return toc
-    .filter((c) => !c.href)
-    .flatMap((c) => [c.id, ...c.sections.map((s) => s.id)]);
-}
-
-/** The chapter that holds a tracked anchor. */
-export function chapterOf(
-  toc: TocChapter[],
-  id: string | null
-): TocChapter | undefined {
-  if (!id) {
-    return undefined;
-  }
-  return toc.find((c) => c.id === id || c.sections.some((s) => s.id === id));
-}
-
-/** Label of a tracked anchor, for the mobile bar. */
-export function labelOf(
-  toc: TocChapter[],
-  id: string | null
-): string | undefined {
-  const chapter = chapterOf(toc, id);
-  if (!chapter) {
-    return undefined;
-  }
-  return chapter.sections.find((s) => s.id === id)?.label ?? chapter.label;
+export function strategyContents(chapter: Chapter): MapEntry[] {
+  return [
+    {
+      id: chapter.id,
+      number: "00",
+      label: OVERVIEW.label,
+      href: `#${chapter.id}`,
+    },
+    ...chapter.sections.map((s, i) => {
+      const id = sectionAnchor(chapter.id, s.id);
+      return { id, number: pad(i + 1), label: s.title, href: `#${id}` };
+    }),
+  ];
 }

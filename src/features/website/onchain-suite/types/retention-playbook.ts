@@ -20,19 +20,13 @@ export type GlossaryKey =
 
 export type StageTone = "blue" | "orange" | "grey" | "navy";
 
-export type PrivacyIcon = "wallet" | "hidden" | "read-only" | "compliant";
-
-/** A bold lead-in followed by one line, e.g. a rule or a privacy point. */
-export interface LabelledPoint {
-  label: string;
-  text: string;
-}
-
+/** One sector in the playbook map: its page, its name and its one-line focus. */
 export interface CategoryCard {
   id: CategoryId;
+  /** The page's path segment: /retention-playbook/<slug>. */
+  slug: string;
   label: string;
   line: string;
-  section: string;
 }
 
 export interface Stat {
@@ -93,9 +87,7 @@ export type Block =
   | { kind: "path"; name: string; steps: { when: string; what: string }[] }
   | { kind: "messages"; messages: ExampleMessage[] }
   | { kind: "kpis"; rows: { what: string; window: string }[] }
-  | { kind: "stats"; stats: Stat[] }
-  /** The three category cards that open a playbook. */
-  | { kind: "picker" };
+  | { kind: "stats"; stats: Stat[] };
 
 /** Surgence's house structure: what we will do, how, and why it matters. */
 export interface WhatHowWhy {
@@ -115,7 +107,6 @@ export interface Chapter {
   id: string;
   /** Two-digit chapter number shown in the rail, e.g. "01". */
   number: string;
-  kicker: string;
   title: string;
   /** One-line standfirst under the title. */
   dek: string;
@@ -125,11 +116,6 @@ export interface Chapter {
 
 export interface PlaybookChapter extends Chapter {
   id: CategoryId;
-}
-
-export interface SetupStep {
-  text: string;
-  need: string;
 }
 
 export interface GlossaryEntry {

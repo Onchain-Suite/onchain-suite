@@ -9,4 +9,3 @@ import "./styles/blocks.css";
 import "./styles/sketch.css";
 import "./styles/cards.css";
 import "./styles/flows.css";
-import "./styles/closing.css";

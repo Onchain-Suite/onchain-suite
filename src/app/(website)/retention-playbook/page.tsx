@@ -7,7 +7,6 @@ import { HERO, META } from "@/onchain-suite-website/data/retention-playbook";
 import {
   parseCategory,
   playbookPath,
-  sanitizeClientName,
 } from "@/onchain-suite-website/utils/retention-playbook-params";
 
 // Sales collateral sent to prospects by link: keep it out of search results,
@@ -38,12 +37,11 @@ export default async function Page({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const client = sanitizeClientName(params.client);
-  // The playbooks have their own pages now. Links already sent with
-  // ?category= land on the right one, with the client name intact.
+  // Each sector has its own page now. Links already sent with ?category=
+  // land on the right one.
   const category = parseCategory(params.category);
   if (category) {
-    redirect(playbookPath(category, client));
+    redirect(playbookPath(category));
   }
-  return <RetentionPlaybookPage client={client} />;
+  return <RetentionPlaybookPage />;
 }

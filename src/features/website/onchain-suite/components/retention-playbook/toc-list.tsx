@@ -1,20 +1,15 @@
-"use client";
-
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
 import { JumpLink } from "./jump-link";
-import {
-  chapterOf,
-  type TocChapter,
-} from "@/onchain-suite-website/utils/playbook-toc";
+import type { MapEntry } from "@/onchain-suite-website/utils/playbook-toc";
 import {
   roughEllipse,
   seededRandom,
   seedFrom,
 } from "@/onchain-suite-website/utils/sketch";
 
-/** The pen circle drawn around the current chapter's number. */
+/** The pen circle drawn around the current entry's number. */
 function NumberCircle({ seed }: { seed: string }) {
   const d = roughEllipse(18, 13, 15, 11, seededRandom(seedFrom(seed)));
   return (
@@ -35,75 +30,58 @@ function NumberCircle({ seed }: { seed: string }) {
 }
 
 /**
- * Atlas-style contents: numbered chapters, with the current chapter's sections
- * listed under it. A chapter that lives on its own page is a plain link to it.
+ * The rail's list, Atlas style: numbered entries, each with an optional
+ * one-line focus, and the current one circled. A "#anchor" entry scrolls
+ * within the page; anything else is a link to another page.
  */
 export function TocList({
-  toc,
-  active,
+  entries,
+  currentId,
   onPick,
 }: {
-  toc: TocChapter[];
-  active: string | null;
+  entries: MapEntry[];
+  currentId: string | null;
   onPick?: () => void;
 }) {
-  const current = chapterOf(toc, active);
-
   return (
     <ol className="rp-chaps">
-      {toc.map((chapter) => {
-        const isCurrent = current?.id === chapter.id;
+      {entries.map((entry) => {
+        const isCurrent = entry.id === currentId;
         const body = (
           <>
             <span className="rp-chap-num">
-              {chapter.number}
-              {isCurrent && <NumberCircle seed={chapter.id} />}
+              {entry.number}
+              {isCurrent && <NumberCircle seed={entry.id} />}
             </span>
-            <span className="rp-chap-label">{chapter.label}</span>
+            <span className="rp-chap-label">
+              {entry.label}
+              {entry.line && <span className="rp-chap-line">{entry.line}</span>}
+            </span>
           </>
         );
         return (
           <li
-            key={chapter.id}
+            key={entry.id}
             className={`rp-chap${isCurrent ? " is-current" : ""}`}
           >
-            {chapter.href ? (
-              <Link
-                href={chapter.href}
-                className="rp-chap-link"
-                onClick={onPick}
-              >
-                {body}
-              </Link>
-            ) : (
+            {entry.href.startsWith("#") ? (
               <JumpLink
-                target={chapter.id}
+                target={entry.href.slice(1)}
                 className="rp-chap-link"
-                ariaCurrent={
-                  isCurrent && !active?.startsWith(`${chapter.id}-`)
-                    ? "location"
-                    : undefined
-                }
+                ariaCurrent={isCurrent ? "location" : undefined}
                 onJump={onPick}
               >
                 {body}
               </JumpLink>
-            )}
-            {isCurrent && chapter.sections.length > 0 && (
-              <ol className="rp-chap-secs">
-                {chapter.sections.map((s) => (
-                  <li key={s.id}>
-                    <JumpLink
-                      target={s.id}
-                      className={`rp-toc-link${active === s.id ? " on" : ""}`}
-                      ariaCurrent={active === s.id ? "location" : undefined}
-                      onJump={onPick}
-                    >
-                      {s.label}
-                    </JumpLink>
-                  </li>
-                ))}
-              </ol>
+            ) : (
+              <Link
+                href={entry.href}
+                className="rp-chap-link"
+                aria-current={isCurrent ? "page" : undefined}
+                onClick={onPick}
+              >
+                {body}
+              </Link>
             )}
           </li>
         );

@@ -17,16 +17,16 @@ import {
  * hash already in the URL, so the browser never runs its own scroll and the
  * reader lands at the top of the playbook instead of on their section.
  */
-export function LegacyHashRedirect({ client }: { client: string | null }) {
+export function LegacyHashRedirect() {
   useEffect(() => {
     const anchor = decodeURIComponent(window.location.hash.slice(1));
     const category = categoryOfAnchor(anchor);
     if (!category) {
       return;
     }
-    const path = playbookPath(category, client);
+    const path = playbookPath(category);
     window.location.replace(anchor === category ? path : `${path}#${anchor}`);
-  }, [client]);
+  }, []);
 
   return null;
 }

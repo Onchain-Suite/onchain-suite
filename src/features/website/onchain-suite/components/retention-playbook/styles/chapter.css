@@ -1,93 +1,53 @@
-/* /retention-playbook chapters: the opening (kicker, title, standfirst,
-   contents box), the TLDR, sections and the What / How / Why rows,
-   plus the Atlas-style contents rail. */
+/* /retention-playbook pages, Atlas proportions: one reading column, a title
+   and standfirst, the lead paragraphs, sections and the What / How / Why
+   rows, plus the playbook map in the rail. */
 
 .ns .rp-chapter {
-  padding: 72px 56px 32px;
-  border-bottom: 1px solid var(--line);
+  max-width: calc(690px + 2 * 56px);
+  padding: 72px 56px 24px;
   scroll-margin-top: calc(60px + 16px);
 }
-.ns .rp-chap-kicker {
-  margin: 0 0 14px;
-  font: 500 12px var(--mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent);
+
+.ns .rp-chap-head {
+  margin: 0 0 40px;
 }
 .ns .rp-chap-title {
   margin: 0;
-  font-weight: 600;
-  font-size: clamp(30px, 3.6vw, 44px);
-  line-height: 1.08;
+  font-weight: 500;
+  font-size: clamp(32px, 3.6vw, 42px);
+  line-height: 1.12;
   letter-spacing: -0.02em;
   text-wrap: balance;
 }
 .ns .rp-chap-dek {
-  margin: 14px 0 0;
-  max-width: 640px;
-  font-size: 18px;
-  line-height: 1.55;
+  margin: 16px 0 0;
+  font-size: 20px;
+  line-height: 1.5;
   color: var(--grey);
-}
-.ns .rp-contents {
-  max-width: 640px;
-  margin: 28px 0 32px;
-  padding: 16px 20px 18px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
-}
-.ns .rp-contents-k {
-  margin: 0 0 10px;
-  font: 500 11px var(--mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--grey);
-}
-.ns .rp-contents ol {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 6px;
-}
-.ns .rp-contents a {
-  font-size: 15px;
-  color: var(--soft);
-  transition: color 0.15s;
-}
-.ns .rp-contents a:hover {
-  color: var(--accent);
 }
 
-.ns .rp-tldr {
-  max-width: 700px;
-  margin: 0 0 28px;
-  padding: 20px 22px 6px;
-  border-left: 3px solid var(--accent);
-  border-radius: 0 12px 12px 0;
-  background: var(--cloud);
-}
-.ns .rp-tldr-k {
-  margin: 0 0 10px;
-  font: 600 11.5px var(--mono);
-  letter-spacing: 0.08em;
-  color: var(--accent);
+/* The opening paragraphs: the same column, no box and no label. */
+.ns .rp-lead {
+  margin: 0 0 8px;
 }
 
 .ns .rp-sec2 {
-  padding: 32px 0 16px;
+  padding: 40px 0 8px;
   scroll-margin-top: calc(60px + 16px);
 }
 .ns .rp-h3x {
   margin: 0 0 18px;
-  font-weight: 600;
-  font-size: clamp(21px, 2.2vw, 26px);
-  line-height: 1.2;
+  font-weight: 500;
+  font-size: clamp(22px, 2.2vw, 26px);
+  line-height: 1.25;
   letter-spacing: -0.01em;
 }
 .ns .rp-chapter .rp-p {
-  max-width: 660px;
+  max-width: 690px;
+  margin-bottom: 22px;
+  font-size: 20px;
+  line-height: 1.6;
+  color: var(--ink);
 }
 
 .ns .rp-whw-row {
@@ -103,9 +63,8 @@
 }
 .ns .rp-whw-k {
   margin: 4px 0 0;
-  font: 600 11.5px var(--mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--accent);
 }
 .ns .rp-whw-v > :last-child,
@@ -113,13 +72,50 @@
   margin-bottom: 0;
 }
 
-/* ---------- contents rail (Atlas style) ---------- */
+/* ---------- the next page, at the foot of each page ---------- */
+.ns .rp-nextpage {
+  max-width: calc(690px + 2 * 56px);
+  padding: 32px 56px 96px;
+}
+.ns .rp-nextpage-link {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  column-gap: 12px;
+  padding: 24px 0 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+}
+.ns .rp-nextpage-arrow {
+  grid-row: 1 / span 2;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  color: var(--grey);
+  transition: transform 0.2s;
+}
+.ns .rp-nextpage-link:hover .rp-nextpage-arrow {
+  transform: translateX(4px);
+  color: var(--accent);
+}
+.ns .rp-nextpage-label {
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.ns .rp-nextpage-line {
+  margin-top: 4px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--grey);
+}
+
+/* ---------- the playbook map (rail) ---------- */
 .ns .rp-chaps {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 .ns .rp-chap-link {
   display: grid;
@@ -130,10 +126,22 @@
   font-size: 14.5px;
   font-weight: 500;
   line-height: 1.35;
+  color: var(--grey);
+  transition: color 0.2s;
+}
+.ns .rp-chap-link:hover,
+.ns .rp-chap.is-current .rp-chap-link {
   color: var(--ink);
 }
-.ns .rp-chap-link:hover .rp-chap-label {
-  color: var(--accent);
+.ns .rp-chap-label {
+  display: grid;
+  gap: 2px;
+}
+.ns .rp-chap-line {
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--grey);
 }
 .ns .rp-chap-num {
   position: relative;
@@ -156,44 +164,6 @@
 .ns .rp-chap-circle .rp-ink {
   animation: rp-draw 0.8s cubic-bezier(0.35, 0.6, 0.25, 1) both;
 }
-.ns .rp-chap-secs {
-  list-style: none;
-  margin: 2px 0 10px 38px;
-  padding: 0;
-  display: grid;
-  gap: 1px;
-}
-.ns .rp-chap-secs .rp-toc-link {
-  display: block;
-  padding: 4px 0 4px 10px;
-  border-left: 2px solid var(--line);
-  font-size: 13.5px;
-  line-height: 1.35;
-  font-weight: 500;
-  color: var(--grey);
-  transition:
-    color 0.2s,
-    border-color 0.2s;
-}
-.ns .rp-chap-secs .rp-toc-link:hover {
-  color: var(--ink);
-}
-.ns .rp-chap-secs .rp-toc-link.on {
-  color: var(--ink);
-  border-left-color: var(--accent);
-}
-.ns .rp-rail-foot {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 22px 0 0;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-  font: 500 11px var(--mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--grey);
-}
 
 @keyframes rp-draw {
   from {
@@ -206,11 +176,14 @@
 
 @media (max-width: 1000px) {
   .ns .rp-chapter {
-    padding: 56px 20px 24px;
+    padding: 48px 20px 16px;
     scroll-margin-top: calc(60px + 49px + 14px);
   }
   .ns .rp-sec2 {
     scroll-margin-top: calc(60px + 49px + 14px);
+  }
+  .ns .rp-nextpage {
+    padding: 24px 20px 72px;
   }
 }
 @media (max-width: 640px) {
@@ -218,10 +191,10 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
-  .ns .rp-chap-dek {
-    font-size: 17px;
+  .ns .rp-chapter .rp-p {
+    font-size: 18px;
   }
-  .ns .rp-contents {
-    padding: 14px 16px;
+  .ns .rp-chap-dek {
+    font-size: 18px;
   }
 }

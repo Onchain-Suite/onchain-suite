@@ -18,31 +18,6 @@
 }
 
 /* ---------- playbook page top ---------- */
-/* Back to the landing page, and the "Prepared for" label a sent link carries.
-   Sits above the chapter on a playbook's own page. */
-.ns .rp-back {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 28px 0 4px;
-}
-.ns .rp-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--grey);
-  transition: color 0.2s;
-}
-.ns .rp-back-link:hover {
-  color: var(--ink);
-}
-.ns .rp-back-client {
-  margin: 0;
-}
 
 /* ---------- hero ---------- */
 /* No bottom padding: the hero window (hero-visual.css) sits on the line above
@@ -51,13 +26,7 @@
   text-align: center;
   padding: 72px 24px 0;
 }
-.ns .rp-eyebrow {
-  margin: 0 0 24px;
-}
-.ns .rp-eyebrow span::before {
-  content: "·";
-  margin-right: 6px;
-}
+
 .ns .rp-hero .h1 {
   font-size: clamp(38px, 5.4vw, 64px);
   max-width: 860px;
@@ -67,90 +36,6 @@
 }
 .ns .rp-hero-ctas {
   margin-top: 28px;
-}
-
-/* ---------- category cards ---------- */
-.ns .rp-cats {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-.ns .rp-cats > li {
-  display: flex;
-}
-.ns .rp-cat {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 20px 20px 18px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #fff;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s,
-    background 0.2s;
-}
-.ns .rp-cat:hover {
-  border-color: #c9d0ff;
-  box-shadow: 0 18px 40px -26px rgba(16, 24, 40, 0.32);
-}
-.ns .rp-cat-sec {
-  font: 500 11.5px var(--mono);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--grey);
-}
-.ns .rp-cat-label {
-  font-weight: 600;
-  font-size: 19px;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.ns .rp-cat-line {
-  flex: 1;
-  font-size: 14.5px;
-  line-height: 1.5;
-  color: var(--soft);
-}
-.ns .rp-cat-foot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  min-height: 22px;
-}
-.ns .rp-cat-arrow {
-  width: 20px;
-  height: 20px;
-  margin-left: auto;
-  color: var(--accent);
-  transition: transform 0.2s;
-}
-.ns .rp-cat:hover .rp-cat-arrow,
-.ns .rp-cat:focus-visible .rp-cat-arrow {
-  transform: translateX(4px);
-}
-.ns .rp-cats.is-compact .rp-cat {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: 12px;
-  row-gap: 2px;
-  align-items: center;
-  padding: 14px 16px;
-}
-.ns .rp-cats.is-compact .rp-cat-foot {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  margin: 0;
-}
-.ns .rp-cats.is-compact .rp-cat-label {
-  font-size: 16px;
 }
 
 /* ---------- glossary terms ---------- */
@@ -199,10 +84,5 @@
 @media (max-width: 1000px) {
   .ns .rp-hero {
     padding: 56px 20px 0;
-  }
-}
-@media (max-width: 640px) {
-  .ns .rp-cats {
-    grid-template-columns: minmax(0, 1fr);
   }
 }

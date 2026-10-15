@@ -14,6 +14,9 @@ export const CHAIN_LOGO_URLS = {
     "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1783871505/polygon-icon-primary-purple_omxayc.svg",
   arbitrum:
     "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1783871593/1225_Arbitrum_Logomark_FullColor_ClearSpace_qyvmbk.png",
+  // Sovren (sovr-1), a Cosmos chain. No Cloudinary asset — its brand mark
+  // (sovrentech.io favicon) is bundled locally under public/onchain/chains/.
+  sovren: "/onchain/chains/sovren.png",
 } as const;
 
 export type ChainLogoKey = keyof typeof CHAIN_LOGO_URLS;
@@ -59,5 +62,7 @@ export function getChainLogoUrl(chain: string): string | null {
     return CHAIN_LOGO_URLS.polygon;
   }
   if (normalized.startsWith("arb")) return CHAIN_LOGO_URLS.arbitrum;
+  // Sovren: slug `sovr-1`, alias `sovren`.
+  if (normalized.startsWith("sovr")) return CHAIN_LOGO_URLS.sovren;
   return null;
 }

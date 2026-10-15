@@ -116,6 +116,7 @@ import {
   buildCatalog,
   type CatalogEntry,
   CLIENT_TRIGGER_TYPES,
+  COSMOS_SOVREN_TRIGGER_TYPES,
   CURATED_ACTION_COPY,
   CURATED_TRIGGER_COPY,
   FIXED_ACTIONS,
@@ -778,9 +779,23 @@ const CreateAutomationContent = () => {
         }),
     [filteredTriggerCatalog, svmByTriggerType, flowChain]
   );
+  // Cosmos / Sovren triggers (Custom Events API) get their own palette group so
+  // they're discoverable as "the Sovren triggers" instead of being lost among
+  // the generic off-chain triggers.
+  const filteredSovrenTriggers = useMemo(
+    () =>
+      filteredTriggerCatalog.filter((t) =>
+        COSMOS_SOVREN_TRIGGER_TYPES.has(t.type)
+      ),
+    [filteredTriggerCatalog]
+  );
   const filteredOffchainTriggers = useMemo(
     () =>
-      filteredTriggerCatalog.filter((t) => !ON_CHAIN_TRIGGER_TYPES.has(t.type)),
+      filteredTriggerCatalog.filter(
+        (t) =>
+          !ON_CHAIN_TRIGGER_TYPES.has(t.type) &&
+          !COSMOS_SOVREN_TRIGGER_TYPES.has(t.type)
+      ),
     [filteredTriggerCatalog]
   );
   const filteredActionCatalog = useMemo(
@@ -3037,6 +3052,11 @@ const CreateAutomationContent = () => {
                       nodes={filteredOnchainTriggers}
                     />
                     <NodeLibrarySection
+                      title="Cosmos / Sovren"
+                      accent="violet"
+                      nodes={filteredSovrenTriggers}
+                    />
+                    <NodeLibrarySection
                       title="Off-chain triggers"
                       accent="sky"
                       nodes={filteredOffchainTriggers}
@@ -3288,9 +3308,17 @@ const CreateAutomationContent = () => {
                             ),
                           },
                           {
+                            title: "Cosmos / Sovren",
+                            items: triggerCatalog.filter((t) =>
+                              COSMOS_SOVREN_TRIGGER_TYPES.has(t.type)
+                            ),
+                          },
+                          {
                             title: "Off-chain triggers",
                             items: triggerCatalog.filter(
-                              (t) => !ON_CHAIN_TRIGGER_TYPES.has(t.type)
+                              (t) =>
+                                !ON_CHAIN_TRIGGER_TYPES.has(t.type) &&
+                                !COSMOS_SOVREN_TRIGGER_TYPES.has(t.type)
                             ),
                           },
                         ] as const
@@ -4349,6 +4377,18 @@ const CreateAutomationContent = () => {
                                 field.type === "textarea" ||
                                 field.type === "multiline" ||
                                 field.type === "long_text";
+                              // Custom Event trigger: suggest the org's recent
+                              // event names (POST /events, last 30 days) on the
+                              // event-name field, while still allowing a name
+                              // that hasn't been ingested yet (free text).
+                              const eventNameSuggestions =
+                                field.key === "event" && selectedIsTrigger
+                                  ? (eventsCatalogQuery.data ?? [])
+                                  : [];
+                              const eventListId =
+                                eventNameSuggestions.length > 0
+                                  ? `events-${selectedNode ?? "node"}-${field.key}`
+                                  : undefined;
 
                               return (
                                 <div key={field.key} className="space-y-2">
@@ -4369,27 +4409,37 @@ const CreateAutomationContent = () => {
                                       }
                                     />
                                   ) : (
-                                    <input
-                                      type={inputType}
-                                      className={PROPERTY_INPUT_CLASS}
-                                      placeholder={field.placeholder}
-                                      value={
-                                        rawValue === undefined ||
-                                        rawValue === null
-                                          ? ""
-                                          : String(rawValue)
-                                      }
-                                      onChange={(e) =>
-                                        updateSchemaFieldValue(
-                                          field,
-                                          inputType === "number"
-                                            ? e.target.value === ""
-                                              ? ""
-                                              : Number(e.target.value)
-                                            : e.target.value
-                                        )
-                                      }
-                                    />
+                                    <>
+                                      <input
+                                        type={inputType}
+                                        className={PROPERTY_INPUT_CLASS}
+                                        placeholder={field.placeholder}
+                                        list={eventListId}
+                                        value={
+                                          rawValue === undefined ||
+                                          rawValue === null
+                                            ? ""
+                                            : String(rawValue)
+                                        }
+                                        onChange={(e) =>
+                                          updateSchemaFieldValue(
+                                            field,
+                                            inputType === "number"
+                                              ? e.target.value === ""
+                                                ? ""
+                                                : Number(e.target.value)
+                                              : e.target.value
+                                          )
+                                        }
+                                      />
+                                      {eventListId ? (
+                                        <datalist id={eventListId}>
+                                          {eventNameSuggestions.map((name) => (
+                                            <option key={name} value={name} />
+                                          ))}
+                                        </datalist>
+                                      ) : null}
+                                    </>
                                   )}
                                   {field.description ? (
                                     <p className={PROPERTY_HINT_CLASS}>

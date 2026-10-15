@@ -7,6 +7,7 @@ import {
   parseCategory,
   playbookPath,
 } from "./retention-playbook-params";
+import { CATEGORIES } from "@/onchain-suite-website/data/retention-playbook";
 
 describe("playbookPath and categoryOfSlug", () => {
   it("gives each sector its own page", () => {
@@ -64,5 +65,19 @@ describe("parseCategory", () => {
   it("narrows strings with isCategoryId", () => {
     expect(isCategoryId("defi")).toBe(true);
     expect(isCategoryId("DeFi")).toBe(false);
+  });
+});
+
+describe("strategy names", () => {
+  it("gives each strategy a short sector name for the tiles", () => {
+    expect(CATEGORIES.map((c) => c.sector)).toEqual([
+      "Perp DEXs",
+      "Prediction markets",
+      "DeFi",
+    ]);
+    // The tiles show the sector; the full name stays for screen readers.
+    expect(
+      CATEGORIES.every((c) => c.label.endsWith("growth and retention strategy"))
+    ).toBe(true);
   });
 });

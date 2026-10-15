@@ -25,7 +25,10 @@ export interface CategoryCard {
   id: CategoryId;
   /** The page's path segment: /retention-playbook/<slug>. */
   slug: string;
+  /** The strategy's full name, e.g. "Perp DEX growth and retention strategy". */
   label: string;
+  /** The sector alone, for the tiles under the hero, e.g. "Perp DEXs". */
+  sector: string;
   line: string;
 }
 

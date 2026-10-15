@@ -104,7 +104,8 @@ function BoxesWide({ items, rand }: { items: Item[]; rand: Rand }) {
   const bh = 58;
   const n = items.length;
   const bw = (WIDE - pad * 2 - gap * (n - 1)) / n;
-  const labels = items.map((it) => wrapLines(it.label, Math.floor(bw / 9.5)));
+  // The hand font runs up to about 11px a character at size 21.
+  const labels = items.map((it) => wrapLines(it.label, Math.floor(bw / 11)));
   const notes = items.map((it) =>
     it.note ? wrapLines(it.note, Math.floor(bw / 6.8)) : []
   );
@@ -162,7 +163,7 @@ function BoxesNarrow({ items, rand }: { items: Item[]; rand: Rand }) {
   const gap = 26;
   let y = 8;
   const rows = items.map((it) => {
-    const labels = wrapLines(it.label, 12);
+    const labels = wrapLines(it.label, 11);
     const notes = it.note ? wrapLines(it.note, 22) : [];
     const bh = Math.max(46, labels.length * 22 + 18);
     const rowH = Math.max(bh, notes.length * 17 + 8);
@@ -230,8 +231,17 @@ function TimelineWide({
   const n = points.length;
   const step = n > 1 ? (x1 - x0 - 40) / (n - 1) : 0;
   const xs = points.map((_, i) => (n > 1 ? x0 + 20 + i * step : WIDE / 2));
-  const chars = Math.max(12, Math.floor((n > 1 ? step : 300) / 7.2));
+  // A label may use 80% of the gap between ticks, at the hand font's real
+  // width (about 7.6px a character at size 16), so neighbours never touch.
+  const chars = Math.max(10, Math.floor(((n > 1 ? step : 300) * 0.8) / 7.6));
   const labels = points.map((p) => wrapLines(p.label, chars));
+  // Each label is centred on its tick, but kept inside the drawing: the first
+  // and last ticks sit 44px from the edges, closer than half a long label.
+  // The hand font runs about 7.6px a character at size 16.
+  const labelXs = labels.map((lines, i) => {
+    const half = (Math.max(...lines.map((l) => l.length)) * 7.6) / 2 + 4;
+    return Math.min(Math.max(xs[i], half), WIDE - half);
+  });
   const h = lineY + 34 + Math.max(...labels.map((l) => l.length)) * 17 + 8;
   return (
     <Svg w={WIDE} h={h} wide>
@@ -250,7 +260,7 @@ function TimelineWide({
             i={i + 1}
           />
           <Words
-            x={xs[i]}
+            x={labelXs[i]}
             y={lineY + 32}
             lines={labels[i]}
             size={16}

@@ -68,6 +68,27 @@ export const DEFI: PlaybookChapter = {
           text: "A wallet that connects and deposits nothing has usually not seen a market that fits what it already holds. We show it that one market, chosen from the assets in the wallet. After the first deposit, one message explains what the position does and what to watch, whether that is a rate, a range or a health factor.",
         },
         {
+          kind: "artifact",
+          code: "03.01",
+          title: "From a connected wallet to a monthly statement",
+          diagram: {
+            type: "flow",
+            nodes: [
+              { label: "Wallet connects", note: "nothing deposited" },
+              { label: "One market", note: "fits what it holds" },
+              {
+                label: "First deposit",
+                note: "supply, stake or add liquidity",
+              },
+              { label: "What to watch", note: "a rate, a range or health" },
+              {
+                label: "Monthly statement",
+                note: "what it earned, in dollars",
+              },
+            ],
+          },
+        },
+        {
           kind: "p",
           text: "From then on, active depositors get a statement on the first of each month with what their position earned last month, in dollars. It is the simplest reason to stay: a number they can check.",
         },
@@ -84,6 +105,28 @@ export const DEFI: PlaybookChapter = {
         {
           kind: "p",
           text: "So the alert comes from the position, never from a calendar. When a borrower's health factor falls below the level you set for that collateral, in-app and email go out together with their current health, the price that would trigger liquidation, and how to add collateral or repay. It stops when health is back above the level, and it always sends, whatever the frequency cap.",
+        },
+        {
+          kind: "artifact",
+          code: "03.02",
+          title: "A loan's health falling, and where the alert sits",
+          diagram: {
+            type: "ladder",
+            steps: [
+              { label: "Health 2.0", note: "comfortable" },
+              { label: "Health 1.5", note: "the price is moving" },
+              {
+                label: "Your alert level",
+                note: "set per collateral; in-app and email",
+                tone: "orange",
+              },
+              {
+                label: "Health 1.0",
+                note: "liquidation, within about ten blocks",
+                tone: "navy",
+              },
+            ],
+          },
         },
         {
           kind: "p",
@@ -116,6 +159,21 @@ export const DEFI: PlaybookChapter = {
         {
           kind: "p",
           text: "When someone withdraws more than half their deposit, they get one question on why. Fourteen days later, if nothing has come back, they hear what has changed since. A wallet that withdraws everything gets the same question and the same follow-up, and then we leave it alone.",
+        },
+        {
+          kind: "artifact",
+          code: "03.03",
+          title: "The Loop after a large withdrawal",
+          diagram: {
+            type: "flow",
+            nodes: [
+              { label: "Withdraws half", note: "or more of the deposit" },
+              { label: "One question", note: "what could we do better?" },
+              { label: "14 days", note: "nothing back" },
+              { label: "What changed", note: "since they left" },
+              { label: "New deposit", note: "the Loop stops" },
+            ],
+          },
         },
         {
           kind: "p",

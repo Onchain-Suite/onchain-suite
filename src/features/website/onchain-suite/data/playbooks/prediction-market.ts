@@ -76,6 +76,27 @@ export const PREDICTION_MARKET: PlaybookChapter = {
           kind: "p",
           text: "Take Ada. She signs up during a football final, deposits, and the next day takes one of the three football markets we showed her. On day three it resolves and she has lost. She gets the result, her balance and a link to deposit limits, and nothing else. A week later a new market opens in the league she traded, and she hears about it in one line.",
         },
+        {
+          kind: "artifact",
+          code: "02.01",
+          title: "Ada, from sign-up to coming back",
+          diagram: {
+            type: "timeline",
+            points: [
+              { when: "Day 0", label: "Signs up during a football final" },
+              { when: "Day 1", label: "Takes one football market" },
+              {
+                when: "Day 3",
+                label: "Loses; gets the result and limits, nothing else",
+              },
+              {
+                when: "Day 10",
+                label: "Hears about a new market in her league",
+              },
+              { when: "Day 24", label: "Back with the next fixtures" },
+            ],
+          },
+        },
       ],
     },
     {
@@ -85,6 +106,21 @@ export const PREDICTION_MARKET: PlaybookChapter = {
         {
           kind: "p",
           text: "On Polymarket, results settle through UMA. An undisputed result settles after a two-hour challenge window, and a disputed one takes four to six days. Without a message, a user holding a disputed market just sees their money stuck.",
+        },
+        {
+          kind: "artifact",
+          code: "02.02",
+          title: "How a disputed result settles on Polymarket",
+          diagram: {
+            type: "flow",
+            nodes: [
+              { label: "Market closes" },
+              { label: "Result proposed", note: "through UMA" },
+              { label: "Two-hour window", note: "anyone can challenge" },
+              { label: "Under review", note: "4 to 6 days, one email" },
+              { label: "Settles", note: "result the same day" },
+            ],
+          },
         },
         {
           kind: "p",
@@ -103,6 +139,26 @@ export const PREDICTION_MARKET: PlaybookChapter = {
         {
           kind: "p",
           text: "After 60 days quiet, a user gets one good reason to come back. Then we leave them alone.",
+        },
+        {
+          kind: "artifact",
+          code: "02.03",
+          title: "Where a user can be, from funded to dormant",
+          diagram: {
+            type: "ladder",
+            steps: [
+              { label: "Funded", note: "deposited" },
+              { label: "First position", note: "holds one market" },
+              { label: "First result", note: "a market resolved" },
+              { label: "Regular", note: "two or more cycles" },
+              {
+                label: "Between events",
+                note: "14 days, no position",
+                tone: "orange",
+              },
+              { label: "Dormant", note: "60 days quiet", tone: "grey" },
+            ],
+          },
         },
         {
           kind: "p",

@@ -7,7 +7,6 @@ import { handFont } from "@/onchain-suite-website/components/retention-playbook/
 import { PlaybookHeader } from "@/onchain-suite-website/components/retention-playbook/playbook-header";
 import { ReadingProgress } from "@/onchain-suite-website/components/retention-playbook/reading-progress";
 import { PlaybookHero } from "@/onchain-suite-website/components/retention-playbook/sections/playbook-hero";
-import { StrategyLinks } from "@/onchain-suite-website/components/retention-playbook/strategy-links";
 import { StrategyTiles } from "@/onchain-suite-website/components/retention-playbook/strategy-tiles";
 import { NsShell } from "@/onchain-suite-website/components/site/ns-shell";
 import { SUMMARY } from "@/onchain-suite-website/data/retention-playbook";
@@ -15,8 +14,7 @@ import { SUMMARY } from "@/onchain-suite-website/data/retention-playbook";
 /**
  * /retention-playbook: the landing page. The hero, then the short case for
  * retention on-chain in one centred column, with no rail. The three growth
- * and retention strategies appear twice: as tiles under the hero, and as a
- * list at the foot for readers who reach the end.
+ * and retention strategies are the tiles under the hero.
  */
 export function RetentionPlaybookPage() {
   return (
@@ -31,7 +29,6 @@ export function RetentionPlaybookPage() {
           <StrategyTiles />
           <div className="rp-solo">
             <ChapterShell chapter={SUMMARY} showHead={false} />
-            <StrategyLinks />
           </div>
         </div>
         <Annotator />

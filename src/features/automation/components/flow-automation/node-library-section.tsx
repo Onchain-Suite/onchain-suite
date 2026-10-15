@@ -37,6 +37,14 @@ const NODE_ACCENTS = {
     hover: "hover:border-indigo-500/50",
     dot: "bg-indigo-500",
   },
+  // Cosmos / Sovren triggers (Custom Events API). Violet to match the Sovren
+  // brand mark and stay distinct from the on-chain (orange) and off-chain (sky)
+  // trigger groups.
+  violet: {
+    tile: "border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-400",
+    hover: "hover:border-violet-500/50",
+    dot: "bg-violet-500",
+  },
 } as const;
 
 /** A draggable, color-accented group of builder nodes in the left library. */

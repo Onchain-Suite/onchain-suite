@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCatalog,
+  COSMOS_SOVREN_TRIGGER_TYPES,
   CURATED_TRIGGER_COPY,
   FIXED_TRIGGERS,
   humanizeNodeType,
@@ -129,6 +130,24 @@ describe("trigger classification sets", () => {
       "sovren_rewards_claimed",
     ]) {
       expect(NON_ONCHAIN_TRIGGER_TYPES.has(type)).toBe(true);
+      expect(ON_CHAIN_TRIGGER_TYPES.has(type)).toBe(false);
+    }
+  });
+
+  it("gives Cosmos/Sovren triggers their own palette group, disjoint from on-chain", () => {
+    // The group drives a dedicated "Cosmos / Sovren" section in the builder
+    // palette. It must be exactly the custom-event family and must not overlap
+    // the on-chain group (which routes to the EVM contract panel).
+    expect([...COSMOS_SOVREN_TRIGGER_TYPES].sort()).toEqual(
+      [
+        "custom_event",
+        "sovren_license_activated",
+        "sovren_license_assigned",
+        "sovren_license_reserve_issued",
+        "sovren_rewards_claimed",
+      ].sort()
+    );
+    for (const type of COSMOS_SOVREN_TRIGGER_TYPES) {
       expect(ON_CHAIN_TRIGGER_TYPES.has(type)).toBe(false);
     }
   });

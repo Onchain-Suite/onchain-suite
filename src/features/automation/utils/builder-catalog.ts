@@ -87,6 +87,23 @@ export const GENERIC_ONCHAIN_TRIGGER_TYPES = new Set([
 ]);
 
 /**
+ * Cosmos / Sovren triggers (Custom Events API). Sovren (sovr-1) is a Cosmos
+ * chain with no contracts, so it reaches automations through POST /events, not
+ * the contract-watching on-chain path. These get their OWN palette group so
+ * users find them instead of hunting the generic off-chain bucket: the generic
+ * Custom Event trigger plus the four Sovren presets. Kept separate from both
+ * ON_CHAIN_TRIGGER_TYPES (which routes to the EVM contract panel) and the
+ * off-chain group (where they are not discoverable as "the Sovren triggers").
+ */
+export const COSMOS_SOVREN_TRIGGER_TYPES = new Set([
+  "custom_event",
+  "sovren_license_assigned",
+  "sovren_license_reserve_issued",
+  "sovren_license_activated",
+  "sovren_rewards_claimed",
+]);
+
+/**
  * Curated copy (nicer labels/descriptions) for the trigger types the backend
  * catalog exposes - see docs/backend.md `GET /automations/builder/triggers`.
  *

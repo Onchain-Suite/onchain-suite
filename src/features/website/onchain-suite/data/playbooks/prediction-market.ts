@@ -1,4 +1,5 @@
-/* Chapter 02: the prediction market playbook.
+/* The prediction market growth and retention strategy, written as prose:
+   one short chapter per moment that decides whether a user comes back.
    Evidence, checked 14 October 2026:
    - Polymarket open interest $510M (Nov 2024) to $120M (Dec 2024); monthly
      traders kept rising: The Block, 3 Jan and 6 Feb 2025.
@@ -11,14 +12,13 @@
      days when disputed; redemption has no deadline: docs.polymarket.com.
    - ASA ruling against an ad that trivialised betting again after a loss,
      8 Apr 2026; CAP Code s.16; UKGC on prediction markets, 4 Feb 2026.
-   - The Oracle newsletter, "over 90,000 subscribers": news.polymarket.com. */
+   - The Oracle newsletter, "over 90,000 subscribers": news.polymarket.com.
+   - Apple Mail opens emails by itself (62.26% of opens, July 2026: Litmus).
+   Section ids that existed before the rewrite (says, campaigns,
+   retention-triggers, newsletter, measure, platform, need) are kept, so deep
+   links already sent still land on the matching section. */
 
-import {
-  BASE_QUESTIONS,
-  MEASURE_NOTE,
-  platformSection,
-  RULES_LINE,
-} from "@/onchain-suite-website/data/playbooks/shared";
+import { DISCLOSURE } from "@/onchain-suite-website/data/retention-playbook";
 import type { PlaybookChapter } from "@/onchain-suite-website/types/retention-playbook";
 
 export const PREDICTION_MARKET: PlaybookChapter = {
@@ -27,506 +27,161 @@ export const PREDICTION_MARKET: PlaybookChapter = {
   title: "Prediction market growth and retention strategy",
   dek: "How email and in-app keep a forecaster coming back after the market they came for has resolved.",
   tldr: [
-    "Prediction markets win users around events and lose them between events. After the 2024 US election, Polymarket's open interest fell from $510M to $120M in a month, while its monthly traders kept rising. The users stayed curious. The capital left.",
-    "The moment that decides whether a user returns is their first result, and the riskiest is their first loss. In Galaxy's study of 2.9 million retail accounts, ==15.2% stopped trading within 30 days of a loss, against 6.1% after a win==.",
-    `This strategy sets out how email and in-app change that, in five parts: campaigns, automation, lifecycle, retention triggers and the newsletter. ${RULES_LINE}`,
+    "Prediction markets win users around events and lose them in between. After the 2024 US election, Polymarket's open interest fell from $510M to $120M in a month, according to The Block, while its monthly traders kept rising. People stayed curious, and the money left.",
+    "Whether someone comes back is decided by their first result, and the riskiest result is a loss. In Galaxy's study of 2.9 million retail accounts, ==15.2% stopped trading within 30 days of a loss, against 6.1% after a win==. So this strategy is built around four moments: the first position, the first result, a disputed market, and the gap between one event and the next.",
+    "At each one, an email or an in-app message starts from what the user just did, and stops as soon as they act.",
   ],
   sections: [
     {
       id: "says",
-      title: "What email says, and what it never says",
+      title: "What we never send",
       blocks: [
         {
-          kind: "says",
-          always: [
-            "The result, the payout and the date, as the market settled them",
-            "A market's real close time as the only deadline",
-            "Dispute timelines as the resolution source publishes them",
-            "Who can trade a market, before anyone is invited into it",
-          ],
-          never: [
-            '"Win it back", "get even", "you\'re due", or any nudge after a loss',
-            '"Risk-free", "guaranteed", "free money" or "big payout"',
-            "Expiry language on winnings that do not expire",
-            'Urgency such as "before the odds move"',
-            "Skill-not-gambling framing to readers in the UK",
-            "Any promotion to a blocked or self-excluded user",
-          ],
+          kind: "p",
+          text: "A prediction market sits close to gambling rules, especially in the UK. In February 2026 the Gambling Commission set out how it sees prediction markets, and in April the ASA ruled against an ad that made light of betting again after a loss. So every message is written as if the regulator will read it.",
         },
         {
-          kind: "note",
-          text: "After a loss, the message is the result and the tools. Nothing else.",
+          kind: "p",
+          text: 'We never say "win it back", "get even" or "you\'re due", and nothing nudges a user after a loss. We never call a market risk-free, guaranteed, free money or a big payout. Winnings that do not expire are never written as if they do, and there is no urgency such as "before the odds move". Readers in the UK never get skill-not-gambling framing, and nobody blocked or self-excluded gets a promotion.',
+        },
+        {
+          kind: "p",
+          text: "What we do send is the record: the result, the payout and the date, as the market settled them. A market's real close time is the only deadline we mention, dispute timelines come from the resolution source, and we say who can trade a market before inviting anyone in. Every message goes to a segment and carries one link, and promotion only reaches people who agreed to it.",
+        },
+      ],
+    },
+    {
+      id: "first-position",
+      title: "The first position",
+      blocks: [
+        {
+          kind: "p",
+          text: "Someone who deposits and does not pick a market within a day usually has not found one they care about yet. While they are in the app, we show them three open markets in topics they have browsed. If 24 hours pass with no position, one email explains how a market works, from position to payout. Both stop when they open a position.",
+        },
+      ],
+    },
+    {
+      id: "retention-triggers",
+      title: "The first result",
+      blocks: [
+        {
+          kind: "p",
+          text: "A market resolving is when a user finds out what this was like. If they won, they get the result and one button to claim, in-app if they are active and by email if it is still unread two hours later. If the winnings are unclaimed after 48 hours, a reminder gives the amount and says plainly that it does not expire, because on Polymarket it never does.",
+        },
+        {
+          kind: "p",
+          text: "If they lost, they get an email with the result and their balance, and a link to deposit limits and account tools. Nothing in it invites a new position. Users leave at two and a half times the rate after a loss, so this is the message that matters most, and the one a regulator would look at first. A clear, factual result keeps their trust without crossing that line.",
+        },
+        {
+          kind: "p",
+          text: "Take Ada. She signs up during a football final, deposits, and the next day takes one of the three football markets we showed her. On day three it resolves and she has lost. She gets the result, her balance and a link to deposit limits, and nothing else. A week later a new market opens in the league she traded, and she hears about it in one line.",
+        },
+      ],
+    },
+    {
+      id: "disputed",
+      title: "When a market is disputed",
+      blocks: [
+        {
+          kind: "p",
+          text: "On Polymarket, results settle through UMA. An undisputed result settles after a two-hour challenge window, and a disputed one takes four to six days. Without a message, a user holding a disputed market just sees their money stuck.",
+        },
+        {
+          kind: "p",
+          text: "So when a market they hold is disputed, they get one email: what a dispute is, how long reviews usually take, and where to follow it, with a banner on the market page as the fallback. The result follows the day it settles. When a market's rules are clarified, holders get the change in plain words.",
+        },
+      ],
+    },
+    {
+      id: "quiet",
+      title: "Between events",
+      blocks: [
+        {
+          kind: "p",
+          text: "Most users arrive for one event. When someone has held one position and done nothing for 14 days, we send the upcoming markets in the same topic, with their close dates, and stop when they open a new position. When a market opens in a topic they have traded, they hear about it in one line on why it matters, at most once a day.",
+        },
+        {
+          kind: "p",
+          text: "After 60 days quiet, a user gets one good reason to come back. Then we leave them alone.",
+        },
+        {
+          kind: "p",
+          text: "Retention has to be read by size as well as by count. Between January and June 2025, The Block found Polymarket's active traders fell 47.6% while the average position per account rose from $2.7K to $4.8K. Fewer people were putting in more each, and a single blended retention number would have hidden it.",
         },
       ],
     },
     {
       id: "campaigns",
-      title: "Campaigns",
-      whw: {
-        what: "A campaign is one message sent to a chosen segment at a set moment, because something is happening they should hear about. For a prediction market, that moment is almost always an event on the calendar.",
-        how: [
-          {
-            kind: "p",
-            text: "We run campaigns around events with a fixed date, and only to people who traded that topic or asked to hear about it.",
-          },
-          {
-            kind: "table",
-            head: ["Campaign", "Goes to", "Says", "One button"],
-            rows: [
-              [
-                "Event opener",
-                "Anyone who traded the topic in the last 90 days, or follows it",
-                "The flagship market for the event, its close time and how it resolves",
-                "See the market",
-              ],
-              [
-                "Resolution week",
-                "Holders of positions in the event's markets",
-                "When each market resolves, the resolution source, and what happens if it is disputed",
-                "See my positions",
-              ],
-              [
-                "Event recap",
-                "Everyone who traded the event",
-                "Their markets, their results and the next event in the same topic",
-                "Follow the topic",
-              ],
-            ],
-          },
-        ],
-        why: "Event attention fades fast. The day after the 2024 US election, Polymarket's volume fell 84% and its daily users 53%. A recap that names the next event in the same topic, sent while the last one is fresh, turns a one-off visit into a habit.",
-      },
-    },
-    {
-      id: "automation",
-      title: "Automation",
-      whw: {
-        what: "An automated message sends itself to one person when they do something, or stop doing something, and stops as soon as they take the step it asks for. In OnchainSuite these are Loops.",
-        how: [
-          {
-            kind: "loops",
-            loops: [
-              {
-                name: "First position",
-                startsWhen: "Deposited, no position after 24 hours",
-                sends:
-                  "In-app: three open markets in topics they browsed. Email: how a market works, from position to payout",
-                stopsWhen: "First position",
-              },
-              {
-                name: "Market resolved",
-                startsWhen: "A market they hold resolves",
-                sends:
-                  "The result and, if they won, one button to claim. No offer attached",
-                stopsWhen: "Single message",
-              },
-              {
-                name: "Unclaimed winnings",
-                startsWhen:
-                  "Winnings still unclaimed 48 hours after resolution",
-                sends:
-                  "A reminder with the amount, and that it does not expire",
-                stopsWhen: "Claimed",
-              },
-              {
-                name: "Under review",
-                startsWhen: "A market they hold is disputed",
-                sends:
-                  "What a dispute is, the usual timeline, and where to follow it",
-                stopsWhen: "The market settles",
-              },
-              {
-                name: "Your topics",
-                startsWhen: "A new market opens in a topic they traded",
-                sends:
-                  "The new market and one line on why it matters. At most one a day",
-                stopsWhen: "Single message",
-              },
-              {
-                name: "One-event users",
-                startsWhen: "One position, then nothing for 14 days",
-                sends:
-                  "Upcoming markets in the same topic, with their close dates",
-                stopsWhen: "New position",
-              },
-            ],
-          },
-          {
-            kind: "p",
-            text: "On Polymarket, positions are ERC-1155 tokens on Polygon and resolution runs through UMA on-chain, so OnchainSuite can watch both directly. On an off-chain venue, the same events come in from your backend through the Automation Trigger API.",
-          },
-        ],
-        why: "Thousands of people sit at different points at once, and nobody can message each one at the right moment by hand. Automation does it, and because each Loop stops on the action, nobody gets chased for something they already did.",
-      },
-    },
-    {
-      id: "lifecycle",
-      title: "Lifecycle",
-      whw: {
-        what: "Lifecycle is the path from first visit to regular forecaster. We split it into stages and always know which stage each person is in, worked out from what they did, never set by hand.",
-        how: [
-          {
-            kind: "artifact",
-            code: "02.01",
-            title: "The forecaster lifecycle",
-            diagram: {
-              type: "ladder",
-              steps: [
-                { label: "Funded", note: "deposited, no position yet" },
-                { label: "First position", note: "holds one market" },
-                { label: "First result", note: "a market they held resolved" },
-                {
-                  label: "Regular",
-                  note: "positions across 2+ resolution cycles",
-                },
-                {
-                  label: "Between events",
-                  note: "no new position in 14 days",
-                  tone: "orange",
-                },
-                { label: "Dormant", note: "60 days quiet", tone: "grey" },
-              ],
-            },
-          },
-          {
-            kind: "table",
-            head: ["Stage", "What it means", "The message's job"],
-            rows: [
-              [
-                "Funded",
-                "Deposited, no position yet",
-                "Show three markets they would care about",
-              ],
-              [
-                "First position",
-                "Holds one market",
-                "Explain how it resolves and when",
-              ],
-              [
-                "First result",
-                "A market they held has resolved",
-                "Deliver the result cleanly, win or lose",
-              ],
-              [
-                "Regular",
-                "Positions across two or more resolution cycles",
-                "New markets in their topics, and the newsletter",
-              ],
-              [
-                "Between events",
-                "No new position in 14 days",
-                "The next dated event in a topic they traded",
-              ],
-              [
-                "Dormant",
-                "60 days quiet",
-                "One good reason to return, then rest",
-              ],
-            ],
-          },
-          {
-            kind: "path",
-            name: "One user's path: Ada",
-            steps: [
-              {
-                when: "Day 0",
-                what: "Ada signs up with her email during a football final and deposits.",
-              },
-              {
-                when: "Day 1",
-                what: "No position yet. The First position Loop shows her three open football markets in-app. She takes one.",
-              },
-              {
-                when: "Day 3",
-                what: "Her market resolves and she lost. She gets the result, her balance and a link to deposit limits. Nothing invites a new position.",
-              },
-              {
-                when: "Day 10",
-                what: "A new market opens in the league she traded. One email, one line on why it matters.",
-              },
-              {
-                when: "Day 24",
-                what: "Nothing since. The One-event users Loop sends the next fixtures with their close dates. She opens a position and is a Regular again.",
-              },
-            ],
-          },
-        ],
-        why: "One blended retention number hides what is happening. Between January and June 2025, Polymarket's active traders fell 47.6% while the average position per account rose from $2.7K to $4.8K: fewer people, bigger positions. Stages, read by size, show which of the two you are looking at.",
-      },
-    },
-    {
-      id: "retention-triggers",
-      title: "Retention triggers",
-      whw: {
-        what: "A retention trigger is a single message sent the same day something happens to a user's positions. These are service messages: no offer, no forecast.",
-        how: [
-          {
-            kind: "table",
-            head: ["Moment", "What it says", "Channel"],
-            rows: [
-              [
-                "Market resolved, user won",
-                "The result, the payout and one button to claim",
-                "In-app if they are active, email otherwise",
-              ],
-              [
-                "Market resolved, user lost",
-                "The result and their balance, with a link to limits and tools. Nothing that invites a new position",
-                "Email",
-              ],
-              [
-                "Market disputed",
-                "That it is under review, how long reviews usually take, and where to follow it",
-                "Email",
-              ],
-              [
-                "Winnings unclaimed",
-                "The amount waiting, and that it does not expire",
-                "In-app, then email after 48 hours",
-              ],
-              [
-                "Rules clarified",
-                "What changed in a market they hold, in plain words",
-                "Email",
-              ],
-            ],
-          },
-          {
-            kind: "callout",
-            tone: "warning",
-            title: "Two rules we never bend",
-            items: [
-              "A service message never carries an offer.",
-              "After a loss we share the result and nothing else. We never use win-it-back language.",
-            ],
-          },
-          {
-            kind: "note",
-            text: "15.2% churn after a loss, 6.1% after a win. This is the message that matters most.",
-          },
-        ],
-        why: "The first loss is where users leave, at 2.5 times the rate after a win. It is also where regulators look hardest: in April 2026 the UK's ASA banned an ad for making light of betting again after a loss. A clear, factual result keeps trust without crossing that line. Disputes need their own message too: a disputed market on Polymarket takes four to six days to settle, against about two hours when nobody disputes it.",
-      },
+      title: "Events worth sending",
+      blocks: [
+        {
+          kind: "p",
+          text: "Campaigns follow the calendar, and only go to people who traded the topic or asked to hear about it. When an event opens, anyone who traded the topic in the last 90 days, or follows it, hears about the flagship market, its close time and how it resolves. In the week its markets resolve, holders hear when each one resolves, the resolution source, and what happens if it is disputed. Afterwards, everyone who traded the event gets a recap of their markets, their results and the next event in the same topic.",
+        },
+        {
+          kind: "p",
+          text: "The recap matters most, because attention fades fast. The day after the 2024 US election, DL News found Polymarket's volume fell 84% and its daily users 53%. A recap that names the next event, sent while the last one is fresh, is how a one-off visit becomes a habit.",
+        },
+      ],
     },
     {
       id: "newsletter",
-      title: "Newsletter",
-      whw: {
-        what: "One email a week to everyone who confirmed their address and opted in to news.",
-        how: [
-          {
-            kind: "list",
-            ordered: true,
-            items: [
-              "**The week in one line.** Markets resolved, markets opening and the biggest moves, with the date we checked.",
-              "**Three markets closing this week.** The question, the close time and how it resolves.",
-              "**Three new markets** in the topics this reader trades.",
-              "**How resolution works.** One short explainer: a dispute, a rules change, an oracle.",
-              "**The calendar.** Fixed dates in the next four weeks.",
-            ],
-          },
-          {
-            kind: "p",
-            text: "350 to 450 words, one main button, and the same blocks every week, so one person can build it in two hours. It goes to engaged readers first.",
-          },
-          {
-            kind: "note",
-            text: "Polymarket's own newsletter has over 90,000 subscribers. Readers want the context, not only the odds.",
-          },
-        ],
-        why: "It keeps people warm between events, so the next one does not land on someone who has forgotten you. The explainer block answers the loudest complaint, how markets resolve, before it becomes a support ticket.",
-      },
-    },
-    {
-      id: "channels",
-      title: "Email and in-app: one owner per step",
+      title: "The weekly letter",
       blocks: [
         {
           kind: "p",
-          text: "Each step has one channel that owns it. The other is a fallback that fires only if the first went unread, never a duplicate.",
-        },
-        {
-          kind: "table",
-          head: ["Step", "Owner", "Fallback"],
-          rows: [
-            [
-              "First position",
-              "In-app, while they are in the app",
-              "Email after 24 hours",
-            ],
-            [
-              "Result, user won",
-              "In-app if they are active",
-              "Email if unread after 2 hours",
-            ],
-            ["Result, user lost", "Email", "None"],
-            ["Market under review", "Email", "A banner on the market page"],
-            ["Your topics", "Email", "None"],
-          ],
+          text: "Readers who confirmed their address and opted in to news get one email a week: 350 to 450 words with one main button. It opens with the week in a line, covering markets resolved, markets opening and the biggest moves, with the date we checked. Then three markets closing this week with their close times and how they resolve, three new markets in the topics this reader trades, one short explainer on how resolution works, and the fixed dates in the next four weeks.",
         },
         {
           kind: "p",
-          text: "A frequency cap counts every channel together. Service messages, such as a result, always send.",
-        },
-      ],
-    },
-    {
-      id: "data",
-      title: "The events we need",
-      blocks: [
-        {
-          kind: "p",
-          text: "Few events, defined precisely. On-chain venues give us most of them directly. Off-chain venues send them from their backend.",
-        },
-        {
-          kind: "table",
-          head: ["Event", "Where it comes from"],
-          rows: [
-            [
-              "deposit_made",
-              "Collateral arriving in the user's wallet, or your backend",
-            ],
-            ["position_opened", "The position token received by the wallet"],
-            [
-              "market_resolved",
-              "The oracle's settlement on-chain, or your settlement job",
-            ],
-            [
-              "market_disputed",
-              "The dispute raised on the oracle, or your review queue",
-            ],
-            ["winnings_redeemed", "The redemption transaction"],
-            ["topic_followed", "Your app, through the OnchainSuite SDK"],
-            [
-              "self_excluded",
-              "Your account system: a suppression signal, never a trigger",
-            ],
-          ],
-        },
-        {
-          kind: "note",
-          text: "Self-exclusion and deposit limits suppress every promotional message, the same day.",
-        },
-      ],
-    },
-    {
-      id: "messages",
-      title: "Example messages",
-      blocks: [
-        {
-          kind: "messages",
-          messages: [
-            {
-              type: "Market resolved, user won, in-app and email",
-              channels: "in-app-and-email",
-              subject: "Your market resolved: you won $240",
-              preview: "Your winnings are ready to claim in one step",
-              body: [
-                'The market "Will the Fed cut rates in December?" resolved YES.',
-                "Your position paid out $240. It is ready to claim now.",
-              ],
-              action: "Claim $240",
-            },
-            {
-              type: "Market resolved, user lost, email",
-              channels: "email",
-              subject: "Your market resolved",
-              preview: "The result, your balance, and your account tools",
-              body: [
-                'The market "Will the Fed cut rates in December?" resolved NO.',
-                "Your position in it has closed. Your balance is $180.",
-                "If you want to, you can set a deposit limit or take a break from your account settings at any time.",
-              ],
-              action: "See my account",
-            },
-            {
-              type: "Market under review, email",
-              channels: "email",
-              subject: "Your market is under review",
-              preview: "What a dispute means, and when to expect the result",
-              body: [
-                'The result of "Will the Fed cut rates in December?" has been disputed, so it is being reviewed before it settles.',
-                "Reviews usually take four to six days. Your position stays as it is until then, and we will email you the result the same day it settles.",
-              ],
-              action: "Follow the review",
-            },
-          ],
+          text: "The blocks stay the same every week, so one person can build it in two hours, and it goes to engaged readers first. Polymarket's own newsletter has more than 90,000 subscribers, so readers clearly want the context around the odds. The explainer also answers the loudest complaint, how markets resolve, before it turns into a support ticket.",
         },
       ],
     },
     {
       id: "measure",
-      title: "What we measure",
+      title: "How we know it worked",
       blocks: [
         {
-          kind: "kpis",
-          rows: [
-            {
-              what: "Funded users who open a first position",
-              window: "7 days",
-            },
-            {
-              what: "Users who open a new position after their first market resolves",
-              window: "14 days",
-            },
-            {
-              what: "Return rate after a first loss, against the holdout",
-              window: "30 days",
-            },
-            {
-              what: "Winnings claimed after the unclaimed reminder",
-              window: "48 hours",
-            },
-            {
-              what: "Users active across two or more resolution cycles",
-              window: "60 days",
-            },
-            {
-              what: "Unsubscribes, complaints and bounces",
-              window: "Every send",
-            },
-          ],
+          kind: "p",
+          text: "We count what users do. Opens stopped meaning much once Apple Mail began opening emails by itself, so a message is judged by the position, the claim or the return that follows it. Every always-on Loop keeps a holdout, a small group left out on purpose, so we can show what the messages caused.",
         },
-        { kind: "p", text: MEASURE_NOTE },
         {
-          kind: "callout",
-          tone: "note",
-          title: "Questions your team can ask your data",
-          items: [
-            "Which users opened a position on one election market and nothing since?",
-            "Which topics bring users back most often?",
-            "How long after a first loss do returning users come back?",
-          ],
+          kind: "p",
+          text: "The numbers we watch are funded users who open a first position within 7 days, users who open a new position within 14 days of their first market resolving, the return rate after a first loss against the holdout over 30 days, winnings claimed within 48 hours of the reminder, and users active across two or more resolution cycles in 60 days. Unsubscribes, complaints and bounces are checked on every send. Targets are set once the first month gives us a baseline.",
         },
       ],
     },
-    platformSection(
-      "Everything above runs in it. The Loops start from position and settlement events, the segments come from positions and topics, and the results are read from the same data."
-    ),
+    {
+      id: "platform",
+      title: "Running it on OnchainSuite",
+      blocks: [
+        {
+          kind: "p",
+          text: "Every message above starts from something a wallet did, or something that happened to a market it holds. On Polymarket, positions are ERC-1155 tokens on Polygon and results settle through UMA on-chain, so OnchainSuite watches both directly. On an off-chain venue, your backend sends the same events through the Automation Trigger API, and topic follows come from your app through the OnchainSuite SDK.",
+        },
+        {
+          kind: "p",
+          text: "Self-exclusion and deposit limits work the other way round: they never start a message, and they stop every promotional one the same day.",
+        },
+        {
+          kind: "p",
+          text: "A mainstream email tool could run the event campaigns and the weekly letter. It cannot see a market resolve or a dispute open, so the result, dispute and between-events messages would have to go.",
+        },
+        { kind: "p", text: DISCLOSURE },
+      ],
+    },
     {
       id: "need",
       title: "What we need from you",
       blocks: [
         {
-          kind: "table",
-          head: ["Question", "Why it matters"],
-          rows: [
-            BASE_QUESTIONS[0],
-            [
-              "Which countries can trade, and how is that enforced at sign-up?",
-              "No message goes to someone who cannot use the market",
-            ],
-            [
-              "How do you record self-exclusion and deposit limits?",
-              "They suppress every promotional message, the same day",
-            ],
-            [
-              "Is settlement on-chain, or can your backend send it to us?",
-              "Decides whether triggers watch the chain or come through the API",
-            ],
-            BASE_QUESTIONS[1],
-            BASE_QUESTIONS[2],
-          ],
+          kind: "p",
+          text: "Six answers before the first send. Where your email addresses come from and what people agreed to receive, which decides who hears from us straight away and who is asked first. Which countries can trade, and how that is enforced at sign-up, so nothing reaches someone who cannot use the market. How you record self-exclusion and deposit limits, because they stop every promotional message the same day.",
+        },
+        {
+          kind: "p",
+          text: "Then whether settlement happens on-chain or your backend can send it, which decides whether we watch the chain or take events through the API. The domain the email sends from and who manages its DNS, because SPF, DKIM and DMARC decide between inbox and spam. And who approves each message, and whose voice it goes out in.",
         },
       ],
     },

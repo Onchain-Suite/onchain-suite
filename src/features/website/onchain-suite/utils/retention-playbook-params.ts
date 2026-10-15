@@ -1,34 +1,12 @@
+import { CATEGORIES } from "@/onchain-suite-website/data/retention-playbook";
 import type { CategoryId } from "@/onchain-suite-website/types/retention-playbook";
 
-const CATEGORY_IDS: readonly CategoryId[] = [
-  "perp-dex",
-  "prediction-market",
-  "defi",
-];
-
-const CLIENT_MAX_LENGTH = 60;
+const CATEGORY_IDS: readonly CategoryId[] = CATEGORIES.map((c) => c.id);
 
 type RawParam = string | string[] | undefined;
 
 function first(raw: RawParam): string {
   return (Array.isArray(raw) ? raw[0] : raw) ?? "";
-}
-
-/**
- * Turns `?client=` into a short plain-text name for the "Prepared for" label.
- * Keeps letters (any script), digits, spaces and `. , & ' ( ) -`, collapses
- * whitespace and caps the length. Returns null when nothing usable is left.
- * React escapes the result anyway; this keeps the label tidy and short.
- */
-export function sanitizeClientName(raw: RawParam): string | null {
-  const cleaned = first(raw)
-    .normalize("NFKC")
-    .replace(/[^\p{L}\p{N} .,&'()-]/gu, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, CLIENT_MAX_LENGTH)
-    .trim();
-  return cleaned.length > 0 ? cleaned : null;
 }
 
 export function isCategoryId(value: string): value is CategoryId {
@@ -51,4 +29,18 @@ export function categoryOfAnchor(anchor: string): CategoryId | null {
 export function parseCategory(raw: RawParam): CategoryId | null {
   const value = first(raw).trim().toLowerCase();
   return isCategoryId(value) ? value : null;
+}
+
+/** Where the playbooks live: the landing page, with one page per sector under it. */
+export const PLAYBOOK_BASE = "/retention-playbook";
+
+/** Path of a sector's page, e.g. "/retention-playbook/perp-dexes". */
+export function playbookPath(category: CategoryId): string {
+  const slug = CATEGORIES.find((c) => c.id === category)?.slug ?? category;
+  return `${PLAYBOOK_BASE}/${slug}`;
+}
+
+/** The category a page slug names: "perp-dexes" is the perp DEX playbook. */
+export function categoryOfSlug(slug: string): CategoryId | null {
+  return CATEGORIES.find((c) => c.slug === slug)?.id ?? null;
 }

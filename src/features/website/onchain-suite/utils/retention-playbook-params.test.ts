@@ -2,44 +2,32 @@ import { describe, expect, it } from "vitest";
 
 import {
   categoryOfAnchor,
+  categoryOfSlug,
   isCategoryId,
   parseCategory,
-  sanitizeClientName,
+  playbookPath,
 } from "./retention-playbook-params";
 
-describe("sanitizeClientName", () => {
-  it("keeps a normal company name", () => {
-    expect(sanitizeClientName("Acme")).toBe("Acme");
-    expect(sanitizeClientName("Acme Labs (UK) & Co.")).toBe(
-      "Acme Labs (UK) & Co."
+describe("playbookPath and categoryOfSlug", () => {
+  it("gives each sector its own page", () => {
+    expect(playbookPath("perp-dex")).toBe("/retention-playbook/perp-dexes");
+    expect(playbookPath("prediction-market")).toBe(
+      "/retention-playbook/prediction-markets"
     );
+    expect(playbookPath("defi")).toBe("/retention-playbook/defi");
   });
 
-  it("strips markup and script characters", () => {
-    expect(sanitizeClientName('<script>alert("x")</script>')).toBe(
-      "scriptalert(x)script"
-    );
-    expect(sanitizeClientName("<b>Acme</b>")).toBe("bAcmeb");
+  it("reads a page slug back into its sector", () => {
+    expect(categoryOfSlug("perp-dexes")).toBe("perp-dex");
+    expect(categoryOfSlug("prediction-markets")).toBe("prediction-market");
+    expect(categoryOfSlug("defi")).toBe("defi");
   });
 
-  it("keeps non-Latin letters", () => {
-    expect(sanitizeClientName("Société Générale")).toBe("Société Générale");
-    expect(sanitizeClientName("東京")).toBe("東京");
-  });
-
-  it("collapses whitespace and caps the length", () => {
-    expect(sanitizeClientName("  Acme \n\t Labs  ")).toBe("Acme Labs");
-    expect(sanitizeClientName("a".repeat(200))).toHaveLength(60);
-  });
-
-  it("returns null for empty or unusable values", () => {
-    expect(sanitizeClientName(undefined)).toBeNull();
-    expect(sanitizeClientName("")).toBeNull();
-    expect(sanitizeClientName("<>{}")).toBeNull();
-  });
-
-  it("uses the first value when the param repeats", () => {
-    expect(sanitizeClientName(["Acme", "Other"])).toBe("Acme");
+  it("rejects slugs that are not a sector page", () => {
+    // The category ids themselves are not page slugs.
+    expect(categoryOfSlug("perp-dex")).toBeNull();
+    expect(categoryOfSlug("working-with-us")).toBeNull();
+    expect(categoryOfSlug("")).toBeNull();
   });
 });
 

@@ -8,10 +8,7 @@ import type {
   CategoryCard,
   Chapter,
   GlossaryEntry,
-  LabelledPoint,
   Loop,
-  PrivacyIcon,
-  SetupStep,
   StageTone,
 } from "@/onchain-suite-website/types/retention-playbook";
 
@@ -32,16 +29,9 @@ export const SENDER = {
 
 /** Labels for buttons, controls and screen readers. */
 export const UI = {
-  preparedFor: "Prepared for",
-  findPlaybook: "Find your playbook",
-  jumpToPlaybook: "Jump to your playbook",
-  yourPlaybook: "Your playbook",
   bookWalkthrough: "Book a walkthrough",
-  continueReading: "Next: working with us",
-  contents: "Contents",
+  allStrategies: "All strategies",
   contentsLabel: "Playbook contents",
-  scrollForMore: "Scroll for more",
-  tldr: "TLDR",
   what: "What",
   how: "How",
   why: "Why",
@@ -49,7 +39,6 @@ export const UI = {
   never: "Never",
   kpiWhat: "What we count",
   kpiWindow: "Counted within",
-  selected: "Selected",
   source: "Source",
   startsWhen: "Starts when",
   sends: "What it sends",
@@ -59,7 +48,6 @@ export const UI = {
   inApp: "In-app",
   subject: "Subject",
   preview: "Preview",
-  need: "What we need from you",
 };
 
 /** The six stages, drawn in the hero window with At risk lit. */
@@ -81,7 +69,6 @@ export const HERO_LOOP: Loop = {
 };
 
 export const HERO = {
-  eyebrow: "Email marketing playbook",
   title: "Keep more of the users you’ve already won",
   subtitle:
     "OnchainSuite spots the wallets that are slipping and reaches them by email or in-app, while they still have funds in your product.",
@@ -93,27 +80,27 @@ export const HERO = {
   },
 };
 
-/** Anchor on the category picker, the target of "Find your playbook". */
-export const PICKER_ID = "summary-choose";
+/** The landing page, as the first entry in the playbook map. */
+export const OVERVIEW = { id: "overview", label: "Overview" };
 
 export const CATEGORIES: CategoryCard[] = [
   {
     id: "perp-dex",
-    label: "Perp DEX",
+    slug: "perp-dexes",
+    label: "Perp DEX growth and retention strategy",
     line: "Traders who come back to trade week after week.",
-    section: "Chapter 01",
   },
   {
     id: "prediction-market",
-    label: "Prediction market",
+    slug: "prediction-markets",
+    label: "Prediction market growth and retention strategy",
     line: "Users who come back after their first market resolves.",
-    section: "Chapter 02",
   },
   {
     id: "defi",
-    label: "DeFi: lending, vaults, liquidity",
+    slug: "defi",
+    label: "DeFi growth and retention strategy",
     line: "Deposits that stay, and depositors who add more over time.",
-    section: "Chapter 03",
   },
 ];
 
@@ -124,7 +111,6 @@ export const DISCLOSURE =
 export const SUMMARY: Chapter = {
   id: "summary",
   number: "00",
-  kicker: "Chapter 00 · Summary",
   title: "The channel you own",
   dek: "What email and in-app messages do for a protocol, why most protocols cannot run them today, and what OnchainSuite changes.",
   sections: [
@@ -265,111 +251,10 @@ export const SUMMARY: Chapter = {
           kind: "p",
           text: "Surgence Labs plans and runs the programme with your team, on OnchainSuite. Each playbook that follows is what we would do for a protocol like yours ==before we have seen inside your account==. The first job is to check it against the real thing.",
         },
-        {
-          kind: "callout",
-          tone: "rules",
-          title: "Three rules on every message",
-          items: [
-            "Nothing goes to the whole list. Every message goes to a segment.",
-            "One message, one link, one action.",
-            "Consent before promotion. Where we cannot show what someone agreed to, the first message asks.",
-          ],
-        },
-        {
-          kind: "table",
-          head: ["Before we write a word, we check", "What we look for"],
-          rows: [
-            [
-              "Your product",
-              "Every page, the docs and the app, walked as a new user, so messages use your words and point only at what ships today.",
-            ],
-            [
-              "Your community",
-              "X, Discord and Telegram, for the questions users keep asking and the words they use.",
-            ],
-            [
-              "Your sign-up points",
-              "Every place an email is captured, with a test address and a test wallet, and what the first message actually says.",
-            ],
-            [
-              "Your sending account",
-              "Lists, past sends, automations, bounces, complaints and domain authentication.",
-            ],
-            [
-              "Your chain data",
-              "Contract addresses checked against the explorer, and the on-chain segments we can build today.",
-            ],
-            [
-              "Your people",
-              "Who approves each message and whose voice it goes out in.",
-            ],
-          ],
-        },
-        {
-          kind: "note",
-          text: "Nothing reaches a message unless a source sits behind it.",
-        },
-      ],
-    },
-    {
-      id: "choose",
-      title: "Choose your playbook",
-      blocks: [
-        {
-          kind: "p",
-          text: "Each playbook is the full programme for one kind of protocol: campaigns, automation, lifecycle, retention triggers and the newsletter, then what we measure and what we need from you.",
-        },
-        { kind: "picker" },
       ],
     },
   ],
 };
-
-export const PRIVACY_POINTS: (LabelledPoint & { icon: PrivacyIcon })[] = [
-  {
-    icon: "wallet",
-    label: "Wallet first.",
-    text: "A user can exist with only a wallet. Email is optional and only ever comes from the user, through a consented form or a list you already hold.",
-  },
-  {
-    icon: "hidden",
-    label: "Emails stay protected.",
-    text: "Each email is stored as a keyed one-way fingerprint and can be encrypted at rest. ZK Shield, which uses a zero-knowledge proof to show a wallet and an email belong together without revealing either, is being brought into the product.",
-  },
-  {
-    icon: "read-only",
-    label: "Read-only.",
-    text: "We read public blockchain data. We never hold keys or funds.",
-  },
-  {
-    icon: "compliant",
-    label: "Registered in the UK.",
-    text: "OnchainSuite Ltd is registered in England and Wales and works under UK GDPR.",
-  },
-];
-
-export const SETUP_STEPS: SetupStep[] = [
-  {
-    text: "We find your contracts and holders from your project's address and load their history",
-    need: "Your contract address",
-  },
-  {
-    text: "We bring in the records you already have: email lists, app accounts, wallet logins",
-    need: "Your existing lists, in any format",
-  },
-  {
-    text: "We connect your sending domain for email and add our SDK for in-app messages",
-    need: "Access to your domain settings, and a developer for one short script",
-  },
-  {
-    text: "We build your first Loops together, starting with the ones in your playbook",
-    need: "Who approves messages, and whose voice they go out in",
-  },
-  {
-    text: "Monthly review of results and the next change",
-    need: "30 minutes a month",
-  },
-];
 
 export const GLOSSARY: { entries: GlossaryEntry[] } = {
   entries: [
@@ -446,23 +331,7 @@ export const GLOSSARY: { entries: GlossaryEntry[] } = {
   ],
 };
 
-export const CLOSING: Chapter = {
-  id: "working-with-us",
-  number: "04",
-  kicker: "Chapter 04 · Working with us",
-  title: "Working with us",
-  dek: "How your users' data is handled, how we get started, and the words used in this playbook.",
-  sections: [
-    { id: "privacy", title: "How we keep your users private" },
-    { id: "getting-started", title: "Getting started" },
-    { id: "words-we-use", title: "Words we use" },
-  ],
-};
-
+/** Where every "Book a walkthrough" goes. */
 export const NEXT_STEP = {
-  id: "next-step",
-  number: "→",
-  title: "Next step",
-  text: "Book a 30-minute walkthrough and we will show you which of your users are slipping right now.",
   href: "/early-access",
 };

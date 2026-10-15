@@ -17,7 +17,6 @@ import {
 const SIZES = {
   compact: "btn solid",
   hero: "btn solid lg",
-  large: "btn solid lg rp-cta-lg",
 };
 
 export function WalkthroughButton({

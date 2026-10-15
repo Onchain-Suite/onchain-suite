@@ -1,20 +1,15 @@
-"use client";
-
-import type { CSSProperties, MouseEvent } from "react";
+import Link from "next/link";
+import type { CSSProperties } from "react";
 
 import { JumpLink } from "./jump-link";
-import { usePlaybook } from "./playbook-context";
-import {
-  chapterOf,
-  type TocChapter,
-} from "@/onchain-suite-website/utils/playbook-toc";
+import type { MapEntry } from "@/onchain-suite-website/utils/playbook-toc";
 import {
   roughEllipse,
   seededRandom,
   seedFrom,
 } from "@/onchain-suite-website/utils/sketch";
 
-/** The pen circle drawn around the current chapter's number. */
+/** The pen circle drawn around the current entry's number. */
 function NumberCircle({ seed }: { seed: string }) {
   const d = roughEllipse(18, 13, 15, 11, seededRandom(seedFrom(seed)));
   return (
@@ -35,79 +30,58 @@ function NumberCircle({ seed }: { seed: string }) {
 }
 
 /**
- * Atlas-style contents: numbered chapters, with the current chapter's sections
- * listed under it. A playbook that is not on the page opens when picked.
+ * The rail's list, Atlas style: numbered entries, each with an optional
+ * one-line focus, and the current one circled. A "#anchor" entry scrolls
+ * within the page; anything else is a link to another page.
  */
 export function TocList({
-  toc,
-  active,
+  entries,
+  currentId,
   onPick,
 }: {
-  toc: TocChapter[];
-  active: string | null;
+  entries: MapEntry[];
+  currentId: string | null;
   onPick?: () => void;
 }) {
-  const { category, openPlaybook, jumpTo } = usePlaybook();
-  const current = chapterOf(toc, active);
-
-  function onChapter(e: MouseEvent<HTMLAnchorElement>, chapter: TocChapter) {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
-      return;
-    }
-    e.preventDefault();
-    onPick?.();
-    if (chapter.category && chapter.category !== category) {
-      openPlaybook(chapter.category);
-    } else {
-      jumpTo(chapter.id);
-    }
-  }
-
   return (
     <ol className="rp-chaps">
-      {toc.map((chapter) => {
-        const isCurrent = current?.id === chapter.id;
-        const isMine =
-          chapter.category !== undefined && chapter.category === category;
+      {entries.map((entry) => {
+        const isCurrent = entry.id === currentId;
+        const body = (
+          <>
+            <span className="rp-chap-num">
+              {entry.number}
+              {isCurrent && <NumberCircle seed={entry.id} />}
+            </span>
+            <span className="rp-chap-label">
+              {entry.label}
+              {entry.line && <span className="rp-chap-line">{entry.line}</span>}
+            </span>
+          </>
+        );
         return (
           <li
-            key={chapter.id}
+            key={entry.id}
             className={`rp-chap${isCurrent ? " is-current" : ""}`}
           >
-            <a
-              href={`#${chapter.id}`}
-              className="rp-chap-link"
-              aria-current={
-                isCurrent && !active?.startsWith(`${chapter.id}-`)
-                  ? "location"
-                  : undefined
-              }
-              onClick={(e) => onChapter(e, chapter)}
-            >
-              <span className="rp-chap-num">
-                {chapter.number}
-                {isCurrent && <NumberCircle seed={chapter.id} />}
-              </span>
-              <span className="rp-chap-label">
-                {chapter.label}
-                {isMine && <span className="rp-chap-mine" aria-hidden="true" />}
-              </span>
-            </a>
-            {isCurrent && chapter.sections.length > 0 && (
-              <ol className="rp-chap-secs">
-                {chapter.sections.map((s) => (
-                  <li key={s.id}>
-                    <JumpLink
-                      target={s.id}
-                      className={`rp-toc-link${active === s.id ? " on" : ""}`}
-                      ariaCurrent={active === s.id ? "location" : undefined}
-                      onJump={onPick}
-                    >
-                      {s.label}
-                    </JumpLink>
-                  </li>
-                ))}
-              </ol>
+            {entry.href.startsWith("#") ? (
+              <JumpLink
+                target={entry.href.slice(1)}
+                className="rp-chap-link"
+                ariaCurrent={isCurrent ? "location" : undefined}
+                onJump={onPick}
+              >
+                {body}
+              </JumpLink>
+            ) : (
+              <Link
+                href={entry.href}
+                className="rp-chap-link"
+                aria-current={isCurrent ? "page" : undefined}
+                onClick={onPick}
+              >
+                {body}
+              </Link>
             )}
           </li>
         );

@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { RetentionPlaybookPage } from "@/onchain-suite-website/components/retention-playbook/retention-playbook-page";
 import { SITE_CONFIG_META } from "@/onchain-suite-website/config";
 import { HERO, META } from "@/onchain-suite-website/data/retention-playbook";
 import {
   parseCategory,
-  sanitizeClientName,
+  playbookPath,
 } from "@/onchain-suite-website/utils/retention-playbook-params";
 
 // Sales collateral sent to prospects by link: keep it out of search results,
@@ -36,10 +37,11 @@ export default async function Page({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  return (
-    <RetentionPlaybookPage
-      client={sanitizeClientName(params.client)}
-      category={parseCategory(params.category)}
-    />
-  );
+  // Each sector has its own page now. Links already sent with ?category=
+  // land on the right one.
+  const category = parseCategory(params.category);
+  if (category) {
+    redirect(playbookPath(category));
+  }
+  return <RetentionPlaybookPage />;
 }

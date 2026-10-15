@@ -1,30 +1,34 @@
 "use client";
 
-import { ChevronDownIcon } from "@heroicons/react/20/solid";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeftIcon, ChevronDownIcon } from "@heroicons/react/20/solid";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 
 import { TocList } from "./toc-list";
+import { useRailCurrent } from "./use-rail-current";
 import { UI } from "@/onchain-suite-website/data/retention-playbook";
-import { useActiveSection } from "@/onchain-suite-website/hooks/use-active-section";
-import {
-  labelOf,
-  type TocChapter,
-  trackedIds,
-} from "@/onchain-suite-website/utils/playbook-toc";
+import type { MapEntry } from "@/onchain-suite-website/utils/playbook-toc";
 
 const LIST_ID = "rp-mbar-list";
 
 /**
- * Mobile and tablet: a slim sticky bar naming the current section. Tapping it
- * opens the full contents; picking an entry or pressing Escape closes it.
+ * Mobile and tablet: a slim sticky bar naming the current entry. Tapping it
+ * opens the same list as the rail; picking one or pressing Escape closes it.
  */
-export function PlaybookMobileBar({ toc }: { toc: TocChapter[] }) {
-  const ids = useMemo(() => trackedIds(toc), [toc]);
-  const active = useActiveSection(ids);
+export function PlaybookMobileBar({
+  entries,
+  currentId,
+  backHref,
+}: {
+  entries: MapEntry[];
+  currentId?: string;
+  backHref?: string;
+}) {
   const [open, setOpen] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const label = labelOf(toc, active) ?? toc[0]?.label;
+  const current = useRailCurrent(entries, currentId);
+  const label = entries.find((e) => e.id === current)?.label;
 
   useEffect(() => {
     if (!open) {
@@ -57,9 +61,9 @@ export function PlaybookMobileBar({ toc }: { toc: TocChapter[] }) {
         className="rp-mbar-btn"
         aria-expanded={open}
         aria-controls={LIST_ID}
+        aria-label={`${UI.contentsLabel}: ${label ?? ""}`}
         onClick={() => setOpen((o) => !o)}
       >
-        <span className="rp-mbar-k">{UI.contents}</span>
         <span className="rp-mbar-v">{label}</span>
         <ChevronDownIcon
           className={`rp-mbar-chev${open ? " is-open" : ""}`}
@@ -72,7 +76,17 @@ export function PlaybookMobileBar({ toc }: { toc: TocChapter[] }) {
         aria-label={UI.contentsLabel}
         hidden={!open}
       >
-        <TocList toc={toc} active={active} onPick={() => setOpen(false)} />
+        {backHref && (
+          <Link href={backHref} className="rp-rail-back">
+            <ArrowLeftIcon className="rp-icon-sm" aria-hidden="true" />
+            {UI.allStrategies}
+          </Link>
+        )}
+        <TocList
+          entries={entries}
+          currentId={current}
+          onPick={() => setOpen(false)}
+        />
       </nav>
     </div>
   );

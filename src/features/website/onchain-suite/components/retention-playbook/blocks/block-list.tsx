@@ -4,7 +4,6 @@ import { CalloutBox } from "@/onchain-suite-website/components/retention-playboo
 import { DataTable } from "@/onchain-suite-website/components/retention-playbook/blocks/data-table";
 import { PathSteps } from "@/onchain-suite-website/components/retention-playbook/blocks/path-steps";
 import { SaysPanel } from "@/onchain-suite-website/components/retention-playbook/blocks/says-panel";
-import { CategoryCards } from "@/onchain-suite-website/components/retention-playbook/category-cards";
 import { LoopCards } from "@/onchain-suite-website/components/retention-playbook/loop-cards";
 import { MessagePreview } from "@/onchain-suite-website/components/retention-playbook/message-preview";
 import { RichText } from "@/onchain-suite-website/components/retention-playbook/rich-text";
@@ -102,8 +101,6 @@ function renderBlock(block: Block, g: GlossaryTracker): ReactNode {
           diagram={block.diagram}
         />
       );
-    case "picker":
-      return <CategoryCards location="summary" />;
     case "note":
       // Notes are paired with the block before them in BlockList.
       return null;

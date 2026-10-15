@@ -50,13 +50,16 @@ function SectionBody({ section }: { section: ChapterSection }) {
   return <BlockList blocks={section.blocks ?? []} g={g} />;
 }
 
-/** One chapter: its opening, an optional TLDR, then its sections. */
+/** One page of the playbook: its opening, its lead paragraphs, then its sections. */
 export function ChapterShell({
   chapter,
   footer,
+  showHead = true,
 }: {
   chapter: Chapter;
   footer?: ReactNode;
+  /** False on the landing page, where the hero is the title. */
+  showHead?: boolean;
 }) {
   const titleId = `${chapter.id}-title`;
   const tldrTracker = createGlossaryTracker();
@@ -66,11 +69,10 @@ export function ChapterShell({
   }));
   return (
     <article id={chapter.id} className="rp-chapter" aria-labelledby={titleId}>
-      <ChapterHead chapter={chapter} />
+      {showHead && <ChapterHead chapter={chapter} />}
 
       {tldr && (
-        <div className="rp-tldr">
-          <p className="rp-tldr-k">{UI.tldr}</p>
+        <div className="rp-lead">
           {tldr.map((p) => (
             <p key={p.key} className="rp-p">
               <RichText segments={p.segments} />
@@ -88,9 +90,9 @@ export function ChapterShell({
             className="rp-sec2"
             aria-labelledby={`${id}-h`}
           >
-            <h3 className="rp-h3x" id={`${id}-h`} tabIndex={-1} data-jump-focus>
+            <h2 className="rp-h3x" id={`${id}-h`} tabIndex={-1} data-jump-focus>
               {s.title}
-            </h3>
+            </h2>
             <SectionBody section={s} />
           </section>
         );

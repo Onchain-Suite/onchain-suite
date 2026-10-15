@@ -30,13 +30,12 @@ import type { PlaybookChapter } from "@/onchain-suite-website/types/retention-pl
 export const PERP_DEX: PlaybookChapter = {
   id: "perp-dex",
   number: "01",
-  kicker: "Chapter 01 · Perp DEXs",
-  title: "The perp DEX playbook",
+  title: "Perp DEX growth and retention strategy",
   dek: "How email and in-app bring traders back week after week, and keep their margin with you between trades.",
   tldr: [
     "Perp DEXs traded $644.7B in the 30 days to 14 October 2026, and much of that volume is rented. In Arbitrum's incentive programme, the subsidy explained 70% of Vertex's volume and 43% of GMX's, and volume was back to where it started within months of it ending.",
     "The traders who stay are decided early. On dYdX, ==a fifth to a quarter of traders traded on a single day== and never came back, and on Hyperliquid, people trading through its own web app took 96% of liquidation volume. The first trade, the second trade and the first liquidation are the moments that matter.",
-    `This playbook sets out how email and in-app keep them, in five parts: campaigns, automation, lifecycle, retention triggers and the newsletter. ${RULES_LINE}`,
+    `This strategy sets out how email and in-app keep them, in five parts: campaigns, automation, lifecycle, retention triggers and the newsletter. ${RULES_LINE}`,
   ],
   sections: [
     {
@@ -68,7 +67,7 @@ export const PERP_DEX: PlaybookChapter = {
     },
     {
       id: "campaigns",
-      title: "1. Campaigns",
+      title: "Campaigns",
       whw: {
         what: "A campaign is one message sent to a chosen segment at a set moment, because something is happening they should hear about. On a perp DEX that is a listing, a change to the rules, or a change to incentives.",
         how: [
@@ -106,7 +105,7 @@ export const PERP_DEX: PlaybookChapter = {
     },
     {
       id: "automation",
-      title: "2. Automation",
+      title: "Automation",
       whw: {
         what: "An automated message sends itself to one trader when they do something, or stop doing something, and stops as soon as they take the step it asks for. In OnchainSuite these are Loops.",
         how: [
@@ -167,7 +166,7 @@ export const PERP_DEX: PlaybookChapter = {
     },
     {
       id: "lifecycle",
-      title: "3. Lifecycle",
+      title: "Lifecycle",
       whw: {
         what: "Lifecycle is the path from first deposit to regular trader. We split it into stages and always know which stage each trader is in, worked out from what they did.",
         how: [
@@ -267,7 +266,7 @@ export const PERP_DEX: PlaybookChapter = {
     },
     {
       id: "retention-triggers",
-      title: "4. Retention triggers",
+      title: "Retention triggers",
       whw: {
         what: "A retention trigger is a single message sent the same day something happens to a trader's account. These are service messages: no offer, no market call.",
         how: [
@@ -321,7 +320,7 @@ export const PERP_DEX: PlaybookChapter = {
     },
     {
       id: "newsletter",
-      title: "5. Newsletter",
+      title: "Newsletter",
       whw: {
         what: "One email a week to traders who opted in to news.",
         how: [

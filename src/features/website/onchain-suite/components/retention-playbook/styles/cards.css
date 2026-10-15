@@ -1,12 +1,11 @@
-/* /retention-playbook: shared small-caps labels, headline stat cards, point
-   cards (privacy) and the stage tones used by the hero window. */
+/* /retention-playbook: shared labels, headline stat cards and the
+   stage tones used by the hero window. */
 
 .ns .rp-flow-k,
 .ns .rp-mail-head dt,
 .ns .rp-msg-type {
-  font: 500 11px var(--mono);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--grey);
 }
 
@@ -51,61 +50,6 @@
   color: var(--grey);
 }
 
-/* ---------- point cards ---------- */
-.ns .rp-points {
-  list-style: none;
-  margin: 20px 0 28px;
-  padding: 0;
-  display: grid;
-  gap: 12px;
-}
-.ns .rp-points.cols-3 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.ns .rp-points.cols-2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.ns .rp-point {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 18px 20px 20px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #fff;
-}
-.ns .rp-point p {
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--soft);
-}
-.ns .rp-point-label {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 15.5px;
-  font-weight: 600;
-  color: var(--ink);
-}
-.ns .rp-point-n {
-  font: 500 12px var(--mono);
-  color: var(--accent);
-}
-.ns .rp-point-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  flex: none;
-  border-radius: 10px;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-.ns .rp-point-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
 .ns .tone-blue {
   --tone: var(--accent);
   --tone-ink: #fff;
@@ -126,15 +70,8 @@
   --tone-soft: color-mix(in oklab, var(--ink) 7%, #fff);
 }
 
-@media (max-width: 1000px) {
-  .ns .rp-points.cols-3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 @media (max-width: 640px) {
-  .ns .rp-stats,
-  .ns .rp-points.cols-3,
-  .ns .rp-points.cols-2 {
+  .ns .rp-stats {
     grid-template-columns: minmax(0, 1fr);
   }
 }

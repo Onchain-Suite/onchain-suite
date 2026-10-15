@@ -1,39 +1,43 @@
 "use client";
 
-import { useMemo } from "react";
+import { ArrowLeftIcon } from "@heroicons/react/20/solid";
+import Link from "next/link";
 
-import { usePlaybook } from "./playbook-context";
 import { TocList } from "./toc-list";
+import { useRailCurrent } from "./use-rail-current";
 import { UI } from "@/onchain-suite-website/data/retention-playbook";
-import { useActiveSection } from "@/onchain-suite-website/hooks/use-active-section";
-import {
-  type TocChapter,
-  trackedIds,
-  visibleIds,
-} from "@/onchain-suite-website/utils/playbook-toc";
+import type { MapEntry } from "@/onchain-suite-website/utils/playbook-toc";
 
 /**
- * Desktop: the sticky contents rail, Atlas style, with a running count of
- * where the reader is ("3/14") across the sections on the page.
+ * Desktop: the sticky rail. On a strategy page it is everything in that
+ * strategy, with the section being read circled; on the landing page it is
+ * the three strategies.
  */
-export function PlaybookRail({ toc }: { toc: TocChapter[] }) {
-  const ids = useMemo(() => trackedIds(toc), [toc]);
-  const active = useActiveSection(ids);
-  const { category } = usePlaybook();
-  const visible = useMemo(() => visibleIds(toc, category), [toc, category]);
-  const position = active ? visible.indexOf(active) + 1 : 0;
-
+export function PlaybookRail({
+  title,
+  entries,
+  currentId,
+  backHref,
+}: {
+  title: string;
+  entries: MapEntry[];
+  /** Set on the landing page, where the rail lists pages, not sections. */
+  currentId?: string;
+  /** Set on a strategy page: the way back to all three strategies. */
+  backHref?: string;
+}) {
+  const current = useRailCurrent(entries, currentId);
   return (
     <aside className="rp-rail">
       <nav aria-label={UI.contentsLabel}>
-        <p className="rp-rail-title">{UI.contents}</p>
-        <TocList toc={toc} active={active} />
-        <p className="rp-rail-foot">
-          <span>{UI.scrollForMore}</span>
-          <span aria-hidden="true">
-            {position}/{visible.length}
-          </span>
-        </p>
+        {backHref && (
+          <Link href={backHref} className="rp-rail-back">
+            <ArrowLeftIcon className="rp-icon-sm" aria-hidden="true" />
+            {UI.allStrategies}
+          </Link>
+        )}
+        <p className="rp-rail-title">{title}</p>
+        <TocList entries={entries} currentId={current} />
       </nav>
     </aside>
   );

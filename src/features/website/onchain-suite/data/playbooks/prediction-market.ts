@@ -24,13 +24,12 @@ import type { PlaybookChapter } from "@/onchain-suite-website/types/retention-pl
 export const PREDICTION_MARKET: PlaybookChapter = {
   id: "prediction-market",
   number: "02",
-  kicker: "Chapter 02 · Prediction markets",
-  title: "The prediction market playbook",
+  title: "Prediction market growth and retention strategy",
   dek: "How email and in-app keep a forecaster coming back after the market they came for has resolved.",
   tldr: [
     "Prediction markets win users around events and lose them between events. After the 2024 US election, Polymarket's open interest fell from $510M to $120M in a month, while its monthly traders kept rising. The users stayed curious. The capital left.",
     "The moment that decides whether a user returns is their first result, and the riskiest is their first loss. In Galaxy's study of 2.9 million retail accounts, ==15.2% stopped trading within 30 days of a loss, against 6.1% after a win==.",
-    `This playbook sets out how email and in-app change that, in five parts: campaigns, automation, lifecycle, retention triggers and the newsletter. ${RULES_LINE}`,
+    `This strategy sets out how email and in-app change that, in five parts: campaigns, automation, lifecycle, retention triggers and the newsletter. ${RULES_LINE}`,
   ],
   sections: [
     {
@@ -62,7 +61,7 @@ export const PREDICTION_MARKET: PlaybookChapter = {
     },
     {
       id: "campaigns",
-      title: "1. Campaigns",
+      title: "Campaigns",
       whw: {
         what: "A campaign is one message sent to a chosen segment at a set moment, because something is happening they should hear about. For a prediction market, that moment is almost always an event on the calendar.",
         how: [
@@ -100,7 +99,7 @@ export const PREDICTION_MARKET: PlaybookChapter = {
     },
     {
       id: "automation",
-      title: "2. Automation",
+      title: "Automation",
       whw: {
         what: "An automated message sends itself to one person when they do something, or stop doing something, and stops as soon as they take the step it asks for. In OnchainSuite these are Loops.",
         how: [
@@ -162,7 +161,7 @@ export const PREDICTION_MARKET: PlaybookChapter = {
     },
     {
       id: "lifecycle",
-      title: "3. Lifecycle",
+      title: "Lifecycle",
       whw: {
         what: "Lifecycle is the path from first visit to regular forecaster. We split it into stages and always know which stage each person is in, worked out from what they did, never set by hand.",
         how: [
@@ -257,7 +256,7 @@ export const PREDICTION_MARKET: PlaybookChapter = {
     },
     {
       id: "retention-triggers",
-      title: "4. Retention triggers",
+      title: "Retention triggers",
       whw: {
         what: "A retention trigger is a single message sent the same day something happens to a user's positions. These are service messages: no offer, no forecast.",
         how: [
@@ -311,7 +310,7 @@ export const PREDICTION_MARKET: PlaybookChapter = {
     },
     {
       id: "newsletter",
-      title: "5. Newsletter",
+      title: "Newsletter",
       whw: {
         what: "One email a week to everyone who confirmed their address and opted in to news.",
         how: [

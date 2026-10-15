@@ -23,6 +23,15 @@ export const NON_ONCHAIN_TRIGGER_TYPES = new Set([
   "tag_added",
   "campaign_completed",
   "health_threshold",
+  // Custom Events API triggers. Not on-chain in the EVM/contract sense: they
+  // carry no contract/event address and must NOT show the "save a contract"
+  // nudge. The generic Custom Event, plus the Sovren (sovr-1 Cosmos) presets,
+  // which reach automations through POST /events rather than a contract log.
+  "custom_event",
+  "sovren_license_assigned",
+  "sovren_license_reserve_issued",
+  "sovren_license_activated",
+  "sovren_rewards_claimed",
 ]);
 
 /**
@@ -314,6 +323,14 @@ export const TRIGGER_NODE_TYPES = new Set([
   "campaign_completed",
   "health_threshold",
   "defi_health_factor",
+  // Custom Events API triggers. Must be recognized here too, or a saved
+  // automation/template loaded with one of these as its `node.type` fails the
+  // trigger check and the go-live gate falsely reports MISSING_TRIGGER.
+  "custom_event",
+  "sovren_license_assigned",
+  "sovren_license_reserve_issued",
+  "sovren_license_activated",
+  "sovren_rewards_claimed",
 ]);
 
 /**

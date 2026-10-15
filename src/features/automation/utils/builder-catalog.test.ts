@@ -92,6 +92,21 @@ describe("nodeIsTrigger", () => {
     expect(nodeIsTrigger("send_email")).toBe(false);
     expect(nodeIsTrigger(undefined, undefined)).toBe(false);
   });
+
+  it("recognizes Custom Event + Sovren preset triggers loaded from a saved flow", () => {
+    // A node loaded from a saved automation carries its canonical type (no
+    // "trigger" renderer key). If these were not recognized, the go-live gate
+    // would falsely report MISSING_TRIGGER on a configured Sovren/custom flow.
+    for (const type of [
+      "custom_event",
+      "sovren_license_assigned",
+      "sovren_license_reserve_issued",
+      "sovren_license_activated",
+      "sovren_rewards_claimed",
+    ]) {
+      expect(nodeIsTrigger(type)).toBe(true);
+    }
+  });
 });
 
 describe("trigger classification sets", () => {
@@ -100,6 +115,22 @@ describe("trigger classification sets", () => {
     expect(NON_ONCHAIN_TRIGGER_TYPES.has("health_threshold")).toBe(true);
     // The two must never both classify the DeFi trigger.
     expect(NON_ONCHAIN_TRIGGER_TYPES.has("defi_health_factor")).toBe(false);
+  });
+
+  it("classifies Custom Event + Sovren triggers as non-on-chain (no contract nudge, generic panel)", () => {
+    // They carry no contract/event address and must route to the generic
+    // schema panel, not the EVM OnchainTriggerFields. So they are NON-on-chain
+    // (suppresses the "save a contract" nudge) and NOT in ON_CHAIN_TRIGGER_TYPES
+    // (which would route them to the contract panel).
+    for (const type of [
+      "custom_event",
+      "sovren_license_assigned",
+      "sovren_license_activated",
+      "sovren_rewards_claimed",
+    ]) {
+      expect(NON_ONCHAIN_TRIGGER_TYPES.has(type)).toBe(true);
+      expect(ON_CHAIN_TRIGGER_TYPES.has(type)).toBe(false);
+    }
   });
 });
 

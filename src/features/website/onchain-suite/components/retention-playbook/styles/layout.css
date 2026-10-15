@@ -24,13 +24,21 @@
   min-width: 0;
 }
 
-/* The landing page has no rail: one reading column, centred under the hero. */
+/* The landing page has no rail. Its body is cards, a table and a diagram as
+   much as prose, so it runs as wide as the strategy tiles above it (960px,
+   24px gutters) rather than the 690px reading column of a strategy page. */
 .ns .rp-solo {
   border-top: 1px solid var(--line);
 }
-.ns .rp-solo .rp-chapter,
-.ns .rp-solo .rp-nextpage {
+.ns .rp-solo .rp-chapter {
+  max-width: 960px;
   margin-inline: auto;
+  padding-inline: 24px;
+  /* The page ends here, so leave room before the site footer. */
+  padding-bottom: 88px;
+}
+.ns .rp-solo .rp-chapter .rp-p {
+  max-width: none;
 }
 
 /* ---------- desktop rail ---------- */

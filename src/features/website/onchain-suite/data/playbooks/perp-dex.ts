@@ -68,6 +68,21 @@ export const PERP_DEX: PlaybookChapter = {
           kind: "p",
           text: "While they are still in the app, an in-app walkthrough shows them how to place an order. If 24 hours pass with no trade, one email follows with a short guide and the deposit mistakes we see most often. Both stop the moment they trade.",
         },
+        {
+          kind: "artifact",
+          code: "01.01",
+          title: "The first-trade Loop, from deposit to first trade",
+          diagram: {
+            type: "flow",
+            nodes: [
+              { label: "Margin in", note: "deposited, no trade" },
+              { label: "A day passes", note: "still no order" },
+              { label: "Walkthrough", note: "in-app, how to place an order" },
+              { label: "One email", note: "short guide, deposit mistakes" },
+              { label: "First trade", note: "the Loop stops" },
+            ],
+          },
+        },
       ],
     },
     {
@@ -105,6 +120,24 @@ export const PERP_DEX: PlaybookChapter = {
           text: "Take Ada. She deposits, opens a small ETH long on her first day, and is liquidated on day six. That afternoon she gets the explanation and nothing else. On day nine she trades again, this time with a stop-loss set.",
         },
         {
+          kind: "artifact",
+          code: "01.02",
+          title: "Ada's first month",
+          diagram: {
+            type: "timeline",
+            points: [
+              { when: "Day 0", label: "Deposits margin" },
+              { when: "Day 1", label: "Opens a small ETH long" },
+              {
+                when: "Day 6",
+                label: "Liquidated; gets the explanation, nothing else",
+              },
+              { when: "Day 9", label: "Trades again with a stop-loss" },
+              { when: "Day 30", label: "Sees what she paid in fees" },
+            ],
+          },
+        },
+        {
           kind: "p",
           text: "Deleveraging and a large funding payment get the same treatment: one message that day, saying which position and why, with no offer attached.",
         },
@@ -121,6 +154,26 @@ export const PERP_DEX: PlaybookChapter = {
         {
           kind: "p",
           text: "After 60 days without a trade, a trader gets one good reason to come back. Then we leave them alone.",
+        },
+        {
+          kind: "artifact",
+          code: "01.03",
+          title: "Where a trader can be, from funded to dormant",
+          diagram: {
+            type: "ladder",
+            steps: [
+              { label: "Funded", note: "margin in" },
+              { label: "First trade", note: "one position" },
+              { label: "Second trade", note: "back within 7 days" },
+              { label: "Regular", note: "trades most weeks" },
+              {
+                label: "Slipping",
+                note: "weekly volume halved",
+                tone: "orange",
+              },
+              { label: "Dormant", note: "60 days, no trade", tone: "grey" },
+            ],
+          },
         },
         {
           kind: "p",

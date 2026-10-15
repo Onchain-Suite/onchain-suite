@@ -83,23 +83,29 @@ export const HERO = {
 /** The landing page, as the first entry in the playbook map. */
 export const OVERVIEW = { id: "overview", label: "Overview" };
 
+/** Heading over the strategy tiles under the hero: said once, for all three. */
+export const STRATEGIES_HEADING = "Growth and retention strategies";
+
 export const CATEGORIES: CategoryCard[] = [
   {
     id: "perp-dex",
     slug: "perp-dexes",
     label: "Perp DEX growth and retention strategy",
+    sector: "Perp DEXs",
     line: "Traders who come back to trade week after week.",
   },
   {
     id: "prediction-market",
     slug: "prediction-markets",
     label: "Prediction market growth and retention strategy",
+    sector: "Prediction markets",
     line: "Users who come back after their first market resolves.",
   },
   {
     id: "defi",
     slug: "defi",
     label: "DeFi growth and retention strategy",
+    sector: "DeFi",
     line: "Deposits that stay, and depositors who add more over time.",
   },
 ];
@@ -222,7 +228,7 @@ export const SUMMARY: Chapter = {
       blocks: [
         {
           kind: "p",
-          text: "Surgence Labs plans and runs the programme with your team, on OnchainSuite. Each playbook that follows is what we would do for a protocol like yours ==before we have seen inside your account==. The first job is to check it against the real thing.",
+          text: "Surgence Labs plans and runs the programme with your team, on OnchainSuite. Each strategy that follows is what we would do for a protocol like yours ==before we have seen inside your account==. The first job is to check it against the real thing.",
         },
       ],
     },

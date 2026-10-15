@@ -116,7 +116,7 @@ export const SUMMARY: Chapter = {
   sections: [
     {
       id: "what-email-does",
-      title: "What email does for a protocol",
+      title: "What retention does for a protocol",
       blocks: [
         {
           kind: "p",
@@ -214,33 +214,6 @@ export const SUMMARY: Chapter = {
             ],
           },
         },
-        {
-          kind: "table",
-          head: ["Layer", "What ships today"],
-          rows: [
-            [
-              "Triggers",
-              "22 ready-made on-chain triggers, including liquidation detected, position opened and closed, capital withdrawn, borrow opened, loan repaid, rewards claimed, staked and unstaked, plus any event your contract emits.",
-            ],
-            [
-              "Chains",
-              "Contracts are watched automatically on Ethereum, Base, Arbitrum, Optimism and Polygon. Other chains, including Solana and app-chains, send events through the Automation Trigger API.",
-            ],
-            [
-              "Channels",
-              "Email and in-app messages from the same Loop. The in-app SDK also delivers web and mobile push.",
-            ],
-            [
-              "Audience",
-              "Segments from rules, SQL or a plain-English sentence, recalculated as wallets act.",
-            ],
-            [
-              "Measurement",
-              "A holdout group inside any Loop, and a SQL Query Editor over your own wallet data.",
-            ],
-          ],
-        },
-        { kind: "p", text: DISCLOSURE },
       ],
     },
     {

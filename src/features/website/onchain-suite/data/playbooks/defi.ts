@@ -1,4 +1,6 @@
-/* Chapter 03: the DeFi playbook (lending, vaults, liquidity).
+/* The DeFi growth and retention strategy (lending, vaults, liquidity),
+   written as prose: one short chapter per moment that decides whether a
+   depositor's capital stays.
    Evidence, checked 14 October 2026:
    - sUSDe staked TVL $6.16B at 7.5% (23 Sep 2025) to $1.21B at 4.9%
      (13 Oct 2026): DefiLlama yields API, computed.
@@ -19,14 +21,13 @@
      H1 2026: 1inch research (commissioned). No significant edge for frequent
      rebalancers: arXiv 2111.09192.
    - UK: FCA PS23/6 incentive ban; FG23/3 rates not guaranteed and kept
-     current. US: FTC v Celsius on "safe", "no risk" claims. */
+     current. US: FTC v Celsius on "safe", "no risk" claims.
+   - Apple Mail opens emails by itself (62.26% of opens, July 2026: Litmus).
+   Section ids that existed before the rewrite (says, campaigns,
+   retention-triggers, newsletter, measure, platform, need) are kept, so deep
+   links already sent still land on the matching section. */
 
-import {
-  BASE_QUESTIONS,
-  MEASURE_NOTE,
-  platformSection,
-  RULES_LINE,
-} from "@/onchain-suite-website/data/playbooks/shared";
+import { DISCLOSURE } from "@/onchain-suite-website/data/retention-playbook";
 import type { PlaybookChapter } from "@/onchain-suite-website/types/retention-playbook";
 
 export const DEFI: PlaybookChapter = {
@@ -35,508 +36,165 @@ export const DEFI: PlaybookChapter = {
   title: "DeFi growth and retention strategy",
   dek: "How email and in-app keep deposits in place, warn borrowers before liquidation, and bring capital back after it moves.",
   tldr: [
-    "In DeFi, keeping a user means keeping their capital, and capital moves when the spread moves. sUSDe's staked deposits fell from $6.16B to $1.21B as its yield went from 7.5% to 4.9%. One month after Arbitrum's STIP incentives ended, WOOFi had lost more than half its TVL.",
-    "It is also concentrated. On Aave V3 Ethereum, ==the 50 largest holders of USDT deposits hold 55% of the market==. Retention starts with knowing who those depositors are and talking to them before they move.",
-    `This strategy sets out how email and in-app do that, in five parts: campaigns, automation, lifecycle, retention triggers and the newsletter. ${RULES_LINE}`,
+    "In DeFi, keeping a user means keeping their capital, and capital moves when the spread moves. As sUSDe's yield went from 7.5% to 4.9%, its staked deposits fell from $6.16B to $1.21B, by DefiLlama's numbers. One month after Arbitrum's incentive programme ended, WOOFi's TVL had gone from $12.6M to $5.9M.",
+    "Capital is concentrated, too. On Aave V3 Ethereum, ==the 50 largest holders of USDT deposits hold 55% of the market==. So this strategy is built around four moments: the first deposit, a loan nearing liquidation, a position that stops earning, and the week capital starts to move.",
+    "At each one, an email or an in-app message starts from what the position just did, and stops as soon as the depositor acts.",
   ],
   sections: [
     {
       id: "says",
-      title: "What email says, and what it never says",
+      title: "What we never send",
       blocks: [
         {
-          kind: "says",
-          always: [
-            'Every rate with its date and the word "currently"',
-            "Health factor and liquidation price in numbers, with the asset behind them",
-            "What changed in a position, before what to do about it",
-            "The protocol's own risk terms, one link away",
-          ],
-          never: [
-            '"Guaranteed", "risk-free", "safe yield" or "safer than a bank"',
-            '"Up to X% APY" as a headline',
-            '"Withdraw anytime" or "instant liquidity"',
-            '"Insured" without the terms',
-            "A rate that can go stale inside an automated send",
-            "Referral bonuses, free tokens or limited-time boosts to readers in the UK",
-          ],
+          kind: "p",
+          text: "A deposit is someone's savings, and the rules treat it that way. In the UK, the FCA bans incentives such as referral bonuses in crypto promotions, and expects any rate to be shown as not guaranteed and kept current. In the US, the FTC's case against Celsius turned on calling deposits \"safe\" and free of risk. Even Aave Labs labels the rate in its own app as not guaranteed.",
         },
         {
-          kind: "note",
-          text: "Even Aave Labs labels the rate in its own app as not guaranteed.",
+          kind: "p",
+          text: 'So we never call a yield guaranteed, risk-free or safe, or a protocol safer than a bank. No headline leads with "up to X% APY", nothing promises withdrawals anytime or instant liquidity, and nothing is called insured without the terms beside it. A rate never sits inside an automated send where it can go stale, and readers in the UK never get referral bonuses, free tokens or limited-time boosts.',
+        },
+        {
+          kind: "p",
+          text: 'What we do send is the record. Every rate carries its date and the word "currently". Health factor and liquidation price are given in numbers, with the asset behind them. We say what changed in a position before what to do about it, and the protocol\'s own risk terms are always one link away. Every message goes to a segment and carries one link, and promotion only reaches people who agreed to it.',
+        },
+      ],
+    },
+    {
+      id: "first-deposit",
+      title: "The first deposit",
+      blocks: [
+        {
+          kind: "p",
+          text: "A wallet that connects and deposits nothing has usually not seen a market that fits what it already holds. We show it that one market, chosen from the assets in the wallet. After the first deposit, one message explains what the position does and what to watch, whether that is a rate, a range or a health factor.",
+        },
+        {
+          kind: "p",
+          text: "From then on, active depositors get a statement on the first of each month with what their position earned last month, in dollars. It is the simplest reason to stay: a number they can check.",
+        },
+      ],
+    },
+    {
+      id: "retention-triggers",
+      title: "Before a liquidation",
+      blocks: [
+        {
+          kind: "p",
+          text: "Liquidations fall hardest on the users least able to absorb them. Aave Labs found about 80% of its liquidation events happen outside Ethereum, at an average of $4,000 to $7,000, against more than $50,000 on Ethereum. Aave does not alert its own users: its help page points them to third-party tools, and DeFi Saver says it protected 365 at-risk Aave V3 positions in January and February 2026 alone.",
+        },
+        {
+          kind: "p",
+          text: "So the alert comes from the position, never from a calendar. When a borrower's health factor falls below the level you set for that collateral, in-app and email go out together with their current health, the price that would trigger liquidation, and how to add collateral or repay. It stops when health is back above the level, and it always sends, whatever the frequency cap.",
+        },
+        {
+          kind: "p",
+          text: "Volatile collateral gets an earlier level, because waiting for 1.0 is too late. In the October 2025 crash, Sentora found most liquidatable volume was taken within about ten blocks, roughly two minutes. If a position is liquidated anyway, an email explains what happened in plain words, what was sold and what is left, with nothing promotional in it.",
+        },
+        {
+          kind: "p",
+          text: "Take Ada. She supplies USDC on Base, and six weeks later borrows against it. ETH falls and her health drops to 1.2. The alert reaches her in the app and by email with her liquidation price, and she repays part of the loan.",
+        },
+      ],
+    },
+    {
+      id: "idle",
+      title: "When a position stops earning",
+      blocks: [
+        {
+          kind: "p",
+          text: "Some positions cost the user money quietly. A liquidity position out of range has stopped earning fees, and research published by 1inch found 29.5% of tracked concentrated-liquidity capital out of range on average in the first half of 2026. After 24 hours out of range, the user gets an email saying it stopped earning, what the position now holds, and how to adjust it, and it stops when the position is back in range. It never pushes constant rebalancing, since an academic study of concentrated liquidity found no significant edge for frequent rebalancers.",
+        },
+        {
+          kind: "p",
+          text: "Rewards work the same way. When claimable rewards pass a set amount, the user gets the amount and one button to claim, until they claim. Seven days and again one day before a lock ends or a position matures, they get the date, the amount and their options, relocking included.",
+        },
+      ],
+    },
+    {
+      id: "quiet",
+      title: "When capital starts to move",
+      blocks: [
+        {
+          kind: "p",
+          text: "When someone withdraws more than half their deposit, they get one question on why. Fourteen days later, if nothing has come back, they hear what has changed since. A wallet that withdraws everything gets the same question and the same follow-up, and then we leave it alone.",
+        },
+        {
+          kind: "p",
+          text: "Read this by wallet and by capital. Deposits are concentrated, so a few wallets decide the curve, and losing many small depositors calls for different messages from losing a few large ones.",
+        },
+        {
+          kind: "p",
+          text: "A crisis needs its own message. After the April 2026 rsETH exploit, Galaxy found Aave lost $8.45B of deposits in two days and its largest pools reached full utilization. When a market is fully utilized, its depositors get an email the same day saying withdrawals may be delayed, why, and where updates are posted. In a run the first hour matters, so who can approve that message is agreed in advance.",
         },
       ],
     },
     {
       id: "campaigns",
-      title: "Campaigns",
-      whw: {
-        what: "A campaign is one message sent to a chosen segment at a set moment, because something is happening they should hear about. In DeFi, the moments are launches, parameter changes and votes.",
-        how: [
-          {
-            kind: "table",
-            head: ["Campaign", "Goes to", "Says", "One button"],
-            rows: [
-              [
-                "New market or vault",
-                "Wallets holding the asset it accepts, not already in it",
-                "What it accepts, the current rate with its date, and the risk terms",
-                "See the vault",
-              ],
-              [
-                "Incentive change",
-                "Depositors in the affected market",
-                "What changes, the date it changes, and what it means for their position",
-                "See my position",
-              ],
-              [
-                "Governance vote",
-                "Holders who can vote, and depositors it affects",
-                "The proposal in plain words and the dates of the vote",
-                "Read the proposal",
-              ],
-            ],
-          },
-          {
-            kind: "p",
-            text: "Every campaign is built from on-chain segments: who holds the asset, who is in the market, who can vote. Nobody gets a launch for an asset they do not hold.",
-          },
-        ],
-        why: "Most teams learn about a migration when it shows up in TVL. The date an incentive ends is the date churn starts: after Arbitrum's STIP programme, wallet activity on participating protocols fell back to where it was before it. A message to the exact wallets a change affects, sent before the date, is the difference between explaining a change and losing the deposit to it.",
-      },
-    },
-    {
-      id: "automation",
-      title: "Automation",
-      whw: {
-        what: "An automated message sends itself to one person when their position changes, and stops as soon as they take the step it asks for. In OnchainSuite these are Loops.",
-        how: [
-          {
-            kind: "loops",
-            loops: [
-              {
-                name: "Loan health alert",
-                startsWhen:
-                  "Health factor falls below a level you set for that collateral",
-                sends:
-                  "In-app and email at once: current health, the price that triggers liquidation, how to add collateral or repay",
-                stopsWhen: "Health back above the level",
-              },
-              {
-                name: "Out of range",
-                startsWhen:
-                  "A liquidity position has been out of range for 24 hours",
-                sends:
-                  "That it has stopped earning fees, what it now holds, and how to adjust it",
-                stopsWhen: "Back in range",
-              },
-              {
-                name: "Unclaimed rewards",
-                startsWhen: "Claimable rewards pass a set amount",
-                sends: "The amount and one button to claim",
-                stopsWhen: "Claimed",
-              },
-              {
-                name: "Unlock coming up",
-                startsWhen:
-                  "7 days, then 1 day, before a lock ends or a position matures",
-                sends:
-                  "The date, the amount and their options, including relocking",
-                stopsWhen: "The date passes",
-              },
-              {
-                name: "Big withdrawal",
-                startsWhen: "Withdrew more than half their deposit",
-                sends:
-                  "One question on why. Then, after 14 days, what has changed since",
-                stopsWhen: "New deposit",
-              },
-              {
-                name: "Monthly statement",
-                startsWhen: "First day of each month, for active depositors",
-                sends: "What their position earned last month, in dollars",
-                stopsWhen: "Single message",
-              },
-            ],
-          },
-          {
-            kind: "p",
-            text: "OnchainSuite watches lending and liquidity contracts directly on Ethereum, Base, Arbitrum, Optimism and Polygon, with ready-made triggers for borrow opened, loan repaid, liquidation detected, capital withdrawn and rewards claimed, and a health factor trigger. On Solana, the same events come in through the Automation Trigger API.",
-          },
-        ],
-        why: "Each of these moments costs the user money if nobody tells them: a loan drifting toward liquidation, a range that stopped earning, rewards left unclaimed. A protocol that tells them first is the one they trust with the next deposit.",
-      },
-    },
-    {
-      id: "lifecycle",
-      title: "Lifecycle",
-      whw: {
-        what: "Lifecycle is the path from first deposit to depositor who adds more over time. We follow wallets and capital separately, because they move differently.",
-        how: [
-          {
-            kind: "artifact",
-            code: "03.01",
-            title: "The depositor lifecycle",
-            diagram: {
-              type: "ladder",
-              steps: [
-                { label: "Connected", note: "wallet connected, nothing in" },
-                {
-                  label: "First deposit",
-                  note: "supplied, staked or added liquidity",
-                },
-                { label: "Repeat", note: "added funds a second time" },
-                { label: "Borrower", note: "opened a loan against it" },
-                {
-                  label: "At risk",
-                  note: "health falling, or half withdrawn",
-                  tone: "orange",
-                },
-                { label: "Exited", note: "withdrew everything", tone: "grey" },
-              ],
-            },
-          },
-          {
-            kind: "table",
-            head: ["Stage", "What it means", "The message's job"],
-            rows: [
-              [
-                "Connected",
-                "Wallet connected, nothing deposited",
-                "Show the one market that fits what the wallet already holds",
-              ],
-              [
-                "First deposit",
-                "Supplied, staked or added liquidity",
-                "Explain what the position does and what to watch",
-              ],
-              [
-                "Repeat",
-                "Added funds a second time",
-                "Monthly statement and new markets for assets they hold",
-              ],
-              [
-                "Borrower",
-                "Opened a loan against the deposit",
-                "Health alerts from the first day",
-              ],
-              [
-                "At risk",
-                "Health falling, or withdrew half",
-                "Catch it early, with numbers",
-              ],
-              [
-                "Exited",
-                "Withdrew everything",
-                "One question, then what changed. Then rest",
-              ],
-            ],
-          },
-          {
-            kind: "path",
-            name: "One depositor's path: Ada",
-            steps: [
-              {
-                when: "Day 0",
-                what: "Ada supplies USDC on Base and leaves her email on your app's capture form.",
-              },
-              {
-                when: "Day 12",
-                what: "An incentive on her market changes next week. She gets one email with the date and what it means for her deposit.",
-              },
-              {
-                when: "Day 30",
-                what: "Her first monthly statement: what her position earned, in dollars.",
-              },
-              {
-                when: "Day 41",
-                what: "She borrows against it. ETH falls and her health drops to 1.2. The alert reaches her in-app and by email with her liquidation price. She repays part of the loan.",
-              },
-              {
-                when: "Day 70",
-                what: "She withdraws half. One question on why. Two weeks later, the new vault for the asset she still holds.",
-              },
-            ],
-          },
-        ],
-        why: "Deposits are concentrated, so a few wallets decide the curve. Reading stages by wallet and by capital shows whether you are losing many small depositors or a few large ones, and those are different problems with different messages.",
-      },
-    },
-    {
-      id: "retention-triggers",
-      title: "Retention triggers",
-      whw: {
-        what: "A retention trigger is a single message sent the same day something happens to a user's position. These are service messages: no offer, no forecast.",
-        how: [
-          {
-            kind: "table",
-            head: ["Moment", "What it says", "Channel"],
-            rows: [
-              [
-                "Health factor falling",
-                "Current health, the liquidation price, how to add collateral or repay",
-                "In-app and email at once",
-              ],
-              [
-                "Liquidated",
-                "What happened in plain words, what was sold and what is left. No promotion",
-                "Email",
-              ],
-              [
-                "Out of range",
-                "That the position stopped earning fees, and what it now holds",
-                "Email",
-              ],
-              [
-                "Rewards claimable",
-                "The amount and one button",
-                "In-app, then email",
-              ],
-              [
-                "Lock or maturity ends",
-                "The date and the options",
-                "Email, 7 days and 1 day before",
-              ],
-              [
-                "Market at full utilization",
-                "That withdrawals may be delayed, why, and where updates are posted",
-                "Email to depositors in that market",
-              ],
-            ],
-          },
-          {
-            kind: "callout",
-            tone: "warning",
-            title: "Two rules we never bend",
-            items: [
-              "A risk alert fires from the position, never from a calendar.",
-              "A service message never carries an offer.",
-            ],
-          },
-          {
-            kind: "note",
-            text: "In the October 2025 crash, most liquidatable volume went within about two minutes. An alert at 1.0 is too late.",
-          },
-        ],
-        why: "Liquidations fall hardest on the users least able to protect themselves: about 80% of Aave liquidation events happen outside Ethereum, at an average of $4,000 to $7,000, against more than $50,000 on Ethereum. Aave does not alert its own users; its help page points them to third-party tools. And when a crisis hits, the first message matters: after the April 2026 rsETH exploit, Aave lost $8.45B of deposits in two days and its largest pools reached full utilization.",
-      },
+      title: "News worth sending",
+      blocks: [
+        {
+          kind: "p",
+          text: "Every campaign is built from on-chain segments: who holds the asset, who is in the market, who can vote. A new market or vault goes to wallets that hold the asset it accepts and are not already in it, with the current rate and its date, and the risk terms. An incentive change goes to depositors in the affected market, with what changes, when, and what it means for their position. A governance vote goes to holders who can vote and depositors it affects, with the proposal in plain words and the dates of the vote.",
+        },
+        {
+          kind: "p",
+          text: "Timing matters most here. The date an incentive ends is the date churn starts: after Arbitrum's programme, wallet activity on the protocols in it fell back to where it was before. A message to the exact wallets a change affects, sent before the date, gives them the facts from you before they hear them elsewhere and move.",
+        },
+      ],
     },
     {
       id: "newsletter",
-      title: "Newsletter",
-      whw: {
-        what: "One email every two weeks to depositors who opted in to news.",
-        how: [
-          {
-            kind: "list",
-            ordered: true,
-            items: [
-              "**Your markets.** Rates, utilization and caps for the markets this reader is in, with the date we checked.",
-              "**What changed.** Parameter changes and governance outcomes that affect depositors.",
-              "**One explainer.** Health factor, out-of-range liquidity, how a maturity works.",
-              "**What is new.** New markets and vaults, each with its risk terms.",
-              "**The calendar.** Fixed dates: unlocks, maturities and votes.",
-            ],
-          },
-          {
-            kind: "p",
-            text: "350 to 450 words and one main button. Every rate carries its date, and nothing in it reads as a promise of yield.",
-          },
-        ],
-        why: "Depositors who understand their position stay through volatility, and the ones who do not leave at the first scare. The explainer does the teaching that alerts have no room for, and the calendar means no maturity or unlock comes as a surprise.",
-      },
-    },
-    {
-      id: "channels",
-      title: "Email and in-app: one owner per step",
-      blocks: [
-        {
-          kind: "table",
-          head: ["Step", "Owner", "Fallback"],
-          rows: [
-            [
-              "Loan health alert",
-              "In-app and email together",
-              "None: this one goes on both",
-            ],
-            ["Liquidated", "Email", "A notice in the app on their next visit"],
-            ["Out of range", "Email", "In-app on the position page"],
-            [
-              "Rewards claimable",
-              "In-app",
-              "Email if unclaimed after 48 hours",
-            ],
-            ["Monthly statement", "Email", "None"],
-          ],
-        },
-        {
-          kind: "p",
-          text: "The health alert is the one exception to one channel per step, because the cost of a missed message is a liquidation. Everything else has one owner and a fallback that fires only if the first went unread.",
-        },
-      ],
-    },
-    {
-      id: "data",
-      title: "The events we need",
+      title: "The fortnightly letter",
       blocks: [
         {
           kind: "p",
-          text: "Lending and liquidity protocols already emit most of what we need on-chain. We read it; your developer adds one script for in-app.",
+          text: "Depositors who opt in to news get one email every two weeks: 350 to 450 words with one main button. It opens with their markets, covering rates, utilization and caps, with the date we checked. Then what changed, such as parameter changes and governance outcomes that affect depositors, one explainer on something like health factor or out-of-range liquidity, what is new with its risk terms, and the fixed dates coming up: unlocks, maturities and votes.",
         },
         {
-          kind: "table",
-          head: ["Event", "Where it comes from"],
-          rows: [
-            [
-              "deposit_made, withdrawal_made",
-              "Supply and Withdraw events on the pool",
-            ],
-            ["borrow_opened, loan_repaid", "Borrow and Repay events"],
-            [
-              "health_factor_changed",
-              "The pool's account data for each borrower, read on a schedule and on price moves",
-            ],
-            [
-              "liquidation_detected",
-              "The liquidation event, with what was sold",
-            ],
-            [
-              "position_out_of_range",
-              "The pool price against the position's range",
-            ],
-            [
-              "rewards_claimable, rewards_claimed",
-              "Your incentives contract or distributor",
-            ],
-            ["lock_ending", "The lock or maturity date held on-chain"],
-            ["vault_created", "Your factory contract's creation event"],
-          ],
-        },
-      ],
-    },
-    {
-      id: "messages",
-      title: "Example messages",
-      blocks: [
-        {
-          kind: "messages",
-          messages: [
-            {
-              type: "Loan health alert, in-app and email",
-              channels: "in-app-and-email",
-              subject: "Your loan is close to liquidation",
-              preview:
-                "ETH at $2,410 would trigger it. Here is how to avoid it",
-              body: [
-                "Your loan health is 1.08. If ETH falls to $2,410, part of your collateral will be sold to repay the loan.",
-                "You can raise your health by adding collateral or repaying part of the loan. Both take one step.",
-              ],
-              action: "Manage my loan",
-            },
-            {
-              type: "Out of range, email",
-              channels: "email",
-              subject: "Your position stopped earning fees",
-              preview: "The price left your range. Here is what you hold now",
-              body: [
-                "The ETH/USDC price moved outside the range you set, so your position has not earned fees since Tuesday.",
-                "It now holds only USDC. You can leave it as it is, or adjust the range to where the price is trading.",
-              ],
-              action: "See my position",
-            },
-            {
-              type: "Monthly statement, email",
-              channels: "email",
-              subject: "Your September statement",
-              preview: "What your deposit earned last month, in dollars",
-              body: [
-                "Your USDC deposit earned $41.20 in September, at a rate that averaged 4.1% over the month.",
-                "Rates change with the market. You can see today's rate and your full history on your position page.",
-              ],
-              action: "See my position",
-            },
-          ],
+          kind: "p",
+          text: "Every rate carries its date, and nothing in it reads as a promise of yield. Depositors who understand their position tend to stay through volatility, and the calendar means no unlock or maturity arrives as a surprise.",
         },
       ],
     },
     {
       id: "measure",
-      title: "What we measure",
+      title: "How we know it worked",
       blocks: [
         {
-          kind: "kpis",
-          rows: [
-            {
-              what: "Deposits still in place",
-              window: "30 and 90 days after they arrive",
-            },
-            {
-              what: "New deposits from existing depositors",
-              window: "Monthly",
-            },
-            {
-              what: "Loans back above the health level after an alert",
-              window: "24 hours",
-            },
-            {
-              what: "Liquidations among alerted wallets, against the holdout",
-              window: "30 days",
-            },
-            { what: "Rewards claimed after a reminder", window: "48 hours" },
-            {
-              what: "Out-of-range positions adjusted after an email",
-              window: "7 days",
-            },
-            {
-              what: "Unsubscribes, complaints and bounces",
-              window: "Every send",
-            },
-          ],
+          kind: "p",
+          text: "We count what depositors do. Opens stopped meaning much once Apple Mail began opening emails by itself, so a message is judged by the deposit, the repayment or the claim that follows it. Every always-on Loop keeps a holdout, a small group left out on purpose, so we can show what the messages caused.",
         },
-        { kind: "p", text: MEASURE_NOTE },
         {
-          kind: "callout",
-          tone: "note",
-          title: "Questions your team can ask your data",
-          items: [
-            "Which depositors withdrew over $50,000 in the last 7 days?",
-            "Which vault keeps deposits longest?",
-            "Which borrowers sit between health 1.0 and 1.2 right now?",
-          ],
+          kind: "p",
+          text: "The numbers we watch are deposits still in place 30 and 90 days after they arrive, new deposits from existing depositors each month, loans back above the health level within 24 hours of an alert, liquidations among alerted wallets against the holdout over 30 days, rewards claimed within 48 hours of a reminder, and out-of-range positions adjusted within 7 days of the email. Unsubscribes, complaints and bounces are checked on every send. Targets are set once the first month gives us a baseline.",
         },
       ],
     },
-    platformSection(
-      "Everything above runs in it. The Loops start from supply, borrow, liquidation and reward events, the segments come from positions and holdings, and the results are read from the same data."
-    ),
+    {
+      id: "platform",
+      title: "Running it on OnchainSuite",
+      blocks: [
+        {
+          kind: "p",
+          text: "Every message above starts from something a position did. OnchainSuite watches lending and liquidity contracts directly on Ethereum, Base, Arbitrum, Optimism and Polygon, with ready-made triggers for a borrow opened, a loan repaid, a liquidation, capital withdrawn and rewards claimed, plus a health factor trigger. On Solana, the same events come in through the Automation Trigger API. For in-app messages, your developer adds one short script.",
+        },
+        {
+          kind: "p",
+          text: "A mainstream email tool could run the news and the letter. It cannot see a health factor fall or a range go idle, so the alerts, the statements and the messages about moving capital would have to go.",
+        },
+        { kind: "p", text: DISCLOSURE },
+      ],
+    },
     {
       id: "need",
       title: "What we need from you",
       blocks: [
         {
-          kind: "table",
-          head: ["Question", "Why it matters"],
-          rows: [
-            BASE_QUESTIONS[0],
-            [
-              "Which markets and chains are in scope, and what are the contract addresses?",
-              "Triggers watch the right contracts from day one",
-            ],
-            [
-              "What health level should trigger an alert for each collateral?",
-              "Volatile collateral needs an earlier warning",
-            ],
-            [
-              "Who can approve a crisis message, and how fast?",
-              "In a run, the first hour matters",
-            ],
-            [
-              "Do you market to users in the UK?",
-              "UK rules ban referral bonuses and stale rates in crypto promotions",
-            ],
-            BASE_QUESTIONS[1],
-            BASE_QUESTIONS[2],
-          ],
+          kind: "p",
+          text: "Seven answers before the first send. Where your email addresses come from and what people agreed to receive, which decides who hears from us straight away and who is asked first. Which markets and chains are in scope, with their contract addresses, so triggers watch the right contracts from day one. What health level should trigger an alert for each collateral, since volatile collateral needs an earlier warning.",
+        },
+        {
+          kind: "p",
+          text: "Then who can approve a crisis message, and how fast. Whether you market to users in the UK, where the rules ban referral bonuses and stale rates in crypto promotions. The domain the email sends from and who manages its DNS, because SPF, DKIM and DMARC decide between inbox and spam. And who approves each message, and whose voice it goes out in.",
         },
       ],
     },

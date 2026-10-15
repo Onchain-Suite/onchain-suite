@@ -11,6 +11,7 @@ import {
   WalletIcon,
 } from "@heroicons/react/24/outline";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import posthog from "posthog-js";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -276,6 +277,11 @@ export function PlanPicker({
         toast.error("Checkout did not return a payment link. Try again.");
         return;
       }
+      posthog.capture("checkout_started", {
+        payment_method: paymentMethod,
+        plan: planRef,
+        plan_line: selection,
+      });
       toast.success(
         paymentMethod === "card"
           ? "Opening secure card checkout in a new tab…"

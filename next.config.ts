@@ -27,6 +27,22 @@ const pickNonEmpty = (...values: Array<string | undefined | null>) => {
  * <form> that posts straight to the API — it never iframes `/f/` — so nothing
  * legitimately frames this page.
  */
+const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+const posthogCspSources = (() => {
+  if (!posthogHost) return { script: "", connect: "" };
+
+  try {
+    const { hostname } = new URL(posthogHost);
+    const domain = hostname.split(".").slice(-2).join(".");
+    return {
+      script: ` https://*.${domain}`,
+      connect: ` ${posthogHost}`,
+    };
+  } catch {
+    return { script: "", connect: "" };
+  }
+})();
+
 const HOSTED_FORM_CSP_REPORT_ONLY = [
   "default-src 'self'",
   "base-uri 'none'",
@@ -34,13 +50,13 @@ const HOSTED_FORM_CSP_REPORT_ONLY = [
   "frame-ancestors 'none'",
   "form-action 'self'",
   // Turnstile (Cloudflare) is the only third party the form loads.
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${posthogCspSources.script}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
   // Submissions go through the same-origin proxy (/api/forms/*); no direct
   // cross-origin egress. This is the line that stops data exfiltration.
-  "connect-src 'self' https://challenges.cloudflare.com",
+  `connect-src 'self' https://challenges.cloudflare.com${posthogCspSources.connect}`,
   "frame-src https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
@@ -64,7 +80,7 @@ const APP_CSP_REPORT_ONLY = [
   "form-action 'self'",
   // 'unsafe-inline'/'unsafe-eval' reflect what Next.js needs today; the report
   // stream will tell us what can be dropped on the way to a nonce-based policy.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.clarity.ms",
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.clarity.ms${posthogCspSources.script}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   // Logo CDNs for the audience on-chain columns: chain/protocol icons from
   // DefiLlama, token icons from Covalent (the latter already loaded via
@@ -72,7 +88,7 @@ const APP_CSP_REPORT_ONLY = [
   // cards from DuckDuckGo. Declared so they survive the flip to enforce.
   "img-src 'self' data: blob: https://res.cloudinary.com https://*.clarity.ms https://icons.llamao.fi https://logos.covalenthq.com https://icons.duckduckgo.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "connect-src 'self' https://*.clarity.ms https://challenges.cloudflare.com",
+  `connect-src 'self' https://*.clarity.ms https://challenges.cloudflare.com${posthogCspSources.connect}`,
   "frame-src 'self' https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",

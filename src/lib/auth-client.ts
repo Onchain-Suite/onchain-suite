@@ -3,6 +3,7 @@ import {
   twoFactorClient,
 } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
+import posthog from "posthog-js";
 import { toast } from "sonner";
 
 import { AUTH_ROUTES, PRIVATE_ROUTES } from "@/shared/config/app-routes";
@@ -104,6 +105,7 @@ export const signOut = async () => {
     await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
+          posthog.reset();
           toast.success("Successfully signed out!");
           window.location.href = "/";
         },

@@ -191,6 +191,11 @@ export const FIXED_ACTIONS: {
     label: "Send in-app",
     description: "Push to the matched wallet",
   },
+  {
+    type: "send_telegram",
+    label: "Send Telegram",
+    description: "Message the wallet on Telegram",
+  },
   { type: "wait", label: "Wait", description: "Pause the flow for a duration" },
   {
     type: "branch",

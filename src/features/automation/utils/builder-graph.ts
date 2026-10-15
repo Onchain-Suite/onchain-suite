@@ -18,6 +18,7 @@ import { isJsonObject } from "@/lib/utils";
 export const ACTION_RENDERER_BY_TYPE: Record<string, string> = {
   send_email: "email",
   send_inapp: "inapp",
+  send_telegram: "telegram",
   dispatch_campaign: "dispatch",
   add_tag: "tag",
   remove_tag: "tag",
@@ -31,6 +32,7 @@ export const ACTION_RENDERER_BY_TYPE: Record<string, string> = {
 const CANONICAL_ACTION_BY_RENDERER: Record<string, string> = {
   email: "send_email",
   inapp: "send_inapp",
+  telegram: "send_telegram",
   dispatch: "dispatch_campaign",
   tag: "add_tag",
   list: "add_to_list",
@@ -77,6 +79,7 @@ export const KNOWN_TRIGGER_TYPES = [
 export const KNOWN_ACTION_TYPES = [
   "send_email",
   "send_inapp",
+  "send_telegram",
   "wait",
   "branch",
   "add_tag",

@@ -6,7 +6,6 @@ import {
   labelOf,
   sectionAnchor,
   trackedIds,
-  visibleIds,
 } from "./playbook-toc";
 
 const base = { kicker: "", dek: "" };
@@ -27,7 +26,7 @@ const toc = buildToc([
     number: "01",
     title: "The perp DEX playbook",
     tocLabel: "Perp DEX",
-    category: "perp-dex",
+    href: "/retention-playbook/perp-dex",
     sections: [{ id: "campaigns", title: "Campaigns" }],
   },
   {
@@ -35,7 +34,7 @@ const toc = buildToc([
     id: "defi",
     number: "03",
     title: "The DeFi playbook",
-    category: "defi",
+    href: "/retention-playbook/defi",
     sections: [{ id: "campaigns", title: "Campaigns" }],
   },
   { ...base, id: "next-step", number: "→", title: "Next step", sections: [] },
@@ -49,33 +48,42 @@ describe("playbook contents", () => {
     expect(toc[2].label).toBe("The DeFi playbook");
   });
 
-  it("tracks each chapter's opening, then its sections", () => {
+  it("keeps the href of a chapter that lives on another page", () => {
+    expect(toc[1].href).toBe("/retention-playbook/perp-dex");
+    expect(toc[0].href).toBeUndefined();
+  });
+
+  it("tracks each on-page chapter's opening, then its sections", () => {
     expect(trackedIds(toc)).toEqual([
       "summary",
       "summary-why",
       "summary-how",
-      "perp-dex",
-      "perp-dex-campaigns",
-      "defi",
-      "defi-campaigns",
       "next-step",
     ]);
   });
 
-  it("only counts the chosen playbook as visible", () => {
-    expect(visibleIds(toc, "defi")).toEqual([
-      "summary",
-      "summary-why",
-      "summary-how",
+  it("tracks every chapter once they are all on the page", () => {
+    const onePage = buildToc([
+      {
+        ...base,
+        id: "defi",
+        number: "03",
+        title: "The DeFi playbook",
+        sections: [{ id: "campaigns", title: "Campaigns" }],
+      },
+      {
+        ...base,
+        id: "working-with-us",
+        number: "04",
+        title: "Working with us",
+        sections: [{ id: "privacy", title: "Privacy" }],
+      },
+    ]);
+    expect(trackedIds(onePage)).toEqual([
       "defi",
       "defi-campaigns",
-      "next-step",
-    ]);
-    expect(visibleIds(toc, null)).toEqual([
-      "summary",
-      "summary-why",
-      "summary-how",
-      "next-step",
+      "working-with-us",
+      "working-with-us-privacy",
     ]);
   });
 

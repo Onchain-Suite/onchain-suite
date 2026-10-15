@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { RetentionPlaybookPage } from "@/onchain-suite-website/components/retention-playbook/retention-playbook-page";
 import { SITE_CONFIG_META } from "@/onchain-suite-website/config";
 import { HERO, META } from "@/onchain-suite-website/data/retention-playbook";
 import {
   parseCategory,
+  playbookPath,
   sanitizeClientName,
 } from "@/onchain-suite-website/utils/retention-playbook-params";
 
@@ -36,10 +38,12 @@ export default async function Page({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  return (
-    <RetentionPlaybookPage
-      client={sanitizeClientName(params.client)}
-      category={parseCategory(params.category)}
-    />
-  );
+  const client = sanitizeClientName(params.client);
+  // The playbooks have their own pages now. Links already sent with
+  // ?category= land on the right one, with the client name intact.
+  const category = parseCategory(params.category);
+  if (category) {
+    redirect(playbookPath(category, client));
+  }
+  return <RetentionPlaybookPage client={client} />;
 }

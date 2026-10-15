@@ -52,3 +52,21 @@ export function parseCategory(raw: RawParam): CategoryId | null {
   const value = first(raw).trim().toLowerCase();
   return isCategoryId(value) ? value : null;
 }
+
+/** Where the playbooks live: one page each, under the landing page. */
+export const PLAYBOOK_BASE = "/retention-playbook";
+
+/**
+ * Path of a playbook's own page, e.g. "/retention-playbook/defi". A client
+ * name is carried across so the "Prepared for" label survives the click.
+ */
+export const playbookPath = (category: CategoryId, client?: string | null) => {
+  const path = `${PLAYBOOK_BASE}/${category}`;
+  return client ? `${path}?client=${encodeURIComponent(client)}` : path;
+};
+
+/** Path back to the landing page, keeping the client name. */
+export const landingPath = (client?: string | null) =>
+  client
+    ? `${PLAYBOOK_BASE}?client=${encodeURIComponent(client)}`
+    : PLAYBOOK_BASE;

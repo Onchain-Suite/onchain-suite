@@ -1,7 +1,4 @@
-import type {
-  CategoryId,
-  Chapter,
-} from "@/onchain-suite-website/types/retention-playbook";
+import type { Chapter } from "@/onchain-suite-website/types/retention-playbook";
 
 /** DOM id of a section inside a chapter: "defi-retention-triggers". */
 export const sectionAnchor = (chapterId: string, sectionId: string) =>
@@ -16,20 +13,23 @@ export interface TocChapter {
   id: string;
   number: string;
   label: string;
-  /** Set on the three playbooks; only the chosen one is on the page. */
-  category?: CategoryId;
+  /**
+   * Set when the chapter lives on another page: the rail links there instead
+   * of scrolling, and the chapter is left out of the reading count.
+   */
+  href?: string;
   sections: TocSection[];
 }
 
 /** Contents for the rail and mobile bar, in page order. */
 export function buildToc(
-  chapters: (Chapter & { category?: CategoryId; tocLabel?: string })[]
+  chapters: (Chapter & { href?: string; tocLabel?: string })[]
 ): TocChapter[] {
   return chapters.map((c) => ({
     id: c.id,
     number: c.number,
     label: c.tocLabel ?? c.title,
-    category: c.category,
+    href: c.href,
     sections: c.sections.map((s) => ({
       id: sectionAnchor(c.id, s.id),
       label: s.title,
@@ -38,20 +38,15 @@ export function buildToc(
 }
 
 /**
- * The anchors the reader moves through, in order: each chapter's opening,
- * then its sections. The opening counts too, so a reader on a chapter's title
- * and contents box already sees that chapter as current.
+ * The anchors the reader moves through on this page, in order: each chapter's
+ * opening, then its sections. The opening counts too, so a reader on a
+ * chapter's title and contents box already sees that chapter as current.
+ * Chapters that live on another page have no anchors here.
  */
 export function trackedIds(toc: TocChapter[]): string[] {
-  return toc.flatMap((c) => [c.id, ...c.sections.map((s) => s.id)]);
-}
-
-/** Tracked anchors actually on the page: playbooks other than the chosen one are hidden. */
-export function visibleIds(
-  toc: TocChapter[],
-  category: CategoryId | null
-): string[] {
-  return trackedIds(toc.filter((c) => !c.category || c.category === category));
+  return toc
+    .filter((c) => !c.href)
+    .flatMap((c) => [c.id, ...c.sections.map((s) => s.id)]);
 }
 
 /** The chapter that holds a tracked anchor. */

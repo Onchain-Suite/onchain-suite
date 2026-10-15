@@ -11,7 +11,6 @@ export type PlaybookEvent =
       category: CategoryId;
       location: "summary";
     }
-  | { name: "retention_playbook_playbook_pill_click"; category: CategoryId }
   | {
       name: "retention_playbook_walkthrough_click";
       section: WalkthroughSource;

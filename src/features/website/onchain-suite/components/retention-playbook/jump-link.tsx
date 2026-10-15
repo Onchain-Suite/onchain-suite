@@ -2,7 +2,7 @@
 
 import type { AriaAttributes, MouseEvent, ReactNode } from "react";
 
-import { usePlaybook } from "./playbook-context";
+import { scrollToAnchor } from "@/onchain-suite-website/utils/playbook-scroll";
 
 /**
  * An in-page link that scrolls with the page's jump behaviour (reduced motion,
@@ -21,15 +21,13 @@ export function JumpLink({
   children: ReactNode;
   onJump?: () => void;
 }) {
-  const { jumpTo } = usePlaybook();
-
   function onClick(e: MouseEvent<HTMLAnchorElement>) {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
       return;
     }
     e.preventDefault();
     onJump?.();
-    jumpTo(target);
+    scrollToAnchor(target);
   }
 
   return (

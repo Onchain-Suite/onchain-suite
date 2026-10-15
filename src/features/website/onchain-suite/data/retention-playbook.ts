@@ -34,8 +34,7 @@ export const SENDER = {
 export const UI = {
   preparedFor: "Prepared for",
   findPlaybook: "Find your playbook",
-  jumpToPlaybook: "Jump to your playbook",
-  yourPlaybook: "Your playbook",
+  allPlaybooks: "All playbooks",
   bookWalkthrough: "Book a walkthrough",
   continueReading: "Next: working with us",
   contents: "Contents",
@@ -49,7 +48,6 @@ export const UI = {
   never: "Never",
   kpiWhat: "What we count",
   kpiWindow: "Counted within",
-  selected: "Selected",
   source: "Source",
   startsWhen: "Starts when",
   sends: "What it sends",

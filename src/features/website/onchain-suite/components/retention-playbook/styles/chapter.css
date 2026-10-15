@@ -156,15 +156,6 @@
 .ns .rp-chap-circle .rp-ink {
   animation: rp-draw 0.8s cubic-bezier(0.35, 0.6, 0.25, 1) both;
 }
-.ns .rp-chap-mine {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-left: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  vertical-align: 1px;
-}
 .ns .rp-chap-secs {
   list-style: none;
   margin: 2px 0 10px 38px;

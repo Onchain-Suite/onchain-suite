@@ -1,20 +1,19 @@
 "use client";
 
-import { ArrowRightIcon, CheckIcon } from "@heroicons/react/20/solid";
-import type { MouseEvent } from "react";
+import { ArrowRightIcon } from "@heroicons/react/20/solid";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
-import { usePlaybook } from "./playbook-context";
-import {
-  CATEGORIES,
-  UI,
-} from "@/onchain-suite-website/data/retention-playbook";
+import { CATEGORIES } from "@/onchain-suite-website/data/retention-playbook";
 import type { CategoryId } from "@/onchain-suite-website/types/retention-playbook";
 import { trackPlaybookEvent } from "@/onchain-suite-website/utils/playbook-analytics";
+import { playbookPath } from "@/onchain-suite-website/utils/retention-playbook-params";
 
 /**
- * The three category cards. Each is a real #anchor link, so it works before
- * JavaScript loads and can be opened in a new tab; a plain click picks the
- * category, scrolls to the playbook and updates the hash.
+ * The three category cards. Each is a real link to that playbook's own page,
+ * so it works before JavaScript loads, opens in a new tab, and can be sent to
+ * a prospect on its own. A ?client= on the landing page is carried across, so
+ * "Prepared for" survives the click.
  */
 export function CategoryCards({
   location,
@@ -23,54 +22,35 @@ export function CategoryCards({
   location: "summary";
   compact?: boolean;
 }) {
-  const { category, openPlaybook } = usePlaybook();
+  // Null while the router is still warming up on a soft navigation.
+  const client = useSearchParams()?.get("client") ?? null;
 
-  function onPick(e: MouseEvent<HTMLAnchorElement>, id: CategoryId) {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
-      return;
-    }
-    e.preventDefault();
+  function onPick(id: CategoryId) {
     trackPlaybookEvent({
       name: "retention_playbook_category_click",
       category: id,
       location,
     });
-    openPlaybook(id);
   }
 
   return (
     <ul className={`rp-cats${compact ? " is-compact" : ""}`}>
-      {CATEGORIES.map((c) => {
-        const selected = category === c.id;
-        return (
-          <li key={c.id}>
-            <a
-              href={`#${c.id}`}
-              className={`rp-cat${selected ? " is-selected" : ""}`}
-              aria-current={selected ? "true" : undefined}
-              onClick={(e) => onPick(e, c.id)}
-            >
-              <span className="rp-cat-sec">{c.section}</span>
-              <span className="rp-cat-label">{c.label}</span>
-              {!compact && <span className="rp-cat-line">{c.line}</span>}
-              <span className="rp-cat-foot">
-                {/* Compact cards keep a fixed slot for the check, so picking a
-                    card never rewraps a label and shifts the page. */}
-                {compact && (
-                  <CheckIcon className="rp-cat-check" aria-hidden="true" />
-                )}
-                {!compact && selected && (
-                  <span className="rp-cat-sel">
-                    <CheckIcon className="rp-icon-sm" aria-hidden="true" />
-                    {UI.selected}
-                  </span>
-                )}
-                <ArrowRightIcon className="rp-cat-arrow" aria-hidden="true" />
-              </span>
-            </a>
-          </li>
-        );
-      })}
+      {CATEGORIES.map((c) => (
+        <li key={c.id}>
+          <Link
+            href={playbookPath(c.id, client)}
+            className="rp-cat"
+            onClick={() => onPick(c.id)}
+          >
+            <span className="rp-cat-sec">{c.section}</span>
+            <span className="rp-cat-label">{c.label}</span>
+            {!compact && <span className="rp-cat-line">{c.line}</span>}
+            <span className="rp-cat-foot">
+              <ArrowRightIcon className="rp-cat-arrow" aria-hidden="true" />
+            </span>
+          </Link>
+        </li>
+      ))}
     </ul>
   );
 }

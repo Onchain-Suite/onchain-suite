@@ -6,22 +6,18 @@ import { LegacyHashRedirect } from "@/onchain-suite-website/components/retention
 import { NextPageLink } from "@/onchain-suite-website/components/retention-playbook/next-page-link";
 import { handFont } from "@/onchain-suite-website/components/retention-playbook/playbook-fonts";
 import { PlaybookHeader } from "@/onchain-suite-website/components/retention-playbook/playbook-header";
-import { PlaybookMobileBar } from "@/onchain-suite-website/components/retention-playbook/playbook-mobile-bar";
-import { PlaybookRail } from "@/onchain-suite-website/components/retention-playbook/playbook-rail";
 import { ReadingProgress } from "@/onchain-suite-website/components/retention-playbook/reading-progress";
 import { PlaybookHero } from "@/onchain-suite-website/components/retention-playbook/sections/playbook-hero";
 import { NsShell } from "@/onchain-suite-website/components/site/ns-shell";
 import {
-  META,
   OVERVIEW,
   SUMMARY,
 } from "@/onchain-suite-website/data/retention-playbook";
-import { PLAYBOOK_MAP } from "@/onchain-suite-website/utils/playbook-toc";
 
 /**
  * /retention-playbook: the landing page. The hero, then the short case for
- * email on-chain, with the three growth and retention strategies in the rail.
- * Each strategy is its own page.
+ * retention on-chain in one centred column, with no rail. Each growth and
+ * retention strategy is its own page, starting from the link at the foot.
  */
 export function RetentionPlaybookPage() {
   return (
@@ -33,20 +29,9 @@ export function RetentionPlaybookPage() {
         <ReadingProgress />
         <div className="wrap rp">
           <PlaybookHero />
-          <div className="rp-grid">
-            <PlaybookRail
-              title={META.title}
-              entries={PLAYBOOK_MAP}
-              currentId={OVERVIEW.id}
-            />
-            <div className="rp-main">
-              <PlaybookMobileBar
-                entries={PLAYBOOK_MAP}
-                currentId={OVERVIEW.id}
-              />
-              <ChapterShell chapter={SUMMARY} showHead={false} />
-              <NextPageLink currentId={OVERVIEW.id} />
-            </div>
+          <div className="rp-solo">
+            <ChapterShell chapter={SUMMARY} showHead={false} />
+            <NextPageLink currentId={OVERVIEW.id} />
           </div>
         </div>
         <Annotator />

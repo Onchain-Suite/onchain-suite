@@ -24,6 +24,15 @@
   min-width: 0;
 }
 
+/* The landing page has no rail: one reading column, centred under the hero. */
+.ns .rp-solo {
+  border-top: 1px solid var(--line);
+}
+.ns .rp-solo .rp-chapter,
+.ns .rp-solo .rp-nextpage {
+  margin-inline: auto;
+}
+
 /* ---------- desktop rail ---------- */
 .ns .rp-rail {
   border-right: 1px solid var(--line);

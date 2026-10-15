@@ -243,6 +243,11 @@ const CHAIN_LABELS: Record<string, string> = {
   hyperliquid: "Hyperliquid",
   monad: "Monad",
   robinhood: "Robinhood",
+  // Sovren (sovr-1) — a Cosmos/CometBFT chain. Its slug keeps the `-1` suffix,
+  // which resolveChainLabel does NOT strip (not a network suffix), so the key
+  // must be the full `sovr-1`; `sovren` covers the alias the backend also sends.
+  "sovr-1": "Sovren",
+  sovren: "Sovren",
 };
 
 /**
@@ -459,6 +464,12 @@ const CHAIN_VISUALS: Record<string, { abbr: string; color: string }> = {
   // eth-mainnet borrowed the ETH chip entirely. The real logo layers on
   // automatically once onchain/chains/adi.svg is uploaded to Cloudinary.
   adi: { abbr: "ADI", color: "#FF7A18" },
+  // Sovren (sovr-1), a Cosmos chain. Full slug as the key — the `-1` is not a
+  // network suffix so it is not stripped. Brand indigo, distinct from Polygon's
+  // violet and ETH blue; the real logo layers on once onchain/chains/sovren.svg
+  // is uploaded to Cloudinary (the label "Sovren" drives that slug).
+  "sovr-1": { abbr: "SOVR", color: "#5B4BC4" },
+  sovren: { abbr: "SOVR", color: "#5B4BC4" },
 };
 
 /** Initials for an unknown value: first N chars of the label, upper-cased. */

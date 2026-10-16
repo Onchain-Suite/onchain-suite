@@ -58,6 +58,7 @@ import {
 } from "@/features/campaigns/campaigns.service";
 import { AudienceStep } from "@/features/campaigns/components/campaign-form/audience-step";
 import { ConfirmationPage } from "@/features/campaigns/components/campaign-form/campaign-confirmation";
+import { DiscordMessageStep } from "@/features/campaigns/components/campaign-form/discord-message-step";
 import {
   InAppMessageStep,
   InAppPreview,
@@ -259,6 +260,14 @@ const persistCampaignContent = async (
       campaignId,
       (data.telegramText ?? "").trim()
     );
+    return;
+  }
+  if (data.channel === "discord") {
+    // Discord broadcast → channelsContent.discord.{text,channelId} (one post).
+    await campaignsService.setDiscordContent(campaignId, {
+      text: (data.discordText ?? "").trim(),
+      channelId: (data.discordChannelId ?? "").trim(),
+    });
     return;
   }
   await campaignsService.updateContent(campaignId, {
@@ -686,10 +695,13 @@ function CampaignPreviewStep({
   const selectedTemplateId = form.watch("selectedTemplate") ?? "";
   const isPush = form.watch("channel") === "in-app-push";
   const isTelegram = form.watch("channel") === "telegram";
-  // Telegram, like in-app, is wallet-reachable and sends immediately with no
-  // email sender/subject/inbox preview. `isWalletChannel` equals `isPush` for
-  // email/in-app, so reusing it in "not email" branches leaves those unchanged.
-  const isWalletChannel = isPush || isTelegram;
+  const isDiscord = form.watch("channel") === "discord";
+  // Telegram/Discord, like in-app, send immediately with no email
+  // sender/subject/inbox preview — so they share the non-email UI path.
+  // `isWalletChannel` equals `isPush` for email/in-app, so reusing it in "not
+  // email" branches leaves those unchanged. (Discord broadcast isn't literally
+  // per-wallet, but it takes the same no-sender/no-inbox path.)
+  const isWalletChannel = isPush || isTelegram || isDiscord;
 
   // Auto-load the rendered email as soon as the step opens - no manual
   // "Generate preview" click required. The selected template is part of the
@@ -902,8 +914,12 @@ function CampaignPreviewStep({
                     className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground"
                   />
                   <span className="text-xs text-muted-foreground">
-                    {isTelegram ? "Telegram" : "In-app push"} always sends
-                    immediately.
+                    {isTelegram
+                      ? "Telegram"
+                      : isDiscord
+                        ? "Discord"
+                        : "In-app push"}{" "}
+                    always sends immediately.
                   </span>
                 </div>
               )}
@@ -951,9 +967,11 @@ function CampaignPreviewStep({
             <div className="text-sm font-medium text-foreground">
               {isTelegram
                 ? "Telegram preview"
-                : isPush
-                  ? "Notification preview"
-                  : "Inbox preview"}
+                : isDiscord
+                  ? "Discord preview"
+                  : isPush
+                    ? "Notification preview"
+                    : "Inbox preview"}
             </div>
             {/* Send a test reveals an inline field on click. */}
             {!isWalletChannel ? (
@@ -1061,6 +1079,19 @@ function CampaignPreviewStep({
                   {(values.telegramText ?? "").trim().length > 0
                     ? values.telegramText
                     : "Your Telegram message will appear here."}
+                </div>
+              </div>
+            ) : isDiscord ? (
+              <div className="flex min-h-[320px] flex-col justify-end gap-2 bg-[#313338] p-4">
+                <div className="whitespace-pre-wrap break-words px-1 py-2 text-sm text-slate-100">
+                  {(values.discordText ?? "").trim().length > 0
+                    ? values.discordText
+                    : "Your Discord message will appear here."}
+                </div>
+                <div className="px-1 text-[11px] text-slate-400">
+                  {(values.discordChannelId ?? "").trim().length > 0
+                    ? `→ channel ${values.discordChannelId}`
+                    : "Set a channel ID in the composer."}
                 </div>
               </div>
             ) : isPush ? (
@@ -1698,6 +1729,27 @@ export function CreateCampaignPage() {
           nextValues.channel = "telegram";
         }
 
+        // Discord broadcast: restore text + channel id from
+        // `channelsContent.discord`, same as Telegram, so a draft reopens on the
+        // Discord composer rather than the email one.
+        const discordSource = (() => {
+          if (
+            campaignRes.status === "fulfilled" &&
+            isJsonObject(campaignRes.value)
+          ) {
+            const cc = campaignRes.value.channelsContent;
+            if (isJsonObject(cc) && isJsonObject(cc.discord)) return cc.discord;
+          }
+          return undefined;
+        })();
+        if (discordSource) {
+          const text = discordSource.text ?? discordSource.body;
+          if (typeof text === "string") nextValues.discordText = text;
+          if (typeof discordSource.channelId === "string")
+            nextValues.discordChannelId = discordSource.channelId;
+          nextValues.channel = "discord";
+        }
+
         if (audienceRes.status === "fulfilled") {
           const aObj: Record<string, unknown> = isJsonObject(audienceRes.value)
             ? audienceRes.value
@@ -2109,6 +2161,25 @@ export function CreateCampaignPage() {
         return;
       }
 
+      if (data.channel === "discord") {
+        await campaignsService
+          .ensureChannels(campaignId, ["discord"])
+          .catch(() => undefined);
+        const result = await campaignsService.sendDiscord(campaignId);
+        await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+        if (!result.ok) {
+          toast.error(
+            result.reason
+              ? `Discord broadcast failed: ${result.reason}`
+              : "Discord broadcast failed. Check the bot is in the server and the channel ID is right."
+          );
+          return;
+        }
+        toast.success("Broadcast posted to Discord.");
+        setShowConfirmation(true);
+        return;
+      }
+
       const scheduleDateIso = computeScheduleUtcIso(data);
       await campaignsService.updateSchedule(campaignId, {
         sendOption: data.sendOption,
@@ -2226,10 +2297,11 @@ export function CreateCampaignPage() {
   // Persistent right-column summary, kept in sync across steps.
   const wizIsPush = form.watch("channel") === "in-app-push";
   const wizIsTelegram = form.watch("channel") === "telegram";
-  // Telegram, like in-app, is wallet-reachable and sends immediately (no email
+  const wizIsDiscord = form.watch("channel") === "discord";
+  // Telegram/Discord, like in-app, send immediately (no email
   // sender/subject/schedule). `wizIsWallet` equals `wizIsPush` for email/in-app,
   // so reusing it in "not email" branches preserves those flows unchanged.
-  const wizIsWallet = wizIsPush || wizIsTelegram;
+  const wizIsWallet = wizIsPush || wizIsTelegram || wizIsDiscord;
 
   // In-app delivery readiness (web SDK keys/origins + mobile APNs/FCM). Drives
   // the setup notice in the composer and the launch guard below. Only fetched
@@ -2286,15 +2358,23 @@ export function CreateCampaignPage() {
   }, [wizTemplate, summaryTemplatesQuery.data]);
   const wizSummary = {
     campaignName: form.watch("campaignName") ?? "",
-    channel: wizIsTelegram ? "Telegram" : wizIsPush ? "In-app push" : "Email",
+    channel: wizIsTelegram
+      ? "Telegram"
+      : wizIsDiscord
+        ? "Discord"
+        : wizIsPush
+          ? "In-app push"
+          : "Email",
     sender: wizIsTelegram
       ? "Telegram bot"
-      : wizIsPush
-        ? "In-app push"
-        : [form.watch("senderName"), form.watch("senderEmail")]
-            .map((value) => (value ?? "").trim())
-            .filter(Boolean)
-            .join(" · ") || "-",
+      : wizIsDiscord
+        ? "Discord bot"
+        : wizIsPush
+          ? "In-app push"
+          : [form.watch("senderName"), form.watch("senderEmail")]
+              .map((value) => (value ?? "").trim())
+              .filter(Boolean)
+              .join(" · ") || "-",
     template: wizTemplateName.length > 0 ? wizTemplateName : "-",
     delivery: sendOption === "schedule" ? "Scheduled" : "Send immediately",
   };
@@ -2571,6 +2651,8 @@ export function CreateCampaignPage() {
                         </div>
                       ) : wizIsTelegram ? (
                         <TelegramMessageStep form={form} />
+                      ) : wizIsDiscord ? (
+                        <DiscordMessageStep form={form} />
                       ) : wizIsPush ? (
                         <InAppMessageStep
                           form={form}

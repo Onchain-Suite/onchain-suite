@@ -54,10 +54,13 @@ function SectionBody({ section }: { section: ChapterSection }) {
 export function ChapterShell({
   chapter,
   footer,
+  action,
   showHead = true,
 }: {
   chapter: Chapter;
   footer?: ReactNode;
+  /** Rendered under the standfirst, when the head is shown. */
+  action?: ReactNode;
   /** False on the landing page, where the hero is the title. */
   showHead?: boolean;
 }) {
@@ -69,7 +72,7 @@ export function ChapterShell({
   }));
   return (
     <article id={chapter.id} className="rp-chapter" aria-labelledby={titleId}>
-      {showHead && <ChapterHead chapter={chapter} />}
+      {showHead && <ChapterHead chapter={chapter} action={action} />}
 
       {tldr && (
         <div className="rp-lead">

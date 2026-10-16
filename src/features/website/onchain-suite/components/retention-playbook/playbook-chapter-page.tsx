@@ -3,6 +3,7 @@ import { Annotator } from "@/onchain-suite-website/components/retention-playbook
 import { ChapterShell } from "@/onchain-suite-website/components/retention-playbook/chapter-shell";
 import { InitialHashScroll } from "@/onchain-suite-website/components/retention-playbook/initial-hash-scroll";
 import { NextPageLink } from "@/onchain-suite-website/components/retention-playbook/next-page-link";
+import { PdfButton } from "@/onchain-suite-website/components/retention-playbook/pdf-button";
 import { handFont } from "@/onchain-suite-website/components/retention-playbook/playbook-fonts";
 import { PlaybookHeader } from "@/onchain-suite-website/components/retention-playbook/playbook-header";
 import { PlaybookMobileBar } from "@/onchain-suite-website/components/retention-playbook/playbook-mobile-bar";
@@ -14,7 +15,6 @@ import { strategyContents } from "@/onchain-suite-website/utils/playbook-toc";
 import {
   PLAYBOOK_BASE,
   playbookPath,
-  playbookPdfPath,
 } from "@/onchain-suite-website/utils/retention-playbook-params";
 
 /**
@@ -37,19 +37,17 @@ export function PlaybookChapterPage({ chapter }: { chapter: PlaybookChapter }) {
               title={chapter.title}
               entries={contents}
               backHref={PLAYBOOK_BASE}
-              pdfHref={playbookPdfPath(chapter.id)}
             />
             <div className="rp-main">
               {/* Printed only: the PDF names its sender and its page. */}
               <p className="rp-print-head">
                 Surgence Labs · onchainsuite.com{playbookPath(chapter.id)}
               </p>
-              <PlaybookMobileBar
-                entries={contents}
-                backHref={PLAYBOOK_BASE}
-                pdfHref={playbookPdfPath(chapter.id)}
+              <PlaybookMobileBar entries={contents} backHref={PLAYBOOK_BASE} />
+              <ChapterShell
+                chapter={chapter}
+                action={<PdfButton category={chapter.id} />}
               />
-              <ChapterShell chapter={chapter} />
               <NextPageLink currentId={chapter.id} />
             </div>
           </div>

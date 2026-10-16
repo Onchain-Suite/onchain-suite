@@ -1,12 +1,16 @@
 import { track } from "@vercel/analytics";
 
+import type { CategoryId } from "@/onchain-suite-website/types/retention-playbook";
+
 /** Where a walkthrough button sits: the top bar, the hero, or the last page's foot. */
 export type WalkthroughSource = "header" | "hero" | "next-step";
 
-export type PlaybookEvent = {
-  name: "retention_playbook_walkthrough_click";
-  section: WalkthroughSource;
-};
+export type PlaybookEvent =
+  | { name: "retention_playbook_pdf_download"; category: CategoryId }
+  | {
+      name: "retention_playbook_walkthrough_click";
+      section: WalkthroughSource;
+    };
 
 type Clarity = (command: "event", name: string) => void;
 

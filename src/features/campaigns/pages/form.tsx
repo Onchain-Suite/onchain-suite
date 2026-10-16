@@ -264,6 +264,12 @@ const persistCampaignContent = async (
   }
   if (data.channel === "discord") {
     // Discord broadcast → channelsContent.discord.{text,channelId} (one post).
+    // Enable the channel first: the content route rejects content for a channel
+    // not in channelsUsed, and this persist can run before the launch-time
+    // ensureChannels. Idempotent, so the launch call stays a no-op.
+    await campaignsService
+      .ensureChannels(campaignId, ["discord"])
+      .catch(() => undefined);
     await campaignsService.setDiscordContent(campaignId, {
       text: (data.discordText ?? "").trim(),
       channelId: (data.discordChannelId ?? "").trim(),

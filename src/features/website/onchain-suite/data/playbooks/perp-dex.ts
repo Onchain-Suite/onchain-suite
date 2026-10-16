@@ -228,6 +228,23 @@ export const PERP_DEX: PlaybookChapter = {
           text: "If the position is liquidated, an email follows within hours. It says what happened in plain words and how stop-losses and position sizing work, and it never asks the trader to deposit again or size up. After the October 2025 cascade, The Block found daily liquidations up 70% the following week: traders who had just been liquidated came back and were liquidated again. This message exists to slow that down.",
         },
         {
+          kind: "messages",
+          messages: [
+            {
+              type: "After a liquidation, email",
+              channels: "email",
+              subject: "What happened to your ETH position",
+              preview: "A plain explanation, and two tools that help next time",
+              body: [
+                "Your ETH long was liquidated at 14:32 UTC when the price reached your liquidation level.",
+                "Here is what that means: when losses on a position use up most of its margin, the position closes automatically so the loss cannot grow past what you put in.",
+                "Two tools can help on your next trade. A stop-loss closes your position at a price you choose. The position size calculator shows how far the price can move before liquidation.",
+              ],
+              action: "See how stop-losses work",
+            },
+          ],
+        },
+        {
           kind: "p",
           text: "Deleveraging and a large funding payment get the same treatment: one message that day, saying which position and why, with no offer attached.",
         },

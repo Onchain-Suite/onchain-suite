@@ -200,6 +200,23 @@ export const PREDICTION_MARKET: PlaybookChapter = {
           text: "If they lost, they get an email with the result and their balance, and a link to deposit limits and account tools. Nothing in it invites a new position. Users leave at two and a half times the rate after a loss, so this is the message that matters most, and the one a regulator would look at first. A clear, factual result keeps their trust without crossing that line.",
         },
         {
+          kind: "messages",
+          messages: [
+            {
+              type: "Market resolved, user lost, email",
+              channels: "email",
+              subject: "Your market resolved",
+              preview: "The result, your balance, and your account tools",
+              body: [
+                'The market "Will the Fed cut rates in December?" resolved NO.',
+                "Your position in it has closed. Your balance is $180.",
+                "If you want to, you can set a deposit limit or take a break from your account settings at any time.",
+              ],
+              action: "See my account",
+            },
+          ],
+        },
+        {
           kind: "p",
           text: "On Polymarket, results settle through UMA. An undisputed result settles after a two-hour challenge window, and a disputed one takes four to six days. Without a message, a user holding a disputed market just sees their money stuck. So when a market they hold is disputed, they get one email: what a dispute is, how long reviews usually take, and where to follow it, with a banner on the market page as the fallback. The result follows the day it settles. When a market's rules are clarified, holders get the change in plain words.",
         },

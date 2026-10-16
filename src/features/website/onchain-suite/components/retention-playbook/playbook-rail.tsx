@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftIcon } from "@heroicons/react/20/solid";
+import { ArrowDownTrayIcon, ArrowLeftIcon } from "@heroicons/react/20/solid";
 import Link from "next/link";
 
 import { TocList } from "./toc-list";
@@ -18,6 +18,7 @@ export function PlaybookRail({
   entries,
   currentId,
   backHref,
+  pdfHref,
 }: {
   title: string;
   entries: MapEntry[];
@@ -25,6 +26,8 @@ export function PlaybookRail({
   currentId?: string;
   /** Set on a strategy page: the way back to all three strategies. */
   backHref?: string;
+  /** Set on a strategy page: its PDF, for prospects who want an attachment. */
+  pdfHref?: string;
 }) {
   const current = useRailCurrent(entries, currentId);
   return (
@@ -38,6 +41,12 @@ export function PlaybookRail({
         )}
         <p className="rp-rail-title">{title}</p>
         <TocList entries={entries} currentId={current} />
+        {pdfHref && (
+          <a href={pdfHref} download className="rp-rail-pdf">
+            <ArrowDownTrayIcon className="rp-icon-sm" aria-hidden="true" />
+            {UI.downloadPdf}
+          </a>
+        )}
       </nav>
     </aside>
   );

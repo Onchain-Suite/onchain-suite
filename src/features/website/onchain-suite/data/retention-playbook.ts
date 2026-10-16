@@ -31,6 +31,7 @@ export const SENDER = {
 export const UI = {
   bookWalkthrough: "Book a walkthrough",
   allStrategies: "All strategies",
+  downloadPdf: "Download as PDF",
   contentsLabel: "Playbook contents",
   what: "What",
   how: "How",

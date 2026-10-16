@@ -118,13 +118,16 @@ export function MemberTable({ members }: { members: DetailMember[] }) {
                   <span className="font-mono text-xs text-foreground">
                     {m.email}
                   </span>
-                ) : m.walletFull ? (
-                  <span className="inline-flex items-center gap-1 text-muted-foreground">
+                ) : m.walletFull && m.emailReachable ? (
+                  <span
+                    className="inline-flex items-center gap-1 text-muted-foreground"
+                    title="Email resolved from a zero-knowledge form proof - the address is never exposed"
+                  >
                     <ShieldCheckIcon
                       className="size-4 text-primary"
                       aria-hidden="true"
                     />
-                    ZK-protected
+                    ZK-verified
                   </span>
                 ) : (
                   <span className="text-muted-foreground">-</span>

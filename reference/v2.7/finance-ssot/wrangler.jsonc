@@ -1,0 +1,16 @@
+{
+  "name": "onchainsuitepricing",
+  "compatibility_date": "2026-07-28",
+
+  // Assets-only: Cloudflare serves the static export straight from the edge, no Worker runtime.
+  // The app has no server-side features, so there is nothing for a Worker to run.
+  //
+  // Build it with `npm run build:static`, which writes ./out.
+  //
+  // This replaces pricing/wrangler.jsonc, which served the single-file document under the same
+  // Worker name and therefore the same URL. Deploying either one takes the URL; only this one is
+  // current.
+  "assets": {
+    "directory": "./out"
+  }
+}

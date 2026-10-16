@@ -1,0 +1,221 @@
+/* Onboarding — a card in open space, form left, product preview right.
+ *
+ * It used to run full-bleed to the viewport edges with 32px of padding and a saturated panel
+ * on one side. Everything was present and nothing had any room: the question, the answer, the
+ * reassurance and the proof all competed inside the same 560px.
+ *
+ * The geometry now is the one the rest of this industry settled on because it works — the
+ * whole flow sits in a bordered card with real margins around it, the form column gets ~56px
+ * of padding, and the right half is quiet. One question per screen, with space around it.
+ */
+
+.ob { min-height: 100vh; background: var(--bg-page); font-family: var(--font-sans);
+  display: flex; flex-direction: column; align-items: center; padding: 32px 24px 24px; }
+
+.ob__brand { height: 26px; margin-bottom: 26px; flex-shrink: 0; }
+
+/* The card. Capped so the two columns stay a readable width on a large display rather than
+   stretching the form to 900px. */
+.ob__shell { width: min(1180px, 100%); flex: 1; display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-surface);
+  overflow: hidden; }
+
+.ob__pane { display: flex; flex-direction: column; padding: 40px 56px 32px; min-width: 0; }
+
+.ob__top { display: flex; align-items: center; gap: 12px; flex-shrink: 0; min-height: 22px; }
+
+/* Vertically centred with the air left in. The form column is capped at a readable measure so
+   the padding is doing the spacing rather than the text stretching to fill it. */
+.ob__body { flex: 1; display: flex; flex-direction: column; justify-content: center;
+  padding: 24px 0; max-width: 460px; width: 100%; }
+
+.ob h1 { margin: 0 0 10px; font-size: 27px; font-weight: 600; letter-spacing: -0.5px;
+  line-height: 1.2; color: var(--text-primary); }
+.ob__sub { margin: 0 0 28px; font-size: 14.5px; line-height: 1.6; color: var(--text-secondary); }
+
+.ob__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-shrink: 0; max-width: 460px; width: 100%; }
+
+/* The links under the card, where they are available and out of the way. */
+.ob__legal { display: flex; align-items: center; gap: 18px; margin-top: 22px; flex-shrink: 0;
+  font-size: 12px; color: var(--text-tertiary); }
+.ob__legal a, .ob__legal button { color: inherit; text-decoration: none; border: 0; background: none;
+  cursor: pointer; font: inherit; padding: 0; }
+.ob__legal a:hover, .ob__legal button:hover { color: var(--text-primary); }
+
+/* ---- The product preview ---- */
+.obp { background: var(--bg-sunken); border-left: 1px solid var(--border-subtle);
+  padding: 48px 0 48px 44px; display: flex; align-items: center; overflow: hidden; }
+.obp__app { width: 100%; height: min(420px, 100%); display: grid; grid-template-columns: 148px minmax(0,1fr);
+  border: 1px solid var(--border-subtle); border-top-left-radius: 10px; border-bottom-left-radius: 10px;
+  background: var(--bg-surface); overflow: hidden; }
+.obp__side { border-right: 1px solid var(--border-subtle); padding: 12px 10px; display: flex;
+  flex-direction: column; gap: 7px; transition: box-shadow 160ms ease, background 160ms ease; }
+.obp__side.is-lit { background: var(--bg-selected); box-shadow: inset 0 0 0 1px var(--action-primary); }
+.obp__ws { display: flex; align-items: center; gap: 7px; padding-bottom: 4px; }
+.obp__ws i { width: 16px; height: 16px; border-radius: 4px; background: var(--action-primary); }
+.obp__ws b { height: 7px; width: 52px; border-radius: 99px; background: var(--text-primary); opacity: .75; }
+.obp__search { height: 20px; border-radius: 5px; background: var(--surface-subtle); }
+.obp__nav { display: flex; align-items: center; gap: 7px; padding: 4px 3px; border-radius: 5px; }
+.obp__nav i { width: 11px; height: 11px; border-radius: 3px; background: var(--border-strong); }
+.obp__nav b { height: 5px; flex: 1; max-width: 68px; border-radius: 99px; background: var(--border-strong); }
+.obp__nav.is-on { background: var(--bg-selected); }
+.obp__nav.is-on i, .obp__nav.is-on b { background: var(--action-primary); }
+.obp__group { margin-top: 6px; padding: 5px 3px; border-radius: 6px; display: flex; flex-direction: column;
+  gap: 5px; transition: box-shadow 160ms ease, background 160ms ease; }
+.obp__group > span { height: 4px; width: 34px; border-radius: 99px; background: var(--border-default); }
+.obp__group.is-lit { background: var(--bg-selected); box-shadow: inset 0 0 0 1px var(--action-primary); }
+.obp__main { padding: 12px 0 12px 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.obp__bar { display: flex; align-items: center; gap: 10px; }
+.obp__bar b { height: 9px; width: 96px; border-radius: 99px; background: var(--text-primary); opacity: .7; }
+.obp__bar span { height: 20px; width: 66px; border-radius: 5px; background: var(--action-primary); opacity: .9; margin-left: auto; margin-right: 12px; }
+.obp__table { display: flex; flex-direction: column; gap: 1px; border-top: 1px solid var(--border-subtle);
+  border-radius: 6px 0 0 0; overflow: hidden; transition: box-shadow 160ms ease; }
+.obp__table.is-lit { box-shadow: inset 0 0 0 1px var(--action-primary); }
+.obp__row { display: flex; align-items: center; gap: 10px; padding: 9px 4px;
+  border-bottom: 1px solid var(--border-subtle); }
+.obp__row i { width: 14px; height: 14px; border-radius: 50%; background: var(--surface-subtle); flex-shrink: 0; }
+.obp__row b { height: 6px; width: 82px; border-radius: 99px; background: var(--border-strong); }
+.obp__row span { height: 6px; width: 46px; border-radius: 99px; background: var(--surface-subtle); }
+.obp__row em { height: 6px; flex: 1; max-width: 120px; border-radius: 99px; background: var(--surface-subtle); }
+.obp__chart { flex: 1; display: flex; align-items: flex-end; gap: 10px; padding: 16px 12px 8px 0; }
+.obp__chart i { flex: 1; border-radius: 4px 4px 0 0; background: var(--action-primary); opacity: .75; }
+
+@media (max-width: 900px) {
+  .ob__shell { grid-template-columns: minmax(0, 1fr); }
+  .obp { display: none; }
+  .ob__pane { padding: 36px 28px 28px; }
+}
+
+/* Step 1 — the project */
+.ob__field { display: flex; flex-direction: column; gap: 8px; }
+.ob__field label { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+.ob__input { border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  background: var(--bg-surface); padding: 2px; }
+.ob__input:focus-within { border-color: var(--action-primary); }
+.ob__input input { width: 100%; box-sizing: border-box; border: none; outline: none; background: none;
+  padding: 12px 14px; font-family: inherit; font-size: 16px; color: var(--text-primary); }
+.ob__hint { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; line-height: 1.5;
+  color: var(--text-tertiary); }
+.ob__hint svg { flex-shrink: 0; margin-top: 1px; }
+
+/* Step 1 as a form: five fields, two of them optional. Tighter than the single input it
+   replaced so the whole step fits a laptop screen without scrolling to Continue. */
+.ob__form { display: flex; flex-direction: column; gap: 16px; }
+.ob__row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ob__form .ob__field { gap: 6px; }
+.ob__form .ob__field label { font-size: 13.5px; }
+.ob__field label i { font-style: normal; font-weight: 400; color: var(--text-tertiary); margin-left: 4px; }
+.ob__form .ob__input input, .ob__form .ob__input select {
+  width: 100%; box-sizing: border-box; border: none; outline: none; background: none; padding: 9px 12px;
+  font-family: inherit; font-size: 15px; color: var(--text-primary); }
+.ob__input--select { position: relative; }
+.ob__input--select select { appearance: none; cursor: pointer; padding-right: 36px; }
+.ob__input--select select:invalid { color: var(--text-tertiary); }
+.ob__input--select svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-tertiary); pointer-events: none; }
+.ob__form .ob__input input.ob__mono { font-family: var(--font-mono); font-size: 14px; }
+@media (max-width: 520px) { .ob__row2 { grid-template-columns: minmax(0, 1fr); } }
+
+/* Step 2 — who wires it up. Shared card style for any one-of-n choice in the flow. */
+.ob__cards { display: flex; flex-direction: column; gap: 10px; }
+.ob__card { display: flex; align-items: center; gap: 13px; width: 100%; text-align: left;
+  padding: 15px 16px; border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  background: var(--bg-surface); cursor: pointer; font-family: inherit; }
+.ob__card:hover { border-color: var(--action-primary); }
+.ob__card.on { border-color: var(--action-primary); background: var(--bg-selected); }
+.ob__cardic { width: 36px; height: 36px; flex-shrink: 0; border-radius: var(--radius-md);
+  background: var(--bg-brand-subtle); color: var(--action-primary);
+  display: flex; align-items: center; justify-content: center; }
+.ob__cardtx { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ob__cardtx b { font-size: 14.5px; font-weight: 600; color: var(--text-primary); }
+.ob__cardtx span { font-size: 12.5px; color: var(--text-tertiary); }
+.ob__cardtick { width: 20px; height: 20px; flex-shrink: 0; border-radius: var(--radius-round);
+  border: 1px solid var(--border-strong); color: transparent;
+  display: flex; align-items: center; justify-content: center; }
+.ob__card.on .ob__cardtick { background: var(--action-primary); border-color: var(--action-primary); color: #fff; }
+
+/* The step count: a line of text and a thin three-part bar. Enough to say "this ends
+   quickly" without a row of boxes competing with the question. */
+.ob__top { flex-direction: column; align-items: stretch; gap: 10px; }
+.ob__count { font-size: 12.5px; color: var(--text-tertiary); }
+.ob__count i { font-style: normal; opacity: .5; margin: 0 2px; }
+.ob__count b { font-weight: 500; color: var(--text-secondary); }
+.ob__seg { display: flex; gap: 4px; max-width: 460px; }
+.ob__seg i { flex: 1; height: 3px; border-radius: 99px; background: var(--surface-subtle);
+  transition: background 200ms ease; }
+.ob__seg i.is-on { background: var(--action-primary); }
+@media (prefers-reduced-motion: reduce) { .ob__seg i { transition: none; } }
+
+/* A card that holds a control. The button fills the card behind its content, so the whole
+   card still selects, and anything interactive inside sits above it. */
+.ob__card--hit { position: relative; cursor: default; }
+.ob__cardhit { position: absolute; inset: 0; z-index: 0; border: 0; padding: 0; margin: 0; background: none;
+  cursor: pointer; border-radius: inherit; }
+.ob__cardhit:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+.ob__card--hit > span { position: relative; pointer-events: none; }
+/* As a button the card took the browser's tight button line-height; as a container it would
+   inherit the page's, and every card grew by a third. Pinned to what it was. */
+.ob__card--hit .ob__cardtx { line-height: normal; }
+
+/* The handoff, in the slot the card's description was in: one compact row, so choosing
+   "Someone else is" does not make the step longer. */
+.ob__delegate { pointer-events: auto; position: relative; z-index: 1; margin-top: 4px; }
+.ob__delegaterow { display: flex; gap: 6px; align-items: stretch; }
+.ob__delegaterow .ob__input { flex: 1; min-width: 0; padding: 1px; }
+.ob__delegaterow .ob__input input { padding: 6px 10px; font-size: 13.5px; }
+.ob__sent { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); }
+.ob__sent svg { flex-shrink: 0; color: var(--action-primary); }
+.ob__sent b { color: var(--text-primary); font-weight: 600; }
+
+/* The list-size slider. Native range input, so keyboard and screen readers get arrow keys
+   and a spoken value for free; only the track and thumb are restyled. The filled part of the
+   track is a gradient stop set from the component. */
+.ob__size { display: flex; flex-direction: column; gap: 6px; margin: -8px 0 14px; }
+.ob__sizehead { display: flex; align-items: baseline; justify-content: space-between; }
+.ob__sizehead label { font-size: 13.5px; font-weight: 500; color: var(--text-primary); }
+.ob__sizehead b { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.ob__size input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; margin: 6px 0;
+  border-radius: 99px; cursor: pointer;
+  background: linear-gradient(to right, var(--action-primary) var(--ob-fill, 0%), var(--surface-subtle) var(--ob-fill, 0%)); }
+.ob__size input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px;
+  border-radius: 50%; background: var(--bg-surface); border: 2px solid var(--action-primary); box-shadow: var(--elevation-1); }
+.ob__size input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%;
+  background: var(--bg-surface); border: 2px solid var(--action-primary); box-shadow: var(--elevation-1); }
+.ob__size input[type=range]:focus-visible { outline: none; }
+.ob__size input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px var(--focus-ring); }
+.ob__size input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 4px var(--focus-ring); }
+
+/* Step 3 — the plan: four rows, one per tier. A selected row is ringed and its dot filled;
+   Launch and Growth carry a two-way contacts toggle that is always shown, so nothing in the
+   list changes height as choices are made. */
+.ob__tiers { display: flex; flex-direction: column; gap: 6px; }
+.ob__tier { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 10px 14px;
+  border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-surface); }
+.ob__tier:hover { border-color: var(--action-primary); }
+.ob__tier.on { border-color: var(--action-primary); background: var(--bg-selected);
+  box-shadow: inset 0 0 0 1px var(--action-primary); }
+.ob__tierhit { position: absolute; inset: 0; z-index: 0; border: 0; padding: 0; margin: 0; background: none;
+  cursor: pointer; border-radius: inherit; }
+.ob__tierhit:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+.ob__tier > span { position: relative; pointer-events: none; }
+.ob__tierdot { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; border-radius: var(--radius-round);
+  border: 1.5px solid var(--border-strong); background: var(--bg-surface); }
+.ob__tier.on .ob__tierdot { border: 5px solid var(--action-primary); }
+.ob__tiertx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; line-height: normal; }
+.ob__tierhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.ob__tierhead b { font-size: 14.5px; font-weight: 600; color: var(--text-primary); }
+.ob__tierprice { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-primary); white-space: nowrap; }
+.ob__tierprice i { font-style: normal; font-weight: 400; font-size: 12px; color: var(--text-tertiary); }
+.ob__tierline { font-size: 12.5px; color: var(--text-tertiary); }
+/* Which size of the tier the slider landed on — Launch+ inside Launch, say. */
+.ob__tierhead b em { font-style: normal; font-weight: 500; font-size: 12px; margin-left: 7px; padding: 1px 6px;
+  border-radius: var(--radius-sm); background: var(--surface-subtle); color: var(--text-secondary); }
+/* A tier that cannot hold the list: still listed, so the ladder is legible, but not pickable. */
+.ob__tier.is-out { opacity: .55; }
+.ob__tier.is-out .ob__tierhit { cursor: not-allowed; }
+.ob__tier.is-out:hover { border-color: var(--border-default); }
+
+/* Payment's two ways out: skip, or continue with the plan. */
+.ob__footacts { display: inline-flex; align-items: center; gap: 8px; }

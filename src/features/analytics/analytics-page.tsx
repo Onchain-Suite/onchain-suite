@@ -2,6 +2,7 @@
 
 import {
   ArrowDownTrayIcon,
+  ArrowRightIcon,
   ArrowTrendingDownIcon,
   ArrowTrendingUpIcon,
   BoltIcon,
@@ -13,7 +14,10 @@ import {
   UsersIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useMemo } from "react";
+
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { cn } from "@/lib/utils";
 
@@ -25,6 +29,12 @@ import {
   type DashboardSeriesPoint,
   type MetricBacking,
 } from "./analytics.service";
+import { AnalyticsSkeleton } from "./analytics-skeleton";
+import { AnalyticsBarChart } from "./components/charts";
+import { campaignsService } from "@/features/campaigns/campaigns.service";
+import { useCampaignEngagement } from "@/features/campaigns/hooks/use-campaign-engagement";
+import { intelligenceService } from "@/features/intelligence/intelligence.service";
+import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 /**
  * Analytics dashboard. Every headline figure comes from the real
@@ -53,7 +63,7 @@ const METRICS: MetricConfig[] = [
     key: "openRate",
     label: "Email open rate",
     format: "percent",
-    hint: "Share of delivered emails opened over the last 30 days. Email only - in-app push is measured as a view rate.",
+    hint: "Share of delivered emails opened, pooled across your sent campaigns - the same figure the Campaigns page and Dashboard show. Email only; in-app push is measured as a view rate.",
   },
   {
     key: "activeWallets",
@@ -75,38 +85,74 @@ const TEMPLATES = [
     name: "Holder distribution",
     desc: "Balances, concentration and top wallets by token.",
     tag: "On-chain",
+    hint: "How a token's supply spreads across wallets - concentration, top holders, and the long tail. Tells you whether a few wallets hold most of the supply or it's widely distributed.",
   },
   {
     Icon: PresentationChartLineIcon,
     name: "Retention cohorts",
     desc: "Weekly wallet retention since first interaction.",
     tag: "On-chain",
+    hint: "Group wallets by the week they first interacted, then track how many stay active in the following weeks - your on-chain retention curve.",
   },
   {
     Icon: EnvelopeOpenIcon,
     name: "Engagement by segment",
     desc: "Open, click and push-view rates per audience.",
     tag: "Off-chain",
+    hint: "Open, click and in-app view rates broken down per audience segment, so you can see which cohorts actually engage with your messages.",
   },
   {
     Icon: CursorArrowRaysIcon,
     name: "Conversion attribution",
     desc: "On-chain actions mapped back to campaigns and flows.",
     tag: "Blended",
+    hint: "Links on-chain actions (swaps, mints, deposits) back to the campaign or automation that drove them, so you can see what actually converted.",
   },
   {
     Icon: MegaphoneIcon,
     name: "Campaign report",
     desc: "Delivery, engagement and conversion per campaign.",
     tag: "Off-chain",
+    hint: "Per-campaign delivery, engagement and on-chain conversion in one exportable summary.",
   },
   {
     Icon: BoltIcon,
     name: "Automation performance",
     desc: "Entries, completion and conversion by flow.",
     tag: "Blended",
+    hint: "For each automation flow: how many wallets entered, how many completed it, and how many converted.",
   },
 ];
+
+// Where each report template opens - the live surface that already holds that
+// report's data. On-chain reports open the Intelligence query builder; the
+// off-chain/blended ones open the page that owns their funnel.
+const TEMPLATE_LINKS: Record<string, { href: string; cta: string }> = {
+  "Holder distribution": {
+    href: PRIVATE_ROUTES.INTELLIGENCE,
+    cta: "Open in Intelligence",
+  },
+  "Retention cohorts": {
+    href: PRIVATE_ROUTES.INTELLIGENCE,
+    cta: "Open in Intelligence",
+  },
+  "Engagement by segment": {
+    href: PRIVATE_ROUTES.AUDIENCE,
+    cta: "Open in Audience",
+  },
+  "Conversion attribution": {
+    href: PRIVATE_ROUTES.INTELLIGENCE,
+    cta: "Open in Intelligence",
+  },
+  "Campaign report": {
+    href: PRIVATE_ROUTES.CAMPAIGNS,
+    cta: "Open in Campaigns",
+  },
+  "Automation performance": {
+    href: PRIVATE_ROUTES.AUTOMATIONS,
+    cta: "Open in Automations",
+  },
+};
 
 const numberFmt = new Intl.NumberFormat("en-US");
 
@@ -143,7 +189,7 @@ const seriesPoints = (
     .join(" ");
 };
 
-export function AnalyticsPage() {
+export function AnalyticsOverview() {
   const overviewQuery = useQuery({
     queryKey: ["analytics", "dashboard", "overview"],
     queryFn: () => analyticsService.getDashboardOverview(),
@@ -186,10 +232,9 @@ export function AnalyticsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6">
-      {/* Header */}
+    <div className="space-y-6">
+      {/* Overview controls (the title + tab bar are owned by the dashboard). */}
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold text-foreground">Analytics</h1>
         <div className="ml-auto flex items-center gap-2">
           <span
             className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground"
@@ -211,7 +256,7 @@ export function AnalyticsPage() {
       </div>
 
       {overviewQuery.isLoading ? (
-        <LoadingState />
+        <AnalyticsSkeleton />
       ) : overviewQuery.isError || !overview ? (
         <ErrorState onRetry={() => overviewQuery.refetch()} />
       ) : (
@@ -221,84 +266,82 @@ export function AnalyticsPage() {
   );
 }
 
+/** Real email-vs-in-app send volume over 30 days, from the campaign overview.
+ *  Shares the query key with the Campaigns overview so it reads from one cache. */
+function MessagesByChannelCard() {
+  const query = useQuery({
+    queryKey: ["campaigns", "analytics", "overview", 30],
+    queryFn: () => campaignsService.getAnalyticsOverview(30),
+    staleTime: 60_000,
+  });
+  const overview = query.data;
+  const emailSent = overview?.email?.sent ?? 0;
+  const inAppSent = overview?.inapp?.sent ?? 0;
+  const hasData = emailSent + inAppSent > 0;
+
+  return (
+    <Card
+      title="Messages sent by channel"
+      right={
+        <Info hint="Email vs in-app push volume over the last 30 days, from your campaigns." />
+      }
+    >
+      {query.isLoading ? (
+        <Skeleton className="h-[240px] w-full rounded-lg" />
+      ) : !hasData ? (
+        <EmptyState
+          title="No messages yet"
+          body="Once you send email or in-app campaigns, their volume by channel shows here."
+        />
+      ) : (
+        <AnalyticsBarChart
+          data={[
+            { channel: "Email", messages: emailSent },
+            { channel: "In-app push", messages: inAppSent },
+          ]}
+          categoryKey="channel"
+          series={[{ key: "messages", label: "Messages sent" }]}
+        />
+      )}
+    </Card>
+  );
+}
+
 function Content({ overview }: { overview: DashboardOverview }) {
   const { backing, notes } = overview.meta;
 
-  const trendMetric = overview.messagesSent;
-  const trendChartable =
-    backing.messagesSent === "real" && trendMetric.series.length >= 2;
-
-  const trendPoints = useMemo(
-    () => seriesPoints(trendMetric.series, 560, 200, 8),
-    [trendMetric.series]
-  );
+  // Reconcile the open rate with the Campaigns page + Dashboard: they all read
+  // the same recipient-weighted pool of every sent campaign, so this surface
+  // never disagrees with them. Falls back to the backend figure when there are
+  // no sent campaigns to pool.
+  const { avgOpenRate } = useCampaignEngagement();
 
   return (
     <div className="space-y-6">
       {/* KPI strip */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {METRICS.map((m) => (
-          <KpiCard
-            key={m.key}
-            config={m}
-            metric={overview[m.key]}
-            backing={backing[m.key]}
-          />
-        ))}
+        {METRICS.map((m) => {
+          // Swap in the pooled campaign open rate (no historical series, so it
+          // renders as a value-only snapshot rather than a fabricated trend).
+          const usePooledOpen =
+            m.key === "openRate" && typeof avgOpenRate === "number";
+          const metric = usePooledOpen
+            ? { ...overview.openRate, value: avgOpenRate, series: [] }
+            : overview[m.key];
+          const cardBacking = usePooledOpen ? "value-only" : backing[m.key];
+          return (
+            <KpiCard
+              key={m.key}
+              config={m}
+              metric={metric}
+              backing={cardBacking}
+            />
+          );
+        })}
       </div>
 
-      {/* Messages sent over time - the only series-backed metric */}
-      <Card
-        title="Messages sent over time"
-        right={
-          <span className="text-xs text-muted-foreground">
-            Daily · last 30 days
-          </span>
-        }
-      >
-        <div className="mb-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <Legend color="var(--primary)">Messages sent</Legend>
-        </div>
-        {trendChartable ? (
-          <svg
-            viewBox="0 0 560 200"
-            preserveAspectRatio="none"
-            className="h-48 w-full"
-            role="img"
-            aria-label="Messages sent trend over the last 30 days"
-          >
-            <defs>
-              <linearGradient id="an-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="0"
-                  stopColor="var(--primary)"
-                  stopOpacity="0.18"
-                />
-                <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <polygon
-              fill="url(#an-grad)"
-              points={`0,200 ${trendPoints} 560,200`}
-            />
-            <polyline
-              fill="none"
-              stroke="var(--primary)"
-              strokeWidth="2.5"
-              points={trendPoints}
-            />
-          </svg>
-        ) : (
-          <EmptyState
-            title="No trend for this period"
-            body="No messages were sent in the last 30 days, so there is nothing to chart yet."
-          />
-        )}
-        <p className="mt-3 text-xs text-muted-foreground">
-          On-chain conversions are not charted here - they are only measured on
-          demand per campaign goal, so there is no org-wide time series yet.
-        </p>
-      </Card>
+      {/* Messages sent by channel - real, from the campaign overview. */}
+      <MessagesByChannelCard />
 
       {/* Off-chain + On-chain - no backing endpoint yet */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -340,7 +383,7 @@ function Content({ overview }: { overview: DashboardOverview }) {
           Report templates
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {TEMPLATES.map(({ Icon, name, desc, tag }) => (
+          {TEMPLATES.map(({ Icon, name, desc, tag, hint }) => (
             <div
               key={name}
               className="flex flex-col rounded-xl border border-border/60 bg-card/60 p-4"
@@ -353,36 +396,34 @@ function Content({ overview }: { overview: DashboardOverview }) {
                   {tag}
                 </span>
               </div>
-              <p className="mt-3 text-sm font-semibold text-foreground">
+              <p className="mt-3 flex items-center gap-1 text-sm font-semibold text-foreground">
                 {name}
+                <Info hint={hint} />
               </p>
               <p className="mt-1 flex-1 text-xs leading-relaxed text-muted-foreground">
                 {desc}
               </p>
-              <div className="mt-3 flex gap-2">
-                <button className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
-                  Run report
-                </button>
-                <button className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted">
-                  Export
-                </button>
+              <div className="mt-3">
+                <Link
+                  href={
+                    TEMPLATE_LINKS[name]?.href ?? PRIVATE_ROUTES.INTELLIGENCE
+                  }
+                  className="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  {TEMPLATE_LINKS[name]?.cta ?? "Run report"}
+                </Link>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Pinned from Intelligence - no real source yet */}
+      {/* Saved reports from Intelligence */}
       <div>
         <h2 className="mb-3 text-sm font-semibold text-foreground">
-          Pinned from Intelligence
+          Saved from Intelligence
         </h2>
-        <div className="overflow-hidden rounded-xl border border-border/60">
-          <EmptyState
-            title="No pinned reports yet"
-            body="Pin a saved query from Intelligence to see it here."
-          />
-        </div>
+        <SavedReports />
       </div>
 
       {notes.length > 0 ? (
@@ -471,26 +512,6 @@ function KpiCard({
   );
 }
 
-function LoadingState() {
-  return (
-    <div className="space-y-6" aria-hidden="true">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <div
-            key={i}
-            className="h-28 animate-pulse rounded-xl border border-border/60 bg-card/60"
-          />
-        ))}
-      </div>
-      <div className="h-64 animate-pulse rounded-xl border border-border/60 bg-card/60" />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="h-40 animate-pulse rounded-xl border border-border/60 bg-card/60" />
-        <div className="h-40 animate-pulse rounded-xl border border-border/60 bg-card/60" />
-      </div>
-    </div>
-  );
-}
-
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="rounded-xl border border-border/60 bg-card/60 p-10 text-center">
@@ -523,6 +544,99 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
+/**
+ * Saved reports from Intelligence (GET /intelligence/reports), each linking to
+ * its detail view. This replaces the old hardcoded-empty "Pinned" placeholder -
+ * it surfaces the reports you've saved. True per-report *pinning* (a curated
+ * subset) still needs a backend `pinned` flag; this shows all saved reports.
+ */
+function SavedReports() {
+  const query = useQuery({
+    queryKey: ["analytics", "intelligence-reports"],
+    queryFn: () => intelligenceService.listReports({ page: 1, limit: 6 }),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+
+  const reports = useMemo(() => {
+    const data = query.data as
+      unknown[] | { items?: unknown[] } | null | undefined;
+    const rawItems: unknown[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.items)
+        ? data.items
+        : [];
+    return rawItems
+      .map((raw): { id: string; name: string } | null => {
+        if (!raw || typeof raw !== "object") return null;
+        const r = raw as Record<string, unknown>;
+        const id =
+          typeof r.id === "string"
+            ? r.id
+            : typeof r.reportId === "string"
+              ? r.reportId
+              : null;
+        const name =
+          typeof r.name === "string" && r.name.trim().length > 0
+            ? r.name
+            : typeof r.title === "string" && r.title.trim().length > 0
+              ? r.title
+              : "Untitled report";
+        return id ? { id, name } : null;
+      })
+      .filter((x): x is { id: string; name: string } => x !== null)
+      .slice(0, 6);
+  }, [query.data]);
+
+  if (query.isLoading) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {["a", "b", "c"].map((k) => (
+          <div
+            key={k}
+            className="h-20 animate-pulse rounded-xl border border-border/60 bg-card/60"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (reports.length === 0) {
+    return (
+      <div className="overflow-hidden rounded-xl border border-border/60">
+        <EmptyState
+          title="No saved reports yet"
+          body="Save a query in Intelligence to see it here."
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {reports.map((r) => (
+        <Link
+          key={r.id}
+          href={`${PRIVATE_ROUTES.INTELLIGENCE}/reports/${r.id}`}
+          className="group flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/60 p-4 transition-colors hover:border-primary/40"
+        >
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-foreground">
+              {r.name}
+            </span>
+            <span className="text-xs text-muted-foreground">Saved report</span>
+          </span>
+          <ArrowRightIcon
+            className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"
+            aria-hidden="true"
+          />
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 function Card({
   title,
   right,
@@ -543,36 +657,27 @@ function Card({
   );
 }
 
-function Legend({
-  color,
-  dashed,
-  children,
-}: {
-  color: string;
-  dashed?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span
-        className="inline-block h-0.5 w-4 rounded-full"
-        style={
-          dashed
-            ? {
-                backgroundImage: `repeating-linear-gradient(90deg, ${color} 0 4px, transparent 4px 8px)`,
-              }
-            : { background: color }
-        }
-      />
-      {children}
-    </span>
-  );
-}
-
+/**
+ * Inline help tooltip. Uses a CSS-only hover/focus bubble (styled with popover
+ * tokens) instead of the browser's native `title`, which is unstyled and only
+ * appears after a ~1s delay. This shows instantly and is keyboard-reachable.
+ */
 function Info({ hint }: { hint: string }) {
   return (
-    <span title={hint} className="cursor-help text-muted-foreground/70">
-      <InformationCircleIcon className="size-3.5" aria-hidden="true" />
+    <span className="group/info relative inline-flex align-middle">
+      <button
+        type="button"
+        aria-label={hint}
+        className="inline-flex cursor-help rounded-full text-muted-foreground/70 transition-colors hover:text-foreground focus:outline-none focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+      >
+        <InformationCircleIcon className="size-3.5" aria-hidden="true" />
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 w-max max-w-[16rem] -translate-x-1/2 rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs font-normal normal-case leading-snug tracking-normal text-popover-foreground opacity-0 shadow-md transition-opacity duration-100 group-hover/info:opacity-100 group-focus-within/info:opacity-100"
+      >
+        {hint}
+      </span>
     </span>
   );
 }

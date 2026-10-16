@@ -48,6 +48,39 @@ export interface AudienceOnchain {
   lifetimeValueUsd?: number | null;
 }
 
+/** One token a wallet holds, for the Tokens column's icon chip. */
+export interface WalletTokenChip {
+  symbol: string | null;
+  name: string | null;
+  logoUrl: string | null;
+  /** Chain slug the holding is on; lets a logo-less token (WETH, a synthetic)
+   *  fall back to its chain icon. Absent until the backend field ships. */
+  chain?: string | null;
+}
+
+/** A DeFi protocol resolved against the DefiLlama catalogue (Apps column):
+ *  the wallet's slug, its brand name, and ordered logo sources. */
+export interface WalletProtocolChip {
+  slug: string;
+  name: string | null;
+  logoUrls: string[];
+}
+
+/** One wallet's on-chain summary from POST /audience/wallets/onchain-summary:
+ *  the chains it's active on, the DeFi protocols it uses, and its top tokens. */
+export interface WalletOnchainSummaryEntry {
+  chains: string[];
+  /** Raw protocol slugs (back-compat); prefer `protocolChips` for display. */
+  protocols: string[];
+  /** Protocols resolved to name + logo from the catalogue. Absent on older
+   *  backends, so the client falls back to `protocols`. */
+  protocolChips?: WalletProtocolChip[];
+  tokens: WalletTokenChip[];
+}
+
+/** Keyed by lowercased wallet address; wallets with no activity are absent. */
+export type WalletOnchainSummaryMap = Record<string, WalletOnchainSummaryEntry>;
+
 export interface AudienceProfile {
   id: string;
   name?: string;
@@ -96,6 +129,7 @@ export interface DeleteTagResult {
 export interface DeleteSegmentResult {
   deleted?: boolean | number;
   contactsKept?: number;
+  contactsDeleted?: number;
 }
 
 /**
@@ -325,6 +359,13 @@ export interface AudienceSegment {
   starred?: boolean;
   criteria?: unknown;
   updatedAt?: string;
+  /**
+   * Channels the list can actually deliver on, computed live from members
+   * (email = deliverable + non-suppressed; push = connected wallet). From
+   * `GET /audience/segments` (docs/backend.md 2026-08-13). Undefined on older
+   * responses that predate the field.
+   */
+  reachableVia?: ("email" | "push")[];
   [key: string]: unknown;
 }
 
@@ -432,6 +473,19 @@ const request = async <T>(
           : (err.message ?? "Audience request failed");
     throw new Error(String(message), { cause: e });
   }
+};
+
+/**
+ * A GET on a collection that 404s means the resource doesn't exist yet for this
+ * org (a brand-new / empty workspace), not that the request failed. The list
+ * callers treat that as "no data" (empty result) so the UI shows the empty
+ * state - "No contacts yet" - rather than an error banner. Real failures (5xx,
+ * network, auth) keep their thrown error so the error state still surfaces them;
+ * we never mask a genuine backend outage as "nothing here".
+ */
+const isNoDataError = (error: unknown): boolean => {
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  return (cause as AxiosError | undefined)?.response?.status === 404;
 };
 
 const extractItems = <T>(payload: unknown): T[] => {
@@ -542,7 +596,44 @@ export const audienceService = {
         signal: options?.signal,
       },
       orgId
+    ).catch((e) => {
+      if (isNoDataError(e)) return { items: [] as AudienceProfile[] };
+      throw e;
+    });
+  },
+
+  /**
+   * What each wallet interacts with on-chain, for one audience page — the chains
+   * it has activity on (Chains column) and the DeFi protocols it holds positions
+   * in (Apps column). Backs both columns from one request. POST (not GET)
+   * because a page of wallet addresses overflows a query string; the backend
+   * caps the batch at 200. Keyed by lowercased wallet address; wallets with no
+   * activity are absent. A 404 (endpoint not deployed yet) resolves to `{}` so
+   * the columns degrade to empty rather than erroring the whole table.
+   */
+  getWalletOnchainSummary(wallets: string[], orgId?: string) {
+    const clean = Array.from(
+      new Set(
+        wallets
+          .filter(
+            (w): w is string => typeof w === "string" && w.trim().length > 0
+          )
+          .map((w) => w.trim())
+      )
     );
+    const empty: WalletOnchainSummaryMap = {};
+    if (clean.length === 0) return Promise.resolve(empty);
+    return request<WalletOnchainSummaryMap>(
+      {
+        method: "POST",
+        url: "/audience/wallets/onchain-summary",
+        data: { wallets: clean },
+      },
+      orgId
+    ).catch((e) => {
+      if (isNoDataError(e)) return empty;
+      throw e;
+    });
   },
 
   listSegments(params?: { q?: string; limit?: number }, orgId?: string) {
@@ -586,9 +677,21 @@ export const audienceService = {
    * `DELETE /audience/segments/{id}` - remove the saved view only. The backing
    * tag and every contact are left alone; the response reports `contactsKept`.
    */
-  deleteSegment(id: string, orgId?: string) {
+  deleteSegment(
+    id: string,
+    opts?: { deleteContacts?: boolean; confirmCount?: number },
+    orgId?: string
+  ) {
     return request<DeleteSegmentResult>(
-      { method: "DELETE", url: `/audience/segments/${encodeURIComponent(id)}` },
+      {
+        method: "DELETE",
+        url: `/audience/segments/${encodeURIComponent(id)}`,
+        // Only send a body for the destructive variant; the plain delete stays
+        // bodyless. confirmCount must match the live member count server-side.
+        data: opts?.deleteContacts
+          ? { deleteContacts: true, confirmCount: opts.confirmCount }
+          : undefined,
+      },
       orgId
     );
   },

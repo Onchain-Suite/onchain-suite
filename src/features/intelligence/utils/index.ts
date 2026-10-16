@@ -2,7 +2,7 @@ const FORMATTED_SUFFIX = "_formatted";
 
 /**
  * The backend injects human-readable `<key>_formatted` siblings next to raw
- * base-unit Web3 amounts on every GoldRush/MCP path (docs/backend.md
+ * base-unit Web3 amounts on every Alchemy on-chain data path (docs/backend.md
  * 2026-07-28, `normalizeWeb3Payload`) - e.g. USDC `balance: "2500000"` →
  * `balance_formatted: "2.5"`. Render the formatted value when present.
  */

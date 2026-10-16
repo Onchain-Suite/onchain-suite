@@ -7,6 +7,7 @@ import { isJsonObject } from "@/lib/utils";
 
 import ChangePlanDialog from "./change-plan-dialog";
 import { PaygWalletCard } from "./payg-wallet-card";
+import { UsageCostBreakdown } from "./usage-cost-breakdown";
 import { billingService } from "@/features/billing/billing.service";
 import {
   SettingsCard,
@@ -340,6 +341,10 @@ const PlanUsage = () => {
           usage bills from your prepaid wallet at the rates below. Renewal
           reminders go out 4, 2, 1 days before expiry.
         </p>
+      </div>
+
+      <div className="mt-6">
+        <UsageCostBreakdown />
       </div>
 
       <div className="mt-6">

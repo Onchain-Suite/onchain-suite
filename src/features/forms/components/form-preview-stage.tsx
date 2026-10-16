@@ -171,25 +171,37 @@ export function FormPreviewStage({
               </>
             ) : (
               <>
-                <MockPage />
-                <MockPage />
+                {/* Faint page content sits BEHIND the widget (absolute), so the
+                    card can live in normal flow and the stage grows to fit it -
+                    a tall widget is never clipped by the fixed-height box. */}
+                <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                  <MockPage />
+                  <MockPage />
+                </div>
                 {style === "popup" ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-background/60 p-4 backdrop-blur-[1px]">
+                  <div className="relative flex min-h-[420px] items-center justify-center bg-background/60 p-4 backdrop-blur-[1px]">
                     {card}
                   </div>
                 ) : style === "hellobar" ? (
-                  <div className="absolute inset-x-0 top-0">{card}</div>
+                  <div className="relative flex min-h-[420px] items-start justify-center p-4">
+                    <div className="w-full">{card}</div>
+                  </div>
                 ) : (
-                  // slide-in
+                  // slide-in: bottom-right on desktop, bottom-center on mobile
                   <div
                     className={cn(
-                      "absolute bottom-4",
-                      device === "mobile"
-                        ? "inset-x-4"
-                        : "right-4 w-full max-w-sm"
+                      "relative flex min-h-[420px] items-end p-4",
+                      device === "mobile" ? "justify-center" : "justify-end"
                     )}
                   >
-                    {card}
+                    <div
+                      className={cn(
+                        "w-full",
+                        device !== "mobile" && "max-w-sm"
+                      )}
+                    >
+                      {card}
+                    </div>
                   </div>
                 )}
               </>

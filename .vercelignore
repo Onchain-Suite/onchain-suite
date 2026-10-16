@@ -1,0 +1,4 @@
+# v2.7 migration reference bundle (standalone React/Vite dashboard + design
+# mockups). Not part of the Next.js app, never imported, so keep it out of the
+# deployment upload.
+reference/

@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
 
-import { LegalPage } from "@/onchain-suite-website/components/landing/v2/legal-page";
+import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standalone";
+import { LegalPage } from "@/onchain-suite-website/components/site/site-bundle";
 
 export const metadata: Metadata = {
-  title: "Legal & compliance · OnchainSuite",
+  title: "Legal · OnchainSuite",
   description:
-    "OnchainSuite privacy, terms, and compliance. Read-only, non-custodial on-chain monitoring with a zero-knowledge identity bridge.",
+    "Terms of Service, Privacy Policy, Data Processing Agreement, Sub-processors and Cookie Policy for OnchainSuite.",
 };
 
 export default function Page() {
-  return <LegalPage />;
+  return (
+    <NsStandalone>
+      <LegalPage />
+    </NsStandalone>
+  );
 }

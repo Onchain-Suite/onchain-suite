@@ -68,6 +68,15 @@ const eslintConfig = [
       // Design-system reference bundle (standalone .jsx mockups + assets, not
       // app source). Outside tsconfig's project, so it fails the same way.
       "Onchain Suite Design System v2/**",
+      // v2.7 migration reference: the standalone React/Vite dashboard and design
+      // mockups we migrate the app toward (reference/v2.7). Not app source and
+      // outside tsconfig's project, so linting it fails on every file.
+      "reference/**",
+      // Vendored redesign bundle: a generated single-file export of the site
+      // redesign, compiled by SWC and typed via a sibling .d.ts. It is not
+      // hand-authored source, so it's exempt from lint/filename rules; it gets
+      // decomposed into real components over the phased rebuild.
+      "src/features/website/onchain-suite/components/site/site-bundle.jsx",
       // PayloadCMS-owned files. These are generated or copied verbatim from
       // Payload's template and get rewritten by `generate:types` /
       // `generate:importmap`, so they satisfy neither our KEBAB_CASE filename
@@ -76,6 +85,9 @@ const eslintConfig = [
       "src/app/(payload)/**",
       "src/payload-types.ts",
       "src/migrations/**",
+      // Build-time Node scripts (e.g. asset generation). Plain .mjs run with
+      // node, outside tsconfig's project, so the typed parser can't lint them.
+      "scripts/**",
     ],
   },
 

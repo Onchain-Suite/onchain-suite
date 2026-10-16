@@ -5,6 +5,7 @@ export * from "./email-node";
 export * from "./inapp-node";
 export * from "./placeholder-node";
 export * from "./tag-node";
+export * from "./telegram-node";
 export * from "./trigger-node";
 export * from "./wait-node";
 export * from "./webhook-node";

@@ -4,6 +4,7 @@ import {
   ArrowsUpDownIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  DocumentDuplicateIcon,
   PhotoIcon,
   PlusIcon,
   TrashIcon,
@@ -28,7 +29,11 @@ import {
   type FontFamily,
   fontFamilyToCss,
   type InsertableType,
+  PLAY_BUTTON_PATH,
+  resolveColumnWidths,
   resolveSampleTags,
+  sanitizeEmailHtml,
+  socialIconPath,
   STYLE_KEYS,
   type StyleKey,
 } from "./blocks";
@@ -46,6 +51,8 @@ interface CanvasHandlers {
   onInsert: (loc: InsertLocation, index: number, type: InsertableType) => void;
   onMove: (id: string, dir: -1 | 1) => void;
   onRemove: (id: string) => void;
+  /** Clone a block (and its descendants) directly after itself. */
+  onDuplicate: (id: string) => void;
   /** Commit an edited block (inline text editing). */
   onUpdate: (id: string, node: BlockNode) => void;
   /** Move an existing block to a container location at a given index. */
@@ -70,10 +77,16 @@ function toCss(style: BlockStyle | undefined, keys: StyleKey[]): CSSProperties {
     else if (k === "borderColor") s.border = `1px solid ${v}`;
     else if (k === "borderRadius") s.borderRadius = `${v}px`;
     else if (k === "fontFamily") {
+      if (style.fontStack) continue; // fontStack wins over the preset
       const css = fontFamilyToCss(v as FontFamily);
       if (css) s.fontFamily = css;
-    } else if (k === "fontSize") s.fontSize = `${v}px`;
+    } else if (k === "fontStack") s.fontFamily = v as string;
+    else if (k === "fontSize") s.fontSize = `${v}px`;
     else if (k === "fontWeight") s.fontWeight = v as "bold" | "normal";
+    else if (k === "letterSpacing") s.letterSpacing = `${v}px`;
+    else if (k === "textTransform")
+      s.textTransform = v as CSSProperties["textTransform"];
+    else if (k === "lineHeight") s.lineHeight = v as number;
     else if (k === "textAlign") s.textAlign = v as CSSProperties["textAlign"];
     else if (k === "padding") {
       const p = v as {
@@ -286,6 +299,18 @@ function BlockView({ id, handlers }: { id: string; handlers: CanvasHandlers }) {
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              handlers.onDuplicate(id);
+            }}
+            className="rounded p-1 text-muted-foreground hover:bg-muted"
+            aria-label="Duplicate block"
+            title="Duplicate (⌘D)"
+          >
+            <DocumentDuplicateIcon className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
               handlers.onRemove(id);
             }}
             className="rounded p-1 text-destructive hover:bg-destructive/10"
@@ -357,10 +382,10 @@ function BlockInner({
             ? 20
             : 24;
       const style: CSSProperties = {
-        ...toCss(node.data.style, STYLE_KEYS.Heading),
-        fontSize: size,
         fontWeight: "bold",
         lineHeight: 1.25,
+        ...toCss(node.data.style, STYLE_KEYS.Heading),
+        fontSize: size,
       };
       if (selected) {
         return (
@@ -385,8 +410,8 @@ function BlockInner({
     }
     case "Text": {
       const style: CSSProperties = {
-        ...toCss(node.data.style, STYLE_KEYS.Text),
         lineHeight: 1.6,
+        ...toCss(node.data.style, STYLE_KEYS.Text),
       };
       if (selected) {
         return (
@@ -430,6 +455,14 @@ function BlockInner({
               padding: "10px 18px",
               fontWeight: 600,
               textAlign: "center",
+              ...toCss(node.data.style, [
+                "fontFamily",
+                "fontStack",
+                "fontSize",
+                "fontWeight",
+                "letterSpacing",
+                "textTransform",
+              ]),
             }}
           >
             {resolveSampleTags(p.text) || "Button"}
@@ -515,12 +548,148 @@ function BlockInner({
           style={toCss(node.data.style, STYLE_KEYS.Html)}
           // Html block: authoring an email's raw HTML is the block's purpose.
           // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: node.data.props.contents }}
+          dangerouslySetInnerHTML={{
+            __html: sanitizeEmailHtml(node.data.props.contents),
+          }}
         />
       );
-    case "Container":
+    case "List": {
+      const p = node.data.props;
+      const items = p.items.filter((it) => it.trim().length > 0);
+      const listStyle: CSSProperties = {
+        margin: 0,
+        paddingLeft: 24,
+        lineHeight: 1.6,
+        // Preflight resets list markers; restore them for the preview.
+        listStyleType: p.ordered ? "decimal" : "disc",
+        listStylePosition: "outside",
+      };
       return (
-        <div style={toCss(node.data.style, STYLE_KEYS.Container)}>
+        <div style={toCss(node.data.style, STYLE_KEYS.List)}>
+          {p.ordered ? (
+            <ol style={listStyle}>
+              {items.map((it, i) => (
+                // Positional list items - index is the stable identity here.
+                // eslint-disable-next-line react/no-array-index-key
+                <li key={i} style={{ marginBottom: 6 }}>
+                  {resolveSampleTags(it)}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <ul style={listStyle}>
+              {items.map((it, i) => (
+                // eslint-disable-next-line react/no-array-index-key
+                <li key={i} style={{ marginBottom: 6 }}>
+                  {resolveSampleTags(it)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    }
+    case "Social": {
+      const p = node.data.props;
+      return (
+        <div style={toCss(node.data.style, STYLE_KEYS.Social)}>
+          {p.links.map((l, i) => (
+            <span
+              // Positional link rows - index is the stable identity here.
+              // eslint-disable-next-line react/no-array-index-key
+              key={i}
+              style={{ display: "inline-block", margin: `0 ${p.gap / 2}px` }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={socialIconPath(l.platform, p.iconVariant)}
+                width={p.iconSize}
+                height={p.iconSize}
+                alt={l.platform}
+                style={{ display: "inline-block" }}
+              />
+            </span>
+          ))}
+        </div>
+      );
+    }
+    case "Menu": {
+      const p = node.data.props;
+      const color = node.data.style.color ?? undefined;
+      return (
+        <div
+          style={{
+            lineHeight: 1.8,
+            ...toCss(node.data.style, STYLE_KEYS.Menu),
+          }}
+        >
+          {p.items.map((it, i) => (
+            // eslint-disable-next-line react/no-array-index-key
+            <span key={i}>
+              {i > 0 ? (
+                <span style={{ opacity: 0.5, margin: "0 6px" }}>
+                  {p.separator || "·"}
+                </span>
+              ) : null}
+              <span style={{ color, textDecoration: "none" }}>{it.label}</span>
+            </span>
+          ))}
+        </div>
+      );
+    }
+    case "Video": {
+      const p = node.data.props;
+      return (
+        <div style={toCss(node.data.style, STYLE_KEYS.Video)}>
+          {p.thumbnailUrl.trim() ? (
+            <span style={{ position: "relative", display: "inline-block" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={p.thumbnailUrl}
+                width={p.width ?? 560}
+                alt={p.alt || "Video thumbnail"}
+                style={{ display: "block", maxWidth: "100%", height: "auto" }}
+              />
+              {p.showPlayButton ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={PLAY_BUTTON_PATH}
+                  width={64}
+                  height={64}
+                  alt="Play"
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%,-50%)",
+                  }}
+                />
+              ) : null}
+            </span>
+          ) : (
+            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border/60 text-xs text-muted-foreground">
+              Add a thumbnail image and video link in Inspect
+            </div>
+          )}
+        </div>
+      );
+    }
+    case "Container": {
+      const bg = node.data.props.backgroundImage?.trim();
+      return (
+        <div
+          style={{
+            ...(bg
+              ? {
+                  backgroundImage: `url('${bg}')`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                }
+              : {}),
+            ...toCss(node.data.style, STYLE_KEYS.Container),
+          }}
+        >
           <ChildList
             ids={node.data.props.childrenIds}
             location={{ parentId: id }}
@@ -529,8 +698,10 @@ function BlockInner({
           />
         </div>
       );
+    }
     case "ColumnsContainer": {
       const p = node.data.props;
+      const widths = resolveColumnWidths(p.columnsCount, p.columnWidths);
       return (
         <div style={toCss(node.data.style, STYLE_KEYS.ColumnsContainer)}>
           <div className="flex" style={{ gap: p.columnsGap }}>
@@ -539,7 +710,12 @@ function BlockInner({
                 // Columns are fixed positional slots - index is the identity.
                 // eslint-disable-next-line react/no-array-index-key
                 key={i}
-                className="min-w-0 flex-1 rounded border border-dashed border-border/50"
+                className="min-w-0 rounded border border-dashed border-border/50"
+                style={{
+                  flex: `0 0 calc(${widths[i]}% - ${
+                    (p.columnsGap * (p.columnsCount - 1)) / p.columnsCount
+                  }px)`,
+                }}
               >
                 <ChildList
                   ids={p.columns[i]?.childrenIds ?? []}

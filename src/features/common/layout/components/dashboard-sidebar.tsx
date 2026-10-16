@@ -17,6 +17,7 @@ import { useGetLogo } from "@/hooks/client";
 
 import { BrandLogo } from "./brand-logo";
 import { NavUserMenu } from "./nav-user-menu";
+import { GettingStarted } from "@/features/dashboard/components/getting-started";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 import { defaultLogos } from "@/shared/hooks/client/use-get-logo";
 
@@ -90,6 +91,7 @@ export function DashboardSidebar({
       </SidebarContent>
 
       <SidebarFooter>
+        <GettingStarted />
         <NavUserMenu
           fullName={userFullName}
           userId={userId}

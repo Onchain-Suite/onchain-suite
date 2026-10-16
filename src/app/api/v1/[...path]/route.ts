@@ -175,11 +175,11 @@ const reportSettingsProfileBillingDebug = (
   }).catch(() => undefined);
 };
 
-const reportMcpQueryDebug = (
+const reportAgentQueryDebug = (
   stage: "request" | "response" | "error",
   data: Record<string, unknown>
 ) => {
-  console.warn("[api] intelligence/mcp/query", {
+  console.warn("[api] intelligence/agent/query", {
     at: new Date().toISOString(),
     stage,
     ...data,
@@ -1867,8 +1867,12 @@ const forward = async (
   const url = new URL(req.url);
   const targetUrl = `${getBackendBaseUrl()}/${path.join("/")}${url.search}`;
   const joinedPath = path.join("/");
-  const isGoldrushMcpQueryPath =
-    method === "POST" && joinedPath === "intelligence/query/goldrush/mcp/query";
+  // The agent query POST gets extra debug logging. Match the live path
+  // (`agent/query`) and the legacy alias the backend still accepts.
+  const isAgentQueryPath =
+    method === "POST" &&
+    (joinedPath === "intelligence/query/agent/query" ||
+      joinedPath === "intelligence/query/goldrush/mcp/query");
 
   const headers = new Headers(req.headers);
   headers.delete("host");
@@ -1933,12 +1937,12 @@ const forward = async (
     }
   }
 
-  if (isGoldrushMcpQueryPath) {
+  if (isAgentQueryPath) {
     const bodyPreview =
       body && body.byteLength > 0
         ? new TextDecoder().decode(body).slice(0, 500)
         : "";
-    reportMcpQueryDebug("request", {
+    reportAgentQueryDebug("request", {
       method,
       path: joinedPath,
       targetUrl,
@@ -2059,13 +2063,13 @@ const forward = async (
       body,
       cache: "no-store",
     });
-    if (isGoldrushMcpQueryPath) {
+    if (isAgentQueryPath) {
       const upstreamPreview = await upstream
         .clone()
         .text()
         .then((text) => text.slice(0, 1000))
         .catch(() => "");
-      reportMcpQueryDebug("response", {
+      reportAgentQueryDebug("response", {
         method,
         path: joinedPath,
         targetUrl,
@@ -2094,8 +2098,8 @@ const forward = async (
     }
   } catch (e) {
     const message = e instanceof Error ? e.message : "Upstream request failed";
-    if (isGoldrushMcpQueryPath) {
-      reportMcpQueryDebug("error", {
+    if (isAgentQueryPath) {
+      reportAgentQueryDebug("error", {
         method,
         path: joinedPath,
         targetUrl,

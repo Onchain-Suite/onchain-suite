@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { campaignsService } from "../campaigns.service";
+import { useCampaignEngagement } from "../hooks/use-campaign-engagement";
 import { formatPercentage } from "../utils";
 import { StatCardsSkeleton } from "@/shared/components/page/page-skeleton";
 
@@ -10,6 +11,16 @@ const formatCount = (value?: number | null) =>
   typeof value === "number" && Number.isFinite(value)
     ? value.toLocaleString()
     : "-";
+
+/** Micro-USD (1e6 µ$ = $1) → "$X.XX". */
+const formatUsdFromMicro = (microUsd?: number | null) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(
+    (typeof microUsd === "number" && Number.isFinite(microUsd) ? microUsd : 0) /
+      1_000_000
+  );
 
 const formatResetDate = (date: Date) =>
   new Intl.DateTimeFormat("en-US", {
@@ -46,6 +57,17 @@ export function CampaignsAnalyticsOverview() {
     staleTime: 60_000,
   });
 
+  // The org-wide open/click rates are the recipient-weighted pool of every
+  // campaign's own rate - the SAME hook the Dashboard uses, so both surfaces
+  // always show the same number.
+  const {
+    avgOpenRate,
+    avgClickRate,
+    ratedCount,
+    sentCount,
+    totalMessagesSent,
+  } = useCampaignEngagement();
+
   if (overviewQuery.isLoading) {
     return <StatCardsSkeleton withIcon={false} />;
   }
@@ -53,38 +75,77 @@ export function CampaignsAnalyticsOverview() {
   const overview = overviewQuery.data;
   if (overviewQuery.isError || !overview) return null;
 
-  const rangeDays = overview.rangeDays ?? 30;
   const { allowance } = overview;
   const used = allowance?.used ?? 0;
   const limit = allowance?.limit ?? null;
 
+  // PAYG orgs have no monthly allowance — the tier is nominally "unlimited"
+  // (limit === null), but the real ceiling is the prepaid wallet. Showing
+  // "Unlimited" there is misleading (and there is no monthly reset), so for a
+  // PAYG org the card shows the wallet balance as the headline and the number
+  // of emails / in-app pushes it buys as the hint. Email and in-app draw the
+  // same wallet, so the two capacities are alternatives, not separate budgets.
+  const isPayg = allowance?.payg === true;
+  const allowanceCard = isPayg
+    ? {
+        label: "Send balance",
+        value: formatUsdFromMicro(allowance?.walletMicroUsd),
+        hint: `≈ ${formatCount(allowance?.emailCapacity)} emails or ${formatCount(
+          allowance?.inAppCapacity
+        )} in-app · ${formatCount(used)} sent this month`,
+      }
+    : limit === null
+      ? {
+          // A non-PAYG tier with no cap (internal / enterprise). Genuinely
+          // unlimited, so there is no fraction to show — usage rides in the hint.
+          label: "Monthly allowance",
+          value: "Unlimited",
+          hint: `${formatCount(used)} sent this month`,
+        }
+      : {
+          // Headline the fraction "used / limit" (e.g. "312 / 500"), with the
+          // limit as a muted suffix, and the reset date as the only caption.
+          label: "Monthly allowance",
+          value: (
+            <>
+              {formatCount(used)}
+              <span className="text-2xl font-normal text-muted-foreground">
+                {" / "}
+                {formatCount(limit)}
+              </span>
+            </>
+          ),
+          hint: allowance?.resetsAt
+            ? `resets ${resetLabel(allowance.resetsAt)}`
+            : undefined,
+        };
+
   const cards = [
     {
-      label: `Messages sent (${rangeDays}d)`,
-      value: formatCount(overview.totals?.messagesSent),
-      // hint: "Email + in-app push",  // hidden until engagement tracking lands
+      // All-time total messages sent (the overview endpoint is capped at 30-90
+      // days, so it can never total this - the engagement hook sums each
+      // campaign's dispatched count instead).
+      label: "Messages sent",
+      value:
+        totalMessagesSent > 0
+          ? formatCount(totalMessagesSent)
+          : sentCount > 0
+            ? "…"
+            : formatCount(0),
     },
     {
       label: "Open rate",
-      value: formatPercentage(overview.email?.openRate),
-      // hint: `${formatCount(overview.email?.uniqueOpens)} unique opens`,
+      value: formatPercentage(avgOpenRate),
+      // Caption the pooled rate with the campaigns that actually contributed to
+      // it (not every sent campaign), so a rate over 8 doesn't claim 11.
+      hint: ratedCount > 0 ? `across ${ratedCount} sent` : undefined,
     },
     {
       label: "Click rate",
-      value: formatPercentage(overview.email?.clickRate),
-      // hint: `${formatCount(overview.email?.uniqueClicks)} unique clicks`,
+      value: formatPercentage(avgClickRate),
+      hint: ratedCount > 0 ? `across ${ratedCount} sent` : undefined,
     },
-    {
-      label: "Monthly allowance",
-      value:
-        typeof limit === "number"
-          ? `${formatCount(used)} / ${formatCount(limit)}`
-          : formatCount(used),
-      hint:
-        typeof limit === "number"
-          ? `resets ${resetLabel(allowance?.resetsAt)}`
-          : "unlimited",
-    },
+    allowanceCard,
   ];
 
   return (

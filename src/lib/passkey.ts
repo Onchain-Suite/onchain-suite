@@ -15,21 +15,19 @@ import {
 import { isJsonObject } from "@/lib/utils";
 
 /**
- * Typed passkey (WebAuthn) client against the better-auth passkey routes
- * exposed by the backend and proxied at `/api/v1/auth/passkey/*`:
+ * Typed passkey (WebAuthn) client against our own passkey controller
+ * (src/auth/passkey.controller.ts), served at `/api/v1/passkey/*`:
  *
- * - GET  /passkey/generate-register-options
- * - POST /passkey/verify-registration        { response, name? }
- * - POST /passkey/generate-authenticate-options
- * - POST /passkey/verify-authentication      { response }
- * - GET  /passkey/list-user-passkeys
- * - POST /passkey/delete-passkey             { id }
- * - POST /passkey/update-passkey             { id, name }
+ * - POST   /passkey/register/start                 -> creation options
+ * - POST   /passkey/register/finish  { response, name? } -> passkey record
+ * - POST   /passkey/login/start      { email? }    -> request options
+ * - POST   /passkey/login/finish     <bare AuthenticationResponseJSON> -> session
+ * - GET    /passkey/status                         -> { passkeys[], twoFactorEnabled, hasPassword }
+ * - PATCH  /passkey/:id              { name }       -> renamed record
+ * - DELETE /passkey/:id                             -> 200
  *
- * The installed better-auth client (1.4.x) does not ship `passkeyClient`
- * (it moved to the separate `@better-auth/passkey` package, which is not a
- * frontend dependency), so these flows are implemented with typed fetch
- * calls + `@simplewebauthn/browser` for the WebAuthn ceremony (it handles
+ * These are our custom routes (not better-auth's passkey plugin), driven with
+ * typed fetch + `@simplewebauthn/browser` for the WebAuthn ceremony (it handles
  * base64url decoding of challenge/credential fields).
  */
 
@@ -47,7 +45,10 @@ const getAuthBaseUrl = (): string => {
   if (typeof window === "undefined") {
     throw new Error("Passkey operations are only available in the browser");
   }
-  return `${window.location.origin}/api/v1/auth`;
+  // The passkey controller lives at `/api/v1/passkey/*` (NOT under `/auth`):
+  // AuthController's `@All('*path')` catch-all is mounted at `/auth` and would
+  // otherwise swallow every `/auth/passkey/*` request into better-auth's 404.
+  return `${window.location.origin}/api/v1`;
 };
 
 export const isWebAuthnSupported = (): boolean => {
@@ -78,7 +79,7 @@ const unwrapEnvelope = (payload: unknown): unknown => {
 const fetchAuthJson = async (
   path: string,
   init?: {
-    method?: "GET" | "POST";
+    method?: "GET" | "POST" | "PATCH" | "DELETE";
     body?: unknown;
     signal?: AbortSignal;
     fallbackError?: string;
@@ -183,20 +184,55 @@ const toFriendlyWebAuthnError = (error: unknown): Error => {
 export const listPasskeys = async (
   signal?: AbortSignal
 ): Promise<PasskeyRecord[]> => {
-  const payload = await fetchAuthJson("/passkey/list-user-passkeys", {
+  const payload = await fetchAuthJson("/passkey/status", {
     signal,
     fallbackError: "Failed to load passkeys",
-    // Some better-auth versions 404 when the user has no passkeys -
-    // "none registered" is an empty list, not a failure.
     notFoundIsEmpty: true,
   });
   return normalizePasskeyList(payload);
 };
 
+export interface SecurityStatus {
+  passkeys: PasskeyRecord[];
+  twoFactorEnabled: boolean;
+  /** False for OAuth-only accounts with no password. With better-auth's
+   * `allowPasswordless` such users enable 2FA without a password, so the UI
+   * only uses this to decide whether to prompt for a password on enable, not
+   * to block it. */
+  hasPassword: boolean;
+  /** Whether 2FA is available to this user at all. 2FA is gated to workspace
+   * owners; the backend reports it and the Security tab hides 2FA when false.
+   * Defaults false so a non-owner never sees the option on a stale response. */
+  twoFactorAllowed: boolean;
+}
+
+/** Reads the combined security status (passkeys + 2FA availability + whether a
+ * password is set). Drives the Security tab's 2FA gating. */
+export const getSecurityStatus = async (
+  signal?: AbortSignal
+): Promise<SecurityStatus> => {
+  const payload = await fetchAuthJson("/passkey/status", {
+    signal,
+    fallbackError: "Failed to load security status",
+    notFoundIsEmpty: true,
+  });
+  const root = isJsonObject(payload) ? payload : {};
+  return {
+    passkeys: normalizePasskeyList(payload),
+    twoFactorEnabled: root.twoFactorEnabled === true,
+    // Default true so we never wrongly prompt a real password user for a
+    // password they don't need; we only skip the prompt when explicitly false.
+    hasPassword: root.hasPassword !== false,
+    // 2FA is owner-only; default false so a non-owner is never shown it.
+    twoFactorAllowed: root.twoFactorAllowed === true,
+  };
+};
+
 export const registerPasskey = async (
   name: string
 ): Promise<PasskeyRecord | null> => {
-  const options = (await fetchAuthJson("/passkey/generate-register-options", {
+  const options = (await fetchAuthJson("/passkey/register/start", {
+    method: "POST",
     fallbackError: "Failed to start passkey registration",
   })) as PublicKeyCredentialCreationOptionsJSON;
 
@@ -207,7 +243,7 @@ export const registerPasskey = async (
     throw toFriendlyWebAuthnError(error);
   }
 
-  const verified = await fetchAuthJson("/passkey/verify-registration", {
+  const verified = await fetchAuthJson("/passkey/register/finish", {
     method: "POST",
     body: { response: attestation, name: name.trim() || undefined },
     fallbackError: "Failed to verify passkey registration",
@@ -219,17 +255,16 @@ export const renamePasskey = async (
   id: string,
   name: string
 ): Promise<void> => {
-  await fetchAuthJson("/passkey/update-passkey", {
-    method: "POST",
-    body: { id, name },
+  await fetchAuthJson(`/passkey/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: { name },
     fallbackError: "Failed to rename passkey",
   });
 };
 
 export const deletePasskey = async (id: string): Promise<void> => {
-  await fetchAuthJson("/passkey/delete-passkey", {
-    method: "POST",
-    body: { id },
+  await fetchAuthJson(`/passkey/${encodeURIComponent(id)}`, {
+    method: "DELETE",
     fallbackError: "Failed to delete passkey",
   });
 };
@@ -240,14 +275,11 @@ export const deletePasskey = async (id: string): Promise<void> => {
  * redirect.
  */
 export const signInWithPasskey = async (email?: string): Promise<void> => {
-  const options = (await fetchAuthJson(
-    "/passkey/generate-authenticate-options",
-    {
-      method: "POST",
-      body: email ? { email } : {},
-      fallbackError: "Failed to start passkey sign-in",
-    }
-  )) as PublicKeyCredentialRequestOptionsJSON;
+  const options = (await fetchAuthJson("/passkey/login/start", {
+    method: "POST",
+    body: email ? { email } : {},
+    fallbackError: "Failed to start passkey sign-in",
+  })) as PublicKeyCredentialRequestOptionsJSON;
 
   let assertion: AuthenticationResponseJSON;
   try {
@@ -256,9 +288,10 @@ export const signInWithPasskey = async (email?: string): Promise<void> => {
     throw toFriendlyWebAuthnError(error);
   }
 
-  await fetchAuthJson("/passkey/verify-authentication", {
+  // login/finish takes the bare AuthenticationResponseJSON (not { response }).
+  await fetchAuthJson("/passkey/login/finish", {
     method: "POST",
-    body: { response: assertion },
+    body: assertion,
     fallbackError: "Passkey sign-in failed",
   });
 };

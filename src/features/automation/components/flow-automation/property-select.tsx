@@ -218,3 +218,16 @@ export function PropertySelect({
 }
 
 export default PropertySelect;
+
+/**
+ * Styling for the property panel's non-select fields, kept beside PropertySelect
+ * so a panel field looks the same wherever it is rendered from.
+ */
+export const PROPERTY_LABEL_CLASS =
+  "text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground";
+
+export const PROPERTY_INPUT_CLASS =
+  "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/30";
+
+export const PROPERTY_HINT_CLASS =
+  "text-[11px] leading-5 text-muted-foreground";

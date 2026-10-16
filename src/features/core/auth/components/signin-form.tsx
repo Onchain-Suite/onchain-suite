@@ -4,7 +4,8 @@ import { EnvelopeIcon, FingerPrintIcon } from "@heroicons/react/24/outline";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import posthog from "posthog-js";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -14,6 +15,11 @@ import { Form } from "@/ui/form";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
 import { LoadingButton } from "@/ui/loading-button";
+import {
+  isTurnstileConfigured,
+  type TurnstileHandle,
+  TurnstileWidget,
+} from "@/ui/turnstile-widget";
 
 import { authClient, signInWithGoogle } from "@/lib/auth-client";
 import { isWebAuthnSupported, signInWithPasskey } from "@/lib/passkey";
@@ -121,6 +127,8 @@ export function SignInForm({
 }: SignInFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [failedEmail, setFailedEmail] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const turnstileRef = useRef<TurnstileHandle>(null);
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [twoFactorPending, setTwoFactorPending] = useState(false);
@@ -173,6 +181,10 @@ export function SignInForm({
   };
 
   const onSubmit = async (formData: SignInFormData) => {
+    if (isTurnstileConfigured() && !captchaToken) {
+      toast.error("Please complete the verification below.");
+      return;
+    }
     setIsLoading(true);
     setFailedEmail(null);
     try {
@@ -180,9 +192,15 @@ export function SignInForm({
         email: formData.email,
         password: formData.password,
         callbackURL: PRIVATE_ROUTES.DASHBOARD,
-      });
+        // Bot gate — the custom /auth/sign-in/email handler verifies this
+        // server-side before the credential check. Sent in the body; better-auth
+        // forwards it verbatim.
+        turnstileToken: captchaToken,
+      } as Parameters<typeof authClient.signIn.email>[0]);
 
       if (error) {
+        // A single-use token is spent on any attempt — re-issue before a retry.
+        turnstileRef.current?.reset();
         if (isUserNotFoundError(error)) {
           toast.info("No account found for this email - create one");
           goToSignUpWithEmail(formData.email);
@@ -205,10 +223,12 @@ export function SignInForm({
         return;
       }
 
+      posthog.capture("user_signed_in", { method: "password" });
       toast.success("Successfully signed in!");
       redirectAfterSignIn();
     } catch (error: unknown) {
       console.error("Sign in error:", error);
+      turnstileRef.current?.reset();
       const displayMessage =
         pickNonEmptyString(
           error instanceof Error ? error.message : undefined,
@@ -225,6 +245,7 @@ export function SignInForm({
     setFailedEmail(null);
     try {
       await signInWithPasskey();
+      posthog.capture("user_signed_in", { method: "passkey" });
       toast.success("Successfully signed in!");
       redirectAfterSignIn();
     } catch (error: unknown) {
@@ -257,6 +278,9 @@ export function SignInForm({
         return;
       }
 
+      posthog.capture("user_signed_in", {
+        method: useBackupCode ? "two_factor_backup_code" : "two_factor_totp",
+      });
       toast.success("Successfully signed in!");
       redirectAfterSignIn();
     } catch (error: unknown) {
@@ -411,6 +435,12 @@ export function SignInForm({
                 Forgot password?
               </button>
             </div>
+
+            <TurnstileWidget
+              ref={turnstileRef}
+              onVerify={setCaptchaToken}
+              className="flex justify-center"
+            />
 
             <LoadingButton
               isLoading={isLoading}

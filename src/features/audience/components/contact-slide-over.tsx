@@ -1,13 +1,17 @@
 "use client";
 
 import {
+  AtSymbolIcon,
+  ChatBubbleLeftRightIcon,
   CheckCircleIcon,
   DevicePhoneMobileIcon,
   EnvelopeIcon,
   FingerPrintIcon,
+  HashtagIcon,
   PaperAirplaneIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +21,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-import type { AudienceProfile, AudienceSegment } from "../audience.service";
+import {
+  type AudienceProfile,
+  type AudienceSegment,
+  audienceService,
+} from "../audience.service";
 import {
   deriveDisplayName,
   extractSocialHandles,
@@ -30,7 +38,14 @@ import {
   normalizeTags,
   readChannels,
 } from "../utils";
+import { stageForProfile } from "../utils/lifecycle";
 import { ApplyTagsPopover } from "./apply-tags-popover";
+import {
+  AppIconCluster,
+  ChainIconCluster,
+  TokenIconCluster,
+} from "./icon-cluster";
+import { StageBadge } from "./stage-badge";
 import {
   Sheet,
   SheetContent,
@@ -51,13 +66,16 @@ function Channel({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3.5 py-3">
-      <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
         {icon}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-      </div>
-      <span className="text-xs text-muted-foreground">{status}</span>
+      <p className="shrink-0 text-sm font-medium text-foreground">{label}</p>
+      <span
+        className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground"
+        title={status}
+      >
+        {status}
+      </span>
       {linked ? (
         <CheckCircleIcon
           className="size-5 shrink-0 text-emerald-500"
@@ -67,6 +85,44 @@ function Channel({
     </div>
   );
 }
+
+/**
+ * Social channels shown as sibling rows under Email + In-app push (CLAUDE.md
+ * 0.5.4). `channelKey` is the reachability flag on `AudienceChannels`;
+ * `handleKey` is where the visible handle lives in `extractSocialHandles` (X's
+ * handle is `twitter`), if any. A row renders only when the channel is actually
+ * reachable, so an empty contact shows just the channels it has.
+ */
+const SOCIAL_CHANNELS: Array<{
+  channelKey: "x" | "telegram" | "discord" | "farcaster";
+  label: string;
+  icon: React.ReactNode;
+  handleKey?: "twitter" | "telegram" | "discord";
+}> = [
+  {
+    channelKey: "x",
+    label: "X",
+    icon: <AtSymbolIcon className="size-4" aria-hidden="true" />,
+    handleKey: "twitter",
+  },
+  {
+    channelKey: "telegram",
+    label: "Telegram",
+    icon: <PaperAirplaneIcon className="size-4" aria-hidden="true" />,
+    handleKey: "telegram",
+  },
+  {
+    channelKey: "discord",
+    label: "Discord",
+    icon: <ChatBubbleLeftRightIcon className="size-4" aria-hidden="true" />,
+    handleKey: "discord",
+  },
+  {
+    channelKey: "farcaster",
+    label: "Farcaster",
+    icon: <HashtagIcon className="size-4" aria-hidden="true" />,
+  },
+];
 
 export function ContactSlideOver({
   profile,
@@ -116,21 +172,59 @@ export function ContactSlideOver({
     // Prefer the server's real per-channel reachability; fall back to a
     // heuristic only when the API didn't return a `channels` object.
     const channels = readChannels(profile);
+    // Identity source from data, not a hardcoded literal. Fall back to an
+    // honest inference from what we do know rather than claiming "ZK-verified".
+    const rawSource =
+      typeof profile.identitySource === "string"
+        ? profile.identitySource.trim()
+        : "";
+    const identitySource =
+      rawSource ||
+      (verified
+        ? "ZK-verified link"
+        : walletFull
+          ? "Wallet sign-in"
+          : "Imported or form signup");
     return {
       title: named ?? (walletFull ? wallet : deriveDisplayName(profile)),
       walletFull,
       walletShort: wallet,
       email,
       verified,
+      stage: stageForProfile(profile),
       tags: normalizeTags(profile.tags),
       homeChain: chain?.name ?? primaryWallet?.chain ?? "-",
       lifetimeUsd: lifetimeUsd(profile),
+      channels,
+      socials,
+      identitySource,
       emailLinked: channels
         ? Boolean(channels.email)
         : Boolean(email) || verified,
       hasPush: channels ? Boolean(channels.inapp) : Boolean(walletFull),
     };
   }, [profile]);
+
+  // Holdings for the one wallet. Keyed per wallet so it is cached independently;
+  // only fetched while the sheet is open and the contact has a wallet. The entry
+  // is keyed by the lowercased address (wallets with no activity are absent).
+  const walletFull = derived?.walletFull ?? "";
+  const walletKey = walletFull.toLowerCase();
+  const holdingsQuery = useQuery({
+    queryKey: ["audience", "wallet-onchain-summary", "one", walletKey],
+    queryFn: () => audienceService.getWalletOnchainSummary([walletFull]),
+    enabled: open && walletKey.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60_000,
+  });
+  const holdings = walletKey ? holdingsQuery.data?.[walletKey] : undefined;
+  const hasHoldings = Boolean(
+    holdings &&
+    (holdings.chains.length > 0 ||
+      holdings.protocols.length > 0 ||
+      holdings.tokens.length > 0)
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -153,10 +247,13 @@ export function ContactSlideOver({
                   {derived.walletShort}
                 </p>
               ) : null}
+              <div className="pt-1">
+                <StageBadge stage={derived.stage} />
+              </div>
             </SheetHeader>
 
             <div className="space-y-6 p-6">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-border bg-card p-4">
                   <p className="text-xs text-muted-foreground">
                     Lifetime value
@@ -174,6 +271,54 @@ export function ContactSlideOver({
                   </p>
                 </div>
               </div>
+
+              {derived.walletFull ? (
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Holdings
+                  </p>
+                  {holdingsQuery.isLoading ? (
+                    <p className="text-sm text-muted-foreground">
+                      Loading holdings…
+                    </p>
+                  ) : hasHoldings && holdings ? (
+                    <div className="space-y-2.5">
+                      {holdings.chains.length > 0 ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm text-muted-foreground">
+                            Chains
+                          </span>
+                          <ChainIconCluster chains={holdings.chains} max={6} />
+                        </div>
+                      ) : null}
+                      {holdings.protocols.length > 0 ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm text-muted-foreground">
+                            Apps
+                          </span>
+                          <AppIconCluster
+                            protocols={holdings.protocols}
+                            chips={holdings.protocolChips}
+                            max={6}
+                          />
+                        </div>
+                      ) : null}
+                      {holdings.tokens.length > 0 ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm text-muted-foreground">
+                            Tokens
+                          </span>
+                          <TokenIconCluster tokens={holdings.tokens} max={6} />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No on-chain activity synced yet.
+                    </p>
+                  )}
+                </div>
+              ) : null}
 
               <div>
                 <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -199,13 +344,29 @@ export function ContactSlideOver({
                     status={derived.hasPush ? "device signed in" : "no device"}
                     linked={derived.hasPush}
                   />
+                  {SOCIAL_CHANNELS.map((c) => {
+                    const linked = Boolean(derived.channels?.[c.channelKey]);
+                    if (!linked) return null;
+                    const handle = c.handleKey
+                      ? derived.socials[c.handleKey]
+                      : undefined;
+                    return (
+                      <Channel
+                        key={c.channelKey}
+                        icon={c.icon}
+                        label={c.label}
+                        status={handle ?? "connected"}
+                        linked
+                      />
+                    );
+                  })}
                 </div>
               </div>
 
               {derived.walletFull ? (
                 <p className="text-xs leading-5 text-muted-foreground">
-                  Identity source: ZK-verified link. The wallet is the record;
-                  channels attach to it and resolve lazily.
+                  Identity source: {derived.identitySource}. The wallet is the
+                  record; channels attach to it and resolve lazily.
                 </p>
               ) : null}
 
@@ -282,7 +443,11 @@ export function ContactSlideOver({
               </Popover>
               <Button
                 className="rounded-xl"
-                disabled={!derived.email}
+                // Gate on reachability, not a plaintext address: a ZK-protected
+                // contact is email-reachable with the address hidden, and a
+                // push-reachable contact has no email at all. Both were wrongly
+                // blocked by `!derived.email`.
+                disabled={!derived.emailLinked && !derived.hasPush}
                 onClick={() => onCompose(profile)}
               >
                 <PaperAirplaneIcon

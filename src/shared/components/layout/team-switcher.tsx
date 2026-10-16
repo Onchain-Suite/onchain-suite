@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsUpDownIcon, PlusIcon } from "lucide-react";
+import { ChevronUpDownIcon, PlusIcon } from "@heroicons/react/24/outline";
 import * as React from "react";
 
 import {
@@ -51,7 +51,7 @@ export function TeamSwitcher({
               <span className="truncate text-sm font-medium">
                 {activeTeam.name}
               </span>
-              <ChevronsUpDownIcon
+              <ChevronUpDownIcon
                 aria-hidden="true"
                 className="ml-auto text-muted-foreground"
               />

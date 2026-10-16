@@ -1,0 +1,25 @@
+/* The published view — no shell, so it owns its own page frame. */
+.pubd { min-height:100vh; background:var(--bg-page); font-family:var(--font-sans);
+  display:flex; flex-direction:column; align-items:center; padding:32px 24px 48px; }
+.pubd__top { width:min(1100px, 100%); display:flex; align-items:flex-start; gap:16px; margin-bottom:22px; }
+.pubd__top > div { flex:1; min-width:0; }
+.pubd__ws { font-size:12px; font-weight:500; letter-spacing:.3px; text-transform:uppercase;
+  color:var(--text-tertiary); }
+.pubd__top h1 { margin:4px 0 0; font-size:26px; font-weight:600; letter-spacing:-.5px; color:var(--text-primary); }
+.pubd__live { display:inline-flex; align-items:center; gap:7px; flex-shrink:0; font-size:12px;
+  color:var(--text-tertiary); padding:5px 10px; border-radius:99px; background:var(--surface-subtle); }
+.pubd__live i { width:7px; height:7px; border-radius:50%; background:var(--green-500); }
+.pubd__body { width:min(1100px, 100%); display:flex; flex-direction:column; gap:16px; }
+.pubd__empty { margin:0; font-size:13.5px; color:var(--text-tertiary); }
+.pubd__foot { width:min(1100px, 100%); display:flex; align-items:center; gap:9px; margin-top:28px;
+  padding-top:16px; border-top:1px solid var(--border-subtle); font-size:12px; line-height:1.5;
+  color:var(--text-tertiary); }
+.pubd__foot > svg { flex-shrink:0; color:var(--action-primary); }
+.pubd__foot > span { flex:1; }
+.pubd__by { display:inline-flex; align-items:center; gap:6px; flex-shrink:0; font-size:12px;
+  font-weight:500; color:var(--text-secondary); text-decoration:none; }
+.pubd__by img { height:16px; }
+.pubd--gone { justify-content:center; text-align:center; gap:10px; }
+.pubd--gone img { height:28px; margin-bottom:10px; }
+.pubd--gone h1 { margin:0; font-size:22px; font-weight:600; color:var(--text-primary); }
+.pubd--gone p { margin:0; max-width:46ch; font-size:14px; line-height:1.6; color:var(--text-secondary); }

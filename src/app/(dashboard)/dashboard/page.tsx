@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+
 import { getAuthSession } from "@/lib/guard";
 import { getFullName } from "@/lib/utils";
 
@@ -32,6 +34,10 @@ export default async function DashboardPage() {
       ? session.user.timezone
       : undefined;
   const isNewUser = Boolean(session?.user?.isNewUser);
+  // Server-read onboarding hint so the initial (pre-query) skeleton matches
+  // loading.tsx and the final view, with no client cookie read / hydration jump.
+  const onboardingComplete =
+    (await cookies()).get("onchain.onboardingComplete")?.value === "1";
 
   const firstLast = getFullName(firstName, lastName);
   const fullName =
@@ -47,5 +53,7 @@ export default async function DashboardPage() {
     fullName,
     timezone,
   };
-  return <MainDashboard userData={userData} />;
+  return (
+    <MainDashboard userData={userData} onboardingHint={onboardingComplete} />
+  );
 }

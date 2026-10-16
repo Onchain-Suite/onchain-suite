@@ -29,6 +29,47 @@ const formatUsd = (value: number) =>
     maximumFractionDigits: 2,
   });
 
+// Ledger amounts can be sub-cent (a single AI-credit debit), so show more
+// precision here than the whole-dollar balance above.
+const formatLedgerUsd = (value: number) =>
+  value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+
+// Humanize a meter key into a readable cost category. These are the things a
+// client actually spends on: email sends, AI actions, wallet enrichment/on-chain
+// reads, and the verification run at import time.
+const METER_LABELS: Record<string, string> = {
+  messages: "Email",
+  aiCredits: "AI credits",
+  goldrushCredits: "Enrichment & on-chain",
+  ons_plus: "Import verification",
+  in_app_push: "In-app push",
+};
+
+/** A one-line description for a usage-wallet ledger entry from its kind + meter
+ *  (+ quantity), so the breakdown reads "AI credits · 1,200" / "Top up" rather
+ *  than a raw meter key. */
+function describeLedgerEntry(entry: {
+  kind?: string;
+  meter?: string | null;
+  quantity?: number | null;
+}): string {
+  if (entry.kind === "topup") return "Top up";
+  if (entry.kind === "grant") return "Credit grant";
+  if (entry.kind === "adjustment") return "Adjustment";
+  const meter = entry.meter ?? "";
+  const base = METER_LABELS[meter] ?? (meter || "Usage");
+  const qty =
+    typeof entry.quantity === "number" && entry.quantity > 0
+      ? ` · ${entry.quantity.toLocaleString()}`
+      : "";
+  return `${base}${qty}`;
+}
+
 /**
  * Prepaid usage wallet (Pay-As-You-Go). Shown for `payg` orgs, and for
  * subscription orgs too - mid-cycle overage falls back to this wallet
@@ -110,6 +151,9 @@ export function PaygWalletCard({ planName }: { planName: string }) {
   if (!wallet) return null;
 
   const ledger = (wallet.ledger ?? []).slice(0, 5);
+  const spendByCategory = (wallet.spendByMeter ?? [])
+    .filter((s) => s.spentUsd > 0)
+    .sort((a, b) => b.spentUsd - a.spentUsd);
   const lowBalance = wallet.balanceUsd < 1;
 
   const handleTopUp = async () => {
@@ -161,7 +205,7 @@ export function PaygWalletCard({ planName }: { planName: string }) {
             </div>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {isPayg
-                ? "Your plan is usage-based - sends, on-chain reads, and AI are metered from this balance ($1/1k messages · $1/10k on-chain · $5/1k AI)."
+                ? "Your plan is usage-based - sends, on-chain reads, and AI are metered from this balance ($1/1k messages · $10/10k on-chain · $6/1k AI)."
                 : "When your monthly plan allowance runs out, usage continues from this wallet at pay-as-you-go rates instead of stopping."}
             </p>
             {lowBalance ? (
@@ -180,16 +224,47 @@ export function PaygWalletCard({ planName }: { planName: string }) {
         </Button>
       </div>
 
+      {spendByCategory.length > 0 ? (
+        <div className="mt-4 border-t border-border/50 pt-3">
+          <div className="mb-2 text-xs font-medium text-foreground">
+            Spent by category
+          </div>
+          <div className="space-y-1">
+            {spendByCategory.map((s) => (
+              <div
+                key={s.meter}
+                className="flex items-center justify-between text-xs text-muted-foreground"
+              >
+                <span className="truncate">
+                  {METER_LABELS[s.meter] ?? s.meter}
+                  {s.quantity > 0 ? (
+                    <span className="text-muted-foreground/70">
+                      {" "}
+                      · {s.quantity.toLocaleString()}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 tabular-nums text-foreground">
+                  {formatLedgerUsd(s.spentUsd)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {ledger.length > 0 ? (
         <div className="mt-4 space-y-1 border-t border-border/50 pt-3">
+          <div className="mb-1 text-xs font-medium text-foreground">
+            Recent activity
+          </div>
           {ledger.map((entry, index) => {
-            const amountValue = Number(entry.amountUsd);
-            const label =
-              typeof entry.meter === "string" && entry.meter.length > 0
-                ? entry.meter
-                : typeof entry.reason === "string" && entry.reason.length > 0
-                  ? entry.reason
-                  : "usage";
+            // Backend sends signed micro-USD, not a `amountUsd` field.
+            const amountValue =
+              typeof entry.deltaMicroUsd === "number"
+                ? entry.deltaMicroUsd / 1_000_000
+                : NaN;
+            const label = describeLedgerEntry(entry);
             const when =
               typeof entry.createdAt === "string"
                 ? new Date(entry.createdAt).toLocaleDateString()
@@ -210,7 +285,7 @@ export function PaygWalletCard({ planName }: { planName: string }) {
                     }
                   >
                     {Number.isFinite(amountValue)
-                      ? formatUsd(amountValue)
+                      ? formatLedgerUsd(amountValue)
                       : "-"}
                   </span>
                 </span>

@@ -460,11 +460,11 @@ export interface ReportViewProps {
 }
 
 /**
- * Visual report layer for a stored MCP/SQL query: backend-suggested charts,
+ * Visual report layer for a stored agent/SQL query: backend-suggested charts,
  * stat tiles per numeric column, a wallet-aware table, plus CSV and PNG
  * export. Data comes from `GET /intelligence/query/:queryId/report-data` -
  * a pure transformation over the stored rows, so rendering it costs no
- * GoldRush credits.
+ * Alchemy credits.
  */
 export function ReportView({ queryId, compact = false }: ReportViewProps) {
   const [csvPending, setCsvPending] = useState(false);

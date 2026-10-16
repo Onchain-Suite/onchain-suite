@@ -6,9 +6,12 @@ import {
   CheckIcon,
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import { useState } from "react";
 
 import { Button } from "@/ui/button";
+import { Input } from "@/ui/input";
+import { Label } from "@/ui/label";
 
 import { cn } from "@/lib/utils";
 
@@ -25,6 +28,7 @@ import {
   type CaptureFieldSpec,
   type CaptureFieldType,
   DEFAULT_TIMING,
+  formsService,
   readFormMeta,
   writeFormMeta,
 } from "../../forms.service";
@@ -76,15 +80,30 @@ function defaultNewFields(): CaptureFieldSpec[] {
 export function FormWizard({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("style");
+  const [name, setName] = useState("Untitled form");
   const [style, setStyle] = useState<FormStyleId>("inline");
   const [template, setTemplate] = useState<FormTemplateDef | null>(null);
   const [fields, setFields] = useState<CaptureFieldSpec[]>(defaultNewFields);
+
+  const formName = name.trim() || "Untitled form";
 
   const type = template?.type ?? "identity";
   const surface = surfaceForStyle(style);
 
   const create = useCreateForm((form) => {
-    router.push(`/forms/${form.id}`);
+    posthog.capture("form_created", {
+      form_style: style,
+      form_template: template?.id ?? "custom",
+      form_type: type,
+    });
+
+    // New forms start as DRAFT (like automations and campaigns) - live only on
+    // explicit publish. POST /forms has no status field, so set it right after
+    // create via PATCH; a failure here can't block creation.
+    const openBuilder = () => router.push(`/forms/${form.id}`);
+    formsService
+      .updateForm(form.id, { status: "draft" })
+      .then(openBuilder, openBuilder);
   });
 
   const selectStyle = (id: FormStyleId) => setStyle(id);
@@ -103,7 +122,7 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
       timing: { ...DEFAULT_TIMING },
     };
     create.mutate({
-      name: "Untitled form",
+      name: formName,
       fields,
       zkEnabled: type === "identity",
       settings: writeFormMeta(undefined, meta),
@@ -136,7 +155,7 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
           </button>
           <span className="text-border">|</span>
           <span className="truncate text-sm font-semibold text-foreground">
-            Untitled form
+            {formName}
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
             <span className="size-1.5 rounded-full bg-muted-foreground" />
@@ -189,7 +208,7 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
               <h2 className="mb-5 text-2xl font-bold text-foreground">
                 Select a style
               </h2>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {FORM_STYLES.map((s) => (
                   <PickCard
                     key={s.id}
@@ -207,7 +226,16 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
               <h2 className="mb-5 text-2xl font-bold text-foreground">
                 Select a template
               </h2>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="mb-6 max-w-sm space-y-1.5">
+                <Label htmlFor="wizard-form-name">Form name</Label>
+                <Input
+                  id="wizard-form-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Untitled form"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {FORM_TEMPLATES.map((t) => (
                   <PickCard
                     key={t.id}
@@ -224,7 +252,7 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
         </div>
 
         <FormSummary
-          name="Untitled form"
+          name={formName}
           style={style}
           template={template?.id ?? null}
           type={type}

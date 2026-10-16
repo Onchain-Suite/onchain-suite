@@ -5,14 +5,21 @@ import { useEffect } from "react";
 
 import { BrandingCard } from "../components/account/branding-card";
 import { ContractsCard } from "../components/account/contracts-card";
+import { NftEnrichmentCard } from "../components/account/nft-enrichment-card";
+import { ProfileCompletenessCard } from "../components/account/profile-completeness-card";
 import { ProjectCard } from "../components/account/project-card";
 import { SenderIdentitiesCard } from "../components/account/sender-identities-card";
 import { SenderVerificationCard } from "../components/account/sender-verification-card";
 import { SmartSendingCard } from "../components/account/smart-sending-card";
 import { TeamCard } from "../components/account/team-card";
 
-/** Deep-link target used by launch-error CTAs (?section=sender-verification). */
+/** Deep-link section ids scrolled to via ?section=<id> (e.g. from CTAs). */
 const SENDER_VERIFICATION_SECTION_ID = "sender-verification";
+const CONTRACTS_SECTION_ID = "contracts";
+const SCROLLABLE_SECTIONS = new Set([
+  SENDER_VERIFICATION_SECTION_ID,
+  CONTRACTS_SECTION_ID,
+]);
 
 /**
  * Account settings - protocol identity, indexed contracts, branding, sender
@@ -24,15 +31,19 @@ export default function CompanySettingsView() {
   const section = searchParams?.get("section") ?? null;
 
   useEffect(() => {
-    if (section !== SENDER_VERIFICATION_SECTION_ID) return;
-    const el = document.getElementById(SENDER_VERIFICATION_SECTION_ID);
+    if (!section || !SCROLLABLE_SECTIONS.has(section)) return;
+    const el = document.getElementById(section);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [section]);
 
   return (
     <div className="space-y-6">
+      <ProfileCompletenessCard />
       <ProjectCard />
-      <ContractsCard />
+      <div id={CONTRACTS_SECTION_ID} className="scroll-mt-6">
+        <ContractsCard />
+      </div>
+      <NftEnrichmentCard />
       <BrandingCard />
       <div id={SENDER_VERIFICATION_SECTION_ID} className="scroll-mt-6">
         <SenderVerificationCard />

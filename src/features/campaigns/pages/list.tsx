@@ -3,6 +3,7 @@
 import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -20,7 +21,6 @@ import { cn, getSelectedOrganizationId } from "@/lib/utils";
 
 import { campaignsService } from "../campaigns.service";
 import { CampaignsAnalyticsOverview } from "../components/analytics-overview";
-import { CampaignDetailSheet } from "../components/campaign-detail-sheet";
 import { CampaignsReferenceTable } from "../components/campaigns-reference-table";
 import type { Campaign, CampaignStatus } from "../types/campaign";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
@@ -36,6 +36,8 @@ const CAMPAIGN_TYPE_LABEL: Record<string, string> = {
 const campaignTypeLabel = (type: string) =>
   CAMPAIGN_TYPE_LABEL[type] ?? "Email";
 
+const PER_PAGE = 10;
+
 /** Split a date into the little day/month badge used by the UPCOMING cards. */
 const dateBadge = (date: Date) => ({
   day: date.getDate(),
@@ -48,10 +50,14 @@ export function CampaignsListsView() {
   const [statusFilter, setStatusFilter] = useState<"all" | CampaignStatus>(
     "all"
   );
-  const [detailCampaign, setDetailCampaign] = useState<Campaign | null>(null);
+  const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Campaign | null>(null);
   const queryClient = useQueryClient();
+  const router = useRouter();
+
+  const openDetail = (c: Campaign) =>
+    router.push(`${PRIVATE_ROUTES.CAMPAIGNS}/${c.id}`);
 
   const campaignsQuery = useQuery({
     queryKey: ["campaigns", "list"],
@@ -101,6 +107,19 @@ export function CampaignsListsView() {
         ? campaigns
         : campaigns.filter((c) => c.status === statusFilter),
     [campaigns, statusFilter]
+  );
+
+  // Paginate the filtered set (10/page, like Audience). Clamp the page so a
+  // filter change that shrinks the list can't strand you on an empty page.
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredCampaigns.length / PER_PAGE)
+  );
+  const safePage = Math.min(page, totalPages);
+  const pagedCampaigns = useMemo(
+    () =>
+      filteredCampaigns.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE),
+    [filteredCampaigns, safePage]
   );
 
   const statusCounts = useMemo(() => {
@@ -180,7 +199,7 @@ export function CampaignsListsView() {
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => setDetailCampaign(c)}
+                  onClick={() => openDetail(c)}
                   className="flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
                 >
                   {badge ? (
@@ -227,7 +246,10 @@ export function CampaignsListsView() {
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => setStatusFilter(chip.key)}
+              onClick={() => {
+                setStatusFilter(chip.key);
+                setPage(1);
+              }}
               className={cn(
                 "rounded-lg border px-3 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none",
                 active
@@ -252,12 +274,43 @@ export function CampaignsListsView() {
       {campaignsQuery.isLoading ? (
         <TableSkeleton rows={6} />
       ) : filteredCampaigns.length > 0 ? (
-        <CampaignsReferenceTable
-          data={filteredCampaigns}
-          onSelect={setDetailCampaign}
-          onDelete={setDeleteTarget}
-          onCancel={setCancelTarget}
-        />
+        <>
+          <CampaignsReferenceTable
+            data={pagedCampaigns}
+            onSelect={openDetail}
+            onDelete={setDeleteTarget}
+            onCancel={setCancelTarget}
+          />
+          {totalPages > 1 ? (
+            <div className="flex items-center justify-between pt-1 text-sm text-muted-foreground">
+              <span>
+                Showing {(safePage - 1) * PER_PAGE + 1}–
+                {Math.min(safePage * PER_PAGE, filteredCampaigns.length)} of{" "}
+                {filteredCampaigns.length.toLocaleString()}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : campaigns.length > 0 ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
           No campaigns match this filter.
@@ -291,13 +344,6 @@ export function CampaignsListsView() {
           </div>
         </div>
       )}
-
-      <CampaignDetailSheet
-        campaign={detailCampaign}
-        onOpenChange={(o) => {
-          if (!o) setDetailCampaign(null);
-        }}
-      />
 
       <Dialog
         open={Boolean(deleteTarget)}

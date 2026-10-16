@@ -1,10 +1,10 @@
 import z from "zod";
 
 /**
- * Delivery channel for a campaign. Smart campaigns currently support in-app
- * push only; social channels (Telegram, Discord, X) will be added later.
+ * Delivery channel for a campaign. Smart campaigns support in-app push and
+ * Telegram; the other social channels (Discord, X) will be added later.
  */
-export const campaignChannels = ["email", "in-app-push"] as const;
+export const campaignChannels = ["email", "in-app-push", "telegram"] as const;
 
 export const campaignFormSchema = z
   .object({
@@ -47,7 +47,10 @@ export const campaignFormSchema = z
     selectedTemplate: z.string().optional(),
     emailSubject: z.string().min(1, "Subject line is required"),
     previewText: z.string().optional(),
+    // Empty means "inherit from the linked identity" — the default. A value
+    // is a deliberate per-campaign override.
     senderName: z.string().optional(),
+    senderIdentityId: z.string().optional().nullable(),
     senderEmail: z
       .email("Please enter a valid email address")
       .optional()
@@ -88,6 +91,9 @@ export const campaignFormSchema = z
     pushExpiresDays: z.string().default("14"),
     pushMaxPerSession: z.string().default("1"),
 
+    // Telegram: a single plain-text body, persisted to channelsContent.telegram.text.
+    telegramText: z.string().optional(),
+
     // Send timing (chosen on the template step: send now or schedule)
     sendOption: z.enum(["now", "schedule"]),
     scheduleDate: z.date().optional(),
@@ -95,15 +101,25 @@ export const campaignFormSchema = z
     timezone: z.string().default("UTC"),
   })
   .superRefine((data, ctx) => {
-    if (data.channel !== "in-app-push") {
+    // Email is the only channel with a sender identity; in-app push and Telegram
+    // send through the SDK / the org's bot and need no sender fields.
+    if (data.channel === "email") {
+      // A blank sender name is valid when an identity is linked: the name is
+      // inherited from it at render time. Requiring one here is what forced the
+      // UI to copy the identity's name into the form, which is how a stale
+      // snapshot ended up on every campaign in the first place.
+      const hasLinkedIdentity =
+        typeof data.senderIdentityId === "string" &&
+        data.senderIdentityId.trim().length > 0;
       if (
-        typeof data.senderName !== "string" ||
-        data.senderName.trim().length === 0
+        !hasLinkedIdentity &&
+        (typeof data.senderName !== "string" ||
+          data.senderName.trim().length === 0)
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["senderName"],
-          message: "Sender name is required",
+          message: "Pick a sender address, or enter a sender name",
         });
       }
       if (
@@ -114,6 +130,19 @@ export const campaignFormSchema = z
           code: z.ZodIssueCode.custom,
           path: ["senderEmail"],
           message: "Please enter a valid email address",
+        });
+      }
+    }
+
+    if (data.channel === "telegram") {
+      if (
+        typeof data.telegramText !== "string" ||
+        data.telegramText.trim().length === 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["telegramText"],
+          message: "Enter a message to send",
         });
       }
     }

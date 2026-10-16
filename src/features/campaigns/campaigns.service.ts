@@ -36,6 +36,15 @@ export interface CampaignAudienceSelection {
    * Sent (and echoed back by GET) only when set.
    */
   all?: boolean;
+  /**
+   * Withhold the campaign from contacts tagged `internal`/`team`.
+   *
+   * Always sent, never omitted when false: turning the exclusion back off has
+   * to reach the server, and an omitted key would leave a stored `true` alone.
+   * Absent on audiences saved before the flag existed, which read as false —
+   * those campaigns have been mailing their internal contacts all along.
+   */
+  excludeInternal?: boolean;
   /** @deprecated Read-only fallback for audiences saved by older builds. */
   listIds?: string[];
 }
@@ -46,13 +55,42 @@ export interface CampaignAudienceEstimate {
   /** Canonical field per POST /campaigns/{id}/audience/estimate. */
   recipientCount?: number;
   excludedBySmartSending?: number;
-  // Full "Don't send to" breakdown (docs/backend.md 2026-08-xx): every count is
-  // a real query over the same resolved audience.
-  // recipientCount = max(0, totalWallets − missingEmail − suppressed −
-  // messagedRecently − internal). `excludedBySmartSending === messagedRecently`.
+  /**
+   * Full "Don't send to" breakdown. The reason buckets are DISJOINT and
+   * PARTITION the selection, so the arithmetic always closes:
+   *
+   *   totalWallets = emailReachable + noEmail + syntheticEmail + suppressed
+   *                + invalidAddress + unsubscribed + pendingOptin
+   *                + quarantined + excludedInternal
+   *   recipientCount = max(0, emailReachable − messagedRecently)
+   *
+   * `excludedBySmartSending === messagedRecently`.
+   *
+   * `internal` and `excludedInternal` are DIFFERENT numbers and both are
+   * needed: `internal` is how many of the selection carry the `internal`/`team`
+   * tags, counted either way so the row can show a figure; `excludedInternal`
+   * is how many are actually being withheld, which is 0 unless
+   * `excludeInternal` is set. Only the second is part of the partition.
+   *
+   * `totalWallets` is the whole selection, including contacts with no email at
+   * all; `emailReachable` is the one to show next to anything that says "with
+   * an email".
+   */
   totalWallets?: number;
-  missingEmail?: number;
+  emailReachable?: number;
+  noEmail?: number;
+  syntheticEmail?: number;
   suppressed?: number;
+  invalidAddress?: number;
+  unsubscribed?: number;
+  pendingOptin?: number;
+  quarantined?: number;
+  /** Internal/team contacts actually withheld; 0 unless `excludeInternal`. */
+  excludedInternal?: number;
+  /** The campaign's stored policy, echoed back so the row renders from it. */
+  excludeInternal?: boolean;
+  /** `noEmail + syntheticEmail`, kept for the single "no usable email" line. */
+  missingEmail?: number;
   messagedRecently?: number;
   internal?: number;
   [key: string]: unknown;
@@ -100,6 +138,28 @@ export interface CampaignSendInAppResult {
   skippedCount?: number;
   /** Echoes the persisted delivery mode used for this run. */
   delivery?: PushDelivery;
+  /**
+   * The campaign's status AFTER this call (docs/backend.md 2026-09-02). A real
+   * send that reaches >=1 recipient flips it to `SENT`; a zero-recipient send is
+   * a 200 with the status unchanged. Gate the "sent" UI on this / recipientCount,
+   * never on a bare 200.
+   */
+  status?: string;
+  /** ISO send time (event-derived); present once the campaign is `SENT`. */
+  sentAt?: string | null;
+  [key: string]: unknown;
+}
+
+/** Result of POST /campaigns/{id}/send-telegram. */
+export interface CampaignSendTelegramResult {
+  recipients?: number;
+  /** Audience wallets with a verified Telegram chat id. */
+  reachable?: number;
+  sent?: number;
+  failed?: number;
+  /** Recipients with no verified Telegram handle. */
+  skipped?: number;
+  status?: string;
   [key: string]: unknown;
 }
 
@@ -120,7 +180,15 @@ export interface CampaignEmailFunnel {
   totalClicks?: number;
   uniqueClicks?: number;
   deliveryRate?: number;
+  /** Over everyone the campaign was sent to. */
+  openRateOfAudience?: number;
+  clickRateOfAudience?: number;
+  /** Over what actually arrived — what every ESP reports for a finished send. */
+  openRateOfDelivered?: number;
+  clickRateOfDelivered?: number;
+  /** @deprecated Computed over `sent`; the name never stated its denominator. */
   openRate?: number;
+  /** @deprecated Computed over `sent`. */
   clickRate?: number;
   clickToOpenRate?: number;
   bounceRate?: number;
@@ -160,8 +228,23 @@ export interface CampaignAnalyticsOverview {
     limit?: number | null;
     used?: number;
     remaining?: number | null;
-    /** ISO timestamp when the monthly allowance next resets. */
+    /** ISO timestamp when the monthly allowance next resets. Omitted on PAYG. */
     resetsAt?: string;
+    /**
+     * PAYG fields — present only when the org is pay-as-you-go. On PAYG there is
+     * no monthly allowance (`limit` is null because the tier is nominally
+     * unlimited); the real ceiling is the prepaid wallet, so the card shows the
+     * balance and how many emails/in-app pushes it buys instead of "Unlimited".
+     */
+    payg?: boolean;
+    /** Current prepaid balance in micro-USD (1e6 µ$ = $1). */
+    walletMicroUsd?: number;
+    /** Price per email / in-app push in micro-USD. */
+    emailUnitMicroUsd?: number;
+    inAppUnitMicroUsd?: number;
+    /** How many more emails / in-app pushes the current balance can fund (shared wallet). */
+    emailCapacity?: number;
+    inAppCapacity?: number;
   };
   [key: string]: unknown;
 }
@@ -188,9 +271,19 @@ export interface CampaignTrackingSettings {
 export interface CampaignContentMetadata {
   subject: string;
   previewText?: string;
+  /**
+   * DELIBERATE override of the sender display name. Empty means "inherit from
+   * the linked identity", which is the default — so correcting a name in
+   * Settings fixes every campaign that did not deliberately override it.
+   * Sending a value here opts this campaign out of that.
+   */
   senderName: string;
   senderEmail: string;
   replyToEmail?: string;
+  /** Which verified identity this campaign sends as. Preferred over senderEmail. */
+  senderIdentityId?: string | null;
+  /** True when senderName is the identity's, not a per-campaign override. */
+  senderNameInherited?: boolean;
   [key: string]: unknown;
 }
 
@@ -315,6 +408,19 @@ const request = async <T>(
       }
     );
   }
+};
+
+/**
+ * A GET on a collection that 404s means the resource doesn't exist yet for this
+ * org (a brand-new / empty workspace), not that the request failed. The list
+ * callers treat that as "no data" (empty list) so the UI shows the empty state
+ * - "No campaigns yet" - rather than an error banner. Real failures (5xx,
+ * network, auth) keep their thrown error so the error state still surfaces them;
+ * we never mask a genuine backend outage as "nothing here".
+ */
+const isNoDataError = (error: unknown): boolean => {
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  return (cause as AxiosError | undefined)?.response?.status === 404;
 };
 
 const campaignTypes = new Set<Campaign["type"]>([
@@ -545,6 +651,20 @@ const toCampaign = (raw: unknown): Campaign => {
     subject: String(obj.subject ?? ""),
     audience: toAudienceLabels(obj),
     recipients: toRecipientCount(obj, status),
+    delivered: toFiniteNumber(obj.delivered),
+    // Rates are already percentages; map every variant the row may carry. The
+    // deprecated openRate/clickRate are aliases of the of-audience pair, so fall
+    // back to them for the of-audience fields.
+    openRateOfAudience:
+      toFiniteNumber(obj.openRateOfAudience) ?? toFiniteNumber(obj.openRate),
+    clickRateOfAudience:
+      toFiniteNumber(obj.clickRateOfAudience) ?? toFiniteNumber(obj.clickRate),
+    openRateOfDelivered: toFiniteNumber(obj.openRateOfDelivered),
+    clickRateOfDelivered: toFiniteNumber(obj.clickRateOfDelivered),
+    opens: toFiniteNumber(obj.opens),
+    // `clicks` is now unique clickers; `totalClicks` is event volume.
+    clicks: toFiniteNumber(obj.clicks),
+    totalClicks: toFiniteNumber(obj.totalClicks),
     openRate: obj.openRate !== undefined ? Number(obj.openRate) : undefined,
     clickRate: obj.clickRate !== undefined ? Number(obj.clickRate) : undefined,
     channelsUsed: Array.isArray(obj.channelsUsed)
@@ -564,10 +684,12 @@ const toCampaign = (raw: unknown): Campaign => {
 
 export const campaignsService = {
   listCampaigns(params?: ListCampaignsParams, orgId?: string) {
-    return request<unknown>(
-      { method: "GET", url: "/campaigns", params },
-      orgId
-    ).then((d) => extractList(d).map(toCampaign));
+    return request<unknown>({ method: "GET", url: "/campaigns", params }, orgId)
+      .then((d) => extractList(d).map(toCampaign))
+      .catch((e) => {
+        if (isNoDataError(e)) return [] as Campaign[];
+        throw e;
+      });
   },
 
   createCampaign(body: Record<string, unknown>, orgId?: string) {
@@ -626,9 +748,13 @@ export const campaignsService = {
       segmentIds: string[];
       profileIds: string[];
       all?: boolean;
+      excludeInternal: boolean;
     } = {
       segmentIds: Array.isArray(body.segmentIds) ? body.segmentIds : [],
       profileIds: Array.isArray(body.profileIds) ? body.profileIds : [],
+      // Sent unconditionally, unlike `all`: this one has an off state that
+      // must be writable.
+      excludeInternal: body.excludeInternal === true,
     };
     if (body.all) payload.all = true;
     return request<{ success?: boolean }>(
@@ -794,6 +920,29 @@ export const campaignsService = {
     ).then((d) => extractList(d));
   },
 
+  /**
+   * Per-recipient engagement activity for THIS campaign - the "Recent activity"
+   * feed (who opened/clicked/unsubscribed/bounced). Distinct from getEvents,
+   * which is the campaign lifecycle timeline. BACKEND: needs a read endpoint
+   * `GET /campaigns/{id}/activity?page=&limit=` returning
+   * `{ data: [{ contact: { walletAddress?, ens?, email? }, type:
+   * "opened"|"clicked"|"unsubscribed"|"bounced", channel, at }], meta }`.
+   * Swallows errors (returns []) so the feed shows an empty state until it
+   * ships rather than surfacing a 404.
+   */
+  getActivity(
+    id: string,
+    params?: { page?: number; limit?: number },
+    orgId?: string
+  ) {
+    return request<unknown>(
+      { method: "GET", url: `/campaigns/${id}/activity`, params },
+      orgId
+    )
+      .then((d) => extractList(d))
+      .catch(() => [] as unknown[]);
+  },
+
   launchCampaign(id: string, orgId?: string) {
     return request<{ success?: boolean }>(
       { method: "POST", url: `/campaigns/${id}/launch` },
@@ -855,6 +1004,33 @@ export const campaignsService = {
         url: `/campaigns/${id}/send-inapp`,
         data: overrides ?? {},
       },
+      orgId
+    );
+  },
+
+  /**
+   * Save the campaign's Telegram text. Stored under `channelsContent.telegram`
+   * (PUT /campaigns/{id}/channels/telegram/content); consumed by sendTelegram.
+   */
+  setTelegramContent(id: string, text: string, orgId?: string) {
+    return request<unknown>(
+      {
+        method: "PUT",
+        url: `/campaigns/${id}/channels/telegram/content`,
+        data: { text },
+      },
+      orgId
+    );
+  },
+
+  /**
+   * Send the campaign on Telegram to its wallet-reachable audience - wallets
+   * with a verified Telegram chat id (POST /campaigns/{id}/send-telegram).
+   * Immediate fan-out; gate the "sent" UI on `sent`, not a bare 200.
+   */
+  sendTelegram(id: string, orgId?: string) {
+    return request<CampaignSendTelegramResult>(
+      { method: "POST", url: `/campaigns/${id}/send-telegram`, data: {} },
       orgId
     );
   },

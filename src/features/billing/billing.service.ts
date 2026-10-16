@@ -3,6 +3,8 @@ import type { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import { clampExtraSeats, SEAT_PRICE_USD } from "./seat-pricing";
+
 export type BillingPeriod = "month" | "current";
 
 export type BillingPlanName = "Growth" | "Pro" | "Enterprise";
@@ -77,6 +79,34 @@ export interface PlanUsageResponse {
   plan?: string;
   meters?: PlanUsageMeters;
   [key: string]: unknown;
+}
+
+/** One priced line from `GET /billing/plan-usage/:org/cost`. */
+export interface PricedUsageLine {
+  meter: string;
+  label: string;
+  used: number;
+  unit: string;
+  unitCostUsd: number;
+  costUsd: number;
+}
+
+/** Response of `GET /billing/plan-usage/:organizationId/cost`: usage → cost. */
+export interface PricedUsageResponse {
+  organizationId: string;
+  organizationName?: string;
+  plan: { key: string; label: string };
+  period: string;
+  lines: PricedUsageLine[];
+  enrichment: {
+    walletsEnriched: number;
+    estCreditsUsed: number;
+    estCostUsd: number;
+    note: string;
+  };
+  usageCostUsd: number;
+  planPriceUsd: number;
+  totalUsd: number;
 }
 
 const pickPlanString = (...values: unknown[]): string | undefined => {
@@ -248,23 +278,25 @@ export const normalizeContactPricing = (payload: unknown): ContactPricing => {
 };
 
 /**
- * The documented slider curve (docs/backend.md 2026-08-27), used ONLY as a
- * fallback when `GET /billing/contact-pricing` is not yet deployed on the
- * connected backend. Interpolating these bands reproduces every named-tier
- * price exactly - Launch $49 (+$0.015/contact) → Growth $349 (+$0.009) → Pro
- * $799 (+$0.020) → Scale $2,299 - so an 11,000-contact org quotes $139. This is
- * guidance only: the real endpoint wins the moment it exists, and the amount
- * actually charged is always resolved by the backend at checkout.
+ * The Suite contact curve (docs/pricing.md v4.2, SSOT), used ONLY as a fallback
+ * when `GET /billing/contact-pricing` is not yet deployed on the connected
+ * backend. Suite = ($16 + $13.30 x contacts/1,000) x tier multiplier
+ * (Launch 0.79 / Growth 1.00 / Pro 1.60), so each tier at its reference contact
+ * count reproduces its shelf price - Launch $39 @ 2,500, Growth $349 @ 25,000,
+ * Pro $1,622 @ 75,000. Within a band the price scales at the tier's marginal
+ * rate ($13.30/1,000 x multiplier) and entitlements come from the lower tier
+ * (11,000 contacts stays on Launch). Guidance only: the real endpoint wins the
+ * moment it exists, and the charged amount is always resolved at checkout.
  */
 const FALLBACK_PRICING_ANCHORS: ContactPricingAnchor[] = [
-  { plan: "launch", planLabel: "Launch", contacts: 5_000, monthlyPrice: 49 },
+  { plan: "launch", planLabel: "Launch", contacts: 2_500, monthlyPrice: 39 },
   { plan: "growth", planLabel: "Growth", contacts: 25_000, monthlyPrice: 349 },
-  { plan: "pro", planLabel: "Pro", contacts: 75_000, monthlyPrice: 799 },
-  { plan: "scale", planLabel: "Scale", contacts: 150_000, monthlyPrice: 2_299 },
+  { plan: "pro", planLabel: "Pro", contacts: 75_000, monthlyPrice: 1_622 },
 ];
-// Marginal $/contact for each band (launch→growth, growth→pro, pro→scale); the
-// final rate continues above Scale rather than erroring.
-const FALLBACK_BAND_RATES = [0.015, 0.009, 0.02];
+// Marginal $/contact per band = $13.30/1,000 x tier multiplier:
+// Launch (0.79) -> 0.0105, Growth (1.00) -> 0.0133, Pro (1.60, continues above
+// its reference) -> 0.0213.
+const FALLBACK_BAND_RATES = [0.0105, 0.0133, 0.0213];
 
 export const computeFallbackContactPricing = (
   contacts: number
@@ -315,6 +347,183 @@ export const computeFallbackContactPricing = (
   };
 };
 
+/* ---------- v4.2 unified line quote (GET /billing/quote?plan=&units=) ----------
+   One slider per line; the contact count DECIDES the Suite tier (bands), and the
+   public quote matches the authenticated charge exactly, so shown == charged. */
+
+const SEND_BASE_FEE = 6; // $/mo
+const SEND_RATE_PER_1K = 3.95; // $ per 1,000 subscribers
+export const SEND_MIN_SUBSCRIBERS = 1000;
+/** SSOT contact stops for the Suite slider (Launch/Growth/Pro references). */
+export const SUITE_TIER_ANCHORS = FALLBACK_PRICING_ANCHORS;
+
+export interface LineQuote {
+  line: "suite" | "send";
+  /** Tier slug for Suite (launch/growth/pro), or "send". */
+  plan: string;
+  planLabel: string;
+  /** "contacts" (Suite) or "subscribers" (Send). */
+  unitLabel: string;
+  units: number;
+  /** Whole dollars, never cents. */
+  monthlyPrice: number;
+  annualPrice: number | null;
+  /** Send: true when at/below the minimum subscribers. */
+  atMinimum?: boolean;
+  /** Suite: the contact band this size falls in. */
+  band?: { from: number; to: number | null };
+  /** The next tier up + the $ jump crossing into it (the price cliff). */
+  nextTier?: {
+    plan: string;
+    label: string;
+    units: number;
+    monthlyPrice: number;
+    stepUp: number;
+  } | null;
+  /** Extra seats above the tier's included count (echoed from the request). */
+  extraSeats?: number;
+  /** Monthly $ for the extra seats alone (0 when none). */
+  seatMonthlyPrice?: number;
+  seatAnnualPrice?: number | null;
+  /**
+   * Plan + seats. This is what a customer pays, so it is what the UI must show:
+   * driving the headline off this keeps shown == charged when seats are added.
+   */
+  totalMonthlyPrice?: number;
+  totalAnnualPrice?: number | null;
+}
+
+const suiteFallbackLineQuote = (contacts: number): LineQuote => {
+  const { quote } = computeFallbackContactPricing(contacts);
+  const next = quote.nextTier;
+  // Cliff = the jump crossing the boundary: price just under the boundary on the
+  // current band vs the next tier's reference price (+$74 at 25k, +$609 at 75k).
+  let stepUp = 0;
+  if (next) {
+    const belowBoundary = computeFallbackContactPricing(next.contacts - 1).quote
+      .monthlyPrice;
+    stepUp = Math.max(0, next.monthlyPrice - belowBoundary);
+  }
+  return {
+    line: "suite",
+    plan: quote.plan || "launch",
+    planLabel: quote.planLabel || "Launch",
+    unitLabel: "contacts",
+    units: quote.contacts,
+    monthlyPrice: quote.monthlyPrice,
+    annualPrice: quote.annualPrice ?? quote.monthlyPrice * 12,
+    nextTier: next
+      ? {
+          plan: next.plan,
+          label: next.planLabel,
+          units: next.contacts,
+          monthlyPrice: next.monthlyPrice,
+          stepUp,
+        }
+      : null,
+  };
+};
+
+export const computeFallbackSendPricing = (subscribers: number): LineQuote => {
+  const n = Math.max(
+    SEND_MIN_SUBSCRIBERS,
+    Math.round(Number.isFinite(subscribers) ? subscribers : 0)
+  );
+  const monthly = Math.round(SEND_BASE_FEE + SEND_RATE_PER_1K * (n / 1000));
+  return {
+    line: "send",
+    plan: "send",
+    planLabel: "Send",
+    unitLabel: "subscribers",
+    units: n,
+    monthlyPrice: monthly,
+    annualPrice: monthly * 12,
+    atMinimum: subscribers <= SEND_MIN_SUBSCRIBERS,
+    nextTier: null,
+  };
+};
+
+/**
+ * Fold an extra-seat surcharge onto a fallback quote at the SSOT rate. Only used
+ * when the backend quote is unavailable (everything is already a client estimate
+ * there); the live path prefers the backend's own seat fields.
+ */
+const withSeatFallback = (quote: LineQuote, extraSeats: number): LineQuote => {
+  const seats = clampExtraSeats(extraSeats);
+  if (seats <= 0) return quote;
+  const seatMonthly = seats * SEAT_PRICE_USD;
+  const baseAnnual = quote.annualPrice ?? quote.monthlyPrice * 12;
+  return {
+    ...quote,
+    extraSeats: seats,
+    seatMonthlyPrice: seatMonthly,
+    seatAnnualPrice: seatMonthly * 12,
+    totalMonthlyPrice: quote.monthlyPrice + seatMonthly,
+    totalAnnualPrice: baseAnnual + seatMonthly * 12,
+  };
+};
+
+const normalizeLineQuote = (
+  payload: unknown,
+  line: "suite" | "send",
+  requested: number,
+  requestedSeats = 0
+): LineQuote => {
+  const root = isJsonObject(payload)
+    ? ((payload.data ?? payload) as Record<string, unknown>)
+    : {};
+  const monthly = num(root.monthlyPrice ?? root.price);
+  if (monthly === null || monthly < 0) {
+    return withSeatFallback(
+      line === "send"
+        ? computeFallbackSendPricing(requested)
+        : suiteFallbackLineQuote(requested),
+      requestedSeats
+    );
+  }
+  // Prefer the backend's authoritative seat line; fall back to the SSOT rate
+  // only when the response omits it (older backend).
+  const extraSeats = clampExtraSeats(num(root.extraSeats) ?? requestedSeats);
+  const seatMonthly = num(root.seatMonthlyPrice) ?? extraSeats * SEAT_PRICE_USD;
+  const totalMonthly = num(root.totalMonthlyPrice) ?? monthly + seatMonthly;
+  const nt = isJsonObject(root.nextTier) ? root.nextTier : null;
+  const band = isJsonObject(root.band) ? root.band : undefined;
+  return {
+    line,
+    plan:
+      pickPlanString(root.plan, root.slug, root.planLabel)?.toLowerCase() ??
+      (line === "send" ? "send" : "launch"),
+    planLabel:
+      pickPlanString(root.planLabel, root.label, root.plan) ??
+      (line === "send" ? "Send" : "Launch"),
+    unitLabel:
+      typeof root.unitLabel === "string"
+        ? root.unitLabel
+        : line === "send"
+          ? "subscribers"
+          : "contacts",
+    units: num(root.units ?? root.contacts ?? root.subscribers) ?? requested,
+    monthlyPrice: monthly,
+    annualPrice: num(root.annualPrice) ?? monthly * 12,
+    atMinimum: root.atMinimum === true,
+    band: band ? { from: num(band.from) ?? 0, to: num(band.to) } : undefined,
+    nextTier: nt
+      ? {
+          plan: pickPlanString(nt.plan, nt.slug, nt.label)?.toLowerCase() ?? "",
+          label: pickPlanString(nt.label, nt.planLabel, nt.plan) ?? "",
+          units: num(nt.contacts ?? nt.units ?? nt.subscribers) ?? 0,
+          monthlyPrice: num(nt.monthlyPrice ?? nt.price) ?? 0,
+          stepUp: num(nt.stepUp) ?? 0,
+        }
+      : null,
+    extraSeats,
+    seatMonthlyPrice: seatMonthly,
+    seatAnnualPrice: num(root.seatAnnualPrice) ?? seatMonthly * 12,
+    totalMonthlyPrice: totalMonthly,
+    totalAnnualPrice: num(root.totalAnnualPrice) ?? totalMonthly * 12,
+  };
+};
+
 export interface UpgradeFiatRequest {
   plan: BillingPlanName;
 }
@@ -336,9 +545,9 @@ export interface BillingUpgradeResponse {
 
 /** Catalog slugs accepted by POST /billing/checkout/plan (docs/backend.md). */
 /**
- * Sellable lineup per docs/backend.md 2026-07-25: Launch $29 · Growth $199 ·
- * Pro $499 (PAYG is the signup default, not a checkout slug). `starter` and
- * `pro_plus` were retired - checkout now 404s on them.
+ * Sellable lineup per docs/pricing.md v4.2: Launch $39 · Growth $349 ·
+ * Pro $1,622 (PAYG is the signup default, not a checkout slug). `starter`,
+ * `scale` and `pro_plus` are not sellable tiers - checkout 404s on them.
  */
 export type PlanCheckoutSlug = "launch" | "growth" | "pro";
 
@@ -362,6 +571,13 @@ export interface PlanCheckoutRequest {
    * capacity. On payment the backend writes `metadata.billing.contactCapacity`.
    */
   contacts?: number;
+  /**
+   * Seats to buy ABOVE the tier's included count (a DELTA, 0-50, not a total).
+   * Priced at $10/seat by the same `seatSurcharge` `GET /billing/quote` uses, so
+   * shown == charged by construction. On payment the backend raises
+   * `metadata.billing.seatCapacity`. Belongs on `checkout/plan`, not upgrade*.
+   */
+  extraSeats?: number;
 }
 
 /**
@@ -383,11 +599,19 @@ export interface PlanCheckoutResponse {
 export interface PaygWallet {
   balanceUsd: number;
   rates?: Record<string, number | string>;
+  /** Lifetime spend grouped by meter (email, AI, enrichment, imports, …). */
+  spendByMeter?: Array<{ meter: string; spentUsd: number; quantity: number }>;
   ledger?: Array<{
     id?: string;
-    amountUsd?: number;
-    meter?: string;
-    reason?: string;
+    /** Signed micro-USD (÷1e6 = USD); negative = debit, positive = top-up/grant. */
+    deltaMicroUsd?: number;
+    /** 'topup' | 'grant' | 'debit' | 'adjustment'. */
+    kind?: string;
+    /** Which meter a debit charged (aiCredits, messages, goldrushCredits, …). */
+    meter?: string | null;
+    /** Units billed on a debit. */
+    quantity?: number | null;
+    reference?: string | null;
     createdAt?: string;
     [key: string]: unknown;
   }>;
@@ -420,6 +644,47 @@ export interface InvoiceListResponse {
 
 export interface InvoiceDownloadResponse {
   url?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Customer-facing invoice row from `GET /billing/invoices?organizationId=`
+ * (OWNER, membership-checked). `payUrl` is the Stripe hosted card page; crypto
+ * invoices are paid from the wallet. Admin-only fields (reminders, charge
+ * errors, Stripe ids) are never exposed here.
+ */
+export interface CustomerInvoice {
+  number: string;
+  description: string;
+  amountUsd: number;
+  status: InvoiceStatus;
+  dueAt?: string | null;
+  paidAt?: string | null;
+  payUrl?: string | null;
+}
+
+/** The org's saved card from `GET /billing/card?organizationId=`. */
+export interface CardOnFile {
+  hasCard: boolean;
+  brand?: string | null;
+  last4?: string | null;
+  since?: string | null;
+}
+
+/**
+ * `POST /billing/card/setup-intent`. In the hosted flow the backend returns a
+ * Stripe-hosted setup page `url` to redirect to; the embedded (Elements) flow
+ * would instead return `clientSecret`. We normalise the many possible URL field
+ * names in {@link billingService.startCardSetup}.
+ */
+export interface CardSetupResponse {
+  url?: string;
+  setupUrl?: string;
+  paymentUrl?: string;
+  hostedUrl?: string;
+  redirectUrl?: string;
+  clientSecret?: string;
+  customerId?: string;
   [key: string]: unknown;
 }
 
@@ -645,7 +910,7 @@ export const billingService = {
    * `{ plan, meters: { contacts, emailsPerMonth, aiCredits, goldrushCredits,
    * seats, automations, apiKeys, trackedWallets } }`, each meter
    * `{ used, limit, percent, status }`. The `aiCredits` meter is the one that
-   * gates the AI assistant / SQL generation / MCP agent (402
+   * gates the AI assistant / SQL generation / on-chain agent (402
    * AI_CREDITS_EXCEEDED).
    */
   getPlanUsage(organizationId?: string, options?: BillingServiceOptions) {
@@ -657,6 +922,24 @@ export const billingService = {
     }
     return billingRequest<PlanUsageResponse>(
       { method: "GET", url: `/billing/plan-usage/${orgId}` },
+      { ...options, orgId }
+    );
+  },
+
+  /**
+   * Itemised usage→cost breakdown (`GET /billing/plan-usage/:org/cost`): each
+   * meter's usage priced at the rate card, a wallet-enrichment line, and the
+   * period total (plan base + metered usage).
+   */
+  getPricedUsage(organizationId?: string, options?: BillingServiceOptions) {
+    const orgId = organizationId ?? pickOrgId(options);
+    if (!orgId) {
+      return Promise.reject(
+        new Error("No organization selected for usage cost.")
+      );
+    }
+    return billingRequest<PricedUsageResponse>(
+      { method: "GET", url: `/billing/plan-usage/${orgId}/cost` },
       { ...options, orgId }
     );
   },
@@ -717,6 +1000,50 @@ export const billingService = {
         // degrade to the documented curve rather than leaving the slider dead.
         .catch(() => computeFallbackContactPricing(safe))
     );
+  },
+
+  /**
+   * v4.2 unified quote (`GET /billing/quote?plan=<suite|send>&units=<n>`). One
+   * slider per line; the count decides the Suite tier. The public quote matches
+   * this exactly, so the displayed price equals the charge. Falls back to the
+   * SSOT curve when the endpoint is unavailable. See {@link LineQuote}.
+   */
+  getLineQuote(
+    line: "suite" | "send",
+    units: number,
+    options?: BillingServiceOptions & {
+      /** Seats ABOVE the tier's included count (a delta, 0-50). */
+      extraSeats?: number;
+      billingCycle?: "monthly" | "annual";
+    }
+  ): Promise<LineQuote> {
+    const min = line === "send" ? SEND_MIN_SUBSCRIBERS : 0;
+    const safe = Math.max(min, Math.round(Number.isFinite(units) ? units : 0));
+    const extraSeats = clampExtraSeats(options?.extraSeats);
+    return billingRequest<unknown>(
+      {
+        method: "GET",
+        url: "/billing/quote",
+        params: {
+          plan: line,
+          units: safe,
+          ...(extraSeats > 0 ? { extraSeats } : {}),
+          ...(options?.billingCycle
+            ? { billingCycle: options.billingCycle }
+            : {}),
+        },
+      },
+      options
+    )
+      .then((payload) => normalizeLineQuote(payload, line, safe, extraSeats))
+      .catch(() =>
+        withSeatFallback(
+          line === "send"
+            ? computeFallbackSendPricing(safe)
+            : suiteFallbackLineQuote(safe),
+          extraSeats
+        )
+      );
   },
 
   /**
@@ -854,6 +1181,94 @@ export const billingService = {
       { method: "GET", url: `/billing/invoices/${invoiceId}/download` },
       options
     );
+  },
+
+  /**
+   * Customer-facing invoice list (`GET /billing/invoices`) - OWNER,
+   * membership-checked. Returns {@link CustomerInvoice} rows with a hosted
+   * `payUrl`. Tolerates an array or an `{ items }` / `{ data }` envelope.
+   */
+  getBillingInvoices(organizationId?: string, options?: BillingServiceOptions) {
+    const orgId = organizationId ?? pickOrgId(options);
+    return billingRequest<
+      | CustomerInvoice[]
+      | { items?: CustomerInvoice[]; data?: CustomerInvoice[] }
+    >(
+      {
+        method: "GET",
+        url: "/billing/invoices",
+        params: orgId ? { organizationId: orgId } : undefined,
+      },
+      { orgId: orgId ?? undefined }
+    );
+  },
+
+  /**
+   * The org's card on file (`GET /billing/card`) for the "Visa ****4242 / Add
+   * card" UI.
+   */
+  async getCardOnFile(
+    organizationId?: string,
+    options?: BillingServiceOptions
+  ): Promise<CardOnFile> {
+    const orgId = organizationId ?? pickOrgId(options);
+    try {
+      return await billingRequest<CardOnFile>(
+        {
+          method: "GET",
+          url: "/billing/card",
+          params: orgId ? { organizationId: orgId } : undefined,
+        },
+        { orgId: orgId ?? undefined }
+      );
+    } catch (error) {
+      // A brand-new org has no Stripe customer yet, so the card lookup can 404
+      // (or 400 "billing not available") before any card exists. That is "no
+      // card on file", not a failure - resolve to an empty CardOnFile so the UI
+      // shows the Add-card state instead of a red-herring error.
+      const status = (error as { cause?: AxiosError }).cause?.response?.status;
+      if (status === 404 || status === 400) {
+        return { hasCard: false };
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Start the hosted card-save flow (`POST /billing/card/setup-intent`) and
+   * return the Stripe-hosted setup page URL to redirect the user to. Once they
+   * save a card there, Stripe's `setup_intent.succeeded` webhook stores the
+   * org's `CardOnFile`, which is what lets auto-charge-on-expiry fire.
+   */
+  async startCardSetup(
+    args?: { successUrl?: string; cancelUrl?: string; organizationId?: string },
+    options?: BillingServiceOptions
+  ): Promise<{ url: string | null; clientSecret: string | null }> {
+    const orgId = args?.organizationId ?? pickOrgId(options);
+    // successUrl/cancelUrl override Stripe's default redirect so the user lands
+    // back on our billing tab (?tab=billing) rather than /settings/billing.
+    const data: Record<string, unknown> = {};
+    if (orgId) data.organizationId = orgId;
+    if (args?.successUrl) data.successUrl = args.successUrl;
+    if (args?.cancelUrl) data.cancelUrl = args.cancelUrl;
+    const res = await billingRequest<CardSetupResponse>(
+      { method: "POST", url: "/billing/card/setup-intent", data },
+      { orgId: orgId ?? undefined }
+    );
+    const url =
+      res.url ??
+      res.setupUrl ??
+      res.paymentUrl ??
+      res.hostedUrl ??
+      res.redirectUrl ??
+      null;
+    return {
+      url: typeof url === "string" && url.length > 0 ? url : null,
+      clientSecret:
+        typeof res.clientSecret === "string" && res.clientSecret.length > 0
+          ? res.clientSecret
+          : null,
+    };
   },
 
   /**

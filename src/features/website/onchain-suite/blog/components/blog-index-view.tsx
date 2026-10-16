@@ -1,16 +1,16 @@
 import Link from "next/link";
 
 import type { BlogCategory, BlogPostPage } from "../blog.types";
+import { BlogShell } from "./blog-shell";
 import { PostCard } from "./post-card";
 import { PostPagination } from "./post-pagination";
-import { PageShell } from "@/onchain-suite-website/components/landing/v2/shared";
 
 /**
  * Blog index / category archive.
  *
- * Server Component. `PageShell` is a client module (it owns the animated nav and
- * footer), but children passed into it from a server parent still render on the
- * server - so none of this listing markup ships as JS.
+ * Server Component. `BlogShell` owns the chrome (the ns navbar + footer); its
+ * only client code is SiteChrome, so this listing markup still renders on the
+ * server and ships no JS of its own.
  */
 export function BlogIndexView({
   result,
@@ -30,7 +30,7 @@ export function BlogIndexView({
   basePath: string;
 }) {
   return (
-    <PageShell>
+    <BlogShell>
       <section className="relative overflow-hidden pb-8 pt-16 md:pt-20">
         <div className="grid-bg" />
         <div className="wrap relative max-w-3xl">
@@ -110,6 +110,6 @@ export function BlogIndexView({
           />
         </div>
       </section>
-    </PageShell>
+    </BlogShell>
   );
 }

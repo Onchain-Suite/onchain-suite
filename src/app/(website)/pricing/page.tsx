@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { PricingPage } from "@/onchain-suite-website/components/landing/v2/pricing-page";
+import { NsPricing } from "@/onchain-suite-website/components/site/ns-pricing";
 
 export const metadata: Metadata = {
   title: "Pricing · OnchainSuite",
@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <PricingPage />;
+  return <NsPricing />;
 }

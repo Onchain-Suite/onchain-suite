@@ -1,13 +1,25 @@
 "use client";
 
 import { PlusIcon } from "@heroicons/react/24/outline";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { usePagination } from "../../hooks/use-pagination";
+import { ListPager } from "../list-pager";
 import { SettingsCard } from "../settings-card";
 import { projectSettingsKey, supportedChainsKey } from "./project-card";
 import { useAccountOrg } from "./use-account-org";
+import { automationService } from "@/features/automation/automation.service";
+import {
+  ContractInterfaceDialog,
+  InterfaceSubmittedBadge,
+} from "@/features/automation/components/contract-interface-dialog";
 import {
   type ProjectSettingsAddressRow,
   type ProjectSettingsFormData,
@@ -23,10 +35,18 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 
+/** Keep the contracts list scannable as it grows (10-15+ contracts). */
+const CONTRACTS_PER_PAGE = 5;
+
 export function ContractsCard() {
   const { organizationId } = useAccountOrg();
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [interfaceTarget, setInterfaceTarget] = useState<{
+    chain: string;
+    address: string;
+    label?: string;
+  } | null>(null);
   const [draft, setDraft] = useState({ chain: "", address: "", label: "" });
 
   const settingsQuery = useQuery({
@@ -48,6 +68,37 @@ export function ContractsCard() {
 
   const settings = settingsQuery.data;
   const chains = useMemo(() => chainsQuery.data ?? [], [chainsQuery.data]);
+  // One indexed lookup per contract, cached for the session: the row has to
+  // show whether an address is already covered, and the alternative is pasting
+  // again to find out — which is also how a good ABI gets overwritten by a
+  // worse one.
+  const interfaceQueries = useQueries({
+    queries: (settings?.contractAddresses ?? [])
+      .filter((c) => c.address && c.chain)
+      .map((c) => ({
+        queryKey: ["contract-interface", c.chain, c.address],
+        queryFn: () =>
+          automationService.getContractInterface(
+            c.chain as string,
+            c.address as string,
+            organizationId ?? undefined
+          ),
+        staleTime: 5 * 60 * 1000,
+        retry: false,
+      })),
+  });
+  const interfaceByAddress = useMemo(() => {
+    const map = new Map<string, number>();
+    const rows = (settings?.contractAddresses ?? []).filter(
+      (c) => c.address && c.chain
+    );
+    rows.forEach((row, index) => {
+      const data = interfaceQueries[index]?.data;
+      if (data?.submitted) map.set(String(row.address), data.eventCount);
+    });
+    return map;
+  }, [settings?.contractAddresses, interfaceQueries]);
+
   const chainLabel = useMemo(() => {
     const map = new Map(chains.map((c) => [c.slug, c.label]));
     return (slug?: string) => (slug ? (map.get(slug) ?? slug) : "");
@@ -56,6 +107,7 @@ export function ContractsCard() {
     () => (settings?.contractAddresses ?? []).filter((c) => c.address),
     [settings?.contractAddresses]
   );
+  const pager = usePagination(contracts, CONTRACTS_PER_PAGE);
 
   const saveContracts = (next: ProjectSettingsAddressRow[]) => {
     if (!settings) throw new Error("Project settings not loaded yet");
@@ -84,6 +136,12 @@ export function ContractsCard() {
       setAdding(false);
       setDraft({ chain: "", address: "", label: "" });
       toast.success("Contract added");
+      // The new contract is appended last - jump to its page so it's visible.
+      // setPage is unclamped; the next render (with the added row) clamps it.
+      const count = (saved?.contractAddresses ?? []).filter(
+        (c) => c.address
+      ).length;
+      pager.setPage(Math.max(0, Math.ceil(count / CONTRACTS_PER_PAGE) - 1));
     },
     onError: (error: unknown) =>
       toast.error(
@@ -186,7 +244,7 @@ export function ContractsCard() {
         </div>
       ) : contracts.length > 0 ? (
         <ul className="divide-y divide-border/50">
-          {contracts.map((contract) => (
+          {pager.items.map((contract) => (
             <li
               key={`${contract.chain}-${contract.address}`}
               className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
@@ -203,22 +261,62 @@ export function ContractsCard() {
                       {contract.label}
                     </span>
                   ) : null}
+                  {interfaceByAddress.has(String(contract.address)) ? (
+                    <InterfaceSubmittedBadge
+                      eventCount={
+                        interfaceByAddress.get(String(contract.address)) ?? 0
+                      }
+                    />
+                  ) : null}
                 </div>
                 <code className="mt-0.5 block truncate font-mono text-xs text-muted-foreground">
                   {contract.address}
                 </code>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => removeMutation.mutate(contract.address)}
-                disabled={removeMutation.isPending}
-              >
-                Remove
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setInterfaceTarget({
+                      chain: String(contract.chain ?? ""),
+                      address: String(contract.address),
+                      label: contract.label ?? undefined,
+                    })
+                  }
+                  // A submitted interface can still be replaced — a partial ABI
+                  // pasted in a hurry should be fixable by pasting the full one.
+                  disabled={!contract.chain}
+                >
+                  {interfaceByAddress.has(String(contract.address))
+                    ? "Replace ABI"
+                    : "Add ABI"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeMutation.mutate(contract.address)}
+                  disabled={removeMutation.isPending}
+                >
+                  Remove
+                </Button>
+              </div>
             </li>
           ))}
         </ul>
+      ) : null}
+      <ListPager pagination={pager} label="contracts" />
+      {interfaceTarget ? (
+        <ContractInterfaceDialog
+          open
+          onOpenChange={(next) => {
+            if (!next) setInterfaceTarget(null);
+          }}
+          chain={interfaceTarget.chain}
+          address={interfaceTarget.address}
+          label={interfaceTarget.label}
+          organizationId={organizationId ?? undefined}
+        />
       ) : null}
     </SettingsCard>
   );

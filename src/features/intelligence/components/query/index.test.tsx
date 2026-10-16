@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,16 +17,16 @@ const mocks = vi.hoisted(() => ({
     getQueryHistory: vi.fn(),
     getQueryStarters: vi.fn(),
     listQueryProtocols: vi.fn(),
-    getGoldrushMcpCatalog: vi.fn(),
-    getGoldrushMcpTools: vi.fn(),
-    getGoldrushMcpResources: vi.fn(),
-    readGoldrushMcpResource: vi.fn(),
-    planGoldrushMcp: vi.fn(),
-    streamGoldrushMcpQuery: vi.fn(),
+    getAgentCatalog: vi.fn(),
+    getAgentTools: vi.fn(),
+    getAgentResources: vi.fn(),
+    readAgentResource: vi.fn(),
+    planAgent: vi.fn(),
+    streamAgentQuery: vi.fn(),
     getQuerySuggestionsAnalytics: vi.fn(),
     validateQuery: vi.fn(),
     runQuery: vi.fn(),
-    queryGoldrushMcp: vi.fn(),
+    queryAgent: vi.fn(),
     getQuerySuggestions: vi.fn(),
     generateSql: vi.fn(),
     getQueryStatus: vi.fn(),
@@ -226,31 +232,29 @@ describe("QueryTab", () => {
     mocks.intelligenceService.listQueryProtocols.mockResolvedValue({
       items: [],
     });
-    mocks.intelligenceService.getGoldrushMcpCatalog.mockResolvedValue({
+    mocks.intelligenceService.getAgentCatalog.mockResolvedValue({
       tools: [{ name: "multichain_balances" }],
       resources: [{ uri: "config://supported-chains" }],
     });
-    mocks.intelligenceService.getGoldrushMcpTools.mockResolvedValue({
+    mocks.intelligenceService.getAgentTools.mockResolvedValue({
       items: [{ name: "multichain_balances", title: "Multichain balances" }],
     });
-    mocks.intelligenceService.getGoldrushMcpResources.mockResolvedValue({
+    mocks.intelligenceService.getAgentResources.mockResolvedValue({
       items: [
         { uri: "config://supported-chains", title: "Supported Chains" },
         { uri: "registry://protocols", title: "Protocol Registry" },
       ],
     });
-    mocks.intelligenceService.readGoldrushMcpResource.mockResolvedValue({
+    mocks.intelligenceService.readAgentResource.mockResolvedValue({
       parsedText: {
         chains: ["eth-mainnet", "solana-mainnet"],
       },
     });
-    mocks.intelligenceService.planGoldrushMcp.mockResolvedValue({
+    mocks.intelligenceService.planAgent.mockResolvedValue({
       requestedChains: ["eth-mainnet", "base-mainnet", "solana-mainnet"],
       execution: { mode: "dynamic_agent" },
     });
-    mocks.intelligenceService.streamGoldrushMcpQuery.mockResolvedValue(
-      undefined
-    );
+    mocks.intelligenceService.streamAgentQuery.mockResolvedValue(undefined);
     mocks.intelligenceService.getQuerySuggestionsAnalytics.mockResolvedValue({
       totals: {},
       topProtocols: [],
@@ -298,9 +302,9 @@ describe("QueryTab", () => {
         },
       ],
     });
-    mocks.intelligenceService.queryGoldrushMcp.mockResolvedValue({
+    mocks.intelligenceService.queryAgent.mockResolvedValue({
       status: "answered",
-      answer: "No MCP response needed for this SQL test.",
+      answer: "No agent response needed for this SQL test.",
     });
     mocks.intelligenceService.generateSql.mockResolvedValue({
       sql: "SELECT wallet, email FROM users WHERE engagement_score > 80;",
@@ -470,10 +474,12 @@ describe("QueryTab", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens the default chat workspace without eagerly loading MCP metadata", async () => {
+  it("opens the default chat workspace without eagerly loading agent metadata", async () => {
     renderQueryTab({ activeSurface: "chat" });
 
-    expect(await screen.findByLabelText("MCP chat input")).toBeInTheDocument();
+    expect(
+      await screen.findByLabelText("Ask the on-chain agent")
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Send$/i })).toBeInTheDocument();
     expect(screen.queryByText(/Live agent activity/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Live tools/i)).not.toBeInTheDocument();
@@ -489,22 +495,14 @@ describe("QueryTab", () => {
         /Find the most active wallets interacting across Ethereum, Base, and Solana this week/i
       )
     ).not.toBeInTheDocument();
-    expect(
-      mocks.intelligenceService.getGoldrushMcpCatalog
-    ).not.toHaveBeenCalled();
-    expect(
-      mocks.intelligenceService.getGoldrushMcpTools
-    ).not.toHaveBeenCalled();
-    expect(
-      mocks.intelligenceService.getGoldrushMcpResources
-    ).not.toHaveBeenCalled();
-    expect(
-      mocks.intelligenceService.readGoldrushMcpResource
-    ).not.toHaveBeenCalled();
+    expect(mocks.intelligenceService.getAgentCatalog).not.toHaveBeenCalled();
+    expect(mocks.intelligenceService.getAgentTools).not.toHaveBeenCalled();
+    expect(mocks.intelligenceService.getAgentResources).not.toHaveBeenCalled();
+    expect(mocks.intelligenceService.readAgentResource).not.toHaveBeenCalled();
   });
 
-  it("submits the current MCP prompt and falls back to durable MCP query when streaming times out", async () => {
-    mocks.intelligenceService.streamGoldrushMcpQuery.mockImplementationOnce(
+  it("submits the current prompt and falls back to the durable agent query when streaming times out", async () => {
+    mocks.intelligenceService.streamAgentQuery.mockImplementationOnce(
       async (
         _body: { prompt?: string },
         options?: {
@@ -515,31 +513,31 @@ describe("QueryTab", () => {
           type: "started",
           data: {
             conversationId: "conv_123",
-            message: "GoldRush MCP agent started",
+            message: "Alchemy agent started",
           },
         });
-        throw new Error("GoldRush MCP session startup timed out after 15000ms");
+        throw new Error(
+          "Alchemy agent session startup timed out after 15000ms"
+        );
       }
     );
-    mocks.intelligenceService.queryGoldrushMcp.mockResolvedValueOnce({
+    mocks.intelligenceService.queryAgent.mockResolvedValueOnce({
       conversationId: "conv_123",
       status: "answered",
       answer: "Answer for Find the top wallets on this token",
       rationale:
-        "Used the durable MCP conversation endpoint after stream recovery.",
+        "Used the durable agent conversation endpoint after stream recovery.",
     });
 
     renderQueryTab({ activeSurface: "chat" });
 
-    fireEvent.change(screen.getByLabelText("MCP chat input"), {
+    fireEvent.change(screen.getByLabelText("Ask the on-chain agent"), {
       target: { value: "Find the top wallets on this token" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
 
     await waitFor(() => {
-      expect(
-        mocks.intelligenceService.streamGoldrushMcpQuery
-      ).toHaveBeenCalledWith(
+      expect(mocks.intelligenceService.streamAgentQuery).toHaveBeenCalledWith(
         expect.objectContaining({
           message: "Find the top wallets on this token",
           prompt: "Find the top wallets on this token",
@@ -549,13 +547,11 @@ describe("QueryTab", () => {
     });
 
     // Assert the request payload rather than the full call signature -
-    // queryGoldrushMcp takes (body, orgId?, options?), and the extra args
+    // queryAgent takes (body, orgId?, options?), and the extra args
     // (abort signal, timeout) are not what this test is about.
     await waitFor(() => {
-      expect(mocks.intelligenceService.queryGoldrushMcp).toHaveBeenCalled();
-      expect(
-        mocks.intelligenceService.queryGoldrushMcp.mock.calls[0][0]
-      ).toEqual(
+      expect(mocks.intelligenceService.queryAgent).toHaveBeenCalled();
+      expect(mocks.intelligenceService.queryAgent.mock.calls[0][0]).toEqual(
         expect.objectContaining({
           conversationId: undefined,
           message: "Find the top wallets on this token",
@@ -573,13 +569,13 @@ describe("QueryTab", () => {
     ).toBeGreaterThan(0);
     expect(
       screen.queryByText(
-        /GoldRush MCP session startup timed out after 15000ms/i
+        /Alchemy agent session startup timed out after 15000ms/i
       )
     ).not.toBeInTheDocument();
   });
 
-  it("shows a copyable bug report when the MCP query fails", async () => {
-    mocks.intelligenceService.streamGoldrushMcpQuery.mockImplementationOnce(
+  it("shows a copyable bug report when the agent query fails", async () => {
+    mocks.intelligenceService.streamAgentQuery.mockImplementationOnce(
       async (
         _body: { prompt?: string },
         options?: {
@@ -590,45 +586,123 @@ describe("QueryTab", () => {
           type: "started",
           data: {
             conversationId: "conv_bug_123",
-            message: "GoldRush MCP agent started",
+            message: "Alchemy agent started",
           },
         });
-        throw new Error("GoldRush MCP session startup timed out after 15000ms");
+        throw new Error(
+          "Alchemy agent session startup timed out after 15000ms"
+        );
       }
     );
-    mocks.intelligenceService.queryGoldrushMcp.mockRejectedValueOnce({
-      message: "Upstream GoldRush MCP query failed",
+    mocks.intelligenceService.queryAgent.mockRejectedValueOnce({
+      message: "Upstream Alchemy query failed",
       response: {
         status: 502,
         data: {
           requestId: "req_bug_123",
-          message: "Upstream GoldRush MCP query failed",
+          message: "Upstream Alchemy query failed",
         },
       },
     });
 
     renderQueryTab({ activeSurface: "chat" });
 
-    fireEvent.change(screen.getByLabelText("MCP chat input"), {
+    fireEvent.change(screen.getByLabelText("Ask the on-chain agent"), {
       target: { value: "Find the top wallets on this token" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
 
     expect(
       await screen.findByText(
-        /I couldn't complete that MCP request\. Please try again or refine the prompt\./i
+        /I couldn't complete that request\. Please try again or refine the prompt\./i
       )
     ).toBeInTheDocument();
     expect(await screen.findByText(/Bug report/i)).toBeInTheDocument();
     expect(screen.getByText("502")).toBeInTheDocument();
     expect(screen.getByText("req_bug_123")).toBeInTheDocument();
     expect(
-      screen.getAllByText(/Upstream GoldRush MCP query failed/i).length
+      screen.getAllByText(/Upstream Alchemy query failed/i).length
     ).toBeGreaterThan(0);
   });
 
-  it("renders token holder structured results with the deterministic MCP renderer", async () => {
-    mocks.intelligenceService.queryGoldrushMcp.mockResolvedValueOnce({
+  it("surfaces actionable guidance (not a raw bug dump) when the agent isn't configured", async () => {
+    mocks.intelligenceService.queryAgent.mockRejectedValueOnce({
+      message: "GoldRush MCP is not configured",
+      response: {
+        status: 400,
+        data: { message: "GoldRush MCP is not configured" },
+      },
+    });
+
+    renderQueryTab({ activeSurface: "chat" });
+
+    fireEvent.change(screen.getByLabelText("Ask the on-chain agent"), {
+      target: { value: "Top holders of this token" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
+
+    // The main answer leads with the actionable guidance...
+    expect(
+      await screen.findByText(
+        /on-chain agent isn't enabled on this backend environment yet/i
+      )
+    ).toBeInTheDocument();
+    // ...not the generic fallback line.
+    expect(
+      screen.queryByText(
+        /I couldn't complete that request\. Please try again or refine the prompt\./i
+      )
+    ).not.toBeInTheDocument();
+    // The raw backend text is still available in the collapsible bug report.
+    expect(
+      screen.getAllByText(/GoldRush MCP is not configured/i).length
+    ).toBeGreaterThan(0);
+  });
+
+  it("streams the answer into the thinking bubble while the durable query is in flight", async () => {
+    let resolveQuery: (value: unknown) => void = () => {};
+    mocks.intelligenceService.queryAgent.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveQuery = resolve;
+      })
+    );
+    mocks.intelligenceService.streamAgentQuery.mockImplementationOnce(
+      async (
+        _body: { prompt?: string },
+        options?: {
+          onEvent?: (event: { type?: string; data?: unknown }) => void;
+        }
+      ) => {
+        options?.onEvent?.({ type: "answer_token", data: { token: "Top " } });
+        options?.onEvent?.({
+          type: "answer_token",
+          data: { token: "holders." },
+        });
+      }
+    );
+
+    renderQueryTab({ activeSurface: "chat" });
+    fireEvent.change(screen.getByLabelText("Ask the on-chain agent"), {
+      target: { value: "Top holders of this token" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
+
+    // The answer types out in the thinking bubble before the durable query
+    // resolves, and answer tokens never appear as raw "answer_token" steps.
+    expect(await screen.findByText(/Top holders\./i)).toBeInTheDocument();
+    expect(screen.queryByText(/answer[_ ]?token/i)).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveQuery({
+        status: "answered",
+        answer: "Top holders.",
+        conversationId: "conv_stream",
+      });
+    });
+  });
+
+  it("renders token holder structured results with the deterministic agent renderer", async () => {
+    mocks.intelligenceService.queryAgent.mockResolvedValueOnce({
       conversationId: "conv_holders",
       status: "answered",
       answer: "Here are the biggest holders right now.",
@@ -654,7 +728,7 @@ describe("QueryTab", () => {
 
     renderQueryTab({ activeSurface: "chat" });
 
-    fireEvent.change(screen.getByLabelText("MCP chat input"), {
+    fireEvent.change(screen.getByLabelText("Ask the on-chain agent"), {
       target: { value: "Show me the biggest holders" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
@@ -666,7 +740,7 @@ describe("QueryTab", () => {
   });
 
   it("renders wallet balance structured results as balance cards", async () => {
-    mocks.intelligenceService.queryGoldrushMcp.mockResolvedValueOnce({
+    mocks.intelligenceService.queryAgent.mockResolvedValueOnce({
       conversationId: "conv_balances",
       status: "answered",
       structuredResult: {
@@ -686,7 +760,7 @@ describe("QueryTab", () => {
 
     renderQueryTab({ activeSurface: "chat" });
 
-    fireEvent.change(screen.getByLabelText("MCP chat input"), {
+    fireEvent.change(screen.getByLabelText("Ask the on-chain agent"), {
       target: { value: "Show wallet balances" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
@@ -698,7 +772,7 @@ describe("QueryTab", () => {
   });
 
   it("renders transaction structured results as a transaction list", async () => {
-    mocks.intelligenceService.queryGoldrushMcp.mockResolvedValueOnce({
+    mocks.intelligenceService.queryAgent.mockResolvedValueOnce({
       conversationId: "conv_transactions",
       status: "answered",
       structuredResult: {
@@ -720,7 +794,7 @@ describe("QueryTab", () => {
 
     renderQueryTab({ activeSurface: "chat" });
 
-    fireEvent.change(screen.getByLabelText("MCP chat input"), {
+    fireEvent.change(screen.getByLabelText("Ask the on-chain agent"), {
       target: { value: "Show me recent transactions" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
@@ -732,7 +806,7 @@ describe("QueryTab", () => {
   });
 
   it("renders gas price structured results as fee cards", async () => {
-    mocks.intelligenceService.queryGoldrushMcp.mockResolvedValueOnce({
+    mocks.intelligenceService.queryAgent.mockResolvedValueOnce({
       conversationId: "conv_gas",
       status: "answered",
       structuredResult: {
@@ -752,7 +826,7 @@ describe("QueryTab", () => {
 
     renderQueryTab({ activeSurface: "chat" });
 
-    fireEvent.change(screen.getByLabelText("MCP chat input"), {
+    fireEvent.change(screen.getByLabelText("Ask the on-chain agent"), {
       target: { value: "Show gas prices" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
@@ -764,7 +838,7 @@ describe("QueryTab", () => {
   });
 
   it("renders clarification questions and keeps the same conversation for follow-up replies", async () => {
-    mocks.intelligenceService.queryGoldrushMcp
+    mocks.intelligenceService.queryAgent
       .mockResolvedValueOnce({
         conversationId: "conv_clarify",
         status: "needs_clarification",
@@ -778,7 +852,7 @@ describe("QueryTab", () => {
 
     renderQueryTab({ activeSurface: "chat" });
 
-    fireEvent.change(screen.getByLabelText("MCP chat input"), {
+    fireEvent.change(screen.getByLabelText("Ask the on-chain agent"), {
       target: { value: "Find the top holders" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
@@ -787,13 +861,13 @@ describe("QueryTab", () => {
       await screen.findByText("Which chain should I check?")
     ).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("MCP chat input"), {
+    fireEvent.change(screen.getByLabelText("Ask the on-chain agent"), {
       target: { value: "Base" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^Send$/i }));
 
     await waitFor(() => {
-      const { calls } = mocks.intelligenceService.queryGoldrushMcp.mock;
+      const { calls } = mocks.intelligenceService.queryAgent.mock;
       expect(calls.length).toBeGreaterThan(0);
       // Payload only - the (body, orgId?, options?) tail is incidental here.
       expect(calls[calls.length - 1][0]).toEqual(

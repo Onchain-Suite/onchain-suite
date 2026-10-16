@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { usePagination } from "../../hooks/use-pagination";
+import { ListPager } from "../list-pager";
 import { SettingsCard, StatusPill } from "../settings-card";
 import { useAccountOrg } from "./use-account-org";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
@@ -15,11 +17,18 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 const sendersKey = (orgId: string | null) =>
   ["account", "senders", orgId] as const;
 
+const SENDERS_PER_PAGE = 5;
+
 export function SenderIdentitiesCard() {
   const { organizationId } = useAccountOrg();
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ email: "", name: "" });
+  // Which row is being renamed, and the in-progress value. Inline rather
+  // than a dialog: it is one short field, and the list is the context.
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(
+    null
+  );
 
   const sendersQuery = useQuery({
     queryKey: sendersKey(organizationId),
@@ -67,6 +76,25 @@ export function SenderIdentitiesCard() {
       toast.error(e instanceof Error ? e.message : "Failed to set default"),
   });
 
+  const renameMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      senderIdentitiesService.renameSenderIdentity(
+        id,
+        name,
+        organizationId ?? undefined
+      ),
+    onSuccess: async () => {
+      await invalidate();
+      setRenaming(null);
+      // Campaigns that inherit this name render it fresh, so their cached
+      // content is stale the moment this succeeds.
+      await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      toast.success("Sender name updated");
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Failed to rename sender"),
+  });
+
   const recheckMutation = useMutation({
     mutationFn: (id: string) =>
       senderIdentitiesService.recheckSenderIdentity(
@@ -96,6 +124,7 @@ export function SenderIdentitiesCard() {
   });
 
   const senders = sendersQuery.data ?? [];
+  const pager = usePagination(senders, SENDERS_PER_PAGE);
 
   return (
     <SettingsCard
@@ -166,7 +195,7 @@ export function SenderIdentitiesCard() {
         </div>
       ) : senders.length > 0 ? (
         <ul className="divide-y divide-border/50">
-          {senders.map((sender) => (
+          {pager.items.map((sender) => (
             <li
               key={sender.id}
               className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
@@ -180,9 +209,58 @@ export function SenderIdentitiesCard() {
                     <StatusPill tone="neutral">Default</StatusPill>
                   ) : null}
                 </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {sender.name}
-                </div>
+                {renaming?.id === sender.id ? (
+                  <form
+                    className="mt-1 flex items-center gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      renameMutation.mutate({
+                        id: sender.id,
+                        name: renaming.name,
+                      });
+                    }}
+                  >
+                    <Input
+                      autoFocus
+                      value={renaming.name}
+                      maxLength={78}
+                      placeholder="Sender name"
+                      aria-label={`Display name for ${sender.email}`}
+                      onChange={(e) =>
+                        setRenaming({ id: sender.id, name: e.target.value })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") setRenaming(null);
+                      }}
+                      className="h-8 max-w-[260px] text-xs"
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={
+                        renameMutation.isPending ||
+                        renaming.name.trim() === (sender.name ?? "").trim()
+                      }
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setRenaming(null)}
+                      disabled={renameMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                  </form>
+                ) : (
+                  <div className="truncate text-xs text-muted-foreground">
+                    {sender.name || (
+                      <span className="italic">No display name</span>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <StatusPill
@@ -220,6 +298,16 @@ export function SenderIdentitiesCard() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={() =>
+                    setRenaming({ id: sender.id, name: sender.name ?? "" })
+                  }
+                  disabled={renameMutation.isPending}
+                >
+                  Rename
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => removeMutation.mutate(sender.id)}
                   disabled={removeMutation.isPending}
                 >
@@ -230,6 +318,7 @@ export function SenderIdentitiesCard() {
           ))}
         </ul>
       ) : null}
+      <ListPager pagination={pager} label="senders" />
     </SettingsCard>
   );
 }

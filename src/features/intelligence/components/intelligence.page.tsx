@@ -4,6 +4,7 @@ import {
   ArrowPathIcon,
   ChatBubbleLeftRightIcon,
   CheckIcon,
+  ClockIcon,
   // CodeBracketIcon, // re-add when the hidden SQL tab is restored
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
@@ -17,8 +18,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 import { intelligenceService } from "../intelligence.service";
+import { toQueryHistoryItems } from "../utils/query-history";
 import { QueryTab } from "./query";
 import { SegmentsView } from "./segments/segments-view";
+import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 
 /** Tab ids that `/intelligence?tab=` accepts, so deep links can't land nowhere. */
 const TAB_IDS = new Set(["chat", "segments", "sql"]);
@@ -95,13 +98,14 @@ function EnrichmentStatus() {
         type="button"
         onClick={() => enrichMutation.mutate()}
         disabled={enrichMutation.isPending}
-        className="inline-flex items-center gap-1.5 font-medium text-foreground transition-colors hover:text-primary disabled:opacity-60"
+        title="Re-enrich your wallets' on-chain data"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 font-medium text-foreground shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/50 disabled:opacity-60"
       >
         <ArrowPathIcon
           aria-hidden="true"
-          className={cn("h-4 w-4", busy && "animate-spin")}
+          className={cn("h-4 w-4 text-primary", busy && "animate-spin")}
         />
-        Refresh
+        {busy ? "Refreshing…" : "Refresh data"}
       </button>
     </div>
   );
@@ -124,6 +128,8 @@ export default function IntelligencePage() {
   const handleTabChange = useCallback(
     (tab: string) => {
       setActiveTab(tab);
+      // History is a chat sub-view; leaving chat returns to the thread.
+      if (tab !== "chat") setHistoryOpen(false);
       const next = new URLSearchParams(searchParamsString);
       next.set("tab", tab);
       router.replace(`/intelligence?${next.toString()}`, { scroll: false });
@@ -147,6 +153,24 @@ export default function IntelligencePage() {
       ? segmentsMetricsQuery.data.segmentsCount
       : null;
 
+  // History disclosure lives here so the tab-bar icon (right of Chat/Segments)
+  // can drive the panel QueryTab renders. Shares the query key with QueryTab's
+  // own read, so this adds no extra request; the count gates the icon.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const historyQuery = useQuery({
+    queryKey: ["intelligence", "query", "history"],
+    queryFn: async () => {
+      const res = await intelligenceService.getQueryHistory();
+      const items = Array.isArray(res)
+        ? res
+        : ((res as { items?: unknown[] }).items ?? []);
+      return Array.isArray(items) ? items : [];
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const historyCount = toQueryHistoryItems(historyQuery.data ?? []).length;
+
   // Left-aligned underline tabs. The shadcn TabsTrigger primitive bakes in
   // `flex-1` + a boxed active fill/shadow, so we explicitly neutralize those
   // (flex-none, transparent active bg in light AND dark, no shadow) and colour
@@ -155,51 +179,94 @@ export default function IntelligencePage() {
     "relative h-auto flex-none gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-2.5 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-b-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:border-b-primary dark:data-[state=active]:bg-transparent";
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col gap-6">
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">
           Intelligence
         </h1>
         <EnrichmentStatus />
       </div>
 
+      <div className="shrink-0">
+        <ContractAddressNudge context="intelligence" />
+      </div>
+
       <Tabs
         value={activeTab}
         onValueChange={handleTabChange}
-        className="space-y-6"
+        className="flex min-h-0 flex-1 flex-col gap-6"
       >
-        <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b border-border bg-transparent p-0">
-          <TabsTrigger value="chat" className={TAB_TRIGGER_CLASS}>
-            <ChatBubbleLeftRightIcon aria-hidden="true" className="h-4 w-4" />
-            Chat
-          </TabsTrigger>
-          <TabsTrigger value="segments" className={TAB_TRIGGER_CLASS}>
-            <UserGroupIcon aria-hidden="true" className="h-4 w-4" />
-            Segments
-            {segmentsCount !== null ? (
-              <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-                {segmentsCount}
-              </span>
-            ) : null}
-          </TabsTrigger>
-          {/* SQL surface is intentionally hidden until we finalize the direction.
-              The tab, routing (?tab=sql) and QueryTab sql surface below stay
-              wired so it can be re-enabled by restoring this trigger. */}
-          {/* <TabsTrigger value="sql" className={TAB_TRIGGER_CLASS}>
-            <CodeBracketIcon aria-hidden="true" className="h-4 w-4" />
-            SQL
-          </TabsTrigger> */}
-        </TabsList>
+        <div className="flex shrink-0 items-center gap-4 border-b border-border">
+          <TabsList className="h-auto justify-start gap-6 rounded-none border-0 bg-transparent p-0">
+            <TabsTrigger value="chat" className={TAB_TRIGGER_CLASS}>
+              <ChatBubbleLeftRightIcon aria-hidden="true" className="h-4 w-4" />
+              Chat
+            </TabsTrigger>
+            <TabsTrigger value="segments" className={TAB_TRIGGER_CLASS}>
+              <UserGroupIcon aria-hidden="true" className="h-4 w-4" />
+              Segments
+              {segmentsCount !== null ? (
+                <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  {segmentsCount}
+                </span>
+              ) : null}
+            </TabsTrigger>
+            {/* SQL surface is intentionally hidden until we finalize the direction.
+                The tab, routing (?tab=sql) and QueryTab sql surface below stay
+                wired so it can be re-enabled by restoring this trigger. */}
+            {/* <TabsTrigger value="sql" className={TAB_TRIGGER_CLASS}>
+              <CodeBracketIcon aria-hidden="true" className="h-4 w-4" />
+              SQL
+            </TabsTrigger> */}
+          </TabsList>
 
-        {activeTab === "chat" || activeTab === "sql" ? (
+          {/* History lives at the far right of the tab row, icon-only, shown
+              only in Agent chat and only when there are past runs. It opens the
+              full History view (replacing the chat thread). */}
+          {activeTab === "chat" && historyCount > 0 ? (
+            <button
+              type="button"
+              aria-expanded={historyOpen}
+              aria-label="Query history"
+              title="Query history"
+              onClick={() => setHistoryOpen((v) => !v)}
+              className={cn(
+                "ml-auto mb-1.5 rounded-lg p-1.5 transition-colors",
+                historyOpen
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <ClockIcon aria-hidden="true" className="h-5 w-5" />
+            </button>
+          ) : null}
+        </div>
+
+        {/* Kept mounted (hidden on other tabs) rather than conditionally
+            rendered, so the chat thread and its conversation id survive a trip
+            to the Segments tab and back instead of resetting to a blank chat. */}
+        <div
+          hidden={activeTab !== "chat" && activeTab !== "sql"}
+          className={
+            activeTab === "chat" ? "flex min-h-0 flex-1 flex-col" : undefined
+          }
+        >
           <QueryTab
-            activeSurface={activeTab === "chat" ? "chat" : "sql"}
+            activeSurface={activeTab === "sql" ? "sql" : "chat"}
             openEmailComposer={openEmailComposer}
             setActiveTab={handleTabChange}
+            historyOpen={historyOpen}
+            onHistoryOpenChange={setHistoryOpen}
+            className={
+              activeTab === "chat" ? "flex min-h-0 flex-1 flex-col" : undefined
+            }
           />
-        ) : null}
+        </div>
 
-        <TabsContent value="segments" className="space-y-4">
+        <TabsContent
+          value="segments"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto"
+        >
           <SegmentsView />
         </TabsContent>
       </Tabs>

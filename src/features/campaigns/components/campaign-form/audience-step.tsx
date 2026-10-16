@@ -7,6 +7,7 @@ import {
   EnvelopeIcon,
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
+  PaperAirplaneIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
@@ -25,6 +26,8 @@ import {
   getEstimatedRecipientsFromSelection,
   isAllContactsSelected,
   partitionAudienceSelection,
+  reachabilityGate,
+  reachChannelCount,
   resolveTagsToProfileIds,
 } from "../../lib/audience";
 import {
@@ -43,6 +46,8 @@ import {
   deriveDisplayName,
   extractWalletFields,
   isSyntheticWalletEmail,
+  normalizeTags,
+  profileReach,
 } from "@/features/audience/utils";
 import { smartSendingService } from "@/features/settings/smart-sending.service";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
@@ -77,7 +82,7 @@ const getEstimatedRecipientsValue = (estimate: CampaignAudienceEstimate) => {
   return null;
 };
 
-type SendTab = "segments" | "lists" | "contacts" | "everyone";
+type SendTab = "segments" | "lists" | "tags" | "contacts" | "everyone";
 
 export function AudienceStep({
   form,
@@ -94,6 +99,10 @@ export function AudienceStep({
   const accountSettingsHref = `${PRIVATE_ROUTES.SETTINGS}?tab=account`;
   const channel = form.watch("channel");
   const isPush = channel === "in-app-push";
+  const isTelegram = channel === "telegram";
+  // Telegram, like in-app push, reaches wallets (a verified Telegram chat id),
+  // not email - so it uses the wallet-reachable audience path everywhere.
+  const isWalletChannel = isPush || isTelegram;
   const selectedAudiences = form.watch("selectedAudiences");
   const smartSending = form.watch("smartSending");
   const windowOverrideDraft = form.watch("smartSendingWindowHours");
@@ -109,11 +118,21 @@ export function AudienceStep({
   // Full "Don't send to" breakdown from the last estimate (real backend counts).
   const [estimateBreakdown, setEstimateBreakdown] =
     useState<CampaignAudienceEstimate | null>(null);
-  // Internal/team wallets are an exclusion filter the sender can toggle off.
-  const [includeInternal, setIncludeInternal] = useState(false);
+  /**
+   * Withhold this campaign from contacts tagged `internal`/`team`.
+   *
+   * Defaults to FALSE, and that default is deliberate: this was a toggle for
+   * the whole life of the feature while the send path ignored it, so those
+   * contacts have been receiving campaign mail. Defaulting to exclusion would
+   * silently withhold mail from every already-saved campaign. Seeded once from
+   * the server's stored value, then owned here.
+   */
+  const [excludeInternal, setExcludeInternal] = useState(false);
+  const hasSeededInternalRef = useRef(false);
+
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [sendTab, setSendTab] = useState<SendTab>("segments");
+  const [sendTab, setSendTab] = useState<SendTab>("everyone");
   const [utmOpen, setUtmOpen] = useState(false);
   const syncSequenceRef = useRef(0);
 
@@ -159,21 +178,30 @@ export function AudienceStep({
             : [];
       return rows
         .map((profile): ContactOption | null => {
-          const rawEmail =
-            typeof profile.email === "string" ? profile.email.trim() : "";
-          if (rawEmail.length === 0 || isSyntheticWalletEmail(rawEmail)) {
-            return null;
-          }
           const id = typeof profile.id === "string" ? profile.id.trim() : "";
           if (id.length === 0) return null;
-          const { walletFull } = extractWalletFields(profile);
+          const rawEmail =
+            typeof profile.email === "string" ? profile.email.trim() : "";
+          // A synthetic wallet-placeholder email is not a real, sendable email.
+          const email =
+            rawEmail.length > 0 && !isSyntheticWalletEmail(rawEmail)
+              ? rawEmail
+              : "";
+          const { walletFull, wallet: walletShort } =
+            extractWalletFields(profile);
+          // Keep anyone reachable on at least one channel; the per-channel
+          // filter (email for Direct, wallet for In-app) is applied in `contacts`
+          // so switching channel never refetches.
+          if (email.length === 0 && walletFull.length === 0) return null;
           return {
             id,
-            email: rawEmail,
+            email,
+            walletAddress: walletFull,
+            walletShort,
             name: deriveDisplayName({
               name: profile.name,
               fullName: (profile as { fullName?: unknown }).fullName,
-              email: rawEmail,
+              email: email || undefined,
               wallet: walletFull,
               walletAddress: walletFull,
             }),
@@ -185,10 +213,17 @@ export function AudienceStep({
     refetchOnWindowFocus: false,
     staleTime: 30_000,
   });
-  const contacts = useMemo(
+  // Every fetched contact reachable on at least one channel (raw, for the
+  // "showing the first N" footer which reflects the page size, not the filter).
+  const fetchedContacts = useMemo(
     () => contactsQuery.data ?? [],
     [contactsQuery.data]
   );
+  // Show EVERY contact (anyone reachable on at least one channel). The picker
+  // doesn't hide contacts the current channel can't reach - it dims them and
+  // makes them non-selectable in the render, with the reason, exactly like the
+  // group rows. Hiding them made the list look empty/partial ("I only see some").
+  const contacts = fetchedContacts;
 
   // The suppression window is org-configurable, so read it rather than
   // quoting a hardcoded number. `windowHours` always comes back concrete
@@ -227,6 +262,69 @@ export function AudienceStep({
   });
   const audienceTotal = audienceCountQuery.data ?? null;
 
+  // Reachability, computed client-side EXACTLY like the Audience section (shared
+  // `profileReach`). The `/audience/overview` aggregate under-counts imported
+  // contacts (reads emailReachable 0), so the Audience page already counts it
+  // straight from the profiles when the whole audience fits one page - we carry
+  // that same computation here so the campaign's "Everyone" count matches the
+  // Audience tile instead of showing 0.
+  const reachableCountQuery = useQuery({
+    queryKey: ["audience", "campaign-reachable-count"],
+    queryFn: async () => {
+      const res = await audienceService.listProfiles({
+        page: 1,
+        limit: 200,
+        include: "wallets,attributes,tags",
+      });
+      const obj = res as {
+        items?: AudienceProfile[];
+        data?: AudienceProfile[];
+        meta?: { totalItems?: number };
+      };
+      const items = Array.isArray(res) ? res : (obj.items ?? obj.data ?? []);
+      const metaTotal =
+        !Array.isArray(res) && typeof obj.meta?.totalItems === "number"
+          ? obj.meta.totalItems
+          : undefined;
+      const complete =
+        items.length < 200 ||
+        (typeof metaTotal === "number" && metaTotal <= items.length);
+      let email = 0;
+      let push = 0;
+      // Per-tag channel-reachable counts. /audience/tags returns no count, so the
+      // campaign picker otherwise showed every tag as 0; here we count how many
+      // sampled contacts carry each tag AND are reachable on the channel.
+      const tagReach: Record<string, { email: number; push: number }> = {};
+      for (const p of items) {
+        const r = profileReach(p);
+        if (r.email) email += 1;
+        if (r.push) push += 1;
+        for (const name of normalizeTags((p as { tags?: unknown }).tags)) {
+          const cur = tagReach[name] ?? { email: 0, push: 0 };
+          if (r.email) cur.email += 1;
+          if (r.push) cur.push += 1;
+          tagReach[name] = cur;
+        }
+      }
+      return { email, push, complete, tagReach };
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  // Trust the exact client-side count only when we've seen the whole audience;
+  // above the 200-page cap defer to the (under-counting) overview aggregate.
+  // Per-tag reachable counts, trusted only when we've seen the whole audience.
+  const computedTagReach = reachableCountQuery.data?.complete
+    ? reachableCountQuery.data.tagReach
+    : null;
+  const computedEmailReachable = reachableCountQuery.data?.complete
+    ? reachableCountQuery.data.email
+    : null;
+  const computedPushReachable = reachableCountQuery.data?.complete
+    ? reachableCountQuery.data.push
+    : null;
+
   const allSelected = isAllContactsSelected(selectedAudiences);
 
   // "Everyone" is channel-aware: an email campaign reaches every email-reachable
@@ -235,12 +333,21 @@ export function AudienceStep({
   const everyoneReachable = ((): number | null => {
     const pick = (v: unknown) =>
       typeof v === "number" && Number.isFinite(v) ? v : null;
-    const breakdownTotal = allSelected
-      ? pick(estimateBreakdown?.totalWallets)
+    // The backend estimate, when Everyone is the live selection. Read
+    // `emailReachable`, NOT `totalWallets`: totalWallets is every contact in
+    // the selection including the wallet-only ones, so this row said
+    // "Everyone with an email · 950" for an org whose 950 contacts all carry
+    // the synthetic @wallet.onchainsuite.local placeholder and none of whom
+    // can be emailed. `emailReachable` is the count the send will produce.
+    const fromEstimate = allSelected
+      ? isWalletChannel
+        ? pick(estimateBreakdown?.totalWallets)
+        : pick(estimateBreakdown?.emailReachable)
       : null;
-    if (isPush) {
+    if (isWalletChannel) {
       return (
-        breakdownTotal ??
+        fromEstimate ??
+        computedPushReachable ??
         pick(overview?.pushReachable) ??
         pick(overview?.withWallet) ??
         pick(overview?.total) ??
@@ -248,7 +355,8 @@ export function AudienceStep({
       );
     }
     return (
-      breakdownTotal ??
+      fromEstimate ??
+      computedEmailReachable ??
       pick(overview?.emailReachable) ??
       pick(overview?.total) ??
       audienceTotal
@@ -346,6 +454,7 @@ export function AudienceStep({
     profileOptions,
     utmParams,
     windowOverride,
+    excludeInternal,
   });
   syncInputsRef.current = {
     selectedAudiences,
@@ -354,6 +463,7 @@ export function AudienceStep({
     profileOptions,
     utmParams,
     windowOverride,
+    excludeInternal,
   };
 
   // Live autosync. The backend rate-limits these endpoints (3 requests/10s),
@@ -395,6 +505,10 @@ export function AudienceStep({
           segmentIds: Array.from(new Set([...segmentIds, ...listSegmentIds])),
           profileIds: mergedProfileIds,
           ...(all ? { all: true } : {}),
+          // Always sent, not omitted when false: turning the exclusion back OFF
+          // has to reach the server, and an omitted key would leave the stored
+          // `true` in place.
+          excludeInternal: inputs.excludeInternal,
         },
         tracking: {
           smartSending: Boolean(smartSending),
@@ -425,6 +539,14 @@ export function AudienceStep({
         if (estimate) {
           setEstimatedRecipients(getEstimatedRecipientsValue(estimate));
           setEstimateBreakdown(estimate);
+          // Hydrate the stored policy once, then leave it to the sender —
+          // after that the server is echoing back what we just sent it.
+          if (!hasSeededInternalRef.current) {
+            hasSeededInternalRef.current = true;
+            if (typeof estimate.excludeInternal === "boolean") {
+              setExcludeInternal(estimate.excludeInternal);
+            }
+          }
         }
         setIsSyncing(false);
       } catch (error) {
@@ -463,6 +585,7 @@ export function AudienceStep({
     windowOverride,
     trackingParameters,
     utmKey,
+    excludeInternal,
   ]);
 
   const displayedEstimatedRecipients =
@@ -472,7 +595,7 @@ export function AudienceStep({
     onEstimateChange?.(displayedEstimatedRecipients);
   }, [displayedEstimatedRecipients, onEstimateChange]);
 
-  const setChannel = (next: "email" | "in-app-push") =>
+  const setChannel = (next: "email" | "in-app-push" | "telegram") =>
     form.setValue("channel", next, { shouldDirty: true });
 
   const toggleSelection = (id: string) => {
@@ -506,23 +629,28 @@ export function AudienceStep({
       ? segments.length
       : sendTab === "lists"
         ? lists.length
-        : sendTab === "contacts"
-          ? contacts.length
-          : 0;
+        : sendTab === "tags"
+          ? tags.length
+          : sendTab === "contacts"
+            ? contacts.length
+            : 0;
   const tabSelected =
     sendTab === "segments"
       ? segments.filter((s) => isSelected(s.id)).length
       : sendTab === "lists"
         ? lists.filter((l) => isSelected(l.id)).length
-        : sendTab === "contacts"
-          ? contacts.filter((c) => isSelected(c.id)).length
-          : 0;
+        : sendTab === "tags"
+          ? tags.filter((t) => isSelected(t.id)).length
+          : sendTab === "contacts"
+            ? contacts.filter((c) => isSelected(c.id)).length
+            : 0;
 
   const SEND_TABS: { key: SendTab; label: string }[] = [
-    { key: "segments", label: "Segments" },
-    { key: "lists", label: "Lists" },
-    { key: "contacts", label: "Contacts" },
     { key: "everyone", label: "Everyone" },
+    { key: "lists", label: "Lists" },
+    { key: "tags", label: "Tags" },
+    { key: "contacts", label: "Contacts" },
+    { key: "segments", label: "Segments" },
   ];
 
   // "Don't send to" is a set of exclusion filters. Suppressed/unsubscribed is
@@ -531,30 +659,78 @@ export function AudienceStep({
   // excludedBySmartSending === messagedRecently). Counts come from the estimate.
   const asCount = (v: unknown) =>
     typeof v === "number" && Number.isFinite(v) ? v : null;
-  const suppressedCount = asCount(estimateBreakdown?.suppressed);
   const internalCount = asCount(estimateBreakdown?.internal);
-  // `missingEmail` = selected contacts with no email address at all (wallet-only
-  // contacts, which an email campaign can't reach). `totalWallets` is the whole
-  // selected audience, not a wallet count - so the copy says "recipients", and
-  // the banner only shows when someone is actually skipped (never "0 of N").
+  // `missingEmail` = selected contacts with no usable address: none at all, or
+  // the synthetic @wallet.onchainsuite.local placeholder a wallet-only contact
+  // carries. `totalWallets` is the whole selected audience, not a wallet count -
+  // so the copy says "recipients", and the banner only shows when someone is
+  // actually skipped (never "0 of N").
   const missingEmailCount = asCount(estimateBreakdown?.missingEmail);
   const totalRecipientCount = asCount(estimateBreakdown?.totalWallets);
+  // One row per reason the backend reports, in the order it applies them. The
+  // buckets are disjoint and partition the selection, so "15 selected, 14 will
+  // receive it" can always account for the difference - which is what the old
+  // panel could not do: its four counts overlapped and did not sum, so a
+  // sender seeing a smaller number than their contact list had no way to find
+  // out where the rest went.
   const exclusions = [
     {
       key: "suppressed",
-      label: "Suppressed & unsubscribed",
-      count: suppressedCount,
+      label: "Hard-bounced & complained",
+      count: asCount(estimateBreakdown?.suppressed),
       applied: true,
-      locked: true,
+      hint: "Always excluded — mailing a hard bounce or a complaint is what drives the domain into its warm-up stop.",
     },
     {
-      key: "internal",
-      label: "Internal / team wallets",
-      count: internalCount,
-      applied: !includeInternal,
-      locked: false,
+      key: "unsubscribed",
+      label: "Unsubscribed",
+      count: asCount(estimateBreakdown?.unsubscribed),
+      applied: true,
+      hint: "Always excluded — they asked not to receive this.",
     },
-  ];
+    {
+      key: "invalidAddress",
+      label: "Address does not exist",
+      count: asCount(estimateBreakdown?.invalidAddress),
+      applied: true,
+      hint: "Always excluded — the verifier established the mailbox does not exist, so this is a guaranteed hard bounce.",
+    },
+    {
+      key: "pendingOptin",
+      label: "Never confirmed their subscription",
+      count: asCount(estimateBreakdown?.pendingOptin),
+      applied: true,
+      hint: "Always excluded — double opt-in was never confirmed, so nobody has agreed to this.",
+    },
+    {
+      key: "quarantined",
+      label: "Held over plan capacity or pending verification",
+      count: asCount(estimateBreakdown?.quarantined),
+      applied: true,
+      hint: "Held until the reason clears — over the plan's contact capacity, or waiting on verification.",
+    },
+    {
+      // The one row the sender can change. It was clickable long before the
+      // send path read it, so the exclusion it claimed was not happening;
+      // now it is, and the estimate moves with it.
+      key: "internal",
+      label: isWalletChannel
+        ? "Internal / team wallets"
+        : "Internal / team contacts",
+      count: internalCount,
+      applied: excludeInternal,
+      toggle: true,
+      hint: excludeInternal
+        ? `Withheld from this campaign. Click to include internal / team ${isWalletChannel ? "wallets" : "contacts"}.`
+        : `Included in this campaign. Click to withhold it from internal / team ${isWalletChannel ? "wallets" : "contacts"}.`,
+    },
+    // A locked row with nothing in it says nothing, so it is dropped — the
+    // panel stays short on a clean list. The toggle always shows: its whole
+    // job is to be available before anyone is tagged.
+  ].filter((row) => {
+    if (row.toggle === true) return true;
+    return row.count === null || row.count > 0;
+  });
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -563,31 +739,37 @@ export function AudienceStep({
           Who gets this?
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pick the campaign type, then choose segments, lists, contacts, or
-          everyone.
+          Pick the campaign type, then choose segments, lists, tags, contacts,
+          or everyone.
         </p>
       </div>
 
       {/* Campaign type */}
       <div className="space-y-2">
         <p className="text-sm font-medium text-foreground">Campaign type</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
             {
               key: "email" as const,
               icon: EnvelopeIcon,
               title: "Direct campaign",
-              sub: "Email · wallet optional",
+              sub: "Sent to contacts with an email",
             },
             {
               key: "in-app-push" as const,
               icon: DevicePhoneMobileIcon,
               title: "In-app push",
-              sub: "Wallet · email optional",
+              sub: "Sent to connected wallets",
+            },
+            {
+              key: "telegram" as const,
+              icon: PaperAirplaneIcon,
+              title: "Telegram",
+              sub: "Sent to opted-in wallets",
             },
           ].map((opt) => {
             const active =
-              opt.key === "email" ? !isPush : channel === "in-app-push";
+              opt.key === "email" ? !isWalletChannel : channel === opt.key;
             return (
               <button
                 key={opt.key}
@@ -635,9 +817,11 @@ export function AudienceStep({
           })}
         </div>
         <p className="text-xs text-muted-foreground">
-          {isPush
-            ? "Delivered in-app to connected wallets - email optional."
-            : "Delivered by email - contacts need an email address."}
+          {isTelegram
+            ? "Delivered on Telegram to wallets that opted in via your bot."
+            : isPush
+              ? "Delivered in-app to connected wallets."
+              : "Delivered by email - contacts need an email address."}
         </p>
       </div>
 
@@ -673,7 +857,9 @@ export function AudienceStep({
                   "string"
                     ? (s as { description?: string }).description
                     : undefined,
-                count: s.count,
+                count:
+                  reachChannelCount(s.reachable, isWalletChannel) ?? s.count,
+                ...reachabilityGate(s.reachableVia, isWalletChannel),
               }))}
               loading={segmentsLoading}
               searchPlaceholder="Search segments…"
@@ -694,20 +880,78 @@ export function AudienceStep({
               rows={lists.map((l) => ({
                 id: l.id,
                 title: l.name,
-                count: l.count,
+                count:
+                  reachChannelCount(l.reachable, isWalletChannel) ?? l.count,
+                ...reachabilityGate(l.reachableVia, isWalletChannel),
               }))}
               searchPlaceholder="Search lists…"
               emptyText="No lists yet - save a segment or tag to reuse it."
               isSelected={isSelected}
               onToggle={toggleSelection}
             />
+          ) : sendTab === "tags" ? (
+            <SelectList
+              rows={tags.map((t) => {
+                // Prefer the server's send-grade count; else the profile-sample
+                // count (the tags API historically sent none); else the raw tag
+                // count. A backend 0 is real - don't fall through it.
+                const count =
+                  reachChannelCount(t.reachable, isWalletChannel) ??
+                  reachChannelCount(
+                    computedTagReach?.[t.name],
+                    isWalletChannel
+                  ) ??
+                  t.count;
+                return {
+                  id: t.id,
+                  title: t.name,
+                  count,
+                  ...reachabilityGate(t.reachableVia, isWalletChannel),
+                };
+              })}
+              searchPlaceholder="Search tags…"
+              emptyText={
+                <>
+                  No tags yet. Tag a contact in{" "}
+                  <Link
+                    href={PRIVATE_ROUTES.AUDIENCE}
+                    className="text-primary underline"
+                  >
+                    Audience
+                  </Link>{" "}
+                  to make it pickable here.
+                </>
+              }
+              isSelected={isSelected}
+              onToggle={toggleSelection}
+            />
           ) : sendTab === "contacts" ? (
             <SelectList
-              rows={contacts.map((c) => ({
-                id: c.id,
-                title: c.name,
-                trailing: c.email,
-              }))}
+              rows={contacts.map((c) => {
+                const hasWallet = (c.walletAddress ?? "").length > 0;
+                const reachable = isWalletChannel
+                  ? hasWallet
+                  : c.email.length > 0;
+                return {
+                  id: c.id,
+                  title: c.name,
+                  // Show the identity the current channel actually uses (wallet
+                  // for in-app, email for direct); the other is irrelevant here.
+                  trailing: isWalletChannel
+                    ? (c.walletShort ?? c.walletAddress ?? "")
+                    : c.email,
+                  // Everyone is listed; a contact the current channel can't
+                  // reach is dimmed + non-selectable with the reason.
+                  ...(reachable
+                    ? {}
+                    : {
+                        disabled: true,
+                        disabledHint: isWalletChannel
+                          ? "No wallet"
+                          : "No email",
+                      }),
+                };
+              })}
               loading={contactsQuery.isLoading}
               searchPlaceholder="Search contacts…"
               searchValue={contactSearch}
@@ -715,11 +959,11 @@ export function AudienceStep({
               emptyText={
                 debouncedContactSearch
                   ? "No contacts match your search."
-                  : "No contacts with a verified email yet."
+                  : "No contacts yet - import a CSV or capture a form."
               }
               footerNote={
-                contacts.length >= CONTACTS_PAGE_LIMIT
-                  ? `Showing the first ${CONTACTS_PAGE_LIMIT.toLocaleString()}. Search by name or email to find anyone, or send to a segment, list, or Everyone.`
+                fetchedContacts.length >= CONTACTS_PAGE_LIMIT
+                  ? `Showing the first ${CONTACTS_PAGE_LIMIT.toLocaleString()}. Search by name${isWalletChannel ? "" : " or email"} to find anyone, or send to a segment, list, or Everyone.`
                   : null
               }
               isSelected={isSelected}
@@ -747,15 +991,19 @@ export function AudienceStep({
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-foreground">
-                  {isPush ? "Every connected wallet" : "Everyone with an email"}
+                  {isWalletChannel
+                    ? "Every connected wallet"
+                    : "Everyone with an email"}
                   {everyoneReachable !== null
                     ? ` · ${everyoneReachable.toLocaleString()}`
                     : ""}
                 </span>
                 <span className="block text-xs text-muted-foreground">
-                  {isPush
-                    ? "Sends an in-app push to every wallet signed in to the app, minus the exclusions below."
-                    : "Sends to every email-reachable contact, minus the exclusions below."}
+                  {isTelegram
+                    ? "Sends a Telegram message to every opted-in wallet, minus the exclusions below."
+                    : isPush
+                      ? "Sends an in-app push to every wallet signed in to the app, minus the exclusions below."
+                      : "Sends to every email-reachable contact, minus the exclusions below."}
                 </span>
               </span>
             </button>
@@ -781,7 +1029,9 @@ export function AudienceStep({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Overlapping wallets are only messaged once.
+          {isWalletChannel
+            ? "Overlapping wallets are only messaged once."
+            : "Overlapping contacts are only emailed once."}
         </p>
 
         {segmentsError ? (
@@ -795,7 +1045,7 @@ export function AudienceStep({
           </p>
         ) : null}
 
-        {!isPush &&
+        {!isWalletChannel &&
         missingEmailCount !== null &&
         missingEmailCount > 0 &&
         totalRecipientCount !== null ? (
@@ -832,47 +1082,46 @@ export function AudienceStep({
           Don&apos;t send to
         </p>
         <div className="flex flex-wrap gap-2">
-          {exclusions.map((ex) => (
-            <button
-              key={ex.key}
-              type="button"
-              aria-pressed={ex.applied}
-              disabled={ex.locked}
-              onClick={
-                ex.locked ? undefined : () => setIncludeInternal((v) => !v)
-              }
-              title={
-                ex.locked
-                  ? "Always excluded - suppressed and unsubscribed wallets can't be messaged"
-                  : ex.applied
-                    ? "Excluded. Click to include internal / team wallets"
-                    : "Included. Click to exclude internal / team wallets"
-              }
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors",
-                ex.locked && "cursor-default",
-                ex.applied
-                  ? "border-primary/40 bg-primary/[0.08] text-primary"
-                  : "border-border bg-card text-muted-foreground line-through decoration-muted-foreground/40 hover:text-foreground"
-              )}
-            >
-              {ex.applied ? (
-                <CheckIcon className="size-4" aria-hidden="true" />
-              ) : (
-                <span className="size-4" aria-hidden="true" />
-              )}
-              {ex.label}
-              {ex.count !== null ? (
-                <span className="tabular-nums opacity-70">
-                  · {ex.count.toLocaleString()}
-                </span>
-              ) : null}
-            </button>
-          ))}
+          {exclusions.map((ex) => {
+            const Tag = ex.toggle ? "button" : "span";
+            return (
+              <Tag
+                key={ex.key}
+                {...(ex.toggle
+                  ? {
+                      type: "button" as const,
+                      "aria-pressed": ex.applied,
+                      onClick: () => setExcludeInternal((v) => !v),
+                    }
+                  : {})}
+                title={ex.hint}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm",
+                  ex.toggle && "transition-colors hover:border-primary/40",
+                  ex.applied
+                    ? "border-primary/40 bg-primary/[0.08] text-primary"
+                    : "border-border bg-card text-muted-foreground"
+                )}
+              >
+                {ex.applied ? (
+                  <CheckIcon className="size-4" aria-hidden="true" />
+                ) : (
+                  <span className="size-4" aria-hidden="true" />
+                )}
+                {ex.label}
+                {ex.count !== null ? (
+                  <span className="tabular-nums opacity-70">
+                    · {ex.count.toLocaleString()}
+                  </span>
+                ) : null}
+              </Tag>
+            );
+          })}
         </div>
         <p className="text-xs text-muted-foreground">
-          Suppressed and unsubscribed wallets are always excluded, and are
-          already removed from the estimate.
+          {totalRecipientCount !== null && everyoneReachable !== null
+            ? `${totalRecipientCount.toLocaleString()} selected · ${everyoneReachable.toLocaleString()} can receive this. Every one of the rest is listed above.`
+            : "Everything listed above is already removed from the estimate."}
         </p>
       </div>
 
@@ -1036,6 +1285,10 @@ function SelectList({
     sub?: string;
     trailing?: string;
     count?: number;
+    /** Not deliverable on the current channel: dimmed + non-selectable. */
+    disabled?: boolean;
+    /** Short reason shown in place of the count when disabled ("No wallets"). */
+    disabledHint?: string;
   }[];
   loading?: boolean;
   emptyText: React.ReactNode;
@@ -1091,14 +1344,20 @@ function SelectList({
         <ul className="max-h-72 divide-y divide-border overflow-y-auto">
           {filtered.map((row) => {
             const selected = isSelected(row.id);
+            // Lock only UNSELECTED unreachable rows - an already-selected row
+            // stays clickable so a channel switch can't trap a selection.
+            const locked = Boolean(row.disabled) && !selected;
             return (
               <li key={row.id}>
                 <button
                   type="button"
+                  disabled={locked}
                   onClick={() => onToggle(row.id)}
                   className={cn(
                     "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40",
-                    selected && "bg-primary/[0.04]"
+                    selected && "bg-primary/[0.04]",
+                    locked &&
+                      "cursor-not-allowed opacity-45 hover:bg-transparent"
                   )}
                 >
                   <span
@@ -1122,7 +1381,11 @@ function SelectList({
                       </span>
                     ) : null}
                   </span>
-                  {row.trailing ? (
+                  {row.disabled && row.disabledHint ? (
+                    <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      {row.disabledHint}
+                    </span>
+                  ) : row.trailing ? (
                     <span className="shrink-0 font-mono text-xs text-muted-foreground">
                       {row.trailing}
                     </span>

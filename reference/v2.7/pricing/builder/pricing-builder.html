@@ -1,0 +1,377 @@
+<title>Email Pricing Builder</title>
+<style>
+:root{
+  --paper:#FFFFFF;--panel:#FFFFFF;--panel-2:#F7F8FA;--tint-2:#F5F7FE;
+  --ink:#0F1319;--ink-2:#414A59;--ink-3:#6E7787;--ink-4:#98A1B0;
+  --rule:#E6E9EF;--rule-2:#CFD5DF;--blue:#1F35D6;--blue-d:#16289F;
+  --pos:#0E7C56;--neg:#B4232B;--amber:#B26B08;--teal:#0F7A7C;--rose:#BE185D;--violet:#6D28D9;
+  --shadow:0 1px 2px rgba(15,19,25,.05),0 1px 3px rgba(15,19,25,.04);
+  --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  --serif:'Iowan Old Style','Palatino Linotype',Palatino,'Book Antiqua',Georgia,serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0E1117;--panel:#151A22;--panel-2:#1C222C;--tint-2:#161B33;
+  --ink:#E9ECF1;--ink-2:#AEB6C4;--ink-3:#7E8899;--ink-4:#646D7C;
+  --rule:#232A35;--rule-2:#333C4A;--blue:#8B9BFF;--blue-d:#AEB8FF;
+  --pos:#3FBF8C;--neg:#F0736F;--amber:#DFA046;--teal:#3FB8BA;--rose:#EC6A9E;--violet:#A78BFA;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 1px 3px rgba(0,0,0,.3);}}
+:root[data-theme="dark"]{
+  --paper:#0E1117;--panel:#151A22;--panel-2:#1C222C;--tint-2:#161B33;
+  --ink:#E9ECF1;--ink-2:#AEB6C4;--ink-3:#7E8899;--ink-4:#646D7C;
+  --rule:#232A35;--rule-2:#333C4A;--blue:#8B9BFF;--blue-d:#AEB8FF;
+  --pos:#3FBF8C;--neg:#F0736F;--amber:#DFA046;--teal:#3FB8BA;--rose:#EC6A9E;--violet:#A78BFA;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 1px 3px rgba(0,0,0,.3);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:0 30px 90px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+header{padding:52px 0 26px;border-bottom:2px solid var(--ink)}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--blue);font-weight:600}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(30px,4.6vw,46px);line-height:1.06;letter-spacing:-.02em;margin:11px 0 0;text-wrap:balance}
+header p{margin-top:14px;font-size:16.5px;color:var(--ink-2);max-width:68ch}
+section{padding:40px 0 4px;border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+h2{font-family:var(--serif);font-weight:600;font-size:25px;line-height:1.14;letter-spacing:-.015em;margin:0 0 14px;text-wrap:balance}
+h3{font-size:15px;font-weight:600;margin:26px 0 9px}
+p{margin:0 0 13px;max-width:76ch;color:var(--ink-2)}
+p strong{color:var(--ink);font-weight:600}
+.note{font-size:12.5px;color:var(--ink-3);max-width:80ch}
+.tw{overflow-x:auto;margin:16px 0 8px;border:1px solid var(--rule-2);border-radius:7px;background:var(--panel);box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 13px;text-align:right;border-bottom:1px solid var(--rule);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600;background:var(--panel-2);border-bottom:1px solid var(--rule-2)}
+tbody tr:last-child td{border-bottom:0}
+td.n,th.n{font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.k{font-weight:600;color:var(--ink)}
+tr.us{background:var(--tint-2)} tr.us td{font-weight:600;color:var(--ink)}
+.pos{color:var(--pos);font-weight:600}.neg{color:var(--neg);font-weight:600}.dim{color:var(--ink-3)}
+.swatch{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:0}
+.chip{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:20px;font-weight:600;border:1px solid}
+.chip.v{color:var(--pos);border-color:color-mix(in srgb,var(--pos) 40%,transparent);background:color-mix(in srgb,var(--pos) 9%,transparent)}
+.chip.e{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 40%,transparent);background:color-mix(in srgb,var(--amber) 9%,transparent)}
+.rail{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--panel);border:1px solid var(--rule-2);border-radius:7px;overflow:hidden;margin:16px 0 8px;box-shadow:var(--shadow)}
+.rail .f{background:var(--panel);padding:12px 15px;display:flex;flex-direction:column;gap:3px;box-shadow:0 0 0 1px var(--rule-2)}
+.rail .f label{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.rail .f .row{display:flex;align-items:baseline;gap:6px}
+.rail .f .unit{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+input.ed{font:inherit;font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--blue);background:color-mix(in srgb,var(--blue) 6%,transparent);
+  border:0;border-bottom:1px dashed var(--blue);border-radius:3px 3px 0 0;padding:1px 4px;text-align:right;width:9ch}
+input.ed:focus{outline:2px solid var(--blue);outline-offset:1px;background:var(--panel)}
+input.ed.w6{width:6.5ch}input.ed.w11{width:11ch}
+input[type=range]{width:100%;accent-color:var(--blue);margin-top:4px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--panel);border:1px solid var(--rule-2);border-radius:7px;overflow:hidden;margin:18px 0 8px;box-shadow:var(--shadow)}
+.kpi{background:var(--panel);padding:15px;box-shadow:0 0 0 1px var(--rule-2)}
+.kpi .v{font-family:var(--serif);font-size:27px;font-weight:600;letter-spacing:-.02em;line-height:1.05;color:var(--blue-d);font-variant-numeric:tabular-nums}
+.kpi .l{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-top:7px;line-height:1.4}
+figure{margin:18px 0 8px;background:var(--panel);border:1px solid var(--rule-2);border-radius:7px;padding:18px 16px 12px;box-shadow:var(--shadow)}
+figcaption{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+svg.chart{width:100%;height:auto;display:block;overflow:visible}
+.legend{display:flex;flex-wrap:wrap;gap:15px;margin-top:11px;font-family:var(--mono);font-size:10.5px;color:var(--ink-2)}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:3px}
+.status{display:flex;gap:10px;align-items:flex-start;margin:16px 0;padding:12px 15px;border-left:2px solid var(--rule-2);background:var(--panel-2);border-radius:0 5px 5px 0;font-size:13.5px;color:var(--ink-2);max-width:82ch}
+.status b{color:var(--ink)}
+.status .ico{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);flex:none;padding-top:2px}
+.status.warn{border-left-color:var(--amber)}.status.warn .ico{color:var(--amber)}
+button.btn{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;background:var(--panel);color:var(--ink-2);border:1px solid var(--rule-2);border-radius:5px;padding:6px 10px;cursor:pointer}
+button.btn:hover{border-color:var(--blue);color:var(--blue)}
+button.btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+footer{padding:30px 0 0;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border-top:2px solid var(--ink);margin-top:40px}
+@media(max-width:700px){.wrap{padding:0 18px 60px}th,td{padding:7px 10px;font-size:12.5px}}
+@media print{.rail,button{display:none}body{font-size:10.5px}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">OnchainSuite &middot; Pricing</div>
+  <h1>Email pricing builder</h1>
+  <p>Competitors discount by volume, so their price curve bends. A flat per-subscriber rate does not. This tool shows where the two cross, and what it costs on either side.</p>
+</header>
+
+<section>
+  <h2>The pricing exponent</h2>
+  <p>Every plan curve can be written as <b>price &prop; subscribers<sup>e</sup></b>. A flat per-subscriber rate has <b>e = 1</b>: double the list, double the bill. Every competitor sits below 1, which is why they get relatively cheaper as lists grow.</p>
+  <div class="kpis" id="kpiExp"></div>
+  <p class="note">On the chart below, log scales on both axes turn each curve into a straight line. The <b>slope is the exponent</b>. Ours is the steep one.</p>
+</section>
+
+<section>
+  <h2>Compare at a list size</h2>
+  <div class="rail">
+    <div class="f"><label>List size</label><div class="row"><input class="ed w11" id="sizeIn" value="16,444"><span class="unit">subscribers</span></div>
+      <input type="range" id="sizeRange" min="500" max="200000" step="500" value="16444"></div>
+    <div class="f"><label>Our Send rate</label><div class="row"><input class="ed w6" id="rateIn" value="4.50"><span class="unit">$ / 1,000 subs</span></div></div>
+    <div class="f"><label>Send ratio</label><div class="row"><input class="ed w6" id="ratioIn" value="6"><span class="unit">&times; sends / sub</span></div></div>
+    <div class="f"><label>Our cost per 1,000 emails</label><div class="row"><input class="ed w6" id="costIn" value="0.112"><span class="unit">loaded</span></div></div>
+  </div>
+  <div class="tw">
+  <table>
+    <thead><tr><th>Platform</th><th class="n">Monthly price</th><th class="n">Per 1,000 subs</th><th class="n">Exponent</th><th class="n">vs our Send</th></tr></thead>
+    <tbody id="tbCompare"></tbody>
+  </table>
+  </div>
+  <div class="status" id="verdictBox"><span class="ico">Read</span><p id="verdictTxt"></p></div>
+</section>
+
+<section>
+  <h2>The curves</h2>
+  <figure>
+    <figcaption>Monthly price against list size &middot; both axes logarithmic</figcaption>
+    <div id="chartHost"></div>
+    <div class="legend" id="legend"></div>
+  </figure>
+</section>
+
+<section>
+  <h2>Where we cross over</h2>
+  <p>A flat rate wins on small lists and loses on large ones. This is the size at which our Send price passes each competitor.</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th>Platform</th><th class="n">Crossover list size</th><th class="n">Their price there</th><th>Below that</th><th>Above that</th></tr></thead>
+    <tbody id="tbCross"></tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>What a curved Send would look like</h2>
+  <p>If Send adopted volume discounting instead of a flat rate, anchored to stay competitive at the top of the range:</p>
+  <div class="rail">
+    <div class="f"><label>Anchor list size</label><div class="row"><input class="ed w11" id="anchorSize" value="20,000"><span class="unit">subscribers</span></div></div>
+    <div class="f"><label>Anchor price</label><div class="row"><input class="ed w6" id="anchorPrice" value="70"><span class="unit">$ / month</span></div></div>
+    <div class="f"><label>Exponent</label><div class="row"><input class="ed w6" id="expIn" value="0.75"><span class="unit">1.0 = flat</span></div></div>
+  </div>
+  <div class="tw">
+  <table>
+    <thead><tr><th class="n">Subscribers</th><th class="n">Flat rate</th><th class="n">Curved</th><th class="n">Cost to serve</th><th class="n">Curved margin</th><th class="n">Best competitor</th></tr></thead>
+    <tbody id="tbCurve"></tbody>
+  </table>
+  </div>
+  <div class="status" id="curveBox"><span class="ico">Effect</span><p id="curveTxt"></p></div>
+</section>
+
+<section>
+  <h2>Competitor data</h2>
+  <p>Every figure below is editable. Prices marked <span class="chip v">Verified</span> come from an actual invoice; <span class="chip e">Estimated</span> are my reading of published pages and should be replaced when you have real numbers.</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th>Platform</th><th class="n">Subscribers</th><th class="n">Monthly price</th><th class="n">Per 1,000</th><th>Source</th></tr></thead>
+    <tbody id="tbData"></tbody>
+  </table>
+  </div>
+  <p class="note" style="margin-top:12px">SendGrid prices its Email API by <b>emails sent</b>, not subscribers, so it is not directly comparable on this axis. Add it as emails-per-month if you want it charted. Mailchimp send limits are verified: Essentials 10&times; contacts, Standard 12&times;, Premium 15&times;.</p>
+</section>
+
+<footer>OnchainSuite &middot; Email pricing builder &middot; Internal</footer>
+</div>
+
+<script>
+"use strict";
+var COMP = [
+  {name:'EmailOctopus', color:'var(--amber)', pts:[[2500,24,0],[5000,32,0],[10000,44.50,1],[20000,78,1]]},
+  {name:'Mailchimp Essentials', color:'var(--teal)', pts:[[500,9.67,1]]},
+  {name:'Mailchimp Standard', color:'var(--violet)', pts:[[500,14.87,1]]}
+];
+var SUITE = [[2500,49],[25000,349],[75000,799],[150000,2299]];
+var S = {size:16444, rate:4.50, ratio:6, cost:0.112, aSize:20000, aPrice:70, exp:0.75};
+
+function num(v){ var n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isFinite(n)?n:0; }
+function money(v,d){ d=d||0; return (v<0?'\u2212$':'$')+Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function n0(v){ return Math.round(v).toLocaleString('en-US'); }
+function pct(v,d){ d=(d===undefined)?0:d; return (v*100).toFixed(d)+'%'; }
+
+/* piecewise log-log interpolation, extrapolating on the end segments */
+function priceAt(pts, s){
+  if(!pts.length) return null;
+  var p=pts.slice().sort(function(a,b){return a[0]-b[0]});
+  if(p.length===1) return p[0][1];
+  if(s<=p[0][0]){ var a=p[0],b=p[1];
+    if(a[0]===b[0]) return a[1];
+    var e=Math.log(b[1]/a[1])/Math.log(b[0]/a[0]);
+    return a[1]*Math.pow(s/a[0], e); }
+  for(var i=1;i<p.length;i++){
+    if(s<=p[i][0]){ var a1=p[i-1],b1=p[i];
+      if(a1[0]===b1[0]) return b1[1];
+      var t=Math.log(s/a1[0])/Math.log(b1[0]/a1[0]);
+      return a1[1]*Math.pow(b1[1]/a1[1], t); } }
+  var a2=p[p.length-2], b2=p[p.length-1];
+  if(a2[0]===b2[0]) return b2[1];
+  var e2=Math.log(b2[1]/a2[1])/Math.log(b2[0]/a2[0]);
+  return b2[1]*Math.pow(s/b2[0], e2);
+}
+function exponent(pts){
+  if(pts.length<2) return null;
+  var p=pts.slice().sort(function(a,b){return a[0]-b[0]});
+  var a=p[0], b=p[p.length-1];
+  if(a[0]===b[0]||a[1]<=0||b[1]<=0) return null;
+  return Math.log(b[1]/a[1])/Math.log(b[0]/a[0]);
+}
+var sendFlat  = function(s){ return (s/1000)*S.rate; };
+var sendCurve = function(s){ return S.aPrice*Math.pow(s/S.aSize, S.exp); };
+var serveCost = function(s){ return (s*S.ratio/1000)*S.cost; };
+var suiteAt   = function(s){ return priceAt(SUITE.map(function(r){return [r[0],r[1],1]}), s); };
+
+function render(){
+  var s=S.size;
+
+  /* exponents */
+  var k='';
+  COMP.forEach(function(c){ var e=exponent(c.pts);
+    k+='<div class="kpi"><div class="v">'+(e===null?'&mdash;':e.toFixed(2))+'</div><div class="l">'+c.name+'</div></div>'; });
+  k+='<div class="kpi"><div class="v" style="color:var(--blue)">1.00</div><div class="l">Our Send, flat rate</div></div>';
+  document.getElementById('kpiExp').innerHTML=k;
+
+  /* comparison */
+  var ours=sendFlat(s), rows='';
+  rows+='<tr class="us"><td class="k"><span class="swatch" style="background:var(--blue)"></span>OnchainSuite Send</td>'
+      +'<td class="n">'+money(ours)+'</td><td class="n">'+money(S.rate,2)+'</td><td class="n">1.00</td><td class="n dim">&mdash;</td></tr>';
+  COMP.forEach(function(c){
+    if(c.pts.length<2){
+      rows+='<tr><td class="k"><span class="swatch" style="background:'+c.color+'"></span>'+c.name+'</td>'
+        +'<td class="n dim" colspan="4">only one price point &mdash; add a second to draw a curve</td></tr>';
+      return; }
+    var p=priceAt(c.pts,s); if(p===null) return;
+    var e=exponent(c.pts), d=(ours-p)/p;
+    rows+='<tr><td class="k"><span class="swatch" style="background:'+c.color+'"></span>'+c.name+'</td>'
+      +'<td class="n">'+money(p)+'</td><td class="n">'+money(p/(s/1000),2)+'</td>'
+      +'<td class="n">'+(e===null?'&mdash;':e.toFixed(2))+'</td>'
+      +'<td class="n '+(d>0?'neg':'pos')+'">'+(d>0?'+':'')+pct(d)+'</td></tr>';
+  });
+  var su=suiteAt(s);
+  rows+='<tr><td class="k"><span class="swatch" style="background:var(--rose)"></span>OnchainSuite Suite</td>'
+      +'<td class="n">'+money(su)+'</td><td class="n">'+money(su/(s/1000),2)+'</td>'
+      +'<td class="n">'+(exponent(SUITE.map(function(r){return [r[0],r[1],1]}))||0).toFixed(2)+'</td>'
+      +'<td class="n dim">'+(su/ours).toFixed(1)+'\u00d7 Send</td></tr>';
+  document.getElementById('tbCompare').innerHTML=rows;
+
+  var best=null;
+  COMP.forEach(function(c){ if(c.pts.length<2) return;
+    var p=priceAt(c.pts,s); if(p!==null&&(best===null||p<best.p)) best={n:c.name,p:p}; });
+  if(best===null) best={n:'no competitor with enough data', p:ours};
+  document.getElementById('verdictTxt').textContent =
+    'At '+n0(s)+' subscribers our Send is '+money(ours)+'. The cheapest competitor here is '+best.n+' at '+money(best.p)
+    +', so we are '+(ours>best.p?pct((ours-best.p)/best.p)+' more expensive':pct((best.p-ours)/best.p)+' cheaper')
+    +'. Cost to serve is '+money(serveCost(s),2)+', a margin of '+pct((ours-serveCost(s))/ours,1)+'.';
+  document.getElementById('verdictBox').className='status '+(ours>best.p?'warn':'');
+
+  /* chart */
+  drawChart();
+
+  /* crossovers */
+  var cr='';
+  COMP.forEach(function(c){
+    if(c.pts.length<2){
+      cr+='<tr><td class="k"><span class="swatch" style="background:'+c.color+'"></span>'+c.name+'</td>'
+        +'<td class="n dim" colspan="4">needs a second price point</td></tr>';
+      return; }
+    var lo=500, hi=500000, x=null;
+    if(sendFlat(lo)>priceAt(c.pts,lo)) x=lo;
+    else if(sendFlat(hi)<priceAt(c.pts,hi)) x=null;
+    else { for(var i=0;i<60;i++){ var m=Math.sqrt(lo*hi);
+        if(sendFlat(m)>priceAt(c.pts,m)) hi=m; else lo=m; } x=Math.sqrt(lo*hi); }
+    cr+='<tr><td class="k"><span class="swatch" style="background:'+c.color+'"></span>'+c.name+'</td>'
+      +'<td class="n">'+(x===null?'never in range':n0(x)+' subs')+'</td>'
+      +'<td class="n">'+(x===null?'&mdash;':money(priceAt(c.pts,x)))+'</td>'
+      +'<td class="pos">we are cheaper</td><td class="neg">they are cheaper</td></tr>';
+  });
+  document.getElementById('tbCross').innerHTML=cr;
+
+  /* curved alternative */
+  var cv='';
+  [1000,2500,5000,10000,20000,50000,100000,150000].forEach(function(n){
+    var f=sendFlat(n), c2=sendCurve(n), sc=serveCost(n);
+    var bp=null,bn='';
+    COMP.forEach(function(c){ if(c.pts.length<2) return;
+      var p=priceAt(c.pts,n); if(p!==null&&(bp===null||p<bp)){bp=p;bn=c.name;} });
+    if(bp===null) bp=0;
+    cv+='<tr'+(n===20000?' class="us"':'')+'><td class="n k">'+n0(n)+'</td><td class="n">'+money(f)+'</td>'
+      +'<td class="n">'+money(c2)+'</td><td class="n dim">'+money(sc,2)+'</td>'
+      +'<td class="n '+((c2-sc)/c2>0.6?'pos':'neg')+'">'+pct((c2-sc)/c2,1)+'</td>'
+      +'<td class="n '+(c2<bp?'pos':'neg')+'">'+money(bp)+'</td></tr>';
+  });
+  document.getElementById('tbCurve').innerHTML=cv;
+  document.getElementById('curveTxt').textContent =
+    'An exponent of '+S.exp.toFixed(2)+' anchored at '+money(S.aPrice)+' for '+n0(S.aSize)
+    +' subscribers gives '+money(sendCurve(2500))+' at 2,500 and '+money(sendCurve(100000))
+    +' at 100,000, against '+money(sendFlat(2500))+' and '+money(sendFlat(100000))
+    +' on the flat rate. Lower exponents flatten the top of the range and raise the bottom.';
+
+  /* competitor data editor */
+  var d='';
+  COMP.forEach(function(c,ci){
+    if(!c.pts.length){
+      d+='<tr><td class="k"><span class="swatch" style="background:'+c.color+'"></span>'+c.name+'</td>'
+        +'<td class="n dim" colspan="4">no data yet</td></tr>'; }
+    c.pts.forEach(function(pt,pi){
+      d+='<tr><td class="k">'+(pi===0?'<span class="swatch" style="background:'+c.color+'"></span>'+c.name:'')+'</td>'
+        +'<td class="n"><input class="ed" data-c="'+ci+'" data-p="'+pi+'" data-f="s" value="'+n0(pt[0])+'"></td>'
+        +'<td class="n"><input class="ed w6" data-c="'+ci+'" data-p="'+pi+'" data-f="p" value="'+pt[1].toFixed(2)+'"></td>'
+        +'<td class="n dim">'+money(pt[1]/(pt[0]/1000),2)+'</td>'
+        +'<td>'+(pt[2]?'<span class="chip v">Verified</span>':'<span class="chip e">Estimated</span>')+'</td></tr>';
+    });
+  });
+  document.getElementById('tbData').innerHTML=d;
+  document.querySelectorAll('#tbData input').forEach(function(el){
+    el.addEventListener('change', function(){
+      var c=+el.dataset.c, p=+el.dataset.p;
+      COMP[c].pts[p][el.dataset.f==='s'?0:1]=num(el.value);
+      COMP[c].pts[p][2]=0;
+      render();
+    });
+  });
+}
+
+function drawChart(){
+  var W=880,H=380,L=64,R=860,T=22,B=330;
+  var xs=[500,200000], lx=function(v){ return L+(Math.log(v)-Math.log(xs[0]))/(Math.log(xs[1])-Math.log(xs[0]))*(R-L); };
+  var maxY=1; [500,200000].forEach(function(v){
+    COMP.forEach(function(c){ var p=priceAt(c.pts,v); if(p) maxY=Math.max(maxY,p); });
+    maxY=Math.max(maxY, sendFlat(v), suiteAt(v)||0);
+  });
+  var ys=[1,Math.pow(10,Math.ceil(Math.log10(maxY)))];
+  var ly=function(v){ v=Math.max(v,ys[0]); return B-(Math.log(v)-Math.log(ys[0]))/(Math.log(ys[1])-Math.log(ys[0]))*(B-T); };
+  var g='', MONO="ui-monospace, SFMono-Regular, Menlo, monospace";
+  [1,10,100,1000,10000].forEach(function(v){ if(v>ys[1])return;
+    g+='<line x1="'+L+'" y1="'+ly(v).toFixed(1)+'" x2="'+R+'" y2="'+ly(v).toFixed(1)+'" stroke="var(--rule)" stroke-width="1"/>'
+     +'<text x="'+(L-9)+'" y="'+(ly(v)+3.5).toFixed(1)+'" text-anchor="end" font-family="'+MONO+'" font-size="10" fill="var(--ink-3)">$'+v.toLocaleString()+'</text>'; });
+  [500,1000,5000,10000,50000,100000,200000].forEach(function(v){
+    g+='<line x1="'+lx(v).toFixed(1)+'" y1="'+T+'" x2="'+lx(v).toFixed(1)+'" y2="'+B+'" stroke="var(--rule)" stroke-width="1"/>'
+     +'<text x="'+lx(v).toFixed(1)+'" y="'+(B+18)+'" text-anchor="middle" font-family="'+MONO+'" font-size="10" fill="var(--ink-3)">'
+     +(v>=1000?(v/1000)+'k':v)+'</text>'; });
+  g+='<text x="'+((L+R)/2)+'" y="'+(B+36)+'" text-anchor="middle" font-family="'+MONO+'" font-size="10" fill="var(--ink-3)" letter-spacing="1">SUBSCRIBERS</text>';
+  function line(fn,color,dash){
+    var pts=[];
+    for(var i=0;i<=80;i++){ var v=Math.exp(Math.log(xs[0])+(Math.log(xs[1])-Math.log(xs[0]))*i/80);
+      var p=fn(v); if(p&&isFinite(p)) pts.push(lx(v).toFixed(1)+','+ly(p).toFixed(1)); }
+    return '<polyline fill="none" stroke="'+color+'" stroke-width="2.4" stroke-linejoin="round"'
+      +(dash?' stroke-dasharray="5 4"':'')+' points="'+pts.join(' ')+'"/>';
+  }
+  COMP.forEach(function(c){ if(c.pts.length>=2) g+=line(function(v){return priceAt(c.pts,v)}, c.color, false); });
+  g+=line(suiteAt,'var(--rose)',true);
+  g+=line(sendFlat,'var(--blue)',false);
+  g+=line(sendCurve,'var(--blue)',true);
+  g+='<line x1="'+lx(S.size).toFixed(1)+'" y1="'+T+'" x2="'+lx(S.size).toFixed(1)+'" y2="'+B+'" stroke="var(--ink-4)" stroke-width="1" stroke-dasharray="3 3"/>';
+  g+='<text x="'+lx(S.size).toFixed(1)+'" y="'+(T-6)+'" text-anchor="middle" font-family="'+MONO+'" font-size="9.5" font-weight="600" fill="var(--ink-3)">'+n0(S.size)+'</text>';
+  g+='<line x1="'+L+'" y1="'+B+'" x2="'+R+'" y2="'+B+'" stroke="var(--ink)" stroke-width="1.4"/>';
+  document.getElementById('chartHost').innerHTML='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Monthly price against list size on logarithmic axes. Competitor curves are shallower than the flat per-subscriber line, so they start higher and end lower.">'+g+'</svg>';
+  var lg='';
+  COMP.forEach(function(c){ if(c.pts.length>=2) lg+='<span><i style="background:'+c.color+'"></i>'+c.name+'</span>'; });
+  lg+='<span><i style="background:var(--blue)"></i>Send, flat</span>'
+    +'<span><i style="background:var(--blue);opacity:.5"></i>Send, curved</span>'
+    +'<span><i style="background:var(--rose);opacity:.6"></i>Suite</span>';
+  document.getElementById('legend').innerHTML=lg;
+}
+
+function bind(id, key, fmt){
+  var el=document.getElementById(id);
+  el.addEventListener('change', function(){ S[key]=num(el.value); el.value=fmt?fmt(S[key]):el.value;
+    if(key==='size'){ document.getElementById('sizeRange').value=S.size; } render(); });
+}
+bind('sizeIn','size',n0); bind('rateIn','rate',function(v){return v.toFixed(2)});
+bind('ratioIn','ratio',null); bind('costIn','cost',function(v){return v.toFixed(3)});
+bind('anchorSize','aSize',n0); bind('anchorPrice','aPrice',null); bind('expIn','exp',function(v){return v.toFixed(2)});
+document.getElementById('sizeRange').addEventListener('input', function(e){
+  S.size=+e.target.value; document.getElementById('sizeIn').value=n0(S.size); render(); });
+render();
+</script>

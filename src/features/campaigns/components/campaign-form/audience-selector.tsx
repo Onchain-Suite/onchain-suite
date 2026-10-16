@@ -39,7 +39,12 @@ import {
 export interface ContactOption {
   id: string;
   name: string;
+  /** Empty when the contact has no real (non-synthetic) email. */
   email: string;
+  /** Full wallet address; empty when the contact has no wallet on file. */
+  walletAddress?: string;
+  /** Truncated wallet for display (0x1234…abcd). */
+  walletShort?: string;
 }
 
 interface AudienceSelectorProps {
@@ -424,7 +429,7 @@ export function AudienceSelector({
                   <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                     No segments yet. Create one in{" "}
                     <Link
-                      href="/intelligence/segments/create"
+                      href="/intelligence?tab=segments"
                       className="font-medium text-primary underline underline-offset-2"
                     >
                       Intelligence → Segments

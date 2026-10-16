@@ -1,10 +1,35 @@
 "use client";
 
 import { CheckCircleIcon } from "@heroicons/react/24/solid";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { CaptureFieldSpec, FormDisplaySettings } from "../forms.service";
+import {
+  isTurnstileConfigured,
+  type TurnstileHandle,
+  TurnstileWidget,
+} from "@/ui/turnstile-widget";
+
+import {
+  type CaptureFieldSpec,
+  type FormDisplaySettings,
+  readFormMeta,
+} from "../forms.service";
 import { FormRenderer } from "./form-renderer";
+
+/** A URL is safe to redirect to only if it's http(s) or a same-origin path. */
+function safeRedirect(raw: string): string | null {
+  const url = raw.trim();
+  if (!url) return null;
+  if (url.startsWith("/") && !url.startsWith("//")) return url;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:"
+      ? url
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Minimal EIP-1193 provider surface we rely on (no wallet SDK). */
 interface Eip1193Provider {
@@ -16,6 +41,24 @@ function getInjectedProvider(): Eip1193Provider | null {
   return eth ?? null;
 }
 
+/**
+ * Pull a human-readable string out of an API error payload. Backends return the
+ * error as a plain string OR a nested object ({ error: { message } }); passing
+ * the object straight to `new Error()` renders the dreaded "[object Object]".
+ */
+function errText(payload: unknown, fallback: string): string {
+  if (payload && typeof payload === "object") {
+    const root = payload as { error?: unknown; message?: unknown };
+    const candidate = root.error ?? root.message;
+    if (typeof candidate === "string" && candidate.trim()) return candidate;
+    if (candidate && typeof candidate === "object") {
+      const nested = (candidate as { message?: unknown }).message;
+      if (typeof nested === "string" && nested.trim()) return nested;
+    }
+  }
+  return fallback;
+}
+
 export interface HostedFormConfig {
   token: string;
   name: string;
@@ -23,6 +66,14 @@ export interface HostedFormConfig {
   settings: Record<string, unknown>;
   display: FormDisplaySettings;
   zkEnabled: boolean;
+  /**
+   * Form-level GDPR consent gate (backend `requireConsent`). Enforced on submit
+   * server-side regardless of the field list, so when it's on the page must show
+   * a consent checkbox — see `effectiveFields` below.
+   */
+  requireConsent?: boolean;
+  /** The exact consent copy to show (and record as the proof snapshot). */
+  consentText?: string | null;
 }
 
 interface WalletProof {
@@ -53,6 +104,8 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
   // contact must click a confirmation link before they actually join. Telling
   // someone they are subscribed when they are not is how that email gets ignored.
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const turnstileRef = useRef<TurnstileHandle>(null);
   const popupRef = useRef<Window | null>(null);
 
   // Listen for the OAuth callback popup posting back a linked channel.
@@ -77,9 +130,31 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
+  // The fields the page actually renders. When the form carries a form-level
+  // consent requirement but no explicit `consent` field, synthesize the
+  // checkbox: the backend rejects a require-consent submission that arrives
+  // without `consent: true`, so without this the form would render fine and then
+  // silently fail every submission.
+  const effectiveFields = useMemo<CaptureFieldSpec[]>(() => {
+    const fields = config.fields ?? [];
+    const hasConsent = fields.some((f) => (f.type ?? "text") === "consent");
+    if (config.requireConsent && !hasConsent) {
+      return [
+        ...fields,
+        {
+          key: "__consent",
+          type: "consent",
+          required: true,
+          ...(config.consentText ? { label: config.consentText } : {}),
+        } as CaptureFieldSpec,
+      ];
+    }
+    return fields;
+  }, [config.fields, config.requireConsent, config.consentText]);
+
   const hasField = useCallback(
-    (type: string) => config.fields.some((f) => (f.type ?? "text") === type),
-    [config.fields]
+    (type: string) => effectiveFields.some((f) => (f.type ?? "text") === type),
+    [effectiveFields]
   );
 
   const connectWallet = useCallback(async () => {
@@ -97,37 +172,44 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
       const address = accounts?.[0];
       if (!address) throw new Error("No account returned by the wallet.");
 
-      const nonceRes = await fetch(
-        `/api/forms/${encodeURIComponent(config.token)}/nonce?wallet=${address}`
-      );
-      const noncePayload = (await nonceRes.json().catch(() => ({}))) as {
-        nonce?: string;
-        message?: string;
-        data?: { nonce?: string; message?: string };
-        error?: string;
-      };
-      if (!nonceRes.ok) {
-        throw new Error(noncePayload.error ?? "Couldn't start verification.");
+      // The address is the identity we need - capture it up front so a connected
+      // wallet is never lost to a hiccup in the optional ownership proof below.
+      setWallet({ address, signature: "", nonce: "" });
+
+      // Best-effort signature proof (nonce -> personal_sign). If the
+      // verification service is unavailable we keep the address-only connection
+      // rather than failing the whole connect.
+      try {
+        const nonceRes = await fetch(
+          `/api/forms/${encodeURIComponent(config.token)}/nonce?wallet=${address}`
+        );
+        const noncePayload = (await nonceRes.json().catch(() => ({}))) as {
+          nonce?: string;
+          message?: string;
+          data?: { nonce?: string; message?: string };
+        };
+        const nonce = noncePayload.nonce ?? noncePayload.data?.nonce ?? "";
+        if (nonceRes.ok && nonce) {
+          const message =
+            noncePayload.message ??
+            noncePayload.data?.message ??
+            `Sign in to ${config.name}: ${nonce}`;
+          const signature = (await provider.request({
+            method: "personal_sign",
+            params: [message, address],
+          })) as string;
+          setWallet({ address, signature, nonce });
+        }
+      } catch {
+        // Signature declined or verification unavailable - the connected
+        // address still stands; submission proceeds with it.
       }
-      const nonce = noncePayload.nonce ?? noncePayload.data?.nonce ?? "";
-      const message =
-        noncePayload.message ??
-        noncePayload.data?.message ??
-        `Sign in to ${config.name}: ${nonce}`;
-      if (!nonce) throw new Error("Verification nonce missing.");
-
-      const signature = (await provider.request({
-        method: "personal_sign",
-        params: [message, address],
-      })) as string;
-
-      setWallet({ address, signature, nonce });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Wallet connection failed.";
-      // 4001 = user rejected
+      // 4001 = user rejected the connection request
       setError(
         msg.includes("4001") || msg.toLowerCase().includes("reject")
-          ? "Signature request was rejected."
+          ? "Wallet connection was rejected."
           : msg
       );
     } finally {
@@ -157,14 +239,20 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
       setError("Connect your wallet to continue.");
       return;
     }
-    const consentField = config.fields.find(
+    const consentField = effectiveFields.find(
       (f) => (f.type ?? "text") === "consent"
     );
     if (consentField && !consent) {
       setError("Please accept the consent to continue.");
       return;
     }
-    for (const field of config.fields) {
+    // The exact wording shown, recorded verbatim as the lawful-basis proof.
+    const shownConsentText = consentField
+      ? (consentField.label ??
+        config.consentText ??
+        config.display.consentLabel)
+      : null;
+    for (const field of effectiveFields) {
       const type = field.type ?? "text";
       if (!field.required) continue;
       if (type === "email" || type === "text") {
@@ -173,6 +261,10 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
           return;
         }
       }
+    }
+    if (isTurnstileConfigured() && !captchaToken) {
+      setError("Please complete the verification below.");
+      return;
     }
 
     setSubmitting(true);
@@ -185,6 +277,7 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
           body: JSON.stringify({
             fields: values,
             consent,
+            ...(shownConsentText ? { consentText: shownConsentText } : {}),
             wallet: wallet
               ? {
                   address: wallet.address,
@@ -193,24 +286,45 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
                 }
               : null,
             channels: linkedHandles,
+            // Bot gate — verified server-side on the public submit route.
+            turnstileToken: captchaToken,
           }),
         }
       );
       const payload = (await res.json().catch(() => ({}))) as {
-        error?: string;
+        error?: unknown;
         pendingConfirmation?: boolean;
       };
-      if (!res.ok) throw new Error(payload.error ?? "Submission failed.");
-      setPendingConfirmation(payload.pendingConfirmation === true);
+      if (!res.ok) throw new Error(errText(payload, "Submission failed."));
+      const pending = payload.pendingConfirmation === true;
+      setPendingConfirmation(pending);
+
+      // Honor the form's "redirect on submit" completion mode. Skip it while a
+      // double opt-in confirmation is still pending - that person needs to see
+      // the "check your email" message, not get bounced away.
+      const after = readFormMeta(config.settings).afterSubmit;
+      const redirect =
+        !pending && after?.onCompletion === "redirect"
+          ? safeRedirect(after.redirectUrl ?? "")
+          : null;
+      if (redirect) {
+        window.location.assign(redirect);
+        return;
+      }
       setDone(true);
     } catch (e) {
+      turnstileRef.current?.reset(); // single-use token spent on the attempt
       setError(e instanceof Error ? e.message : "Submission failed.");
     } finally {
       setSubmitting(false);
     }
   }, [
-    config.fields,
+    captchaToken,
+    effectiveFields,
     config.token,
+    config.settings,
+    config.consentText,
+    config.display,
     values,
     consent,
     wallet,
@@ -249,7 +363,7 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
   return (
     <FormRenderer
       name={config.name}
-      fields={config.fields}
+      fields={effectiveFields}
       settings={config.settings}
       zkEnabled={config.zkEnabled}
       live={{
@@ -265,6 +379,14 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
         onSubmit: submit,
         submitting,
         error,
+        // Dark theme to match the hosted page; sits above the submit button.
+        captcha: (
+          <TurnstileWidget
+            ref={turnstileRef}
+            onVerify={setCaptchaToken}
+            theme="dark"
+          />
+        ),
       }}
     />
   );

@@ -36,6 +36,7 @@ import {
 
 import { cn, getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import { isChainRequired } from "../imports/chain-requirement";
 import {
   type AudienceExportJobStatus,
   type AudienceImportExportFormat,
@@ -44,6 +45,7 @@ import {
   type AudienceImportPreset,
   audienceService,
 } from "@/features/audience/audience.service";
+import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { PageHeader } from "@/shared/components/page/page-header";
 
 const fieldOptions = [
@@ -454,6 +456,8 @@ function friendlyImportError(error: unknown): string {
   const text = raw.toUpperCase();
   if (text.includes("IMPORT_LIST_REQUIRED"))
     return "Choose a list for these contacts before importing.";
+  if (text.includes("IMPORT_CHAIN_REQUIRED"))
+    return "Choose the chain these wallets should be enriched on before importing.";
   if (text.includes("IMPORT_LIST_NOT_FOUND"))
     return "That list no longer exists. Pick another one or create a new list.";
   if (text.includes("IMPORT_LIST_NOT_TAG_BACKED"))
@@ -521,6 +525,19 @@ export default function ImportExportPage() {
   const [selectedListId, setSelectedListId] = useState<string>("");
   const [importTags, setImportTags] = useState<string>("");
   const [newListName, setNewListName] = useState<string>("");
+  // Chain every wallet in this import is enriched on (a per-row Chain column
+  // still wins). Required so an ADI file is enriched on ADI, not eth-mainnet.
+  const [selectedChain, setSelectedChain] = useState<string>("");
+
+  const chainsQuery = useQuery({
+    queryKey: ["audience", "import", "supported-chains"],
+    queryFn: () => projectSettingsService.getSupportedChains(),
+    staleTime: 30 * 60 * 1000,
+  });
+  const supportedChains = useMemo(
+    () => chainsQuery.data ?? [],
+    [chainsQuery.data]
+  );
 
   const listsQuery = useQuery({
     queryKey: ["audience", "segments", "for-import"],
@@ -872,10 +889,24 @@ export default function ImportExportPage() {
     );
   };
 
+  // See `isChainRequired`: the picker is only meaningful when the file carries
+  // wallets and nothing else says which chain they are on. Email-only imports
+  // used to be blocked here by a field about a column they do not contain.
+  const chainRequired = isChainRequired({
+    format: selectedImportFormat as "csv" | "json" | undefined,
+    mappings: csvColumns.map((c) => c.mappedTo ?? ""),
+  });
+
   const importMutation = useMutation({
     mutationFn: async () => {
       if (!uploadedFile) throw new Error("No file selected");
       if (!selectedListId) throw new Error("IMPORT_LIST_REQUIRED");
+      // Same rule as the button's disabled state, deliberately re-derived here
+      // rather than trusting it: this is the guard that actually stops a bad
+      // request, and the button can be bypassed (keyboard, a stale render).
+      // Both must agree, which is why the condition lives in one module.
+      if (chainRequired && !selectedChain)
+        throw new Error("IMPORT_CHAIN_REQUIRED");
       const lower = uploadedFile.name.toLowerCase();
       const format: AudienceImportExportFormat | undefined = lower.endsWith(
         ".csv"
@@ -903,11 +934,18 @@ export default function ImportExportPage() {
       const query: Record<string, string | number | boolean | undefined> = {
         mode: "upsert",
         onConflict: "update",
-        dedupeKey: "email",
+        // 'auto' identifies each row by email when present, else by wallet, so a
+        // CSV can mix email-only, wallet-only and email+wallet rows. Previously
+        // hardcoded "email", which failed the whole import with "Missing email"
+        // on the first wallet-only row.
+        dedupeKey: "auto",
         maxErrors: 10000,
         // Backend-required: every import lands in a list. Tags (optional) ride
         // as a comma-separated list on top of the list's own tags.
         listId: selectedListId,
+        // Chain to enrich every wallet on (a per-row Chain column overrides it
+        // server-side). Sent as a query param; the backend normalizes it.
+        defaultChain: selectedChain,
         ...(importTagList.length > 0 ? { tags: importTagList.join(",") } : {}),
       };
 
@@ -1405,7 +1443,13 @@ export default function ImportExportPage() {
       setImportStep("complete");
       toast.error(message);
     }
-  }, [importStatus]);
+    // The download mutations are stable useMutation refs; they're listed to
+    // satisfy exhaustive-deps (the toast actions inside close over them).
+  }, [
+    importStatus,
+    downloadImportErrorsMutation,
+    downloadImportRejectedMutation,
+  ]);
 
   return (
     <motion.div
@@ -1611,6 +1655,53 @@ export default function ImportExportPage() {
                         segment later - we recommend adding at least one.
                       </p>
                     </div>
+                  </div>
+                  <div className="mt-5 border-t border-border pt-5">
+                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                      Enrich wallets on{" "}
+                      {chainRequired ? (
+                        <span className="text-destructive">*</span>
+                      ) : (
+                        <span className="font-normal text-muted-foreground">
+                          (optional — no wallet column in this file)
+                        </span>
+                      )}
+                    </label>
+                    <Select
+                      value={selectedChain}
+                      onValueChange={setSelectedChain}
+                    >
+                      <SelectTrigger className="sm:max-w-xs">
+                        <SelectValue
+                          placeholder={
+                            chainsQuery.isLoading
+                              ? "Loading chains…"
+                              : "Choose a chain (e.g. ADI, Ethereum)"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {supportedChains
+                          .slice()
+                          .sort(
+                            (a, b) =>
+                              Number(a.testnet) - Number(b.testnet) ||
+                              a.label.localeCompare(b.label)
+                          )
+                          .map((c) => (
+                            <SelectItem key={c.slug} value={c.slug}>
+                              {c.label}
+                              {c.testnet ? " (testnet)" : ""}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      The chain we enrich these wallets on. A per-row{" "}
+                      <span className="font-medium">Chain</span> column (mapped
+                      below) overrides this for individual wallets - so an ADI
+                      file is enriched on ADI, not Ethereum.
+                    </p>
                   </div>
                 </div>
 
@@ -2188,7 +2279,9 @@ export default function ImportExportPage() {
                   title={
                     !selectedListId
                       ? "Choose a list on the previous step first"
-                      : undefined
+                      : chainRequired && !selectedChain
+                        ? "Choose the chain to enrich these wallets on"
+                        : undefined
                   }
                   disabled={
                     isImporting ||
@@ -2196,7 +2289,11 @@ export default function ImportExportPage() {
                     !uploadedFile ||
                     !selectedImportFormat ||
                     // Backend requires a list for every import.
-                    !selectedListId
+                    !selectedListId ||
+                    // A chain only when the file actually carries wallets and
+                    // no per-row Chain column already answers it. Email-only
+                    // imports have no chain to pick. See `chainRequired`.
+                    (chainRequired && !selectedChain)
                     // Column mapping is optional: the backend alias-matches
                     // headers (wallet, Wallet Address, address, Public Key, …)
                     // case- and punctuation-insensitively, so an unmapped CSV

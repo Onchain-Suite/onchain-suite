@@ -23,17 +23,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { authClient } from "@/lib/auth-client";
+import { getSecurityStatus } from "@/lib/passkey";
 
 import { CopyButton } from "@/shared/components/common/copy-button";
 
 interface TwoFactorAuthModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Called after 2FA is enabled or disabled so the parent can refresh the
+   * session + any status it renders. Without this the Security card kept
+   * showing the pre-change state until a full page reload.
+   */
+  onStatusChange?: () => void;
 }
 
 const TwoFactorAuthModal = ({
   open,
   onOpenChange,
+  onStatusChange,
 }: TwoFactorAuthModalProps) => {
   const { data: session } = authClient.useSession();
   const [twoFACode, setTwoFACode] = useState("");
@@ -51,6 +59,11 @@ const TwoFactorAuthModal = ({
   const [totpURI, setTotpURI] = useState("");
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [error, setError] = useState("");
+  // Whether the account has a password. Password users confirm with it on
+  // enable; OAuth-only users (no password) enable without one, since the
+  // backend's better-auth `allowPasswordless` drops the check for them. Default
+  // true so we never wrongly enable-without-password for a real password user.
+  const [hasPassword, setHasPassword] = useState(true);
 
   // Manual-entry secret for authenticator apps that can't scan the QR code.
   const totpSecret = useMemo(() => {
@@ -73,16 +86,72 @@ const TwoFactorAuthModal = ({
       setBackupCodes([]);
       setError("");
       setLoading(false);
+      // Learn whether this account has a password, to decide enable-with-password
+      // vs the passwordless (OAuth) path.
+      getSecurityStatus()
+        .then((status) => setHasPassword(status.hasPassword))
+        .catch(() => setHasPassword(true));
     }
   }, [open]);
 
   const isEnabled = session?.user?.twoFactorEnabled;
 
+  // Surface the real reason instead of a blanket "An error occurred": prefer the
+  // server message, then a status/code, so a rejected password, a passwordless
+  // account, or a disabled 2FA route each read differently in the UI and logs.
+  const errText = (err: unknown, fallback: string): string => {
+    if (err && typeof err === "object") {
+      const e = err as {
+        message?: string;
+        statusText?: string;
+        code?: string;
+        status?: number;
+      };
+      if (e.message) return e.message;
+      if (e.statusText) return e.statusText;
+      if (e.code) return `2FA error: ${e.code}`;
+      if (typeof e.status === "number") return `Request failed (${e.status})`;
+    }
+    if (err instanceof Error && err.message) return err.message;
+    return fallback;
+  };
+
   const goToPasswordStep = (action: "enable" | "disable") => {
+    // OAuth-only accounts (no password) enable 2FA without one — the backend's
+    // better-auth `allowPasswordless` skips the confirmation for them. Go
+    // straight to enrolment instead of asking for a password they don't have.
+    if (action === "enable" && !hasPassword) {
+      handleEnableWithoutPassword().catch(() => undefined);
+      return;
+    }
     setPendingAction(action);
     setPassword("");
     setError("");
     setStep("password");
+  };
+
+  const handleEnableWithoutPassword = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      // No password in the body: allowed for passwordless (OAuth) accounts.
+      const res = await authClient.twoFactor.enable({});
+      if (res.data) {
+        setTotpURI(res.data.totpURI);
+        setBackupCodes(res.data.backupCodes ?? []);
+        setStep("qr");
+      } else {
+        const message = errText(res.error, "Failed to start 2FA setup");
+        setError(message);
+        toast.error(message);
+      }
+    } catch (e) {
+      const message = errText(e, "Failed to start 2FA setup");
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePasswordSubmit = async () => {
@@ -99,13 +168,14 @@ const TwoFactorAuthModal = ({
         setPassword("");
         setStep("qr");
       } else if (res.error) {
-        const message = res.error.message ?? "An error occurred";
+        const message = errText(res.error, "Couldn't start 2FA setup");
         setError(message);
         toast.error(message);
       }
-    } catch {
-      setError("Failed to start 2FA setup");
-      toast.error("Failed to start 2FA setup");
+    } catch (e) {
+      const message = errText(e, "Couldn't start 2FA setup");
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -126,14 +196,21 @@ const TwoFactorAuthModal = ({
       if (res.data) {
         toast.success("2FA enabled successfully");
         setStep("backup");
+        // 2FA is on now - let the parent refresh the session + status row so
+        // it doesn't keep showing "Needs setup" until a reload.
+        onStatusChange?.();
       } else if (res.error) {
-        const message = res.error.message ?? "An error occurred";
+        const message = errText(
+          res.error,
+          "That code didn't match. Try again."
+        );
         setError(message);
         toast.error(message);
       }
-    } catch {
-      setError("Invalid code");
-      toast.error("Invalid code");
+    } catch (e) {
+      const message = errText(e, "That code didn't match. Try again.");
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -149,15 +226,17 @@ const TwoFactorAuthModal = ({
       if (res.data) {
         toast.success("2FA disabled");
         onOpenChange(false);
-        window.location.reload();
+        // Refresh session + status in place instead of a full page reload.
+        onStatusChange?.();
       } else {
-        const message = res.error?.message ?? "Failed to disable 2FA";
+        const message = errText(res.error, "Failed to disable 2FA");
         setError(message);
         toast.error(message);
       }
-    } catch {
-      setError("Failed to disable 2FA");
-      toast.error("Failed to disable 2FA");
+    } catch (e) {
+      const message = errText(e, "Failed to disable 2FA");
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }

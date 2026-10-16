@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/ui/select";
 import { Switch } from "@/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
 import { Textarea } from "@/ui/textarea";
 
 import { cn, isJsonObject } from "@/lib/utils";
@@ -71,11 +72,13 @@ import {
   writeFormMeta,
 } from "../forms.service";
 import { useForm, useUpdateForm } from "../hooks/use-forms";
+import { CustomFormApi } from "./custom-form-api";
 import { EmbedSnippet } from "./embed-snippet";
 import { FormPreviewStage } from "./form-preview-stage";
 import { SubmissionsTab } from "./submissions-tab";
 import { audienceService } from "@/features/audience/audience.service";
 import { automationService } from "@/features/automation/automation.service";
+import { SendConfirmDialog } from "@/shared/components/common/send-confirm-dialog";
 
 type Tab = "build" | "submissions" | "share";
 type BuildTab = "fields" | "display" | "settings";
@@ -180,14 +183,19 @@ export function FormBuilder({ id }: { id: string }) {
 
   const [tab, setTab] = useState<Tab>("build");
   const [buildTab, setBuildTab] = useState<BuildTab>("fields");
+  // On narrow screens the config aside and the preview can't sit side by side,
+  // so a phone shows one at a time via this toggle (both show together on lg).
+  const [mobilePane, setMobilePane] = useState<"edit" | "preview">("edit");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
+  // Guard shown before a form goes live and starts collecting contacts.
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
 
   // Staged edits, seeded from the loaded form.
   const [name, setName] = useState("");
   const [tag, setTag] = useState("");
-  const [status, setStatus] = useState("active");
+  const [status, setStatus] = useState("draft");
   const [origins, setOrigins] = useState("");
   const [listId, setListId] = useState<string>("");
   const [fields, setFields] = useState<CaptureFieldSpec[]>([]);
@@ -258,16 +266,36 @@ export function FormBuilder({ id }: { id: string }) {
     saveMutation.mutate({ id, input: buildInput() });
   };
 
-  const toggleLive = () => {
-    const next = status === "active" ? "paused" : "active";
+  // Persist the form name the moment the user finishes renaming (blur/Enter),
+  // like the campaign editor - so the title sticks without waiting for Save,
+  // whatever the form's status (draft, live, paused).
+  const persistName = () => {
+    const next = name.trim() || "Untitled form";
+    if (!form || next === form.name) return;
+    statusMutation.mutate({ id, input: { name: next } });
+  };
+
+  const setLive = (next: "active" | "paused") => {
     setStatus(next);
     statusMutation.mutate(
       { id, input: { ...buildInput(), status: next } },
       {
-        onSuccess: () =>
-          toast.success(next === "active" ? "Form is live" : "Form paused"),
+        onSuccess: () => {
+          toast.success(next === "active" ? "Form is live" : "Form paused");
+          setShowPublishConfirm(false);
+        },
+        onError: () => setShowPublishConfirm(false),
       }
     );
+  };
+
+  const toggleLive = () => {
+    // Pausing is safe and instant; publishing (going live) asks first.
+    if (status === "active") {
+      setLive("paused");
+      return;
+    }
+    setShowPublishConfirm(true);
   };
 
   const has = (type: CaptureFieldType) =>
@@ -346,8 +374,34 @@ export function FormBuilder({ id }: { id: string }) {
   const live = status === "active";
   const selectedField = fields.find((f) => f.key === selectedKey) ?? null;
 
+  const publishDestination =
+    lists.find((l) => l.id === listId)?.name ?? "Default audience";
+  const publishFieldCount = fields.filter(
+    (f) => f.key.trim().length > 0
+  ).length;
+
   return (
     <Shell>
+      <SendConfirmDialog
+        open={showPublishConfirm}
+        onOpenChange={setShowPublishConfirm}
+        title="Publish this form?"
+        description="Once live, anyone with the link or embed can submit and become a contact."
+        details={[
+          { label: "Form", value: name.trim() || "Untitled form" },
+          {
+            label: "Fields",
+            value: `${publishFieldCount} ${
+              publishFieldCount === 1 ? "field" : "fields"
+            }`,
+          },
+          { label: "Contacts land in", value: publishDestination },
+        ]}
+        confirmLabel="Publish"
+        confirmingLabel="Publishing…"
+        confirming={statusMutation.isPending}
+        onConfirm={() => setLive("active")}
+      />
       {/* Header */}
       <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
         <div className="flex min-w-0 items-center gap-3">
@@ -364,9 +418,18 @@ export function FormBuilder({ id }: { id: string }) {
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onBlur={() => setRenaming(false)}
+              onBlur={() => {
+                persistName();
+                setRenaming(false);
+              }}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === "Escape") setRenaming(false);
+                if (e.key === "Enter") {
+                  persistName();
+                  setRenaming(false);
+                } else if (e.key === "Escape") {
+                  setName(form.name);
+                  setRenaming(false);
+                }
               }}
               aria-label="Form name"
               placeholder="Untitled form"
@@ -447,11 +510,38 @@ export function FormBuilder({ id }: { id: string }) {
         </div>
       </header>
 
+      {/* Mobile-only Edit/Preview switch: the aside + preview can't share a
+          phone width, so show one at a time. Hidden from lg up where both fit. */}
+      {tab === "build" ? (
+        <div className="flex shrink-0 gap-1 border-b border-border p-2 lg:hidden">
+          {(["edit", "preview"] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setMobilePane(p)}
+              className={cn(
+                "flex-1 rounded-lg py-2 text-sm font-medium capitalize transition-colors",
+                mobilePane === p
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <div className="flex min-h-0 flex-1">
         {tab === "build" ? (
           <>
             {/* Left config panel */}
-            <aside className="flex w-80 shrink-0 flex-col border-r border-border">
+            <aside
+              className={cn(
+                "w-full shrink-0 flex-col border-border lg:flex lg:w-80 lg:border-r",
+                mobilePane === "edit" ? "flex" : "hidden"
+              )}
+            >
               <div className="flex gap-4 border-b border-border px-4">
                 {(["fields", "display", "settings"] as const).map((tt) => (
                   <button
@@ -512,7 +602,12 @@ export function FormBuilder({ id }: { id: string }) {
             </aside>
 
             {/* Preview canvas */}
-            <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto bg-muted/30 p-6">
+            <div
+              className={cn(
+                "scrollbar-sleek min-h-0 flex-1 overflow-y-auto bg-muted/30 p-4 sm:p-6 lg:block",
+                mobilePane === "preview" ? "block" : "hidden"
+              )}
+            >
               <FormPreviewStage
                 name={name}
                 fields={fields}
@@ -554,10 +649,7 @@ export function FormBuilder({ id }: { id: string }) {
         ) : tab === "submissions" ? (
           <div className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto p-6">
             <div className="mx-auto max-w-5xl">
-              <SubmissionsTab
-                formId={id}
-                csvUrl={`/api/v1/forms/${id}/submissions/export.csv`}
-              />
+              <SubmissionsTab formId={id} />
             </div>
           </div>
         ) : (
@@ -568,6 +660,8 @@ export function FormBuilder({ id }: { id: string }) {
                 publicUrl={publicUrl}
                 embedCode={form.embedCode}
                 submitUrl={form.submitUrl}
+                fields={form.fields}
+                allowedOrigins={form.allowedOrigins}
               />
             </div>
           </div>
@@ -748,7 +842,10 @@ function TimingPanel({
           onValueChange={(v) => set({ pages: v })}
           disabled={meta.surface === "hosted"}
         >
-          <SelectTrigger className="h-9" aria-label="Where it shows">
+          <SelectTrigger
+            className="h-9 w-full min-w-0"
+            aria-label="Where it shows"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -776,7 +873,10 @@ function TimingPanel({
               value={t.trigger}
               onValueChange={(v) => set({ trigger: v as FormTrigger })}
             >
-              <SelectTrigger className="h-9" aria-label="When it appears">
+              <SelectTrigger
+                className="h-9 w-full min-w-0"
+                aria-label="When it appears"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -813,7 +913,10 @@ function TimingPanel({
           ) : null}
           <Field label="Frequency">
             <Select value={t.freq} onValueChange={(v) => set({ freq: v })}>
-              <SelectTrigger className="h-9" aria-label="Frequency">
+              <SelectTrigger
+                className="h-9 w-full min-w-0"
+                aria-label="Frequency"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -901,7 +1004,10 @@ function SettingsPanel({
             value={meta.type}
             onValueChange={(v) => setType(v as FormCaptureType)}
           >
-            <SelectTrigger className="h-9" aria-label="Form type">
+            <SelectTrigger
+              className="h-9 w-full min-w-0"
+              aria-label="Form type"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -929,7 +1035,10 @@ function SettingsPanel({
               value={meta.style}
               onValueChange={(v) => setStyle(v as FormStyleId)}
             >
-              <SelectTrigger className="h-9" aria-label="Widget style">
+              <SelectTrigger
+                className="h-9 w-full min-w-0"
+                aria-label="Widget style"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1065,7 +1174,10 @@ function SettingsPanel({
             value={listId || "none"}
             onValueChange={(v) => onListId(v === "none" ? "" : v)}
           >
-            <SelectTrigger className="h-9" aria-label="Add subscribers to list">
+            <SelectTrigger
+              className="h-9 w-full min-w-0"
+              aria-label="Add subscribers to list"
+            >
               <SelectValue placeholder="No list" />
             </SelectTrigger>
             <SelectContent>
@@ -1101,7 +1213,10 @@ function SettingsPanel({
               setAfter({ onCompletion: v as FormCompletion })
             }
           >
-            <SelectTrigger className="h-9" aria-label="On completion">
+            <SelectTrigger
+              className="h-9 w-full min-w-0"
+              aria-label="On completion"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1157,7 +1272,10 @@ function SettingsPanel({
               })
             }
           >
-            <SelectTrigger className="h-9" aria-label="Automation">
+            <SelectTrigger
+              className="h-9 w-full min-w-0"
+              aria-label="Automation"
+            >
               <SelectValue placeholder="Choose an automation" />
             </SelectTrigger>
             <SelectContent>
@@ -1206,11 +1324,15 @@ function ShareTab({
   publicUrl,
   embedCode,
   submitUrl,
+  fields,
+  allowedOrigins,
 }: {
   surface: FormSurface;
   publicUrl: string;
   embedCode: string;
   submitUrl: string;
+  fields: CaptureFieldSpec[];
+  allowedOrigins: string[];
 }) {
   const [qrOpen, setQrOpen] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
@@ -1233,8 +1355,8 @@ function ShareTab({
     a.click();
     URL.revokeObjectURL(url);
   };
-  if (surface === "hosted") {
-    return (
+  const surfaceBlock =
+    surface === "hosted" ? (
       <div className="mx-auto max-w-xl space-y-4 rounded-2xl border border-border bg-card p-5">
         <div className="flex items-start gap-3">
           <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -1289,30 +1411,46 @@ function ShareTab({
           </DialogContent>
         </Dialog>
       </div>
-    );
-  }
-  return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Label>Public form link</Label>
-        <div className="flex gap-2">
-          <Input readOnly value={publicUrl} className="font-mono text-sm" />
-          <Button variant="outline" onClick={copy}>
-            Copy
-          </Button>
-          <Button variant="outline" asChild>
-            <a href={publicUrl} target="_blank" rel="noreferrer">
-              <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
-              Open
-            </a>
-          </Button>
+    ) : (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Label>Public form link</Label>
+          <div className="flex gap-2">
+            <Input readOnly value={publicUrl} className="font-mono text-sm" />
+            <Button variant="outline" onClick={copy}>
+              Copy
+            </Button>
+            <Button variant="outline" asChild>
+              <a href={publicUrl} target="_blank" rel="noreferrer">
+                <ArrowUpTrayIcon className="size-4" aria-hidden="true" />
+                Open
+              </a>
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Share this link, or embed the snippet below on your site.
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Share this link, or embed the snippet below on your site.
-        </p>
+        <EmbedSnippet embedCode={embedCode} submitUrl={submitUrl} />
       </div>
-      <EmbedSnippet embedCode={embedCode} submitUrl={submitUrl} />
-    </div>
+    );
+  return (
+    <Tabs defaultValue="share" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="share">
+          {surface === "hosted" ? "Hosted page" : "Share & embed"}
+        </TabsTrigger>
+        <TabsTrigger value="api">Post from your own form</TabsTrigger>
+      </TabsList>
+      <TabsContent value="share">{surfaceBlock}</TabsContent>
+      <TabsContent value="api">
+        <CustomFormApi
+          submitUrl={submitUrl}
+          fields={fields}
+          allowedOrigins={allowedOrigins}
+        />
+      </TabsContent>
+    </Tabs>
   );
 }
 

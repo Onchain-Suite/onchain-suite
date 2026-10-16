@@ -280,6 +280,25 @@ const clearOnchainMirrorCookies = (response: NextResponse) => {
   );
 };
 
+/**
+ * Why `get-session` came back without a session.
+ *
+ * Four different causes collapsed into a body of `null`: no cookie was sent,
+ * the backend rejected the cookie it was sent, the backend was unreachable, or
+ * the profile fallback also came back empty. From the browser they are
+ * identical, so "No active session found. Please sign in again." was the only
+ * thing anyone could report — and it is the one sentence that fits all four.
+ *
+ * A response HEADER rather than a body field: better-auth parses the body and
+ * an extra key risks confusing its client, whereas a header is inert to every
+ * consumer and visible in the Network tab, which is where someone debugging
+ * this is already looking.
+ */
+const withSessionMiss = (res: NextResponse, reason: string) => {
+  res.headers.set("x-session-miss", reason);
+  return res;
+};
+
 const buildFallbackSessionResponse = async (args: {
   backendBase: string;
   cookieHeader: string;
@@ -387,18 +406,31 @@ const forward = async (
     const backendBase = getBackendBaseUrl();
     let upstream: Response;
     try {
+      // Bounded. This is the first request of every page load, and a server
+      // component awaits it, so an unbounded stall here holds the whole RSC
+      // render on `loading.tsx` until the user refreshes. The catch below
+      // already turns a failure into a clean 502 "session miss", so a timeout
+      // degrades to "not signed in" — recoverable — instead of hanging.
+      //
+      // 8s matches `fetchWithTimeout`'s default and the budget the caller in
+      // auth-session.ts allows; the backend answers this in ~0.5s, so anything
+      // near the cap is a stall rather than slowness.
       upstream = await fetch(`${backendBase}/auth/get-session`, {
         method: "GET",
         headers: upstreamHeaders,
         cache: "no-store",
+        signal: AbortSignal.timeout(8000),
       });
     } catch {
-      return NextResponse.json(
-        {
-          error: "upstream_unreachable",
-          message: "Authentication service is unavailable",
-        },
-        { status: 502 }
+      return withSessionMiss(
+        NextResponse.json(
+          {
+            error: "upstream_unreachable",
+            message: "Authentication service is unavailable",
+          },
+          { status: 502 }
+        ),
+        "upstream-unreachable"
       );
     }
 
@@ -435,6 +467,17 @@ const forward = async (
           if (fallback) return fallback;
         }
         const res = NextResponse.json(json, { status: upstream.status });
+        if (!user) {
+          // The cookie header tells these two apart, and they need opposite
+          // responses: send the user to sign in, or go and look at why a
+          // present cookie was refused.
+          withSessionMiss(
+            res,
+            extractBetterAuthSession(cookieHeader)
+              ? "cookie-rejected-by-backend"
+              : "no-session-cookie-sent"
+          );
+        }
         for (const cookie of getSetCookieHeaders(upstream.headers)) {
           res.headers.append(
             "set-cookie",
@@ -469,6 +512,61 @@ const forward = async (
 
       return nextResponse;
     }
+  }
+
+  // `verify-email` is a GET the backend answers with a 302 that CARRIES the
+  // session cookie (it auto-logs the user in on a valid token). The default
+  // server-side fetch FOLLOWS that redirect, and a followed redirect's
+  // intermediate Set-Cookie is dropped by fetch — so the browser never received
+  // the session cookie and the very next screen reported "No active session
+  // found. Please sign in again." on the onboarding step. (Google OAuth was
+  // unaffected: it completes via a top-level browser navigation, not this
+  // proxied XHR.) Fetch with redirect:"manual" so we can read the 302 itself,
+  // forward its Set-Cookie to the browser, and answer the client's fetch with a
+  // plain status it can branch on — the verify page keeps its own
+  // success / redirectTo / resend handling.
+  const isVerifyEmail =
+    method === "GET" && path.length === 1 && path[0] === "verify-email";
+  if (isVerifyEmail) {
+    let upstream: Response;
+    try {
+      upstream = await fetch(targetUrl, {
+        method: "GET",
+        headers: upstreamHeaders,
+        redirect: "manual",
+        cache: "no-store",
+      });
+    } catch {
+      return NextResponse.json(
+        { success: false, message: "Authentication service is unavailable" },
+        { status: 502 }
+      );
+    }
+
+    // The success path redirects to `/dashboard?verified=true` and sets the
+    // session cookie; the failure path redirects to a verify-failed page with
+    // no cookie. Branch on the redirect target rather than the mere presence of
+    // a cookie, which is more explicit about what "succeeded" means.
+    const location = upstream.headers.get("location") ?? "";
+    const isRedirect = upstream.status >= 300 && upstream.status < 400;
+    const succeeded = isRedirect && /[?&]verified=true(?:&|$)/.test(location);
+
+    const res = NextResponse.json(
+      succeeded
+        ? { success: true }
+        : { success: false, message: "Verification failed" },
+      { status: succeeded ? 200 : 400 }
+    );
+    // THE FIX: forward the session cookie the backend set on the 302 so it
+    // actually lands in the browser (rewritten to the cross-subdomain Domain in
+    // prod, host-only for local dev), exactly as the sign-in path does.
+    for (const cookie of getSetCookieHeaders(upstream.headers)) {
+      res.headers.append(
+        "set-cookie",
+        rewriteSetCookieForLocalDev(cookie, url)
+      );
+    }
+    return res;
   }
 
   const hasBody = !["GET", "HEAD"].includes(method);

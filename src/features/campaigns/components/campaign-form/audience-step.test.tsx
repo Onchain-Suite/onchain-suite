@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import React from "react";
 import { useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
@@ -80,6 +82,9 @@ describe("AudienceStep links", () => {
     // the ?tab= deep link.
     renderStep({ segments: [] });
 
+    // Segments is no longer the default tab (Everyone is first now), so open it.
+    fireEvent.click(screen.getByRole("button", { name: "Segments" }));
+
     const link = screen.getByRole("link", { name: /create one/i });
     expect(link).toHaveAttribute("href", PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS);
     expect(PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS).toContain("tab=segments");
@@ -109,14 +114,68 @@ describe("AudienceStep links", () => {
     ).toBeInTheDocument();
   });
 
-  it("explains the recipient options: segments, lists, contacts or everyone", () => {
+  it("explains the recipient options: segments, lists, tags, contacts or everyone", () => {
     // The step's lead-in describes what a recipient set can be built from - the
-    // rebuilt copy lists segments/lists/contacts/everyone instead of the old
+    // rebuilt copy lists segments/lists/tags/contacts/everyone instead of the old
     // "Pick individual contacts by email" text.
     renderStep();
 
     expect(
-      screen.getByText(/choose segments, lists, contacts, or everyone/i)
+      screen.getByText(/choose segments, lists, tags, contacts, or everyone/i)
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * Source invariants for the "Everyone" count.
+ *
+ * These are the two mistakes the backend breakdown was built to end, and a
+ * rendering test cannot see either: both depend on which field of the estimate
+ * the component reads, and the component renders a number either way.
+ */
+describe("the Everyone count reads the right field", () => {
+  const source = readFileSync(join(__dirname, "audience-step.tsx"), "utf8");
+
+  it("reads emailReachable, not totalWallets, for an email campaign", () => {
+    // `totalWallets` is every contact in the selection INCLUDING wallet-only
+    // ones. One production org has 950 contacts, all carrying the synthetic
+    // @wallet.onchainsuite.local placeholder — this row read "Everyone with an
+    // email · 950" for an audience that can reach nobody.
+    expect(source).toContain("estimateBreakdown?.emailReachable");
+  });
+
+  it("sends the internal/team exclusion to the server", () => {
+    // The toggle existed for the whole life of the feature while nothing read
+    // it, so the exclusion it claimed was not happening. The state is only
+    // meaningful if it reaches the audience payload AND the sync deps.
+    expect(source).toContain("excludeInternal: inputs.excludeInternal");
+    expect(source).toContain("setExcludeInternal");
+  });
+
+  it("defaults the exclusion to off", () => {
+    // Defaulting to ON would silently withhold mail from every campaign
+    // already saved, since those contacts have been receiving it all along.
+    expect(source).toContain("useState(false)");
+    expect(source).not.toMatch(/excludeInternal[^\n]*useState\(true\)/);
+  });
+
+  it("lists every exclusion reason the backend reports", () => {
+    // The buckets partition the selection, so the panel can account for the
+    // whole gap between "selected" and "will receive this". A reason the panel
+    // omits is a contact the sender cannot find.
+    for (const reason of [
+      "suppressed",
+      "unsubscribed",
+      "invalidAddress",
+      "pendingOptin",
+      "quarantined",
+    ]) {
+      expect(source).toContain(`estimateBreakdown?.${reason}`);
+    }
+    // The internal row is the policy one: it shows how many carry the tags
+    // (counted either way) and renders its state from the stored flag, which
+    // is why it reads `internal` rather than the `excludedInternal` bucket.
+    expect(source).toContain("estimateBreakdown?.internal");
+    expect(source).toContain("estimate.excludeInternal");
   });
 });

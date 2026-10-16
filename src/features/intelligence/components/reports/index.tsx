@@ -43,15 +43,15 @@ const formatDate = (v: unknown): string => {
 };
 
 // A query saved via POST /intelligence/query/{queryId}/save ("Save Report" in
-// the MCP chat / SQL editor). The documented surface for saved runs is
+// the agent chat / SQL editor). The documented surface for saved runs is
 // GET /intelligence/query/history, where saving writes the report `name` onto
 // the run's history row. Rows without a name are ordinary (unsaved) runs.
 export type SavedQueryReport = {
   queryId: string;
   name: string;
-  /** SQL text for SQL runs, the prompt for MCP runs; "" when omitted. */
+  /** SQL text for SQL runs, the prompt for agent runs; "" when omitted. */
   query: string;
-  isMcp: boolean;
+  isAgent: boolean;
   savedAt: string;
   summary: string;
 };
@@ -68,7 +68,13 @@ const toSavedQueryReport = (input: unknown): SavedQueryReport | null => {
     queryId,
     name,
     query: asString(r.query),
-    isMcp: provider.includes("goldrush") || provider.includes("mcp"),
+    // Backend `provider` is now "alchemy"/"agent"; older saved runs still read
+    // "goldrush"/"mcp". Match all so re-run routes to chat vs SQL correctly.
+    isAgent:
+      provider.includes("agent") ||
+      provider.includes("alchemy") ||
+      provider.includes("goldrush") ||
+      provider.includes("mcp"),
     savedAt: formatDate(r.createdAt ?? r.timestamp ?? r.updatedAt),
     summary: asString(r.resultSummary) || asString(r.summary),
   };
@@ -77,7 +83,7 @@ const toSavedQueryReport = (input: unknown): SavedQueryReport | null => {
 interface ReportsTabProps {
   /**
    * Re-open the selected report's source: SQL runs load into the SQL editor
-   * (results refetched by queryId), MCP runs pre-fill the chat composer.
+   * (results refetched by queryId), agent runs pre-fill the chat composer.
    */
   onOpenSavedQuery?: (item: SavedQueryReport) => void;
 }
@@ -145,7 +151,7 @@ export function ReportsTab({ onOpenSavedQuery }: ReportsTabProps = {}) {
                 onClick={() => onOpenSavedQuery(selected)}
                 className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/40"
               >
-                {selected.isMcp ? (
+                {selected.isAgent ? (
                   <ChatBubbleLeftRightIcon
                     className="h-3.5 w-3.5"
                     aria-hidden="true"
@@ -153,7 +159,7 @@ export function ReportsTab({ onOpenSavedQuery }: ReportsTabProps = {}) {
                 ) : (
                   <CodeBracketIcon className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
-                {selected.isMcp ? "Re-run in chat" : "Open in SQL"}
+                {selected.isAgent ? "Re-run in chat" : "Open in SQL"}
               </button>
             ) : null}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { SearchIcon } from "lucide-react";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { useEffect, useState } from "react";
 
 import { useSidebar } from "@/components/ui/sidebar";
@@ -37,7 +37,7 @@ export function SidebarSearch({ onClick }: { onClick?: () => void }) {
           aria-label="Search"
           className="flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-2.5 text-sm text-muted-foreground outline-hidden transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0"
         >
-          <SearchIcon className="size-4 shrink-0" aria-hidden="true" />
+          <MagnifyingGlassIcon className="size-4 shrink-0" aria-hidden="true" />
           <span className="group-data-[collapsible=icon]:hidden">
             Search...
           </span>

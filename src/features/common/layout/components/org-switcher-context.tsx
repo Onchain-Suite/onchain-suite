@@ -35,3 +35,13 @@ export function useOrgSwitcherContext(): UseOrgSwitcher {
   }
   return ctx;
 }
+
+/**
+ * Non-throwing variant for consumers where the switcher is a nice-to-have
+ * (e.g. reading the active org's name for a label), so they can be rendered
+ * outside the dashboard shell - in isolation tests or standalone - and simply
+ * fall back when no provider is mounted. Returns null instead of throwing.
+ */
+export function useOrgSwitcherContextOptional(): UseOrgSwitcher | null {
+  return useContext(OrgSwitcherContext);
+}

@@ -1,0 +1,30 @@
+/* Onchain Suite — typography tokens.
+   One voice: Instrument Sans. Mono companion: Geist Mono.
+   Tracking is negative only at ≥32px. tabular-nums mandatory in tables/KPIs. */
+
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Composite text styles: size / line-height / weight / tracking */
+  --text-display-xl-size: 69px;  --text-display-xl-line: 74px;  --text-display-xl-weight: 700; --text-display-xl-tracking: -1px;
+  --text-display-l-size: 56px;   --text-display-l-line: 62px;   --text-display-l-weight: 700;  --text-display-l-tracking: -1px;
+  --text-display-m-size: 48px;   --text-display-m-line: 54px;   --text-display-m-weight: 600;  --text-display-m-tracking: -1px;
+  --text-heading-xl-size: 32px;  --text-heading-xl-line: 40px;  --text-heading-xl-weight: 600; --text-heading-xl-tracking: -0.5px;
+  --text-heading-l-size: 24px;   --text-heading-l-line: 32px;   --text-heading-l-weight: 600;  --text-heading-l-tracking: -0.25px;
+  --text-heading-m-size: 20px;   --text-heading-m-line: 28px;   --text-heading-m-weight: 600;  --text-heading-m-tracking: 0;
+  --text-heading-s-size: 16px;   --text-heading-s-line: 24px;   --text-heading-s-weight: 600;  --text-heading-s-tracking: 0;
+  --text-body-l-size: 18px;      --text-body-l-line: 28px;
+  --text-body-m-size: 16px;      --text-body-m-line: 24px;
+  --text-body-s-size: 14px;      --text-body-s-line: 20px;
+  --text-label-m-size: 14px;     --text-label-m-line: 20px;     --text-label-m-weight: 500;
+  --text-label-s-size: 12px;     --text-label-s-line: 16px;     --text-label-s-weight: 500;    --text-label-s-tracking: 0.2px;
+  --text-caption-size: 12px;     --text-caption-line: 16px;
+  --text-code-m-size: 14px;      --text-code-m-line: 22px;
+  --text-code-s-size: 12px;      --text-code-s-line: 18px;
+  --text-numeric-l-size: 28px;   --text-numeric-l-line: 32px;   --text-numeric-l-weight: 600;
+  --text-numeric-m-size: 20px;   --text-numeric-m-line: 24px;   --text-numeric-m-weight: 600;
+
+  /* Fluid display for marketing heroes */
+  --text-display-xl-fluid: clamp(40px, 5.5vw, 69px);
+}

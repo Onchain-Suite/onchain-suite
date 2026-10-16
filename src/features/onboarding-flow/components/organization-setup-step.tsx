@@ -8,10 +8,13 @@ import { toast } from "sonner";
 import { InputFormField } from "@/components/form-fields";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -20,7 +23,11 @@ import { apiClient } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
 import { isJsonObject } from "@/lib/utils";
 
-import { organizationOptions } from "../constants";
+import {
+  organizationOptions,
+  SECTOR_OTHER_VALUE,
+  web2Options,
+} from "../constants";
 import type { SuggestedContract } from "../onboarding.service";
 import { type OnboardingStepsProps } from "../types";
 import {
@@ -114,6 +121,16 @@ const generateUniqueSlug = (baseSlug: string) => {
   return `${baseSlug}-${suffix}`;
 };
 
+// The Web3 list drops its own "Other" entry — the picker has a single free-text
+// "Other" at the end that covers Web3 and Web2 alike.
+const web3SectorOptions = organizationOptions.filter(
+  (o) => o.id !== "other-web3-innovator"
+);
+const KNOWN_SECTOR_LABELS = new Set([
+  ...web3SectorOptions.map((o) => o.label),
+  ...web2Options.map((o) => o.label),
+]);
+
 export function OrganizationSetupStep({
   initialData,
   onNext,
@@ -127,6 +144,13 @@ export function OrganizationSetupStep({
       sector: initialData.sector ?? "",
     },
   });
+
+  // "Other" mode: a saved sector that isn't one of the listed labels is a
+  // free-text answer, so start in that mode when editing such a value.
+  const [sectorOther, setSectorOther] = useState<boolean>(
+    Boolean(initialData.sector) &&
+      !KNOWN_SECTOR_LABELS.has(initialData.sector ?? "")
+  );
 
   // Paused with the contract-suggestions panel below - restore these
   // useWatch subscriptions (organizationName, sector) when re-enabling it.
@@ -146,11 +170,38 @@ export function OrganizationSetupStep({
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
 
-      // Ensure session is fresh
-      const { data: session } = await authClient.getSession();
+      // Fetch the session, retrying briefly before giving up.
+      //
+      // The symptom this fixes: the page loaded WITH a session (useSession was
+      // populated, so onboarding-flow didn't bounce us to sign-in), yet this
+      // fresh getSession on submit can momentarily come back null right after a
+      // verify / OAuth redirect while the session cookie is still settling. That
+      // transient miss surfaced as a hard "No active session found" dead end. A
+      // couple of short retries turn it into a hit; only a session still gone
+      // after them is treated as genuinely absent.
+      //
+      // When it IS genuinely absent, the proxy stamps `x-session-miss` naming
+      // WHY (no cookie sent, cookie rejected, or backend unreachable) — those
+      // need opposite responses. See src/app/api/v1/auth/[...path]/route.ts.
+      let session = (await authClient.getSession()).data;
+      for (let attempt = 0; !session && attempt < 3; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        session = (await authClient.getSession()).data;
+      }
 
       if (!session) {
-        throw new Error("No active session found. Please sign in again.");
+        const reason = await fetch("/api/v1/auth/get-session", {
+          credentials: "include",
+        })
+          .then((r) => r.headers.get("x-session-miss"))
+          .catch(() => null);
+        throw new Error(
+          reason === "upstream-unreachable"
+            ? "Cannot reach the authentication service. Please try again in a moment."
+            : reason === "cookie-rejected-by-backend"
+              ? "Your session has expired. Please sign in again."
+              : "No active session found. Please sign in again."
+        );
       }
 
       const websiteUrl = normalizeWebsiteUrl(data.websiteUrl);
@@ -392,21 +443,62 @@ export function OrganizationSetupStep({
             name="sector"
             label="Sector"
             renderChild={(field) => (
-              <Select
-                value={typeof field.value === "string" ? field.value : ""}
-                onValueChange={field.onChange}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select your sector (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {organizationOptions.map((option) => (
-                    <SelectItem key={option.id} value={option.label}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Select
+                  value={
+                    sectorOther
+                      ? SECTOR_OTHER_VALUE
+                      : typeof field.value === "string"
+                        ? field.value
+                        : ""
+                  }
+                  onValueChange={(value) => {
+                    if (value === SECTOR_OTHER_VALUE) {
+                      setSectorOther(true);
+                      field.onChange("");
+                    } else {
+                      setSectorOther(false);
+                      field.onChange(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select your sector (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Web3</SelectLabel>
+                      {web3SectorOptions.map((option) => (
+                        <SelectItem key={option.id} value={option.label}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectLabel>Web2</SelectLabel>
+                      {web2Options.map((option) => (
+                        <SelectItem key={option.id} value={option.label}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectItem value={SECTOR_OTHER_VALUE}>
+                        Other (tell us)
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                {sectorOther ? (
+                  <Input
+                    autoFocus
+                    value={typeof field.value === "string" ? field.value : ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    placeholder="Which sector are you in?"
+                    aria-label="Your sector"
+                  />
+                ) : null}
+              </div>
             )}
             description="Helps us suggest the contracts and events to track."
           />

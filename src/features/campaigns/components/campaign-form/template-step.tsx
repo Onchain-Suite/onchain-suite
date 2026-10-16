@@ -16,35 +16,6 @@ import {
   templatesService,
 } from "@/features/templates/templates.service";
 
-/**
- * Empty design document for the external email builder. Seeded via
- * INIT_EMAIL_BUILDER when creating a new template so the editor starts blank
- * instead of restoring the campaign's previously saved design.
- */
-const BLANK_EDITOR_DOCUMENT = {
-  root: {
-    type: "EmailLayout",
-    data: {
-      backdropColor: "#F5F5F5",
-      canvasColor: "#FFFFFF",
-      textColor: "#262626",
-      fontFamily: "MODERN_SANS",
-      childrenIds: [],
-    },
-  },
-};
-
-/** URL-safe base64 (matches the editor page's decodeBase64Url). */
-function toBase64Url(value: string): string {
-  if (typeof window === "undefined") return "";
-  try {
-    const b64 = window.btoa(unescape(encodeURIComponent(value)));
-    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  } catch {
-    return "";
-  }
-}
-
 export interface TemplateStepProps {
   form: UseFormReturn<CampaignFormData>;
   campaignId?: string;
@@ -81,17 +52,40 @@ export function TemplateStep({
    * why, so the user isn't dropped somewhere with no way forward.
    */
   const openEditor = useCallback(
-    (params: URLSearchParams) => {
+    async (params: URLSearchParams) => {
       if (!normalizedCampaignId) {
         toast.error(
           "Add a campaign name first - the editor needs a saved campaign to attach the design to."
         );
         return;
       }
+      // Flush the message fields to the draft BEFORE leaving for the editor.
+      // Autosave only runs on a 15s interval, so a subject/preview typed just
+      // before opening the builder would otherwise never persist - and the
+      // return trip reloads the draft, restoring blank fields. Email only; push
+      // carries its own composer and never opens this editor.
+      if (form.getValues("channel") !== "in-app-push") {
+        await campaignsService
+          .updateContent(normalizedCampaignId, {
+            subject: form.getValues("emailSubject") ?? "",
+            previewText: form.getValues("previewText") ?? "",
+            senderName: form.getValues("senderName") ?? "",
+            senderEmail: form.getValues("senderEmail") ?? "",
+            // Persist the sender-identity LINK too. Flushing name+address while
+            // dropping the link is what left a returning draft "linkless": the
+            // name stays blank (inherited) but the schema then treats it as a
+            // required field, so Continue fails validation silently.
+            senderIdentityId: form.getValues("senderIdentityId") ?? null,
+            replyToEmail: form.getValues("useReplyTo")
+              ? form.getValues("replyToEmail")
+              : undefined,
+          })
+          .catch(() => undefined);
+      }
       params.set("campaign", normalizedCampaignId);
       router.push(`/campaigns/editor?${params.toString()}`);
     },
-    [normalizedCampaignId, router]
+    [normalizedCampaignId, router, form]
   );
 
   return (
@@ -125,12 +119,11 @@ export function TemplateStep({
             onUseTemplate={async (templateId, templateName) => {
               const clean = templateId.trim();
               form.setValue("selectedTemplate", clean, { shouldDirty: true });
-              let designB64 = "";
               if (normalizedCampaignId && clean) {
                 try {
-                  // Load the template's content so we can both apply it to the
-                  // campaign AND seed the builder's editor content (otherwise the
-                  // external editor opens blank).
+                  // Load the template's content and persist it server-side so the
+                  // embedded builder can seed its editor from the campaign (it
+                  // reads content via the editor-session token, NOT the URL).
                   const full = await templatesService.get(clean);
                   const content = extractEmailContent(full);
                   await campaignsService.setTemplate(normalizedCampaignId, {
@@ -144,10 +137,6 @@ export function TemplateStep({
                       assets: content.assets,
                     })
                     .catch(() => undefined);
-                  if (content.json && typeof content.json === "object") {
-                    const raw = JSON.stringify(content.json);
-                    if (raw.length < 190_000) designB64 = toBase64Url(raw);
-                  }
                 } catch (e: unknown) {
                   const message =
                     e instanceof Error ? e.message : "Failed to apply template";
@@ -165,7 +154,6 @@ export function TemplateStep({
               if (templateName) params.set("templateName", templateName);
               const subject = form.getValues("emailSubject");
               if (subject) params.set("subject", subject);
-              if (designB64) params.set("initialJsonB64", designB64);
               if (form.getValues("channel") === "in-app-push") {
                 params.set("channel", "in-app-push");
               }
@@ -250,11 +238,6 @@ export function TemplateStep({
               if (senderEmail) params.set("senderEmail", senderEmail);
               if (opts?.templateName)
                 params.set("templateName", opts.templateName);
-
-              const blankB64 = toBase64Url(
-                JSON.stringify(BLANK_EDITOR_DOCUMENT)
-              );
-              if (blankB64) params.set("initialJsonB64", blankB64);
 
               if (form.getValues("channel") === "in-app-push") {
                 params.set("channel", "in-app-push");

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { authClient } from "@/lib/auth-client";
+import { getSecurityStatus } from "@/lib/passkey";
 
 import TwoFactorAuthModal from "./two-factor-auth-modal";
 
@@ -16,6 +17,10 @@ vi.mock("@/lib/auth-client", () => ({
       disable: vi.fn(),
     },
   },
+}));
+
+vi.mock("@/lib/passkey", () => ({
+  getSecurityStatus: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -49,10 +54,21 @@ const mockedUseSession = vi.mocked(authClient.useSession);
 const mockedEnable = vi.mocked(authClient.twoFactor.enable);
 const mockedVerifyTotp = vi.mocked(authClient.twoFactor.verifyTotp);
 const mockedDisable = vi.mocked(authClient.twoFactor.disable);
+const mockedGetSecurityStatus = vi.mocked(getSecurityStatus);
 
 const setSession = (twoFactorEnabled: boolean) => {
   mockedUseSession.mockReturnValue({
     data: { user: { twoFactorEnabled } },
+  } as never);
+};
+
+/** Default: an account that already has a password (the common case). */
+const setHasPassword = (hasPassword: boolean) => {
+  mockedGetSecurityStatus.mockResolvedValue({
+    passkeys: [],
+    twoFactorEnabled: false,
+    hasPassword,
+    twoFactorAllowed: true,
   } as never);
 };
 
@@ -80,6 +96,9 @@ const goToQrStep = async (password = "Hunter2!Strong") => {
 describe("TwoFactorAuthModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default every test to a password-holding account so the existing flows
+    // hit the "confirm your current password" step; the OAuth suite overrides.
+    setHasPassword(true);
   });
 
   describe("enable flow", () => {
@@ -130,8 +149,15 @@ describe("TwoFactorAuthModal", () => {
         data: { status: true },
         error: null,
       } as never);
+      const onStatusChange = vi.fn();
 
-      render(<TwoFactorAuthModal open onOpenChange={vi.fn()} />);
+      render(
+        <TwoFactorAuthModal
+          open
+          onOpenChange={vi.fn()}
+          onStatusChange={onStatusChange}
+        />
+      );
       await goToQrStep();
 
       fireEvent.change(screen.getByPlaceholderText("000000"), {
@@ -148,6 +174,34 @@ describe("TwoFactorAuthModal", () => {
         screen.getByRole("button", { name: "Copy backup codes" })
       ).toBeTruthy();
       expect(toast.success).toHaveBeenCalledWith("2FA enabled successfully");
+      // The parent must be told so it can refresh the status row without a reload.
+      expect(onStatusChange).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not notify the parent when verification fails", async () => {
+      setSession(false);
+      enableSuccess();
+      mockedVerifyTotp.mockResolvedValue({
+        data: null,
+        error: { message: "Invalid TOTP code" },
+      } as never);
+      const onStatusChange = vi.fn();
+
+      render(
+        <TwoFactorAuthModal
+          open
+          onOpenChange={vi.fn()}
+          onStatusChange={onStatusChange}
+        />
+      );
+      await goToQrStep();
+      fireEvent.change(screen.getByPlaceholderText("000000"), {
+        target: { value: "000001" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /Verify/ }));
+
+      expect(await screen.findByText("Invalid TOTP code")).toBeTruthy();
+      expect(onStatusChange).not.toHaveBeenCalled();
     });
 
     it("shows the backend error for a wrong code and stays on the QR step", async () => {
@@ -265,8 +319,15 @@ describe("TwoFactorAuthModal", () => {
         error: null,
       } as never);
       const onOpenChange = vi.fn();
+      const onStatusChange = vi.fn();
 
-      render(<TwoFactorAuthModal open onOpenChange={onOpenChange} />);
+      render(
+        <TwoFactorAuthModal
+          open
+          onOpenChange={onOpenChange}
+          onStatusChange={onStatusChange}
+        />
+      );
       expect(screen.getByText("2FA is currently enabled")).toBeTruthy();
 
       fireEvent.click(screen.getByRole("button", { name: /Disable 2FA/ }));
@@ -290,6 +351,8 @@ describe("TwoFactorAuthModal", () => {
       });
       expect(toast.success).toHaveBeenCalledWith("2FA disabled");
       expect(onOpenChange).toHaveBeenCalledWith(false);
+      // Parent refreshes in place instead of the modal forcing a page reload.
+      await waitFor(() => expect(onStatusChange).toHaveBeenCalledTimes(1));
       expect(mockedEnable).not.toHaveBeenCalled();
     });
 
@@ -333,6 +396,53 @@ describe("TwoFactorAuthModal", () => {
 
       expect(await screen.findByText("Incorrect password")).toBeTruthy();
       expect(onOpenChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("OAuth-only account (no password)", () => {
+    it("enables 2FA without asking for a password, straight to the QR step", async () => {
+      setSession(false);
+      setHasPassword(false); // OAuth-only: no account password
+      enableSuccess();
+
+      render(<TwoFactorAuthModal open onOpenChange={vi.fn()} />);
+      // Let the security-status effect settle hasPassword -> false before we act.
+      await waitFor(() =>
+        expect(mockedGetSecurityStatus).toHaveBeenCalledTimes(1)
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Setup 2FA" }));
+
+      // No password prompt, no "create a password" detour — the QR appears.
+      expect(await screen.findByTestId("qr-code")).toBeTruthy();
+      expect(
+        screen.queryByPlaceholderText("Enter your current password")
+      ).toBeNull();
+      // enable() is called with no password (allowPasswordless on the backend).
+      expect(mockedEnable).toHaveBeenCalledWith({});
+    });
+
+    it("toasts a backend error and stays put if passwordless enable fails", async () => {
+      setSession(false);
+      setHasPassword(false);
+      mockedEnable.mockResolvedValue({
+        data: null,
+        error: { message: "Only workspace owners can enable 2FA" },
+      } as never);
+
+      render(<TwoFactorAuthModal open onOpenChange={vi.fn()} />);
+      await waitFor(() =>
+        expect(mockedGetSecurityStatus).toHaveBeenCalledTimes(1)
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Setup 2FA" }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(
+          "Only workspace owners can enable 2FA"
+        )
+      );
+      expect(screen.queryByTestId("qr-code")).toBeNull();
     });
   });
 });

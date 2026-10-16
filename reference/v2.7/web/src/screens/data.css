@@ -1,0 +1,122 @@
+/* Data (2.7) — sources, events, webhooks, API. */
+
+.dtabs { display:flex; gap:4px; border-bottom:1px solid var(--border-subtle); margin:-4px 0 24px; }
+.dtabs__t { display:inline-flex; align-items:center; gap:7px; padding:9px 13px; margin-bottom:-1px;
+  border:none; border-bottom:2px solid transparent; background:none; cursor:pointer;
+  font-family:inherit; font-size:13.5px; font-weight:500; color:var(--text-secondary); }
+.dtabs__t:hover { color:var(--text-primary); }
+.dtabs__t.on { color:var(--action-primary); border-bottom-color:var(--action-primary); }
+
+.dsec { display:flex; flex-direction:column; gap:34px; }
+.dsec__head { display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; }
+.dsec__head > div { flex:1; min-width:0; }
+.dsec__head h2 { margin:0 0 3px; font-size:16px; font-weight:600; letter-spacing:-.2px; color:var(--text-primary); }
+.dsec__head p { margin:0; font-size:13px; line-height:1.55; color:var(--text-tertiary); max-width:74ch; }
+.dsec__ic { width:32px; height:32px; flex-shrink:0; border-radius:var(--radius-md);
+  background:var(--bg-brand-subtle); color:var(--action-primary);
+  display:flex; align-items:center; justify-content:center; }
+
+.dgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px; }
+.dcard { display:flex; flex-direction:column; gap:9px; padding:15px 16px;
+  border:1px solid var(--border-subtle); border-radius:var(--radius-lg); background:var(--bg-surface); }
+.dcard--soon { opacity:.62; }
+.dcard--connected { border-color:var(--green-500); }
+.dcard__top { display:flex; align-items:center; gap:8px; }
+.dcard__top b { font-size:14.5px; font-weight:600; color:var(--text-primary); flex:1; }
+.dcard p { margin:0; font-size:12.5px; line-height:1.5; color:var(--text-tertiary); flex:1; }
+.dcard button { align-self:flex-start; }
+
+.dtable { border:1px solid var(--border-subtle); border-radius:var(--radius-lg); overflow:hidden; background:var(--bg-surface); }
+.dtable__head, .dtable__row { display:grid; grid-template-columns:2.2fr .8fr .8fr 1.6fr .7fr;
+  gap:14px; align-items:center; padding:12px 16px; }
+.dtable__head { background:var(--surface-subtle); border-bottom:1px solid var(--border-subtle);
+  font-size:11px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; color:var(--text-tertiary); }
+.dtable__row + .dtable__row { border-top:1px solid var(--border-subtle); }
+.dtable__row { font-size:13px; color:var(--text-secondary); }
+.dtable__name { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.dtable__name b { font-size:13.5px; font-weight:500; color:var(--text-primary); }
+.dtable__name span { font-size:11.5px; color:var(--text-tertiary); }
+.dtable .num { text-align:right; font-variant-numeric:tabular-nums; }
+
+.dchips { display:flex; flex-wrap:wrap; gap:5px; }
+.dchips i { font-style:normal; font-size:11px; padding:2px 7px; border-radius:var(--radius-sm);
+  background:var(--surface-subtle); color:var(--text-secondary); border:1px solid var(--border-subtle); }
+.dchips--pick i { cursor:pointer; padding:5px 11px; font-size:12.5px; }
+
+.dsetup { display:flex; align-items:center; gap:10px; padding:11px 13px;
+  background:var(--surface-subtle); border-radius:var(--radius-md); flex-wrap:wrap; }
+.dsetup > span { font-size:12px; color:var(--text-tertiary); width:100%; }
+.dsetup code { flex:1; min-width:0; overflow-x:auto; white-space:nowrap;
+  font-family:var(--font-mono); font-size:12.5px; color:var(--text-primary); }
+
+@media (max-width: 860px) {
+  .dtable__head, .dtable__row { grid-template-columns:1fr; gap:6px; }
+  .dtable__head { display:none; }
+}
+
+/* Product events: a described event reads as English, an undescribed one does not (2.7) */
+.dunmapped { font-style:normal; color:var(--orange-600); font-size:12.5px; }
+/* The contracts table is five columns; product events need six. A modifier rather than a
+   second table, so both keep the same row height, borders and mono treatment. */
+.dtable--events .dtable__head, .dtable--events .dtable__row {
+  grid-template-columns: 1.6fr 1fr 1.5fr .6fr .7fr .8fr;
+}
+@media (max-width: 860px) {
+  .dtable--events .dtable__head, .dtable--events .dtable__row { grid-template-columns:1fr; gap:6px; }
+}
+.dnote { display:flex; align-items:flex-start; gap:9px; margin:12px 0 0; font-size:12.5px;
+  line-height:1.55; color:var(--text-tertiary); }
+.dnote svg { flex-shrink:0; margin-top:2px; color:var(--action-primary); }
+
+/* Search-first sources (2.7) --------------------------------------------------------------- */
+.sfind { display:flex; align-items:center; gap:10px; padding:0 14px; height:46px;
+  border:1px solid var(--border-default); border-radius:var(--radius-lg); background:var(--bg-surface); }
+.sfind:focus-within { border-color:var(--action-primary); box-shadow:0 0 0 3px var(--action-primary-subtle); }
+.sfind > svg { flex-shrink:0; color:var(--text-tertiary); }
+.sfind input { flex:1; min-width:0; border:0; outline:0; background:none; font:inherit; font-size:14px;
+  color:var(--text-primary); }
+.sfind input::placeholder { color:var(--text-tertiary); }
+.sfind__x { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px;
+  border:0; border-radius:50%; cursor:pointer; color:var(--text-tertiary); background:var(--surface-subtle); }
+.sfind__x:hover { color:var(--text-primary); }
+.sfind__n { margin:0 0 12px; font-size:12px; color:var(--text-tertiary); }
+
+.smeta { display:flex; align-items:center; gap:8px; }
+.smeta__lane { font-size:11px; color:var(--text-tertiary); }
+.sfresh { display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:500;
+  letter-spacing:.2px; text-transform:uppercase; padding:2px 7px; border-radius:var(--radius-sm);
+  cursor:help; }
+.sfresh--live { color:var(--green-700); background:var(--green-50); }
+.sfresh--scheduled { color:var(--text-secondary); background:var(--surface-subtle); }
+.sfresh--one-off { color:var(--text-tertiary); background:var(--surface-subtle); }
+
+.smiss { display:flex; align-items:flex-start; gap:12px; }
+.smiss > div { flex:1; min-width:0; }
+.smiss h2 { margin:0 0 5px; font-size:16px; font-weight:600; letter-spacing:-.2px; color:var(--text-primary); }
+.smiss p { margin:0 0 14px; font-size:13px; line-height:1.6; color:var(--text-tertiary); max-width:72ch; }
+.smiss code, .dnote code, .sconn__hint code { font-family:var(--font-mono); font-size:12px;
+  padding:1px 4px; border-radius:var(--radius-sm); background:var(--surface-subtle); }
+.smiss__done { display:flex; align-items:center; gap:6px; color:var(--green-700); }
+.smiss__alt { margin-top:22px; }
+
+.sconn__gives { margin:0; font-size:14px; line-height:1.55; color:var(--text-secondary); }
+.sconn__can { display:flex; align-items:flex-start; gap:9px; margin:0; font-size:12.5px; line-height:1.5;
+  color:var(--text-tertiary); }
+.sconn__can .sfresh { flex-shrink:0; cursor:default; }
+.sconn__hint { margin:0; font-size:12px; line-height:1.5; color:var(--text-tertiary); }
+
+/* The one job an empty workspace has on this screen, above the tabs it would otherwise be
+   hidden under. Brand-tinted rather than a warning: nothing is wrong, something is next. */
+.dstart { display:flex; align-items:center; gap:14px; margin:0 0 22px; padding:16px 18px;
+  border:1px solid var(--action-primary); border-radius:var(--radius-lg); background:var(--bg-selected); }
+.dstart__ic { width:38px; height:38px; flex-shrink:0; border-radius:var(--radius-md); display:flex;
+  align-items:center; justify-content:center; background:var(--bg-surface); color:var(--action-primary); }
+.dstart.is-busy .dstart__ic svg { animation:dstart-spin 900ms linear infinite; }
+.dstart__tx { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.dstart__tx b { font-size:14.5px; font-weight:600; color:var(--text-primary); }
+.dstart__tx span { font-size:13px; line-height:1.5; color:var(--text-secondary); }
+.dstart__tx code { font-family:var(--font-mono); font-size:12.5px; padding:1px 5px; border-radius:var(--radius-sm);
+  background:var(--bg-surface); color:var(--text-primary); word-break:break-all; }
+@keyframes dstart-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .dstart.is-busy .dstart__ic svg { animation:none; } }
+@media (max-width:640px) { .dstart { flex-wrap:wrap; } }

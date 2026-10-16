@@ -3,6 +3,8 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import { withApiErrorFields } from "./utils/builder-issues";
+
 const pickOrgId = (orgId?: string) =>
   orgId ?? getSelectedOrganizationId() ?? null;
 
@@ -39,7 +41,21 @@ const request = async <T>(
         : typeof data === "string"
           ? data
           : (err.message ?? "Automations request failed");
-    throw new Error(String(message), { cause: e });
+    // Keep the structured payload on the Error. Flattening to a string threw
+    // away `code` and the `errors[]`/`warnings[]` the builder returns with
+    // AUTOMATION_BUILDER_INVALID - which is why a rejected graph could only be
+    // reported as "Automation builder graph is invalid", with no way to tell
+    // the user WHICH step was wrong.
+    throw withApiErrorFields(new Error(String(message), { cause: e }), {
+      code:
+        isJsonObject(nestedError) && typeof nestedError.code === "string"
+          ? nestedError.code
+          : isJsonObject(data) && typeof data.code === "string"
+            ? data.code
+            : undefined,
+      details: isJsonObject(nestedError) ? nestedError.details : undefined,
+      body: data,
+    });
   }
 };
 
@@ -68,7 +84,12 @@ export type AutomationsCountsResponse = {
 
 export type AutomationsMetricsResponse = {
   active: number;
+  /** Enrolments in the last 30 days. */
   entries: number;
+  /** Enrolments that reached the end of their flow. */
+  completed: number;
+  /** `completed / entries`, served by the backend. */
+  completionRate: number;
   conversions: number;
   revenue: number;
 };
@@ -88,6 +109,16 @@ export type AutomationsCreateResponse = {
   status: "draft" | string;
 };
 
+/** One trigger that published but registered no watch, so it will never fire.
+ *  Persisted server-side (2026-08-31): it comes back from the automation detail,
+ *  the builder load, both builder saves, discard and the status toggle - not
+ *  only from the publish response - so the warning survives a reload. */
+export type AutomationWatchSkip = {
+  nodeId?: string;
+  code?: string;
+  reason?: string;
+};
+
 export type AutomationBuilderResponse = {
   automationId?: string;
   status?: string;
@@ -95,10 +126,46 @@ export type AutomationBuilderResponse = {
   version?: number | string;
   nodes?: unknown[];
   edges?: unknown[];
+  settings?: unknown;
   updatedAt?: string;
   draftSavedAt?: string;
   builderWarnings?: unknown[];
+  watchesSkipped?: AutomationWatchSkip[];
   [key: string]: unknown;
+};
+
+/** One on-chain trigger's CURRENT subscription state, from
+ *  `GET /automations/{id}/watches`. Distinct from `watchesSkipped`, which
+ *  records what went wrong at the last sync: a watch can bind cleanly at
+ *  publish and be marked `failed` by the reconciler later, and nothing else
+ *  surfaces that. Treat anything but `live: true` as not firing. */
+export type AutomationWatchTrigger = {
+  nodeId: string;
+  live: boolean;
+  chain?: string;
+  address?: string;
+  topic0?: string;
+  signature?: string | null;
+  decodes?: boolean;
+  actorPath?: string | null;
+  watchStatus?: "active" | "draining" | "failed";
+  /** null until the first event - and a stalled timestamp is the staleness
+   *  signal for a subscription that quietly died. */
+  lastEventAt?: string | null;
+  lastError?: string | null;
+  /** Set instead of the live fields when the trigger never bound. */
+  code?: string;
+  reason?: string;
+};
+
+export type AutomationWatchesResponse = {
+  automationId?: string;
+  status?: string;
+  /** `"unavailable"` means the subscription read FAILED - not that nothing is
+   *  subscribed. A missing live entry proves nothing in that state, so it must
+   *  never render as a dead trigger. */
+  subscriptions?: "known" | "unavailable" | string;
+  triggers?: AutomationWatchTrigger[];
 };
 
 export type AutomationRuntimeTriggerResponse = {
@@ -142,11 +209,118 @@ export type OnchainCatalogDefinition = {
   defaultConfig?: Record<string, unknown>;
 };
 
+/** One issue from the builder `validate` endpoint. `nodeId` is set for
+ *  node-scoped errors so the UI can point at the offending step; graph-level
+ *  errors (empty flow, missing trigger) omit it. */
+export type BuilderValidationIssue = {
+  code?: string;
+  message?: string;
+  nodeId?: string;
+};
+
 export type OnchainCatalogResponse = {
   source: string;
+  /** All supported networks from the backend registry — the chain picker's
+   *  source of truth. `slug` is the stored value (the runtime resolves it).
+   *  `testnet` lets the picker group mainnets and testnets separately. */
+  chains?: {
+    slug: string;
+    label: string;
+    family: string;
+    testnet?: boolean;
+  }[];
   chainFamilies: { id: string; label: string; chains: string[] }[];
   definitions: OnchainCatalogDefinition[];
 };
+
+/** One selectable event, with how we know about it. */
+export interface ContractEventOption {
+  value: string;
+  label: string;
+  topic0?: string;
+  signature?: string;
+  /**
+   * `abi` — from a verified ABI, so the list is COMPLETE.
+   * `directory` — an unverified contract's topic, named by reverse lookup.
+   * `observed` — seen emitted, but unnamed.
+   * `catalog` — a well-known event, offered before a contract is chosen.
+   */
+  provenance?: "abi" | "directory" | "observed" | "catalog";
+  recentCount?: number;
+}
+
+/**
+ * Whether a preset trigger can fire on the chosen contract.
+ *
+ * Exactly three answers and no maybes — see the backend note. Only `confirmed`
+ * justifies telling the user the trigger is ready; the other two must show the
+ * event picker instead.
+ */
+/**
+ * One of the org's OTHER saved contracts that CAN fire the chosen preset.
+ *
+ * Returned only when the chosen contract cannot — a confirmed preset needs no
+ * alternative, and offering one would imply the choice was wrong.
+ */
+export interface ContractSuggestion {
+  chain: string | null;
+  address: string;
+  label?: string;
+  /** The wanted event this contract actually emits. */
+  event: string;
+  /** Ready to display: says what to switch to and why. */
+  reason: string;
+  /** False when accepting it also changes the trigger's chain. */
+  sameChain: boolean;
+}
+
+/**
+ * A contract found ON CHAIN that emits the wanted event in the same
+ * transactions as the one the user chose — but which they have NOT saved.
+ *
+ * Distinct from ContractSuggestion because the provenance changes what the UI
+ * may claim. A saved contract is something they already told us about; this is
+ * an inference from co-occurrence, and co-occurrence is not causation. It has
+ * to read as "we found this, is it right?" rather than as a fact.
+ */
+export interface DiscoveredContract {
+  address: string;
+  topic0: string;
+  /** Transactions (of those sampled) where it emitted the event. */
+  transactions: number;
+  /** How many transactions were sampled. */
+  sampled: number;
+  /** transactions / sampled. 1.0 means every single one. */
+  consistency: number;
+}
+
+export interface PresetEventMatch {
+  triggerType: string;
+  status: "confirmed" | "mismatch" | "unconfirmed";
+  expects: string[];
+  /** The concrete event, when confirmed — store THIS, not the preset name. */
+  resolvedEvent: { name: string; signature?: string; topic0?: string } | null;
+  /** Everything the contract emits, to pick from when not confirmed. */
+  options: ContractEventOption[];
+  message: string;
+}
+
+/** What `GET .../contracts/interface` returns. */
+export type SubmittedInterface =
+  | { submitted: false }
+  | {
+      submitted: true;
+      family: "evm" | "solana";
+      contractName: string | null;
+      events: {
+        name: string;
+        signature?: string;
+        topic0?: string;
+        discriminator?: string;
+      }[];
+      instructions: string[];
+      eventCount: number;
+    };
 
 export const automationService = {
   listAutomations(params?: AutomationsListParams, orgId?: string) {
@@ -217,6 +391,33 @@ export const automationService = {
   publishAutomation(automationId: string, orgId?: string) {
     return request<Record<string, unknown>>(
       { method: "POST", url: `/automations/${automationId}/publish` },
+      orgId
+    );
+  },
+
+  /**
+   * Run a DeFi Health Factor (`defi_health_factor`) trigger NOW, ignoring its
+   * 30-minute schedule. Editor+. This is the lending trigger (pool + threshold),
+   * NOT the contact-score `health_threshold` trigger, which is a different type
+   * ingested via `/automations/runtime/triggers/health-threshold`.
+   *
+   * `positionsRead` and `crossings` are both meaningful (docs/backend.md):
+   * `positionsRead: 0` = nothing read (wrong pool/chain, or no contact has a
+   * wallet); `positionsRead > 0, crossings: 0` = reading fine, nothing crossed
+   * the threshold this run.
+   */
+  runHealthFactorNow(automationId: string, orgId?: string) {
+    return request<
+      {
+        automationId?: string;
+        positionsRead?: number;
+        crossings?: number;
+      } & Record<string, unknown>
+    >(
+      {
+        method: "POST",
+        url: `/automations/${automationId}/defi/health-factor/run`,
+      },
       orgId
     );
   },
@@ -309,7 +510,10 @@ export const automationService = {
     orgId?: string
   ) {
     return request<
-      { errors?: unknown[]; warnings?: unknown[] } & Record<string, unknown>
+      {
+        errors?: BuilderValidationIssue[];
+        warnings?: BuilderValidationIssue[];
+      } & Record<string, unknown>
     >(
       {
         method: "POST",
@@ -344,6 +548,112 @@ export const automationService = {
   getOnchainCatalog(orgId?: string) {
     return request<OnchainCatalogResponse>(
       { method: "GET", url: "/automations/builder/onchain/catalog" },
+      orgId
+    );
+  },
+
+  /**
+   * Events a specific contract emits (decoded from its recent on-chain logs),
+   * for the trigger's Event dropdown. Backed lazily + cached server-side, with a
+   * catalog fallback, so it's safe to fetch on contract-select.
+   */
+  /**
+   * Whether an ABI or IDL has already been submitted for an address.
+   *
+   * Absence is `{ submitted: false }`, not a 404 — nobody having submitted one
+   * is the normal answer for most addresses, and branching on a status code
+   * for the common case goes wrong eventually.
+   */
+  getContractInterface(chain: string, address: string, orgId?: string) {
+    return request<SubmittedInterface>(
+      {
+        method: "GET",
+        url: "/automations/builder/contracts/interface",
+        params: { chain, address },
+      },
+      orgId
+    );
+  },
+
+  /**
+   * Submit an ABI (EVM) or IDL (Solana) for an address.
+   *
+   * Stored per (chain, address) and SHARED across organisations — an ABI is
+   * public information about a public address, so this fixes the contract for
+   * everyone watching it, not just for us. The response says `shared: true`
+   * and the UI should repeat that, because it is surprising.
+   */
+  submitContractInterface(
+    params: {
+      chain: string;
+      address: string;
+      artifact: unknown;
+      family: "evm" | "solana";
+    },
+    orgId?: string
+  ) {
+    return request<{
+      chain: string;
+      address: string;
+      family: "evm" | "solana";
+      contractName: string | null;
+      events: {
+        name: string;
+        signature?: string;
+        topic0?: string;
+        discriminator?: string;
+      }[];
+      instructions: string[];
+      shared: boolean;
+    }>(
+      {
+        method: "POST",
+        url: "/automations/builder/contracts/interface",
+        data:
+          params.family === "solana"
+            ? {
+                chain: params.chain,
+                address: params.address,
+                idl: params.artifact,
+              }
+            : {
+                chain: params.chain,
+                address: params.address,
+                abi: params.artifact,
+              },
+      },
+      orgId
+    );
+  },
+
+  getContractEvents(
+    chain: string,
+    address: string,
+    orgId?: string,
+    // Pass the PRESET trigger type to get `presetMatch` back: whether that
+    // preset can actually fire on this contract. Presets match on EVENT NAME
+    // (`Transfer`, `Approval`, `Liquidate`), so a protocol with custom events
+    // matches nothing — the trigger publishes, registers, reports live, and is
+    // silent forever. This is the last point at which that is visible.
+    triggerType?: string
+  ) {
+    return request<{
+      events: ContractEventOption[];
+      // A chosen contract resolves to its own events; `empty`/`unavailable`/
+      // `unsupported` describe why there are none. `catalog` is only the
+      // no-contract browse list.
+      source: "live" | "empty" | "unavailable" | "unsupported" | "catalog";
+      presetMatch?: PresetEventMatch;
+      suggestions?: ContractSuggestion[];
+      discovered?: DiscoveredContract[];
+    }>(
+      {
+        method: "GET",
+        url: "/automations/builder/onchain/contract-events",
+        params: triggerType
+          ? { chain, address, triggerType }
+          : { chain, address },
+      },
       orgId
     );
   },
@@ -396,9 +706,13 @@ export const automationService = {
     );
   },
 
-  listAvailableTriggers(orgId?: string) {
-    return request<{ items?: unknown[] } | unknown[]>(
-      { method: "GET", url: "/automations/triggers/available" },
+  /**
+   * What the automation is subscribed to RIGHT NOW - the only way to see a
+   * watch the reconciler marked `failed` after a clean publish.
+   */
+  getWatches(automationId: string, orgId?: string) {
+    return request<AutomationWatchesResponse>(
+      { method: "GET", url: `/automations/${automationId}/watches` },
       orgId
     );
   },
@@ -454,6 +768,48 @@ export const automationService = {
       {
         method: "POST",
         url: "/automations/runtime/triggers/segment-entered",
+        data: body,
+      },
+      orgId
+    );
+  },
+
+  triggerListJoined(
+    body: {
+      segmentId: string;
+      contactId?: string;
+      email?: string;
+      walletAddress?: string;
+      sourceEventId?: string;
+      payload?: Record<string, unknown>;
+    },
+    orgId?: string
+  ) {
+    return request<AutomationRuntimeTriggerResponse>(
+      {
+        method: "POST",
+        url: "/automations/runtime/triggers/list-joined",
+        data: body,
+      },
+      orgId
+    );
+  },
+
+  triggerFormSubmitted(
+    body: {
+      formId: string;
+      contactId?: string;
+      email?: string;
+      walletAddress?: string;
+      sourceEventId?: string;
+      payload?: Record<string, unknown>;
+    },
+    orgId?: string
+  ) {
+    return request<AutomationRuntimeTriggerResponse>(
+      {
+        method: "POST",
+        url: "/automations/runtime/triggers/form-submitted",
         data: body,
       },
       orgId
@@ -528,6 +884,44 @@ export const automationService = {
   getStatsOverview(automationId: string, orgId?: string) {
     return request<Record<string, unknown>>(
       { method: "GET", url: `/automations/${automationId}/stats` },
+      orgId
+    );
+  },
+
+  /** Per-node funnel (reached / completed / dropped) + overall enrolled → completed. */
+  getFlowAnalytics(automationId: string, orgId?: string) {
+    return request<{
+      automationId: string;
+      overall: { enrolled: number; completed: number; completionRate: number };
+      nodes: {
+        nodeId: string;
+        type: string | null;
+        reached: number;
+        completed: number;
+        skipped: number;
+        failed: number;
+        dropped: number;
+      }[];
+    }>(
+      { method: "GET", url: `/automations/${automationId}/flow-analytics` },
+      orgId
+    );
+  },
+
+  /** Per-message delivery counts (sent/delivered/opened/clicked) keyed by node. */
+  getMessageStats(automationId: string, orgId?: string) {
+    return request<{
+      messages: {
+        nodeId: string;
+        sent: number;
+        delivered: number;
+        opened: number;
+        clicked: number;
+        bounced: number;
+        failed: number;
+      }[];
+    }>(
+      { method: "GET", url: `/automations/${automationId}/stats/messages` },
       orgId
     );
   },

@@ -1,22 +1,24 @@
 "use client";
 
 import {
+  ArrowLeftIcon,
   ArrowPathIcon,
-  ArrowUturnLeftIcon,
   BoltIcon,
   CheckCircleIcon,
   CheckIcon,
   ChevronUpIcon,
   ClipboardDocumentIcon,
-  ClockIcon,
   CodeBracketIcon,
   EnvelopeOpenIcon,
   LinkIcon,
   MegaphoneIcon,
+  MicrophoneIcon,
+  PaperClipIcon,
   PlayIcon,
   SparklesIcon,
   Square3Stack3DIcon,
   StopIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -29,24 +31,30 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/dialog";
 import { Input } from "@/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 
-import { isJsonObject } from "@/lib/utils";
+import { cn, isJsonObject } from "@/lib/utils";
 
 import {
-  type IntelligenceGoldrushMcpQueryResponse,
-  type IntelligenceGoldrushMcpStep,
-  type IntelligenceGoldrushMcpStreamEvent,
-  type IntelligenceGoldrushMcpStructuredResult,
-  type IntelligenceGoldrushMcpStructuredResultKind,
+  type IntelligenceAgentQueryResponse,
+  type IntelligenceAgentStep,
+  type IntelligenceAgentStreamEvent,
+  type IntelligenceAgentStructuredResult,
+  type IntelligenceAgentStructuredResultKind,
+  type IntelligenceProposedAction,
   intelligenceService,
 } from "../../intelligence.service";
 import { type ChartSeriesPoint, ChatResultCard } from "./chat-result-card";
+import { HistoryView } from "./history-view";
+import { ProposedActionCard } from "./proposed-action-card";
 import { SqlBlockchainLoader } from "./sql-blockchain-loader";
 import { SqlResultsTable } from "./sql-results-table";
-import { ThinkingTimeline, ThoughtProcess } from "./thinking-timeline";
+import { type ThinkingKind, ThinkingTimeline } from "./thinking-timeline";
 import {
   dropFormattedSiblingColumns,
   preferFormattedCell,
 } from "@/features/intelligence/utils";
+import { toQueryHistoryItems } from "@/features/intelligence/utils/query-history";
+import { MarkdownLite } from "@/shared/components/common/markdown-lite";
+import { useVoiceInput } from "@/shared/hooks/use-voice-input";
 
 const DEFAULT_SQL_QUERY = "";
 
@@ -114,7 +122,34 @@ const asDisplayText = (value: unknown) => {
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleString();
   }
+  // Objects/arrays would render as "[object Object]" - show something readable.
+  if (typeof value === "object") {
+    if (Array.isArray(value)) {
+      return value.length === 0 ? "-" : `${value.length} items`;
+    }
+    const obj = value as Record<string, unknown>;
+    if (Object.keys(obj).length === 0) return "-";
+    const key = obj.key ?? obj.name ?? obj.label ?? obj.id;
+    if (typeof key === "string") {
+      return obj.count !== undefined && obj.count !== null
+        ? `${key} (${String(obj.count)})`
+        : key;
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "-";
+    }
+  }
   return String(value);
+};
+
+/** True when a cell holds nothing worth a column: null/undefined/""/[]/{}. */
+const isEmptyCell = (value: unknown): boolean => {
+  if (value === null || value === undefined || value === "") return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "object") return Object.keys(value).length === 0;
+  return false;
 };
 
 const prettifyColumnLabel = (value: string) =>
@@ -204,6 +239,143 @@ const createStructuredRowKey = (
   return `${scope}-${hashString(fallbackSeed)}`;
 };
 
+const ROWS_PER_PAGE = 8;
+
+/**
+ * Structured result table with client-side pagination, so a large SQL result
+ * (thousands of rows) does not dump into the thread at once. First five columns,
+ * eight rows a page, with prev/next and a running count once there is more than
+ * one page.
+ */
+// Internal bookkeeping columns that are noise in a chat answer: opaque record
+// ids, raw rule JSON, internal flags. A marketer asking "how many subscribers"
+// does not want an "id"/"criteria"/"starred" column. Hidden by default and shown
+// only when a caller explicitly lists them in preferredColumns (i.e. the user
+// asked for that field by name).
+const NOISE_COLUMNS = new Set([
+  "id",
+  "criteria",
+  "starred",
+  "organizationid",
+  "organization_id",
+  "orgid",
+  "org_id",
+  "tenantid",
+  "tenant_id",
+]);
+
+function StructuredRowsTable({
+  rows,
+  preferredColumns,
+}: {
+  rows: StructuredResultRow[];
+  preferredColumns?: string[];
+}) {
+  const [page, setPage] = useState(0);
+  // Drop columns that are empty in every row (e.g. an always-{} `sentAt`), so the
+  // table shows signal, not "{}"/"-" filler.
+  const nonEmptyColumns = columnsFromRows(rows).filter(
+    (column) => !rows.every((row) => isEmptyCell(row[column]))
+  );
+  // Then drop internal-noise columns unless the caller explicitly asked for them.
+  const explicit = new Set(
+    (preferredColumns ?? []).map((c) => c.toLowerCase())
+  );
+  const denoisedColumns = nonEmptyColumns.filter(
+    (column) =>
+      !NOISE_COLUMNS.has(column.toLowerCase()) ||
+      explicit.has(column.toLowerCase())
+  );
+  // Never blank the table: if denoising removed everything, fall back to the
+  // non-empty set so there is always something to render.
+  const allColumns =
+    denoisedColumns.length > 0 ? denoisedColumns : nonEmptyColumns;
+  const selectedColumns =
+    preferredColumns && preferredColumns.length > 0
+      ? preferredColumns.filter((column) => allColumns.includes(column))
+      : allColumns;
+  const visibleColumns = selectedColumns.slice(0, 5);
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
+  const current = Math.min(page, pageCount - 1);
+  const start = current * ROWS_PER_PAGE;
+  const pageRows = rows.slice(start, start + ROWS_PER_PAGE);
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border/60 bg-background/60">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-border/60 text-sm">
+          <thead className="bg-muted/30">
+            <tr>
+              {visibleColumns.map((column) => (
+                <th
+                  key={column}
+                  className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+                >
+                  {prettifyColumnLabel(column)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/40">
+            {pageRows.map((row) => {
+              const rowKey = createStructuredRowKey(
+                row,
+                visibleColumns,
+                "structured-row"
+              );
+              return (
+                <tr key={rowKey} className="bg-background/30">
+                  {visibleColumns.map((column) => (
+                    <td
+                      key={`${rowKey}-${column}`}
+                      className="px-4 py-3 align-top text-foreground/92"
+                    >
+                      {column.toLowerCase().includes("hash") ||
+                      column.toLowerCase().includes("address")
+                        ? asIdentifierText(row[column])
+                        : asDisplayText(preferFormattedCell(row, column))}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > ROWS_PER_PAGE ? (
+        <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">
+          <span className="tabular-nums">
+            Showing {start + 1}-{start + pageRows.length} of{" "}
+            {rows.length.toLocaleString()}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPage(current - 1)}
+              disabled={current === 0}
+              className="rounded-md border border-border/70 px-2 py-1 font-medium transition-colors enabled:hover:text-foreground disabled:opacity-40"
+            >
+              Prev
+            </button>
+            <span className="tabular-nums">
+              {current + 1} / {pageCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage(current + 1)}
+              disabled={current >= pageCount - 1}
+              className="rounded-md border border-border/70 px-2 py-1 font-medium transition-colors enabled:hover:text-foreground disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const collectObjectCandidates = (
   payload: unknown
 ): Array<Record<string, unknown>> => {
@@ -239,16 +411,69 @@ const collectObjectCandidates = (
   return candidates;
 };
 
-const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
+/**
+ * Strip the underlying data provider's branding from any agent step text before
+ * it reaches the UI, so the activity timeline reads as a clean, generic thinking
+ * process (like Claude's). Covers the current provider (Alchemy) and the legacy
+ * names still present in older runs (GoldRush / the "MCP" wire word). The backend
+ * endpoint keys keep their names; this only touches human-facing copy.
+ */
+const sanitizeAgentText = (text: string): string =>
+  text
+    .replace(/(?:GoldRush\s+)?(?:Alchemy\s+)?MCP\s+agent/gi, "on-chain agent")
+    .replace(/\bAlchemy\s+agent\b/gi, "on-chain agent")
+    .replace(/GoldRush[\s_-]+MCP/gi, "")
+    .replace(/GoldRush/gi, "")
+    .replace(/\bAlchemy\b/gi, "")
+    .replace(/\bMCP\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[\s_-]+/, "")
+    .trim();
+
+/**
+ * Maps a tool name to the human-facing data source(s) it draws on, so the
+ * thinking timeline can show a small "On-chain" / "CRM" pill under a step (like
+ * the reference design) without leaking internal tool names. Unknown tools get
+ * no chip rather than a wrong one.
+ */
+const TOOL_SOURCE_RULES: Array<[RegExp, string]> = [
+  [/^(wallet_|contract_|token_|chain_)/, "On-chain"],
+  [/^run_intelligence_sql/, "Product data"],
+  [/^(contact_|campaign_|audience_|create_audience|recommend_)/, "CRM"],
+  [/^(apply_play|create_campaign)/, "Automation"],
+];
+const toolSources = (name?: string): string[] | undefined => {
+  const n = (name ?? "").trim().toLowerCase();
+  if (!n) return undefined;
+  for (const [re, label] of TOOL_SOURCE_RULES) if (re.test(n)) return [label];
+  return undefined;
+};
+
+/**
+ * Agent lifecycle events that are identical on every run (startup, loading the
+ * resource/tool catalogs, a generic "next step") and so carry no per-question
+ * signal. Hidden from the live thinking timeline so it reads as real reasoning,
+ * not boilerplate.
+ */
+const THINKING_NOISE_EVENTS = new Set([
+  "started",
+  "planner_ready",
+  "resource_context",
+  "tools_discovered",
+  "step_started",
+]);
+
+const toStreamActivityEntry = (event: IntelligenceAgentStreamEvent) => {
   const eventType = event.type ?? "update";
   const candidates = collectObjectCandidates(event.data);
   const [first] = candidates;
-  const toolName = candidates
+  const rawToolName = candidates
     .map((candidate) =>
       pickFirstText(candidate.toolName, candidate.name, candidate.title)
     )
     .find(Boolean);
-  const detail = candidates
+  const toolName = rawToolName ? sanitizeAgentText(rawToolName) : undefined;
+  const rawDetail = candidates
     .map((candidate) =>
       pickFirstText(
         candidate.message,
@@ -260,6 +485,7 @@ const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
       )
     )
     .find(Boolean);
+  const detail = rawDetail ? sanitizeAgentText(rawDetail) : undefined;
 
   switch (eventType) {
     case "started":
@@ -267,32 +493,37 @@ const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
         label: "Thought process",
         detail:
           detail ??
-          "Working through the request and connecting to the MCP agent.",
+          "Working through the request and connecting to the on-chain agent.",
         tone: "default" as const,
+        kind: "plan" as const,
       };
     case "planner_ready":
       return {
         label: "Execution plan ready",
         detail:
           detail ??
-          "Pressure-testing the best route before running any live MCP calls.",
+          "Pressure-testing the best route before running any live calls.",
         tone: "default" as const,
+        kind: "plan" as const,
       };
     case "resource_context":
       return {
         label: "Context loaded",
         detail:
           detail ??
-          `${pickUnknownArray(first?.resources).length || "Relevant"} MCP resources were loaded.`,
+          `${pickUnknownArray(first?.resources).length || "Relevant"} resources were loaded.`,
         tone: "default" as const,
+        kind: "context" as const,
+        sources: ["Memory"],
       };
     case "tools_discovered":
       return {
         label: "Tool path selected",
         detail:
           detail ??
-          `${pickUnknownArray(first?.tools).length || "Relevant"} MCP tools are in play for this request.`,
+          `${pickUnknownArray(first?.tools).length || "Relevant"} tools are in play for this request.`,
         tone: "default" as const,
+        kind: "tools" as const,
       };
     case "step_started":
       return {
@@ -302,12 +533,15 @@ const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
           toolName ??
           "Preparing the next reasoning step for the request.",
         tone: "default" as const,
+        kind: "plan" as const,
       };
     case "decision":
       return {
         label: "Decision made",
         detail: detail ?? toolName ?? "The agent selected the next action.",
         tone: "default" as const,
+        kind: "decision" as const,
+        sources: toolSources(toolName),
       };
     case "validation_issue":
       return {
@@ -315,15 +549,16 @@ const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
         detail:
           detail ?? "The request arguments needed a small normalization step.",
         tone: "warning" as const,
+        kind: "adjust" as const,
       };
     case "tool_call_started":
       return {
         label: "Tool running",
         detail:
-          toolName ??
-          detail ??
-          "Executing a live MCP tool against the provider.",
+          toolName ?? detail ?? "Executing a live tool against the provider.",
         tone: "default" as const,
+        kind: "tool" as const,
+        sources: toolSources(toolName),
       };
     case "tool_call_result":
       return {
@@ -333,40 +568,74 @@ const toStreamActivityEntry = (event: IntelligenceGoldrushMcpStreamEvent) => {
           detail ??
           "Received provider output and folded it into the answer.",
         tone: "success" as const,
+        kind: "tool" as const,
+        sources: toolSources(toolName),
       };
     case "clarification":
       return {
         label: "Clarification needed",
         detail: detail ?? "The agent needs one more detail",
         tone: "warning" as const,
+        kind: "clarify" as const,
       };
     case "summarizing":
       return {
         label: "Composing answer",
-        detail:
-          detail ?? "Turning the MCP output into a product-ready response.",
+        detail: detail ?? "Turning the output into a product-ready response.",
         tone: "default" as const,
+        kind: "writing" as const,
       };
     case "final":
       return {
         label: "Answer ready",
-        detail: detail ?? "The MCP agent finished successfully.",
+        detail: detail ?? "The on-chain agent finished successfully.",
         tone: "success" as const,
+        kind: "done" as const,
       };
     case "error":
       return {
         label: "Error",
         detail:
-          detail ?? "The MCP stream failed and could not finish this request.",
+          detail ?? "The stream failed and could not finish this request.",
         tone: "error" as const,
+        kind: "error" as const,
       };
     default:
       return {
         label: prettifyColumnLabel(eventType),
         detail: detail ?? toolName ?? "The agent returned another update.",
         tone: "default" as const,
+        kind: "update" as const,
       };
   }
+};
+
+/**
+ * Pull the incremental answer text out of an `answer_token` SSE event so the
+ * answer can type out live (like Claude Code) while the durable query is still
+ * in flight. The backend may carry the piece under a few keys, or as the raw
+ * data string. Whitespace is preserved deliberately - a token is often a single
+ * space or a partial word - so this does NOT go through the trimming
+ * `pickFirstText`. Returns null for any non-answer_token event.
+ */
+const extractAnswerToken = (
+  event: IntelligenceAgentStreamEvent
+): string | null => {
+  if (event.type !== "answer_token") return null;
+  const fromKey = collectObjectCandidates(event.data)
+    .map((candidate) =>
+      [
+        candidate.token,
+        candidate.delta,
+        candidate.text,
+        candidate.content,
+        candidate.chunk,
+      ].find((value) => typeof value === "string")
+    )
+    .find((value): value is string => typeof value === "string");
+  if (typeof fromKey === "string") return fromKey;
+  if (typeof event.data === "string") return event.data;
+  return null;
 };
 
 const extractConversationId = (payload: unknown) =>
@@ -378,8 +647,8 @@ const isAbortError = (error: unknown) =>
   error instanceof Error && error.name === "AbortError";
 
 const toStreamStep = (
-  event: IntelligenceGoldrushMcpStreamEvent
-): IntelligenceGoldrushMcpStep | null => {
+  event: IntelligenceAgentStreamEvent
+): IntelligenceAgentStep | null => {
   const eventType = event.type ?? "";
   if (
     eventType !== "tool_call_started" &&
@@ -416,9 +685,9 @@ const toStreamStep = (
 };
 
 const toStreamFinalResponse = (
-  event: IntelligenceGoldrushMcpStreamEvent,
-  collectedSteps: IntelligenceGoldrushMcpStep[]
-): IntelligenceGoldrushMcpQueryResponse | null => {
+  event: IntelligenceAgentStreamEvent,
+  collectedSteps: IntelligenceAgentStep[]
+): IntelligenceAgentQueryResponse | null => {
   const candidates = collectObjectCandidates(event.data);
   const responseCandidate =
     candidates.find(
@@ -433,7 +702,7 @@ const toStreamFinalResponse = (
 
   const response = {
     ...responseCandidate,
-  } as IntelligenceGoldrushMcpQueryResponse;
+  } as IntelligenceAgentQueryResponse;
 
   if (
     (!Array.isArray(response.steps) || response.steps.length === 0) &&
@@ -445,7 +714,7 @@ const toStreamFinalResponse = (
   return response;
 };
 
-interface MpcFailureReport {
+interface AgentFailureReport {
   message: string;
   /** Actionable explanation for known failure modes (config, quota, …). */
   guidance?: string;
@@ -462,9 +731,14 @@ interface MpcFailureReport {
  */
 const MCP_FAILURE_GUIDANCE: Array<{ match: RegExp; guidance: string }> = [
   {
-    match: /mcp routing is not configured/i,
+    // Any "not configured / not enabled" flavor from the agent backend. Covers
+    // "mcp routing is not configured" and the legacy "GoldRush MCP is not
+    // configured" string this environment still returns when the agent's
+    // on-chain data provider isn't wired up.
+    match:
+      /\bis not configured\b|not configured|isn'?t configured|not enabled|isn'?t enabled/i,
     guidance:
-      "The on-chain data agent (GoldRush MCP) isn't enabled on this backend environment - an operator needs to configure the GoldRush API key and MCP routing on the server. Until then, Chat and SQL modes still answer questions over your own audience and campaign data.",
+      "The on-chain agent isn't enabled on this backend environment yet - an operator needs to configure its data provider on the server. Until then, SQL queries over your own audience and campaign data still work.",
   },
   {
     match: /unknown variant `?developer`?/i,
@@ -474,7 +748,7 @@ const MCP_FAILURE_GUIDANCE: Array<{ match: RegExp; guidance: string }> = [
   {
     match: /plan_limit_exceeded|credit/i,
     guidance:
-      "Your organization has used its GoldRush/AI credit allowance and the usage wallet can't cover the overage. Top up the wallet or upgrade in Settings → Billing.",
+      "Your organization has used its AI credit allowance and the usage wallet can't cover the overage. Top up the wallet or upgrade in Settings → Billing.",
   },
   {
     match: /rate limit|too many requests/i,
@@ -483,7 +757,7 @@ const MCP_FAILURE_GUIDANCE: Array<{ match: RegExp; guidance: string }> = [
   },
 ];
 
-const guidanceForMcpFailure = (
+const guidanceForAgentFailure = (
   message: string,
   statusCode?: number
 ): string | undefined => {
@@ -497,13 +771,13 @@ const guidanceForMcpFailure = (
   return undefined;
 };
 
-const toMcpFailureReport = (
+const toAgentFailureReport = (
   error: unknown,
   context: {
     prompt?: string;
     conversationId?: string | null;
   }
-): MpcFailureReport => {
+): AgentFailureReport => {
   const candidates = [
     ...collectObjectCandidates(error),
     ...(error instanceof Error ? collectObjectCandidates(error.cause) : []),
@@ -527,7 +801,7 @@ const toMcpFailureReport = (
         )
       )
       .find(Boolean) ??
-    "Failed to run MCP chat";
+    "Failed to run the on-chain agent";
   const statusCode = candidates
     .map((candidate) => {
       const directStatus = candidate.status;
@@ -561,7 +835,7 @@ const toMcpFailureReport = (
 
   return {
     message,
-    guidance: guidanceForMcpFailure(message, statusCode),
+    guidance: guidanceForAgentFailure(message, statusCode),
     statusCode,
     requestId,
     conversationId,
@@ -570,7 +844,7 @@ const toMcpFailureReport = (
   };
 };
 
-const formatMcpFailureReport = (report: MpcFailureReport) =>
+const formatAgentFailureReport = (report: AgentFailureReport) =>
   [
     report.guidance ?? null,
     report.guidance ? "" : null,
@@ -593,15 +867,17 @@ type StreamActivityEntry = {
   label: string;
   detail?: string;
   tone: "default" | "success" | "warning" | "error";
+  kind?: ThinkingKind;
 };
 
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  attachmentName?: string;
   kind?: "answer" | "question" | "error";
   rationale?: string;
-  errorReport?: MpcFailureReport;
+  errorReport?: AgentFailureReport;
   confidence?: number;
   queryReady?: boolean;
   toolSteps?: Array<{
@@ -612,8 +888,230 @@ interface ChatMessage {
   mode?: string;
   conversationId?: string;
   queryId?: string;
-  structuredResult?: IntelligenceGoldrushMcpStructuredResult | null;
+  structuredResult?: IntelligenceAgentStructuredResult | null;
 }
+
+/** One suggested follow-up shown under an answer; clicking sends `prompt` as a new turn. */
+type NextStep = { label: string; prompt: string };
+
+// Columns that mean the answer names people/wallets, so it can be acted on
+// (email them, message them, save them) rather than only read.
+const AUDIENCE_COLUMN_HINTS = [
+  "wallet",
+  "address",
+  "contact_id",
+  "contactid",
+  "holder",
+  "owner",
+  "recipient",
+];
+
+const answerTargetsAudience = (
+  structured?: IntelligenceAgentStructuredResult | null
+): boolean => {
+  if (!structured) return false;
+  const columns = columnsFromRows(normalizeStructuredRows(structured.rows)).map(
+    (c) => c.toLowerCase()
+  );
+  return columns.some((c) =>
+    AUDIENCE_COLUMN_HINTS.some((hint) => c.includes(hint))
+  );
+};
+
+// Columns that hold an actual wallet ADDRESS (not, say, contact_id) — used to
+// seed a segment from a chat answer that has no stored query behind it.
+const WALLET_COLUMN_HINTS = ["wallet", "address", "owner", "holder", "account"];
+
+const isWalletAddress = (value: unknown): value is string =>
+  typeof value === "string" &&
+  (/^0x[0-9a-fA-F]{40}$/.test(value.trim()) ||
+    /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value.trim()));
+
+/** The distinct wallet addresses in an answer's rows, so an audience answer can
+ *  become a segment even when it has no queryId (agentic/onchain answers). Only
+ *  values that actually look like an address are taken, so a contact_id or a
+ *  label column never leaks in as a fake wallet. */
+const extractWalletsFromMessage = (message: ChatMessage): string[] => {
+  const structured = message.structuredResult;
+  if (!structured) return [];
+  const rows = normalizeStructuredRows(structured.rows);
+  const walletColumns = columnsFromRows(rows).filter((column) => {
+    const lc = column.toLowerCase();
+    return WALLET_COLUMN_HINTS.some((hint) => lc.includes(hint));
+  });
+  const out = new Set<string>();
+  for (const row of rows) {
+    for (const column of walletColumns) {
+      const value = row[column];
+      if (isWalletAddress(value)) out.add(value.trim());
+    }
+  }
+  return [...out];
+};
+
+/**
+ * Recommended next steps under an answer, in the spirit of Claude Code's
+ * follow-ups: turn every result into an obvious next action. When the answer
+ * names an audience (wallets / contacts) the actions are the ones that move the
+ * needle - a follow-up email, an in-app message, saving the list; the write ones
+ * flow back through the agent's confirm gate, so nothing sends without approval.
+ * Otherwise they are analytical follow-ups that deepen the same thread.
+ */
+const buildNextSteps = (message: ChatMessage): NextStep[] => {
+  const structured = message.structuredResult;
+  const kind = structured?.kind;
+  // The approve/decline card already IS the next step.
+  if (kind === "proposed_action") return [];
+
+  // Track the conversation: when the agent ends by OFFERING an action (a
+  // question mentioning a campaign or a Play), suggest taking it rather than
+  // repeating the last question. This is what makes the ghost text feel live.
+  const content = (message.content ?? "").toLowerCase();
+  const asksQuestion = content.includes("?");
+  if (asksQuestion && content.includes("in-app")) {
+    return [
+      {
+        label: "Yes, draft the in-app message",
+        prompt:
+          "Yes - draft that in-app message for the cohort and propose it.",
+      },
+      {
+        label: "Do an email instead",
+        prompt:
+          "Instead, draft an email campaign for that cohort and propose it.",
+      },
+    ];
+  }
+  if (asksQuestion && content.includes("campaign")) {
+    return [
+      {
+        label: "Yes, propose that campaign",
+        prompt:
+          "Yes - save the cohort as a segment and propose that campaign for my approval.",
+      },
+      {
+        label: "Draft an in-app message instead",
+        prompt:
+          "Instead, draft an in-app message for that cohort and propose it.",
+      },
+    ];
+  }
+  if (
+    asksQuestion &&
+    (content.includes("segment") ||
+      content.includes("audience") ||
+      content.includes("build the"))
+  ) {
+    return [
+      {
+        label: "Yes, build the segment",
+        prompt: "Yes - save that cohort as an audience segment.",
+      },
+      {
+        label: "Then propose a campaign",
+        prompt: "Then propose a campaign to that segment for my approval.",
+      },
+    ];
+  }
+  if (
+    asksQuestion &&
+    (content.includes("automation") || content.includes(" play"))
+  ) {
+    return [
+      {
+        label: "Yes, fork that Play",
+        prompt:
+          "Yes - fork a suitable automation Play into a draft for that cohort.",
+      },
+      {
+        label: "Run it as a campaign instead",
+        prompt:
+          "Instead, propose an email campaign for that cohort for my approval.",
+      },
+    ];
+  }
+  // Any other closing question: a plain affirmative always follows the thread.
+  if (asksQuestion) {
+    return [
+      { label: "Yes, go ahead", prompt: "Yes, go ahead with that." },
+      {
+        label: "What else stands out?",
+        prompt: "Not right now - what else stands out in this data?",
+      },
+    ];
+  }
+
+  if (kind === "retention_recommendations") {
+    // Only offer "apply the top play" when the top recommendation actually
+    // carries a Play id; otherwise it maps to a campaign, and suggesting a Play
+    // leads to the "no Play id was returned" dead-end.
+    const top =
+      structured && Array.isArray(structured.rows)
+        ? (structured.rows[0] as Record<string, unknown> | undefined)
+        : undefined;
+    const hasPlay =
+      typeof top?.recommendedPlayId === "string" &&
+      top.recommendedPlayId.length > 0;
+    return hasPlay
+      ? [
+          {
+            label: "Apply the top play",
+            prompt:
+              "Apply the top recommended retention play as a draft automation.",
+          },
+          {
+            label: "Or propose the campaign",
+            prompt:
+              "Propose the top recommended retention campaign for my approval.",
+          },
+        ]
+      : [
+          {
+            label: "Propose the top campaign",
+            prompt:
+              "Save the top cohort as a segment and propose its recommended campaign for my approval.",
+          },
+          {
+            label: "Draft an in-app message",
+            prompt:
+              "Draft an in-app message for the top cohort and propose it.",
+          },
+        ];
+  }
+  if (answerTargetsAudience(structured)) {
+    return [
+      {
+        label: "Draft a follow-up email",
+        prompt:
+          "Draft a follow-up email campaign for the contacts in that result and propose it.",
+      },
+      {
+        label: "Send an in-app message",
+        prompt: "Draft an in-app message for those wallets and propose it.",
+      },
+      {
+        label: "Save as a segment",
+        prompt: "Save those contacts as a new audience segment.",
+      },
+    ];
+  }
+  return [
+    {
+      label: "How do I retain these customers?",
+      prompt:
+        "Based on that, how can I retain these customers? Recommend concrete next steps.",
+    },
+    {
+      label: "How can I boost deliverability?",
+      prompt:
+        "Given this data, how can I improve my email deliverability? Give specific fixes.",
+    },
+    {
+      label: "Break it down further",
+      prompt: "Break that result down by chain and by engagement level.",
+    },
+  ];
+};
 
 const getFallbackReasoningActivity = (
   recovering: boolean,
@@ -630,6 +1128,7 @@ const getFallbackReasoningActivity = (
       label: "Reading your question",
       detail: `Working out what ${questionRef} needs from live onchain data.`,
       tone: "default",
+      kind: "plan",
     },
     {
       id: "coverage",
@@ -637,6 +1136,7 @@ const getFallbackReasoningActivity = (
       detail:
         "Pulling the wallets, tokens, and activity your answer depends on across the covered chains.",
       tone: "default",
+      kind: "tool",
     },
     {
       id: "result-path",
@@ -645,13 +1145,14 @@ const getFallbackReasoningActivity = (
         ? "The connection recovered - finishing your answer now."
         : "Turning the data into a clear answer.",
       tone: recovering ? "warning" : "success",
+      kind: recovering ? "adjust" : "writing",
     },
   ];
 };
 
 const isStructuredResult = (
   value: unknown
-): value is IntelligenceGoldrushMcpStructuredResult =>
+): value is IntelligenceAgentStructuredResult =>
   isJsonObject(value) &&
   typeof value.kind === "string" &&
   Array.isArray(value.rows);
@@ -664,9 +1165,22 @@ const isStructuredResult = (
 const isRawToolDump = (text: string) => {
   const trimmed = text.trim();
   return (
-    /^rendered\s+\S+\s+result\s*:/i.test(trimmed) || trimmed.startsWith("{")
+    // "Rendered <tool> result:" AND the plural "...results:" the list renderer
+    // emits for multi-row payloads (e.g. run_intelligence_sql). Either way it is
+    // a raw JSON dump, never the prose answer, so it must not render as one.
+    /^rendered\s+\S+\s+results?\s*:/i.test(trimmed) ||
+    trimmed.startsWith("{") ||
+    trimmed.startsWith("[") ||
+    /^\d+\.\s*\{/.test(trimmed)
   );
 };
+
+/**
+ * The AI agent returns Markdown, but the chat surface renders plain text, so the
+ * raw syntax (**bold**, ## headings, `code`, [links](…), - bullets) leaked
+ * through. Strip it to clean prose - keep the words, drop the markup, and
+ * normalise list markers to a real bullet.
+ */
 
 /**
  * API envelope/pagination fields that sometimes leak through as "rows"
@@ -695,9 +1209,7 @@ const meaningfulStructuredRows = (
 };
 
 /** Plain-language "nothing found" line, phrased for the result kind. */
-const emptyResultMessage = (
-  kind: IntelligenceGoldrushMcpStructuredResultKind
-) => {
+const emptyResultMessage = (kind: IntelligenceAgentStructuredResultKind) => {
   const normalized = String(kind).toLowerCase();
   if (normalized.includes("transaction") || normalized.includes("transfer")) {
     return "No transactions were found for this wallet on the covered chains.";
@@ -714,23 +1226,57 @@ const emptyResultMessage = (
   return "Nothing was found for this lookup - there's no matching onchain activity.";
 };
 
+// When a row carries both a raw amount ("balance") and its decimal-adjusted
+// twin ("balance_formatted", injected by the backend), collapse the pair: the
+// readable value takes the base key and the "_formatted" twin is dropped. This
+// is why the holders chart and table both show token amounts (131,404) rather
+// than raw base units, and never a redundant second column of the same number.
+const foldFormattedTwins = (
+  row: Record<string, unknown>
+): Record<string, unknown> => {
+  const twins = Object.keys(row).filter((key) => key.endsWith("_formatted"));
+  if (twins.length === 0) return row;
+  const out: Record<string, unknown> = { ...row };
+  for (const key of twins) {
+    const base = key.slice(0, -"_formatted".length);
+    const value = row[key];
+    if (
+      base.length > 0 &&
+      value !== null &&
+      value !== undefined &&
+      value !== ""
+    ) {
+      out[base] = value;
+    }
+    delete out[key];
+  }
+  return out;
+};
+
 const normalizeStructuredRows = (
-  rows: IntelligenceGoldrushMcpStructuredResult["rows"]
-) => rows.map(asRecord);
+  rows: IntelligenceAgentStructuredResult["rows"]
+) => rows.map(asRecord).map(foldFormattedTwins);
 
 // Column names we treat as the category (x/legend) and the numeric measure when
 // deriving a chart series from an arbitrary structured result.
+// Wallet/holder/address columns come first: in holder-style results every row
+// carries a constant token `name` ("Aerodrome"), so preferring `name` made every
+// slice share one label. The distinguishing per-row value is the address, so the
+// chart labels each slice by the (truncated) wallet. Segment/campaign/name still
+// win for results that have no address column.
 const CHART_LABEL_COLUMNS = [
-  "name",
-  "holder",
-  "label",
   "wallet",
+  "holder",
   "address",
+  "owner",
+  "account",
+  "label",
+  "segment",
+  "campaign",
+  "name",
   "token",
   "symbol",
-  "segment",
   "chain",
-  "campaign",
 ];
 const CHART_VALUE_COLUMNS = [
   "amount",
@@ -752,7 +1298,7 @@ const CHART_VALUE_COLUMNS = [
  * no numeric measure is present so the Chart tab is simply hidden (never faked).
  */
 const deriveChatChartSeries = (
-  structured: IntelligenceGoldrushMcpStructuredResult
+  structured: IntelligenceAgentStructuredResult
 ): ChartSeriesPoint[] => {
   const rows = meaningfulStructuredRows(
     normalizeStructuredRows(structured.rows)
@@ -778,7 +1324,20 @@ const deriveChatChartSeries = (
     if (label.length === 0) continue;
     points.push({ label, value });
   }
-  return points.slice(0, 8);
+  // A chart earns its place only when there is something to COMPARE: at least
+  // two points, a positive total, and more than one distinct value. A pie of
+  // all-zeros or identical values (e.g. a wallet list with no conversions) says
+  // nothing the table doesn't - so return [] and the Chart tab hides itself,
+  // leaving just the table. We don't always need both.
+  const trimmed = points.slice(0, 8);
+  if (trimmed.length < 2) return [];
+  const total = trimmed.reduce(
+    (sum, p) => sum + (Number.isFinite(p.value) ? p.value : 0),
+    0
+  );
+  const distinctValues = new Set(trimmed.map((p) => p.value)).size;
+  if (total <= 0 || distinctValues < 2) return [];
+  return trimmed;
 };
 
 const findPreferredColumn = (
@@ -879,22 +1438,41 @@ interface QueryTabProps {
   activeSurface: "chat" | "sql";
   openEmailComposer: (recipient: unknown) => void;
   setActiveTab: (tab: string) => void;
+  /** Controlled history-panel disclosure, so the tab-bar History icon can drive
+   *  the same panel. Falls back to internal state when omitted. */
+  historyOpen?: boolean;
+  onHistoryOpenChange?: (open: boolean) => void;
   // Seed the editor with a previously saved run (Reports tab "Open" action).
   // Mirrors the history-panel click-through: with a queryId the status poll +
-  // results fetch re-open the saved run's data; with a chat prompt the MCP
+  // results fetch re-open the saved run's data; with a chat prompt the agent
   // composer is pre-filled for a resend. Read once on mount.
   initialQueryId?: string | null;
   initialSql?: string;
   initialChatPrompt?: string;
+  /** Root className - the chat surface passes fill/flex classes so the message
+   *  list scrolls inside a fixed viewport (ChatGPT-style) instead of growing the
+   *  page. */
+  className?: string;
 }
+
+// Upload policy for chat attachments. The file goes to Azure via the shared
+// storage endpoint; the server (ownership-checked) extracts its text and folds it
+// into the prompt as data, so the content never rides the client request. Docs
+// and data files only - no executables. 5 MB caps abuse; the server truncates
+// the extracted text since context is bounded.
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const ALLOWED_UPLOAD_RE = /\.(csv|tsv|txt|md|json|pdf)$/i;
 
 export function QueryTab({
   activeSurface,
   openEmailComposer,
   setActiveTab,
+  historyOpen: controlledHistoryOpen,
+  onHistoryOpenChange,
   initialQueryId,
   initialSql,
   initialChatPrompt,
+  className,
 }: QueryTabProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -904,6 +1482,9 @@ export function QueryTab({
   const [sqlCopied, setSqlCopied] = useState(false);
   const sqlCopiedTimeoutRef = useRef<number | null>(null);
   const [queryId, setQueryId] = useState<string | null>(initialQueryId ?? null);
+  // Wallets to seed a segment from when the targeted answer has no stored query
+  // (agentic/onchain answers) — set alongside/instead of queryId by an action.
+  const [segmentWallets, setSegmentWallets] = useState<string[]>([]);
   const [hasRunQuery, setHasRunQuery] = useState(Boolean(initialQueryId));
   // Bounded status polling: once the poll exceeds SQL_STATUS_POLL_TIMEOUT_MS
   // we stop and show an explicit timeout error (with a retry) in the results
@@ -926,11 +1507,28 @@ export function QueryTab({
     contactsCreated?: number;
   } | null>(null);
   const [chatPrompt, setChatPrompt] = useState(initialChatPrompt ?? "");
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const voice = useVoiceInput(
+    (text) =>
+      setChatPrompt((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)),
+    (message) => toast.error(message)
+  );
+  const [attachment, setAttachment] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [historyOpenLocal, setHistoryOpenLocal] = useState(false);
+  // Controlled when the page drives it from the tab-bar icon, else self-owned.
+  const historyOpen = controlledHistoryOpen ?? historyOpenLocal;
+  const setHistoryOpen = (next: boolean) => {
+    setHistoryOpenLocal(next);
+    onHistoryOpenChange?.(next);
+  };
   const [assistantPrompt, setAssistantPrompt] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const chatThreadEndRef = useRef<HTMLDivElement | null>(null);
-  const mcpAbortRef = useRef<AbortController | null>(null);
+  const agentAbortRef = useRef<AbortController | null>(null);
   const [protocolSearch] = useState("");
   const [selectedProtocolId] = useState("");
   const [activeConversationId, setActiveConversationId] = useState<
@@ -942,6 +1540,11 @@ export function QueryTab({
   const [streamActivity, setStreamActivity] = useState<StreamActivityEntry[]>(
     []
   );
+  // Answer text streamed token-by-token off the SSE `answer_token` events, shown
+  // in the thinking bubble so the answer visibly forms before the durable query
+  // resolves. Purely additive UI over the authoritative blocking result - if the
+  // backend never streams tokens this stays "" and behavior is unchanged.
+  const [streamingAnswer, setStreamingAnswer] = useState("");
   const [streamFallbackUsed, setStreamFallbackUsed] = useState(false);
   const [activeSuggestionId, setActiveSuggestionId] = useState<string | null>(
     null
@@ -1073,11 +1676,12 @@ export function QueryTab({
     },
     [activeSuggestionId]
   );
-  const buildMcpRequest = useCallback(
-    (prompt: string) => ({
+  const buildAgentRequest = useCallback(
+    (prompt: string, attachmentFileId?: string) => ({
       conversationId: activeConversationId ?? undefined,
       message: prompt,
       prompt,
+      attachmentFileId,
       protocol: selectedProtocol?.name,
       chain: selectedChains.length === 1 ? primaryChain : undefined,
       chains: selectedChains.length > 0 ? selectedChains : undefined,
@@ -1086,7 +1690,12 @@ export function QueryTab({
         selectedProtocol.contractAddresses.length > 0
           ? selectedProtocol.contractAddresses
           : undefined,
-      mode: "best" as const,
+      // "fast" runs the agent's decision loop on the chat model (Claude Sonnet)
+      // rather than escalating every step to the slow reasoning model, which was
+      // making interactive answers take ~2 minutes. Sonnet answers these
+      // tool-using questions correctly and in a fraction of the time; reserve
+      // "best" for offline/deep analysis, not the live chat.
+      mode: "auto" as const,
       useProjectSettings: true,
       useProtocolRegistry: true,
     }),
@@ -1149,39 +1758,53 @@ export function QueryTab({
     },
   });
 
-  const mcpMutation = useMutation<
-    IntelligenceGoldrushMcpQueryResponse,
+  const agentMutation = useMutation<
+    IntelligenceAgentQueryResponse,
     Error,
-    string
+    { prompt: string; attachmentFileId?: string }
   >({
-    mutationFn: async (prompt) => {
+    mutationFn: async ({ prompt, attachmentFileId }) => {
       const trimmedPrompt = prompt.trim();
-      if (trimmedPrompt.length === 0) {
+      if (trimmedPrompt.length === 0 && !attachmentFileId) {
         throw new Error("Write a message first");
       }
-      const request = buildMcpRequest(trimmedPrompt);
+      const request = buildAgentRequest(trimmedPrompt, attachmentFileId);
       setStreamActivity([]);
+      setStreamingAnswer("");
       setStreamFallbackUsed(false);
 
-      const collectedSteps: IntelligenceGoldrushMcpStep[] = [];
-      let streamFinalResponse: IntelligenceGoldrushMcpQueryResponse | undefined;
-      let streamFailed = false;
+      const collectedSteps: IntelligenceAgentStep[] = [];
+      let streamFinalResponse: IntelligenceAgentQueryResponse | undefined;
       const streamAbortController = new AbortController();
       // Lets the user stop a long-running agent; also tears down the SSE stream.
       const runAbort = new AbortController();
-      mcpAbortRef.current = runAbort;
+      agentAbortRef.current = runAbort;
       runAbort.signal.addEventListener("abort", () =>
         streamAbortController.abort()
       );
 
       const streamPromise = intelligenceService
-        .streamGoldrushMcpQuery(request, {
+        .streamAgentQuery(request, {
           signal: streamAbortController.signal,
           onEvent: (event) => {
             const eventConversationId = extractConversationId(event.data);
             if (eventConversationId) {
               setActiveConversationId(eventConversationId);
             }
+
+            // Answer tokens stream into the live preview, not the step timeline.
+            const answerToken = extractAnswerToken(event);
+            if (answerToken !== null) {
+              setStreamingAnswer((prev) => prev + answerToken);
+              return;
+            }
+
+            // Skip the agent's internal scaffolding events (booting, loading the
+            // resource/tool catalogs, generic "next step"). They are the same on
+            // every run and add noise, not insight - the timeline should show the
+            // decisions and tool calls that are specific to THIS question.
+            if (THINKING_NOISE_EVENTS.has(event.type ?? "")) return;
+
             const activityEntry = toStreamActivityEntry(event);
             setStreamActivity((prev) =>
               [
@@ -1220,69 +1843,40 @@ export function QueryTab({
         })
         .catch((error) => {
           if (isAbortError(error)) return;
-          streamFailed = true;
           setStreamFallbackUsed(true);
         });
 
-      const [planResult, queryResult] = await Promise.allSettled([
-        intelligenceService.planGoldrushMcp(request, undefined, {
-          signal: runAbort.signal,
-        }),
-        intelligenceService.queryGoldrushMcp(request, undefined, {
-          signal: runAbort.signal,
-        }),
-      ]);
-
-      streamAbortController.abort();
+      // The SSE stream is the single source of truth. It drives the live
+      // progress UI and emits the final answer — with plan, structuredResult and
+      // steps — on its `final` event, so awaiting it is ONE agent run per
+      // message. The parallel blocking queryAgent + deterministic planAgent that
+      // used to run alongside it were a second and third execution of the SAME
+      // turn; the stream already carries everything they returned.
       await streamPromise;
 
-      const queryResponse =
-        queryResult.status === "fulfilled" ? queryResult.value : null;
-      if (queryResponse) {
-        if (typeof queryResponse.conversationId === "string") {
-          setActiveConversationId(queryResponse.conversationId);
-        }
-        if (
-          planResult.status === "fulfilled" &&
-          (queryResponse.plan === undefined || queryResponse.plan === null)
-        ) {
-          return {
-            ...queryResponse,
-            plan: planResult.value,
-          };
-        }
-        return queryResponse;
-      }
-
       if (streamFinalResponse) {
-        setStreamFallbackUsed(true);
         if (typeof streamFinalResponse.conversationId === "string") {
           setActiveConversationId(streamFinalResponse.conversationId);
-        }
-        if (
-          planResult.status === "fulfilled" &&
-          (streamFinalResponse.plan === undefined ||
-            streamFinalResponse.plan === null)
-        ) {
-          return {
-            ...streamFinalResponse,
-            plan: planResult.value,
-          };
         }
         return streamFinalResponse;
       }
 
-      if (streamFailed) {
-        setStreamFallbackUsed(true);
+      // The stream failed or ended without a final answer — fall back to a
+      // SINGLE blocking run rather than leave the user empty-handed.
+      setStreamFallbackUsed(true);
+      const fallback = await intelligenceService.queryAgent(
+        request,
+        undefined,
+        {
+          signal: runAbort.signal,
+        }
+      );
+      if (typeof fallback.conversationId === "string") {
+        setActiveConversationId(fallback.conversationId);
       }
-
-      if (queryResult.status === "rejected") {
-        throw queryResult.reason;
-      }
-
-      throw new Error("Failed to generate an MCP response");
+      return fallback;
     },
-    onSuccess: (res: IntelligenceGoldrushMcpQueryResponse) => {
+    onSuccess: (res: IntelligenceAgentQueryResponse) => {
       if (
         typeof res.conversationId === "string" &&
         res.conversationId.length > 0
@@ -1373,7 +1967,7 @@ export function QueryTab({
         setHasRunQuery(false);
       }
 
-      // MCP runs spend GoldRush credits - refresh the meter.
+      // Agent runs spend on-chain data credits - refresh the meter.
       queryClient
         .invalidateQueries({ queryKey: ["intelligence", "credits"] })
         .catch(() => undefined);
@@ -1398,12 +1992,12 @@ export function QueryTab({
         ]);
         return;
       }
-      const errorReport = toMcpFailureReport(err, {
+      const errorReport = toAgentFailureReport(err, {
         prompt: lastSubmittedChatPrompt,
         conversationId: activeConversationId,
       });
       const { message } = errorReport;
-      console.error("[intelligence] MCP chat failure", errorReport, err);
+      console.error("[intelligence] agent chat failure", errorReport, err);
       setStreamActivity((prev) => [
         ...prev.slice(-3),
         {
@@ -1419,43 +2013,85 @@ export function QueryTab({
           id: `assistant-error-${Date.now()}`,
           role: "assistant",
           kind: "error",
+          // Lead with actionable guidance for known failures (agent not
+          // configured, out of credits, rate-limited); fall back to a generic,
+          // de-branded line. The raw backend message stays in the bug report.
           content:
-            "I couldn't complete that MCP request. Please try again or refine the prompt.",
+            errorReport.guidance ??
+            "I couldn't complete that request. Please try again or refine the prompt.",
           rationale: message,
           errorReport,
           queryReady: false,
         },
       ]);
-      toast.error(message);
+      toast.error(
+        errorReport.guidance
+          ? "The on-chain agent isn't available right now."
+          : "I couldn't complete that request."
+      );
     },
     onSettled: () => {
-      mcpAbortRef.current = null;
+      agentAbortRef.current = null;
+      // The committed message now owns the answer; drop the live preview.
+      setStreamingAnswer("");
     },
   });
 
-  const stopMcpRun = useCallback(() => {
-    mcpAbortRef.current?.abort();
-    mcpAbortRef.current = null;
+  const stopAgentRun = useCallback(() => {
+    agentAbortRef.current?.abort();
+    agentAbortRef.current = null;
+  }, []);
+
+  const handleFileSelected = useCallback(async (file: File | null) => {
+    if (!file) return;
+    if (!ALLOWED_UPLOAD_RE.test(file.name)) {
+      toast.error("Supported files: .csv, .tsv, .txt, .md, .json, .pdf.");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error("That file is over the 5 MB limit.");
+      return;
+    }
+    setAttachmentUploading(true);
+    try {
+      const uploaded = await intelligenceService.uploadAttachment(file);
+      setAttachment(uploaded);
+    } catch {
+      toast.error("Could not upload that file. Please try again.");
+    } finally {
+      setAttachmentUploading(false);
+    }
   }, []);
 
   const submitChatPrompt = useCallback(
     (prompt: string) => {
       const trimmedPrompt = prompt.trim();
-      if (trimmedPrompt.length === 0) return;
+      if (trimmedPrompt.length === 0 && !attachment) return;
+
+      // The user sees their own words plus a file chip; the agent receives the
+      // file id, which the server resolves to text and folds in as data. The raw
+      // content never rides the client request.
+      const displayText =
+        trimmedPrompt.length > 0
+          ? trimmedPrompt
+          : `Take a look at ${attachment?.name ?? "the attached file"}.`;
 
       setChatMessages((prev) => [
         ...prev,
         {
           id: `user-${Date.now()}`,
           role: "user",
-          content: trimmedPrompt,
+          content: displayText,
+          attachmentName: attachment?.name,
         },
       ]);
-      setLastSubmittedChatPrompt(trimmedPrompt);
+      setLastSubmittedChatPrompt(displayText);
       setChatPrompt("");
-      mcpMutation.mutate(trimmedPrompt);
+      const attachmentFileId = attachment?.id;
+      setAttachment(null);
+      agentMutation.mutate({ prompt: displayText, attachmentFileId });
     },
-    [mcpMutation]
+    [agentMutation, attachment]
   );
 
   useEffect(() => {
@@ -1463,7 +2099,7 @@ export function QueryTab({
     const node = chatThreadEndRef.current;
     if (!node || typeof node.scrollIntoView !== "function") return;
     node.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [activeSurface, chatMessages.length, mcpMutation.isPending]);
+  }, [activeSurface, chatMessages.length, agentMutation.isPending]);
 
   const suggestionsMutation = useMutation({
     mutationFn: async () => {
@@ -1595,8 +2231,18 @@ export function QueryTab({
 
   const createSegmentMutation = useMutation({
     mutationFn: async (name: string) => {
-      if (!queryId) throw new Error("No query to use");
-      return intelligenceService.createSegmentFromQuery({ queryId, name });
+      // A stored query is preferred; an agentic/onchain answer has none, so seed
+      // the segment from the answer's own wallet rows instead.
+      if (queryId) {
+        return intelligenceService.createSegmentFromQuery({ queryId, name });
+      }
+      if (segmentWallets.length > 0) {
+        return intelligenceService.createSegmentFromWallets({
+          wallets: segmentWallets,
+          name,
+        });
+      }
+      throw new Error("No wallets in this result to build a segment from");
     },
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({
@@ -1658,16 +2304,16 @@ export function QueryTab({
     status === "completed" || status === "failed" || sqlPollTimedOut;
   const isQueryRunning =
     runMutation.isPending ||
-    mcpMutation.isPending ||
+    agentMutation.isPending ||
     (!!queryId && !sqlStatusSettled);
 
   const isSqlRunning =
     runMutation.isPending ||
-    (!mcpMutation.isPending && !!queryId && !sqlStatusSettled);
+    (!agentMutation.isPending && !!queryId && !sqlStatusSettled);
 
   // Backend message for a rejected run (4xx/5xx, e.g. "Only SELECT queries
   // are allowed") - rendered as an explicit panel in the results area, not
-  // just a toast. Scoped to the SQL surface; the chat surface reports MCP
+  // just a toast. Scoped to the SQL surface; the chat surface reports agent
   // failures inline in the thread.
   const sqlRunError =
     activeSurface === "sql" && runMutation.isError
@@ -1760,21 +2406,53 @@ export function QueryTab({
     () => suggestionsMutation.data?.suggestions ?? [],
     [suggestionsMutation.data?.suggestions]
   );
-  const reasoningTimeline = useMemo(
-    () =>
-      streamActivity.length > 0
-        ? streamActivity.slice(-12)
-        : getFallbackReasoningActivity(
-            streamFallbackUsed,
-            lastSubmittedChatPrompt
-          ),
-    [streamActivity, streamFallbackUsed, lastSubmittedChatPrompt]
-  );
-  const renderConversionActions = (forQueryId?: string) => {
+  const reasoningTimeline = useMemo(() => {
+    // Live steps from the agent stream take precedence.
+    if (streamActivity.length > 0) return streamActivity.slice(-12);
+    // No live events. Only show the generic scripted progress once we've
+    // actually fallen back to the durable query (stream failed). At the very
+    // start of a run, show nothing and let the "Thinking" pulse convey activity
+    // until the agent's real steps stream in - so the thinking never looks
+    // canned or pre-baked.
+    return streamFallbackUsed
+      ? getFallbackReasoningActivity(true, lastSubmittedChatPrompt)
+      : [];
+  }, [streamActivity, streamFallbackUsed, lastSubmittedChatPrompt]);
+
+  // The recommended follow-up attaches only to the most recent answer, so the
+  // thread does not accumulate stale suggestions on every past turn.
+  const lastAssistantMessage = useMemo(() => {
+    for (let i = chatMessages.length - 1; i >= 0; i -= 1) {
+      if (chatMessages[i].role === "assistant") return chatMessages[i];
+    }
+    return undefined;
+  }, [chatMessages]);
+
+  // A single suggested follow-up for the latest answer, shown as grey ghost text
+  // in the input that Tab fills in. Null while a run is in flight or on an error.
+  const suggestedNext = useMemo<NextStep | null>(() => {
+    if (!lastAssistantMessage || agentMutation.isPending) return null;
+    if (lastAssistantMessage.kind === "error") return null;
+    return buildNextSteps(lastAssistantMessage)[0] ?? null;
+  }, [lastAssistantMessage, agentMutation.isPending]);
+
+  const renderConversionActions = (opts: {
+    forQueryId?: string;
+    forWallets?: string[];
+  }) => {
+    const { forQueryId, forWallets } = opts;
+    // Reports and campaigns reference a stored query; a segment can also be
+    // built straight from the answer's wallets, so it's offered even when this
+    // answer has no queryId (agentic/onchain answers).
+    const hasQuery = typeof forQueryId === "string" && forQueryId.length > 0;
+    const walletCount = forWallets?.length ?? 0;
+    const canSegment = hasQuery || walletCount > 0;
+    if (!canSegment) return null;
     // Point the shared query-scoped mutations at this message's result before
     // the dialog confirms, so actions on older messages target the right run.
     const targetQuery = () => {
-      if (forQueryId) setQueryId(forQueryId);
+      setQueryId(hasQuery ? forQueryId : null);
+      setSegmentWallets(forWallets ?? []);
     };
     return (
       <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
@@ -1783,23 +2461,31 @@ export function QueryTab({
             Use this result
           </div>
           <div className="text-xs text-muted-foreground">
-            Add these rows to your reports, or turn the wallets into a segment
-            or campaign.
+            {hasQuery
+              ? "Add these rows to your reports, or turn the wallets into a segment or campaign."
+              : "Turn these wallets into an audience segment."}
           </div>
         </div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              targetQuery();
-              openNameDialog("report");
-            }}
-            disabled={saveReportMutation.isPending}
-            className="justify-start rounded-xl"
-          >
-            Add to reports
-          </Button>
+        <div
+          className={cn(
+            "grid gap-2",
+            hasQuery ? "sm:grid-cols-3" : "sm:grid-cols-1"
+          )}
+        >
+          {hasQuery ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                targetQuery();
+                openNameDialog("report");
+              }}
+              disabled={saveReportMutation.isPending}
+              className="justify-start rounded-xl"
+            >
+              Add to reports
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="outline"
@@ -1812,17 +2498,19 @@ export function QueryTab({
           >
             Create segment
           </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              targetQuery();
-              openNameDialog("campaign");
-            }}
-            disabled={createCampaignMutation.isPending}
-            className="justify-start rounded-xl"
-          >
-            Launch campaign
-          </Button>
+          {hasQuery ? (
+            <Button
+              type="button"
+              onClick={() => {
+                targetQuery();
+                openNameDialog("campaign");
+              }}
+              disabled={createCampaignMutation.isPending}
+              className="justify-start rounded-xl"
+            >
+              Launch campaign
+            </Button>
+          ) : null}
         </div>
       </div>
     );
@@ -1830,62 +2518,43 @@ export function QueryTab({
   const renderStructuredRowsTable = (
     structuredRows: StructuredResultRow[],
     preferredColumns?: string[]
-  ) => {
-    const allColumns = columnsFromRows(structuredRows);
-    const selectedColumns =
-      preferredColumns && preferredColumns.length > 0
-        ? preferredColumns.filter((column) => allColumns.includes(column))
-        : allColumns;
-    const visibleColumns = selectedColumns.slice(0, 5);
-
-    return (
-      <div className="overflow-hidden rounded-2xl border border-border/60 bg-background/60">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-border/60 text-sm">
-            <thead className="bg-muted/30">
-              <tr>
-                {visibleColumns.map((column) => (
-                  <th
-                    key={column}
-                    className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
-                  >
-                    {prettifyColumnLabel(column)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40">
-              {structuredRows.slice(0, 8).map((row) => {
-                const rowKey = createStructuredRowKey(
-                  row,
-                  visibleColumns,
-                  "structured-row"
-                );
-                return (
-                  <tr key={rowKey} className="bg-background/30">
-                    {visibleColumns.map((column) => (
-                      <td
-                        key={`${rowKey}-${column}`}
-                        className="px-4 py-3 align-top text-foreground/92"
-                      >
-                        {column.toLowerCase().includes("hash") ||
-                        column.toLowerCase().includes("address")
-                          ? asIdentifierText(row[column])
-                          : asDisplayText(preferFormattedCell(row, column))}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
+  ) => (
+    <StructuredRowsTable
+      rows={structuredRows}
+      preferredColumns={preferredColumns}
+    />
+  );
   const renderStructuredResult = (
-    structuredResult: IntelligenceGoldrushMcpStructuredResult
+    structuredResult: IntelligenceAgentStructuredResult
   ) => {
+    // A confirm-gated action the agent proposed but did NOT run. Handled before
+    // the "meaningful rows" guard below: a proposal is a single object row (tool
+    // + summary + args), which that guard would otherwise treat as empty.
+    if (structuredResult.kind === "proposed_action") {
+      const row = isJsonObject(structuredResult.rows?.[0])
+        ? (structuredResult.rows[0] as Record<string, unknown>)
+        : {};
+      const tool =
+        typeof row.tool === "string" && row.tool.length > 0
+          ? row.tool
+          : (structuredResult.toolName ?? "");
+      const summary =
+        typeof row.summary === "string" && row.summary.length > 0
+          ? row.summary
+          : (structuredResult.summary ??
+            "The assistant wants to take an action.");
+      const args = isJsonObject(row.args) ? row.args : {};
+      if (tool) {
+        const action: IntelligenceProposedAction = {
+          proposed: true,
+          tool,
+          summary,
+          args,
+        };
+        return <ProposedActionCard action={action} />;
+      }
+    }
+
     const structuredRows = normalizeStructuredRows(structuredResult.rows);
     const holderColumn = findPreferredColumn(structuredRows, [
       "holder",
@@ -2003,114 +2672,76 @@ export function QueryTab({
         const maxShare = Math.max(...shareValues, 0);
 
         return (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-            <div className="overflow-hidden rounded-2xl border border-primary/15 bg-card">
-              <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
-                <div>
-                  <div className="text-sm font-medium text-foreground">
-                    Ranked holders
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Top holders ranked by balance
-                  </div>
+          <div className="overflow-hidden rounded-2xl border border-primary/15 bg-card">
+            <div className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-3.5 sm:px-5 sm:py-4">
+              <div>
+                <div className="text-sm font-medium text-foreground">
+                  Ranked holders
                 </div>
-                <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
-                  Top {structuredRows.length}
-                </span>
+                <div className="text-xs text-muted-foreground">
+                  Top holders ranked by balance
+                </div>
               </div>
-              <div className="divide-y divide-white/6">
-                {structuredRows.slice(0, 8).map((row, index) => {
-                  const shareValue =
-                    shareColumn !== null ? asNumber(row[shareColumn]) : null;
-                  const normalizedShare =
-                    shareValue === null
-                      ? 0
-                      : shareValue > 0 && shareValue <= 1
-                        ? shareValue * 100
-                        : shareValue;
-                  const width =
-                    normalizedShare > 0 && maxShare > 0
-                      ? Math.max(10, (normalizedShare / maxShare) * 100)
-                      : 0;
-                  const rowKey = createStructuredRowKey(
-                    row,
-                    [holderColumn, amountColumn, shareColumn, chainColumn],
-                    "holder"
-                  );
-
-                  return (
-                    <div
-                      key={rowKey}
-                      className="grid gap-3 px-5 py-4 md:grid-cols-[auto_minmax(0,1fr)_auto]"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-white/8 text-xs font-semibold text-foreground">
-                        {index + 1}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-foreground">
-                          {holderColumn
-                            ? asIdentifierText(row[holderColumn])
-                            : `Holder ${index + 1}`}
-                        </div>
-                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/60">
-                          <div
-                            className="h-full rounded-full bg-[linear-gradient(90deg,rgba(87,115,255,0.95),rgba(88,211,255,0.9))]"
-                            style={{ width: `${width}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div className="text-left md:text-right">
-                        <div className="text-sm font-medium text-foreground">
-                          {amountColumn
-                            ? formatCompactNumber(row[amountColumn])
-                            : "-"}
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {shareColumn
-                            ? formatPercentValue(row[shareColumn])
-                            : "Share unavailable"}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
+                Top {structuredRows.length}
+              </span>
             </div>
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-border/60 bg-background/60 p-4">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                  Result profile
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  <div className="rounded-xl border border-border/50 bg-card/70 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                      Rows
+            <div className="divide-y divide-white/6">
+              {structuredRows.slice(0, 8).map((row, index) => {
+                const shareValue =
+                  shareColumn !== null ? asNumber(row[shareColumn]) : null;
+                const normalizedShare =
+                  shareValue === null
+                    ? 0
+                    : shareValue > 0 && shareValue <= 1
+                      ? shareValue * 100
+                      : shareValue;
+                const width =
+                  normalizedShare > 0 && maxShare > 0
+                    ? Math.max(10, (normalizedShare / maxShare) * 100)
+                    : 0;
+                const rowKey = createStructuredRowKey(
+                  row,
+                  [holderColumn, amountColumn, shareColumn, chainColumn],
+                  "holder"
+                );
+
+                return (
+                  <div
+                    key={rowKey}
+                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3.5 sm:px-5 sm:py-4"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-white/8 text-xs font-semibold text-foreground">
+                      {index + 1}
                     </div>
-                    <div className="mt-2 text-lg font-semibold text-foreground">
-                      {structuredRows.length.toLocaleString()}
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-foreground">
+                        {holderColumn
+                          ? asIdentifierText(row[holderColumn])
+                          : `Holder ${index + 1}`}
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/60">
+                        <div
+                          className="h-full rounded-full bg-[linear-gradient(90deg,rgba(87,115,255,0.95),rgba(88,211,255,0.9))]"
+                          style={{ width: `${width}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-foreground">
+                        {amountColumn
+                          ? formatCompactNumber(row[amountColumn])
+                          : "-"}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {shareColumn
+                          ? formatPercentValue(row[shareColumn])
+                          : "Share unavailable"}
+                      </div>
                     </div>
                   </div>
-                  <div className="rounded-xl border border-border/50 bg-card/70 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                      Coverage
-                    </div>
-                    <div className="mt-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      {chainColumn && structuredRows[0] ? (
-                        <>
-                          <ChainLogo
-                            chain={asDisplayText(
-                              structuredRows[0][chainColumn]
-                            )}
-                          />
-                          {asDisplayText(structuredRows[0][chainColumn])}
-                        </>
-                      ) : (
-                        chainCoverageLabel
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </div>
         );
@@ -2464,384 +3095,668 @@ export function QueryTab({
       setSelectedRows([]);
       validateMutation.reset();
       runMutation.reset();
-      mcpMutation.reset();
+      agentMutation.reset();
       setStreamActivity([]);
       setStreamFallbackUsed(false);
     },
-    [mcpMutation, runMutation, validateMutation]
+    [agentMutation, runMutation, validateMutation]
   );
 
+  // When the host passes a fill className (chat surface), the card stretches to
+  // its parent and the message list scrolls inside a fixed viewport - ChatGPT
+  // style - instead of growing the page. Without it (tests, SQL), it keeps a
+  // sensible min-height and flows normally.
+  const chatFill = Boolean(className);
+
+  // The SQL run outcome (loader / error / empty / results table). Rendered inside
+  // the History surface for a replayed SQL run, and under the (hidden) SQL editor
+  // surface - never stacked beneath the chat thread.
+  const sqlResultsNode = isSqlRunning ? (
+    <SqlBlockchainLoader query={sqlQuery} />
+  ) : sqlRunError ? (
+    <div
+      role="alert"
+      className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
+    >
+      <div className="text-sm font-medium text-destructive">
+        Query failed to run
+      </div>
+      <p className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground/90">
+        {sqlRunError}
+      </p>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Fix the SQL above and run it again.
+      </p>
+    </div>
+  ) : hasRunQuery ? (
+    status === "failed" ? (
+      <div
+        role="alert"
+        className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
+      >
+        <div className="text-sm font-medium text-destructive">Query failed</div>
+        <p className="mt-2 whitespace-pre-wrap break-words font-mono text-sm text-foreground/90">
+          {statusFailureDetail ??
+            "The query failed to execute, and the backend returned no further detail."}
+        </p>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Fix the SQL above and run it again.
+        </p>
+      </div>
+    ) : sqlPollTimedOut && status !== "completed" ? (
+      <div
+        role="alert"
+        className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
+      >
+        <div className="text-sm font-medium text-destructive">
+          Query timed out
+        </div>
+        <p className="mt-2 text-sm text-foreground/90">
+          The query was still running after{" "}
+          {Math.round(SQL_STATUS_POLL_TIMEOUT_MS / 1000)} seconds, so we stopped
+          waiting.
+          {statusQuery.error instanceof Error
+            ? ` Last status check failed: ${statusQuery.error.message}`
+            : ""}
+        </p>
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              sqlPollStartedAtRef.current = Date.now();
+              setSqlPollTimedOut(false);
+              statusQuery.refetch().catch(() => undefined);
+            }}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/40"
+          >
+            Check again
+          </button>
+          <span className="text-xs text-muted-foreground">
+            or simplify the query and run it again.
+          </span>
+        </div>
+      </div>
+    ) : resultsQuery.isError ? (
+      <div
+        role="alert"
+        className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
+      >
+        <div className="text-sm font-medium text-destructive">
+          Couldn&apos;t load results
+        </div>
+        <p className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground/90">
+          {resultsQuery.error instanceof Error
+            ? resultsQuery.error.message
+            : "Failed to load query results"}
+        </p>
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => {
+              resultsQuery.refetch().catch(() => undefined);
+            }}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/40"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    ) : rows.length === 0 && !resultsQuery.isSuccess ? (
+      // Terminal status reached but the paginated results are still on their
+      // way - keep the loader up rather than flashing an empty table.
+      <SqlBlockchainLoader query={sqlQuery} />
+    ) : rows.length === 0 ? (
+      <div className="rounded-xl border border-border bg-card px-5 py-8 text-center">
+        <div className="text-sm font-medium text-foreground">
+          Query ran successfully - 0 rows returned
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          The SQL executed without errors but matched no rows. Adjust the
+          filters and run it again.
+        </p>
+      </div>
+    ) : (
+      <SqlResultsTable
+        rows={rows}
+        columns={columns}
+        columnLabels={columnLabels}
+        selectedRows={selectedRows}
+        onToggleAll={toggleAllRows}
+        onToggleRow={toggleRowSelection}
+        onClearSelection={clearSelection}
+        totalRows={typeof totalRows === "number" ? totalRows : 0}
+        winbackPotential={summaryQuery.data?.winbackPotential}
+        queryId={queryId}
+        status={status}
+        page={page}
+        pageCount={pageCount}
+        onPrevPage={goPrevPage}
+        onNextPage={goNextPage}
+        onSaveReport={handleSaveReport}
+        onCreateSegment={handleCreateSegment}
+        onCreateCampaign={handleCreateCampaign}
+        savePending={saveReportMutation.isPending}
+        segmentPending={createSegmentMutation.isPending}
+        campaignPending={createCampaignMutation.isPending}
+        onEmail={handleEmailRow}
+      />
+    )
+  ) : null;
+
   return (
-    <div className="space-y-4">
+    <div className={className ?? "space-y-4"}>
       {activeSurface === "chat" ? (
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
-          <div className="relative grid min-h-[520px] grid-rows-[1fr_auto] md:min-h-[640px]">
-            <div className="overflow-y-auto px-5 py-6">
-              <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
-                {chatMessages.length > 0 ? (
-                  <>
-                    {chatMessages.map((message) =>
-                      message.role === "user" ? (
-                        <div key={message.id} className="flex justify-end">
-                          <div className="max-w-[78%] rounded-[28px_28px_12px_28px] border border-primary/30 bg-primary px-4 py-3 text-sm text-primary-foreground shadow-[0_22px_60px_-28px_rgba(86,112,255,0.7)]">
-                            <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-primary-foreground/75">
-                              You
-                            </div>
-                            <div className="mt-1 leading-6">
-                              {message.content}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div key={message.id} className="flex justify-start">
-                          <div className="flex max-w-[92%] items-end gap-3">
-                            <div
-                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] border text-xs font-semibold ${
-                                message.kind === "error"
-                                  ? "border-red-400/25 bg-red-400/10 text-red-300"
-                                  : "border-primary/20 bg-primary/10 text-primary"
-                              }`}
-                            >
-                              {message.kind === "error" ? "!" : "AI"}
-                            </div>
-                            <div className="overflow-hidden rounded-[28px_28px_28px_12px] border border-border bg-card shadow-[0_28px_90px_-46px_rgba(45,102,255,0.5)]">
-                              <div className="space-y-5 px-5 py-5">
-                                {message.structuredResult ? (
-                                  <div className="space-y-4">
-                                    <div className="rounded-[24px] border border-primary/15 bg-card p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                                      {(() => {
-                                        const structured =
-                                          message.structuredResult;
-                                        const rowCount =
-                                          meaningfulStructuredRows(
-                                            normalizeStructuredRows(
-                                              structured.rows
-                                            )
-                                          ).length;
-                                        const title =
-                                          structured.title &&
-                                          !structured.title.includes("_")
-                                            ? structured.title
-                                            : prettifyColumnLabel(
-                                                structured.kind
-                                              );
-                                        // Prefer human prose; never render raw
-                                        // tool-envelope dumps as the answer.
-                                        const prose = !isRawToolDump(
-                                          message.content
-                                        )
-                                          ? message.content.trim()
-                                          : (structured.summary?.trim() ?? "");
-                                        return (
-                                          <>
-                                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                              <div className="text-sm font-medium text-foreground">
-                                                {title}
-                                              </div>
-                                              {rowCount > 0 ? (
-                                                <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
-                                                  {rowCount.toLocaleString()}{" "}
-                                                  {rowCount === 1
-                                                    ? "result"
-                                                    : "results"}
-                                                </span>
-                                              ) : null}
-                                            </div>
-                                            {prose.length > 0 ? (
-                                              <p className="mt-3 text-sm leading-6 text-foreground/90">
-                                                {prose}
-                                              </p>
-                                            ) : null}
-                                          </>
-                                        );
-                                      })()}
-                                    </div>
-
-                                    <ChatResultCard
-                                      tableContent={renderStructuredResult(
-                                        message.structuredResult
-                                      )}
-                                      series={deriveChatChartSeries(
-                                        message.structuredResult
-                                      )}
-                                      sql={
-                                        typeof message.structuredResult.meta
-                                          ?.sql === "string"
-                                          ? message.structuredResult.meta.sql
-                                          : undefined
-                                      }
-                                      onOpenSqlWorkspace={() =>
-                                        setActiveTab("sql")
-                                      }
-                                    />
-
-                                    {message.queryReady
-                                      ? renderConversionActions(message.queryId)
-                                      : null}
-                                  </div>
-                                ) : message.content.trim().length > 0 ? (
-                                  <div className="text-[15px] leading-7 text-foreground/95">
-                                    {message.content}
-                                  </div>
-                                ) : null}
-
-                                {message.kind === "error" &&
-                                message.errorReport ? (
-                                  <div className="rounded-[24px] border border-red-400/20 bg-red-400/5 p-4">
-                                    <div className="flex items-center justify-between gap-3">
-                                      <div className="text-[11px] uppercase tracking-[0.16em] text-red-200/90">
-                                        Bug report
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const report = message.errorReport;
-                                          if (!report) return;
-                                          navigator.clipboard
-                                            .writeText(
-                                              formatMcpFailureReport(report)
-                                            )
-                                            .catch(() => {
-                                              // Copy failure should not block the visible bug report.
-                                            });
-                                          toast.success("Bug details copied");
-                                        }}
-                                        className="inline-flex items-center gap-1 rounded-full border border-red-400/20 bg-red-400/10 px-2.5 py-1 text-[11px] font-medium text-red-100 transition-colors hover:bg-red-400/15"
-                                      >
-                                        <ClipboardDocumentIcon
-                                          className="h-3.5 w-3.5"
-                                          aria-hidden="true"
-                                        />
-                                        Copy
-                                      </button>
-                                    </div>
-                                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                      <div>
-                                        <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                          Status
-                                        </div>
-                                        <div className="mt-1 text-sm text-red-50">
-                                          {message.errorReport.statusCode ??
-                                            "Unknown"}
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                          Time
-                                        </div>
-                                        <div className="mt-1 text-sm text-red-50">
-                                          {message.errorReport.at}
-                                        </div>
-                                      </div>
-                                      {message.errorReport.requestId ? (
-                                        <div>
-                                          <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                            Request ID
-                                          </div>
-                                          <div className="mt-1 break-all font-mono text-xs text-red-50">
-                                            {message.errorReport.requestId}
-                                          </div>
-                                        </div>
-                                      ) : null}
-                                      {message.errorReport.conversationId ? (
-                                        <div>
-                                          <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                            Conversation ID
-                                          </div>
-                                          <div className="mt-1 break-all font-mono text-xs text-red-50">
-                                            {message.errorReport.conversationId}
-                                          </div>
-                                        </div>
-                                      ) : null}
-                                    </div>
-                                    <div className="mt-3">
-                                      <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
-                                        Failure
-                                      </div>
-                                      <div className="mt-1 text-sm leading-6 text-red-50">
-                                        {message.errorReport.message}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : null}
-
-                                {Array.isArray(message.toolSteps) &&
-                                message.toolSteps.length > 0 ? (
-                                  <ThoughtProcess
-                                    steps={message.toolSteps.map(
-                                      (step, index) => ({
-                                        id:
-                                          step.title ??
-                                          step.toolName ??
-                                          step.description ??
-                                          `tool-step-${index}`,
-                                        label:
-                                          step.title ??
-                                          (step.toolName
-                                            ? prettifyColumnLabel(step.toolName)
-                                            : `Step ${index + 1}`),
-                                        detail: step.description,
-                                        tone: "success" as const,
-                                      })
-                                    )}
-                                  />
-                                ) : null}
-
-                                <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
-                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1">
-                                    <BoltIcon
-                                      className="h-3 w-3 text-primary"
-                                      aria-hidden="true"
-                                    />
-                                    {message.mode === "deterministic_fallback"
-                                      ? "Standard lookup"
-                                      : "Live onchain lookup"}
-                                  </span>
-                                  {message.queryReady ? (
-                                    <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
-                                      Turn into report, campaign, or segment
-                                      below
-                                    </span>
-                                  ) : message.kind === "question" ? (
-                                    <span className="rounded-full border border-border bg-muted/40 px-2.5 py-1">
-                                      Reply below to continue this thread
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    )}
-                    {mcpMutation.isPending ? (
-                      <ThinkingTimeline
-                        steps={reasoningTimeline}
-                        recovering={streamFallbackUsed}
-                      />
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center px-4 py-10 text-center">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-primary shadow-[0_20px_50px_-28px_rgba(86,112,255,0.8)]">
-                      <SparklesIcon className="h-6 w-6" aria-hidden="true" />
-                    </div>
-                    <h2 className="mt-5 max-w-md text-xl font-medium tracking-[-0.02em] text-foreground">
-                      Ask anything about onchain activity
-                    </h2>
-                    <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                      Trace token holders, compare wallets, analyze gas - or
-                      cross-chain behaviour with email, push and campaign
-                      engagement, in plain English.
-                    </p>
-
-                    <div className="mt-6 grid w-full max-w-xl gap-2.5 sm:grid-cols-2">
-                      {[
-                        {
-                          title: "Top holders by token",
-                          kind: "on-chain" as const,
-                          icon: LinkIcon,
-                          prompt:
-                            "Show me the top 10 holders for this token contract.",
-                        },
-                        {
-                          title: "Wallet balances across chains",
-                          kind: "on-chain" as const,
-                          icon: Square3Stack3DIcon,
-                          prompt:
-                            "Compare this wallet's balances across EVM and Solana.",
-                        },
-                        {
-                          title: "Wallets that opened but never clicked",
-                          kind: "off-chain" as const,
-                          icon: EnvelopeOpenIcon,
-                          prompt:
-                            "Which wallets opened our last email but never clicked?",
-                        },
-                        {
-                          title: "Best-converting campaign by segment",
-                          kind: "off-chain" as const,
-                          icon: MegaphoneIcon,
-                          prompt:
-                            "Which campaign converted best, broken down by segment?",
-                        },
-                      ].map((chip) => {
-                        const Icon = chip.icon;
-                        return (
-                          <button
-                            key={chip.title}
-                            type="button"
-                            onClick={() => submitChatPrompt(chip.prompt)}
-                            className="group flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3 text-left text-sm text-foreground transition-colors hover:border-primary/30 hover:bg-primary/[0.06]"
-                          >
-                            <span className="flex min-w-0 items-center gap-2.5">
-                              <Icon
-                                aria-hidden="true"
-                                className="h-4 w-4 shrink-0 text-muted-foreground"
-                              />
-                              <span className="min-w-0">{chip.title}</span>
-                            </span>
-                            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                              {chip.kind}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+        historyOpen ? (
+          hasRunQuery ? (
+            <div
+              className={cn(
+                "relative overflow-hidden rounded-2xl border border-border bg-card",
+                chatFill && "flex min-h-0 flex-1 flex-col"
+              )}
+            >
+              <div className="flex items-center gap-3 border-b border-border px-5 py-3">
+                <button
+                  type="button"
+                  onClick={() => setHasRunQuery(false)}
+                  aria-label="Back to history"
+                  title="Back to history"
+                  className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                >
+                  <ArrowLeftIcon aria-hidden="true" className="h-4 w-4" />
+                </button>
+                <span className="text-sm font-medium text-foreground">
+                  Query result
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHasRunQuery(false);
+                    setHistoryOpen(false);
+                  }}
+                  aria-label="Close history"
+                  className="ml-auto rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                >
+                  <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+                </button>
+              </div>
+              <div
+                className={cn(
+                  "p-4",
+                  chatFill && "min-h-0 flex-1 overflow-y-auto"
                 )}
-                <div ref={chatThreadEndRef} />
+              >
+                {sqlResultsNode}
               </div>
             </div>
+          ) : (
+            <HistoryView
+              items={toQueryHistoryItems(historyQuery.data ?? [])}
+              chatFill={chatFill}
+              onClose={() => setHistoryOpen(false)}
+              onSelect={(it) => {
+                if (it.isAgent) {
+                  // Agent runs are conversational - drop back into the chat
+                  // composer with the prompt reloaded.
+                  setChatPrompt(it.q);
+                  setHistoryOpen(false);
+                } else {
+                  // SQL runs stay in History and open their result here.
+                  setSqlQuery(it.q);
+                  setQueryId(it.qid);
+                  setHasRunQuery(true);
+                }
+              }}
+            />
+          )
+        ) : (
+          <div
+            className={cn(
+              "relative overflow-hidden rounded-2xl border border-border bg-card",
+              chatFill && "flex min-h-0 flex-1 flex-col"
+            )}
+          >
+            <div
+              className={cn(
+                "relative grid grid-rows-[1fr_auto]",
+                chatFill ? "min-h-0 flex-1" : "min-h-[520px] md:min-h-[640px]"
+              )}
+            >
+              <div className="min-h-0 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+                <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+                  {chatMessages.length > 0 ? (
+                    <>
+                      {chatMessages.map((message) =>
+                        message.role === "user" ? (
+                          <div key={message.id} className="flex justify-end">
+                            <div className="max-w-[78%] rounded-[14px_14px_4px_14px] border border-primary/30 bg-primary px-4 py-3 text-sm text-primary-foreground shadow-[0_22px_60px_-28px_rgba(86,112,255,0.7)]">
+                              <div className="leading-6">{message.content}</div>
+                              {message.attachmentName ? (
+                                <div className="mt-2 flex items-center gap-1.5 border-t border-primary-foreground/20 pt-2 text-xs text-primary-foreground/80">
+                                  <PaperClipIcon
+                                    className="h-3.5 w-3.5"
+                                    aria-hidden="true"
+                                  />
+                                  <span className="max-w-[220px] truncate">
+                                    {message.attachmentName}
+                                  </span>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : (
+                          <div key={message.id} className="w-full">
+                            <div className="space-y-5">
+                              {message.structuredResult ? (
+                                (() => {
+                                  const structured = message.structuredResult;
+                                  // Generic/SQL kinds have no meaningful title
+                                  // ("Generic Rows"); let the prose speak. Named
+                                  // renderers keep their title.
+                                  const genericKind = [
+                                    "generic_rows",
+                                    "generic_object",
+                                    "sql_result",
+                                  ].includes(structured.kind);
+                                  const title =
+                                    structured.title &&
+                                    !structured.title.includes("_")
+                                      ? structured.title
+                                      : prettifyColumnLabel(structured.kind);
+                                  // The real answer is the prose. Never fall back
+                                  // to the envelope summary ("Single result
+                                  // object" / "N rows") - it is not an answer.
+                                  const prose = isRawToolDump(message.content)
+                                    ? ""
+                                    : message.content.trim();
+                                  const rows = meaningfulStructuredRows(
+                                    normalizeStructuredRows(structured.rows)
+                                  );
+                                  // A table earns its place only when it is worth
+                                  // scanning: several rows to compare. A single row
+                                  // (a count, one record) is always covered by the
+                                  // prose - "17 subscribers" needs no "17" table - so
+                                  // with prose present we tabulate only 2+ rows. When
+                                  // there is no prose we still show whatever rows we
+                                  // have, so a message is never blank.
+                                  const showTable =
+                                    prose.length === 0
+                                      ? rows.length > 0
+                                      : rows.length >= 2;
+                                  const showFallback =
+                                    prose.length === 0 && !showTable;
+                                  return (
+                                    <div className="space-y-4">
+                                      {!genericKind ? (
+                                        <div className="text-sm font-medium text-foreground">
+                                          {title}
+                                        </div>
+                                      ) : null}
+                                      {prose.length > 0 ? (
+                                        <MarkdownLite
+                                          text={prose}
+                                          className="text-sm text-foreground/90"
+                                        />
+                                      ) : null}
+                                      {showTable ? (
+                                        <ChatResultCard
+                                          tableContent={renderStructuredResult(
+                                            structured
+                                          )}
+                                          series={deriveChatChartSeries(
+                                            structured
+                                          )}
+                                        />
+                                      ) : null}
+                                      {showFallback ? (
+                                        <p className="text-sm text-muted-foreground">
+                                          I ran that but there was nothing to
+                                          show. Try rephrasing or adding a bit
+                                          more detail.
+                                        </p>
+                                      ) : null}
+                                      {(() => {
+                                        // Full actions when there's a stored
+                                        // query; a segment-only action when the
+                                        // answer just has wallets (no queryId).
+                                        const walletsFromAnswer =
+                                          extractWalletsFromMessage(message);
+                                        if (message.queryReady) {
+                                          return renderConversionActions({
+                                            forQueryId: message.queryId,
+                                            forWallets: walletsFromAnswer,
+                                          });
+                                        }
+                                        if (walletsFromAnswer.length > 0) {
+                                          return renderConversionActions({
+                                            forWallets: walletsFromAnswer,
+                                          });
+                                        }
+                                        return null;
+                                      })()}
+                                    </div>
+                                  );
+                                })()
+                              ) : message.content.trim().length > 0 ? (
+                                <MarkdownLite
+                                  text={message.content}
+                                  className="text-sm leading-6 text-foreground/90"
+                                  copyable
+                                />
+                              ) : message.kind === "error" ? null : (
+                                <p className="text-sm text-muted-foreground">
+                                  I didn&apos;t get a response for that. Please
+                                  try again.
+                                </p>
+                              )}
 
-            <div className="border-t border-border/70 px-5 py-4 backdrop-blur">
-              <div className="mx-auto flex w-full max-w-4xl flex-col gap-3">
-                <div className="flex items-end gap-2 rounded-[24px] border border-border bg-muted/40 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/25">
-                  <textarea
-                    id="mcp-chat-input"
-                    aria-label="MCP chat input"
-                    value={chatPrompt}
-                    onChange={(e) => setChatPrompt(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        if (mcpMutation.isPending) return;
-                        submitChatPrompt(chatPrompt);
+                              {message.kind === "error" &&
+                              message.errorReport ? (
+                                <div className="rounded-[24px] border border-red-400/20 bg-red-400/5 p-4">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="text-[11px] uppercase tracking-[0.16em] text-red-200/90">
+                                      Bug report
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const report = message.errorReport;
+                                        if (!report) return;
+                                        navigator.clipboard
+                                          .writeText(
+                                            formatAgentFailureReport(report)
+                                          )
+                                          .catch(() => {
+                                            // Copy failure should not block the visible bug report.
+                                          });
+                                        toast.success("Bug details copied");
+                                      }}
+                                      className="inline-flex items-center gap-1 rounded-full border border-red-400/20 bg-red-400/10 px-2.5 py-1 text-[11px] font-medium text-red-100 transition-colors hover:bg-red-400/15"
+                                    >
+                                      <ClipboardDocumentIcon
+                                        className="h-3.5 w-3.5"
+                                        aria-hidden="true"
+                                      />
+                                      Copy
+                                    </button>
+                                  </div>
+                                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                      <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                        Status
+                                      </div>
+                                      <div className="mt-1 text-sm text-red-50">
+                                        {message.errorReport.statusCode ??
+                                          "Unknown"}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                        Time
+                                      </div>
+                                      <div className="mt-1 text-sm text-red-50">
+                                        {message.errorReport.at}
+                                      </div>
+                                    </div>
+                                    {message.errorReport.requestId ? (
+                                      <div>
+                                        <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                          Request ID
+                                        </div>
+                                        <div className="mt-1 break-all font-mono text-xs text-red-50">
+                                          {message.errorReport.requestId}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                    {message.errorReport.conversationId ? (
+                                      <div>
+                                        <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                          Conversation ID
+                                        </div>
+                                        <div className="mt-1 break-all font-mono text-xs text-red-50">
+                                          {message.errorReport.conversationId}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                  <div className="mt-3">
+                                    <div className="text-[11px] uppercase tracking-[0.14em] text-red-200/70">
+                                      Failure
+                                    </div>
+                                    <div className="mt-1 text-sm leading-6 text-red-50">
+                                      {message.errorReport.message}
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {message.queryReady ? (
+                                <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3 text-[11px] text-muted-foreground">
+                                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
+                                    Turn into report, campaign, or segment below
+                                  </span>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        )
+                      )}
+                      {agentMutation.isPending ? (
+                        <ThinkingTimeline
+                          steps={reasoningTimeline}
+                          recovering={streamFallbackUsed}
+                          answerPreview={streamingAnswer}
+                        />
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center px-4 py-10 text-center">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-primary shadow-[0_20px_50px_-28px_rgba(86,112,255,0.8)]">
+                        <SparklesIcon className="h-6 w-6" aria-hidden="true" />
+                      </div>
+                      <h2 className="mt-5 max-w-md text-xl font-medium tracking-[-0.02em] text-foreground">
+                        Ask anything about onchain activity
+                      </h2>
+                      <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+                        Trace token holders, compare wallets, analyze gas - or
+                        cross-chain behaviour with email, push and campaign
+                        engagement, in plain English.
+                      </p>
+
+                      <div className="mt-6 grid w-full max-w-xl gap-2.5 sm:grid-cols-2">
+                        {[
+                          {
+                            title: "Top holders by token",
+                            kind: "on-chain" as const,
+                            icon: LinkIcon,
+                            prompt:
+                              "Show me the top 10 holders for this token contract.",
+                          },
+                          {
+                            title: "Wallet balances across chains",
+                            kind: "on-chain" as const,
+                            icon: Square3Stack3DIcon,
+                            prompt:
+                              "Compare this wallet's balances across EVM and Solana.",
+                          },
+                          {
+                            title: "Wallets that opened but never clicked",
+                            kind: "off-chain" as const,
+                            icon: EnvelopeOpenIcon,
+                            prompt:
+                              "Which wallets opened our last email but never clicked?",
+                          },
+                          {
+                            title: "Best-converting campaign by segment",
+                            kind: "off-chain" as const,
+                            icon: MegaphoneIcon,
+                            prompt:
+                              "Which campaign converted best, broken down by segment?",
+                          },
+                        ].map((chip) => {
+                          const Icon = chip.icon;
+                          return (
+                            <button
+                              key={chip.title}
+                              type="button"
+                              onClick={() => submitChatPrompt(chip.prompt)}
+                              className="group flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3 text-left text-sm text-foreground transition-colors hover:border-primary/30 hover:bg-primary/[0.06]"
+                            >
+                              <span className="flex min-w-0 items-center gap-2.5">
+                                <Icon
+                                  aria-hidden="true"
+                                  className="h-4 w-4 shrink-0 text-muted-foreground"
+                                />
+                                <span className="min-w-0">{chip.title}</span>
+                              </span>
+                              <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                {chip.kind}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatThreadEndRef} />
+                </div>
+              </div>
+
+              <div className="px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
+                <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
+                  {attachmentUploading ? (
+                    <div className="flex w-fit items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+                      <PaperClipIcon
+                        className="h-3.5 w-3.5 animate-pulse"
+                        aria-hidden="true"
+                      />
+                      Uploading file...
+                    </div>
+                  ) : attachment ? (
+                    <div className="flex w-fit items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-xs text-foreground">
+                      <PaperClipIcon
+                        className="h-3.5 w-3.5 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                      <span className="max-w-[240px] truncate">
+                        {attachment.name}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Remove attachment"
+                        onClick={() => setAttachment(null)}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <XMarkIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  ) : null}
+                  <div className="flex items-end gap-2 rounded-[14px] border border-border bg-muted/40 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/25">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,.tsv,.txt,.md,.json,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        handleFileSelected(e.target.files?.[0] ?? null);
+                        e.target.value = "";
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      aria-label="Attach a file"
+                      title="Attach a file (.csv, .txt, .md, .json, .pdf)"
+                      disabled={attachmentUploading}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-11 w-11 shrink-0 rounded-full p-0 text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <PaperClipIcon className="h-5 w-5" aria-hidden="true" />
+                    </Button>
+                    <textarea
+                      id="agent-chat-input"
+                      aria-label="Ask the on-chain agent"
+                      value={chatPrompt}
+                      onChange={(e) => setChatPrompt(e.target.value)}
+                      onKeyDown={(e) => {
+                        // Tab accepts the ghost suggestion (Claude Code style)
+                        // when the input is empty, instead of moving focus.
+                        if (
+                          e.key === "Tab" &&
+                          !e.shiftKey &&
+                          chatPrompt.length === 0 &&
+                          suggestedNext
+                        ) {
+                          e.preventDefault();
+                          setChatPrompt(suggestedNext.prompt);
+                          return;
+                        }
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          if (agentMutation.isPending) return;
+                          submitChatPrompt(chatPrompt);
+                        }
+                      }}
+                      rows={1}
+                      className="max-h-44 min-h-[44px] w-full resize-none bg-transparent px-3 py-2.5 text-sm leading-6 text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+                      placeholder={
+                        chatPrompt.length === 0 && suggestedNext
+                          ? suggestedNext.prompt
+                          : "Ask anything about onchain activity…"
                       }
-                    }}
-                    rows={1}
-                    className="max-h-44 min-h-[44px] w-full resize-none bg-transparent px-3 py-2.5 text-sm leading-6 text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
-                    placeholder="Ask anything about onchain activity…"
-                  />
-                  <Button
-                    type="button"
-                    aria-label={mcpMutation.isPending ? "Stop" : "Send"}
-                    title={mcpMutation.isPending ? "Stop" : "Send"}
-                    onClick={() =>
-                      mcpMutation.isPending
-                        ? stopMcpRun()
-                        : submitChatPrompt(chatPrompt)
-                    }
-                    disabled={
-                      !mcpMutation.isPending && chatPrompt.trim().length === 0
-                    }
-                    className={
-                      mcpMutation.isPending
-                        ? "h-11 w-11 shrink-0 rounded-full bg-white/10 p-0 text-foreground transition-all hover:bg-white/20"
-                        : "h-11 w-11 shrink-0 rounded-full bg-[linear-gradient(135deg,#5c70ff,#4258e0)] p-0 shadow-[0_14px_34px_-16px_rgba(86,112,255,0.9)] transition-all hover:shadow-[0_18px_40px_-14px_rgba(86,112,255,1)]"
-                    }
-                  >
-                    {mcpMutation.isPending ? (
-                      <StopIcon className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <ChevronUpIcon className="h-4 w-4" aria-hidden="true" />
-                    )}
-                  </Button>
+                    />
+                    {voice.supported ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        aria-label={
+                          voice.listening ? "Stop dictation" : "Dictate"
+                        }
+                        title={voice.listening ? "Stop dictation" : "Dictate"}
+                        onClick={voice.toggle}
+                        className="h-11 w-11 shrink-0 rounded-full p-0 text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <MicrophoneIcon
+                          className={
+                            voice.listening
+                              ? "h-5 w-5 animate-pulse text-primary"
+                              : "h-5 w-5"
+                          }
+                          aria-hidden="true"
+                        />
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      aria-label={agentMutation.isPending ? "Stop" : "Send"}
+                      title={agentMutation.isPending ? "Stop" : "Send"}
+                      onClick={() =>
+                        agentMutation.isPending
+                          ? stopAgentRun()
+                          : submitChatPrompt(chatPrompt)
+                      }
+                      disabled={
+                        !agentMutation.isPending &&
+                        chatPrompt.trim().length === 0 &&
+                        !attachment
+                      }
+                      className={
+                        agentMutation.isPending
+                          ? "h-11 w-11 shrink-0 rounded-full bg-white/10 p-0 text-foreground transition-all hover:bg-white/20"
+                          : "h-11 w-11 shrink-0 rounded-full bg-[linear-gradient(135deg,#5c70ff,#4258e0)] p-0 shadow-[0_14px_34px_-16px_rgba(86,112,255,0.9)] transition-all hover:shadow-[0_18px_40px_-14px_rgba(86,112,255,1)]"
+                      }
+                    >
+                      {agentMutation.isPending ? (
+                        <StopIcon className="h-4 w-4" aria-hidden="true" />
+                      ) : (
+                        <ChevronUpIcon className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )
       ) : (
         <>
           <div className="group relative overflow-hidden rounded-2xl border border-primary/20 bg-card shadow-[0_28px_80px_-48px_rgba(66,118,255,0.75)] transition-shadow focus-within:shadow-[0_28px_90px_-40px_rgba(66,118,255,0.9)]">
@@ -3139,273 +4054,10 @@ export function QueryTab({
         </>
       )}
 
-      {isSqlRunning ? <SqlBlockchainLoader query={sqlQuery} /> : null}
-
-      {/*
-        Running SQL must always end in exactly one visible outcome: results,
-        or an explicit human-readable error/empty state in this region.
-      */}
-      {!isSqlRunning && sqlRunError ? (
-        <div
-          role="alert"
-          className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
-        >
-          <div className="text-sm font-medium text-destructive">
-            Query failed to run
-          </div>
-          <p className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground/90">
-            {sqlRunError}
-          </p>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Fix the SQL above and run it again.
-          </p>
-        </div>
-      ) : null}
-
-      {hasRunQuery && !isSqlRunning && !sqlRunError ? (
-        status === "failed" ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
-          >
-            <div className="text-sm font-medium text-destructive">
-              Query failed
-            </div>
-            <p className="mt-2 whitespace-pre-wrap break-words font-mono text-sm text-foreground/90">
-              {statusFailureDetail ??
-                "The query failed to execute, and the backend returned no further detail."}
-            </p>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Fix the SQL above and run it again.
-            </p>
-          </div>
-        ) : sqlPollTimedOut && status !== "completed" ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
-          >
-            <div className="text-sm font-medium text-destructive">
-              Query timed out
-            </div>
-            <p className="mt-2 text-sm text-foreground/90">
-              The query was still running after{" "}
-              {Math.round(SQL_STATUS_POLL_TIMEOUT_MS / 1000)} seconds, so we
-              stopped waiting.
-              {statusQuery.error instanceof Error
-                ? ` Last status check failed: ${statusQuery.error.message}`
-                : ""}
-            </p>
-            <div className="mt-4 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  sqlPollStartedAtRef.current = Date.now();
-                  setSqlPollTimedOut(false);
-                  statusQuery.refetch().catch(() => undefined);
-                }}
-                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/40"
-              >
-                Check again
-              </button>
-              <span className="text-xs text-muted-foreground">
-                or simplify the query and run it again.
-              </span>
-            </div>
-          </div>
-        ) : resultsQuery.isError ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-destructive/40 bg-destructive/5 px-5 py-6"
-          >
-            <div className="text-sm font-medium text-destructive">
-              Couldn&apos;t load results
-            </div>
-            <p className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground/90">
-              {resultsQuery.error instanceof Error
-                ? resultsQuery.error.message
-                : "Failed to load query results"}
-            </p>
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  resultsQuery.refetch().catch(() => undefined);
-                }}
-                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/40"
-              >
-                Try again
-              </button>
-            </div>
-          </div>
-        ) : rows.length === 0 && !resultsQuery.isSuccess ? (
-          // Terminal status reached but the paginated results are still on
-          // their way - keep the loader up rather than flashing an empty table.
-          <SqlBlockchainLoader query={sqlQuery} />
-        ) : rows.length === 0 ? (
-          <div className="rounded-xl border border-border bg-card px-5 py-8 text-center">
-            <div className="text-sm font-medium text-foreground">
-              Query ran successfully - 0 rows returned
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              The SQL executed without errors but matched no rows. Adjust the
-              filters and run it again.
-            </p>
-          </div>
-        ) : (
-          <SqlResultsTable
-            rows={rows}
-            columns={columns}
-            columnLabels={columnLabels}
-            selectedRows={selectedRows}
-            onToggleAll={toggleAllRows}
-            onToggleRow={toggleRowSelection}
-            onClearSelection={clearSelection}
-            totalRows={typeof totalRows === "number" ? totalRows : 0}
-            winbackPotential={summaryQuery.data?.winbackPotential}
-            queryId={queryId}
-            status={status}
-            page={page}
-            pageCount={pageCount}
-            onPrevPage={goPrevPage}
-            onNextPage={goNextPage}
-            onSaveReport={handleSaveReport}
-            onCreateSegment={handleCreateSegment}
-            onCreateCampaign={handleCreateCampaign}
-            savePending={saveReportMutation.isPending}
-            segmentPending={createSegmentMutation.isPending}
-            campaignPending={createCampaignMutation.isPending}
-            onEmail={handleEmailRow}
-          />
-        )
-      ) : null}
-
-      {(() => {
-        const items = (historyQuery.data ?? [])
-          .map((h) => (isJsonObject(h) ? (h as Record<string, unknown>) : {}))
-          .map((item) => {
-            const provider =
-              typeof item.provider === "string"
-                ? item.provider.toLowerCase()
-                : "";
-            return {
-              qid:
-                typeof item.queryId === "string"
-                  ? item.queryId
-                  : typeof item.id === "string"
-                    ? item.id
-                    : "",
-              q:
-                typeof item.query === "string" && item.query.length > 0
-                  ? item.query
-                  : typeof item.name === "string" && item.name.length > 0
-                    ? item.name
-                    : typeof item.summary === "string"
-                      ? item.summary
-                      : "",
-              isMcp: provider.includes("goldrush") || provider.includes("mcp"),
-              status: typeof item.status === "string" ? item.status : "",
-              createdAt:
-                typeof item.createdAt === "string"
-                  ? item.createdAt
-                  : typeof item.timestamp === "string"
-                    ? item.timestamp
-                    : "",
-            };
-          })
-          .filter((x) => x.qid && x.q.length > 0)
-          .slice(0, 12);
-        if (items.length === 0) return null;
-        return (
-          <div className="overflow-hidden rounded-xl border border-border bg-card/40">
-            <button
-              type="button"
-              aria-expanded={historyOpen}
-              onClick={() => setHistoryOpen((v) => !v)}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
-            >
-              <ClockIcon
-                className="h-4 w-4 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <span className="text-sm font-medium text-foreground">
-                History
-              </span>
-              <span className="text-xs text-muted-foreground">
-                MCP &amp; SQL runs
-              </span>
-              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                {items.length}
-              </span>
-              <ChevronUpIcon
-                className={`ml-auto h-4 w-4 text-muted-foreground transition-transform duration-300 ${
-                  historyOpen ? "" : "rotate-180"
-                }`}
-                aria-hidden="true"
-              />
-            </button>
-            <div
-              className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-                historyOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-              }`}
-            >
-              <div className="overflow-hidden">
-                <ul className="max-h-80 space-y-1.5 overflow-y-auto px-3 pb-3">
-                  {items.map((it) => {
-                    const ok = it.status === "completed";
-                    const failed = it.status === "failed";
-                    return (
-                      <li key={it.qid}>
-                        <button
-                          type="button"
-                          className="group flex w-full items-start gap-3 rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-border hover:bg-background"
-                          onClick={() => {
-                            if (it.isMcp) {
-                              // Replay an MCP run: reload the prompt into
-                              // the chat composer for the user to resend.
-                              setChatPrompt(it.q);
-                              return;
-                            }
-                            setSqlQuery(it.q);
-                            setQueryId(it.qid);
-                            setHasRunQuery(true);
-                          }}
-                        >
-                          <span
-                            className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
-                              ok
-                                ? "bg-emerald-500"
-                                : failed
-                                  ? "bg-rose-500"
-                                  : "bg-amber-500"
-                            }`}
-                          />
-                          <span className="mt-0.5 shrink-0 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                            {it.isMcp ? "MCP" : "SQL"}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-mono text-xs text-foreground">
-                              {it.q.replace(/\s+/g, " ").trim()}
-                            </span>
-                            {it.createdAt ? (
-                              <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                                {new Date(it.createdAt).toLocaleString()}
-                              </span>
-                            ) : null}
-                          </span>
-                          <ArrowUturnLeftIcon
-                            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
-                            aria-hidden="true"
-                          />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {/* SQL outcomes render under the (hidden) SQL editor surface only. In chat
+          they belong to the History surface, so they never stack with the chat
+          thread - see the historyOpen branch above. */}
+      {activeSurface === "sql" ? sqlResultsNode : null}
 
       <Dialog open={nameDialogOpen} onOpenChange={setNameDialogOpen}>
         <DialogContent className="sm:max-w-[420px]">

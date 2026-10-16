@@ -1,0 +1,24 @@
+/* Onchain Suite — base element styles consuming the tokens. */
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-body-m-size);
+  line-height: var(--text-body-m-line);
+  color: var(--text-primary);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+}
+
+code, pre, .os-mono {
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background: var(--blue-100);
+}
+
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}

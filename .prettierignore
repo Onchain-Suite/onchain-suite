@@ -50,6 +50,9 @@ CHANGELOG.md
 # Public assets
 public/
 
+# v2.7 migration reference bundle (not app source)
+reference/
+
 # Configuration files that shouldn't be formatted
 *.config.js
 *.config.mjs

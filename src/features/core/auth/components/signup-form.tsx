@@ -4,14 +4,20 @@ import { EnvelopeIcon, UserIcon } from "@heroicons/react/24/outline";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import posthog from "posthog-js";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { CheckboxFormField, InputFormField } from "@/components/form-fields";
 import { Form } from "@/ui/form";
 import { LoadingButton } from "@/ui/loading-button";
+import {
+  isTurnstileConfigured,
+  type TurnstileHandle,
+  TurnstileWidget,
+} from "@/ui/turnstile-widget";
 
 import { useLocalStorage } from "@/hooks/client";
 import { authClient, signInWithGoogle } from "@/lib/auth-client";
@@ -27,16 +33,28 @@ import {
 } from "./shared";
 import { syncUserDataWithGuard } from "@/auth/actions";
 import { type SignUpFormData, signUpSchema } from "@/auth/validation";
+import { AUTH_ROUTES } from "@/shared/config/app-routes";
 
 interface SignUpFormProps {
   onSwitchToSignIn: () => void;
 }
 
+/** Only same-origin relative paths are allowed as a post-auth redirect. */
+const safeRedirectPath = (raw: string | null): string | null => {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  return trimmed;
+};
+
 export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const turnstileRef = useRef<TurnstileHandle>(null);
 
   const { setValue } = useLocalStorage<SignUpFormData | null>("user", null);
 
+  const router = useRouter();
   const searchParams = useSearchParams();
   // Prefill email when arriving from the sign-in "no account" flow
   // (/auth/signup?email=...).
@@ -65,15 +83,23 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
   };
 
   const onSubmit = async (data: SignUpFormData) => {
+    if (isTurnstileConfigured() && !captchaToken) {
+      toast.error("Please complete the verification below.");
+      return;
+    }
     setIsLoading(true);
     try {
       const { error } = await authClient.signUp.email({
         email: data.email,
         password: data.password,
         name: `${data.firstName} ${data.lastName}`,
-      });
+        // Bot gate — the custom /auth/sign-up/email handler verifies this
+        // server-side before the account is created.
+        turnstileToken: captchaToken,
+      } as Parameters<typeof authClient.signUp.email>[0]);
 
       if (error) {
+        turnstileRef.current?.reset(); // single-use token spent on the attempt
         toast.error(
           pickNonEmptyString(error.message) ??
             "Failed to create account. Please try again."
@@ -88,14 +114,25 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
         console.error("Failed to sync user data:", err);
       }
 
-      // Store form data for onboarding
+      posthog.capture("account_created", { method: "password" });
+
+      // Store form data for onboarding (used after they verify).
       setValue(data);
       toast.success(
-        "Account created successfully! Please check your email to verify your account."
+        "Account created. Check your email to verify your account."
       );
-      form.reset();
+      // Take them to the "check your inbox" page (with resend) instead of
+      // leaving them on the signup form. The email drives the resend action;
+      // an invite redirectTo is carried through to after verification.
+      const params = new URLSearchParams({ email: data.email });
+      const redirectTo = safeRedirectPath(
+        searchParams?.get("redirectTo") ?? null
+      );
+      if (redirectTo) params.set("redirectTo", redirectTo);
+      router.push(`${AUTH_ROUTES.VERIFY_ACCOUNT}?${params.toString()}`);
     } catch (error: unknown) {
       console.error("Sign up error:", error);
+      turnstileRef.current?.reset();
       const response = isJsonObject(error) ? error.response : undefined;
       const data = isJsonObject(response) ? response.data : undefined;
       const message = isJsonObject(data) ? data.message : undefined;
@@ -108,14 +145,6 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const safeRedirectPath = (raw: string | null): string | null => {
-    if (!raw) return null;
-    const trimmed = raw.trim();
-    if (!trimmed.startsWith("/")) return null;
-    if (trimmed.startsWith("//")) return null;
-    return trimmed;
   };
 
   const handleOAuthSignUp = async (provider: string) => {
@@ -236,6 +265,12 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
                       updates and features"
               />
             </div>
+
+            <TurnstileWidget
+              ref={turnstileRef}
+              onVerify={setCaptchaToken}
+              className="flex justify-center"
+            />
 
             <LoadingButton isLoading={isLoading} disabled={isLoading}>
               Create Account

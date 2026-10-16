@@ -1,0 +1,97 @@
+/* Full-screen sub-builders (email + in-app push). Owned by builders.tsx so any screen
+   that opens them gets the styles — previously these lived in automations.css, which
+   meant the campaign wizard rendered the overlay unstyled and in-flow. */
+/* full-screen sub-builders (push / email) */
+.pb { position:fixed; inset:0; z-index:220; background:var(--bg-page); display:flex; flex-direction:column; font-family:var(--font-sans); }
+.pb__top { height:56px; display:flex; align-items:center; gap:12px; padding:0 16px; background:var(--bg-surface); border-bottom:1px solid var(--border-default); flex-shrink:0; }
+.pb__back { display:inline-flex; align-items:center; gap:8px; border:none; background:none; font-family:inherit; font-size:14px; font-weight:500; color:var(--text-secondary); cursor:pointer; padding:8px 10px; border-radius:var(--radius-md); }
+.pb__back:hover { background:var(--surface-hover); color:var(--text-primary); }
+.pb__body { flex:1; overflow-y:auto; padding:40px; display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:44px; max-width:1000px; margin:0 auto; width:100%; box-sizing:border-box; }
+.pb__fields { display:flex; flex-direction:column; gap:18px; }
+.pb__f { display:flex; flex-direction:column; gap:6px; }
+.pb__f>span { font-size:14px; font-weight:500; color:var(--text-primary); }
+.pb__f .hint { font-size:12px; color:var(--text-tertiary); margin:0; }
+.pb__in { height:38px; box-sizing:border-box; border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--bg-surface); padding:0 12px; font-family:inherit; font-size:14px; color:var(--text-primary); outline:none; }
+.pb__in:focus { border-color:var(--border-focus); box-shadow:0 0 0 3px var(--focus-ring); }
+textarea.pb__in { height:auto; min-height:82px; padding:10px 12px; resize:vertical; line-height:1.5; }
+.pb__phone { border-radius:var(--radius-lg); background:var(--surface-subtle); padding:44px 22px; display:flex; justify-content:center; }
+.pb__note { width:100%; max-width:320px; background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); box-shadow:var(--elevation-2); padding:12px 14px; display:flex; gap:10px; align-items:flex-start; }
+.pb__app { width:34px; height:34px; border-radius:var(--radius-md); background:var(--action-primary); color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.pb__nt { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.pb__nt b { font-size:13px; font-weight:600; color:var(--text-primary); }
+.pb__nt span { font-size:12px; color:var(--text-secondary); line-height:1.4; }
+.pb__time { margin-left:auto; font-size:10px; color:var(--text-tertiary); flex-shrink:0; }
+
+/* Responsive: the two-up editor/preview split collapses on narrow viewports. */
+@media (max-width:900px) {
+  .pb__body { grid-template-columns:minmax(0,1fr); gap:24px; padding:24px; }
+}
+
+/* Borrowed utility classes the builders use — duplicated here so builders.css is
+   self-contained and works from any screen (wizard, automations, forms). */
+.pb .txtin { height:36px; box-sizing:border-box; border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--bg-surface); padding:0 12px; font-family:inherit; font-size:14px; color:var(--text-primary); outline:none; width:100%; }
+.pb .txtin:focus { border-color:var(--border-focus); box-shadow:0 0 0 3px var(--focus-ring); }
+.pb .node__rm { width:22px; height:22px; border:none; background:none; border-radius:var(--radius-sm); color:var(--text-tertiary); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+.pb .node__rm:hover { background:var(--surface-hover); color:var(--text-primary); }
+
+/* ── Email template editor (WYSIWYG block canvas) — ported from the handoff TemplateEditor ── */
+.ted { position:fixed; inset:0; z-index:200; background:var(--bg-page); display:flex; flex-direction:column; font-family:var(--font-sans); }
+.ted__top { height:56px; display:flex; align-items:center; gap:12px; padding:0 16px; background:var(--bg-surface); border-bottom:1px solid var(--border-default); flex-shrink:0; }
+.ted__back { display:inline-flex; align-items:center; gap:8px; border:none; background:none; font-family:inherit; font-size:14px; font-weight:500; color:var(--text-secondary); cursor:pointer; padding:8px 10px; border-radius:var(--radius-md); }
+.ted__back:hover { background:var(--surface-hover); color:var(--text-primary); }
+.ted__name { font-size:14px; font-weight:600; color:var(--text-primary); }
+.ted__seg { display:inline-flex; background:var(--surface-subtle); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:3px; gap:2px; margin:0 auto; }
+.ted__seg button { display:inline-flex; align-items:center; gap:7px; border:none; background:none; font-family:inherit; font-size:12px; font-weight:500; color:var(--text-secondary); padding:6px 14px; border-radius:var(--radius-sm); cursor:pointer; }
+.ted__seg button.on { background:var(--bg-surface); color:var(--text-primary); box-shadow:var(--elevation-1); }
+.ted__body { flex:1; display:flex; min-height:0; }
+.ted__panel { width:264px; background:var(--bg-surface); border-right:1px solid var(--border-default); display:flex; flex-direction:column; flex-shrink:0; }
+.ted__tabs { display:flex; gap:2px; padding:10px 12px 0; border-bottom:1px solid var(--border-subtle); }
+.ted__tabs button { border:none; background:none; font-family:inherit; font-size:12px; font-weight:500; color:var(--text-secondary); padding:8px 12px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.ted__tabs button.on { color:var(--text-primary); border-bottom-color:var(--action-primary); }
+.ted__panelbody { flex:1; overflow-y:auto; padding:16px 12px; display:flex; flex-direction:column; gap:16px; }
+.ted__grouplbl { font-size:12px; font-weight:500; letter-spacing:0.2px; text-transform:uppercase; color:var(--text-tertiary); padding:0 4px; }
+.ted__blocks { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.ted__block { display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 8px; border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--bg-surface); font-family:inherit; font-size:12px; font-weight:500; color:var(--text-secondary); cursor:pointer; transition:border-color var(--duration-fast) var(--ease-standard),background var(--duration-fast) var(--ease-standard); }
+.ted__block:hover { border-color:var(--action-primary); background:var(--bg-selected); color:var(--action-primary); }
+.ted__hint { font-size:12px; color:var(--text-tertiary); line-height:1.5; padding:0 4px; margin:0; }
+.ted__field { display:flex; flex-direction:column; gap:6px; padding:0 4px; }
+.ted__field label { font-size:12px; font-weight:500; color:var(--text-primary); }
+.ted__field textarea, .ted__field input { width:100%; box-sizing:border-box; border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--bg-surface); padding:8px 10px; font-family:inherit; font-size:14px; color:var(--text-primary); outline:none; resize:vertical; }
+.ted__field textarea:focus, .ted__field input:focus { border-color:var(--border-focus); box-shadow:0 0 0 3px var(--focus-ring); }
+.ted__canvas { flex:1; overflow-y:auto; padding:36px 32px; display:flex; justify-content:center; }
+.ted__mail { width:100%; background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-md); box-shadow:var(--elevation-2); height:fit-content; padding:24px 24px 20px; box-sizing:border-box; display:flex; flex-direction:column; gap:2px; transition:max-width var(--duration-base) var(--ease-standard); }
+.ted__blk { position:relative; border:1.5px solid transparent; border-radius:var(--radius-sm); padding:8px 10px; cursor:pointer; }
+.ted__blk:hover { border-color:var(--border-strong); }
+.ted__blk.on { border-color:var(--action-primary); }
+.ted__blk.on::after { content:attr(data-lbl); position:absolute; top:-9px; left:8px; background:var(--action-primary); color:#fff; font-size:10px; font-weight:600; padding:1px 7px; border-radius:3px; letter-spacing:0.3px; }
+.ted__blktools { position:absolute; top:-11px; right:6px; display:none; gap:2px; background:var(--bg-surface); border:1px solid var(--border-default); border-radius:var(--radius-sm); box-shadow:var(--elevation-1); padding:2px; z-index:2; }
+.ted__blk.on .ted__blktools { display:flex; }
+.ted__blktools button { width:22px; height:22px; border:none; background:none; border-radius:3px; color:var(--text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.ted__blktools button:hover { background:var(--surface-hover); color:var(--text-primary); }
+.ted__blktools button:disabled { opacity:0.35; cursor:not-allowed; }
+.ted__banner { height:130px; border-radius:var(--radius-sm); background:var(--bg-selected); color:var(--action-primary); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px; font-size:12px; font-weight:500; }
+.ted__mail h2 { margin:0; font-size:22px; font-weight:600; letter-spacing:-0.2px; color:var(--text-primary); }
+.ted__mail p { margin:0; font-size:13px; line-height:1.55; color:var(--text-secondary); }
+.ted__cta { display:inline-block; align-self:flex-start; background:var(--action-primary); color:#fff; font-size:13px; font-weight:600; padding:9px 18px; border-radius:var(--radius-sm); }
+.ted__div { height:1px; background:var(--border-subtle); margin:6px 0; }
+.ted__spacer { height:24px; }
+.ted__foot { font-size:11px; color:var(--text-tertiary); }
+.ted__empty { border:1.5px dashed var(--border-default); border-radius:var(--radius-md); padding:40px; text-align:center; color:var(--text-tertiary); font-size:14px; }
+.ted__add { display:flex; align-items:center; justify-content:center; gap:8px; border:1.5px dashed var(--border-default); border-radius:var(--radius-sm); padding:12px; margin-top:6px; color:var(--text-tertiary); font-size:12px; font-weight:500; cursor:pointer; background:none; font-family:inherit; }
+.ted__add:hover { border-color:var(--action-primary); color:var(--action-primary); background:var(--bg-selected); }
+@media (max-width:820px) { .ted__panel { width:200px; } .ted__canvas { padding:20px 16px; } }
+
+/* Merge tags + compliance footer */
+.ted__tags { display:flex; flex-wrap:wrap; gap:6px; }
+.ted__tag { border:1px solid var(--border-default); background:var(--bg-surface); color:var(--text-secondary);
+  font-family:var(--font-sans); font-size:11.5px; font-weight:500; padding:4px 8px; border-radius:var(--radius-sm); cursor:pointer; }
+.ted__tag:hover { border-color:var(--action-primary); color:var(--action-primary); background:var(--bg-selected); }
+.ted__tag.req { border-style:dashed; }
+.ted__locked { display:flex; gap:7px; align-items:flex-start; margin:0; padding:10px 11px; background:var(--bg-selected);
+  border:1px solid var(--border-default); border-radius:var(--radius-md); font-size:12px; line-height:1.5; color:var(--text-secondary); }
+.ted__warn { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--orange-700); background:var(--orange-100);
+  border-radius:var(--radius-sm); padding:4px 9px; }
+.ted__ok { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--status-success-text);
+  background:var(--status-success-bg); border-radius:var(--radius-sm); padding:4px 9px; }
+.ted__foot { font-size:11px; color:var(--text-tertiary); line-height:1.6; }
+.ted__blk--locked { background:var(--surface-subtle); }

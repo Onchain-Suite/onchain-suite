@@ -30,7 +30,7 @@ const timeAgo = (iso: string | null): string => {
  * Compact wallet/contract enrichment button (sits next to the credit meter).
  * Kicks off holder discovery + per-wallet enrichment from saved project-settings
  * contracts - this is what populates `user_onchain_metrics`, so SQL queries
- * return rows. Status is surfaced in the tooltip. Spends GoldRush credits.
+ * return rows. Status is surfaced in the tooltip. Spends Alchemy on-chain data credits.
  */
 export function EnrichmentControl() {
   const queryClient = useQueryClient();
@@ -50,11 +50,13 @@ export function EnrichmentControl() {
   const enrichMutation = useMutation({
     mutationFn: () => intelligenceService.enrichProtocol(),
     onSuccess: async (res) => {
-      const wallets = res?.walletsEnqueued ?? 0;
+      // Show the audience total being enriched (the whole contact set), not
+      // just the newly-discovered holders.
+      const wallets = res?.contactsEnqueued ?? res?.walletsEnqueued ?? 0;
       toast.success(
         wallets > 0
-          ? `Enriching ${wallets.toLocaleString()} wallets - metrics will populate shortly.`
-          : "Enrichment started. Save contract addresses in Settings to seed more wallets."
+          ? `Refreshing on-chain data for ${wallets.toLocaleString()} wallets - updates shortly.`
+          : "Refresh started. Save contract addresses in Settings to seed more wallets."
       );
       await queryClient.invalidateQueries({
         queryKey: ["intelligence", "enrichment", "status"],
@@ -91,7 +93,7 @@ export function EnrichmentControl() {
             type="button"
             onClick={() => enrichMutation.mutate()}
             disabled={enrichMutation.isPending}
-            aria-label="Enrich on-chain data"
+            aria-label="Refresh on-chain data"
             className="inline-flex h-[42px] shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-muted/40 disabled:opacity-60"
           >
             {busy ? (
@@ -105,7 +107,7 @@ export function EnrichmentControl() {
                 aria-hidden="true"
               />
             )}
-            {enrichMutation.isPending ? "Enriching…" : "Enrich"}
+            {enrichMutation.isPending ? "Refreshing…" : "Refresh data"}
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-[240px] text-xs">
@@ -113,8 +115,9 @@ export function EnrichmentControl() {
           {busy
             ? ` · ${pending.toLocaleString()} job${pending === 1 ? "" : "s"} running`
             : ` · updated ${timeAgo(status?.lastEnrichedAt ?? null)}`}
-          . Discovers holders for your saved contracts and enriches their
-          on-chain metrics so SQL has data.
+          . Refreshes on-chain data (balances, tokens, activity) for your
+          wallets so SQL and segments stay current. To add NEW wallets, use
+          “Find new wallets” on the Audience page.
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

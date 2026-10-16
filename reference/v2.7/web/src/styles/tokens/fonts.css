@@ -1,0 +1,12 @@
+/* OnchainSuite — webfonts.
+   Inter (UI) + JetBrains Mono (code, wallet addresses).
+
+   Changed from Instrument Sans + Geist Mono on 2 Oct 2026: the house standard is now Attio's
+   typography, and Inter is what it is set in. Inter is also the safer choice for a dense
+   product — it was drawn for UI at small sizes, it ships a tabular-figure feature we rely on
+   in every table, and its optical sizing holds up at the 12–14px this app lives at.
+
+   Loaded from Google Fonts. Replace with self-hosted @font-face rules when licensed WOFF2
+   files are supplied — a webfont on the critical path is a render-blocking request to
+   somebody else's server. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..700;1,14..32,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap');

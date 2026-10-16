@@ -193,37 +193,60 @@ export function CampaignDetailModal({
                     )}
                   </div>
 
-                  {/* Performance Metrics */}
-                  {(campaign.openRate !== undefined ||
-                    campaign.clickRate !== undefined) && (
-                    <div className="pt-4 border-t border-border">
-                      <p className="text-xs font-medium text-muted-foreground uppercase mb-3">
-                        Performance
-                      </p>
-                      <div className="grid grid-cols-2 gap-4">
-                        {campaign.openRate !== undefined && (
-                          <div className="space-y-1">
-                            <p className="text-2xl font-bold text-foreground">
-                              {campaign.openRate}%
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Open Rate
-                            </p>
-                          </div>
-                        )}
-                        {campaign.clickRate !== undefined && (
-                          <div className="space-y-1">
-                            <p className="text-2xl font-bold text-foreground">
-                              {campaign.clickRate}%
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Click Rate
-                            </p>
-                          </div>
-                        )}
+                  {/* Performance Metrics - prefer the honest of-delivered rate
+                      and always state its denominator. Rates are already
+                      percentages; never x100, never clamp. */}
+                  {(() => {
+                    const openR =
+                      campaign.openRateOfDelivered ??
+                      campaign.openRateOfAudience ??
+                      campaign.openRate;
+                    const clickR =
+                      campaign.clickRateOfDelivered ??
+                      campaign.clickRateOfAudience ??
+                      campaign.clickRate;
+                    if (openR === undefined && clickR === undefined)
+                      return null;
+                    const ofDelivered =
+                      campaign.openRateOfDelivered !== undefined ||
+                      campaign.clickRateOfDelivered !== undefined;
+                    const denomN = ofDelivered
+                      ? campaign.delivered
+                      : campaign.recipients;
+                    const denom =
+                      typeof denomN === "number"
+                        ? `of ${denomN.toLocaleString()} ${ofDelivered ? "delivered" : "sent"}`
+                        : null;
+                    return (
+                      <div className="pt-4 border-t border-border">
+                        <p className="text-xs font-medium text-muted-foreground uppercase mb-3">
+                          Performance
+                        </p>
+                        <div className="grid grid-cols-2 gap-4">
+                          {openR !== undefined && (
+                            <div className="space-y-1">
+                              <p className="text-2xl font-bold text-foreground">
+                                {openR.toFixed(1)}%
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Open Rate{denom ? ` ${denom}` : ""}
+                              </p>
+                            </div>
+                          )}
+                          {clickR !== undefined && (
+                            <div className="space-y-1">
+                              <p className="text-2xl font-bold text-foreground">
+                                {clickR.toFixed(1)}%
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Click Rate{denom ? ` ${denom}` : ""}
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>

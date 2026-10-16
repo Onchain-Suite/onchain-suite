@@ -3,22 +3,23 @@ import Link from "next/link";
 
 import { formatPostDate, toIsoDate } from "../blog.format";
 import type { BlogPost } from "../blog.types";
+import { BlogShell } from "./blog-shell";
 import { BlogRichText } from "./rich-text";
-import { PageShell } from "@/onchain-suite-website/components/landing/v2/shared";
 
 /**
  * A single post. Server Component: the entire article, including the rich-text
- * body, is rendered on the server and ships zero JS of its own.
+ * body, is rendered on the server and ships zero JS of its own. `BlogShell`
+ * provides the ns chrome (navbar + footer).
  */
 export function BlogPostView({ post }: { post: BlogPost }) {
   const published = formatPostDate(post.publishedAt);
 
   return (
-    <PageShell>
+    <BlogShell>
       <article>
         <section className="relative overflow-hidden pb-8 pt-16 md:pt-20">
           <div className="grid-bg" />
-          <div className="wrap relative max-w-3xl">
+          <div className="blog-read relative">
             <Link href="/blog" className="text-[13px] t-muted hover:underline">
               ← All posts
             </Link>
@@ -79,7 +80,7 @@ export function BlogPostView({ post }: { post: BlogPost }) {
 
         {post.coverImage?.url ? (
           <section className="pb-10">
-            <div className="wrap max-w-3xl">
+            <div className="blog-read">
               <Image
                 src={post.coverImage.url}
                 alt={post.coverImage.alt}
@@ -94,14 +95,14 @@ export function BlogPostView({ post }: { post: BlogPost }) {
         ) : null}
 
         <section className="pb-16">
-          <div className="wrap max-w-3xl">
+          <div className="blog-read">
             <BlogRichText content={post.content} />
           </div>
         </section>
 
         {post.tags.length > 0 ? (
           <section className="pb-20">
-            <div className="wrap max-w-3xl">
+            <div className="blog-read">
               <div className="rule mb-6 h-px" />
               <div className="flex flex-wrap gap-2">
                 {post.tags.map((tag) => (
@@ -114,6 +115,6 @@ export function BlogPostView({ post }: { post: BlogPost }) {
           </section>
         ) : null}
       </article>
-    </PageShell>
+    </BlogShell>
   );
 }

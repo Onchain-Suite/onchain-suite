@@ -1,6 +1,6 @@
 import { isJsonObject } from "@/lib/utils";
 
-import type { List, Segment } from "../types";
+import type { List, ReachableCounts, Segment } from "../types";
 import { audienceService } from "@/features/audience/audience.service";
 
 /**
@@ -226,3 +226,74 @@ export const getEstimatedRecipientsFromSelection = (
     0
   );
 };
+
+/**
+ * Gate a group row (segment/list/tag) by the campaign's current channel.
+ *
+ * Gate ONLY on positive evidence: a row whose `reachableVia` explicitly lists the
+ * OTHER channel and not this one is marked `disabled` with a short reason, so the
+ * picker can dim it and stop new selections.
+ *
+ * Everything else stays selectable - we never block on the absence of a positive
+ * signal:
+ *  - `undefined` -> the source doesn't report reachability (intelligence
+ *    segments, tags).
+ *  - `[]` (empty) -> UNKNOWN, not "reachable on nothing". A list can report an
+ *    empty set while its members are still being reachability-scored, and the
+ *    backend's email-reachable count lags for imported contacts - blocking on
+ *    that wrongly hid every list from an email campaign. The send-time estimate
+ *    is the authority, so leave these selectable.
+ *
+ * `reachableVia` comes from `GET /audience/segments` (email = deliverable +
+ * non-suppressed; push = connected wallet).
+ */
+export const reachabilityGate = (
+  reachableVia: ("email" | "push")[] | undefined,
+  isPush: boolean
+): { disabled?: boolean; disabledHint?: string } => {
+  // Only gate PUSH. `reachableVia`'s "push" entry is wallet presence - a hard,
+  // reliable signal - so a group with no wallet really can't receive an in-app
+  // push. Its "email" entry, however, has the SAME server-side under-count as
+  // /audience/overview.emailReachable (imported contacts with plain emails read
+  // as not-email-reachable), so blocking an email campaign's lists on it wrongly
+  // hid lists that can be emailed. For email we never gate the group rows - the
+  // send-time estimate is the authority.
+  if (!isPush) return {};
+  if (!Array.isArray(reachableVia) || reachableVia.length === 0) return {};
+  if (reachableVia.includes("push")) return {};
+  return { disabled: true, disabledHint: "No wallets" };
+};
+
+/**
+ * Parse the backend `reachable: { email, push }` add-on (GET /audience/segments,
+ * /audience/tags, /intelligence/segments). Server-computed over full membership,
+ * with email send-grade (the same rule a send uses), so a group can never claim
+ * more emailable members than a send would reach.
+ *
+ * Returns undefined - so the caller falls back to the total count, never 0 -
+ * when the value is:
+ *  - absent (older response), or
+ *  - `null` (intelligence segments fail soft when they can't compute it), or
+ *  - present but with neither field numeric.
+ * A field the backend omits individually is treated as 0.
+ */
+export const parseReachable = (value: unknown): ReachableCounts | undefined => {
+  if (!isJsonObject(value)) return undefined;
+  const r = value.reachable;
+  if (!isJsonObject(r)) return undefined;
+  const email = typeof r.email === "number" ? r.email : undefined;
+  const push = typeof r.push === "number" ? r.push : undefined;
+  if (email === undefined && push === undefined) return undefined;
+  return { email: email ?? 0, push: push ?? 0 };
+};
+
+/**
+ * Pick the count for the active channel from a `reachable` pair, or null when
+ * there is none (so callers fall back to a total). Returns 0 when the backend
+ * genuinely reports 0 reachable - a real count, not a missing one, so callers
+ * must combine with `??` (not `||`) to preserve it.
+ */
+export const reachChannelCount = (
+  reach: ReachableCounts | null | undefined,
+  isPush: boolean
+): number | null => (reach ? (isPush ? reach.push : reach.email) : null);

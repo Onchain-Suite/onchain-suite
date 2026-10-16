@@ -6,10 +6,14 @@ import {
   ArrowUpTrayIcon,
   AtSymbolIcon,
   CheckIcon,
+  ChevronDownIcon,
+  ChevronUpDownIcon,
+  ChevronUpIcon,
   ClipboardDocumentIcon,
   DevicePhoneMobileIcon,
   EllipsisHorizontalIcon,
   EnvelopeIcon,
+  InformationCircleIcon,
   PencilSquareIcon,
   PlusIcon,
   ShieldCheckIcon,
@@ -77,9 +81,18 @@ import {
   type EmailRecipient,
 } from "../components/compose-email-dialog";
 import { ContactSlideOver } from "../components/contact-slide-over";
+import { EnrichSelectedControl } from "../components/enrich-selected-control";
+import {
+  AppIconCluster,
+  ChainIconCluster,
+  TokenIconCluster,
+} from "../components/icon-cluster";
+import { ImportContractsDialog } from "../components/import-contracts-dialog";
+import { StageBadge } from "../components/stage-badge";
 import { SuppressedTab } from "../components/suppressed-tab";
 import {
   deriveDisplayName,
+  extractChain,
   extractSocialHandles,
   extractWalletFields,
   formatRelativeTime,
@@ -88,8 +101,11 @@ import {
   isSyntheticWalletEmail,
   lifetimeUsd,
   normalizeTags,
+  profileReach,
   readChannels,
 } from "../utils";
+import { type LifecycleStage, stageForProfile } from "../utils/lifecycle";
+import { EnrichmentControl } from "@/features/intelligence/components/enrichment-control";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
@@ -115,12 +131,16 @@ interface Row {
   hasNamedIdentity: boolean;
   walletFull: string;
   walletShort: string;
+  /** Chain label to badge — only set when the contact has a wallet. */
+  chain?: string;
   email?: string; // real (non-synthetic) email only
   verified: boolean;
   tags: string[];
   lastActive?: string;
   lifetimeUsd?: number;
   reach: { email: boolean; push: boolean; x: boolean };
+  /** Derived lifecycle stage (FE-first; see utils/lifecycle). */
+  stage: LifecycleStage;
 }
 
 const toRow = (p: AudienceProfile): Row => {
@@ -155,6 +175,7 @@ const toRow = (p: AudienceProfile): Row => {
     hasNamedIdentity,
     walletFull,
     walletShort: wallet,
+    chain: extractChain(p, walletFull) ?? undefined,
     email,
     verified,
     tags: normalizeTags(p.tags),
@@ -163,20 +184,14 @@ const toRow = (p: AudienceProfile): Row => {
         ? formatRelativeTime(new Date(lastActionAt))
         : undefined,
     lifetimeUsd: onchainUsd ?? undefined,
-    reach: channels
-      ? {
-          email: Boolean(channels.email),
-          push: Boolean(channels.inapp),
-          x: Boolean(channels.x),
-        }
-      : {
-          // Fallback (no `channels` in the response): ZK-protected (verified
-          // wallet) contacts are email-reachable even without a plaintext email;
-          // in-app push is inferred from wallet presence.
-          email: Boolean(email) || (verified && Boolean(walletFull)),
-          push: Boolean(walletFull),
-          x: Boolean(socials.twitter),
-        },
+    // Email/push come from the shared `profileReach` (the ONE definition the
+    // campaign audience picker also uses), so the tiles and the campaign
+    // "Everyone" count can't disagree. `x` stays local (not part of send).
+    reach: {
+      ...profileReach(p),
+      x: channels ? Boolean(channels.x) : Boolean(socials.twitter),
+    },
+    stage: stageForProfile(p),
   };
 };
 
@@ -210,8 +225,8 @@ function listMeta(seg: AudienceSegment): {
       : sourceObj && typeof sourceObj.label === "string"
         ? sourceObj.label
         : "Manual";
-  const reachable = Array.isArray(seg.reachableVia)
-    ? seg.reachableVia.filter((r): r is string => typeof r === "string")
+  const reachable: string[] = Array.isArray(seg.reachableVia)
+    ? [...seg.reachableVia]
     : ["email"];
   return { type, source, reachable };
 }
@@ -227,6 +242,7 @@ export function AudiencePages() {
   // An import/export started on the import page redirects here with its job id;
   // pick it up so we can show a live progress banner (the job outlives that
   // page's local state).
+  const [contractImportOpen, setContractImportOpen] = useState(false);
   const [importJobId, setImportJobId] = useState<string | null>(null);
   const [importBannerDismissed, setImportBannerDismissed] = useState(false);
   const [exportJobId, setExportJobId] = useState<string | null>(null);
@@ -259,6 +275,10 @@ export function AudiencePages() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Net-worth sort on the Lifetime column. null = the backend's default order
+  // (health score); a click cycles desc → asc → off. Only one sortable column
+  // today, so the key doubles as the "is anything sorted" flag.
+  const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
 
   // Inline "New list" form (no modal, per convention).
   const [creatingList, setCreatingList] = useState(false);
@@ -275,6 +295,8 @@ export function AudiencePages() {
   const [renameListValue, setRenameListValue] = useState("");
   const [deleteListTarget, setDeleteListTarget] =
     useState<AudienceSegment | null>(null);
+  // Opt-in on the delete-list dialog: also delete the contacts in the list.
+  const [alsoDeleteContacts, setAlsoDeleteContacts] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   // Clicking a contact opens a slide-in detail panel (not a full-page nav).
@@ -295,13 +317,14 @@ export function AudiencePages() {
     queryKey: [
       "audience",
       "profiles",
-      { page: currentPage, limit: ITEMS_PER_PAGE },
+      { page: currentPage, limit: ITEMS_PER_PAGE, sortDir },
     ],
     queryFn: async () => {
       const res = await audienceService.listProfiles({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         include: "wallets,attributes,tags,lastAction",
+        ...(sortDir ? { sort: "portfolioValueUsd", direction: sortDir } : {}),
       });
       const obj = res as {
         items?: AudienceProfile[];
@@ -338,10 +361,70 @@ export function AudiencePages() {
     refetchOnWindowFocus: false,
   });
 
+  // Email-reachable = contacts we can actually email (an email channel that
+  // isn't suppressed). The /audience/overview aggregate under-counts this - it
+  // only counts a strict verified-channel flag, so imported contacts that
+  // plainly have emails read 0. When the whole audience fits in one page (the
+  // 200 cap), count it straight from the profiles instead; above the cap we
+  // can't see every contact client-side, so we defer to the aggregate.
+  const emailReachableQuery = useQuery({
+    queryKey: ["audience", "email-reachable-count"],
+    queryFn: async () => {
+      const res = await audienceService.listProfiles({
+        page: 1,
+        limit: 200,
+        include: "wallets,attributes,tags",
+      });
+      const obj = res as {
+        items?: AudienceProfile[];
+        data?: AudienceProfile[];
+        meta?: { totalItems?: number };
+      };
+      const items = Array.isArray(res) ? res : (obj.items ?? obj.data ?? []);
+      const metaTotal = !Array.isArray(res)
+        ? num(obj.meta?.totalItems)
+        : undefined;
+      const complete =
+        items.length < 200 ||
+        (typeof metaTotal === "number" && metaTotal <= items.length);
+      const count = items.filter((p) => toRow(p).reach.email).length;
+      return { count, complete };
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+
   const rows = useMemo(
     () => (profilesQuery.data?.items ?? []).map(toRow),
     [profilesQuery.data]
   );
+
+  // Wallets on this page, lowercased + de-duped — the key for the Chains
+  // column's batch lookup. Stable string so the query only refires when the
+  // page's wallet set actually changes.
+  const pageWallets = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of rows) {
+      if (row.walletFull) set.add(row.walletFull.toLowerCase());
+    }
+    return [...set];
+  }, [rows]);
+  const pageWalletsKey = pageWallets.join(",");
+
+  // What each wallet on this page interacts with on-chain — chains (Chains
+  // column) and DeFi protocols (Apps column). One batched POST per page (backend
+  // caps at 200); degrades to {} if the endpoint isn't deployed yet, so the
+  // columns just show dashes rather than erroring.
+  const onchainSummaryQuery = useQuery({
+    queryKey: ["audience", "wallet-onchain-summary", pageWalletsKey],
+    queryFn: () => audienceService.getWalletOnchainSummary(pageWallets),
+    enabled: pageWallets.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60_000,
+  });
+  const walletOnchain = onchainSummaryQuery.data ?? {};
 
   const meta = profilesQuery.data?.meta;
 
@@ -363,7 +446,13 @@ export function AudiencePages() {
   // (total - withWallet); the reachability/suppressed counts come only from the
   // overview endpoint - when absent they render "-", never a fabricated value.
   const emailOnly = num(overview?.emailOnly) ?? Math.max(0, total - withWallet);
-  const emailReachable = num(overview?.emailReachable);
+  // Prefer the exact client-side count when we've seen the whole audience;
+  // otherwise fall back to the (under-counting) overview aggregate.
+  const computedEmailReachable = emailReachableQuery.data?.complete
+    ? emailReachableQuery.data.count
+    : undefined;
+  const emailReachable =
+    computedEmailReachable ?? num(overview?.emailReachable);
   const pushReachable = num(overview?.pushReachable);
   const suppressed = num(overview?.suppressed);
 
@@ -480,6 +569,20 @@ export function AudiencePages() {
     [rows, selectedIds]
   );
 
+  // Wallet addresses of the selected rows — the input to targeted, per-chain
+  // enrichment (dedupe here so the count matches what the backend enqueues).
+  const selectedWallets = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          rows
+            .filter((r) => selectedIds.includes(r.id) && r.walletFull)
+            .map((r) => r.walletFull as string)
+        )
+      ),
+    [rows, selectedIds]
+  );
+
   // Reset selection + transient views when the tab changes.
   useEffect(() => {
     setSelectedIds([]);
@@ -547,11 +650,33 @@ export function AudiencePages() {
   });
 
   const deleteListMutation = useMutation({
-    mutationFn: (id: string) => audienceService.deleteSegment(id),
-    onSuccess: (res, id) => {
+    mutationFn: (vars: {
+      id: string;
+      deleteContacts?: boolean;
+      confirmCount?: number;
+    }) =>
+      audienceService.deleteSegment(
+        vars.id,
+        vars.deleteContacts
+          ? { deleteContacts: true, confirmCount: vars.confirmCount }
+          : undefined
+      ),
+    onSuccess: (res, vars) => {
       queryClient.invalidateQueries({ queryKey: ["audience", "segments"] });
-      setSelectedList((prev) => (prev?.id === id ? null : prev));
+      queryClient.invalidateQueries({ queryKey: ["audience", "profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["audience", "overview"] });
+      setSelectedList((prev) => (prev?.id === vars.id ? null : prev));
       setDeleteListTarget(null);
+      setAlsoDeleteContacts(false);
+      const removed = num(res?.contactsDeleted);
+      if (typeof removed === "number" && removed > 0) {
+        toast.success(
+          `List deleted. ${removed.toLocaleString()} contact${
+            removed === 1 ? "" : "s"
+          } removed from your audience.`
+        );
+        return;
+      }
       const kept = num(res?.contactsKept);
       toast.success(
         typeof kept === "number"
@@ -571,7 +696,7 @@ export function AudiencePages() {
     onSuccess: (res) => {
       const jobId = typeof res?.jobId === "string" ? res.jobId : null;
       setSyncJobId(jobId);
-      toast.success("Wallet sync started - refreshing your audience.");
+      toast.success("Looking for new wallets from your contracts…");
     },
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Failed to start sync"),
@@ -671,6 +796,16 @@ export function AudiencePages() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
+  // Cycle the Lifetime (net-worth) sort: desc → asc → off (default order).
+  // Jumps back to page 1 since the ordering — and so what's on each page —
+  // changes entirely.
+  const cycleNetWorthSort = () => {
+    setSortDir((prev) =>
+      prev === "desc" ? "asc" : prev === "asc" ? null : "desc"
+    );
+    setCurrentPage(1);
+  };
+
   const copyWallet = (row: Row) => {
     if (!row.walletFull) return;
     navigator.clipboard?.writeText(row.walletFull).then(
@@ -743,33 +878,74 @@ export function AudiencePages() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="outline" className="rounded-xl">
-            <Link href={IMPORT_EXPORT_HREF}>
-              <ArrowUpTrayIcon className="mr-2 size-4" aria-hidden="true" />
-              Import CSV
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="rounded-xl">
-            <Link href={IMPORT_EXPORT_HREF}>
-              <ArrowDownTrayIcon className="mr-2 size-4" aria-hidden="true" />
-              Export
-            </Link>
-          </Button>
-          <Button
-            className="rounded-xl"
-            disabled={syncMutation.isPending || syncing}
-            onClick={() => syncMutation.mutate()}
-          >
-            <ArrowPathIcon
-              className={cn("mr-2 size-4", syncing && "animate-spin")}
-              aria-hidden="true"
-            />
-            {syncing
-              ? syncProgress > 0
-                ? `Syncing ${syncProgress}%`
-                : "Syncing…"
-              : "Sync wallets"}
-          </Button>
+          {/* Contact data (CSV in/out) grouped under one menu; the on-chain
+              actions live on the Sync split button beside it. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="rounded-xl">
+                Data
+                <ChevronDownIcon className="ml-2 size-4" aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={IMPORT_EXPORT_HREF}>
+                  <ArrowUpTrayIcon className="mr-2 size-4" aria-hidden="true" />
+                  Import CSV
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={IMPORT_EXPORT_HREF}>
+                  <ArrowDownTrayIcon
+                    className="mr-2 size-4"
+                    aria-hidden="true"
+                  />
+                  Export
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {/* Sync + Import contracts are one control: importing contracts kicks
+              off a sync, so they live together instead of as two toolbar buttons. */}
+          <div className="inline-flex">
+            <Button
+              className="rounded-l-xl rounded-r-none"
+              disabled={syncMutation.isPending || syncing}
+              onClick={() => syncMutation.mutate()}
+              title="Finds NEW wallets: pulls the holders of your indexed contracts into the audience. To refresh on-chain data for wallets you already have, use 'Refresh data'."
+            >
+              <ArrowPathIcon
+                className={cn("mr-2 size-4", syncing && "animate-spin")}
+                aria-hidden="true"
+              />
+              {syncing
+                ? syncProgress > 0
+                  ? `Finding ${syncProgress}%`
+                  : "Finding…"
+                : "Find new wallets"}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  className="rounded-l-none rounded-r-xl border-l border-primary-foreground/25 px-2"
+                  disabled={syncMutation.isPending || syncing}
+                  aria-label="More options"
+                >
+                  <ChevronDownIcon className="size-4" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setContractImportOpen(true)}>
+                  <PlusIcon className="mr-2 size-4" aria-hidden="true" />
+                  Import contracts…
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          {/* Enrichment refresh, surfaced here (not just in Intelligence) so
+              users managing wallets can see when data was last enriched and
+              re-run it. "Sync" adds wallets; "Enrich" refreshes their metrics. */}
+          <EnrichmentControl />
           {activeTab === "contacts" && total > 0 ? (
             <Button
               variant="outline"
@@ -784,6 +960,11 @@ export function AudiencePages() {
             </Button>
           ) : null}
         </div>
+        <ImportContractsDialog
+          open={contractImportOpen}
+          onOpenChange={setContractImportOpen}
+          onImported={() => syncMutation.mutate()}
+        />
       </div>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -903,6 +1084,12 @@ export function AudiencePages() {
                         </Button>
                       }
                     />
+                    {selectedWallets.length > 0 ? (
+                      <EnrichSelectedControl
+                        walletAddresses={selectedWallets}
+                        onEnqueued={() => setSelectedIds([])}
+                      />
+                    ) : null}
                     <Button
                       size="sm"
                       variant="outline"
@@ -930,17 +1117,97 @@ export function AudiencePages() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[860px] border-collapse text-sm">
+                  <table className="w-full min-w-[1120px] border-collapse text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs tracking-wide text-muted-foreground uppercase">
                         <th className="py-3 pr-4 font-medium">Contact</th>
+                        <th className="px-4 py-3 font-medium">
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="Lifecycle stage, derived from health, engagement and recent activity. New, Activated, Engaged, At risk or Dormant."
+                          >
+                            Stage
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </th>
                         <th className="px-4 py-3 font-medium">Reachable via</th>
                         <th className="px-4 py-3 font-medium">Email</th>
-                        <th className="px-4 py-3 font-medium">Tags</th>
-                        <th className="px-4 py-3 text-right font-medium">
-                          Lifetime
+                        <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={cycleNetWorthSort}
+                            aria-label={
+                              sortDir === "desc"
+                                ? "Sorted by lifetime value, highest first. Sort lowest first"
+                                : sortDir === "asc"
+                                  ? "Sorted by lifetime value, lowest first. Clear sort"
+                                  : "Sort by lifetime value"
+                            }
+                            title="On-chain lifetime value — the wallet's total portfolio value in USD at its last enrichment. A dash means it has not been enriched yet. Click to sort."
+                            className={cn(
+                              "ml-auto inline-flex items-center gap-1 transition-colors hover:text-foreground",
+                              sortDir && "text-foreground"
+                            )}
+                          >
+                            Lifetime
+                            {sortDir === "desc" ? (
+                              <ChevronDownIcon
+                                className="size-3.5"
+                                aria-hidden="true"
+                              />
+                            ) : sortDir === "asc" ? (
+                              <ChevronUpIcon
+                                className="size-3.5"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <ChevronUpDownIcon
+                                className="size-3.5 opacity-50"
+                                aria-hidden="true"
+                              />
+                            )}
+                          </button>
                         </th>
-                        <th className="px-4 py-3 text-right font-medium">
+                        <th className="px-4 py-3 font-medium">
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="The chains each wallet has on-chain activity on — the tracked contracts it holds plus its DeFi positions. A dash means no on-chain activity has been synced or enriched yet."
+                          >
+                            Chains
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </th>
+                        <th className="px-4 py-3 font-medium">
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="The DeFi protocols each wallet holds positions in — e.g. Aave, Uniswap. A dash means no protocol positions have been enriched yet."
+                          >
+                            Apps
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </th>
+                        <th className="px-4 py-3 font-medium">
+                          <span
+                            className="inline-flex cursor-help items-center gap-1"
+                            title="The tokens each wallet holds, most valuable first — e.g. ETH, USDC. A dash means no token holdings have been enriched yet."
+                          >
+                            Tokens
+                            <InformationCircleIcon
+                              className="size-3.5 opacity-60"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium whitespace-nowrap">
                           Last active
                         </th>
                       </tr>
@@ -1022,6 +1289,13 @@ export function AudiencePages() {
                                     )}
                                   </button>
                                 ) : null}
+                                {row.walletFull && row.chain ? (
+                                  <ChainIconCluster
+                                    chains={[row.chain]}
+                                    max={1}
+                                    className="shrink-0"
+                                  />
+                                ) : null}
                                 {row.walletFull && row.verified ? (
                                   <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                                     ZK
@@ -1032,6 +1306,9 @@ export function AudiencePages() {
                                   </span>
                                 ) : null}
                               </div>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <StageBadge stage={row.stage} />
                             </td>
                             <td className="px-4 py-3.5">
                               <div className="flex items-center gap-1.5">
@@ -1054,44 +1331,70 @@ export function AudiencePages() {
                             </td>
                             <td className="px-4 py-3.5">
                               {row.email ? (
-                                <span className="font-mono text-xs text-foreground">
+                                <span
+                                  className="block max-w-[240px] truncate font-mono text-xs text-foreground"
+                                  title={row.email}
+                                >
                                   {row.email}
                                 </span>
-                              ) : row.walletFull && row.verified ? (
-                                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                              ) : row.walletFull &&
+                                (row.reach.email || row.verified) ? (
+                                <span
+                                  className="inline-flex items-center gap-1 text-muted-foreground"
+                                  title="Email resolved from a zero-knowledge form proof - the address is never exposed"
+                                >
                                   <ShieldCheckIcon
                                     className="size-4 text-primary"
                                     aria-hidden="true"
                                   />
-                                  ZK-protected
+                                  ZK-verified
                                 </span>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3.5">
-                              {row.tags.length > 0 ? (
-                                <div className="flex items-center gap-1.5">
-                                  {row.tags.slice(0, 2).map((tag) => (
-                                    <span
-                                      key={tag}
-                                      className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {row.tags.length > 2 ? (
-                                    <span className="text-xs text-muted-foreground">
-                                      +{row.tags.length - 2}
-                                    </span>
-                                  ) : null}
-                                </div>
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}
                             </td>
                             <td className="px-4 py-3.5 text-right tabular-nums text-foreground">
                               {lifetime}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {row.walletFull ? (
+                                <ChainIconCluster
+                                  chains={
+                                    walletOnchain[row.walletFull.toLowerCase()]
+                                      ?.chains ?? []
+                                  }
+                                />
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {row.walletFull ? (
+                                <AppIconCluster
+                                  protocols={
+                                    walletOnchain[row.walletFull.toLowerCase()]
+                                      ?.protocols ?? []
+                                  }
+                                  chips={
+                                    walletOnchain[row.walletFull.toLowerCase()]
+                                      ?.protocolChips
+                                  }
+                                />
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {row.walletFull ? (
+                                <TokenIconCluster
+                                  tokens={
+                                    walletOnchain[row.walletFull.toLowerCase()]
+                                      ?.tokens ?? []
+                                  }
+                                />
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
                             </td>
                             <td className="px-4 py-3.5 text-right whitespace-nowrap text-muted-foreground">
                               {row.lastActive ?? "-"}
@@ -1546,6 +1849,7 @@ export function AudiencePages() {
         onOpenChange={(open) => {
           if (!open && !deleteListMutation.isPending) {
             setDeleteListTarget(null);
+            setAlsoDeleteContacts(false);
           }
         }}
       >
@@ -1553,14 +1857,50 @@ export function AudiencePages() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this list?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the saved view “{deleteListTarget?.name}”.{" "}
-              {typeof deleteListTarget?.count === "number"
-                ? `The ${deleteListTarget.count.toLocaleString()} contact${
-                    deleteListTarget.count === 1 ? "" : "s"
-                  } in it stay in your audience.`
-                : "The contacts in it stay in your audience."}
+              {alsoDeleteContacts ? (
+                <>
+                  This permanently deletes the list “{deleteListTarget?.name}”{" "}
+                  <span className="font-medium text-destructive">
+                    and its{" "}
+                    {typeof deleteListTarget?.count === "number"
+                      ? deleteListTarget.count.toLocaleString()
+                      : ""}{" "}
+                    contact
+                    {deleteListTarget?.count === 1 ? "" : "s"}
+                  </span>
+                  . This can’t be undone.
+                </>
+              ) : (
+                <>
+                  This removes the saved view “{deleteListTarget?.name}”.{" "}
+                  {typeof deleteListTarget?.count === "number"
+                    ? `The ${deleteListTarget.count.toLocaleString()} contact${
+                        deleteListTarget.count === 1 ? "" : "s"
+                      } in it stay in your audience.`
+                    : "The contacts in it stay in your audience."}
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <label className="mt-1 flex items-start gap-2.5 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={alsoDeleteContacts}
+              disabled={deleteListMutation.isPending}
+              onChange={(e) => setAlsoDeleteContacts(e.target.checked)}
+              className="mt-0.5 size-4 shrink-0 accent-destructive"
+            />
+            <span className="text-foreground">
+              Also delete the{" "}
+              {typeof deleteListTarget?.count === "number"
+                ? deleteListTarget.count.toLocaleString()
+                : ""}{" "}
+              contact{deleteListTarget?.count === 1 ? "" : "s"} in this list
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Removes them from your entire audience, not just this list.
+              </span>
+            </span>
+          </label>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteListMutation.isPending}>
               Cancel
@@ -1571,11 +1911,22 @@ export function AudiencePages() {
               onClick={(e) => {
                 e.preventDefault();
                 if (deleteListTarget) {
-                  deleteListMutation.mutate(deleteListTarget.id);
+                  deleteListMutation.mutate({
+                    id: deleteListTarget.id,
+                    deleteContacts: alsoDeleteContacts,
+                    confirmCount:
+                      typeof deleteListTarget.count === "number"
+                        ? deleteListTarget.count
+                        : undefined,
+                  });
                 }
               }}
             >
-              {deleteListMutation.isPending ? "Deleting…" : "Delete list"}
+              {deleteListMutation.isPending
+                ? "Deleting…"
+                : alsoDeleteContacts
+                  ? "Delete list & contacts"
+                  : "Delete list"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

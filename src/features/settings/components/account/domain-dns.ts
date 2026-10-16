@@ -4,6 +4,14 @@ import { isJsonObject } from "@/lib/utils";
 export interface DnsRecordRow {
   id: string;
   host: string;
+  /**
+   * The full record name to publish (e.g. "bounce.mg.example.com"), computed by
+   * the backend from the host + sending domain. Shown in the UI/CSV instead of
+   * the relative host so a record is never created one zone level too high
+   * ("bounce" entered at the apex becomes "bounce.example.com", not the
+   * intended "bounce.mg.example.com"). Falls back to host when absent.
+   */
+  fqdn?: string;
   type: string;
   value: string;
   /** true = passed, false = failed, undefined = not yet checked. */
@@ -41,6 +49,63 @@ export interface DomainDnsData {
   fixes: string[];
   /** Saved purpose - transactional → ACS, marketing → SES. */
   purpose?: DomainPurpose;
+}
+
+export type DnsStageTone = "success" | "danger" | "pending";
+
+/**
+ * Where a single record sits in the Add -> Check -> Verified flow, as a short
+ * pill label plus a one-line plain-English hint. The hint is the point: a bare
+ * "Not started" / "In progress" pill does not tell the user what to do next.
+ */
+export interface DnsStageInfo {
+  label: string;
+  hint: string;
+  tone: DnsStageTone;
+}
+
+/**
+ * Maps a record's live verification state to a pill label + a process hint.
+ * Pure, so it is unit-tested without rendering (CLAUDE.md 15.4).
+ */
+export function dnsRecordStage(record: {
+  verified?: boolean;
+  verificationLabel?: string;
+}): DnsStageInfo {
+  if (record.verified === true) {
+    return {
+      label: "Verified",
+      hint: "Authentication passed, nothing to do.",
+      tone: "success",
+    };
+  }
+  if (record.verified === false) {
+    return {
+      label: "Failed",
+      hint: "The provider checked this record and it did not match. Update it.",
+      tone: "danger",
+    };
+  }
+  const state = record.verificationLabel?.toLowerCase();
+  if (state === "in progress") {
+    return {
+      label: "In progress",
+      hint: "Published. Waiting for the provider to verify.",
+      tone: "pending",
+    };
+  }
+  if (state === "not started") {
+    return {
+      label: "Not started",
+      hint: "Not added to your DNS yet. Add the record to start verification.",
+      tone: "pending",
+    };
+  }
+  return {
+    label: "Pending",
+    hint: "Waiting for verification.",
+    tone: "pending",
+  };
 }
 
 const unwrap = (payload: unknown): unknown =>
@@ -156,6 +221,7 @@ export function parseDomainDns(payload: unknown): DomainDnsData {
       return {
         id: str(entry.id) ?? `${host}-${type}-${index}`,
         host,
+        fqdn: str(entry.fqdn),
         type,
         value,
         verified,

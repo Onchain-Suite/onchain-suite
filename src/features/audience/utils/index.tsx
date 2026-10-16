@@ -10,6 +10,8 @@ import type { ReactElement } from "react";
 // audience imports keep working.
 import { formatDateTime } from "@/lib/date";
 
+import { PROTOCOL_REGISTRY } from "../protocols.generated";
+
 export type NormalizedTag = string;
 export type SocialHandles = {
   ens?: string;
@@ -121,15 +123,17 @@ export function normalizeTags(input: unknown): NormalizedTag[] {
 }
 
 /**
- * Wallet-only contacts are stored with a synthetic placeholder email
- * (`…@wallet.onchainsuite.local`). Treat those as "no email channel" -
- * wallets with zero channels are valid and must not be rendered as
- * email-reachable.
+ * Wallet-only contacts are stored with a synthetic placeholder email on the
+ * internal `.onchainsuite.local` domain (`…@wallet.onchainsuite.local` for
+ * wallet-only rows, `zk_…@contact.onchainsuite.local` for ZK-linked ones).
+ * `.local` is a reserved TLD that can never be a real public address, so we
+ * treat ANY `*.onchainsuite.local` email as synthetic - "no visible email
+ * channel" - rather than leaking the raw hash into the UI.
  */
 export function isSyntheticWalletEmail(email: unknown): boolean {
   return (
     typeof email === "string" &&
-    email.trim().toLowerCase().endsWith("@wallet.onchainsuite.local")
+    email.trim().toLowerCase().endsWith(".onchainsuite.local")
   );
 }
 
@@ -137,8 +141,12 @@ export function shortenWallet(input: unknown): string {
   if (typeof input !== "string") return "";
   const s = input.trim();
   if (s.length === 0) return "";
-  if (!s.startsWith("0x") || s.length < 10) return s;
-  if (s.length <= 18) return s;
+  // Middle-truncate real wallet addresses — EVM (0x…) AND Solana (base58, 32–44
+  // chars). Solana ids are not 0x-prefixed, so the old 0x-only guard left them
+  // displayed in full. Short or non-address strings are returned unchanged.
+  const isEvm = s.startsWith("0x") && s.length >= 10;
+  const isSolana = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s);
+  if ((!isEvm && !isSolana) || s.length <= 18) return s;
   return `${s.slice(0, 6)}…${s.slice(-4)}`;
 }
 
@@ -197,6 +205,101 @@ const toTitleCase = (value: string) => {
     .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
     .join(" ");
 };
+
+// Common chain inputs (slugs, names, tickers) → a short display label. Covers
+// the granular slugs the enrichment tables use (eth-mainnet, base-mainnet, …),
+// the names/tickers a customer types in a CSV "Chain" column, and the network
+// suffixes get stripped so eth-sepolia still reads as Ethereum.
+const CHAIN_LABELS: Record<string, string> = {
+  eth: "Ethereum",
+  ethereum: "Ethereum",
+  mainnet: "Ethereum",
+  // The coarse family label for a 0x wallet whose specific chain isn't known.
+  // Kept as "EVM" (not title-cased to "Evm") and given the Ethereum mark below,
+  // so an EVM contact shows a logo rather than the bare text "EVM".
+  evm: "EVM",
+  base: "Base",
+  arb: "Arbitrum",
+  arbitrum: "Arbitrum",
+  "arbitrum-one": "Arbitrum",
+  op: "Optimism",
+  optimism: "Optimism",
+  opt: "Optimism",
+  polygon: "Polygon",
+  matic: "Polygon",
+  poly: "Polygon",
+  bnb: "BNB Chain",
+  bsc: "BNB Chain",
+  avax: "Avalanche",
+  avalanche: "Avalanche",
+  sol: "Solana",
+  solana: "Solana",
+  // The rest of the chains Alchemy supports (mirrors ALCHEMY_NETWORK_BY_SLUG),
+  // so the whole supported set gets a real label rather than a title-cased slug.
+  zksync: "zkSync",
+  celo: "Celo",
+  sei: "Sei",
+  adi: "ADI",
+  hyperliquid: "Hyperliquid",
+  monad: "Monad",
+  robinhood: "Robinhood",
+  // Sovren (sovr-1) — a Cosmos/CometBFT chain. Its slug keeps the `-1` suffix,
+  // which resolveChainLabel does NOT strip (not a network suffix), so the key
+  // must be the full `sovr-1`; `sovren` covers the alias the backend also sends.
+  "sovr-1": "Sovren",
+  sovren: "Sovren",
+};
+
+/**
+ * Normalize a chain value to a display label. Returns null for a blank/non-string
+ * input; an unknown-but-present value is title-cased so a custom chain still
+ * shows rather than vanishing.
+ */
+export function resolveChainLabel(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  const key = input.trim().toLowerCase();
+  if (!key) return null;
+  const bare = key.replace(/-(mainnet|testnet|sepolia|goerli|devnet)$/, "");
+  return CHAIN_LABELS[key] ?? CHAIN_LABELS[bare] ?? toTitleCase(key);
+}
+
+/** Coarse chain family inferred from an address shape, when no explicit chain
+ * is known. EVM = 0x + 40 hex; Solana = base58. Null for anything else. */
+function walletFamilyLabel(wallet: string): string | null {
+  if (!wallet) return null;
+  if (/^0x[0-9a-fA-F]{40}$/.test(wallet)) return "EVM";
+  if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet)) return "Solana";
+  return null;
+}
+
+/**
+ * The chain to badge on a contact row. Prefers an explicit chain from the
+ * profile's `wallets[].chain` or `attributes.chain` (what a CSV import writes),
+ * and falls back to the family inferred from the wallet address. Returns null
+ * when there is no wallet or nothing can be determined — callers only render a
+ * chain for wallet-bearing contacts.
+ */
+export function extractChain(
+  profile: unknown,
+  walletFull: string
+): string | null {
+  if (!walletFull) return null;
+  if (profile && typeof profile === "object") {
+    const { wallets, attributes: attrs } = profile as Record<string, unknown>;
+    const fromWallet =
+      Array.isArray(wallets) && wallets[0] && typeof wallets[0] === "object"
+        ? (wallets[0] as Record<string, unknown>).chain
+        : undefined;
+    const fromAttr =
+      attrs && typeof attrs === "object"
+        ? (attrs as Record<string, unknown>).chain
+        : undefined;
+    const explicit =
+      resolveChainLabel(fromWallet) ?? resolveChainLabel(fromAttr);
+    if (explicit) return explicit;
+  }
+  return walletFamilyLabel(walletFull);
+}
 
 export function deriveDisplayName(input: {
   name?: unknown;
@@ -309,6 +412,255 @@ export function formatAttributeValue(value: unknown): string {
   }
 }
 
+/**
+ * A visual identity for one on-chain icon chip (a chain, a DeFi protocol, a
+ * token): a short abbreviation and a brand color, plus an optional logo URL for
+ * chips we have a real image for. Curated for what we recognize; anything else
+ * falls back to its label's initials on a deterministic hue, so a new/unknown
+ * value still renders a distinct chip rather than vanishing.
+ */
+export interface IconVisual {
+  /** Full display label, e.g. "Ethereum" / "Aave". */
+  label: string;
+  /** 2-4 char chip text, e.g. "ETH" / "AAVE". */
+  abbr: string;
+  /** Chip background color (brand color, or a derived hue for unknowns). */
+  color: string;
+  /** Ordered logo sources; the chip tries each and falls back to `abbr` once
+   *  they're all exhausted. E.g. a token → [its own logo, its chain icon]. */
+  logoUrls?: string[];
+}
+
+/** @deprecated Use {@link IconVisual}. Kept as an alias for existing callers. */
+export type ChainVisual = IconVisual;
+
+// Brand colors + tickers for the chains enrichment covers. Keyed the same way
+// resolveChainLabel matches (bare slug with the network suffix stripped).
+const CHAIN_VISUALS: Record<string, { abbr: string; color: string }> = {
+  eth: { abbr: "ETH", color: "#627EEA" },
+  ethereum: { abbr: "ETH", color: "#627EEA" },
+  mainnet: { abbr: "ETH", color: "#627EEA" },
+  base: { abbr: "BASE", color: "#0052FF" },
+  arb: { abbr: "ARB", color: "#28A0F0" },
+  arbitrum: { abbr: "ARB", color: "#28A0F0" },
+  "arbitrum-one": { abbr: "ARB", color: "#28A0F0" },
+  op: { abbr: "OP", color: "#FF0420" },
+  opt: { abbr: "OP", color: "#FF0420" },
+  optimism: { abbr: "OP", color: "#FF0420" },
+  polygon: { abbr: "POL", color: "#8247E5" },
+  matic: { abbr: "POL", color: "#8247E5" },
+  poly: { abbr: "POL", color: "#8247E5" },
+  bnb: { abbr: "BNB", color: "#F3BA2F" },
+  bsc: { abbr: "BNB", color: "#F3BA2F" },
+  avax: { abbr: "AVAX", color: "#E84142" },
+  avalanche: { abbr: "AVAX", color: "#E84142" },
+  sol: { abbr: "SOL", color: "#14F195" },
+  solana: { abbr: "SOL", color: "#14F195" },
+  // The EVM family shows the Ethereum mark (the universal EVM symbol); ETH blue
+  // and an "ETH" ticker are the fallback when the logo can't load.
+  evm: { abbr: "ETH", color: "#627EEA" },
+  // ADI is a first-class chain here (adi-mainnet / adi-testnet). Without an entry
+  // it fell through to a hashed hue and, worse, an ADI wallet enriched as
+  // eth-mainnet borrowed the ETH chip entirely. The real logo layers on
+  // automatically once onchain/chains/adi.svg is uploaded to Cloudinary.
+  adi: { abbr: "ADI", color: "#FF7A18" },
+  // Sovren (sovr-1), a Cosmos chain. Full slug as the key — the `-1` is not a
+  // network suffix so it is not stripped. Brand indigo is the fallback chip
+  // color behind the local logo (LOCAL_CHAIN_LOGO["Sovren"]).
+  "sovr-1": { abbr: "SOVR", color: "#5B4BC4" },
+  sovren: { abbr: "SOVR", color: "#5B4BC4" },
+};
+
+/** Initials for an unknown value: first N chars of the label, upper-cased. */
+function iconInitials(label: string, take = 3): string {
+  const clean = label.replace(/[^a-zA-Z0-9]/g, "");
+  return (clean.slice(0, take) || "?").toUpperCase();
+}
+
+// Chain/protocol logos come from two sources, tried in order per chip:
+//   1. Cloudinary — our own CDN (cloud `dwnkqkx8q`), one SVG per chain under
+//      `onchain/chains/<slug>.svg`. Self-hosted and comprehensive: supporting a
+//      new chain's logo is just an upload, no code change, and it's derived from
+//      the chain so it's attempted for EVERY chain.
+//   2. DefiLlama — a public CDN that already has the popular chains, a
+//      no-upload-needed backup for those until Cloudinary is populated.
+// IconChip walks the list and falls back to the inline colored ticker chip once
+// both miss, so a chain we haven't uploaded a logo for still renders.
+const CLOUDINARY = "https://res.cloudinary.com/dwnkqkx8q/image/upload";
+
+// Cloudinary filename per chain (the public_id under onchain/chains/). Most
+// labels lowercase cleanly; only the few with spaces/odd casing are overridden.
+const CHAIN_CLOUDINARY_SLUG: Record<string, string> = {
+  "BNB Chain": "bnb",
+  // The EVM family borrows the Ethereum logo (the universal EVM symbol).
+  EVM: "ethereum",
+};
+
+function chainCloudinarySlug(label: string): string {
+  return (
+    CHAIN_CLOUDINARY_SLUG[label] ??
+    label.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+  );
+}
+
+// DefiLlama chain-icon slug, for the popular chains it covers.
+const CHAIN_LLAMA_SLUG: Record<string, string> = {
+  Ethereum: "ethereum",
+  EVM: "ethereum",
+  Base: "base",
+  Arbitrum: "arbitrum",
+  Optimism: "optimism",
+  Polygon: "polygon",
+  "BNB Chain": "binance",
+  Avalanche: "avalanche",
+  Solana: "solana",
+};
+
+// Chains we ship a logo SVG for locally under public/onchain/chains/. Tried
+// first so they render with ZERO external dependency (no Cloudinary, no CDN) —
+// the fallback the product wanted. ADI has no public CDN icon, so its mark lives
+// here; drop a chain's <label>.svg in that folder to give it a local logo.
+const LOCAL_CHAIN_LOGO: Record<string, string> = {
+  ADI: "/onchain/chains/adi.svg",
+  // Sovren (sovr-1) — a Cosmos chain with no public CDN icon. Its brand mark
+  // (the hexagon grid from sovrentech.io) ships locally as a PNG.
+  Sovren: "/onchain/chains/sovren.png",
+};
+
+/**
+ * Ordered logo sources for a chain by its resolved label: a locally-bundled SVG
+ * first (zero external dependency), then our Cloudinary SVG, then DefiLlama for
+ * the popular ones. Exported so the Tokens column can fall a logo-less token back
+ * to its chain icon.
+ */
+export function chainLogoUrls(label: string): string[] {
+  const urls: string[] = [];
+  const local = LOCAL_CHAIN_LOGO[label];
+  if (local) urls.push(local);
+  urls.push(`${CLOUDINARY}/onchain/chains/${chainCloudinarySlug(label)}.svg`);
+  const llama = CHAIN_LLAMA_SLUG[label];
+  if (llama) urls.push(`https://icons.llamao.fi/icons/chains/rsz_${llama}`);
+  return urls;
+}
+
+/**
+ * Resolve a raw chain value (slug/name/ticker) to its {@link IconVisual}.
+ * Returns null only for a blank/non-string input; every present chain gets a
+ * chip — curated brand color when known, a deterministic hue otherwise, with
+ * real logos layered on (Cloudinary, then DefiLlama).
+ */
+export function chainVisual(input: unknown): IconVisual | null {
+  const label = resolveChainLabel(input);
+  if (!label || typeof input !== "string") return null;
+  const key = input.trim().toLowerCase();
+  const bare = key.replace(/-(mainnet|testnet|sepolia|goerli|devnet)$/, "");
+  const curated = CHAIN_VISUALS[key] ?? CHAIN_VISUALS[bare];
+  const logoUrls = chainLogoUrls(label);
+  if (curated) return { label, ...curated, logoUrls };
+  return {
+    label,
+    abbr: iconInitials(label),
+    color: `hsl(${hashHue(label)} 62% 45%)`,
+    logoUrls,
+  };
+}
+
+// Curated brand color + label for the DeFi protocols enrichment records. Keyed
+// by the protocol *family* — the slug with any trailing version stripped, so
+// `aave_v3` and `aave_v2` share one Aave chip.
+const PROTOCOL_VISUALS: Record<
+  string,
+  { label: string; abbr: string; color: string }
+> = {
+  aave: { label: "Aave", abbr: "AAVE", color: "#B6509E" },
+  uniswap: { label: "Uniswap", abbr: "UNI", color: "#FF007A" },
+  compound: { label: "Compound", abbr: "COMP", color: "#00D395" },
+  curve: { label: "Curve", abbr: "CRV", color: "#0E6EFD" },
+  lido: { label: "Lido", abbr: "LIDO", color: "#00A3FF" },
+  maker: { label: "Maker", abbr: "MKR", color: "#1AAB9B" },
+  makerdao: { label: "Maker", abbr: "MKR", color: "#1AAB9B" },
+  sky: { label: "Sky", abbr: "SKY", color: "#1AAB9B" },
+  morpho: { label: "Morpho", abbr: "MRP", color: "#2C63FF" },
+  pendle: { label: "Pendle", abbr: "PDL", color: "#33B7A0" },
+  gmx: { label: "GMX", abbr: "GMX", color: "#2D42FC" },
+  sushi: { label: "SushiSwap", abbr: "SUSHI", color: "#FA52A0" },
+  sushiswap: { label: "SushiSwap", abbr: "SUSHI", color: "#FA52A0" },
+  balancer: { label: "Balancer", abbr: "BAL", color: "#414977" },
+  convex: { label: "Convex", abbr: "CVX", color: "#3A3A3A" },
+  spark: { label: "Spark", abbr: "SPK", color: "#F7B32B" },
+  eigenlayer: { label: "EigenLayer", abbr: "EIGN", color: "#1A0C6D" },
+  rocketpool: { label: "Rocket Pool", abbr: "RPL", color: "#FF6B4A" },
+  "rocket-pool": { label: "Rocket Pool", abbr: "RPL", color: "#FF6B4A" },
+};
+
+// DefiLlama protocol-icon slugs, keyed by the curated label. EigenLayer has no
+// clean slug on the CDN, so it keeps its ticker chip. Same graceful-fallback
+// contract as CHAIN_LOGO_SLUG.
+const PROTOCOL_LOGO_SLUG: Record<string, string> = {
+  Aave: "aave",
+  Uniswap: "uniswap",
+  Compound: "compound",
+  Curve: "curve",
+  Lido: "lido",
+  Maker: "makerdao",
+  Sky: "sky",
+  Morpho: "morpho",
+  Pendle: "pendle",
+  GMX: "gmx",
+  SushiSwap: "sushi",
+  Balancer: "balancer",
+  Convex: "convex-finance",
+  Spark: "spark",
+  "Rocket Pool": "rocket-pool",
+};
+
+function protocolLogoUrls(label: string): string[] {
+  const slug = PROTOCOL_LOGO_SLUG[label];
+  return slug
+    ? [`https://icons.llamao.fi/icons/protocols/${slug}?w=48&h=48`]
+    : [];
+}
+
+/**
+ * Resolve a DeFi protocol slug (`aave_v3`, `uniswap-v3`, `compound_v2`) to its
+ * {@link IconVisual} for the Apps column. Strips the trailing version so a
+ * protocol's markets share one chip; unknown protocols fall back to a
+ * title-cased label + initials on a deterministic hue. A real logo is layered
+ * on when we have one. Null for blank input.
+ */
+export function protocolVisual(input: unknown): IconVisual | null {
+  if (typeof input !== "string") return null;
+  const key = input.trim().toLowerCase();
+  if (!key) return null;
+  // Strip a trailing version token: aave_v3 → aave, uniswap-v3 → uniswap.
+  const family = key.replace(/[_-]v?\d+(\.\d+)?$/, "");
+  // 1. Curated: hand-picked brand color + logo for the best-known protocols.
+  const curated = PROTOCOL_VISUALS[key] ?? PROTOCOL_VISUALS[family];
+  if (curated) return { ...curated, logoUrls: protocolLogoUrls(curated.label) };
+  // 2. DefiLlama registry (~110 top protocols, saved locally): proper brand name
+  //    + logo, derived color. Match on the normalized slug or brand token.
+  const registryEntry =
+    PROTOCOL_REGISTRY[key.replace(/[^a-z0-9]/g, "")] ??
+    PROTOCOL_REGISTRY[family.replace(/[^a-z0-9]/g, "")];
+  if (registryEntry) {
+    return {
+      label: registryEntry.name,
+      abbr: iconInitials(registryEntry.name, 4),
+      color: `hsl(${hashHue(registryEntry.name)} 55% 42%)`,
+      logoUrls: [
+        `https://icons.llamao.fi/icons/protocols/${registryEntry.slug}?w=48&h=48`,
+      ],
+    };
+  }
+  // 3. Fallback: a title-cased label on a deterministic hue, no logo.
+  const label = toTitleCase(family.replace(/[_-]+/g, " "));
+  return {
+    label: label || key,
+    abbr: iconInitials(label || key, 4),
+    color: `hsl(${hashHue(family)} 55% 42%)`,
+  };
+}
+
 export function hashHue(input: string): number {
   let hash = 0;
   for (let i = 0; i < input.length; i += 1) {
@@ -367,6 +719,37 @@ export function readChannels(input: unknown): {
     return null;
   }
   return channels as Record<string, boolean>;
+}
+
+/**
+ * Per-profile channel reachability, the ONE definition the whole app shares so
+ * the Audience overview tiles and the campaign audience picker agree. Prefers the
+ * server's `channels` booleans; when the response omits them, falls back to
+ * presence: email = a present, non-synthetic email OR a ZK-verified wallet
+ * identity; push = a connected wallet. This is why an imported contact with a
+ * plain email counts as email-reachable even though `/audience/overview`'s strict
+ * aggregate reads it as 0.
+ */
+export function profileReach(input: unknown): {
+  email: boolean;
+  push: boolean;
+} {
+  const obj =
+    input && typeof input === "object"
+      ? (input as Record<string, unknown>)
+      : {};
+  const channels = readChannels(input);
+  if (channels) {
+    return { email: Boolean(channels.email), push: Boolean(channels.inapp) };
+  }
+  const { walletFull } = extractWalletFields(input);
+  const rawEmail = typeof obj.email === "string" ? obj.email : undefined;
+  const hasRealEmail = Boolean(rawEmail && !isSyntheticWalletEmail(rawEmail));
+  const verified = obj.status === "verified";
+  return {
+    email: hasRealEmail || (verified && Boolean(walletFull)),
+    push: Boolean(walletFull),
+  };
 }
 
 const readString = (obj: Record<string, unknown> | null, key: string) => {
@@ -628,6 +1011,24 @@ export function getChainMeta(raw: unknown): ChainMeta | null {
     key === "bnbchain"
   ) {
     return { key: "bnb", name: "BNB Chain", icon: <BnbIcon /> };
+  }
+  if (key === "adi" || key === "adi-mainnet" || key === "adi-testnet") {
+    return {
+      key: "adi",
+      name: key === "adi-testnet" ? "ADI Testnet" : "ADI",
+      icon: (
+        <Svg viewBox="0 0 24 24" className="h-3.5 w-3.5">
+          <path
+            d="M12 3 18.5 10.5 12 21 5.5 10.5 Z"
+            fill="none"
+            stroke="#FF7A18"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+          <circle cx="12" cy="10.5" r="1.7" fill="#FF9A45" />
+        </Svg>
+      ),
+    };
   }
   const fallbackName = raw && typeof raw === "string" ? raw.trim() : "Chain";
   if (fallbackName.length === 0) return null;

@@ -1,14 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
-
 import { CommandBar } from "../components/command-bar";
-import {
-  GetStartedSection,
-  useOrganizationId,
-  useTaskCompletion,
-} from "../components/get-started";
+import { OnboardingResumeBanner } from "../components/get-started";
 import { MetricsDashboard } from "../components/metrics-dashboard";
+import { ProductTour } from "@/features/onboarding/components/product-tour";
+import { StartHereBanner } from "@/features/onboarding/components/start-here-banner";
+import { useTimeToValue } from "@/features/onboarding/hooks/use-time-to-value";
 
 interface UserData {
   projectName: string;
@@ -23,6 +20,12 @@ interface UserData {
 
 interface MainDashboardProps {
   userData: UserData;
+  /**
+   * Server-read `onchain.onboardingComplete` cookie. Picks the initial skeleton
+   * (stats vs setup checklist) while the task-completion query resolves, so it
+   * matches loading.tsx and the final view - one skeleton, not two.
+   */
+  onboardingHint?: boolean;
 }
 
 function getGreeting(tz?: string) {
@@ -51,15 +54,9 @@ export function MainDashboard({ userData }: MainDashboardProps) {
   const greeting = getGreeting(userData.timezone);
   const name = userData.fullName ?? "there";
 
-  // New / not-yet-onboarded workspaces see the setup checklist (task cards);
-  // once every step is done the dashboard flips to the live metrics view. The
-  // checklist reuses existing service reads, so React Query dedupes them.
-  const { organizationId } = useOrganizationId();
-  const { completionById, isLoading } = useTaskCompletion(organizationId);
-  const onboardingComplete = useMemo(() => {
-    const values = Object.values(completionById);
-    return values.length > 0 && values.every(Boolean);
-  }, [completionById]);
+  // Close the time-to-value clock once this workspace first reads as live
+  // (reports once, only when the wizard set a first-mile start stamp).
+  useTimeToValue();
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -72,13 +69,21 @@ export function MainDashboard({ userData }: MainDashboardProps) {
         </p>
       </div>
 
+      <StartHereBanner />
+
+      {/* Owner-only "finish onboarding" resume affordance; self-hides otherwise.
+          The setup checklist now lives in the sidebar (GettingStarted). */}
+      <OnboardingResumeBanner />
+
       <CommandBar />
 
-      {isLoading || !onboardingComplete ? (
-        <GetStartedSection />
-      ) : (
-        <MetricsDashboard />
-      )}
+      {/* Metrics own their own loading + honest empty states, so a brand-new
+          empty workspace sees the real dashboard (guided by the sidebar
+          checklist and the Start-here banner) rather than a separate gate. */}
+      <MetricsDashboard />
+
+      {/* Non-modal; auto-starts once for a brand-new empty workspace. */}
+      <ProductTour />
     </div>
   );
 }

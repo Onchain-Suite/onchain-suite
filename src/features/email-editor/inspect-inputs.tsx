@@ -8,6 +8,14 @@ import {
 } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import { cn } from "@/lib/utils";
 
 import {
@@ -218,26 +226,26 @@ export function FontFamilySelect({
 }) {
   return (
     <Field label={label}>
-      <select
+      <Select
         value={value ?? "__inherit__"}
-        onChange={(e) =>
-          onChange(
-            e.target.value === "__inherit__"
-              ? null
-              : (e.target.value as FontFamily)
-          )
+        onValueChange={(v) =>
+          onChange(v === "__inherit__" ? null : (v as FontFamily))
         }
-        className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
       >
-        {allowInherit ? (
-          <option value="__inherit__">Match email settings</option>
-        ) : null}
-        {FONT_FAMILIES.map((f) => (
-          <option key={f.key} value={f.key}>
-            {f.label}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger className="h-9 w-full rounded-lg text-sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {allowInherit ? (
+            <SelectItem value="__inherit__">Match email settings</SelectItem>
+          ) : null}
+          {FONT_FAMILIES.map((f) => (
+            <SelectItem key={f.key} value={f.key}>
+              {f.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </Field>
   );
 }
@@ -413,12 +421,68 @@ export function StyleControls({
                 onChange={(fontSize) => set({ fontSize })}
               />
             );
+          case "fontStack":
+            return style.fontStack ? (
+              <Field key={k} label="Custom font (imported)">
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
+                    {style.fontStack}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => set({ fontStack: null })}
+                    className="shrink-0 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </Field>
+            ) : null;
           case "fontWeight":
             return (
               <FontWeightToggle
                 key={k}
                 value={style.fontWeight}
                 onChange={(fontWeight) => set({ fontWeight })}
+              />
+            );
+          case "letterSpacing":
+            return (
+              <SliderInput
+                key={k}
+                label="Letter spacing"
+                min={-1}
+                max={12}
+                step={0.5}
+                value={style.letterSpacing ?? 0}
+                onChange={(letterSpacing) => set({ letterSpacing })}
+              />
+            );
+          case "textTransform":
+            return (
+              <ToggleGroup
+                key={k}
+                label="Text case"
+                value={style.textTransform ?? "none"}
+                onChange={(textTransform) => set({ textTransform })}
+                options={[
+                  { value: "none", label: "None" },
+                  { value: "uppercase", label: "UPPER" },
+                  { value: "lowercase", label: "lower" },
+                  { value: "capitalize", label: "Title" },
+                ]}
+              />
+            );
+          case "lineHeight":
+            return (
+              <SliderInput
+                key={k}
+                label="Line height"
+                min={1}
+                max={2.5}
+                step={0.1}
+                value={style.lineHeight ?? 1.5}
+                onChange={(lineHeight) => set({ lineHeight })}
               />
             );
           case "textAlign":

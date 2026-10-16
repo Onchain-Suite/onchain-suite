@@ -43,7 +43,7 @@ export interface IntelligenceQueryHistoryItem {
   metadata?: Record<string, unknown>;
 }
 
-export interface IntelligenceGoldrushRunBody {
+export interface IntelligenceAgentWalletDataBody {
   resourceType:
     | "balances"
     | "transactions"
@@ -60,7 +60,7 @@ export interface IntelligenceGoldrushRunBody {
   noSpam?: boolean;
 }
 
-export interface IntelligenceGoldrushMcpQueryBody {
+export interface IntelligenceAgentQueryBody {
   conversationId?: string;
   message?: string;
   prompt?: string;
@@ -73,13 +73,16 @@ export interface IntelligenceGoldrushMcpQueryBody {
   contracts?: Array<{ chain?: string; address: string; label?: string }>;
   walletAddress?: string;
   walletAddresses?: string[];
-  mode?: "fast" | "best";
+  mode?: "fast" | "best" | "auto";
   maxSteps?: number;
   useProjectSettings?: boolean;
   useProtocolRegistry?: boolean;
+  // Id of a file uploaded via /storage/upload/sync; the server resolves it to
+  // text and folds it into the prompt as data (never the raw content client-side).
+  attachmentFileId?: string;
 }
 
-export interface IntelligenceGoldrushMcpStep {
+export interface IntelligenceAgentStep {
   toolName?: string;
   title?: string;
   description?: string;
@@ -87,7 +90,7 @@ export interface IntelligenceGoldrushMcpStep {
   [key: string]: unknown;
 }
 
-export type IntelligenceGoldrushMcpStructuredResultKind =
+export type IntelligenceAgentStructuredResultKind =
   | "multichain_address_activity"
   | "multichain_balances"
   | "multichain_transactions"
@@ -113,36 +116,57 @@ export type IntelligenceGoldrushMcpStructuredResultKind =
   | "log_events_by_topic"
   | "block"
   | "block_heights"
+  // Org data + actions (the agent can act, behind an explicit confirm gate).
+  | "retention_recommendations"
+  | "sql_result"
+  | "proposed_action"
+  | "automation_created"
   | "generic_rows"
   | "generic_object"
   | string;
 
-export interface IntelligenceGoldrushMcpStructuredResult {
+/**
+ * A confirm-gated action the agent proposed but did NOT run. Arrives as the
+ * single row of a `proposed_action` structuredResult: `{ proposed, tool,
+ * summary, args }`. The UI shows `summary`, and on approve re-issues `tool` with
+ * `{ ...args, confirm: true }` through `runIntelligenceTool`.
+ */
+export interface IntelligenceProposedAction {
+  proposed: true;
+  tool: string;
+  summary: string;
+  args: Record<string, unknown>;
+}
+
+/** Result of `POST /intelligence/tools/run`: an executed tool payload, or a fresh proposal when `confirm` was omitted. */
+export type IntelligenceRunToolResponse = Record<string, unknown>;
+
+export interface IntelligenceAgentStructuredResult {
   toolName?: string;
-  kind: IntelligenceGoldrushMcpStructuredResultKind;
+  kind: IntelligenceAgentStructuredResultKind;
   title?: string;
   summary?: string;
   rows: Array<Record<string, unknown>>;
   meta?: Record<string, unknown>;
 }
 
-export interface IntelligenceGoldrushMcpQueryResponse {
+export interface IntelligenceAgentQueryResponse {
   conversationId?: string;
   queryId?: string;
   mode?: "dynamic_agent" | "deterministic_fallback" | string;
   status?: "answered" | "needs_clarification" | string;
   answer?: string;
   question?: string;
-  structuredResult?: IntelligenceGoldrushMcpStructuredResult | null;
+  structuredResult?: IntelligenceAgentStructuredResult | null;
   rationale?: string;
   confidence?: number;
   plan?: unknown;
-  steps?: IntelligenceGoldrushMcpStep[];
+  steps?: IntelligenceAgentStep[];
   execution?: unknown;
   [key: string]: unknown;
 }
 
-export interface IntelligenceGoldrushMcpTool {
+export interface IntelligenceAgentTool {
   name: string;
   title?: string;
   description?: string;
@@ -150,17 +174,17 @@ export interface IntelligenceGoldrushMcpTool {
   outputSchema?: unknown;
 }
 
-export interface IntelligenceGoldrushMcpToolsResponse {
-  items: IntelligenceGoldrushMcpTool[];
+export interface IntelligenceAgentToolsResponse {
+  items: IntelligenceAgentTool[];
 }
 
-export interface IntelligenceGoldrushMcpCatalogResponse {
+export interface IntelligenceAgentCatalogResponse {
   tools?: Array<Record<string, unknown>>;
   resources?: Array<Record<string, unknown>>;
   [key: string]: unknown;
 }
 
-export interface IntelligenceGoldrushMcpResource {
+export interface IntelligenceAgentResource {
   uri: string;
   name?: string;
   title?: string;
@@ -169,20 +193,20 @@ export interface IntelligenceGoldrushMcpResource {
   [key: string]: unknown;
 }
 
-export interface IntelligenceGoldrushMcpResourcesResponse {
-  items: IntelligenceGoldrushMcpResource[];
+export interface IntelligenceAgentResourcesResponse {
+  items: IntelligenceAgentResource[];
 }
 
-export interface IntelligenceGoldrushMcpRunBody {
+export interface IntelligenceAgentRunBody {
   toolName: string;
   arguments?: Record<string, unknown>;
 }
 
-export interface IntelligenceGoldrushMcpReadResourceBody {
+export interface IntelligenceAgentReadResourceBody {
   uri: string;
 }
 
-export interface IntelligenceGoldrushMcpRunResponse {
+export interface IntelligenceAgentRunResponse {
   toolName?: string;
   arguments?: Record<string, unknown>;
   isError?: boolean;
@@ -193,7 +217,7 @@ export interface IntelligenceGoldrushMcpRunResponse {
   [key: string]: unknown;
 }
 
-export interface IntelligenceGoldrushMcpReadResourceResponse {
+export interface IntelligenceAgentReadResourceResponse {
   uri?: string;
   textContent?: unknown;
   parsedText?: unknown;
@@ -201,7 +225,7 @@ export interface IntelligenceGoldrushMcpReadResourceResponse {
   [key: string]: unknown;
 }
 
-export interface IntelligenceGoldrushMcpPlanResponse {
+export interface IntelligenceAgentPlanResponse {
   intent?: string;
   supported?: boolean;
   protocol?: unknown;
@@ -473,12 +497,18 @@ export type IntelligenceContactsEnrichmentEnqueueResponse = Record<
   unknown
 >;
 
+export type IntelligenceWalletBatchEnrichmentResponse = {
+  queued: number;
+  skipped: number;
+  chain: string;
+};
+
 export type IntelligenceWalletEnrichmentMetricsResponse = Record<
   string,
   unknown
 >;
 
-/** GoldRush credit meter - `GET /intelligence/query/credits`. */
+/** On-chain data credit meter (Alchemy) - `GET /intelligence/query/credits`. */
 export interface IntelligenceCreditMeter {
   period: string;
   used: number;
@@ -511,12 +541,12 @@ export interface IntelligenceEnrichProtocolResponse {
   contactsEnqueued: number;
 }
 
-export interface IntelligenceGoldrushMcpStreamEvent {
+export interface IntelligenceAgentStreamEvent {
   type?: string;
   data?: unknown;
 }
 
-export type IntelligenceGoldrushMcpStreamTransport = "get" | "post";
+export type IntelligenceAgentStreamTransport = "get" | "post";
 
 const pickOrgId = (orgId?: string) =>
   orgId ?? getSelectedOrganizationId() ?? null;
@@ -573,9 +603,7 @@ const appendUniqueSearchParams = (
   }
 };
 
-const buildGoldrushMcpStreamSearchParams = (
-  input: IntelligenceGoldrushMcpQueryBody
-) => {
+const buildAgentStreamSearchParams = (input: IntelligenceAgentQueryBody) => {
   const params = new URLSearchParams();
 
   if (input.prompt) params.set("prompt", input.prompt);
@@ -630,7 +658,7 @@ const parseSseEventData = (raw: string): unknown => {
 const toStreamEvent = (
   eventType: string | undefined,
   rawData: string
-): IntelligenceGoldrushMcpStreamEvent => {
+): IntelligenceAgentStreamEvent => {
   const parsed = parseSseEventData(rawData);
   return {
     type:
@@ -642,7 +670,7 @@ const toStreamEvent = (
   };
 };
 
-const MCP_STREAM_EVENT_TYPES = [
+const AGENT_STREAM_EVENT_TYPES = [
   "started",
   "planner_ready",
   "resource_context",
@@ -788,6 +816,37 @@ export const intelligenceService = {
     return { match, conditions };
   },
 
+  /**
+   * Upload a chat attachment to Azure via the shared storage endpoint and return
+   * its file id. The agent later resolves that id server-side (ownership-checked)
+   * and folds the extracted text into the prompt - the raw content never rides
+   * the client request.
+   */
+  async uploadAttachment(
+    file: File,
+    orgId?: string
+  ): Promise<{ id: string; name: string }> {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("folder", "chat-attachments");
+    const resolvedOrgId = pickOrgId(orgId);
+    // Content-Type must be UNSET so axios sets `multipart/form-data` with the
+    // boundary; the client's default `application/json` would make the backend's
+    // file parser see no file. (Passing the FormData through the shared `request`
+    // helper inherited that JSON default, which is why uploads failed.)
+    const res = await apiClient.post<unknown>("/storage/upload/sync", form, {
+      headers: {
+        "Content-Type": undefined,
+        ...(resolvedOrgId ? { "x-org-id": resolvedOrgId } : {}),
+        "x-onchain-silent-error": "1",
+      },
+    });
+    const data = extractData<{ fileId?: string; url?: string }>(res.data);
+    const id = typeof data?.fileId === "string" ? data.fileId : "";
+    if (!id) throw new Error("Upload failed");
+    return { id, name: file.name };
+  },
+
   runQuery(body: { query: string }, orgId?: string) {
     return request<IntelligenceQueryRunResponse>(
       { method: "POST", url: "/intelligence/query/run", data: body },
@@ -871,26 +930,26 @@ export const intelligenceService = {
     );
   },
 
-  runGoldrushQuery(body: IntelligenceGoldrushRunBody, orgId?: string) {
+  runAgentWalletData(body: IntelligenceAgentWalletDataBody, orgId?: string) {
     return request<IntelligenceQueryRunResponse>(
       {
         method: "POST",
-        url: "/intelligence/query/goldrush/run",
+        url: "/intelligence/query/agent/wallet-data",
         data: body,
       },
       orgId
     );
   },
 
-  queryGoldrushMcp(
-    body: IntelligenceGoldrushMcpQueryBody,
+  queryAgent(
+    body: IntelligenceAgentQueryBody,
     orgId?: string,
     options?: { signal?: AbortSignal; timeoutMs?: number }
   ) {
-    return request<IntelligenceGoldrushMcpQueryResponse>(
+    return request<IntelligenceAgentQueryResponse>(
       {
         method: "POST",
-        url: "/intelligence/query/goldrush/mcp/query",
+        url: "/intelligence/query/agent/query",
         data: body,
         signal: options?.signal,
         // Hard ceiling so the agent can't spin forever with no response.
@@ -900,70 +959,85 @@ export const intelligenceService = {
     );
   },
 
-  getGoldrushMcpCatalog(orgId?: string) {
-    return request<IntelligenceGoldrushMcpCatalogResponse>(
-      {
-        method: "GET",
-        url: "/intelligence/query/goldrush/mcp/catalog",
-      },
-      orgId
-    );
-  },
-
-  getGoldrushMcpTools(orgId?: string) {
-    return request<IntelligenceGoldrushMcpToolsResponse>(
-      {
-        method: "GET",
-        url: "/intelligence/query/goldrush/mcp/tools",
-      },
-      orgId
-    );
-  },
-
-  getGoldrushMcpResources(orgId?: string) {
-    return request<IntelligenceGoldrushMcpResourcesResponse>(
-      {
-        method: "GET",
-        url: "/intelligence/query/goldrush/mcp/resources",
-      },
-      orgId
-    );
-  },
-
-  readGoldrushMcpResource(
-    body: IntelligenceGoldrushMcpReadResourceBody,
+  /**
+   * Execute one intelligence tool directly (`POST /intelligence/tools/run`).
+   * This is the deterministic confirm path for a `proposed_action`: pass the
+   * tool and the approved args with `confirm: true`, and the shared, org-scoped
+   * tool runs exactly what the human approved - no second LLM round trip. Read
+   * tools run immediately; action tools without `confirm: true` come back as a
+   * fresh proposal instead of executing.
+   */
+  runIntelligenceTool(
+    body: { tool: string; args?: Record<string, unknown> },
     orgId?: string
   ) {
-    return request<IntelligenceGoldrushMcpReadResourceResponse>(
+    return request<IntelligenceRunToolResponse>(
+      { method: "POST", url: "/intelligence/tools/run", data: body },
+      orgId
+    );
+  },
+
+  getAgentCatalog(orgId?: string) {
+    return request<IntelligenceAgentCatalogResponse>(
+      {
+        method: "GET",
+        url: "/intelligence/query/agent/catalog",
+      },
+      orgId
+    );
+  },
+
+  getAgentTools(orgId?: string) {
+    return request<IntelligenceAgentToolsResponse>(
+      {
+        method: "GET",
+        url: "/intelligence/query/agent/tools",
+      },
+      orgId
+    );
+  },
+
+  getAgentResources(orgId?: string) {
+    return request<IntelligenceAgentResourcesResponse>(
+      {
+        method: "GET",
+        url: "/intelligence/query/agent/resources",
+      },
+      orgId
+    );
+  },
+
+  readAgentResource(body: IntelligenceAgentReadResourceBody, orgId?: string) {
+    return request<IntelligenceAgentReadResourceResponse>(
       {
         method: "POST",
-        url: "/intelligence/query/goldrush/mcp/resources/read",
+        url: "/intelligence/query/agent/resources/read",
         data: body,
       },
       orgId
     );
   },
 
-  runGoldrushMcpTool(body: IntelligenceGoldrushMcpRunBody, orgId?: string) {
-    return request<IntelligenceGoldrushMcpRunResponse>(
+  runAgentTool(body: IntelligenceAgentRunBody, orgId?: string) {
+    return request<IntelligenceAgentRunResponse>(
       {
         method: "POST",
-        url: "/intelligence/query/goldrush/mcp/run",
+        url: "/intelligence/query/agent/tools/run",
         data: body,
       },
       orgId
     );
   },
 
-  planGoldrushMcp(
-    body: IntelligenceGoldrushMcpQueryBody,
+  planAgent(
+    body: IntelligenceAgentQueryBody,
     orgId?: string,
     options?: { signal?: AbortSignal; timeoutMs?: number }
   ) {
-    return request<IntelligenceGoldrushMcpPlanResponse>(
+    return request<IntelligenceAgentPlanResponse>(
       {
         method: "POST",
-        url: "/intelligence/query/goldrush/mcp/plan",
+        url: "/intelligence/query/agent/plan",
         data: body,
         signal: options?.signal,
         timeout: options?.timeoutMs ?? 60_000,
@@ -972,9 +1046,9 @@ export const intelligenceService = {
     );
   },
 
-  selectGoldrushMcpStreamTransport(
-    body: IntelligenceGoldrushMcpQueryBody
-  ): IntelligenceGoldrushMcpStreamTransport {
+  selectAgentStreamTransport(
+    body: IntelligenceAgentQueryBody
+  ): IntelligenceAgentStreamTransport {
     const promptLength = body.prompt?.trim().length ?? 0;
     const sqlLength = body.sql?.trim().length ?? 0;
     const chainsCount = body.chains?.length ?? 0;
@@ -987,37 +1061,33 @@ export const intelligenceService = {
     if (chainsCount > 4) return "post";
     if (contractAddressesCount > 4 || walletAddressesCount > 4) return "post";
 
-    const queryLength =
-      buildGoldrushMcpStreamSearchParams(body).toString().length;
+    const queryLength = buildAgentStreamSearchParams(body).toString().length;
     return queryLength > 1400 ? "post" : "get";
   },
 
-  buildGoldrushMcpStreamUrl(
-    body: IntelligenceGoldrushMcpQueryBody,
-    orgId?: string
-  ) {
-    const params = buildGoldrushMcpStreamSearchParams(body);
+  buildAgentStreamUrl(body: IntelligenceAgentQueryBody, orgId?: string) {
+    const params = buildAgentStreamSearchParams(body);
     if (typeof orgId === "string" && orgId.trim().length > 0) {
       params.set("orgId", orgId.trim());
     }
     const queryString = params.toString();
     return queryString.length > 0
-      ? `/api/v1/intelligence/query/goldrush/mcp/query/stream?${queryString}`
-      : "/api/v1/intelligence/query/goldrush/mcp/query/stream";
+      ? `/api/v1/intelligence/query/agent/query/stream?${queryString}`
+      : "/api/v1/intelligence/query/agent/query/stream";
   },
 
-  async streamGoldrushMcpQueryViaFetch(
-    body: IntelligenceGoldrushMcpQueryBody,
+  async streamAgentQueryViaFetch(
+    body: IntelligenceAgentQueryBody,
     options?: {
       orgId?: string;
       signal?: AbortSignal;
-      onEvent?: (event: IntelligenceGoldrushMcpStreamEvent) => void;
-      transport?: IntelligenceGoldrushMcpStreamTransport;
+      onEvent?: (event: IntelligenceAgentStreamEvent) => void;
+      transport?: IntelligenceAgentStreamTransport;
     }
   ) {
     const orgId = pickOrgId(options?.orgId) ?? undefined;
     const transport =
-      options?.transport ?? this.selectGoldrushMcpStreamTransport(body);
+      options?.transport ?? this.selectAgentStreamTransport(body);
     const headers: Record<string, string> = {
       Accept: "text/event-stream",
     };
@@ -1027,7 +1097,7 @@ export const intelligenceService = {
     }
 
     const response = await fetch(
-      this.buildGoldrushMcpStreamUrl(
+      this.buildAgentStreamUrl(
         transport === "get" ? body : {},
         transport === "get" ? orgId : undefined
       ),
@@ -1085,24 +1155,24 @@ export const intelligenceService = {
     if (finalChunk.length > 0) emitEvent(finalChunk);
   },
 
-  async streamGoldrushMcpQueryViaEventSource(
-    body: IntelligenceGoldrushMcpQueryBody,
+  async streamAgentQueryViaEventSource(
+    body: IntelligenceAgentQueryBody,
     options?: {
       orgId?: string;
       signal?: AbortSignal;
-      onEvent?: (event: IntelligenceGoldrushMcpStreamEvent) => void;
+      onEvent?: (event: IntelligenceAgentStreamEvent) => void;
     }
   ) {
     const EventSourceCtor = globalThis.EventSource;
     if (!EventSourceCtor) {
-      return this.streamGoldrushMcpQueryViaFetch(body, {
+      return this.streamAgentQueryViaFetch(body, {
         ...options,
         transport: "get",
       });
     }
 
     const orgId = pickOrgId(options?.orgId) ?? undefined;
-    const url = this.buildGoldrushMcpStreamUrl(body, orgId);
+    const url = this.buildAgentStreamUrl(body, orgId);
 
     await new Promise<void>((resolve, reject) => {
       let settled = false;
@@ -1142,7 +1212,7 @@ export const intelligenceService = {
         options.signal.addEventListener("abort", handleAbort, { once: true });
       }
 
-      MCP_STREAM_EVENT_TYPES.forEach((type) => {
+      AGENT_STREAM_EVENT_TYPES.forEach((type) => {
         const handler = (event: MessageEvent<string>) => {
           const nextEvent = toStreamEvent(type, event.data);
           options?.onEvent?.(nextEvent);
@@ -1169,26 +1239,26 @@ export const intelligenceService = {
     });
   },
 
-  async streamGoldrushMcpQuery(
-    body: IntelligenceGoldrushMcpQueryBody,
+  async streamAgentQuery(
+    body: IntelligenceAgentQueryBody,
     options?: {
       orgId?: string;
       signal?: AbortSignal;
-      onEvent?: (event: IntelligenceGoldrushMcpStreamEvent) => void;
-      transport?: "auto" | IntelligenceGoldrushMcpStreamTransport;
+      onEvent?: (event: IntelligenceAgentStreamEvent) => void;
+      transport?: "auto" | IntelligenceAgentStreamTransport;
       preferNativeEventSource?: boolean;
     }
   ) {
     const transport =
       options?.transport && options.transport !== "auto"
         ? options.transport
-        : this.selectGoldrushMcpStreamTransport(body);
+        : this.selectAgentStreamTransport(body);
 
     if (transport === "get" && options?.preferNativeEventSource) {
-      return this.streamGoldrushMcpQueryViaEventSource(body, options);
+      return this.streamAgentQueryViaEventSource(body, options);
     }
 
-    return this.streamGoldrushMcpQueryViaFetch(body, {
+    return this.streamAgentQueryViaFetch(body, {
       ...options,
       transport,
     });
@@ -1333,6 +1403,27 @@ export const intelligenceService = {
     );
   },
 
+  // Enrich a SELECTED set of wallets on ONE chain (e.g. tick the ADI wallets →
+  // enrich on adi-mainnet). Targeted counterpart to enqueueContactsEnrichment,
+  // which enriches the whole audience on one blanket chain.
+  enqueueWalletBatchEnrichment(
+    body: {
+      walletAddresses: string[];
+      chain: string;
+      forceRefresh?: boolean;
+    },
+    orgId?: string
+  ) {
+    return request<IntelligenceWalletBatchEnrichmentResponse>(
+      {
+        method: "POST",
+        url: "/intelligence/query/enrichment/wallets/enqueue-batch",
+        data: body,
+      },
+      orgId
+    );
+  },
+
   getWalletEnrichmentMetrics(walletAddress: string, orgId?: string) {
     return request<IntelligenceWalletEnrichmentMetricsResponse>(
       {
@@ -1343,7 +1434,7 @@ export const intelligenceService = {
     );
   },
 
-  // GoldRush credit meter (MCP + enrichment consume credits; SQL does not).
+  // On-chain data credit meter (Alchemy). Agent + enrichment consume credits; SQL does not.
   getCredits(orgId?: string) {
     return request<IntelligenceCreditMeter>(
       { method: "GET", url: "/intelligence/query/credits" },
@@ -1354,6 +1445,41 @@ export const intelligenceService = {
   getEnrichmentStatus(orgId?: string) {
     return request<IntelligenceEnrichmentStatus>(
       { method: "GET", url: "/intelligence/query/enrichment/status" },
+      orgId
+    );
+  },
+
+  // NFT enrichment (ERC-1155/721 holdings) is per-org because it's ~half the
+  // per-wallet cost — on only where a vault/LP contract makes it pay off.
+  // includeNfts: true|false = explicit; null = follows the fleet default.
+  getNftEnrichment(orgId?: string) {
+    return request<{ includeNfts: boolean | null }>(
+      { method: "GET", url: "/intelligence/query/enrichment/nft" },
+      orgId
+    );
+  },
+
+  setNftEnrichment(enabled: boolean, orgId?: string) {
+    return request<{ includeNfts: boolean }>(
+      {
+        method: "PUT",
+        url: "/intelligence/query/enrichment/nft",
+        data: { enabled },
+      },
+      orgId
+    );
+  },
+
+  // Scan the org's tracked contracts and auto-enable NFT if an ERC-1155/721
+  // (vault) token is found.
+  autoDetectNftEnrichment(orgId?: string) {
+    return request<{
+      contractsScanned: number;
+      nftStandardFound: "erc1155" | "erc721" | null;
+      includeNfts: boolean | null;
+      changed: boolean;
+    }>(
+      { method: "POST", url: "/intelligence/query/enrichment/nft/auto-detect" },
       orgId
     );
   },
@@ -1425,6 +1551,25 @@ export const intelligenceService = {
       {
         method: "POST",
         url: "/intelligence/query/segments/from-query",
+        data: body,
+      },
+      orgId
+    );
+  },
+
+  /**
+   * Create a segment from a wallet list — used when a chat answer has no stored
+   * queryId (agentic/onchain answers), so the segment is seeded from the answer's
+   * own wallet rows. Same response shape as createSegmentFromQuery.
+   */
+  createSegmentFromWallets(
+    body: { wallets: string[]; name: string; tags?: string[] },
+    orgId?: string
+  ) {
+    return request<IntelligenceSegmentFromQueryResponse>(
+      {
+        method: "POST",
+        url: "/intelligence/query/segments/from-wallets",
         data: body,
       },
       orgId

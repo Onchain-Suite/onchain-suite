@@ -77,6 +77,19 @@ export function DashboardNavbar({
 }: DashboardNavbarProps) {
   const router = useRouter();
   const initials = userFullName ? getInitials(userFullName) : "U";
+
+  // Highlight only the MOST SPECIFIC matching nav item. A plain startsWith lit up
+  // both Intelligence (/intelligence) and Analytics (/intelligence/analytics) on
+  // the Analytics route, because Analytics is nested under intelligence. Match on
+  // a path boundary and let the longest matching href win.
+  const matchesActive = (href: string) =>
+    href === PRIVATE_ROUTES.DASHBOARD
+      ? activePath === PRIVATE_ROUTES.DASHBOARD
+      : activePath === href || activePath.startsWith(`${href}/`);
+  const [activeHref] = navItems
+    .map((item) => item.href)
+    .filter(matchesActive)
+    .sort((a, b) => b.length - a.length);
   const displayName =
     userFullName && userFullName.length > 0 ? userFullName : "User";
   const avatarColor = userId ? getAvatarColor(userId) : undefined;
@@ -153,10 +166,7 @@ export function DashboardNavbar({
           <TooltipProvider>
             <nav className="mt-2 flex flex-col items-center gap-2 w-full">
               {navItems.map((item) => {
-                const active =
-                  item.href === PRIVATE_ROUTES.DASHBOARD
-                    ? activePath === PRIVATE_ROUTES.DASHBOARD
-                    : activePath.startsWith(item.href);
+                const active = item.href === activeHref;
                 return (
                   <Tooltip key={`${item.href}-${item.label}`}>
                     <TooltipTrigger asChild>

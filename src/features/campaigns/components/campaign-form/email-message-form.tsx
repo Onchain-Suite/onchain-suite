@@ -48,20 +48,37 @@ export function EmailMessageForm({
     (identity) => identity.email.toLowerCase() === trimmedSenderEmail
   );
   const hasVerifiedSenders = verifiedSenderIdentities.length > 0;
+  // What the campaign WOULD send as if the name field is left blank.
+  const inheritedSenderName =
+    verifiedSenderIdentities.find(
+      (i) => i.email.toLowerCase() === trimmedSenderEmail
+    )?.name ?? "";
 
+  /**
+   * Select the identity this campaign sends as.
+   *
+   * This used to COPY `identity.name` into the form, which is how a dead
+   * snapshot got onto every campaign: the copy happened once, at pick time, and
+   * nothing refreshed it afterwards. Correcting the name in Settings then
+   * changed nothing, because the campaign carried its own stale copy and the
+   * backend preferred it. One org sent five campaigns under a misspelling it
+   * had already fixed.
+   *
+   * The name is now inherited from the identity at render time, so picking a
+   * sender sets the link and CLEARS the name. Typing in the Sender name field
+   * below is still an explicit override and is still honoured.
+   */
   const pickSender = (email: string) => {
     const identity = verifiedSenderIdentities.find((i) => i.email === email);
     if (!identity) return;
-    form.setValue("senderEmail", identity.email, {
+    const opts = {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
-    });
-    form.setValue("senderName", identity.name, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
+    } as const;
+    form.setValue("senderEmail", identity.email, opts);
+    form.setValue("senderIdentityId", identity.id, opts);
+    form.setValue("senderName", "", opts);
   };
 
   return (
@@ -176,14 +193,19 @@ export function EmailMessageForm({
               <FormItem>
                 <FormLabel className="flex items-center gap-1 text-sm font-medium">
                   Sender name
-                  <span className="text-destructive">*</span>
                 </FormLabel>
                 <FormControl>
                   <Input
                     {...field}
+                    placeholder={inheritedSenderName || "Sender name"}
                     className="h-10 rounded-xl border-border bg-background"
                   />
                 </FormControl>
+                <FormDescription>
+                  {inheritedSenderName && !field.value
+                    ? `Using “${inheritedSenderName}” from the sender address. Correcting it in Settings updates this campaign too. Type here to override it just for this campaign.`
+                    : "Leave blank to use the name on the sender address, so a change in Settings flows through."}
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}

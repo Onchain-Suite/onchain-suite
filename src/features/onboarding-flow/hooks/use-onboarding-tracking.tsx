@@ -45,7 +45,7 @@ interface UseOnboardingTracking {
   isLoading: boolean;
   trackStep: (payload: {
     stepName: OnboardingStep;
-    action: "started" | "completed" | "skipped";
+    action: "started" | "completed" | "skipped" | "abandoned";
     timeSpentSeconds?: number;
     currentStep?: OnboardingStep;
     stepData?: Record<string, unknown>;
@@ -225,7 +225,7 @@ export function useOnboardingTracking(): UseOnboardingTracking {
   const trackStep = useCallback(
     async (payload: {
       stepName: OnboardingStep;
-      action: "started" | "completed" | "skipped";
+      action: "started" | "completed" | "skipped" | "abandoned";
       timeSpentSeconds?: number;
       currentStep?: OnboardingStep;
       stepData?: Record<string, unknown>;

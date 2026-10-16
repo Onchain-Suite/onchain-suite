@@ -106,8 +106,16 @@ export interface BlockStyle {
   borderColor?: string | null;
   borderRadius?: number | null;
   fontFamily?: FontFamily | null;
+  /** Raw CSS font-family (e.g. custom fonts carried in from Import HTML). When
+   *  set it wins over the `fontFamily` preset. */
+  fontStack?: string | null;
   fontSize?: number | null;
   fontWeight?: "bold" | "normal" | null;
+  /** Extra tracking, in px (supports fractional values). */
+  letterSpacing?: number | null;
+  textTransform?: "none" | "uppercase" | "lowercase" | "capitalize" | null;
+  /** Unitless line-height multiplier (e.g. 1.6). */
+  lineHeight?: number | null;
   textAlign?: "left" | "center" | "right" | null;
   padding?: Padding | null;
 }
@@ -120,7 +128,11 @@ export const STYLE_KEYS: Record<string, StyleKey[]> = {
     "color",
     "backgroundColor",
     "fontFamily",
+    "fontStack",
     "fontWeight",
+    "letterSpacing",
+    "textTransform",
+    "lineHeight",
     "textAlign",
     "padding",
   ],
@@ -128,16 +140,23 @@ export const STYLE_KEYS: Record<string, StyleKey[]> = {
     "color",
     "backgroundColor",
     "fontFamily",
+    "fontStack",
     "fontSize",
     "fontWeight",
+    "letterSpacing",
+    "textTransform",
+    "lineHeight",
     "textAlign",
     "padding",
   ],
   Button: [
     "backgroundColor",
     "fontFamily",
+    "fontStack",
     "fontSize",
     "fontWeight",
+    "letterSpacing",
+    "textTransform",
     "textAlign",
     "padding",
   ],
@@ -148,7 +167,36 @@ export const STYLE_KEYS: Record<string, StyleKey[]> = {
     "color",
     "backgroundColor",
     "fontFamily",
+    "fontStack",
     "fontSize",
+    "letterSpacing",
+    "textTransform",
+    "lineHeight",
+    "textAlign",
+    "padding",
+  ],
+  List: [
+    "color",
+    "backgroundColor",
+    "fontFamily",
+    "fontStack",
+    "fontSize",
+    "fontWeight",
+    "lineHeight",
+    "textAlign",
+    "padding",
+  ],
+  Social: ["backgroundColor", "textAlign", "padding"],
+  Video: ["backgroundColor", "textAlign", "padding"],
+  Menu: [
+    "color",
+    "backgroundColor",
+    "fontFamily",
+    "fontStack",
+    "fontSize",
+    "fontWeight",
+    "letterSpacing",
+    "textTransform",
     "textAlign",
     "padding",
   ],
@@ -222,9 +270,125 @@ export interface HtmlNode {
   type: "Html";
   data: { props: { contents: string }; style: BlockStyle };
 }
+export interface ListNode {
+  type: "List";
+  data: {
+    props: { ordered: boolean; items: string[] };
+    style: BlockStyle;
+  };
+}
+export type SocialPlatform =
+  | "x"
+  | "farcaster"
+  | "discord"
+  | "telegram"
+  | "instagram"
+  | "youtube"
+  | "github"
+  | "tiktok"
+  | "reddit"
+  | "medium"
+  | "lens"
+  | "website"
+  | "email";
+export interface SocialLink {
+  platform: SocialPlatform;
+  url: string;
+}
+export interface SocialNode {
+  type: "Social";
+  data: {
+    props: {
+      links: SocialLink[];
+      /** Which hosted icon variant to embed (dark marks vs white marks). */
+      iconVariant: "dark" | "light";
+      iconSize: number;
+      gap: number;
+    };
+    style: BlockStyle;
+  };
+}
+export interface MenuItem {
+  label: string;
+  url: string;
+}
+export interface MenuNode {
+  type: "Menu";
+  data: {
+    props: { items: MenuItem[]; separator: string };
+    style: BlockStyle;
+  };
+}
+export interface VideoNode {
+  type: "Video";
+  data: {
+    props: {
+      /** Poster/thumbnail image (hosted URL). */
+      thumbnailUrl: string;
+      /** Where the play button links (YouTube/Vimeo/hosted watch page). */
+      videoUrl: string;
+      alt: string;
+      width: number | null;
+      /** Overlay a play badge on the thumbnail. */
+      showPlayButton: boolean;
+    };
+    style: BlockStyle;
+  };
+}
+
+/** Social platforms with a hosted icon in `public/email-assets/social/`. */
+export const SOCIAL_PLATFORMS: { key: SocialPlatform; label: string }[] = [
+  { key: "x", label: "X" },
+  { key: "farcaster", label: "Farcaster" },
+  { key: "discord", label: "Discord" },
+  { key: "telegram", label: "Telegram" },
+  { key: "instagram", label: "Instagram" },
+  { key: "youtube", label: "YouTube" },
+  { key: "github", label: "GitHub" },
+  { key: "tiktok", label: "TikTok" },
+  { key: "reddit", label: "Reddit" },
+  { key: "medium", label: "Medium" },
+  { key: "lens", label: "Lens" },
+  { key: "website", label: "Website" },
+  { key: "email", label: "Email" },
+];
+const platformLabel = (p: SocialPlatform): string =>
+  SOCIAL_PLATFORMS.find((x) => x.key === p)?.label ?? p;
+
+/** App origin used to build absolute asset URLs for the sent email. */
+const EMAIL_ASSET_BASE = (
+  process.env.NEXT_PUBLIC_APP_URL?.trim()
+    ? process.env.NEXT_PUBLIC_APP_URL
+    : "https://onchainsuite.com"
+).replace(/\/$/, "");
+/** Same-origin relative path (works in the in-app canvas preview). */
+export function socialIconPath(
+  platform: SocialPlatform,
+  variant: "dark" | "light"
+): string {
+  const suffix = variant === "light" ? "-light" : "";
+  return `/email-assets/social/${platform}${suffix}.png`;
+}
+/** Absolute URL embedded in the sent email HTML (relative URLs don't resolve). */
+export function socialIconUrl(
+  platform: SocialPlatform,
+  variant: "dark" | "light"
+): string {
+  return `${EMAIL_ASSET_BASE}${socialIconPath(platform, variant)}`;
+}
+/** Play-badge overlay asset (relative for canvas, absolute for the email). */
+export const PLAY_BUTTON_PATH = "/email-assets/play-button.png";
+export const PLAY_BUTTON_URL = `${EMAIL_ASSET_BASE}${PLAY_BUTTON_PATH}`;
 export interface ContainerNode {
   type: "Container";
-  data: { props: { childrenIds: string[] }; style: BlockStyle };
+  data: {
+    props: {
+      childrenIds: string[];
+      /** Optional section background image (hosted URL). */
+      backgroundImage?: string | null;
+    };
+    style: BlockStyle;
+  };
 }
 export interface ColumnsContainerNode {
   type: "ColumnsContainer";
@@ -233,6 +397,9 @@ export interface ColumnsContainerNode {
       columnsCount: 2 | 3;
       columnsGap: number;
       contentAlignment: "top" | "middle" | "bottom";
+      /** Per-column width percentages (must match columnsCount and sum ~100).
+       *  Omitted/mismatched falls back to equal columns. */
+      columnWidths?: number[] | null;
       columns: { childrenIds: string[] }[];
     };
     style: BlockStyle;
@@ -247,6 +414,8 @@ export interface EmailLayoutNode {
     borderRadius: number;
     fontFamily: FontFamily;
     textColor: string;
+    /** Inbox preview text (hidden in the body). */
+    preheader?: string;
     childrenIds: string[];
   };
 }
@@ -260,6 +429,10 @@ export type BlockNode =
   | DividerNode
   | SpacerNode
   | HtmlNode
+  | ListNode
+  | SocialNode
+  | MenuNode
+  | VideoNode
   | ContainerNode
   | ColumnsContainerNode
   | EmailLayoutNode;
@@ -536,6 +709,20 @@ export function newBlockId(): string {
   return `blk_${idCounter}_${Math.floor(idCounter * 2654435761) % 100000}`;
 }
 
+/**
+ * Advance the id counter past any `blk_N_*` ids already in a loaded document,
+ * so freshly inserted blocks can't collide with existing ones (the counter
+ * otherwise restarts at 0 each session).
+ */
+function reseedIdCounter(ids: Iterable<string>): void {
+  let max = idCounter;
+  for (const id of ids) {
+    const m = /^blk_(\d+)_/.exec(id);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  idCounter = max;
+}
+
 const PAD = (t: number, b: number, l: number, r: number): Padding => ({
   top: t,
   bottom: b,
@@ -619,6 +806,67 @@ export function createNode(type: InsertableType): BlockNode {
           style: { padding: PAD(16, 16, 24, 24) },
         },
       };
+    case "List":
+      return {
+        type,
+        data: {
+          props: {
+            ordered: false,
+            items: ["First item", "Second item", "Third item"],
+          },
+          style: { padding: PAD(4, 16, 24, 24) },
+        },
+      };
+    case "Social":
+      return {
+        type,
+        data: {
+          props: {
+            links: [
+              { platform: "x", url: "https://" },
+              { platform: "farcaster", url: "https://" },
+              { platform: "discord", url: "https://" },
+            ],
+            iconVariant: "dark",
+            iconSize: 24,
+            gap: 12,
+          },
+          style: { padding: PAD(8, 16, 24, 24), textAlign: "center" },
+        },
+      };
+    case "Menu":
+      return {
+        type,
+        data: {
+          props: {
+            items: [
+              { label: "Home", url: "https://" },
+              { label: "About", url: "https://" },
+              { label: "Contact", url: "https://" },
+            ],
+            separator: "·",
+          },
+          style: {
+            padding: PAD(8, 16, 24, 24),
+            textAlign: "center",
+            color: "#8a9099",
+          },
+        },
+      };
+    case "Video":
+      return {
+        type,
+        data: {
+          props: {
+            thumbnailUrl: "",
+            videoUrl: "",
+            alt: "",
+            width: null,
+            showPlayButton: true,
+          },
+          style: { padding: PAD(16, 16, 24, 24), textAlign: "center" },
+        },
+      };
     case "Container":
       return {
         type,
@@ -660,6 +908,10 @@ export const BLOCK_BUTTONS: {
   { type: "Avatar", label: "Avatar", group: "block" },
   { type: "Divider", label: "Divider", group: "block" },
   { type: "Spacer", label: "Spacer", group: "block" },
+  { type: "List", label: "List", group: "block" },
+  { type: "Social", label: "Social", group: "block" },
+  { type: "Menu", label: "Menu", group: "block" },
+  { type: "Video", label: "Video", group: "block" },
   { type: "Html", label: "Html", group: "block" },
   { type: "ColumnsContainer", label: "Columns", group: "layout" },
   { type: "Container", label: "Container", group: "layout" },
@@ -714,6 +966,30 @@ export function defaultDocument(): EmailDocument {
 }
 
 /* --------------------------------------------------------------- children */
+
+/**
+ * Resolve per-column width percentages for a columns block. Falls back to equal
+ * widths when none are set or the array doesn't match the column count; always
+ * returns exactly `count` integers that sum to 100 (last cell absorbs rounding).
+ */
+export function resolveColumnWidths(
+  count: number,
+  widths?: number[] | null
+): number[] {
+  const valid =
+    Array.isArray(widths) &&
+    widths.length === count &&
+    widths.every((w) => typeof w === "number" && w > 0);
+  const base = valid
+    ? (widths as number[])
+    : Array.from({ length: count }, () => 100 / count);
+  const total = base.reduce((a, b) => a + b, 0) || 1;
+  const out = base.map((w) => Math.round((w / total) * 100));
+  // Correct rounding drift so the row always sums to exactly 100.
+  const drift = 100 - out.reduce((a, b) => a + b, 0);
+  out[out.length - 1] += drift;
+  return out;
+}
 
 /** All child-id arrays a container-like node owns (flattened, in order). */
 export function childListsOf(node: BlockNode): string[][] {
@@ -770,6 +1046,7 @@ export function parseDocument(raw: unknown): EmailDocument | null {
   ) {
     const blocks = raw.blocks as Record<string, BlockNode>;
     if (!blocks.root) return null;
+    reseedIdCounter(Object.keys(blocks));
     return { version: 2, root: "root", blocks, footer };
   }
 
@@ -856,6 +1133,21 @@ const esc = (value: string) =>
     .replace(/"/g, "&quot;");
 const escMultiline = (value: string) => esc(value).replace(/\n/g, "<br />");
 
+/**
+ * Strip active content from an Html block: <script>/<style> blocks, inline
+ * event handlers, and javascript: URLs. Email clients strip these anyway, and
+ * it prevents XSS in the editor's live preview.
+ */
+export function sanitizeEmailHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
+    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "")
+    .replace(/(href|src)\s*=\s*(["'])\s*javascript:[^"']*\2/gi, '$1="#"');
+}
+
 const paddingToCss = (p?: Padding | null) =>
   p ? `${p.top}px ${p.right}px ${p.bottom}px ${p.left}px` : undefined;
 
@@ -880,15 +1172,28 @@ function styleToCss(style: BlockStyle | undefined, keys: StyleKey[]): string {
         out.push(`border-radius:${v}px`);
         break;
       case "fontFamily": {
+        if (style.fontStack) break; // fontStack (raw) wins over the preset
         const css = fontFamilyToCss(v as FontFamily);
         if (css) out.push(`font-family:${css}`);
         break;
       }
+      case "fontStack":
+        out.push(`font-family:${v}`);
+        break;
       case "fontSize":
         out.push(`font-size:${v}px`);
         break;
       case "fontWeight":
         out.push(`font-weight:${v}`);
+        break;
+      case "letterSpacing":
+        out.push(`letter-spacing:${v}px`);
+        break;
+      case "textTransform":
+        out.push(`text-transform:${v}`);
+        break;
+      case "lineHeight":
+        out.push(`line-height:${v}`);
         break;
       case "textAlign":
         out.push(`text-align:${v}`);
@@ -942,15 +1247,30 @@ function renderNode(id: string, doc: EmailDocument): string {
       ]);
       const fontCss = styleToCss(node.data.style, [
         "fontFamily",
+        "fontStack",
         "fontSize",
         "fontWeight",
+        "letterSpacing",
+        "textTransform",
       ]);
+      const href = esc(p.url || "#");
+      const label = esc(p.text);
+      const bg = esc(p.buttonBackgroundColor);
+      const fg = esc(p.buttonTextColor);
+      const fontSize = node.data.style.fontSize ?? 15;
+      // Bulletproof button: VML roundrect keeps the padded, coloured, rounded
+      // pill in Outlook (the Word engine drops padding/bg/radius on a bare <a>).
+      const height = Math.round(fontSize * 1.35 + vy * 2);
+      const arcsize =
+        radius > 0 ? Math.min(50, Math.round((radius / height) * 100)) : 0;
+      const vmlWidth = p.fullWidth
+        ? "mso-width-percent:1000;"
+        : `width:${Math.round(p.text.length * fontSize * 0.62 + vx * 2)}px;`;
+      const vml = `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:${height}px;v-text-anchor:middle;${vmlWidth}" arcsize="${arcsize}%" stroke="f" fillcolor="${bg}"><w:anchorlock/><center style="color:${fg};font-family:sans-serif;font-size:${fontSize}px;font-weight:600;">${label}</center></v:roundrect><![endif]-->`;
       const width = p.fullWidth ? "width:100%;" : "";
       const display = p.fullWidth ? "block" : "inline-block";
-      const anchor = `<a href="${esc(p.url || "#")}" target="_blank" style="${width}display:${display};padding:${vy}px ${vx}px;background-color:${esc(
-        p.buttonBackgroundColor
-      )};color:${esc(p.buttonTextColor)};border-radius:${radius}px;text-decoration:none;text-align:center;font-weight:600;${fontCss}">${esc(p.text)}</a>`;
-      return `<div style="${wrapCss}">${anchor}</div>`;
+      const anchor = `<!--[if !mso]><!--><a href="${href}" target="_blank" rel="noopener" style="${width}display:${display};padding:${vy}px ${vx}px;background-color:${bg};color:${fg};border-radius:${radius}px;text-decoration:none;text-align:center;font-weight:600;${fontCss}">${label}</a><!--<![endif]-->`;
+      return `<div style="${wrapCss}">${vml}${anchor}</div>`;
     }
     case "Image": {
       const p = node.data.props;
@@ -962,11 +1282,13 @@ function renderNode(id: string, doc: EmailDocument): string {
           : p.contentAlignment === "bottom"
             ? "bottom"
             : "middle";
+      const wAttr = `width="${p.width ?? 600}"`;
+      const hAttr = p.height ? ` height="${p.height}"` : "";
       const img = p.url
-        ? `<img src="${esc(p.url)}" alt="${esc(p.alt)}" style="display:inline-block;border:0;outline:none;vertical-align:${va};${dims}" />`
+        ? `<img src="${esc(p.url)}" alt="${esc(p.alt)}" ${wAttr}${hAttr} style="display:block;border:0;outline:none;vertical-align:${va};${dims}" />`
         : `<div style="padding:40px;background:#f2f3f5;color:#9aa0a6;font-size:13px;text-align:center;border-radius:8px;">Image</div>`;
       const linked = p.linkHref
-        ? `<a href="${esc(p.linkHref)}" target="_blank">${img}</a>`
+        ? `<a href="${esc(p.linkHref)}" target="_blank" rel="noopener">${img}</a>`
         : img;
       return `<div style="${wrapCss}">${linked}</div>`;
     }
@@ -995,14 +1317,75 @@ function renderNode(id: string, doc: EmailDocument): string {
     }
     case "Html": {
       const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Html);
-      return `<div style="${wrapCss}">${node.data.props.contents}</div>`;
+      return `<div style="${wrapCss}">${sanitizeEmailHtml(node.data.props.contents)}</div>`;
+    }
+    case "List": {
+      const p = node.data.props;
+      const wrapCss = styleToCss(node.data.style, STYLE_KEYS.List);
+      const tag = p.ordered ? "ol" : "ul";
+      const items = p.items
+        .filter((it) => it.trim().length > 0)
+        .map(
+          (it) =>
+            `<li style="margin:0 0 6px 0;mso-line-height-rule:exactly;">${escMultiline(it)}</li>`
+        )
+        .join("");
+      return `<div style="line-height:1.6;${wrapCss}"><${tag} style="margin:0;padding:0 0 0 24px;">${items}</${tag}></div>`;
+    }
+    case "Social": {
+      const p = node.data.props;
+      const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Social);
+      const size = p.iconSize;
+      const half = Math.round(p.gap / 2);
+      const cells = p.links
+        .filter((l) => l.url.trim() && l.url.trim() !== "https://")
+        .map(
+          (l) =>
+            `<a href="${esc(l.url.trim())}" target="_blank" rel="noopener" style="display:inline-block;margin:0 ${half}px;text-decoration:none;"><img src="${socialIconUrl(l.platform, p.iconVariant)}" width="${size}" height="${size}" alt="${esc(platformLabel(l.platform))}" style="border:0;display:inline-block;width:${size}px;height:${size}px;" /></a>`
+        )
+        .join("");
+      return `<div style="${wrapCss}">${cells}</div>`;
+    }
+    case "Menu": {
+      const p = node.data.props;
+      const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Menu);
+      const color = node.data.style.color ?? "#8a9099";
+      const sep = ` <span style="opacity:0.5;">${esc(p.separator || "·")}</span> `;
+      const rendered = p.items
+        .filter((it) => it.label.trim())
+        .map(
+          (it) =>
+            `<a href="${esc(it.url.trim() || "#")}" target="_blank" style="color:${color};text-decoration:none;">${esc(it.label.trim())}</a>`
+        )
+        .join(sep);
+      return `<div style="line-height:1.8;${wrapCss}">${rendered}</div>`;
+    }
+    case "Video": {
+      const p = node.data.props;
+      const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Video);
+      if (!p.thumbnailUrl.trim()) return `<div style="${wrapCss}"></div>`;
+      const w = p.width ?? 560;
+      const href = p.videoUrl.trim() || "#";
+      const alt = esc(p.alt || "Watch video");
+      const badge = p.showPlayButton
+        ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);"><img src="${PLAY_BUTTON_URL}" width="64" height="64" alt="Play" style="border:0;display:block;width:64px;height:64px;" /></div>`
+        : "";
+      // A relatively-positioned wrapper overlays the play badge for modern
+      // clients; Outlook ignores the overlay but still shows the linked poster.
+      return `<div style="${wrapCss}"><a href="${esc(href)}" target="_blank" rel="noopener" style="display:inline-block;position:relative;text-decoration:none;"><img src="${esc(p.thumbnailUrl.trim())}" width="${w}" alt="${alt}" style="border:0;display:block;width:${w}px;max-width:100%;height:auto;" />${badge}</a></div>`;
     }
     case "Container": {
       const wrapCss = styleToCss(node.data.style, STYLE_KEYS.Container);
+      const bg = node.data.props.backgroundImage?.trim();
+      // CSS background for modern clients; the section's backgroundColor stays
+      // the Outlook-desktop fallback (Outlook ignores CSS background images).
+      const bgCss = bg
+        ? `background-image:url('${esc(bg)}');background-size:cover;background-position:center;background-repeat:no-repeat;`
+        : "";
       const inner = node.data.props.childrenIds
         .map((c) => renderNode(c, doc))
         .join("");
-      return `<div style="${wrapCss}">${inner}</div>`;
+      return `<div style="${bgCss}${wrapCss}">${inner}</div>`;
     }
     case "ColumnsContainer": {
       const p = node.data.props;
@@ -1015,6 +1398,7 @@ function renderNode(id: string, doc: EmailDocument): string {
           : p.contentAlignment === "bottom"
             ? "bottom"
             : "middle";
+      const widths = resolveColumnWidths(count, p.columnWidths);
       const cells: string[] = [];
       for (let i = 0; i < count; i += 1) {
         const col = p.columns[i]?.childrenIds ?? [];
@@ -1022,7 +1406,7 @@ function renderNode(id: string, doc: EmailDocument): string {
         const padL = i === 0 ? 0 : gap / 2;
         const padR = i === count - 1 ? 0 : gap / 2;
         cells.push(
-          `<td width="${Math.floor(100 / count)}%" valign="${va}" style="padding-left:${padL}px;padding-right:${padR}px;">${inner}</td>`
+          `<td class="ocs-col" width="${widths[i]}%" valign="${va}" style="width:${widths[i]}%;padding-left:${padL}px;padding-right:${padR}px;">${inner}</td>`
         );
       }
       return `<div style="${wrapCss}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed;"><tr>${cells.join("")}</tr></table></div>`;
@@ -1065,6 +1449,57 @@ function minifyEmailHtml(html: string): string {
   return html.replace(/>[ \t\r\n]*\n[ \t\r\n]*</g, "><").trim();
 }
 
+/** First real font name in a CSS font-family stack (drops quotes + generics). */
+function firstFontFamily(stack: string): string | null {
+  const first = stack
+    .split(",")[0]
+    ?.trim()
+    .replace(/^['"]|['"]$/g, "");
+  if (!first) return null;
+  const generic = [
+    "sans-serif",
+    "serif",
+    "monospace",
+    "cursive",
+    "fantasy",
+    "system-ui",
+    "ui-sans-serif",
+    "ui-serif",
+    "ui-monospace",
+    "-apple-system",
+    "blinkmacsystemfont",
+    "inherit",
+  ];
+  return generic.includes(first.toLowerCase()) ? null : first;
+}
+
+/** Distinct custom font families used across the document (via `fontStack`). */
+export function customFontFamilies(doc: EmailDocument): string[] {
+  const names = new Set<string>();
+  for (const node of Object.values(doc.blocks)) {
+    if (node.type === "Spacer" || node.type === "EmailLayout") continue;
+    const fs = node.data.style?.fontStack;
+    if (typeof fs === "string") {
+      const n = firstFontFamily(fs);
+      if (n) names.add(n);
+    }
+  }
+  return [...names];
+}
+
+/** Google Fonts stylesheet URL for the document's custom fonts (or ""). */
+export function googleFontsHref(doc: EmailDocument): string {
+  const names = customFontFamilies(doc);
+  if (names.length === 0) return "";
+  const families = names
+    .map(
+      (n) =>
+        `family=${encodeURIComponent(n).replace(/%20/g, "+")}:wght@400;500;600;700;800`
+    )
+    .join("&");
+  return `https://fonts.googleapis.com/css2?${families}&display=swap`;
+}
+
 /** Render the full document to email-safe HTML (MSO fallbacks + footer). */
 export function renderDocumentToHtml(doc: EmailDocument): string {
   const root = doc.blocks[doc.root];
@@ -1076,6 +1511,18 @@ export function renderDocumentToHtml(doc: EmailDocument): string {
     ? `border:1px solid ${layout.borderColor};`
     : "";
   const footer = renderFooterRow(doc.footer ?? DEFAULT_FOOTER);
+  const fontsHref = googleFontsHref(doc);
+  const fontsLink = fontsHref
+    ? `<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="${fontsHref}" rel="stylesheet" />`
+    : "";
+  // Hidden inbox preview text + entity padding so scraped body copy can't leak
+  // in after it.
+  const preheaderText = (layout.preheader ?? "").trim();
+  const preheader = preheaderText
+    ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${layout.backdropColor};opacity:0;">${escMultiline(
+        preheaderText
+      )}${"&#8199;&#65279;".repeat(80)}</div>`
+    : "";
   return minifyEmailHtml(`<!doctype html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -1083,23 +1530,29 @@ export function renderDocumentToHtml(doc: EmailDocument): string {
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="color-scheme" content="light dark" />
+<meta name="supported-color-schemes" content="light dark" />
 <!--[if mso]>
 <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
 <![endif]-->
+${fontsLink}
 <style>
   html,body{margin:0!important;padding:0!important;width:100%!important;}
   *{-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;}
   table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
   img{-ms-interpolation-mode:bicubic;border:0;line-height:100%;outline:none;text-decoration:none;}
   a{text-decoration:none;}
-  @media only screen and (max-width:600px){.ocs-container{width:100%!important;}}
+  @media only screen and (max-width:600px){
+    .ocs-container{width:100%!important;}
+    .ocs-col{display:block!important;width:100%!important;padding:0 0 16px 0!important;}
+  }
 </style>
 </head>
 <body style="margin:0;padding:0;background:${layout.backdropColor};color:${layout.textColor};font-family:${font};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${layout.backdropColor};">
+${preheader}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${layout.backdropColor}" style="background:${layout.backdropColor};">
 <tr><td align="center" style="padding:32px 12px;">
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
-<table role="presentation" class="ocs-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background:${layout.canvasColor};${canvasBorder}border-radius:${layout.borderRadius}px;color:${layout.textColor};font-family:${font};">
+<table role="presentation" class="ocs-container" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${layout.canvasColor}" style="width:600px;max-width:600px;background:${layout.canvasColor};${canvasBorder}border-radius:${layout.borderRadius}px;color:${layout.textColor};font-family:${font};">
 <tr><td>
 ${body}
 </td></tr>
@@ -1143,6 +1596,35 @@ export function renderDocumentToText(doc: EmailDocument): string {
             .replace(/\s+/g, " ")
             .trim()
         );
+        break;
+      case "List":
+        node.data.props.items
+          .filter((it) => it.trim())
+          .forEach((it, i) =>
+            lines.push(
+              `${node.data.props.ordered ? `${i + 1}.` : "-"} ${it.trim()}`
+            )
+          );
+        break;
+      case "Social":
+        node.data.props.links
+          .filter((l) => l.url.trim() && l.url.trim() !== "https://")
+          .forEach((l) =>
+            lines.push(`${platformLabel(l.platform)}: ${l.url.trim()}`)
+          );
+        break;
+      case "Menu":
+        node.data.props.items
+          .filter((it) => it.label.trim())
+          .forEach((it) =>
+            lines.push(`${it.label.trim()}: ${it.url.trim() || "#"}`)
+          );
+        break;
+      case "Video":
+        if (node.data.props.videoUrl.trim())
+          lines.push(
+            `${node.data.props.alt || "Watch video"}: ${node.data.props.videoUrl.trim()}`
+          );
         break;
       case "Container":
         node.data.props.childrenIds.forEach(walk);
@@ -1222,16 +1704,68 @@ export function parseHtmlToDocument(html: string): EmailDocument {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const rootEl = doc.body ?? doc.documentElement;
 
-  /* ---------------------------------------------------------- style helpers */
-  const styleOf = (el: Element): Record<string, string> => {
-    const out: Record<string, string> = {};
-    for (const decl of (el.getAttribute("style") ?? "").split(";")) {
+  /* ------------------------------------------- <style> sheet resolution */
+  // ESP exports (Mailchimp, HubSpot, Beefree, …) frequently keep typography and
+  // colours in class rules inside <style> rather than inline. Collect the simple
+  // class/id/tag rules once so those styles survive import instead of vanishing.
+  const sheet = {
+    cls: new Map<string, string>(),
+    id: new Map<string, string>(),
+    tag: new Map<string, string>(),
+  };
+  const mergeRule = (map: Map<string, string>, key: string, decls: string) => {
+    const prev = map.get(key);
+    map.set(key, prev ? `${prev};${decls}` : decls);
+  };
+  for (const styleEl of Array.from(doc.querySelectorAll("style"))) {
+    const css = (styleEl.textContent ?? "")
+      .replace(/\/\*[\s\S]*?\*\//g, "") // strip comments
+      .replace(/@media[^{]*\{[\s\S]*?\}\s*\}/g, ""); // desktop base only
+    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const decls = m[2].trim();
+      if (!decls) continue;
+      for (const sel of m[1].split(",")) {
+        // Only the trailing simple selector - ignore descendant combinators.
+        const last = (sel.trim().split(/\s+/).pop() ?? "").trim();
+        let mm: RegExpMatchArray | null;
+        if ((mm = last.match(/^([a-z0-9]+)?\.([\w-]+)$/i)))
+          mergeRule(sheet.cls, mm[2].toLowerCase(), decls);
+        else if ((mm = last.match(/^#([\w-]+)$/)))
+          mergeRule(sheet.id, mm[1].toLowerCase(), decls);
+        else if ((mm = last.match(/^([a-z0-9]+)$/i)))
+          mergeRule(sheet.tag, mm[1].toLowerCase(), decls);
+      }
+    }
+  }
+  const parseDecls = (decls: string, out: Record<string, string>) => {
+    for (const decl of decls.split(";")) {
       const i = decl.indexOf(":");
       if (i === -1) continue;
       const k = decl.slice(0, i).trim().toLowerCase();
-      const v = decl.slice(i + 1).trim();
+      const v = decl
+        .slice(i + 1)
+        .replace(/!important/i, "")
+        .trim();
       if (k && v) out[k] = v;
     }
+  };
+
+  /* ---------------------------------------------------------- style helpers */
+  // Cascade tag < class < id < inline (inline wins), so class-based sheets fill
+  // in what inline styles omit without ever clobbering an explicit inline value.
+  const styleOf = (el: Element): Record<string, string> => {
+    const out: Record<string, string> = {};
+    const tag = el.tagName.toLowerCase();
+    const tagRule = sheet.tag.get(tag);
+    if (tagRule) parseDecls(tagRule, out);
+    for (const cls of Array.from(el.classList)) {
+      const rule = sheet.cls.get(cls.toLowerCase());
+      if (rule) parseDecls(rule, out);
+    }
+    const id = el.getAttribute("id");
+    const idRule = id ? sheet.id.get(id.toLowerCase()) : undefined;
+    if (idRule) parseDecls(idRule, out);
+    parseDecls(el.getAttribute("style") ?? "", out);
     return out;
   };
   const normColor = (v?: string): string | undefined => {
@@ -1271,6 +1805,89 @@ export function parseHtmlToDocument(html: string): EmailDocument {
     const m = v.match(/-?\d+(\.\d+)?/);
     return m ? Math.round(parseFloat(m[0])) : undefined;
   };
+  const pxFloat = (v?: string): number | undefined => {
+    if (!v) return undefined;
+    const m = v.match(/-?\d+(\.\d+)?/);
+    return m ? Math.round(parseFloat(m[0]) * 100) / 100 : undefined;
+  };
+  const transformOf = (v?: string): BlockStyle["textTransform"] => {
+    const t = (v ?? "").trim().toLowerCase();
+    return t === "uppercase" || t === "lowercase" || t === "capitalize"
+      ? t
+      : undefined;
+  };
+  /** A usable font-family declaration (ignore bare "inherit"). */
+  const fontOf = (v?: string): string | undefined => {
+    const f = (v ?? "").trim();
+    return f && f.toLowerCase() !== "inherit" ? f : undefined;
+  };
+  /** Normalise line-height to a unitless multiplier (accepts number/px/%). */
+  const lineHeightOf = (v?: string, fontSize?: number): number | undefined => {
+    const t = (v ?? "").trim().toLowerCase();
+    if (!t || t === "normal") return undefined;
+    if (/^[\d.]+$/.test(t)) {
+      const n = parseFloat(t);
+      return n > 0 && n < 4 ? Math.round(n * 100) / 100 : undefined;
+    }
+    if (t.endsWith("%")) {
+      const n = parseFloat(t);
+      return n ? Math.round(n) / 100 : undefined;
+    }
+    const px = pxFloat(t);
+    if (px !== undefined && fontSize)
+      return Math.round((px / fontSize) * 100) / 100;
+    return undefined;
+  };
+  /** One padding/margin side, resolving CSS shorthand (1/2/3/4 values). */
+  const sideOf = (
+    s: Record<string, string>,
+    base: "padding" | "margin",
+    dir: "top" | "right" | "bottom" | "left"
+  ): number | undefined => {
+    const long = pxOf(s[`${base}-${dir}`]);
+    if (long !== undefined) return long;
+    const sh = s[base];
+    if (!sh) return undefined;
+    const p = sh
+      .trim()
+      .split(/\s+/)
+      .map((x) => pxOf(x) ?? 0);
+    const four =
+      p.length === 1
+        ? [p[0], p[0], p[0], p[0]]
+        : p.length === 2
+          ? [p[0], p[1], p[0], p[1]]
+          : p.length === 3
+            ? [p[0], p[1], p[2], p[1]]
+            : [p[0], p[1], p[2], p[3]];
+    const idx =
+      dir === "top" ? 0 : dir === "right" ? 1 : dir === "bottom" ? 2 : 3;
+    return four[idx];
+  };
+  /**
+   * Capture the source element's vertical spacing without disturbing the canvas
+   * gutter: an imported block may add breathing room (top/bottom) but never gets
+   * more cramped than the default rhythm, and horizontal padding stays the inset.
+   */
+  const withSourceVPad = (el: Element, fallback: Padding): Padding => {
+    const s = styleOf(el);
+    const top = sideOf(s, "padding", "top") ?? sideOf(s, "margin", "top");
+    const bottom =
+      sideOf(s, "padding", "bottom") ?? sideOf(s, "margin", "bottom");
+    return {
+      ...fallback,
+      top: top !== undefined ? Math.max(fallback.top, top) : fallback.top,
+      bottom:
+        bottom !== undefined
+          ? Math.max(fallback.bottom, bottom)
+          : fallback.bottom,
+    };
+  };
+  /** Paragraph/heading that carries inline formatting worth preserving. */
+  const hasInlineRich = (el: Element): boolean =>
+    el.querySelector(
+      "a[href], strong, b, em, i, u, s, strike, sub, sup, mark, code"
+    ) !== null;
   const inheritedAlign = (
     el: Element
   ): "left" | "center" | "right" | undefined => {
@@ -1287,7 +1904,7 @@ export function parseHtmlToDocument(html: string): EmailDocument {
   };
   /** Pull color/align/size/weight from an element (and its styled children). */
   const textStyle = (el: Element): BlockStyle => {
-    const style: BlockStyle = { padding: PAD(0, 16, 24, 24) };
+    const style: BlockStyle = {};
     const collect = (n: Element) => {
       const s = styleOf(n);
       style.color ??= normColor(s["color"]);
@@ -1296,10 +1913,15 @@ export function parseHtmlToDocument(html: string): EmailDocument {
         if (w === "bold" || (pxOf(w) ?? 0) >= 600) style.fontWeight = "bold";
       }
       style.fontSize ??= pxOf(s["font-size"]);
+      style.fontStack ??= fontOf(s["font-family"]);
+      style.letterSpacing ??= pxFloat(s["letter-spacing"]);
+      style.textTransform ??= transformOf(s["text-transform"]);
+      style.lineHeight ??= lineHeightOf(s["line-height"], style.fontSize);
       for (const c of Array.from(n.children)) collect(c);
     };
     collect(el);
     style.textAlign = inheritedAlign(el);
+    style.padding = withSourceVPad(el, PAD(0, 16, 24, 24));
     return style;
   };
   const textFromBr = (el: Element): string =>
@@ -1373,6 +1995,12 @@ export function parseHtmlToDocument(html: string): EmailDocument {
     if (radius !== undefined)
       node.data.props.buttonStyle =
         radius === 0 ? "rectangle" : radius >= 40 ? "pill" : "rounded";
+    // Carry the label's typography so uppercase/tracked-out buttons survive.
+    node.data.style.fontStack ??= fontOf(s["font-family"]);
+    node.data.style.letterSpacing ??= pxFloat(s["letter-spacing"]);
+    node.data.style.textTransform ??= transformOf(s["text-transform"]);
+    const sz = pxOf(s["font-size"]);
+    if (sz !== undefined) node.data.style.fontSize = sz;
     return register(node);
   };
   const buildDivider = (hr: Element): string => {
@@ -1384,6 +2012,30 @@ export function parseHtmlToDocument(html: string): EmailDocument {
       const [lineColor] = m;
       node.data.props.lineColor = lineColor;
     }
+    return register(node);
+  };
+  /**
+   * Preserve inline formatting (links, bold/italic/underline, lists) as one Html
+   * block so imported anchors keep their href and rich runs survive - a plain
+   * Text block would flatten them and silently drop link targets.
+   */
+  const buildRichText = (
+    el: Element,
+    style: BlockStyle,
+    outer = false
+  ): string => {
+    const node = createNode("Html") as HtmlNode;
+    // Lists keep their <ul>/<ol> wrapper (outerHTML); inline runs keep innerHTML.
+    node.data.props.contents = normalizeBracketTags(
+      sanitizeEmailHtml(outer ? el.outerHTML : el.innerHTML)
+        .replace(/&nbsp;/gi, " ")
+        .trim()
+    );
+    node.data.style = {
+      ...node.data.style,
+      ...style,
+      padding: style.padding ?? PAD(0, 16, 24, 24),
+    };
     return register(node);
   };
 
@@ -1415,6 +2067,17 @@ export function parseHtmlToDocument(html: string): EmailDocument {
         const node = createNode("ColumnsContainer") as ColumnsContainerNode;
         node.data.props.columnsCount = (cols.length >= 3 ? 3 : 2) as 2 | 3;
         node.data.props.columns = cols;
+        // Carry the card's panel background (e.g. a table with a bg colour)
+        // onto the columns so the card keeps its fill instead of going blank.
+        const rowBg = bgOf(table) ?? bgOf(tr);
+        if (
+          rowBg &&
+          !isWhitish(rowBg) &&
+          !sameColor(rowBg, backdropColor) &&
+          !sameColor(rowBg, canvasColor)
+        ) {
+          node.data.style.backgroundColor = rowBg;
+        }
         out.push(register(node));
       } else if (cells.length === 1) {
         parseCellInto(cells[0], out);
@@ -1494,13 +2157,17 @@ export function parseHtmlToDocument(html: string): EmailDocument {
       if (!text) return;
       const level = tag === "h1" ? "h1" : tag === "h2" ? "h2" : ("h3" as const);
       const style = textStyle(el);
-      style.padding = PAD(16, 8, 24, 24);
+      style.padding = withSourceVPad(el, PAD(16, 8, 24, 24));
       out.push(
         register({ type: "Heading", data: { props: { text, level }, style } })
       );
       return;
     }
     if (tag === "p") {
+      if (hasInlineRich(el)) {
+        out.push(buildRichText(el, textStyle(el)));
+        return;
+      }
       const text = textFromBr(el);
       if (text)
         out.push(
@@ -1509,6 +2176,11 @@ export function parseHtmlToDocument(html: string): EmailDocument {
             data: { props: { text }, style: textStyle(el) },
           })
         );
+      return;
+    }
+    if (tag === "ul" || tag === "ol") {
+      if ((el.textContent ?? "").trim())
+        out.push(buildRichText(el, textStyle(el), true));
       return;
     }
     if (tag === "img") {
@@ -1527,6 +2199,11 @@ export function parseHtmlToDocument(html: string): EmailDocument {
       }
       if (isButtonLike(el)) {
         out.push(buildButton(el));
+        return;
+      }
+      // Plain inline link: keep the anchor (href survives) as a rich Html block.
+      if ((el.getAttribute("href") ?? "").trim() && textFromBr(el)) {
+        out.push(buildRichText(el, textStyle(el)));
         return;
       }
       const text = textFromBr(el);
@@ -1554,8 +2231,13 @@ export function parseHtmlToDocument(html: string): EmailDocument {
       return;
     }
     // div/span/section/etc: recurse if it holds block content, else emit text.
-    if (el.querySelector("h1,h2,h3,h4,h5,h6,p,img,hr,table,a")) {
+    if (el.querySelector("h1,h2,h3,h4,h5,h6,p,img,hr,table,ul,ol,a")) {
       parseCellInto(el, out);
+      return;
+    }
+    // Inline formatting with no block content: keep it rich (bold/italic/…).
+    if (hasInlineRich(el)) {
+      out.push(buildRichText(el, textStyle(el)));
       return;
     }
     const text = textFromBr(el);

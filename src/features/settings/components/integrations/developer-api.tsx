@@ -36,11 +36,14 @@ import {
   type WebhookEndpoint,
   type WebhookStatus,
 } from "../../developer.service";
+import { usePagination } from "../../hooks/use-pagination";
+import { ListPager } from "../list-pager";
 import { SettingsCard, StatusPill } from "../settings-card";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 
+const DEVELOPER_LIST_PER_PAGE = 5;
 const BASE_URL = "https://api.onchainsuite.com/api/v1";
 const AUTH_HEADER = "Authorization: Bearer sk_live_…";
 
@@ -152,11 +155,17 @@ function RevealSecret({ value, helper }: { value: string; helper?: string }) {
   return (
     <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
       <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-        <ShieldCheckIcon aria-hidden="true" className="h-4 w-4 text-primary" />
+        <ShieldCheckIcon
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-primary"
+        />
         Copy this now - you will not see it again.
       </p>
-      <div className="mt-2 flex items-center gap-2">
-        <code className="min-w-0 flex-1 truncate rounded-md bg-background px-2 py-1.5 font-mono text-xs text-foreground ring-1 ring-border">
+      {/* Wrap the full secret (break-all) rather than truncating it, so the
+          whole one-time value is visible on any width. Copy stays pinned to
+          the top-right as the code grows to multiple lines. */}
+      <div className="mt-2 flex items-start gap-2">
+        <code className="min-w-0 flex-1 break-all rounded-md bg-background px-2 py-1.5 font-mono text-xs leading-5 text-foreground ring-1 ring-border">
           {value}
         </code>
         <CopyButton value={value} label="Copy secret" />
@@ -257,7 +266,7 @@ function CreateKeyDialog({
                   onValueChange={(v) =>
                     setEnvironment(v as CreateKeyInput["environment"])
                   }
-                  className="grid grid-cols-2 gap-2"
+                  className="grid grid-cols-1 gap-2 sm:grid-cols-2"
                 >
                   {(
                     [
@@ -335,7 +344,7 @@ function CreateKeyDialog({
                 </RadioGroup>
               </div>
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
@@ -501,7 +510,7 @@ function RollKeyDialog({
                 </span>
               </label>
             </RadioGroup>
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
@@ -518,6 +527,67 @@ function RollKeyDialog({
             </DialogFooter>
           </>
         )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// --- Revoke secret key modal ------------------------------------------------
+
+/**
+ * Revoking is destructive and immediate, so it goes through a confirm dialog -
+ * a stray click should never kill a live key. For zero-downtime rotation the
+ * copy points the user at Roll instead.
+ */
+function RevokeKeyDialog({
+  keyRow,
+  onOpenChange,
+}: {
+  keyRow: DeveloperKey | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (id: string) => developerService.revokeKey(id),
+    onSuccess: () => {
+      toast.success("Key revoked.");
+      queryClient.invalidateQueries({ queryKey: KEYS_QUERY_KEY });
+      onOpenChange(false);
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Couldn't revoke key."),
+  });
+
+  return (
+    <Dialog open={keyRow !== null} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            Revoke {keyRow?.name ? `"${keyRow.name}"` : "this key"}?
+          </DialogTitle>
+          <DialogDescription>
+            Any server still authenticating with this key stops working
+            immediately, and this can&apos;t be undone. To rotate without
+            downtime, use Roll instead.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={mutation.isPending}
+          >
+            Keep it
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={mutation.isPending}
+            onClick={() => keyRow && mutation.mutate(keyRow.id)}
+          >
+            {mutation.isPending ? "Revoking…" : "Revoke key"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -685,7 +755,7 @@ function CreateWebhookDialog({
                 </p>
               </div>
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
@@ -710,24 +780,16 @@ function KeyRow({
   keyRow,
   onRoll,
   onRevoke,
-  revoking,
 }: {
   keyRow: DeveloperKey;
   onRoll: (key: DeveloperKey) => void;
   onRevoke: (key: DeveloperKey) => void;
-  revoking: boolean;
 }) {
-  const revoked = keyRow.status === "revoked";
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-background/40 px-4 py-3">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "text-sm font-medium text-foreground",
-              revoked && "line-through"
-            )}
-          >
+          <span className="text-sm font-medium text-foreground">
             {keyRow.name || "Unnamed key"}
           </span>
           <EnvironmentBadge environment={keyRow.environment} />
@@ -751,28 +813,26 @@ function KeyRow({
           ) : null}
         </div>
       </div>
-      <div className="ml-auto flex items-center gap-2.5">
+      <div className="ml-auto flex items-center gap-2">
         <KeyStatusPill status={keyRow.status} />
-        {!revoked ? (
-          <>
-            <button
-              type="button"
-              onClick={() => onRoll(keyRow)}
-              className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:underline"
-            >
-              <ArrowPathIcon aria-hidden="true" className="h-3.5 w-3.5" />
-              Roll
-            </button>
-            <button
-              type="button"
-              onClick={() => onRevoke(keyRow)}
-              disabled={revoking}
-              className="text-sm font-medium text-destructive hover:underline disabled:opacity-50"
-            >
-              Revoke
-            </button>
-          </>
-        ) : null}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onRoll(keyRow)}
+          type="button"
+        >
+          <ArrowPathIcon aria-hidden="true" className="h-3.5 w-3.5" />
+          Roll
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onRevoke(keyRow)}
+          type="button"
+          className="text-destructive hover:text-destructive"
+        >
+          Revoke
+        </Button>
       </div>
     </div>
   );
@@ -823,31 +883,35 @@ function WebhookRow({
         </div>
         <WebhookStatusPill status={hook.status} />
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => onTest(hook.id)}
             disabled={busy}
-            className="text-sm font-medium text-foreground hover:underline disabled:opacity-50"
+            type="button"
           >
             Send test
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => onToggleStatus(hook)}
             disabled={busy}
-            className="text-sm font-medium text-foreground hover:underline disabled:opacity-50"
+            type="button"
           >
             {hook.status === "paused" ? "Resume" : "Pause"}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => onDelete(hook.id)}
             disabled={busy}
-            className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive disabled:opacity-50"
+            type="button"
+            className="text-muted-foreground hover:text-destructive"
             aria-label="Delete endpoint"
           >
             <TrashIcon className="h-4 w-4" aria-hidden="true" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -856,36 +920,43 @@ function WebhookRow({
 
 // --- Card -------------------------------------------------------------------
 
-export function DeveloperApiCard() {
+export function DeveloperApiCard({
+  only,
+  title = "Developer API",
+  description = "Keys, webhooks and endpoints - included on every plan",
+}: {
+  /** Render just the keys+endpoints view or just the webhooks view. When
+   *  omitted, the full card renders (the Settings usage). Used by the
+   *  Integrations screen to split keys and webhooks across two tabs. */
+  only?: "keys" | "webhooks";
+  title?: string;
+  description?: string;
+} = {}) {
   const queryClient = useQueryClient();
+  const showKeys = only !== "webhooks";
+  const showWebhooks = only !== "keys";
 
   const [createKeyOpen, setCreateKeyOpen] = useState(false);
   const [rollTarget, setRollTarget] = useState<DeveloperKey | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<DeveloperKey | null>(null);
   const [addWebhookOpen, setAddWebhookOpen] = useState(false);
 
   const keysQuery = useQuery({
     queryKey: KEYS_QUERY_KEY,
     queryFn: () => developerService.listKeys(),
+    enabled: showKeys,
   });
 
   const webhooksQuery = useQuery({
     queryKey: WEBHOOKS_QUERY_KEY,
     queryFn: () => developerService.listWebhooks(),
+    enabled: showWebhooks,
   });
 
   const eventsQuery = useQuery({
     queryKey: WEBHOOK_EVENTS_QUERY_KEY,
     queryFn: () => developerService.listWebhookEvents(),
-  });
-
-  const revokeMutation = useMutation({
-    mutationFn: (id: string) => developerService.revokeKey(id),
-    onSuccess: () => {
-      toast.success("Key revoked.");
-      queryClient.invalidateQueries({ queryKey: KEYS_QUERY_KEY });
-    },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Couldn't revoke key."),
+    enabled: showWebhooks,
   });
 
   const testWebhookMutation = useMutation({
@@ -923,8 +994,12 @@ export function DeveloperApiCard() {
       ),
   });
 
-  const keys = keysQuery.data ?? [];
+  // A revoked key is dead - drop it from the list entirely rather than showing
+  // a struck-through row.
+  const keys = (keysQuery.data ?? []).filter((key) => key.status !== "revoked");
   const webhooks = webhooksQuery.data ?? [];
+  const keysPager = usePagination(keys, DEVELOPER_LIST_PER_PAGE);
+  const webhooksPager = usePagination(webhooks, DEVELOPER_LIST_PER_PAGE);
   const catalog = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
 
   const webhookBusy =
@@ -933,189 +1008,218 @@ export function DeveloperApiCard() {
     deleteWebhookMutation.isPending;
 
   return (
-    <SettingsCard
-      title="Developer API"
-      description="Keys, webhooks and endpoints - included on every plan"
-    >
-      {/* Base URL + auth header */}
-      <div className="space-y-2">
-        <ConfigRow label="Base URL" value={BASE_URL} />
-        <ConfigRow label="Auth header" value={AUTH_HEADER} />
-      </div>
+    <SettingsCard title={title} description={description}>
+      {showKeys ? (
+        <>
+          {/* Base URL + auth header */}
+          <div className="space-y-2">
+            <ConfigRow label="Base URL" value={BASE_URL} />
+            <ConfigRow label="Auth header" value={AUTH_HEADER} />
+          </div>
+        </>
+      ) : null}
 
       {/* Secret keys */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between gap-3">
-          <h4 className="text-sm font-semibold text-foreground">Secret keys</h4>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCreateKeyOpen(true)}
-          >
-            <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-            Create key
-          </Button>
-        </div>
+      {showKeys ? (
+        <div className="mt-8">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-sm font-semibold text-foreground">
+              Secret keys
+            </h4>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCreateKeyOpen(true)}
+            >
+              <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
+              Create key
+            </Button>
+          </div>
 
-        <div className="mt-3 space-y-2">
-          {keysQuery.isLoading ? (
-            <>
-              <Skeleton className="h-16 rounded-xl" />
-              <Skeleton className="h-16 rounded-xl" />
-            </>
-          ) : keysQuery.isError ? (
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-background/40 px-4 py-3 text-sm">
-              <span className="text-muted-foreground">
-                Couldn&apos;t load keys.
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => keysQuery.refetch()}
-              >
-                Retry
-              </Button>
-            </div>
-          ) : keys.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No keys yet - create one to authenticate server-to-server calls.
-            </p>
-          ) : (
-            keys.map((key) => (
-              <KeyRow
-                key={key.id}
-                keyRow={key}
-                onRoll={setRollTarget}
-                onRevoke={(k) => revokeMutation.mutate(k.id)}
-                revoking={revokeMutation.isPending}
-              />
-            ))
-          )}
+          <div className="mt-3 space-y-2">
+            {keysQuery.isLoading ? (
+              <>
+                <Skeleton className="h-16 rounded-xl" />
+                <Skeleton className="h-16 rounded-xl" />
+              </>
+            ) : keysQuery.isError ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-background/40 px-4 py-3 text-sm">
+                <span className="text-muted-foreground">
+                  Couldn&apos;t load keys.
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => keysQuery.refetch()}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : keys.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No keys yet - create one to authenticate server-to-server calls.
+              </p>
+            ) : (
+              <>
+                {keysPager.items.map((key) => (
+                  <KeyRow
+                    key={key.id}
+                    keyRow={key}
+                    onRoll={setRollTarget}
+                    onRevoke={setRevokeTarget}
+                  />
+                ))}
+                <ListPager pagination={keysPager} label="keys" />
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Webhooks */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between gap-3">
-          <h4 className="text-sm font-semibold text-foreground">Webhooks</h4>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAddWebhookOpen(true)}
-          >
-            <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-            Add endpoint
-          </Button>
-        </div>
-
-        <div className="mt-3 space-y-2">
-          {webhooksQuery.isLoading ? (
-            <>
-              <Skeleton className="h-16 rounded-xl" />
-              <Skeleton className="h-16 rounded-xl" />
-            </>
-          ) : webhooksQuery.isError ? (
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-background/40 px-4 py-3 text-sm">
-              <span className="text-muted-foreground">
-                Couldn&apos;t load endpoints.
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => webhooksQuery.refetch()}
-              >
-                Retry
-              </Button>
-            </div>
-          ) : webhooks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No endpoints. Add one to receive delivery and contact events.
-            </p>
-          ) : (
-            webhooks.map((hook) => (
-              <WebhookRow
-                key={hook.id}
-                hook={hook}
-                onTest={(id) => testWebhookMutation.mutate(id)}
-                onToggleStatus={(h) => toggleWebhookMutation.mutate(h)}
-                onDelete={(id) => deleteWebhookMutation.mutate(id)}
-                busy={webhookBusy}
-              />
-            ))
-          )}
-        </div>
-
-        {/* HMAC verification reference - inline, not a doc link. */}
-        <div className="mt-3 rounded-xl border border-border/60 bg-background/40 p-4">
+      {showWebhooks ? (
+        <div className="mt-8">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-medium text-foreground">
-              Verify every delivery
-            </p>
-            <CopyButton
-              value={SIGNATURE_HEADER}
-              label="Copy signature format"
-            />
+            <h4 className="text-sm font-semibold text-foreground">Webhooks</h4>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddWebhookOpen(true)}
+            >
+              <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
+              Add endpoint
+            </Button>
           </div>
-          <code className="mt-2 block overflow-x-auto whitespace-pre rounded-md bg-background px-3 py-2 font-mono text-xs text-foreground ring-1 ring-border">
-            {SIGNATURE_HEADER}
-          </code>
-          <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-            <li>
-              Sign the <strong>raw</strong> request body - re-serializing the
-              JSON (<code className="font-mono">JSON.stringify</code>) reorders
-              keys and the signature will never match.
-            </li>
-            <li>Compare signatures with a constant-time equality check.</li>
-          </ul>
+
+          <div className="mt-3 space-y-2">
+            {webhooksQuery.isLoading ? (
+              <>
+                <Skeleton className="h-16 rounded-xl" />
+                <Skeleton className="h-16 rounded-xl" />
+              </>
+            ) : webhooksQuery.isError ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-background/40 px-4 py-3 text-sm">
+                <span className="text-muted-foreground">
+                  Couldn&apos;t load endpoints.
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => webhooksQuery.refetch()}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : webhooks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No endpoints. Add one to receive delivery and contact events.
+              </p>
+            ) : (
+              <>
+                {webhooksPager.items.map((hook) => (
+                  <WebhookRow
+                    key={hook.id}
+                    hook={hook}
+                    onTest={(id) => testWebhookMutation.mutate(id)}
+                    onToggleStatus={(h) => toggleWebhookMutation.mutate(h)}
+                    onDelete={(id) => deleteWebhookMutation.mutate(id)}
+                    busy={webhookBusy}
+                  />
+                ))}
+                <ListPager pagination={webhooksPager} label="endpoints" />
+              </>
+            )}
+          </div>
+
+          {/* HMAC verification reference - inline, not a doc link. */}
+          <div className="mt-3 rounded-xl border border-border/60 bg-background/40 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-medium text-foreground">
+                Verify every delivery
+              </p>
+              <CopyButton
+                value={SIGNATURE_HEADER}
+                label="Copy signature format"
+              />
+            </div>
+            <code className="mt-2 block overflow-x-auto whitespace-pre rounded-md bg-background px-3 py-2 font-mono text-xs text-foreground ring-1 ring-border">
+              {SIGNATURE_HEADER}
+            </code>
+            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+              <li>
+                Sign the <strong>raw</strong> request body - re-serializing the
+                JSON (<code className="font-mono">JSON.stringify</code>)
+                reorders keys and the signature will never match.
+              </li>
+              <li>Compare signatures with a constant-time equality check.</li>
+            </ul>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Endpoints reference */}
-      <div className="mt-8">
-        <h4 className="text-sm font-semibold text-foreground">Endpoints</h4>
-        <div className="mt-3 divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60">
-          {ENDPOINTS.map((ep) => (
-            <div
-              key={ep.path}
-              className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:gap-4"
-            >
-              <div className="flex shrink-0 items-center gap-3 sm:w-72">
-                <MethodBadge method={ep.method} />
-                <code className="font-mono text-sm text-foreground">
-                  {ep.path}
-                </code>
+      {showKeys ? (
+        <div className="mt-8">
+          <h4 className="text-sm font-semibold text-foreground">Endpoints</h4>
+          <div className="mt-3 divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60">
+            {ENDPOINTS.map((ep) => (
+              <div
+                key={ep.path}
+                className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:gap-4"
+              >
+                <div className="flex shrink-0 items-center gap-3 sm:w-72">
+                  <MethodBadge method={ep.method} />
+                  <code className="font-mono text-sm text-foreground">
+                    {ep.path}
+                  </code>
+                </div>
+                <p className="text-sm text-muted-foreground">{ep.desc}</p>
               </div>
-              <p className="text-sm text-muted-foreground">{ep.desc}</p>
-            </div>
-          ))}
+            ))}
+          </div>
+          <p className="mt-3 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+            <ShieldCheckIcon
+              aria-hidden="true"
+              className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+            />
+            <span>
+              <code className="font-mono">/identify</code> takes a wallet
+              address and rejects email, phone or any other personal identifier
+              - sending one would hand you the wallet↔identity mapping your
+              subscribers were told you cannot see.
+            </span>
+          </p>
         </div>
-        <p className="mt-3 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-          <ShieldCheckIcon
-            aria-hidden="true"
-            className="mt-0.5 h-4 w-4 shrink-0 text-primary"
-          />
-          <span>
-            <code className="font-mono">/identify</code> takes a wallet address
-            and rejects email, phone or any other personal identifier - sending
-            one would hand you the wallet↔identity mapping your subscribers were
-            told you cannot see.
-          </span>
-        </p>
-      </div>
+      ) : null}
 
-      <CreateKeyDialog open={createKeyOpen} onOpenChange={setCreateKeyOpen} />
-      <RollKeyDialog
-        keyRow={rollTarget}
-        onOpenChange={(open) => {
-          if (!open) setRollTarget(null);
-        }}
-      />
-      <CreateWebhookDialog
-        open={addWebhookOpen}
-        onOpenChange={setAddWebhookOpen}
-        catalog={catalog}
-        catalogLoading={eventsQuery.isLoading}
-      />
+      {showKeys ? (
+        <>
+          <CreateKeyDialog
+            open={createKeyOpen}
+            onOpenChange={setCreateKeyOpen}
+          />
+          <RollKeyDialog
+            keyRow={rollTarget}
+            onOpenChange={(open) => {
+              if (!open) setRollTarget(null);
+            }}
+          />
+          <RevokeKeyDialog
+            keyRow={revokeTarget}
+            onOpenChange={(open) => {
+              if (!open) setRevokeTarget(null);
+            }}
+          />
+        </>
+      ) : null}
+      {showWebhooks ? (
+        <CreateWebhookDialog
+          open={addWebhookOpen}
+          onOpenChange={setAddWebhookOpen}
+          catalog={catalog}
+          catalogLoading={eventsQuery.isLoading}
+        />
+      ) : null}
     </SettingsCard>
   );
 }

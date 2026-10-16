@@ -1,0 +1,233 @@
+/* Onchain Suite — colour tokens.
+   Primitive ramps derived from brand anchors (★ = exact brand hex, never altered):
+   blue.600 #1727E0 ★ · sky.500 #2F94FF ★ · navy.950 #010F31 ★ · orange.500 #FF6828 ★ · #F0F7FF ★ (Alice) */
+
+:root {
+  /* ---- Primitive: blue (interactive / brand) ---- */
+  --blue-25:  #F0F4FF;
+  --blue-50:  #E4EAFF;
+  --blue-100: #C9D5FF;
+  --blue-200: #A3B4FF;
+  --blue-300: #7A8EFB;
+  --blue-400: #5468F2;
+  --blue-500: #3344EA;
+  --blue-600: #1727E0; /* ★ brand Blue */
+  --blue-700: #121FB4;
+  --blue-800: #0E188A;
+  --blue-900: #0A1160;
+  --blue-950: #060A3D;
+
+  /* ---- Primitive: sky (informational / data accent — Dodger) ---- */
+  --sky-50:  #EBF5FF;
+  --sky-100: #D6EBFF;
+  --sky-200: #ADD6FF;
+  --sky-300: #7FBEFF;
+  --sky-400: #55A8FF;
+  --sky-500: #2F94FF; /* ★ brand Dodger Blue */
+  --sky-600: #1D75D6;
+  --sky-700: #155AA8;
+  --sky-800: #0F427C;
+  --sky-900: #0A2C54;
+
+  /* ---- Primitive: navy (surface / ink — Oxford) ---- */
+  --navy-600: #1B2B52;
+  --navy-700: #131F42;
+  --navy-800: #0C1735;
+  --navy-900: #061029;
+  --navy-950: #010F31; /* ★ brand Oxford Blue */
+
+  /* ---- Primitive: orange (signal) ---- */
+  --orange-50:  #FFF3ED;
+  --orange-100: #FFE4D6;
+  --orange-200: #FFC5A8;
+  --orange-300: #FFA275;
+  --orange-400: #FF8449;
+  --orange-500: #FF6828; /* ★ brand Orange */
+  --orange-600: #E04E12;
+  --orange-700: #B53C0B;
+  --orange-800: #8A2D08;
+  --orange-900: #5F1F06;
+
+  /* ---- Primitive: neutral (near-neutral slate — only a whisper of cool, never overtly blue) ---- */
+  --neutral-0:   #FFFFFF;
+  --neutral-25:  #FBFBFC;
+  --neutral-50:  #F5F6F7;
+  --neutral-100: #ECEDEF;
+  --neutral-200: #DEE0E3;
+  --neutral-300: #C4C7CC;
+  --neutral-400: #9DA1A8;
+  --neutral-500: #767B83;
+  --neutral-550: #656A72; /* added so muted text can clear 4.5:1 without becoming secondary */
+  --neutral-600: #585D65;
+  --neutral-700: #42464D;
+  --neutral-800: #2C3035;
+  --neutral-900: #1C1F23;
+  --neutral-950: #121417;
+
+  /* ---- Primitive: Alice Blue (brand tint surface) ---- */
+  --alice: #F0F7FF; /* ★ */
+
+  /* ---- Primitive: semantic support ---- */
+  --green-50:  #E9F7F0;
+  --green-100: #CBEDDD;
+  --green-500: #17A66B;
+  --green-600: #128355;
+  --green-700: #0E6743;
+  --yellow-50:  #FDF6E7;
+  --yellow-100: #FAEAC4;
+  --yellow-500: #E8A317;
+  --yellow-600: #BE8410;
+  --yellow-700: #94660C;
+  --red-50:  #FDECEC;
+  --red-100: #FAD4D5;
+  --red-500: #E5484D;
+  --red-600: #C13539;
+  --red-700: #9B2A2E;
+
+  /* ---- Semantic: backgrounds ---- */
+  --bg-page: var(--neutral-25);
+  --bg-surface: var(--neutral-0);
+  --bg-raised: var(--neutral-0);
+  --bg-sunken: var(--neutral-50);
+  --bg-overlay: rgba(18, 20, 23, 0.5);
+  --bg-brand: var(--blue-600);
+  --bg-brand-subtle: var(--blue-25);
+  --bg-selected: var(--blue-25);
+  /* Warm/neutral tint surface for light mode (replaces large Alice-Blue fills) */
+  --surface-tint: var(--neutral-50);
+  --surface-hover: var(--neutral-50);   /* solid hover fill for rows, list items, secondary buttons */
+  --surface-subtle: var(--neutral-100); /* neutral chip / badge / icon-circle fill */
+
+  /* ---- Semantic: text ---- */
+  --text-primary: var(--navy-950);
+  --text-secondary: var(--neutral-600);
+  /* Muted, not unreadable.
+   *
+   * This was neutral-500, which is 4.26:1 on white and 3.64:1 on the subtle surface — below
+   * the 4.5:1 floor for body text, at every one of its 254 uses, nearly all of them at
+   * 10–13.5px where it matters most. neutral-550 exists for this: 5.44:1 on white, 4.65:1 on
+   * subtle, and still a visible step lighter than secondary so the hierarchy survives.
+   *
+   * Dark mode was already fine (neutral-400 is 6.79:1 there) and is untouched. */
+  --text-tertiary: var(--neutral-550);
+  --text-disabled: var(--neutral-400);
+  --text-inverse: #FFFFFF;
+  --text-link: var(--blue-600);
+  --text-link-hover: var(--orange-600); /* accent: link hover uses the orange signal */
+  --text-on-brand: #FFFFFF;
+
+  /* ---- Semantic: actions ---- */
+  --action-primary: var(--blue-600);
+  --action-primary-hover: var(--blue-700);
+  --action-primary-active: var(--blue-800);
+  --action-destructive: var(--red-500);
+  --action-destructive-hover: var(--red-600);
+
+  /* ---- Semantic: borders ---- */
+  --border-default: var(--neutral-200);
+  --border-strong: var(--neutral-400);
+  --border-subtle: var(--neutral-100);
+  /* orange-600, not 500: the ring is a non-text indicator and needs 3:1 against the page.
+     orange-500 is 2.89:1 and fails; orange-600 is 3.99:1 and reads identically as brand. */
+  --border-focus: var(--orange-600);
+  --focus-ring: rgba(255, 104, 40, 0.28); /* soft orange halo for focus box-shadow */
+
+  /* ---- Semantic: tints used by components ----
+     These four were referenced before they existed. Every call site passed a fallback, so the
+     fallback is what rendered — and the fallbacks were Tailwind defaults, which meant a
+     Tailwind blue sitting next to the brand blue in the same card and nobody seeing it in
+     review because the line read as tokenised. Defined here, from the house ramps. */
+  --action-primary-subtle: var(--blue-25);
+  --amber-700: var(--yellow-700);
+  --bg-warning-subtle: var(--orange-50);
+  --green-200: #A8E0C6;
+
+  /* ---- Semantic: status ---- */
+  --status-success-bg: var(--green-50);
+  --status-success-text: var(--green-700);
+  --status-success-border: var(--green-500);
+  --status-warning-bg: var(--orange-50);
+  --status-warning-text: var(--orange-700);
+  --status-warning-border: var(--orange-500);
+  --status-error-bg: var(--red-50);
+  --status-error-text: var(--red-700);
+  --status-error-border: var(--red-500);
+  --status-info-bg: var(--sky-50);
+  --status-info-text: var(--sky-700);
+  --status-info-border: var(--sky-500);
+
+  /* ---- Data visualization (fixed categorical order) ---- */
+  --data-1: var(--sky-500);
+  --data-2: var(--blue-700);
+  --data-3: var(--orange-400);
+  --data-4: #17A66B;
+  --data-5: #8B7CF6;
+  --data-6: #E8A317;
+  --data-7: var(--sky-800);
+  --data-8: var(--neutral-400);
+  --chart-grid: var(--neutral-200);
+  --chart-axis: var(--neutral-550);
+
+  /* shadcn's chart contract, on our palette.
+     Their charts address series colour as --chart-1..5, so adopting the names means their
+     chart code drops in unchanged. The values stay ours: the house data palette was already
+     chosen and contrast-checked, and importing a second one would give the product two
+     answers to "what colour is series three". */
+  --chart-1: var(--data-1);
+  --chart-2: var(--data-2);
+  --chart-3: var(--data-3);
+  --chart-4: var(--data-4);
+  --chart-5: var(--data-5);
+
+  /* ---- Gradients (locked to brand 30° tilt = 120deg CSS) ---- */
+  --gradient-depth: linear-gradient(120deg, #F0F7FF 0%, #1727E0 55%, #010F31 100%); /* @kind color */
+  --gradient-dawn:  linear-gradient(120deg, #F0F7FF 0%, #2F94FF 50%, #1727E0 100%); /* @kind color */
+  --gradient-core:  linear-gradient(120deg, #2F94FF 0%, #1727E0 100%); /* @kind color */
+  --gradient-ember: linear-gradient(120deg, #FF6828 0%, #1727E0 55%, #010F31 100%); /* @kind color */
+}
+
+/* ---- Dark theme (neutral graphite base — NOT a blue background; blue stays an accent) ---- */
+[data-theme="dark"] {
+  --bg-page: #101215;
+  --bg-surface: #17191D;
+  --bg-raised: #1E2125;
+  --bg-sunken: #0B0D0F;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+  --bg-brand-subtle: #1B2130;
+  --bg-selected: #1C2333;
+  --surface-tint: #1A1D21;
+  --surface-hover: #23262B;
+  --surface-subtle: #262A2F;
+  --text-primary: #F4F5F6;
+  --text-secondary: var(--neutral-300);
+  --text-tertiary: var(--neutral-400);
+  --text-disabled: var(--neutral-600);
+  --text-inverse: #101215;
+  --text-link: var(--sky-400);
+  --text-link-hover: var(--orange-400); /* accent: link hover orange in dark too */
+  --action-primary: var(--blue-400);
+  --action-primary-hover: var(--blue-300);
+  --action-primary-active: var(--blue-200);
+  --border-default: #2B2F35;
+  --border-strong: #3B4046;
+  --border-subtle: #212429;
+  --border-focus: var(--orange-400); /* accent: focus ring orange */
+  --focus-ring: rgba(255, 132, 73, 0.30);
+  --status-success-bg: rgba(23,166,107,.15);
+  --status-warning-bg: rgba(255,104,40,.16);
+  --status-error-bg: rgba(229,72,77,.15);
+  --status-info-bg: rgba(47,148,255,.14);
+  --status-success-text: #4ADE9C;
+  --status-warning-text: var(--orange-400);
+  --status-error-text: #F87A7E;
+  --status-info-text: var(--sky-400);
+  --chart-grid: #2B2F35;
+  --chart-axis: var(--neutral-500);
+  --chart-1: var(--data-1);
+  --chart-2: var(--data-2);
+  --chart-3: var(--data-3);
+  --chart-4: var(--data-4);
+  --chart-5: var(--data-5);
+  --tint-hover: rgba(255, 255, 255, 0.07);
+  --tint-pressed: rgba(255, 255, 255, 0.12);
+}

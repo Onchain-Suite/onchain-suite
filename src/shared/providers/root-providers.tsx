@@ -1,12 +1,15 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useState } from "react";
+import posthog from "posthog-js";
+import { useEffect, useRef, useState } from "react";
 import { mutate as swrMutate, SWRConfig } from "swr";
 
 import { CommandPaletteProvider } from "@/components/common/command-palette";
 import { BackToTop } from "@/ui/back-to-top";
 import { Toaster } from "@/ui/sonner";
+
+import { useSession } from "@/lib/auth-client";
 
 import { ThemeProvider } from "./theme-provider";
 
@@ -22,7 +25,29 @@ export const queryClientDefaults = {
   },
 } as const;
 
-export const RootProviders = ({ children }: { children: ReactNode }) => {
+function PostHogIdentity() {
+  const { data: session, isPending } = useSession();
+  const identifiedUserId = useRef<string | null>(null);
+  const user = session?.user;
+
+  useEffect(() => {
+    if (isPending || !user?.id || identifiedUserId.current === user.id) return;
+
+    if (identifiedUserId.current) {
+      posthog.reset();
+    }
+
+    posthog.identify(user.id, {
+      email: user.email,
+      name: user.name,
+    });
+    identifiedUserId.current = user.id;
+  }, [isPending, user?.email, user?.id, user?.name]);
+
+  return null;
+}
+
+export const RootProviders = ({ children }: { children: React.ReactNode }) => {
   const [queryClient] = useState(
     () => new QueryClient({ defaultOptions: queryClientDefaults })
   );
@@ -54,6 +79,7 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
           enableSystem
           disableTransitionOnChange
         >
+          <PostHogIdentity />
           <CommandPaletteProvider>{children}</CommandPaletteProvider>
           <BackToTop />
         </ThemeProvider>

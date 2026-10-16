@@ -100,9 +100,12 @@ export function AudienceStep({
   const channel = form.watch("channel");
   const isPush = channel === "in-app-push";
   const isTelegram = channel === "telegram";
-  // Telegram, like in-app push, reaches wallets (a verified Telegram chat id),
-  // not email - so it uses the wallet-reachable audience path everywhere.
-  const isWalletChannel = isPush || isTelegram;
+  const isDiscord = channel === "discord";
+  // Telegram/Discord, like in-app push, are not email — so they use the
+  // non-email (wallet-reachable) audience path. A Discord BROADCAST ignores the
+  // audience on send (it posts to a channel), but the step still takes this
+  // path so no email sender/inbox assumptions apply.
+  const isWalletChannel = isPush || isTelegram || isDiscord;
   const selectedAudiences = form.watch("selectedAudiences");
   const smartSending = form.watch("smartSending");
   const windowOverrideDraft = form.watch("smartSendingWindowHours");

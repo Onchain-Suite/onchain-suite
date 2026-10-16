@@ -1035,6 +1035,43 @@ export const campaignsService = {
     );
   },
 
+  /**
+   * Save the campaign's Discord broadcast (message + target channel id). Stored
+   * under `channelsContent.discord` (PUT /campaigns/{id}/channels/discord/content);
+   * consumed by sendDiscord.
+   */
+  setDiscordContent(
+    id: string,
+    content: { text: string; channelId: string },
+    orgId?: string
+  ) {
+    return request<unknown>(
+      {
+        method: "PUT",
+        url: `/campaigns/${id}/channels/discord/content`,
+        data: content,
+      },
+      orgId
+    );
+  },
+
+  /**
+   * Broadcast the campaign to its configured Discord channel - one post through
+   * the org's bot (POST /campaigns/{id}/send-discord). Gate the "sent" UI on
+   * `ok`, not a bare 200.
+   */
+  sendDiscord(id: string, orgId?: string) {
+    return request<{
+      ok: boolean;
+      messageId: string | null;
+      channelId: string;
+      reason?: string;
+    }>(
+      { method: "POST", url: `/campaigns/${id}/send-discord`, data: {} },
+      orgId
+    );
+  },
+
   /** Per-campaign engagement funnel (GET /campaigns/{id}/analytics). */
   getAnalytics(id: string, orgId?: string) {
     return request<CampaignAnalytics>(

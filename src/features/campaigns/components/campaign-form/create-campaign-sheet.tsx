@@ -229,6 +229,12 @@ export function CreateCampaignSheet({
                       title: "Telegram",
                       desc: "A message via your Telegram bot",
                     },
+                    {
+                      id: "discord" as const,
+                      icon: PaperAirplaneIcon,
+                      title: "Discord",
+                      desc: "Broadcast to a channel via your Discord bot",
+                    },
                   ] satisfies {
                     id: CampaignChannel;
                     icon: typeof DevicePhoneMobileIcon;
@@ -268,7 +274,7 @@ export function CreateCampaignSheet({
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                Discord and X channels are coming soon.
+                The X channel is coming soon.
               </p>
             </div>
           ) : null}

@@ -19,6 +19,16 @@
   letter-spacing: -0.02em;
   text-wrap: balance;
 }
+/* The one action under the standfirst: download the page as a PDF. */
+.ns .rp-chap-action {
+  margin: 22px 0 0;
+}
+.ns .rp-pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .ns .rp-chap-dek {
   margin: 16px 0 0;
   font-size: 20px;

@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  ArrowDownTrayIcon,
-  ArrowLeftIcon,
-  ChevronDownIcon,
-} from "@heroicons/react/20/solid";
+import { ArrowLeftIcon, ChevronDownIcon } from "@heroicons/react/20/solid";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -23,12 +19,10 @@ export function PlaybookMobileBar({
   entries,
   currentId,
   backHref,
-  pdfHref,
 }: {
   entries: MapEntry[];
   currentId?: string;
   backHref?: string;
-  pdfHref?: string;
 }) {
   const [open, setOpen] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
@@ -93,12 +87,6 @@ export function PlaybookMobileBar({
           currentId={current}
           onPick={() => setOpen(false)}
         />
-        {pdfHref && (
-          <a href={pdfHref} download className="rp-rail-pdf">
-            <ArrowDownTrayIcon className="rp-icon-sm" aria-hidden="true" />
-            {UI.downloadPdf}
-          </a>
-        )}
       </nav>
     </div>
   );

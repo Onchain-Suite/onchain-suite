@@ -66,6 +66,32 @@
 .ns .rp-rail-back:hover {
   color: var(--ink);
 }
+/* Printed only (styles/print.css shows it): the sender and the page's address. */
+.ns .rp-print-head {
+  display: none;
+}
+
+/* The strategy's PDF, under the map. */
+.ns .rp-rail-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 22px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--grey);
+  transition: color 0.2s;
+}
+.ns .rp-rail-pdf:hover {
+  color: var(--ink);
+}
+.ns .rp-mbar-panel .rp-rail-pdf {
+  margin: 10px 0 4px 12px;
+  padding-top: 0;
+  border-top: 0;
+}
 .ns .rp-mbar-panel .rp-rail-back {
   margin: 4px 0 12px 12px;
 }

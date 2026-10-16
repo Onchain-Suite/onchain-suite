@@ -1,0 +1,112 @@
+/* /retention-playbook pages on paper: what the PDF export prints
+   (scripts/export-playbook-pdfs.sh) and what Cmd+P gives a reader. One
+   column, no chrome, every illustration drawn, nothing split awkwardly. */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 18mm 16mm 20mm;
+  }
+
+  /* The site's chrome and the page's own navigation have no place on paper. */
+  .ns header.nav,
+  .ns footer,
+  .ns nav#rail,
+  .ns .rp-brandbar,
+  .ns .rp-progress,
+  .ns .rp-rail,
+  .ns .rp-mbar,
+  .ns .rp-nextpage,
+  .ns .rp-rail-back,
+  .ns .rp-rail-pdf,
+  .ns .rp-hero-ctas,
+  .ns [class*="to-top"],
+  .ns [class*="totop"],
+  .ns [class*="scroll-top"] {
+    display: none !important;
+  }
+
+  /* One reading column, the full width of the page. */
+  .ns .rp-page,
+  .ns .wrap.rp {
+    background: #fff !important;
+  }
+  .ns .rp-grid {
+    display: block;
+    border-top: 0;
+  }
+  .ns .rp-chapter {
+    max-width: none;
+    padding: 0 0 8mm;
+  }
+  .ns .rp-chapter .rp-p,
+  .ns .rp-chap-dek,
+  .ns .rp-lead {
+    max-width: none;
+  }
+  .ns .rp-chap-title {
+    font-size: 26pt;
+  }
+  .ns .rp-chap-dek {
+    font-size: 13pt;
+  }
+  .ns .rp-chapter .rp-p {
+    font-size: 11pt;
+    line-height: 1.55;
+    margin-bottom: 9pt;
+    color: #000;
+  }
+  .ns .rp-h3x {
+    font-size: 15pt;
+    margin: 14pt 0 8pt;
+    break-after: avoid;
+  }
+  .ns .rp-sec2 {
+    padding: 8pt 0 0;
+  }
+
+  /* The line that only exists on paper: who sent it, and where it lives. */
+  .ns .rp-print-head {
+    display: block !important;
+    margin: 0 0 14pt;
+    font-size: 9.5pt;
+    color: #555;
+  }
+
+  /* Illustrations draw in on scroll on screen; on paper they are simply
+     drawn. Always the wide layout, kept whole, with its colours. */
+  .ns .rp-ink,
+  .ns .rp-hand,
+  .ns .rp-ul *,
+  .ns .rp-note-text {
+    animation: none !important;
+    transition: none !important;
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+  }
+  .ns .rp-art-wide {
+    display: block !important;
+  }
+  .ns .rp-art-narrow {
+    display: none !important;
+  }
+  .ns .rp-artifact,
+  .ns .rp-msg,
+  .ns .rp-stat,
+  .ns .rp-table {
+    break-inside: avoid;
+  }
+  .ns .rp-artifact {
+    margin: 10pt 0 12pt;
+  }
+
+  /* The example message prints as its email view, which is the default. */
+  .ns .rp-msg .seg {
+    display: none !important;
+  }
+
+  .ns * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

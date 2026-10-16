@@ -40,6 +40,12 @@ export function playbookPath(category: CategoryId): string {
   return `${PLAYBOOK_BASE}/${slug}`;
 }
 
+/** The strategy's PDF, exported by scripts/export-playbook-pdfs.sh into public/. */
+export function playbookPdfPath(category: CategoryId): string {
+  const slug = CATEGORIES.find((c) => c.id === category)?.slug ?? category;
+  return `/playbooks/${slug}.pdf`;
+}
+
 /** The category a page slug names: "perp-dexes" is the perp DEX playbook. */
 export function categoryOfSlug(slug: string): CategoryId | null {
   return CATEGORIES.find((c) => c.slug === slug)?.id ?? null;

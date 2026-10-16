@@ -11,7 +11,11 @@ import { ReadingProgress } from "@/onchain-suite-website/components/retention-pl
 import { NsShell } from "@/onchain-suite-website/components/site/ns-shell";
 import type { PlaybookChapter } from "@/onchain-suite-website/types/retention-playbook";
 import { strategyContents } from "@/onchain-suite-website/utils/playbook-toc";
-import { PLAYBOOK_BASE } from "@/onchain-suite-website/utils/retention-playbook-params";
+import {
+  PLAYBOOK_BASE,
+  playbookPath,
+  playbookPdfPath,
+} from "@/onchain-suite-website/utils/retention-playbook-params";
 
 /**
  * /retention-playbook/<sector>: one sector's growth and retention strategy,
@@ -33,9 +37,18 @@ export function PlaybookChapterPage({ chapter }: { chapter: PlaybookChapter }) {
               title={chapter.title}
               entries={contents}
               backHref={PLAYBOOK_BASE}
+              pdfHref={playbookPdfPath(chapter.id)}
             />
             <div className="rp-main">
-              <PlaybookMobileBar entries={contents} backHref={PLAYBOOK_BASE} />
+              {/* Printed only: the PDF names its sender and its page. */}
+              <p className="rp-print-head">
+                Surgence Labs · onchainsuite.com{playbookPath(chapter.id)}
+              </p>
+              <PlaybookMobileBar
+                entries={contents}
+                backHref={PLAYBOOK_BASE}
+                pdfHref={playbookPdfPath(chapter.id)}
+              />
               <ChapterShell chapter={chapter} />
               <NextPageLink currentId={chapter.id} />
             </div>

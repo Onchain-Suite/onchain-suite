@@ -244,6 +244,23 @@ export const DEFI: PlaybookChapter = {
           text: "So when a borrower's health factor falls below the level you set for that collateral, in-app and email go out together with their current health, the price that would trigger liquidation, and how to add collateral or repay. Volatile collateral gets an earlier level, because waiting for 1.0 is too late: in the October 2025 crash, Sentora found most liquidatable volume was taken within about ten blocks, roughly two minutes. If a position is liquidated anyway, an email explains what happened in plain words, what was sold and what is left, with nothing promotional in it.",
         },
         {
+          kind: "messages",
+          messages: [
+            {
+              type: "Loan health alert, in-app and email",
+              channels: "in-app-and-email",
+              subject: "Your loan is close to liquidation",
+              preview:
+                "ETH at $2,410 would trigger it. Here is how to avoid it",
+              body: [
+                "Your loan health is 1.08. If ETH falls to $2,410, part of your collateral will be sold to repay the loan.",
+                "You can raise your health by adding collateral or repaying part of the loan. Both take one step.",
+              ],
+              action: "Manage my loan",
+            },
+          ],
+        },
+        {
           kind: "artifact",
           code: "03.02",
           title: "A loan's health falling, and where the alert sits",

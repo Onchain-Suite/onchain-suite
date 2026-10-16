@@ -13,6 +13,7 @@ import { cn, getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 import { fadeInUp } from "../../utils";
 import { SettingsCard, SettingsStepper } from "../settings-card";
 import { DeveloperApiCard } from "./developer-api";
+import { DiscordCard } from "./discord";
 import InAppIntegration from "./inapp";
 import { PushCredentialsCard } from "./push-credentials";
 import { TelegramCard } from "./telegram";
@@ -311,6 +312,8 @@ export default function IntegrationsSettings() {
       <PushCredentialsCard />
 
       <TelegramCard />
+
+      <DiscordCard />
 
       <DeveloperApiCard />
 

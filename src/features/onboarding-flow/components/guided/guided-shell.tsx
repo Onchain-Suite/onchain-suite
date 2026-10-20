@@ -7,7 +7,7 @@ import { type ReactNode } from "react";
 import { Logo } from "@/components/common";
 
 import { STEP_LABEL, type StepId } from "../../constants/guided";
-import { type IllustrationLit, ObIllustration } from "./ob-illustration";
+import { ObIllustration } from "./ob-illustration";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 interface GuidedShellProps {
@@ -15,8 +15,6 @@ interface GuidedShellProps {
   stepIndex: number;
   /** The branched step order for the chosen role. */
   flow: StepId[];
-  /** Which region of the product illustration to lift. */
-  lit: IllustrationLit;
   /** The active step's question + inputs. */
   children: ReactNode;
   /** Back / Continue controls, composed by the orchestrator. */
@@ -33,7 +31,6 @@ interface GuidedShellProps {
 export function GuidedShell({
   stepIndex,
   flow,
-  lit,
   children,
   footer,
 }: GuidedShellProps) {
@@ -92,7 +89,7 @@ export function GuidedShell({
 
         {/* Product illustration, on its own quiet panel. */}
         <div className="bg-muted/30 hidden items-center justify-center border-l border-border p-10 lg:flex xl:p-14">
-          <ObIllustration lit={lit} />
+          <ObIllustration step={at} />
         </div>
       </div>
 

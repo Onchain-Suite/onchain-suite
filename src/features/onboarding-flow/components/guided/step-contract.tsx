@@ -47,6 +47,7 @@ export function StepContract({
   onRemoveSuggestion,
   projectName,
   sector,
+  chains,
 }: {
   contracts: ContractDraft[];
   onAdd: () => void;
@@ -57,6 +58,7 @@ export function StepContract({
   onRemoveSuggestion: (c: SuggestedContract) => void;
   projectName: string;
   sector: string;
+  chains: string[];
 }) {
   return (
     <>
@@ -132,6 +134,7 @@ export function StepContract({
         <ContractSuggestionsPanel
           protocolName={projectName}
           sector={sector}
+          chains={chains}
           accepted={picked}
           onAccept={onAcceptSuggestion}
           onRemove={onRemoveSuggestion}

@@ -81,6 +81,8 @@ interface ContractSuggestionsPanelProps {
   protocolName: string;
   /** Sector label; suggestions only fetch when both inputs are present. */
   sector: string;
+  /** Chains to scope the onchain lookup to (backend chain keys from step 1). */
+  chains?: string[];
   /** Contracts the user has already accepted (confirmed) into their list. */
   accepted: SuggestedContract[];
   onAccept: (contract: SuggestedContract) => void;
@@ -98,6 +100,7 @@ interface ContractSuggestionsPanelProps {
 export function ContractSuggestionsPanel({
   protocolName,
   sector,
+  chains,
   accepted,
   onAccept,
   onRemove,
@@ -105,6 +108,7 @@ export function ContractSuggestionsPanel({
   const debouncedName = useDebouncedValue(protocolName);
   const trimmedName = debouncedName.trim();
   const trimmedSector = sector.trim();
+  const chainKeys = chains && chains.length > 0 ? chains : undefined;
   const enabled = trimmedName.length >= 2 && trimmedSector.length > 0;
 
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(
@@ -115,11 +119,11 @@ export function ContractSuggestionsPanel({
     queryKey: [
       "onboarding",
       "suggest-contracts",
-      { protocolName: trimmedName, sector: trimmedSector },
+      { protocolName: trimmedName, sector: trimmedSector, chains: chainKeys },
     ],
     queryFn: ({ signal }) =>
       onboardingService.suggestContracts(
-        { protocolName: trimmedName, sector: trimmedSector },
+        { protocolName: trimmedName, sector: trimmedSector, chains: chainKeys },
         { signal }
       ),
     enabled,

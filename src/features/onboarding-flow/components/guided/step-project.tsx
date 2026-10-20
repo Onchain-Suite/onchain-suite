@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 import { profileReady, type ProjectProfile } from "../../constants/guided";
+import { SUPPORTED_CHAINS } from "../../data/chains";
 import { classify } from "../../utils/contract-input";
 import {
   KNOWN_SECTOR_LABELS,
@@ -15,6 +16,7 @@ import {
   WEB2_SECTOR_OPTIONS,
   WEB3_SECTOR_OPTIONS,
 } from "../../utils/sector";
+import { ChainLogo } from "@/onchain-suite-website/components/landing/v2/chain-logos";
 
 type SectorTab = "web3" | "web2";
 
@@ -66,6 +68,16 @@ export function StepProject({
   const pickSector = (label: string) => {
     setSectorOther(false);
     onChange({ ...value, sector: label });
+  };
+
+  const toggleChain = (key: string) => {
+    const on = value.chains.includes(key);
+    onChange({
+      ...value,
+      chains: on
+        ? value.chains.filter((c) => c !== key)
+        : [...value.chains, key],
+    });
   };
 
   return (
@@ -180,6 +192,43 @@ export function StepProject({
             </p>
           )}
         </div>
+
+        {/* Chains are onchain-only: picking them lets us look onchain and suggest the project's
+            contracts on step 4. Hidden for Web2. */}
+        {group !== "web2" ? (
+          <div className="space-y-2">
+            <Label>
+              Which chains are you on?{" "}
+              <span className="text-muted-foreground font-normal">
+                Optional
+              </span>
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {SUPPORTED_CHAINS.map((chain) => {
+                const on = value.chains.includes(chain.key);
+                return (
+                  <button
+                    key={chain.key}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleChain(chain.key)}
+                    className={`flex items-center gap-1.5 ${chipClass(on)}`}
+                  >
+                    {chain.logo ? (
+                      <ChainLogo chain={chain.logo} size={13} />
+                    ) : (
+                      <span className="bg-muted-foreground/40 h-3 w-3 rounded-full" />
+                    )}
+                    {chain.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              We look onchain on these to find your contracts.
+            </p>
+          </div>
+        ) : null}
 
         {/* Contract is a Web3 concept: a Web2 project has none, so the field is
             hidden once Web2 is chosen. */}

@@ -12,7 +12,6 @@ import { useSession } from "@/lib/auth-client";
 import { PlanSelectionStep } from "./components";
 import {
   GuidedShell,
-  type IllustrationLit,
   StepContract,
   StepDns,
   StepProject,
@@ -56,15 +55,6 @@ const newDraftId = (): string =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
-
-// Which region of the product preview each step lights.
-const LIT_FOR: Record<StepId, IllustrationLit> = {
-  project: "workspace",
-  technical: "channels",
-  dns: "channels",
-  contract: "audience",
-  plan: "charts",
-};
 
 export function OnboardingFlow() {
   const { push } = useRouter();
@@ -171,9 +161,13 @@ export function OnboardingFlow() {
   const addManualContract = React.useCallback(() => {
     setManualContracts((prev) => [
       ...prev,
-      { id: newDraftId(), address: "", chain: DEFAULT_CHAIN },
+      {
+        id: newDraftId(),
+        address: "",
+        chain: profile.chains[0] ?? DEFAULT_CHAIN,
+      },
     ]);
-  }, []);
+  }, [profile.chains]);
   const updateManualContract = React.useCallback(
     (index: number, patch: Partial<OnboardingContract>) => {
       setManualContracts((prev) =>
@@ -503,10 +497,14 @@ export function OnboardingFlow() {
     const seed = profile.contract.trim();
     if (seed && manualContracts.length === 0) {
       setManualContracts([
-        { id: newDraftId(), address: seed, chain: DEFAULT_CHAIN },
+        {
+          id: newDraftId(),
+          address: seed,
+          chain: profile.chains[0] ?? DEFAULT_CHAIN,
+        },
       ]);
     }
-  }, [at, profile.contract, manualContracts.length]);
+  }, [at, profile.contract, profile.chains, manualContracts.length]);
 
   // The plan step owns the full-width pricing layout and its own Back/Continue
   // (shared PlanPicker), so it renders outside the guided shell.
@@ -528,7 +526,6 @@ export function OnboardingFlow() {
     <GuidedShell
       stepIndex={stepIndex}
       flow={flow}
-      lit={LIT_FOR[at]}
       footer={
         <>
           {stepIndex > 0 ? (
@@ -583,6 +580,7 @@ export function OnboardingFlow() {
           onRemoveSuggestion={removeContract}
           projectName={profile.name}
           sector={profile.sector}
+          chains={profile.chains}
         />
       )}
     </GuidedShell>

@@ -47,6 +47,8 @@ export interface ProjectProfile {
   description: string;
   /** Optional: when given, it is what gets indexed first. */
   contract: string;
+  /** Chains the project is on (backend chain keys), used to scope onchain contract suggestions. */
+  chains: string[];
 }
 
 export const EMPTY_PROFILE: ProjectProfile = {
@@ -55,6 +57,7 @@ export const EMPTY_PROFILE: ProjectProfile = {
   sector: "",
   description: "",
   contract: "",
+  chains: [],
 };
 
 /** One contract the user wants indexed: an address on a chosen chain. Sent to the backend. */

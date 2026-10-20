@@ -1,11 +1,14 @@
 "use client";
 
+import { XMarkIcon } from "@heroicons/react/20/solid";
+import Link from "next/link";
 import { type ReactNode } from "react";
 
 import { Logo } from "@/components/common";
 
 import { STEP_LABEL, type StepId } from "../../constants/guided";
 import { type IllustrationLit, ObIllustration } from "./ob-illustration";
+import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 interface GuidedShellProps {
   /** Zero-based index of the active step within `flow`. */
@@ -37,7 +40,16 @@ export function GuidedShell({
   const at = flow[Math.min(stepIndex, flow.length - 1)];
   return (
     <div className="bg-background flex min-h-screen flex-col items-center px-4 py-7 sm:px-6">
-      <Logo />
+      <div className="relative flex w-[min(1180px,100%)] items-center justify-center">
+        <Logo />
+        <Link
+          href={PRIVATE_ROUTES.DASHBOARD}
+          className="text-muted-foreground hover:text-foreground absolute right-0 flex items-center gap-1.5 text-sm transition-colors"
+        >
+          <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+          Back to workspace
+        </Link>
+      </div>
 
       <div className="mt-6 grid w-[min(1180px,100%)] flex-1 grid-rows-1 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-2">
         {/* Question pane */}
@@ -84,7 +96,7 @@ export function GuidedShell({
         </div>
       </div>
 
-      <div className="text-muted-foreground mt-6 flex w-[min(1180px,100%)] flex-shrink-0 items-center gap-5 px-1 text-xs">
+      <div className="text-muted-foreground mt-6 flex w-[min(1180px,100%)] flex-shrink-0 items-center justify-center gap-5 px-1 text-xs">
         <span>© 2026 OnchainSuite</span>
         <a
           href="https://onchainsuite.xyz/privacy"

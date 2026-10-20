@@ -342,31 +342,32 @@ export function OnboardingFlow() {
     push(PRIVATE_ROUTES.DASHBOARD);
   };
 
-  // Resumable onboarding: an `in_progress` resume block wins for the initial
-  // step (cross-device continuity), then local navigation takes over. The
-  // guided flow collapses the backend's two known steps onto its own ends -
-  // `plan_selection` resumes at the plan step, anything else at the project
-  // step (restarting a screen early is safe; skipping one is not).
+  // Resumable onboarding: seed the starting step exactly once per mount, then
+  // never touch it again - local navigation owns the step after that. The
+  // guard is essential: this effect re-runs on every `progress` change (each
+  // track event updates it), and without it the seed would keep snapping the
+  // user back to the project step the moment they advanced. The guided flow
+  // collapses the backend's two known steps onto its own ends - `plan_selection`
+  // resumes at the plan step, anything else starts at the project step (the
+  // default), so we only ever move forward to the plan, never back.
   React.useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || resumeAppliedRef.current) return;
     if (!progress || progress.is_completed) return;
-
-    const useResume =
-      !resumeAppliedRef.current && resume?.status === "in_progress";
     resumeAppliedRef.current = true;
-    const landsOnPlan = useResume
-      ? resolveResumeFlowStep(resume.step) === 2
-      : progress.current_step === "plan_selection";
-    const target = landsOnPlan ? flow.length - 1 : 0;
-    if (target !== stepIndex) {
-      setStepIndex(target);
+
+    const landsOnPlan =
+      resume?.status === "in_progress"
+        ? resolveResumeFlowStep(resume.step) === 2
+        : progress.current_step === "plan_selection";
+    if (landsOnPlan) {
+      setStepIndex(flow.length - 1);
       setStepStartedAtMs(Date.now());
     }
 
     if (progress.step_data && Object.keys(progress.step_data).length > 0) {
       setData(progress.step_data as Partial<OnboardingData>);
     }
-  }, [user?.id, progress, resume, stepIndex, flow.length, setData]);
+  }, [user?.id, progress, resume, flow.length, setData]);
 
   // organization_setup starts when the project step is on screen.
   React.useEffect(() => {

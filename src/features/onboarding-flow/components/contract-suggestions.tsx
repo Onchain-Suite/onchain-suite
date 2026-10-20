@@ -197,7 +197,10 @@ export function ContractSuggestionsPanel({
                     <span className="rounded-full border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                       {contract.kind}
                     </span>
-                    {contract.chainHint ? (
+                    {contract.chainHint &&
+                    !/^(unspecified|unknown|n\/?a|none)$/i.test(
+                      contract.chainHint.trim()
+                    ) ? (
                       <span className="rounded-full border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                         {contract.chainHint}
                       </span>

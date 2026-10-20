@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  AtSymbolIcon,
   ChatBubbleLeftRightIcon,
+  ChatBubbleOvalLeftIcon,
   DevicePhoneMobileIcon,
   EnvelopeIcon,
   HashtagIcon,
@@ -33,8 +35,10 @@ const AUDIENCE: { name: string; chain: ChainKey; via: string }[] = [
 const CHANNELS: { label: string; icon: typeof EnvelopeIcon }[] = [
   { label: "Email", icon: EnvelopeIcon },
   { label: "In-app", icon: DevicePhoneMobileIcon },
-  { label: "Discord", icon: ChatBubbleLeftRightIcon },
+  { label: "X", icon: AtSymbolIcon },
+  { label: "WhatsApp", icon: ChatBubbleOvalLeftIcon },
   { label: "Telegram", icon: PaperAirplaneIcon },
+  { label: "Discord", icon: ChatBubbleLeftRightIcon },
   { label: "Farcaster", icon: HashtagIcon },
 ];
 

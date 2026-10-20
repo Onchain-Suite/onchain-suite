@@ -57,6 +57,19 @@ export const EMPTY_PROFILE: ProjectProfile = {
   contract: "",
 };
 
+/** One contract the user wants indexed: an address on a chosen chain. Sent to the backend. */
+export interface OnboardingContract {
+  address: string;
+  /** Backend chain key (see data/chains.ts). */
+  chain: string;
+  name?: string;
+}
+
+/** An editor row for the multi-contract step. `id` is client-only (a stable React key). */
+export interface ContractDraft extends OnboardingContract {
+  id: string;
+}
+
 // Sectors come from the app's existing grouped Web3 / Web2 picker
 // (`constants/index.ts` organizationOptions + web2Options), not a flat list, so
 // the "web2 clients skip contract indexing" logic keeps working.

@@ -19,13 +19,16 @@ import {
   StepTechnical,
 } from "./components/guided";
 import {
+  type ContractDraft,
   EMPTY_PROFILE,
   flowFor,
+  type OnboardingContract,
   profileReady,
   type ProjectProfile,
   type Role,
   type StepId,
 } from "./constants/guided";
+import { chainByKey, DEFAULT_CHAIN } from "./data/chains";
 import {
   resolveResumeFlowStep,
   useCreateOrganization,
@@ -47,6 +50,12 @@ import {
 import { AUTH_ROUTES, PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const FLOW_VERSION = "onboarding-guided-v2";
+
+/** Stable client-only id for a contract editor row (localhost + https are secure contexts). */
+const newDraftId = (): string =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
 
 // Which region of the product preview each step lights.
 const LIT_FOR: Record<StepId, IllustrationLit> = {
@@ -141,9 +150,13 @@ export function OnboardingFlow() {
   // The developer invited from the technical step, so the DNS step can say the
   // records travel with that invite.
   const [handoffSentTo, setHandoffSentTo] = React.useState<string | null>(null);
-  // Contracts accepted from the suggestion panel on the contract step. They ride
-  // along in the completion payload and seed index-after-plan.
+  // Contracts accepted from the suggestion panel on the contract step.
   const [picked, setPicked] = React.useState<SuggestedContract[]>([]);
+  // Contracts the user added by hand (address + chain), the multi-contract editor.
+  const [manualContracts, setManualContracts] = React.useState<ContractDraft[]>(
+    []
+  );
+  const contractSeededRef = React.useRef(false);
 
   const pickedKey = (c: SuggestedContract) =>
     `${c.name}::${c.chainHint}::${c.address ?? ""}`;
@@ -155,12 +168,54 @@ export function OnboardingFlow() {
   const removeContract = React.useCallback((c: SuggestedContract) => {
     setPicked((prev) => prev.filter((x) => pickedKey(x) !== pickedKey(c)));
   }, []);
-  // Handing the technical setup over drops the contract step, so a pick made
+  const addManualContract = React.useCallback(() => {
+    setManualContracts((prev) => [
+      ...prev,
+      { id: newDraftId(), address: "", chain: DEFAULT_CHAIN },
+    ]);
+  }, []);
+  const updateManualContract = React.useCallback(
+    (index: number, patch: Partial<OnboardingContract>) => {
+      setManualContracts((prev) =>
+        prev.map((c, i) => (i === index ? { ...c, ...patch } : c))
+      );
+    },
+    []
+  );
+  const removeManualContract = React.useCallback((index: number) => {
+    setManualContracts((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+  // Handing the technical setup over drops the contract step, so anything added
   // before switching must not linger into completion.
   const chooseRole = React.useCallback((r: Role) => {
     setRole(r);
-    if (r === "operator") setPicked([]);
+    if (r === "operator") {
+      setPicked([]);
+      setManualContracts([]);
+    }
   }, []);
+
+  // The full list the backend indexes: hand-added rows (with an address) plus
+  // accepted suggestions, each mapped to a chain.
+  const allContracts: OnboardingContract[] = React.useMemo(
+    () => [
+      ...manualContracts
+        .filter((c) => c.address.trim().length > 0)
+        .map((c) => ({
+          address: c.address.trim(),
+          chain: c.chain,
+          name: c.name,
+        })),
+      ...picked
+        .filter((p) => p.address)
+        .map((p) => ({
+          address: p.address as string,
+          chain: chainByKey(p.chainHint)?.key ?? DEFAULT_CHAIN,
+          name: p.name,
+        })),
+    ],
+    [manualContracts, picked]
+  );
 
   const flow = flowFor(role);
   const at: StepId = flow[Math.min(stepIndex, flow.length - 1)];
@@ -292,7 +347,9 @@ export function OnboardingFlow() {
           guidedStep: at,
           nextGuidedStep: flow[next],
           role,
-          ...(at === "contract" ? { contractsPicked: picked.length } : {}),
+          ...(at === "contract"
+            ? { contractsPicked: allContracts.length }
+            : {}),
           ...(at === "technical"
             ? { handoffInvited: Boolean(handoffSentTo) }
             : {}),
@@ -317,9 +374,10 @@ export function OnboardingFlow() {
       sectorType: sectorGroupOf(profile.sector),
       role,
       handoffInvited: Boolean(handoffSentTo),
-      hasContractAddress: profile.contract.trim().length > 0,
+      hasContractAddress:
+        profile.contract.trim().length > 0 || allContracts.length > 0,
       flowVersion: FLOW_VERSION,
-      ...(picked.length > 0 ? { contracts: picked } : {}),
+      ...(allContracts.length > 0 ? { contracts: allContracts } : {}),
     };
 
     // Stamp the sector durably so the dashboard first-mile can skip the
@@ -377,21 +435,19 @@ export function OnboardingFlow() {
     // address, kick off the initial historical indexing through the
     // `connect-chain` task - which also marks that card done on the dashboard.
     // Fire-and-forget: it must never delay the hop to the workspace.
-    if (user?.id && finalData.selectedPlan && picked.length > 0) {
-      const contracts = picked
-        .filter((c) => c.address)
-        .map((c) => ({
-          address: c.address as string,
-          chain: c.chainHint || undefined,
-          name: c.name,
-        }));
-      if (contracts.length > 0) {
-        onboardingService
-          .completeTask("connect-chain", { contracts, lookbackDays: 90 })
-          .catch((error) => {
-            console.warn("Failed to start contract indexing:", error);
-          });
-      }
+    if (user?.id && finalData.selectedPlan && allContracts.length > 0) {
+      onboardingService
+        .completeTask("connect-chain", {
+          contracts: allContracts.map((c) => ({
+            address: c.address,
+            chain: c.chain,
+            name: c.name,
+          })),
+          lookbackDays: 90,
+        })
+        .catch((error) => {
+          console.warn("Failed to start contract indexing:", error);
+        });
     }
 
     push(PRIVATE_ROUTES.DASHBOARD);
@@ -439,6 +495,19 @@ export function OnboardingFlow() {
     }).catch(() => {});
   }, [user?.id, at, trackStep]);
 
+  // Carry a contract typed on step 1 into the step-4 editor as the first row,
+  // once, so nothing is entered twice.
+  React.useEffect(() => {
+    if (at !== "contract" || contractSeededRef.current) return;
+    contractSeededRef.current = true;
+    const seed = profile.contract.trim();
+    if (seed && manualContracts.length === 0) {
+      setManualContracts([
+        { id: newDraftId(), address: seed, chain: DEFAULT_CHAIN },
+      ]);
+    }
+  }, [at, profile.contract, manualContracts.length]);
+
   // The plan step owns the full-width pricing layout and its own Back/Continue
   // (shared PlanPicker), so it renders outside the guided shell.
   if (at === "plan") {
@@ -452,8 +521,7 @@ export function OnboardingFlow() {
   }
 
   const skipping =
-    at === "dns" ||
-    (at === "contract" && !profile.contract.trim() && picked.length === 0);
+    at === "dns" || (at === "contract" && allContracts.length === 0);
   const continueDisabled = busy || (at === "project" && !profileReady(profile));
 
   return (
@@ -506,11 +574,13 @@ export function OnboardingFlow() {
       )}
       {at === "contract" && (
         <StepContract
-          value={profile.contract}
-          onChange={(v) => setProfile((p) => ({ ...p, contract: v }))}
+          contracts={manualContracts}
+          onAdd={addManualContract}
+          onUpdate={updateManualContract}
+          onRemove={removeManualContract}
           picked={picked}
-          onAccept={acceptContract}
-          onRemove={removeContract}
+          onAcceptSuggestion={acceptContract}
+          onRemoveSuggestion={removeContract}
           projectName={profile.name}
           sector={profile.sector}
         />

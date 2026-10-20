@@ -1,11 +1,99 @@
 "use client";
 
-import { type ComponentType, type ReactNode } from "react";
+import { CheckIcon } from "@heroicons/react/20/solid";
+import {
+  type ComponentType,
+  createContext,
+  Fragment,
+  type ReactNode,
+  useContext,
+} from "react";
+
+import { STEP_LABEL, type StepId } from "../../../constants/guided";
+
+/** Where the flow is up to, so every scene can show the same setup progress at its top. */
+const StepperContext = createContext<{
+  flow: StepId[];
+  stepIndex: number;
+} | null>(null);
+
+export function StepperProvider({
+  flow,
+  stepIndex,
+  children,
+}: {
+  flow: StepId[];
+  stepIndex: number;
+  children: ReactNode;
+}) {
+  return (
+    <StepperContext.Provider value={{ flow, stepIndex }}>
+      {children}
+    </StepperContext.Provider>
+  );
+}
+
+/** A compact "step X of Y" progress row with done / current / upcoming dots. */
+function SetupStepper({
+  flow,
+  stepIndex,
+}: {
+  flow: StepId[];
+  stepIndex: number;
+}) {
+  const current = flow[Math.min(stepIndex, flow.length - 1)];
+  return (
+    <div className="rounded-xl border border-border p-3">
+      <div className="flex items-center justify-between">
+        <p className="text-muted-foreground text-[11px] font-medium">
+          Setup · step {stepIndex + 1} of {flow.length}
+        </p>
+        <p className="text-primary text-[11px] font-semibold">
+          {STEP_LABEL[current]}
+        </p>
+      </div>
+      <ol className="mt-2.5 flex items-center gap-1.5">
+        {flow.map((id, i) => {
+          const done = i < stepIndex;
+          const isCurrent = i === stepIndex;
+          return (
+            <Fragment key={id}>
+              <li
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${
+                  done
+                    ? "bg-primary text-primary-foreground"
+                    : isCurrent
+                      ? "bg-primary/15 ring-primary ring-2"
+                      : "bg-muted"
+                }`}
+              >
+                {done ? (
+                  <CheckIcon aria-hidden className="h-2.5 w-2.5" />
+                ) : (
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      isCurrent ? "bg-primary" : "bg-muted-foreground/40"
+                    }`}
+                  />
+                )}
+              </li>
+              {i < flow.length - 1 ? (
+                <span
+                  className={`h-px flex-1 ${i < stepIndex ? "bg-primary" : "bg-border"}`}
+                />
+              ) : null}
+            </Fragment>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
 
 /**
  * Shared chrome for the per-step onboarding illustrations: the muted brand wash, the product-card
- * window frame, and a floating chip. Each step renders its own scene inside this; all decorative,
- * so the owning <aside> is aria-hidden.
+ * window frame, the setup stepper (from context) and a floating chip. Each step renders its own
+ * scene inside this; all decorative, so the owning <aside> is aria-hidden.
  */
 export function IllustrationShell({
   children,
@@ -14,6 +102,7 @@ export function IllustrationShell({
   children: ReactNode;
   chips?: ReactNode;
 }) {
+  const stepper = useContext(StepperContext);
   return (
     <aside aria-hidden className="relative hidden lg:block">
       <div className="pointer-events-none absolute -inset-8 -z-10">
@@ -38,7 +127,12 @@ export function IllustrationShell({
               <span className="text-muted-foreground text-[10px]">Live</span>
             </span>
           </div>
-          <div className="space-y-4 p-4">{children}</div>
+          <div className="space-y-4 p-4">
+            {stepper ? (
+              <SetupStepper flow={stepper.flow} stepIndex={stepper.stepIndex} />
+            ) : null}
+            {children}
+          </div>
         </div>
         {chips}
       </div>

@@ -89,7 +89,7 @@ export function GuidedShell({
 
         {/* Product illustration, on its own quiet panel. */}
         <div className="bg-muted/30 hidden items-center justify-center border-l border-border p-10 lg:flex xl:p-14">
-          <ObIllustration step={at} />
+          <ObIllustration flow={flow} stepIndex={stepIndex} />
         </div>
       </div>
 

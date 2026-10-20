@@ -3,20 +3,28 @@
 import { CheckCircleIcon, CheckIcon } from "@heroicons/react/20/solid";
 import {
   AtSymbolIcon,
+  ClipboardDocumentCheckIcon,
+  ClipboardIcon,
   DevicePhoneMobileIcon,
   EnvelopeIcon,
   PaperAirplaneIcon,
   UserGroupIcon,
   WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { type Role, type RoleIcon, ROLES } from "../../constants/guided";
+import {
+  HANDOFF_MODE,
+  type Role,
+  type RoleIcon,
+  ROLES,
+} from "../../constants/guided";
 import { type HandoffIcon, SETUP_TASKS } from "../../data/setup-tasks";
 import { useSendHandoff } from "../../hooks/use-send-handoff";
+import { AUTH_ROUTES } from "@/shared/config/app-routes";
 
 const ROLE_ICONS: Record<RoleIcon, typeof WrenchScrewdriverIcon> = {
   builder: WrenchScrewdriverIcon,
@@ -160,16 +168,7 @@ function Delegate({ onSent }: { onSent: (email: string) => void }) {
       </ul>
 
       {sentTo ? (
-        <p className="text-foreground mt-4 flex items-center gap-2 text-sm">
-          <CheckCircleIcon
-            aria-hidden="true"
-            className="text-primary h-4 w-4"
-          />
-          <span>
-            Invited <b>{sentTo}</b> as an admin. The setup steps are waiting in
-            their workspace. Carry on.
-          </span>
-        </p>
+        <HandoffSent email={sentTo} />
       ) : (
         <form className="mt-4 flex items-start gap-2" onSubmit={submit}>
           <Input
@@ -186,6 +185,71 @@ function Delegate({ onSent }: { onSent: (email: string) => void }) {
           </Button>
         </form>
       )}
+    </div>
+  );
+}
+
+/**
+ * Confirmation after the invite goes out, with the link that drops the developer straight into the
+ * scoped setup flow (sending domain + contract) for this workspace. The invite gives them access;
+ * this link is the shortcut past the dashboard to the two steps they were brought in for, to paste
+ * wherever the team already talks.
+ */
+function HandoffSent({ email }: { email: string }) {
+  const [copied, setCopied] = useState(false);
+  const [link, setLink] = useState("");
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    // Built on the client so it carries whatever origin the app is served from.
+    setLink(
+      `${window.location.origin}${AUTH_ROUTES.ONBOARDING}?mode=${HANDOFF_MODE}`
+    );
+    return () => clearTimeout(timer.current);
+  }, []);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // Clipboard blocked: the link is on screen to copy by hand.
+    }
+  };
+
+  return (
+    <div className="mt-4 space-y-3">
+      <p className="text-foreground flex items-center gap-2 text-sm">
+        <CheckCircleIcon aria-hidden="true" className="text-primary h-4 w-4" />
+        <span>
+          Invited <b>{email}</b> as an admin. Carry on. When they are in, this
+          link takes them straight to the setup steps.
+        </span>
+      </p>
+      <div className="border-border bg-muted/30 flex items-center gap-2 rounded-lg border p-2">
+        <code className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
+          {link || "…"}
+        </code>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={copy}
+          disabled={!link}
+        >
+          {copied ? (
+            <ClipboardDocumentCheckIcon
+              aria-hidden="true"
+              className="mr-1.5 h-4 w-4"
+            />
+          ) : (
+            <ClipboardIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
+          )}
+          {copied ? "Copied" : "Copy link"}
+        </Button>
+      </div>
     </div>
   );
 }

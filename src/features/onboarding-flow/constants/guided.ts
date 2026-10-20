@@ -68,11 +68,6 @@ export interface OnboardingContract {
   name?: string;
 }
 
-/** An editor row for the multi-contract step. `id` is client-only (a stable React key). */
-export interface ContractDraft extends OnboardingContract {
-  id: string;
-}
-
 // Sectors come from the app's existing grouped Web3 / Web2 picker
 // (`constants/index.ts` organizationOptions + web2Options), not a flat list, so
 // the "web2 clients skip contract indexing" logic keeps working.
@@ -117,3 +112,14 @@ export const flowFor = (role: Role): StepId[] =>
   role === "builder"
     ? ["project", "technical", "dns", "contract", "plan"]
     : ["project", "technical", "dns", "plan"];
+
+/**
+ * The scoped flow an invited technical member runs (the owner handed the setup over). The org
+ * already exists and the plan is the owner's decision, so it is just the sending domain then the
+ * contract - the two credential-bound steps the developer was brought in for. Entered at a stable
+ * route (`?mode=handoff`); it never creates an org or touches billing.
+ */
+export const HANDOFF_FLOW: StepId[] = ["dns", "contract"];
+
+/** The query value that puts onboarding into the invited-developer handoff flow. */
+export const HANDOFF_MODE = "handoff";

@@ -17,9 +17,11 @@ import {
   StepProject,
   StepTechnical,
 } from "./components/guided";
+import { HandoffFlow } from "./components/handoff-flow";
 import {
   EMPTY_PROFILE,
   flowFor,
+  HANDOFF_MODE,
   type OnboardingContract,
   profileReady,
   type ProjectProfile,
@@ -55,6 +57,11 @@ export function OnboardingFlow() {
   const { data: session, isPending } = useSession();
   const user = session?.user;
 
+  // The invited developer the owner handed setup to runs a separate, scoped flow
+  // (sending domain + contract against the existing org); everything below is the
+  // owner's journey and does not apply to them.
+  const handoffMode = searchParams?.get("mode") === HANDOFF_MODE;
+
   React.useEffect(() => {
     if (!isPending && !session) {
       push(AUTH_ROUTES.LOGIN);
@@ -65,8 +72,11 @@ export function OnboardingFlow() {
   // `user.onboardingCompleted` true for invited members on invite accept
   // (docs/backend.md 2026-07-29) - anyone carrying that flag is bounced
   // straight to the team dashboard, whatever path routed them here. New
-  // owners (auto-provisioned org, flag false) still onboard normally.
+  // owners (auto-provisioned org, flag false) still onboard normally. The
+  // handoff flow is the one exception: an invited member reaches it on purpose,
+  // flag set and all, to finish the setup they were brought in for.
   React.useEffect(() => {
+    if (handoffMode) return;
     if (isPending || !session) return;
     const onboarded =
       (session.user as { onboardingCompleted?: unknown } | undefined)
@@ -81,7 +91,7 @@ export function OnboardingFlow() {
       )}; Path=/; Max-Age=31536000; SameSite=Lax`;
     }
     push(PRIVATE_ROUTES.DASHBOARD);
-  }, [isPending, session, push]);
+  }, [handoffMode, isPending, session, push]);
 
   React.useEffect(() => {
     const reason = searchParams?.get("reason") ?? null;
@@ -453,6 +463,9 @@ export function OnboardingFlow() {
   const skipping =
     at === "dns" || (at === "contract" && allContracts.length === 0);
   const continueDisabled = busy || (at === "project" && !profileReady(profile));
+
+  // An invited developer runs the scoped handoff flow instead of the owner journey above.
+  if (handoffMode) return <HandoffFlow />;
 
   return (
     <GuidedShell

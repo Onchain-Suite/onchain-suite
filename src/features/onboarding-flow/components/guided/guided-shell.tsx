@@ -5,15 +5,15 @@ import { type ReactNode } from "react";
 import { Logo } from "@/components/common";
 
 import { STEP_LABEL, type StepId } from "../../constants/guided";
-import { ObPreview, type ObPreviewLit } from "./ob-preview";
+import { type IllustrationLit, ObIllustration } from "./ob-illustration";
 
 interface GuidedShellProps {
   /** Zero-based index of the active step within `flow`. */
   stepIndex: number;
   /** The branched step order for the chosen role. */
   flow: StepId[];
-  /** Which region of the product preview to light. */
-  lit: ObPreviewLit;
+  /** Which region of the product illustration to lift. */
+  lit: IllustrationLit;
   /** The active step's question + inputs. */
   children: ReactNode;
   /** Back / Continue controls, composed by the orchestrator. */
@@ -74,7 +74,7 @@ export function GuidedShell({
           </footer>
         </div>
 
-        <ObPreview lit={lit} />
+        <ObIllustration lit={lit} />
       </div>
 
       <div className="text-muted-foreground mx-auto flex w-full max-w-5xl items-center gap-4 text-xs">

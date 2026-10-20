@@ -12,7 +12,7 @@ import { useSession } from "@/lib/auth-client";
 import { PlanSelectionStep } from "./components";
 import {
   GuidedShell,
-  type ObPreviewLit,
+  type IllustrationLit,
   StepContract,
   StepDns,
   StepProject,
@@ -44,7 +44,7 @@ import { AUTH_ROUTES, PRIVATE_ROUTES } from "@/shared/config/app-routes";
 const FLOW_VERSION = "onboarding-guided-v2";
 
 // Which region of the product preview each step lights.
-const LIT_FOR: Record<StepId, ObPreviewLit> = {
+const LIT_FOR: Record<StepId, IllustrationLit> = {
   project: "workspace",
   technical: "channels",
   dns: "channels",

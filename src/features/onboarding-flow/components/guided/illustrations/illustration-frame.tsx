@@ -98,9 +98,13 @@ function SetupStepper({
 export function IllustrationShell({
   children,
   chips,
+  wide = false,
 }: {
   children: ReactNode;
   chips?: ReactNode;
+  // Widens the card for steps whose left column runs long (the contract step's suggestions list),
+  // so the illustration keeps pace with the question instead of floating small beside it.
+  wide?: boolean;
 }) {
   const stepper = useContext(StepperContext);
   return (
@@ -110,7 +114,9 @@ export function IllustrationShell({
         <div className="bg-primary/10 absolute bottom-6 left-0 h-40 w-40 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative mx-auto w-full max-w-sm">
+      <div
+        className={`relative mx-auto w-full ${wide ? "max-w-md" : "max-w-sm"}`}
+      >
         <div className="bg-card overflow-hidden rounded-2xl border border-border shadow-[0_30px_80px_-40px_rgba(23,39,224,0.45)]">
           <div className="bg-muted/40 flex items-center gap-2 border-b border-border px-4 py-2.5">
             <span className="bg-primary/30 h-2.5 w-2.5 rounded-full" />

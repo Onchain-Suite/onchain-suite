@@ -19,6 +19,7 @@ const EVENTS: { name: string; count: string }[] = [
 export function SceneContract() {
   return (
     <IllustrationShell
+      wide
       chips={
         <FloatingChip
           className="-bottom-4 -left-4"

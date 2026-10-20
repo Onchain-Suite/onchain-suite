@@ -21,10 +21,11 @@ interface GuidedShellProps {
 }
 
 /**
- * The guided-onboarding frame (v2.7 revamp): brand, a counted progress line, the question pane,
- * and a muted product preview beside it. Purely presentational - the step machine, the inputs and
- * the footer actions all live in the orchestrator and its step components. It replaces the older
- * split "form + illustration" `OnboardingLayout` for the guided flow.
+ * The guided-onboarding frame (v2.7 revamp): the whole flow sits in a bordered card with the
+ * question on the left and a quiet product illustration on its own sunken panel to the right. The
+ * form column carries the spacing (generous padding, a width-capped, vertically centred body) so
+ * one question has room per screen. Purely presentational: the step machine, inputs and footer
+ * actions live in the orchestrator and its step components.
  */
 export function GuidedShell({
   stepIndex,
@@ -35,14 +36,15 @@ export function GuidedShell({
 }: GuidedShellProps) {
   const at = flow[Math.min(stepIndex, flow.length - 1)];
   return (
-    <div className="bg-background flex min-h-screen flex-col px-4 py-6 sm:px-8 sm:py-8">
+    <div className="bg-background flex min-h-screen flex-col items-center px-4 py-7 sm:px-6">
       <Logo />
 
-      <div className="mx-auto grid w-full max-w-5xl flex-1 items-stretch gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-        <div className="flex flex-col">
+      <div className="mt-6 grid w-[min(1180px,100%)] flex-1 grid-rows-1 overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:grid-cols-2">
+        {/* Question pane */}
+        <div className="flex min-w-0 flex-col px-6 py-8 sm:px-10 lg:px-14 lg:py-10">
           {/* Counted, so it is obvious from the first screen that this ends quickly: a line of
-              text and a thin bar, not a row of boxed steps competing with the question. */}
-          <header className="mb-8">
+                text and a thin bar, not a row of boxed steps competing with the question. */}
+          <header className="flex-shrink-0">
             <span className="text-muted-foreground text-sm">
               Step {stepIndex + 1} of {flow.length}
               <span className="px-1.5 opacity-40">·</span>
@@ -67,17 +69,22 @@ export function GuidedShell({
             </div>
           </header>
 
-          <div className="flex-1">{children}</div>
+          <div className="flex flex-1 flex-col justify-center py-8">
+            <div className="w-full max-w-[30rem]">{children}</div>
+          </div>
 
-          <footer className="mt-8 flex items-center justify-between gap-3">
+          <footer className="flex w-full max-w-[30rem] flex-shrink-0 items-center justify-between gap-3">
             {footer}
           </footer>
         </div>
 
-        <ObIllustration lit={lit} />
+        {/* Product illustration, on its own quiet panel. */}
+        <div className="bg-muted/30 hidden items-center justify-center border-l border-border p-10 lg:flex xl:p-14">
+          <ObIllustration lit={lit} />
+        </div>
       </div>
 
-      <div className="text-muted-foreground mx-auto flex w-full max-w-5xl items-center gap-4 text-xs">
+      <div className="text-muted-foreground mt-6 flex w-[min(1180px,100%)] flex-shrink-0 items-center gap-5 px-1 text-xs">
         <span>© 2026 OnchainSuite</span>
         <a
           href="https://onchainsuite.xyz/privacy"

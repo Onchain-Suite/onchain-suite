@@ -26,14 +26,23 @@ export interface CreateOrganizationInput {
  * everything org-scoped (the step-2 developer invite, the step-3 sender-domain card, the dashboard)
  * can resolve the workspace right after it is created, without waiting for `useSession` to settle.
  */
-async function persistActiveOrg(): Promise<void> {
-  const session = await authClient.getSession();
-  const id = session.data?.session?.activeOrganizationId;
+function rememberActiveOrg(id: string | null | undefined): void {
   if (typeof id === "string" && id.length > 0) {
     document.cookie = `onchain.selectedOrgId=${encodeURIComponent(
       id
     )}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    // Nudge anything already mounted that reads the cookie (e.g. the sender card) to re-sync.
+    try {
+      window.dispatchEvent(new Event("onchain:org-changed"));
+    } catch {
+      // non-browser / blocked; the cookie alone is enough on the next read
+    }
   }
+}
+
+async function persistActiveOrg(): Promise<void> {
+  const session = await authClient.getSession();
+  rememberActiveOrg(session.data?.session?.activeOrganizationId);
 }
 
 /**
@@ -120,6 +129,7 @@ export function useCreateOrganization() {
               await apiClient.post("/organization/set-active", {
                 organizationId,
               });
+              rememberActiveOrg(organizationId);
             }
             return response;
           };
@@ -141,6 +151,7 @@ export function useCreateOrganization() {
                   await apiClient.post("/organization/set-active", {
                     organizationId: existingId,
                   });
+                  rememberActiveOrg(existingId);
                   await persistActiveOrg();
                   return true;
                 }
@@ -223,6 +234,7 @@ export function useCreateOrganization() {
                       await apiClient.post("/organization/set-active", {
                         organizationId: existingId,
                       });
+                      rememberActiveOrg(existingId);
                       await persistActiveOrg();
                       return true;
                     }
@@ -264,6 +276,7 @@ export function useCreateOrganization() {
             await apiClient.post("/organization/set-active", {
               organizationId: createdOrgId,
             });
+            rememberActiveOrg(createdOrgId);
           }
         }
 

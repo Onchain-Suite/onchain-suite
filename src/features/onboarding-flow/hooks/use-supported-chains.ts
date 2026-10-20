@@ -16,7 +16,11 @@ import { SUPPORTED_CHAINS, type SupportedChain } from "../data/chains";
  * set). See docs/onboarding-v2-backend-handoff.md.
  */
 async function fetchSupportedChains(): Promise<SupportedChain[]> {
-  const res = await apiClient.get("/chains");
+  // Silent: the endpoint may not exist yet (or needs org context); any failure just falls back to
+  // the static list, so it must not log an error.
+  const res = await apiClient.get("/chains", {
+    headers: { "x-onchain-silent-error": "1" },
+  });
   const payload: unknown = res.data;
   const root =
     isJsonObject(payload) && "data" in payload ? payload.data : payload;

@@ -17,8 +17,8 @@ export interface SupportedChain {
   logo?: ChainKey;
 }
 
-// Mirrors the app's existing supported set (intelligence query) plus Sovren. The `sovren-mainnet`
-// key is a placeholder until GET /chains confirms it - that endpoint is the real source of truth.
+// Fallback set, matching the backend chain catalog keys (incl. Sovren's `sovr-1`). The live source
+// is GET /chains via useSupportedChains; this is only used before it answers or on error.
 export const SUPPORTED_CHAINS: SupportedChain[] = [
   { key: "eth-mainnet", label: "Ethereum", logo: "ethereum" },
   { key: "base-mainnet", label: "Base", logo: "base" },
@@ -26,7 +26,7 @@ export const SUPPORTED_CHAINS: SupportedChain[] = [
   { key: "optimism-mainnet", label: "Optimism", logo: "optimism" },
   { key: "polygon-mainnet", label: "Polygon", logo: "polygon" },
   { key: "solana-mainnet", label: "Solana", logo: "solana" },
-  { key: "sovren-mainnet", label: "Sovren" },
+  { key: "sovr-1", label: "Sovren" },
 ];
 
 export const DEFAULT_CHAIN = SUPPORTED_CHAINS[0].key;

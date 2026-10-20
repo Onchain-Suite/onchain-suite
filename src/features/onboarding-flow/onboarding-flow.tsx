@@ -119,6 +119,7 @@ export function OnboardingFlow() {
 
   const {
     data: formData,
+    step: persistedStep,
     setStep,
     setData,
   } = useOnboardingPersistence<OnboardingData>();
@@ -132,7 +133,13 @@ export function OnboardingFlow() {
   // `plan_selection`, so everything up to the plan is tracked as the former.
   const [role, setRole] = React.useState<Role>("builder");
   const [profile, setProfile] = React.useState<ProjectProfile>(EMPTY_PROFILE);
-  const [stepIndex, setStepIndex] = React.useState(0);
+  // The persisted step (URL ?step= + localStorage) is the single source of the guided position, so
+  // a reload or re-mount restores the exact step instead of snapping back to the project step.
+  const flow = flowFor(role);
+  const stepIndex = Math.max(
+    0,
+    Math.min((persistedStep ?? 1) - 1, flow.length - 1)
+  );
   const [stepStartedAtMs, setStepStartedAtMs] = React.useState<number>(
     Date.now()
   );
@@ -211,7 +218,6 @@ export function OnboardingFlow() {
     [manualContracts, picked]
   );
 
-  const flow = flowFor(role);
   const at: StepId = flow[Math.min(stepIndex, flow.length - 1)];
 
   // Report wizard time for protocols that leave before finishing. Measures the
@@ -231,12 +237,6 @@ export function OnboardingFlow() {
   // The org is created on leaving the project step; guard against a repeat if
   // the user steps back into it and forward again.
   const orgCreatedRef = React.useRef(false);
-
-  // Mirror the guided step into the persistence layer (URL `?step=` + localStorage) so a reload
-  // or cross-device resume lands on the right screen.
-  React.useEffect(() => {
-    setStep(stepIndex + 1);
-  }, [stepIndex, setStep]);
 
   // Seed the project profile from whatever the persistence/resume layer restored.
   React.useEffect(() => {
@@ -266,7 +266,7 @@ export function OnboardingFlow() {
   );
 
   const goToIndex = (next: number) => {
-    setStepIndex(next);
+    setStep(Math.max(1, next + 1));
     setStepStartedAtMs(Date.now());
   };
 
@@ -465,14 +465,14 @@ export function OnboardingFlow() {
         ? resolveResumeFlowStep(resume.step) === 2
         : progress.current_step === "plan_selection";
     if (landsOnPlan) {
-      setStepIndex(flow.length - 1);
+      setStep(flow.length);
       setStepStartedAtMs(Date.now());
     }
 
     if (progress.step_data && Object.keys(progress.step_data).length > 0) {
       setData(progress.step_data as Partial<OnboardingData>);
     }
-  }, [user?.id, progress, resume, flow.length, setData]);
+  }, [user?.id, progress, resume, flow.length, setData, setStep]);
 
   // Each guided step logs a "started" event when it comes on screen. The backend step name stays
   // one of its two known values (so resume + completion stay compatible), while `guidedStep` in

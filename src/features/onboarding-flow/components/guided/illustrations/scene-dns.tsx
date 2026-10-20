@@ -22,14 +22,14 @@ export function SceneDns() {
           className="-bottom-4 -right-4"
           icon={ShieldCheckIcon}
           title="Verified"
-          subtitle="mail.acme.com"
+          subtitle="mail.yourproject.com"
         />
       }
     >
       <div className="rounded-xl border border-border p-3">
         <div className="flex items-center justify-between">
           <p className="text-foreground font-mono text-xs font-medium">
-            mail.acme.com
+            mail.yourproject.com
           </p>
           <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[11px] font-semibold">
             5 / 5 found
@@ -60,7 +60,7 @@ export function SceneDns() {
       <div className="bg-background rounded-xl border border-border p-3">
         <p className="text-muted-foreground text-[11px]">From</p>
         <p className="text-foreground text-sm font-semibold">
-          Acme &lt;no-reply@mail.acme.com&gt;
+          Your project &lt;no-reply@mail.yourproject.com&gt;
         </p>
         <p className="text-muted-foreground mt-1 text-[11px]">
           Email now sends as you, not as us.

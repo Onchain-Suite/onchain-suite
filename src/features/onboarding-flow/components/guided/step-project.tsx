@@ -14,7 +14,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 import { profileReady, type ProjectProfile } from "../../constants/guided";
-import { DEFAULT_CHAIN, SUPPORTED_CHAINS } from "../../data/chains";
+import { DEFAULT_CHAIN } from "../../data/chains";
+import { useSupportedChains } from "../../hooks/use-supported-chains";
 import { classify } from "../../utils/contract-input";
 import {
   KNOWN_SECTOR_LABELS,
@@ -56,6 +57,7 @@ export function StepProject({
   const [group, setGroup] = useState<SectorTab>(
     sectorGroupOf(value.sector) === "web2" ? "web2" : "web3"
   );
+  const supportedChains = useSupportedChains();
 
   const set = (k: keyof ProjectProfile) => (e: { target: { value: string } }) =>
     onChange({ ...value, [k]: e.target.value });
@@ -96,7 +98,7 @@ export function StepProject({
               autoComplete="organization"
               value={value.name}
               onChange={set("name")}
-              placeholder="Acme"
+              placeholder="Your project"
               onKeyDown={onKeyDown}
             />
           </div>
@@ -109,7 +111,7 @@ export function StepProject({
               autoComplete="url"
               value={value.website}
               onChange={set("website")}
-              placeholder="acme.xyz"
+              placeholder="yourproject.xyz"
               onKeyDown={onKeyDown}
             />
           </div>
@@ -209,7 +211,7 @@ export function StepProject({
                   <SelectValue placeholder="Chain" />
                 </SelectTrigger>
                 <SelectContent>
-                  {SUPPORTED_CHAINS.map((chain) => (
+                  {supportedChains.map((chain) => (
                     <SelectItem key={chain.key} value={chain.key}>
                       <span className="flex items-center gap-2">
                         {chain.logo ? (

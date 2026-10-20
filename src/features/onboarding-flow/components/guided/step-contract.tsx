@@ -16,7 +16,7 @@ import {
   type ContractDraft,
   type OnboardingContract,
 } from "../../constants/guided";
-import { SUPPORTED_CHAINS } from "../../data/chains";
+import { useSupportedChains } from "../../hooks/use-supported-chains";
 import { type SuggestedContract } from "../../onboarding.service";
 import { classify } from "../../utils/contract-input";
 import { ContractSuggestionsPanel } from "../contract-suggestions";
@@ -60,6 +60,7 @@ export function StepContract({
   sector: string;
   chains: string[];
 }) {
+  const supportedChains = useSupportedChains();
   return (
     <>
       <h1 className="text-foreground text-3xl font-bold">
@@ -82,7 +83,7 @@ export function StepContract({
                   <SelectValue placeholder="Chain" />
                 </SelectTrigger>
                 <SelectContent>
-                  {SUPPORTED_CHAINS.map((chain) => (
+                  {supportedChains.map((chain) => (
                     <SelectItem key={chain.key} value={chain.key}>
                       <span className="flex items-center gap-2">
                         {chain.logo ? (

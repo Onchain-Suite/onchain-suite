@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 
-import { useSession } from "@/lib/auth-client";
+import { authClient, useSession } from "@/lib/auth-client";
 import { getSelectedOrganizationId } from "@/lib/utils";
 
 import {
@@ -29,8 +29,14 @@ export function useSendHandoff() {
     async (email: string): Promise<boolean> => {
       const addr = email.trim().toLowerCase();
       if (!addr) return false;
-      const orgId =
+      let orgId =
         getSelectedOrganizationId() ?? session?.session?.activeOrganizationId;
+      if (!orgId) {
+        // `useSession` can lag the org that the project step just created, so
+        // fetch a fresh session before giving up.
+        const fresh = await authClient.getSession();
+        orgId = fresh.data?.session?.activeOrganizationId ?? undefined;
+      }
       if (!orgId) {
         toast.error(
           "No workspace yet. Finish the first step, then invite your developer."

@@ -66,9 +66,9 @@ export const SETUP_TASKS: SetupTask[] = [
   },
   {
     id: "x",
-    label: "X DM access",
+    label: "Social channels",
     icon: "x",
-    who: "whoever owns the X developer account",
+    who: "whoever owns the social accounts",
     minutes: 15,
     steps: [
       "Create an app in the X developer portal.",

@@ -22,6 +22,21 @@ export interface CreateOrganizationInput {
 }
 
 /**
+ * Refresh the session and persist the active org id to the `onchain.selectedOrgId` cookie, so
+ * everything org-scoped (the step-2 developer invite, the step-3 sender-domain card, the dashboard)
+ * can resolve the workspace right after it is created, without waiting for `useSession` to settle.
+ */
+async function persistActiveOrg(): Promise<void> {
+  const session = await authClient.getSession();
+  const id = session.data?.session?.activeOrganizationId;
+  if (typeof id === "string" && id.length > 0) {
+    document.cookie = `onchain.selectedOrgId=${encodeURIComponent(
+      id
+    )}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  }
+}
+
+/**
  * Create (or adopt) the owner's organization and set it active.
  *
  * This is the original `organization-setup-step` submit flow, lifted out so the guided wizard can
@@ -126,7 +141,7 @@ export function useCreateOrganization() {
                   await apiClient.post("/organization/set-active", {
                     organizationId: existingId,
                   });
-                  await authClient.getSession();
+                  await persistActiveOrg();
                   return true;
                 }
               } catch (_e) {
@@ -136,7 +151,7 @@ export function useCreateOrganization() {
               try {
                 createPayload.slug = generateUniqueSlug(slug);
                 await createOrganization();
-                await authClient.getSession();
+                await persistActiveOrg();
                 return true;
               } catch (retryErr) {
                 const { message: retryMessage } = extractAxiosError(retryErr);
@@ -208,7 +223,7 @@ export function useCreateOrganization() {
                       await apiClient.post("/organization/set-active", {
                         organizationId: existingId,
                       });
-                      await authClient.getSession();
+                      await persistActiveOrg();
                       return true;
                     }
                   } catch (_e) {
@@ -218,7 +233,7 @@ export function useCreateOrganization() {
                   try {
                     createPayload.slug = generateUniqueSlug(slug);
                     await createOrganization();
-                    await authClient.getSession();
+                    await persistActiveOrg();
                     return true;
                   } catch (_e) {
                     String(_e);
@@ -252,8 +267,8 @@ export function useCreateOrganization() {
           }
         }
 
-        // Refresh session one more time to pick up the active-org state.
-        await authClient.getSession();
+        // Refresh session + persist the active-org id so it is resolvable right away.
+        await persistActiveOrg();
         return true;
       } catch (error) {
         const { status, message } = extractAxiosError(error);

@@ -13,22 +13,15 @@ import { FloatingChip, IllustrationShell } from "./illustration-frame";
 const TASKS: {
   label: string;
   who: string;
-  minutes: number;
   icon: typeof EnvelopeIcon;
 }[] = [
-  {
-    label: "Email sending domain",
-    who: "DNS owner",
-    minutes: 10,
-    icon: EnvelopeIcon,
-  },
+  { label: "Email sending domain", who: "DNS owner", icon: EnvelopeIcon },
   {
     label: "In-app push SDK",
     who: "Frontend eng",
-    minutes: 20,
     icon: DevicePhoneMobileIcon,
   },
-  { label: "X DM access", who: "X app owner", minutes: 15, icon: AtSymbolIcon },
+  { label: "Social channels", who: "Social admin", icon: AtSymbolIcon },
 ];
 
 /** Step 2 scene: hand the technical setup to whoever holds the credentials, one message, tracked. */
@@ -40,19 +33,14 @@ export function SceneTechnical() {
           className="-right-4 -top-4"
           icon={PaperAirplaneIcon}
           title="Steps sent"
-          subtitle="dev@acme.xyz"
+          subtitle="dev@yourteam.xyz"
         />
       }
     >
       <div className="rounded-xl border border-border p-3">
-        <div className="flex items-center justify-between">
-          <p className="text-muted-foreground text-[11px] font-medium">
-            Setup handoff
-          </p>
-          <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[11px] font-semibold">
-            ~45 min
-          </span>
-        </div>
+        <p className="text-muted-foreground text-[11px] font-medium">
+          Setup handoff
+        </p>
         <ul className="mt-3 space-y-2">
           {TASKS.map((t) => (
             <li
@@ -67,7 +55,7 @@ export function SceneTechnical() {
                   {t.label}
                 </span>
                 <span className="text-muted-foreground block text-[11px]">
-                  {t.who} · {t.minutes} min
+                  {t.who}
                 </span>
               </span>
             </li>

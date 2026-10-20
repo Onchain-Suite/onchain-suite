@@ -15,11 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 import { type Role, type RoleIcon, ROLES } from "../../constants/guided";
-import {
-  type HandoffIcon,
-  SETUP_TASKS,
-  totalMinutes,
-} from "../../data/setup-tasks";
+import { type HandoffIcon, SETUP_TASKS } from "../../data/setup-tasks";
 import { useSendHandoff } from "../../hooks/use-send-handoff";
 
 const ROLE_ICONS: Record<RoleIcon, typeof WrenchScrewdriverIcon> = {
@@ -32,8 +28,6 @@ const TASK_ICONS: Record<HandoffIcon, typeof EnvelopeIcon> = {
   push: DevicePhoneMobileIcon,
   x: AtSymbolIcon,
 };
-
-const ALL_TASK_IDS = SETUP_TASKS.map((t) => t.id);
 
 /**
  * Step 2 - who wires up the technical side. The answer branches the flow: a builder goes on to
@@ -125,7 +119,6 @@ function Delegate({ onSent }: { onSent: (email: string) => void }) {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const valid = /.+@.+\..+/.test(email.trim());
-  const minutes = totalMinutes(ALL_TASK_IDS);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +136,7 @@ function Delegate({ onSent }: { onSent: (email: string) => void }) {
   return (
     <div className="border-border mt-6 rounded-xl border p-4">
       <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-        What they will set up · about {minutes} min
+        What they will set up
       </p>
       <ul className="mt-3 space-y-2.5">
         {SETUP_TASKS.map((t) => {
@@ -158,7 +151,7 @@ function Delegate({ onSent }: { onSent: (email: string) => void }) {
                   {t.label}
                 </span>
                 <span className="text-muted-foreground block text-xs">
-                  {t.who} · {t.minutes} min
+                  {t.who}
                 </span>
               </span>
             </li>

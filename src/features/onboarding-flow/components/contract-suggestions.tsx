@@ -111,6 +111,7 @@ export function ContractSuggestionsPanel({
   const chainKeys = chains && chains.length > 0 ? chains : undefined;
   const enabled = trimmedName.length >= 2 && trimmedSector.length > 0;
 
+  const [expanded, setExpanded] = useState(false);
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(
     () => new Set<string>()
   );
@@ -175,7 +176,7 @@ export function ContractSuggestionsPanel({
         </p>
       </div>
       <ul className="space-y-2">
-        {visible.map((contract) => {
+        {(expanded ? visible : visible.slice(0, 3)).map((contract) => {
           const key = suggestionKey(contract);
           const isAccepted = acceptedKeys.has(key);
           return (
@@ -285,6 +286,19 @@ export function ContractSuggestionsPanel({
           );
         })}
       </ul>
+      {visible.length > 3 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-primary text-xs font-medium hover:underline"
+        >
+          {expanded
+            ? "Show fewer"
+            : `Show ${visible.length - 3} more suggestion${
+                visible.length - 3 === 1 ? "" : "s"
+              }`}
+        </button>
+      ) : null}
     </div>
   );
 }

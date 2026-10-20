@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button";
 
 import { useSession } from "@/lib/auth-client";
 
-import { PlanSelectionStep } from "./components";
 import {
   GuidedShell,
   StepContract,
   StepDns,
+  StepPlan,
   StepProject,
   StepTechnical,
 } from "./components/guided";
@@ -507,18 +507,6 @@ export function OnboardingFlow() {
     }
   }, [at, profile.contract, profile.chains, manualContracts.length]);
 
-  // The plan step owns the full-width pricing layout and its own Back/Continue
-  // (shared PlanPicker), so it renders outside the guided shell.
-  if (at === "plan") {
-    return (
-      <PlanSelectionStep
-        initialData={formData}
-        onBack={handleBack}
-        onNext={handleOnboardingComplete}
-      />
-    );
-  }
-
   const skipping =
     at === "dns" || (at === "contract" && allContracts.length === 0);
   const continueDisabled = busy || (at === "project" && !profileReady(profile));
@@ -527,26 +515,29 @@ export function OnboardingFlow() {
     <GuidedShell
       stepIndex={stepIndex}
       flow={flow}
+      // The plan step owns its own Back / Skip / Continue, so the shell footer is omitted for it.
       footer={
-        <>
-          {stepIndex > 0 ? (
-            <Button variant="secondary" onClick={handleBack} disabled={busy}>
-              Back
+        at === "plan" ? undefined : (
+          <>
+            {stepIndex > 0 ? (
+              <Button variant="secondary" onClick={handleBack} disabled={busy}>
+                Back
+              </Button>
+            ) : (
+              <span />
+            )}
+            <Button
+              variant={skipping ? "secondary" : "default"}
+              onClick={handleContinue}
+              disabled={continueDisabled}
+            >
+              {busy ? "Saving…" : skipping ? "Skip for now" : "Continue"}
+              {!busy && !skipping ? (
+                <ArrowRightIcon aria-hidden="true" className="ml-1.5 h-4 w-4" />
+              ) : null}
             </Button>
-          ) : (
-            <span />
-          )}
-          <Button
-            variant={skipping ? "secondary" : "default"}
-            onClick={handleContinue}
-            disabled={continueDisabled}
-          >
-            {busy ? "Saving…" : skipping ? "Skip for now" : "Continue"}
-            {!busy && !skipping ? (
-              <ArrowRightIcon aria-hidden="true" className="ml-1.5 h-4 w-4" />
-            ) : null}
-          </Button>
-        </>
+          </>
+        )
       }
     >
       {at === "project" && (
@@ -582,6 +573,14 @@ export function OnboardingFlow() {
           projectName={profile.name}
           sector={profile.sector}
           chains={profile.chains}
+        />
+      )}
+      {at === "plan" && (
+        <StepPlan
+          onBack={handleBack}
+          onCompleted={(plan) =>
+            handleOnboardingComplete({ selectedPlan: plan })
+          }
         />
       )}
     </GuidedShell>

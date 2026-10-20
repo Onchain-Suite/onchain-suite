@@ -182,7 +182,7 @@ export function ContractSuggestionsPanel({
           return (
             <li
               key={key}
-              className={`rounded-xl border p-3 transition-colors ${
+              className={`rounded-xl border p-4 transition-colors ${
                 isAccepted
                   ? "border-primary/40 bg-primary/5"
                   : "border-border/60 bg-card/40"

@@ -17,8 +17,8 @@ interface GuidedShellProps {
   flow: StepId[];
   /** The active step's question + inputs. */
   children: ReactNode;
-  /** Back / Continue controls, composed by the orchestrator. */
-  footer: ReactNode;
+  /** Back / Continue controls, composed by the orchestrator. Omitted when the step owns its own. */
+  footer?: ReactNode;
 }
 
 /**
@@ -82,9 +82,11 @@ export function GuidedShell({
             <div className="w-full max-w-[30rem]">{children}</div>
           </div>
 
-          <footer className="flex w-full max-w-[30rem] flex-shrink-0 items-center justify-between gap-3">
-            {footer}
-          </footer>
+          {footer ? (
+            <footer className="flex w-full max-w-[30rem] flex-shrink-0 items-center justify-between gap-3">
+              {footer}
+            </footer>
+          ) : null}
         </div>
 
         {/* Product illustration, on its own quiet panel. */}

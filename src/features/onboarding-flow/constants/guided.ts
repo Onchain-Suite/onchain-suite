@@ -68,6 +68,20 @@ export interface OnboardingContract {
   name?: string;
 }
 
+/**
+ * A contract entered by hand on step 4, the fallback when the paste box can't
+ * auto-find it. Kept structured (name + address + chain + type) so it is both
+ * what we index and what the UI shows. `type` is a UI label (e.g. "erc721");
+ * only address/chain/name reach the indexer.
+ */
+export interface ManualContractDraft {
+  name: string;
+  address: string;
+  /** Backend chain key (see data/chains.ts). */
+  chain: string;
+  type: string;
+}
+
 // Sectors come from the app's existing grouped Web3 / Web2 picker
 // (`constants/index.ts` organizationOptions + web2Options), not a flat list, so
 // the "web2 clients skip contract indexing" logic keeps working.

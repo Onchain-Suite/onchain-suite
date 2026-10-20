@@ -9,7 +9,11 @@ import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth-client";
 import { getSelectedOrganizationId } from "@/lib/utils";
 
-import { HANDOFF_FLOW, type OnboardingContract } from "../constants/guided";
+import {
+  HANDOFF_FLOW,
+  type ManualContractDraft,
+  type OnboardingContract,
+} from "../constants/guided";
 import { chainByKey, DEFAULT_CHAIN } from "../data/chains";
 import {
   onboardingService,
@@ -44,6 +48,8 @@ export function HandoffFlow() {
   const [idx, setIdx] = useState(0);
   const [contract, setContract] = useState("");
   const [picked, setPicked] = useState<SuggestedContract[]>([]);
+  const [resolvedChain, setResolvedChain] = useState<string | null>(null);
+  const [manual, setManual] = useState<ManualContractDraft | null>(null);
   const [busy, setBusy] = useState(false);
 
   const at = HANDOFF_FLOW[Math.min(idx, HANDOFF_FLOW.length - 1)];
@@ -61,9 +67,20 @@ export function HandoffFlow() {
 
   // What the indexer is pointed at: the contract pasted here plus any accepted suggestions.
   const allContracts: OnboardingContract[] = useMemo(() => {
+    const manualAddr = manual?.address.trim() ?? "";
     const typed = contract.trim();
+    const manualChain =
+      [manual?.chain, resolvedChain].find(
+        (c): c is string => typeof c === "string" && c.trim().length > 0
+      ) ?? DEFAULT_CHAIN;
+    const manualName = manual?.name.trim() ? manual.name.trim() : undefined;
+    const primary: OnboardingContract[] = manualAddr
+      ? [{ address: manualAddr, chain: manualChain, name: manualName }]
+      : typed
+        ? [{ address: typed, chain: resolvedChain ?? DEFAULT_CHAIN }]
+        : [];
     return [
-      ...(typed ? [{ address: typed, chain: DEFAULT_CHAIN }] : []),
+      ...primary,
       ...picked
         .filter((p) => p.address)
         .map((p) => ({
@@ -72,7 +89,7 @@ export function HandoffFlow() {
           name: p.name,
         })),
     ];
-  }, [contract, picked]);
+  }, [contract, picked, resolvedChain, manual]);
 
   const finish = useCallback(async () => {
     if (busy) return;
@@ -157,6 +174,9 @@ export function HandoffFlow() {
           picked={picked}
           onAcceptSuggestion={acceptContract}
           onRemoveSuggestion={removeContract}
+          onResolvedChain={setResolvedChain}
+          manual={manual}
+          onManual={setManual}
           projectName={activeOrg?.name ?? ""}
           sector=""
           chains={[]}

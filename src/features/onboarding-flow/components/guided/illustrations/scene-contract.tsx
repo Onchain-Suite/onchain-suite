@@ -29,37 +29,37 @@ export function SceneContract() {
         />
       }
     >
-      <div className="rounded-xl border border-border p-3">
+      <div className="rounded-xl border border-border p-4">
         <div className="flex items-center justify-between">
-          <p className="text-muted-foreground text-[11px] font-medium">
+          <p className="text-muted-foreground text-xs font-medium">
             Smart contract
           </p>
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1.5">
             {CHAINS.map((c) => (
               <span
                 key={c}
-                className="flex h-5 w-5 items-center justify-center rounded-full border border-border bg-white"
+                className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-white"
               >
-                <ChainLogo chain={c} size={12} />
+                <ChainLogo chain={c} size={14} />
               </span>
             ))}
           </span>
         </div>
-        <p className="text-foreground mt-1 font-mono text-xs">0x1a2b…9f3e</p>
+        <p className="text-foreground mt-1.5 font-mono text-sm">0x1a2b…9f3e</p>
 
-        <div className="mt-3 space-y-1.5">
+        <div className="mt-3.5 space-y-2">
           {EVENTS.map((e) => (
             <div
               key={e.name}
-              className="bg-background flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5"
+              className="bg-background flex items-center gap-3 rounded-lg border border-border px-3 py-2.5"
             >
-              <span className="bg-primary/10 text-primary flex h-5 w-5 items-center justify-center rounded">
-                <BoltIcon aria-hidden className="h-3 w-3" />
+              <span className="bg-primary/10 text-primary flex h-7 w-7 items-center justify-center rounded-md">
+                <BoltIcon aria-hidden className="h-3.5 w-3.5" />
               </span>
-              <span className="text-foreground flex-1 text-sm font-medium">
+              <span className="text-foreground flex-1 text-base font-medium">
                 {e.name}
               </span>
-              <span className="text-muted-foreground font-mono text-[11px]">
+              <span className="text-muted-foreground font-mono text-xs">
                 {e.count}
               </span>
             </div>
@@ -67,16 +67,14 @@ export function SceneContract() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-muted-foreground text-[11px] font-medium">
-            Indexing
-          </p>
-          <span className="text-foreground text-[11px] font-semibold">
+      <div className="rounded-xl border border-border p-4">
+        <div className="mb-2.5 flex items-center justify-between">
+          <p className="text-muted-foreground text-xs font-medium">Indexing</p>
+          <span className="text-foreground text-xs font-semibold">
             1.2M events
           </span>
         </div>
-        <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
+        <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
           <span className="bg-primary block h-full w-4/5 rounded-full" />
         </div>
       </div>

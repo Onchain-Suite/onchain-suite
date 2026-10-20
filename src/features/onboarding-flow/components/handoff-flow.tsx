@@ -174,7 +174,8 @@ export function HandoffFlow() {
           picked={picked}
           onAcceptSuggestion={acceptContract}
           onRemoveSuggestion={removeContract}
-          onResolvedChain={setResolvedChain}
+          chain={resolvedChain ?? DEFAULT_CHAIN}
+          onChain={setResolvedChain}
           manual={manual}
           onManual={setManual}
           projectName={activeOrg?.name ?? ""}

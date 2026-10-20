@@ -8,7 +8,7 @@ import {
   PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,6 @@ import {
   type ResolvedContractFound,
   type SuggestedContract,
 } from "../../onboarding.service";
-import { classify } from "../../utils/contract-input";
 import { ContractSuggestionsPanel } from "../contract-suggestions";
 
 const EVM_ADDRESS_RE = /^0x[0-9a-f]{40}$/i;
@@ -48,6 +47,20 @@ const EMPTY_MANUAL: ManualContractDraft = {
   type: "erc20",
 };
 
+const selectClass =
+  "border-input bg-background ring-offset-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none";
+
+/** Order the chain list with the project's chosen chains first. */
+function useChainOptions(chains: string[]) {
+  return useMemo(
+    () => [
+      ...SUPPORTED_CHAINS.filter((c) => chains.includes(c.key)),
+      ...SUPPORTED_CHAINS.filter((c) => !chains.includes(c.key)),
+    ],
+    [chains]
+  );
+}
+
 /** Debounce a value (~400ms) so the resolver never fires per keystroke. */
 function useDebounced<T>(value: T, delayMs = 400): T {
   const [debounced, setDebounced] = useState(value);
@@ -59,19 +72,19 @@ function useDebounced<T>(value: T, delayMs = 400): T {
 }
 
 /**
- * Step 4 - the contract. Two ways in: the zip's "paste anything" box (an address, explorer link,
- * website or ABI) which we classify locally and, for an address, resolve for real against the chain
- * (Alchemy) so the user sees what it is and which chain to index; and, when we can't auto-find it,
- * an "enter the details by hand" form (name, address, chain, type). Nothing is indexed here;
- * indexing starts once the plan is active, so Continue is a skip when nothing is given.
+ * Step 4 - the contract. The primary input is just an address and its chain: we read the contract
+ * off the chain for real (Alchemy) and show what it is. When that is not enough (no address to
+ * hand, or extra detail to add) the "enter the details by hand" form takes a name and type too.
+ * Nothing is indexed here; indexing starts once the plan is active, so Continue is a skip.
  */
 export function StepContract({
   value,
   onChange,
+  chain,
+  onChain,
   picked,
   onAcceptSuggestion,
   onRemoveSuggestion,
-  onResolvedChain,
   manual,
   onManual,
   projectName,
@@ -80,11 +93,12 @@ export function StepContract({
 }: {
   value: string;
   onChange: (v: string) => void;
+  /** The chain to read the address on (backend key), chosen by the user. */
+  chain: string;
+  onChain: (c: string) => void;
   picked: SuggestedContract[];
   onAcceptSuggestion: (c: SuggestedContract) => void;
   onRemoveSuggestion: (c: SuggestedContract) => void;
-  /** The chain the pasted address actually resolved on, so indexing uses it. */
-  onResolvedChain?: (chain: string) => void;
   /** The by-hand contract (orchestrator-owned so it survives step navigation). */
   manual: ManualContractDraft | null;
   onManual: (m: ManualContractDraft | null) => void;
@@ -92,7 +106,6 @@ export function StepContract({
   sector: string;
   chains: string[];
 }) {
-  // Start in the by-hand form only if one was already entered; otherwise paste first.
   const [byHand, setByHand] = useState(manual !== null);
 
   if (byHand) {
@@ -110,23 +123,22 @@ export function StepContract({
   }
 
   return (
-    <PasteEntry
+    <AddressEntry
       value={value}
       onChange={onChange}
+      chain={chain}
+      onChain={onChain}
       picked={picked}
       onAcceptSuggestion={onAcceptSuggestion}
       onRemoveSuggestion={onRemoveSuggestion}
-      onResolvedChain={onResolvedChain}
       projectName={projectName}
       sector={sector}
       chains={chains}
       onEnterByHand={() => {
-        // Seed the form with whatever was already pasted so nothing is retyped.
-        const pasted = classify(value);
         onManual({
           ...EMPTY_MANUAL,
-          address: EVM_ADDRESS_RE.test(pasted.value) ? pasted.value : "",
-          chain: chains[0] ?? "",
+          address: EVM_ADDRESS_RE.test(value.trim()) ? value.trim() : "",
+          chain,
         });
         setByHand(true);
       }}
@@ -134,14 +146,15 @@ export function StepContract({
   );
 }
 
-/** The default "paste anything" box, its live resolution, and the suggestion panel. */
-function PasteEntry({
+/** The default input: a contract address and its chain, resolved live against the chain. */
+function AddressEntry({
   value,
   onChange,
+  chain,
+  onChain,
   picked,
   onAcceptSuggestion,
   onRemoveSuggestion,
-  onResolvedChain,
   projectName,
   sector,
   chains,
@@ -149,49 +162,34 @@ function PasteEntry({
 }: {
   value: string;
   onChange: (v: string) => void;
+  chain: string;
+  onChain: (c: string) => void;
   picked: SuggestedContract[];
   onAcceptSuggestion: (c: SuggestedContract) => void;
   onRemoveSuggestion: (c: SuggestedContract) => void;
-  onResolvedChain?: (chain: string) => void;
   projectName: string;
   sector: string;
   chains: string[];
   onEnterByHand: () => void;
 }) {
-  const guess = classify(value);
-  const recognised = guess.form !== "empty" && guess.form !== "unknown";
-
-  // We can only resolve a bare 0x address (from a pasted address or an explorer link).
-  const address = EVM_ADDRESS_RE.test(guess.value)
-    ? guess.value.toLowerCase()
-    : null;
+  const chainOptions = useChainOptions(chains);
+  const trimmed = value.trim();
+  const address = EVM_ADDRESS_RE.test(trimmed) ? trimmed.toLowerCase() : null;
+  const invalid = trimmed.length > 0 && address === null;
   const debouncedAddress = useDebounced(address);
 
   const resolveQuery = useQuery({
-    queryKey: [
-      "onboarding",
-      "resolve-contract",
-      { address: debouncedAddress, chain: guess.chain ?? null, chains },
-    ],
+    queryKey: ["onboarding", "resolve-contract", debouncedAddress, chain],
     queryFn: ({ signal }) =>
       onboardingService.resolveContract(
-        {
-          address: debouncedAddress as string,
-          chain: guess.chain,
-          chains: chains.length > 0 ? chains : undefined,
-        },
+        { address: debouncedAddress as string, chain },
         { signal }
       ),
     enabled: Boolean(debouncedAddress),
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
-
   const resolved = resolveQuery.data;
-  const resolvedChain = resolved?.found ? resolved.chain : undefined;
-  useEffect(() => {
-    if (resolvedChain) onResolvedChain?.(resolvedChain);
-  }, [resolvedChain, onResolvedChain]);
 
   return (
     <>
@@ -199,78 +197,94 @@ function PasteEntry({
         Add your smart contract
       </h1>
       <p className="text-muted-foreground mt-3">
-        An address, an explorer link, your website or the ABI. We find the
-        contract and its events, and you confirm which to track. Indexing starts
-        once your plan is active.
+        Enter your contract address and pick its chain. We read it off the chain
+        and index its events once your plan is active.
       </p>
 
-      <div className="mt-8 space-y-2">
-        <Label htmlFor="ob-resolve">Paste anything</Label>
-        <div className="flex items-start gap-2">
-          <Input
-            id="ob-resolve"
-            autoComplete="off"
-            spellCheck={false}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="0x… · basescan.org/address/… · yourproject.xyz · ABI"
-            className="flex-1 font-mono"
-            aria-describedby="ob-resolve-hint"
-          />
-          <Button
-            type="button"
-            onClick={() => resolveQuery.refetch()}
-            disabled={!recognised}
-          >
-            <MagnifyingGlassIcon
-              aria-hidden="true"
-              className="mr-1.5 h-4 w-4"
+      <div className="mt-8 space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="ob-address">Contract address</Label>
+          <div className="flex items-start gap-2">
+            <Input
+              id="ob-address"
+              autoComplete="off"
+              spellCheck={false}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="0x…"
+              className="flex-1 font-mono"
+              aria-invalid={invalid}
+              aria-describedby={invalid ? "ob-address-err" : undefined}
             />
-            Look it up
-          </Button>
+            <Button
+              type="button"
+              onClick={() => resolveQuery.refetch()}
+              disabled={!address}
+            >
+              <MagnifyingGlassIcon
+                aria-hidden="true"
+                className="mr-1.5 h-4 w-4"
+              />
+              Look it up
+            </Button>
+          </div>
+          {invalid ? (
+            <p id="ob-address-err" className="text-destructive text-xs">
+              Enter a valid address (0x followed by 40 hex characters).
+            </p>
+          ) : null}
         </div>
-        <p
-          id="ob-resolve-hint"
-          className={`text-sm ${recognised ? "text-foreground" : "text-muted-foreground"}`}
-        >
-          {guess.form === "empty" ? (
-            "We work out what it is as you paste. Nothing is fetched until your plan is active."
-          ) : guess.form === "unknown" ? (
-            guess.next
-          ) : (
-            <>
-              <b>{guess.label}</b>
-              {guess.chain ? ` on ${guess.chain}` : ""}. {guess.next}
-            </>
-          )}
-        </p>
-        <button
-          type="button"
-          onClick={onEnterByHand}
-          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm"
-        >
-          <PencilSquareIcon aria-hidden="true" className="h-4 w-4" />
-          Enter the details by hand
-        </button>
-      </div>
 
-      {/* Live, real resolution of a pasted address against the chain. */}
-      {address ? (
-        <div className="mt-4">
-          {resolveQuery.isPending ? (
+        <div className="space-y-2">
+          <Label htmlFor="ob-chain">Chain</Label>
+          <select
+            id="ob-chain"
+            value={chain}
+            onChange={(e) => onChain(e.target.value)}
+            className={selectClass}
+          >
+            {chainOptions.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Live resolution of the address on the chosen chain. */}
+        {address ? (
+          resolveQuery.isPending ? (
             <p className="text-muted-foreground text-sm">
               Checking the chain for this address…
             </p>
           ) : resolved?.found ? (
             <ResolvedCard contract={resolved} />
           ) : resolved && !resolved.found && resolved.reason === "no-code" ? (
-            <NotFound chainsTried={resolved.chainsTried} />
-          ) : null}
-        </div>
-      ) : null}
+            <NotFound />
+          ) : null
+        ) : null}
 
-      {/* Or let us find them from the project name + chains. The panel self-hides until there is
-          something to show, and prompts for manual input when it finds nothing. */}
+        {/* A clear alternative, not a buried link. */}
+        <button
+          type="button"
+          onClick={onEnterByHand}
+          className="border-border hover:border-primary/50 hover:bg-muted/40 flex w-full items-center gap-3 rounded-xl border border-dashed p-3 text-left transition-colors"
+        >
+          <span className="bg-muted text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
+            <PencilSquareIcon aria-hidden="true" className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="text-foreground block text-sm font-medium">
+              Enter the details by hand
+            </span>
+            <span className="text-muted-foreground block text-xs">
+              Add the name, address, chain and type yourself.
+            </span>
+          </span>
+        </button>
+      </div>
+
+      {/* Suggestions from the project name + chains, when there are any. */}
       <div className="mt-6">
         <ContractSuggestionsPanel
           protocolName={projectName}
@@ -279,14 +293,13 @@ function PasteEntry({
           accepted={picked}
           onAccept={onAcceptSuggestion}
           onRemove={onRemoveSuggestion}
-          showEmptyPrompt={value.trim().length === 0}
         />
       </div>
     </>
   );
 }
 
-/** The by-hand fallback: name, address, chain and type, for when we can't auto-find the contract. */
+/** The by-hand fallback: name, address, chain and type, for full control over the contract. */
 function ManualEntry({
   draft,
   onChange,
@@ -298,16 +311,11 @@ function ManualEntry({
   chains: string[];
   onBack: () => void;
 }) {
+  const chainOptions = useChainOptions(chains);
   const set = (patch: Partial<ManualContractDraft>) =>
     onChange({ ...draft, ...patch });
   const addressValid =
     draft.address.trim() === "" || EVM_ADDRESS_RE.test(draft.address.trim());
-
-  // Offer the project's chosen chains first, then the rest, so the common pick is at the top.
-  const chainOptions = [
-    ...SUPPORTED_CHAINS.filter((c) => chains.includes(c.key)),
-    ...SUPPORTED_CHAINS.filter((c) => !chains.includes(c.key)),
-  ];
 
   return (
     <>
@@ -315,9 +323,8 @@ function ManualEntry({
         Add your smart contract
       </h1>
       <p className="text-muted-foreground mt-3">
-        An address, an explorer link, your website or the ABI. We find the
-        contract and its events, and you confirm which to track. Indexing starts
-        once your plan is active.
+        Enter the contract details yourself. We index holders and activity from
+        this address once your plan is active.
       </p>
 
       <div className="mt-8 space-y-5">
@@ -332,34 +339,31 @@ function ManualEntry({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="ob-address">Contract address</Label>
+          <Label htmlFor="ob-m-address">Contract address</Label>
           <Input
-            id="ob-address"
+            id="ob-m-address"
             value={draft.address}
             onChange={(e) => set({ address: e.target.value })}
             placeholder="0x…"
             className="font-mono"
             aria-invalid={!addressValid}
-            aria-describedby="ob-address-hint"
+            aria-describedby="ob-m-address-hint"
           />
-          <p
-            id="ob-address-hint"
-            className={`text-xs ${addressValid ? "text-muted-foreground" : "text-destructive"}`}
-          >
-            {addressValid
-              ? "We index holders and activity from this address."
-              : "Enter a valid address (0x followed by 40 hex characters)."}
-          </p>
+          {!addressValid ? (
+            <p id="ob-m-address-hint" className="text-destructive text-xs">
+              Enter a valid address (0x followed by 40 hex characters).
+            </p>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label htmlFor="ob-chain">Chain</Label>
+            <Label htmlFor="ob-m-chain">Chain</Label>
             <select
-              id="ob-chain"
+              id="ob-m-chain"
               value={draft.chain || (chainOptions[0]?.key ?? DEFAULT_CHAIN)}
               onChange={(e) => set({ chain: e.target.value })}
-              className="border-input bg-background ring-offset-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+              className={selectClass}
             >
               {chainOptions.map((c) => (
                 <option key={c.key} value={c.key}>
@@ -369,12 +373,12 @@ function ManualEntry({
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="ob-type">Type</Label>
+            <Label htmlFor="ob-m-type">Type</Label>
             <select
-              id="ob-type"
+              id="ob-m-type"
               value={draft.type}
               onChange={(e) => set({ type: e.target.value })}
-              className="border-input bg-background ring-offset-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+              className={selectClass}
             >
               {CONTRACT_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -391,14 +395,14 @@ function ManualEntry({
           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm"
         >
           <ArrowLeftIcon aria-hidden="true" className="h-4 w-4" />
-          Back to pasting a link or an address
+          Back to address and chain
         </button>
       </div>
     </>
   );
 }
 
-/** A confirmed, on-chain contract: the honest result the user pasted, verified against the chain. */
+/** A confirmed, on-chain contract: the honest result, verified against the chain. */
 function ResolvedCard({ contract }: { contract: ResolvedContractFound }) {
   const title =
     contract.name ??
@@ -455,12 +459,8 @@ function ResolvedCard({ contract }: { contract: ResolvedContractFound }) {
   );
 }
 
-/** Nothing resolved: the address held no code on any chain we checked. */
-function NotFound({ chainsTried }: { chainsTried?: string[] }) {
-  const where =
-    chainsTried && chainsTried.length > 0
-      ? chainsTried.join(", ")
-      : "the chains you selected";
+/** Nothing resolved: the address held no code on the chosen chain. */
+function NotFound() {
   return (
     <div className="border-border bg-muted/30 flex items-start gap-2 rounded-xl border p-3">
       <ExclamationTriangleIcon
@@ -468,9 +468,8 @@ function NotFound({ chainsTried }: { chainsTried?: string[] }) {
         className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0"
       />
       <p className="text-muted-foreground text-xs">
-        No contract found at this address on {where}. Double-check the address
-        and that the right chain is selected in step 1, paste an explorer link
-        so we know the chain, or enter the details by hand.
+        No contract found at this address on the selected chain. Check the
+        address, or pick the chain it is deployed on.
       </p>
     </div>
   );

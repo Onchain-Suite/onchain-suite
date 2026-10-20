@@ -87,21 +87,6 @@ interface ContractSuggestionsPanelProps {
   accepted: SuggestedContract[];
   onAccept: (contract: SuggestedContract) => void;
   onRemove: (contract: SuggestedContract) => void;
-  /**
-   * When there is no pasted input and we find nothing to suggest, prompt the
-   * user to paste their own contract instead of rendering nothing.
-   */
-  showEmptyPrompt?: boolean;
-}
-
-/** Shown when there is nothing to suggest and no AI hint: point the user at the box above. */
-function EmptyPrompt() {
-  return (
-    <p className="text-muted-foreground text-xs">
-      No contracts found automatically. Paste your contract address, an explorer
-      link or your website above and we will pull it from the chain.
-    </p>
-  );
 }
 
 /**
@@ -119,7 +104,6 @@ export function ContractSuggestionsPanel({
   accepted,
   onAccept,
   onRemove,
-  showEmptyPrompt = false,
 }: ContractSuggestionsPanelProps) {
   const debouncedName = useDebouncedValue(protocolName);
   const trimmedName = debouncedName.trim();
@@ -159,10 +143,8 @@ export function ContractSuggestionsPanel({
     return contracts.filter((c) => !dismissed.has(suggestionKey(c)));
   }, [suggestionsQuery.data, dismissed]);
 
-  if (!enabled) return showEmptyPrompt ? <EmptyPrompt /> : null;
-  // On error we still prompt for manual input when there's nothing on screen;
-  // otherwise stay silent (suggestions are an enhancement, not a blocker).
-  if (suggestionsQuery.isError) return showEmptyPrompt ? <EmptyPrompt /> : null;
+  if (!enabled) return null;
+  if (suggestionsQuery.isError) return null; // silent - enhancement only
 
   if (suggestionsQuery.isPending) {
     return (
@@ -176,7 +158,7 @@ export function ContractSuggestionsPanel({
     );
   }
 
-  if (visible.length === 0) return showEmptyPrompt ? <EmptyPrompt /> : null;
+  if (visible.length === 0) return null;
 
   return (
     <div className="space-y-2">

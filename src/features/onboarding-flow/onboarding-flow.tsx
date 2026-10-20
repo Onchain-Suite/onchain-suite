@@ -546,10 +546,11 @@ export function OnboardingFlow() {
         <StepContract
           value={profile.contract}
           onChange={(v) => setProfile((p) => ({ ...p, contract: v }))}
+          chain={resolvedChain ?? profile.chains[0] ?? DEFAULT_CHAIN}
+          onChain={setResolvedChain}
           picked={picked}
           onAcceptSuggestion={acceptContract}
           onRemoveSuggestion={removeContract}
-          onResolvedChain={setResolvedChain}
           manual={manual}
           onManual={setManual}
           projectName={profile.name}

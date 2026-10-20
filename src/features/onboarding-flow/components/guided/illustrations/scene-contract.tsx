@@ -1,6 +1,6 @@
 "use client";
 
-import { BoltIcon } from "@heroicons/react/24/outline";
+import { BoltIcon, CheckBadgeIcon } from "@heroicons/react/24/outline";
 
 import { FloatingChip, IllustrationShell } from "./illustration-frame";
 import {
@@ -9,13 +9,13 @@ import {
 } from "@/onchain-suite-website/components/landing/v2/chain-logos";
 
 const CHAINS: ChainKey[] = ["ethereum", "base", "arbitrum"];
-const EVENTS: { name: string; count: string }[] = [
-  { name: "Transfer", count: "842k" },
-  { name: "Mint", count: "126k" },
-  { name: "Staked", count: "38k" },
+const EVENTS: { name: string; sub: string; count: string }[] = [
+  { name: "Transfer", sub: "Holder movements", count: "842k" },
+  { name: "Mint", sub: "New holders", count: "126k" },
+  { name: "Staked", sub: "Committed wallets", count: "38k" },
 ];
 
-/** Step 4 scene: the contract indexed, its events turning onchain activity into triggers. */
+/** Step 4 scene: a contract read off the chain, verified, its events turning into triggers. */
 export function SceneContract() {
   return (
     <IllustrationShell
@@ -29,12 +29,27 @@ export function SceneContract() {
         />
       }
     >
+      {/* Verified contract header */}
       <div className="rounded-xl border border-border p-4">
-        <div className="flex items-center justify-between">
-          <p className="text-muted-foreground text-xs font-medium">
-            Smart contract
-          </p>
-          <span className="flex items-center gap-1.5">
+        <div className="flex items-center gap-3">
+          <span className="from-primary/20 to-primary/5 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br">
+            <BoltIcon aria-hidden className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-foreground truncate text-sm font-semibold">
+                Pack Vault
+              </span>
+              <span className="text-muted-foreground font-mono text-xs">
+                PACK
+              </span>
+            </div>
+            <span className="text-primary mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium">
+              <CheckBadgeIcon aria-hidden className="h-3.5 w-3.5" />
+              Verified on Base
+            </span>
+          </div>
+          <span className="flex items-center gap-1">
             {CHAINS.map((c) => (
               <span
                 key={c}
@@ -45,19 +60,32 @@ export function SceneContract() {
             ))}
           </span>
         </div>
-        <p className="text-foreground mt-1.5 font-mono text-sm">0x1a2b…9f3e</p>
+        <p className="text-muted-foreground mt-3 font-mono text-xs">
+          0x1a2b…9f3e
+        </p>
+      </div>
 
-        <div className="mt-3.5 space-y-2">
+      {/* Events being indexed */}
+      <div className="rounded-xl border border-border p-4">
+        <p className="text-muted-foreground mb-3 text-xs font-medium">
+          Events tracked
+        </p>
+        <div className="space-y-2">
           {EVENTS.map((e) => (
             <div
               key={e.name}
               className="bg-background flex items-center gap-3 rounded-lg border border-border px-3 py-2.5"
             >
-              <span className="bg-primary/10 text-primary flex h-7 w-7 items-center justify-center rounded-md">
+              <span className="bg-primary/10 text-primary flex h-7 w-7 shrink-0 items-center justify-center rounded-md">
                 <BoltIcon aria-hidden className="h-3.5 w-3.5" />
               </span>
-              <span className="text-foreground flex-1 text-base font-medium">
-                {e.name}
+              <span className="min-w-0 flex-1">
+                <span className="text-foreground block text-sm font-medium">
+                  {e.name}
+                </span>
+                <span className="text-muted-foreground block text-[11px]">
+                  {e.sub}
+                </span>
               </span>
               <span className="text-muted-foreground font-mono text-xs">
                 {e.count}
@@ -67,6 +95,7 @@ export function SceneContract() {
         </div>
       </div>
 
+      {/* Indexing progress */}
       <div className="rounded-xl border border-border p-4">
         <div className="mb-2.5 flex items-center justify-between">
           <p className="text-muted-foreground text-xs font-medium">Indexing</p>

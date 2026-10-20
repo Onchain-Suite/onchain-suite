@@ -18,7 +18,6 @@ import {
   StepTechnical,
 } from "./components/guided";
 import {
-  type ContractDraft,
   EMPTY_PROFILE,
   flowFor,
   type OnboardingContract,
@@ -49,12 +48,6 @@ import {
 import { AUTH_ROUTES, PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const FLOW_VERSION = "onboarding-guided-v2";
-
-/** Stable client-only id for a contract editor row (localhost + https are secure contexts). */
-const newDraftId = (): string =>
-  typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
 
 export function OnboardingFlow() {
   const { push } = useRouter();
@@ -149,11 +142,6 @@ export function OnboardingFlow() {
   const [handoffSentTo, setHandoffSentTo] = React.useState<string | null>(null);
   // Contracts accepted from the suggestion panel on the contract step.
   const [picked, setPicked] = React.useState<SuggestedContract[]>([]);
-  // Contracts the user added by hand (address + chain), the multi-contract editor.
-  const [manualContracts, setManualContracts] = React.useState<ContractDraft[]>(
-    []
-  );
-  const contractSeededRef = React.useRef(false);
 
   const pickedKey = (c: SuggestedContract) =>
     `${c.name}::${c.chainHint}::${c.address ?? ""}`;
@@ -165,48 +153,22 @@ export function OnboardingFlow() {
   const removeContract = React.useCallback((c: SuggestedContract) => {
     setPicked((prev) => prev.filter((x) => pickedKey(x) !== pickedKey(c)));
   }, []);
-  const addManualContract = React.useCallback(() => {
-    setManualContracts((prev) => [
-      ...prev,
-      {
-        id: newDraftId(),
-        address: "",
-        chain: profile.chains[0] ?? DEFAULT_CHAIN,
-      },
-    ]);
-  }, [profile.chains]);
-  const updateManualContract = React.useCallback(
-    (index: number, patch: Partial<OnboardingContract>) => {
-      setManualContracts((prev) =>
-        prev.map((c, i) => (i === index ? { ...c, ...patch } : c))
-      );
-    },
-    []
-  );
-  const removeManualContract = React.useCallback((index: number) => {
-    setManualContracts((prev) => prev.filter((_, i) => i !== index));
-  }, []);
   // Handing the technical setup over drops the contract step, so anything added
   // before switching must not linger into completion.
   const chooseRole = React.useCallback((r: Role) => {
     setRole(r);
-    if (r === "operator") {
-      setPicked([]);
-      setManualContracts([]);
-    }
+    if (r === "operator") setPicked([]);
   }, []);
 
-  // The full list the backend indexes: hand-added rows (with an address) plus
-  // accepted suggestions, each mapped to a chain.
-  const allContracts: OnboardingContract[] = React.useMemo(
-    () => [
-      ...manualContracts
-        .filter((c) => c.address.trim().length > 0)
-        .map((c) => ({
-          address: c.address.trim(),
-          chain: c.chain,
-          name: c.name,
-        })),
+  // The full list the backend indexes: the contract pasted into the resolver box
+  // on the contract step (if any) plus the suggestions accepted there, each
+  // mapped to a chain.
+  const allContracts: OnboardingContract[] = React.useMemo(() => {
+    const typed = profile.contract.trim();
+    return [
+      ...(typed
+        ? [{ address: typed, chain: profile.chains[0] ?? DEFAULT_CHAIN }]
+        : []),
       ...picked
         .filter((p) => p.address)
         .map((p) => ({
@@ -214,9 +176,8 @@ export function OnboardingFlow() {
           chain: chainByKey(p.chainHint)?.key ?? DEFAULT_CHAIN,
           name: p.name,
         })),
-    ],
-    [manualContracts, picked]
-  );
+    ];
+  }, [profile.contract, profile.chains, picked]);
 
   const at: StepId = flow[Math.min(stepIndex, flow.length - 1)];
 
@@ -489,24 +450,6 @@ export function OnboardingFlow() {
     }).catch(() => {});
   }, [user?.id, at, trackStep]);
 
-  // Carry a contract typed on step 1 into the step-4 editor as the first row,
-  // once, so nothing is entered twice.
-  React.useEffect(() => {
-    if (at !== "contract" || contractSeededRef.current) return;
-    contractSeededRef.current = true;
-    // Always open the editor with one row (prefilled from step 1 when given), so the step is never
-    // blank and the user can just type.
-    if (manualContracts.length === 0) {
-      setManualContracts([
-        {
-          id: newDraftId(),
-          address: profile.contract.trim(),
-          chain: profile.chains[0] ?? DEFAULT_CHAIN,
-        },
-      ]);
-    }
-  }, [at, profile.contract, profile.chains, manualContracts.length]);
-
   const skipping =
     at === "dns" || (at === "contract" && allContracts.length === 0);
   const continueDisabled = busy || (at === "project" && !profileReady(profile));
@@ -563,10 +506,8 @@ export function OnboardingFlow() {
       )}
       {at === "contract" && (
         <StepContract
-          contracts={manualContracts}
-          onAdd={addManualContract}
-          onUpdate={updateManualContract}
-          onRemove={removeManualContract}
+          value={profile.contract}
+          onChange={(v) => setProfile((p) => ({ ...p, contract: v }))}
           picked={picked}
           onAcceptSuggestion={acceptContract}
           onRemoveSuggestion={removeContract}

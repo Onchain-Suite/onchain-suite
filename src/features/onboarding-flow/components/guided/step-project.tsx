@@ -4,10 +4,17 @@ import { useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 import { profileReady, type ProjectProfile } from "../../constants/guided";
-import { SUPPORTED_CHAINS } from "../../data/chains";
+import { DEFAULT_CHAIN, SUPPORTED_CHAINS } from "../../data/chains";
 import { classify } from "../../utils/contract-input";
 import {
   KNOWN_SECTOR_LABELS,
@@ -68,16 +75,6 @@ export function StepProject({
   const pickSector = (label: string) => {
     setSectorOther(false);
     onChange({ ...value, sector: label });
-  };
-
-  const toggleChain = (key: string) => {
-    const on = value.chains.includes(key);
-    onChange({
-      ...value,
-      chains: on
-        ? value.chains.filter((c) => c !== key)
-        : [...value.chains, key],
-    });
   };
 
   return (
@@ -193,45 +190,8 @@ export function StepProject({
           )}
         </div>
 
-        {/* Chains are onchain-only: picking them lets us look onchain and suggest the project's
-            contracts on step 4. Hidden for Web2. */}
-        {group !== "web2" ? (
-          <div className="space-y-2">
-            <Label>
-              Which chains are you on?{" "}
-              <span className="text-muted-foreground font-normal">
-                Optional
-              </span>
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              {SUPPORTED_CHAINS.map((chain) => {
-                const on = value.chains.includes(chain.key);
-                return (
-                  <button
-                    key={chain.key}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => toggleChain(chain.key)}
-                    className={`flex items-center gap-1.5 ${chipClass(on)}`}
-                  >
-                    {chain.logo ? (
-                      <ChainLogo chain={chain.logo} size={13} />
-                    ) : (
-                      <span className="bg-muted-foreground/40 h-3 w-3 rounded-full" />
-                    )}
-                    {chain.label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-muted-foreground text-xs">
-              We look onchain on these to find your contracts.
-            </p>
-          </div>
-        ) : null}
-
-        {/* Contract is a Web3 concept: a Web2 project has none, so the field is
-            hidden once Web2 is chosen. */}
+        {/* Contract + its chain, Web3 only (a Web2 project has none). The chain is chosen right on
+            the address, and both go to the backend so it indexes and looks onchain for contracts. */}
         {group !== "web2" ? (
           <div className="space-y-2">
             <Label htmlFor="ob-contract">
@@ -240,20 +200,44 @@ export function StepProject({
                 Optional
               </span>
             </Label>
-            <Input
-              id="ob-contract"
-              autoComplete="off"
-              spellCheck={false}
-              value={value.contract}
-              onChange={set("contract")}
-              onKeyDown={onKeyDown}
-              placeholder="0x…"
-              className="font-mono"
-              aria-describedby="ob-contract-hint"
-            />
+            <div className="flex items-start gap-2">
+              <Select
+                value={value.chains[0] ?? DEFAULT_CHAIN}
+                onValueChange={(v) => onChange({ ...value, chains: [v] })}
+              >
+                <SelectTrigger className="w-40 shrink-0" aria-label="Chain">
+                  <SelectValue placeholder="Chain" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_CHAINS.map((chain) => (
+                    <SelectItem key={chain.key} value={chain.key}>
+                      <span className="flex items-center gap-2">
+                        {chain.logo ? (
+                          <ChainLogo chain={chain.logo} size={15} />
+                        ) : (
+                          <span className="bg-muted-foreground/30 h-3.5 w-3.5 rounded-full" />
+                        )}
+                        {chain.label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                id="ob-contract"
+                autoComplete="off"
+                spellCheck={false}
+                value={value.contract}
+                onChange={set("contract")}
+                onKeyDown={onKeyDown}
+                placeholder="0x…"
+                className="flex-1 font-mono"
+                aria-describedby="ob-contract-hint"
+              />
+            </div>
             <p className="text-muted-foreground text-xs" id="ob-contract-hint">
               {guess.form === "empty" || guess.form === "unknown" ? (
-                "If not, we find it from the website."
+                "If not, we find it from the website on the chain you pick."
               ) : (
                 <>
                   <b className="text-foreground">{guess.label}.</b> Indexed

@@ -494,12 +494,13 @@ export function OnboardingFlow() {
   React.useEffect(() => {
     if (at !== "contract" || contractSeededRef.current) return;
     contractSeededRef.current = true;
-    const seed = profile.contract.trim();
-    if (seed && manualContracts.length === 0) {
+    // Always open the editor with one row (prefilled from step 1 when given), so the step is never
+    // blank and the user can just type.
+    if (manualContracts.length === 0) {
       setManualContracts([
         {
           id: newDraftId(),
-          address: seed,
+          address: profile.contract.trim(),
           chain: profile.chains[0] ?? DEFAULT_CHAIN,
         },
       ]);

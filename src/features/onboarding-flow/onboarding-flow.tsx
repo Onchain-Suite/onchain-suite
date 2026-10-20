@@ -1,15 +1,34 @@
 "use client";
 
+import { ArrowRightIcon } from "@heroicons/react/20/solid";
 import { useRouter, useSearchParams } from "next/navigation";
 import React from "react";
 import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
+
 import { useSession } from "@/lib/auth-client";
 
-import { OrganizationSetupStep, PlanSelectionStep } from "./components";
-import { OnboardingLayout } from "./components/onboarding-layout";
+import { PlanSelectionStep } from "./components";
+import {
+  GuidedShell,
+  type ObPreviewLit,
+  StepContract,
+  StepDns,
+  StepProject,
+  StepTechnical,
+} from "./components/guided";
+import {
+  EMPTY_PROFILE,
+  flowFor,
+  profileReady,
+  type ProjectProfile,
+  type Role,
+  type StepId,
+} from "./constants/guided";
 import {
   resolveResumeFlowStep,
+  useCreateOrganization,
   useOnboardingPersistence,
   useOnboardingTracking,
 } from "./hooks";
@@ -21,6 +40,17 @@ import {
   WIZARD_STARTED_KEY,
 } from "@/features/onboarding/utils/onboarding-timing";
 import { AUTH_ROUTES, PRIVATE_ROUTES } from "@/shared/config/app-routes";
+
+const FLOW_VERSION = "onboarding-guided-v2";
+
+// Which region of the product preview each step lights.
+const LIT_FOR: Record<StepId, ObPreviewLit> = {
+  project: "workspace",
+  technical: "channels",
+  dns: "channels",
+  contract: "audience",
+  plan: "charts",
+};
 
 export function OnboardingFlow() {
   const { push } = useRouter();
@@ -84,7 +114,6 @@ export function OnboardingFlow() {
   }, [session, isPending]);
 
   const {
-    step: currentStep,
     data: formData,
     setStep,
     setData,
@@ -92,9 +121,21 @@ export function OnboardingFlow() {
 
   const { progress, resume, trackStep, completeOnboarding } =
     useOnboardingTracking();
+  const createOrganization = useCreateOrganization();
+
+  // The guided flow branches on who sets up the technical side (Section 0.5). Step index is the
+  // position within that branched flow; the backend only knows `organization_setup` and
+  // `plan_selection`, so everything up to the plan is tracked as the former.
+  const [role, setRole] = React.useState<Role>("builder");
+  const [profile, setProfile] = React.useState<ProjectProfile>(EMPTY_PROFILE);
+  const [stepIndex, setStepIndex] = React.useState(0);
   const [stepStartedAtMs, setStepStartedAtMs] = React.useState<number>(
     Date.now()
   );
+  const [busy, setBusy] = React.useState(false);
+
+  const flow = flowFor(role);
+  const at: StepId = flow[Math.min(stepIndex, flow.length - 1)];
 
   // Report wizard time for protocols that leave before finishing. Measures the
   // current step's partial time (prior steps already sent their completed
@@ -102,46 +143,115 @@ export function OnboardingFlow() {
   const { markCompleted } = useOnboardingAbandonment({
     enabled: Boolean(user?.id),
     startedAtMs: stepStartedAtMs,
-    stepName: currentStep === 2 ? "plan_selection" : "organization_setup",
+    stepName: at === "plan" ? "plan_selection" : "organization_setup",
   });
+
   // The server-side resume block seeds the starting step exactly once per
   // mount; afterwards local navigation + progress sync own the step.
   const resumeAppliedRef = React.useRef(false);
+  // Seed the profile from persisted/resumed data exactly once.
+  const seededRef = React.useRef(false);
+  // The org is created on leaving the project step; guard against a repeat if
+  // the user steps back into it and forward again.
+  const orgCreatedRef = React.useRef(false);
 
-  const handleStepComplete = async (stepData: Partial<OnboardingData>) => {
+  // Mirror the guided step into the persistence layer (URL `?step=` + localStorage) so a reload
+  // or cross-device resume lands on the right screen.
+  React.useEffect(() => {
+    setStep(stepIndex + 1);
+  }, [stepIndex, setStep]);
+
+  // Seed the project profile from whatever the persistence/resume layer restored.
+  React.useEffect(() => {
+    if (seededRef.current) return;
+    if (formData.organizationName || formData.websiteUrl || formData.sector) {
+      seededRef.current = true;
+      setProfile((p) => ({
+        ...p,
+        name: formData.organizationName ?? p.name,
+        website: formData.websiteUrl ?? p.website,
+        sector: formData.sector ?? p.sector,
+        description: formData.description ?? p.description,
+      }));
+    }
+  }, [formData]);
+
+  const persistProfile = React.useCallback(
+    (p: ProjectProfile) => {
+      setData({
+        organizationName: p.name,
+        websiteUrl: p.website,
+        sector: p.sector,
+        description: p.description,
+      });
+    },
+    [setData]
+  );
+
+  const goToIndex = (next: number) => {
+    setStepIndex(next);
+    setStepStartedAtMs(Date.now());
+  };
+
+  const handleBack = () => {
+    if (stepIndex > 0) goToIndex(stepIndex - 1);
+  };
+
+  const handleContinue = async () => {
     const now = Date.now();
     const timeSpentSeconds = Math.max(
       0,
       Math.floor((now - stepStartedAtMs) / 1000)
     );
 
-    setData(stepData);
-    const nextStep = currentStep + 1;
-    setStep(nextStep);
-    setStepStartedAtMs(now);
+    if (at === "project") {
+      if (!profileReady(profile) || busy) return;
+      persistProfile(profile);
 
-    if (user?.id) {
-      await trackStep({
-        stepName: "organization_setup",
-        action: "completed",
-        timeSpentSeconds,
-        currentStep: "plan_selection",
-        stepData,
-        flowVersion: "onboarding-v1",
-        metadata: { completionPercentage: 50 },
-      });
-      await trackStep({
+      if (!orgCreatedRef.current) {
+        setBusy(true);
+        const ok = await createOrganization({
+          name: profile.name,
+          websiteUrl: profile.website,
+          description: profile.description,
+        });
+        setBusy(false);
+        if (!ok) return;
+        orgCreatedRef.current = true;
+
+        if (user?.id) {
+          trackStep({
+            stepName: "organization_setup",
+            action: "completed",
+            timeSpentSeconds,
+            currentStep: "organization_setup",
+            stepData: {
+              organizationName: profile.name,
+              websiteUrl: profile.website,
+              sector: profile.sector,
+            },
+            flowVersion: FLOW_VERSION,
+            metadata: { completionPercentage: 50 },
+          }).catch(() => {});
+        }
+      }
+      goToIndex(stepIndex + 1);
+      return;
+    }
+
+    // technical / dns / contract: nothing here blocks. Only the hop into the
+    // plan step is worth a track event (it is a real backend step).
+    const next = stepIndex + 1;
+    if (flow[next] === "plan" && user?.id) {
+      trackStep({
         stepName: "plan_selection",
         action: "started",
         timeSpentSeconds: 0,
         currentStep: "plan_selection",
-        flowVersion: "onboarding-v1",
-      });
+        flowVersion: FLOW_VERSION,
+      }).catch(() => {});
     }
-  };
-
-  const handleBack = () => {
-    setStep(Math.max(1, currentStep - 1));
+    goToIndex(next);
   };
 
   const handleOnboardingComplete = async (
@@ -149,7 +259,7 @@ export function OnboardingFlow() {
   ) => {
     // A normal finish must not also fire the abandonment flush.
     markCompleted();
-    const finalData = { ...formData, ...stepData };
+    const finalData = { ...formData, ...stepData, sector: profile.sector };
 
     // Stamp the sector durably so the dashboard first-mile can skip the
     // "index your contract" nudge for web2 clients (indexing is optional; for
@@ -194,7 +304,7 @@ export function OnboardingFlow() {
           totalTimeSeconds: totalSeconds,
           currentStep: "plan_selection",
           stepData: finalData,
-          flowVersion: "onboarding-v1",
+          flowVersion: FLOW_VERSION,
         });
       }
     } catch (error) {
@@ -203,81 +313,105 @@ export function OnboardingFlow() {
     push(PRIVATE_ROUTES.DASHBOARD);
   };
 
+  // Resumable onboarding: an `in_progress` resume block wins for the initial
+  // step (cross-device continuity), then local navigation takes over. The
+  // guided flow collapses the backend's two known steps onto its own ends -
+  // `plan_selection` resumes at the plan step, anything else at the project
+  // step (restarting a screen early is safe; skipping one is not).
   React.useEffect(() => {
     if (!user?.id) return;
     if (!progress || progress.is_completed) return;
 
-    // Resumable onboarding: an `in_progress` resume block wins for the
-    // initial step (cross-device continuity), then progress sync takes over.
     const useResume =
       !resumeAppliedRef.current && resume?.status === "in_progress";
     resumeAppliedRef.current = true;
-    const stepNumber = useResume
-      ? resolveResumeFlowStep(resume.step)
-      : progress.current_step === "plan_selection"
-        ? 2
-        : 1;
-    if (stepNumber !== currentStep) {
-      setStep(stepNumber);
+    const landsOnPlan = useResume
+      ? resolveResumeFlowStep(resume.step) === 2
+      : progress.current_step === "plan_selection";
+    const target = landsOnPlan ? flow.length - 1 : 0;
+    if (target !== stepIndex) {
+      setStepIndex(target);
       setStepStartedAtMs(Date.now());
     }
 
     if (progress.step_data && Object.keys(progress.step_data).length > 0) {
       setData(progress.step_data as Partial<OnboardingData>);
     }
-  }, [user?.id, progress, resume, currentStep, setData, setStep]);
+  }, [user?.id, progress, resume, stepIndex, flow.length, setData]);
 
+  // organization_setup starts when the project step is on screen.
   React.useEffect(() => {
     if (!user?.id) return;
-    if (currentStep === 1) {
+    if (at === "project") {
       trackStep({
         stepName: "organization_setup",
         action: "started",
         currentStep: "organization_setup",
-        flowVersion: "onboarding-v1",
+        flowVersion: FLOW_VERSION,
       }).catch(() => {});
     }
-  }, [user?.id, currentStep, trackStep]);
+  }, [user?.id, at, trackStep]);
 
-  const renderStep = () => {
-    const commonProps = {
-      initialData: formData,
-      onBack: handleBack,
-    };
+  // The plan step owns the full-width pricing layout and its own Back/Continue
+  // (shared PlanPicker), so it renders outside the guided shell.
+  if (at === "plan") {
+    return (
+      <PlanSelectionStep
+        initialData={formData}
+        onBack={handleBack}
+        onNext={handleOnboardingComplete}
+      />
+    );
+  }
 
-    switch (currentStep) {
-      case 1:
-        return (
-          <OrganizationSetupStep
-            initialData={formData}
-            onNext={handleStepComplete}
-            onBack={handleBack}
-          />
-        );
-      case 2:
-        return (
-          <PlanSelectionStep
-            {...commonProps}
-            onNext={handleOnboardingComplete}
-          />
-        );
-      default:
-        return (
-          <div className="text-center">
-            <h1 className="text-foreground mb-4 text-3xl font-bold">
-              Welcome to Onchain Suite!
-            </h1>
-            <p className="text-muted-foreground">
-              Your account has been set up successfully.
-            </p>
-          </div>
-        );
-    }
-  };
+  const skipping =
+    at === "dns" || (at === "contract" && !profile.contract.trim());
+  const continueDisabled = busy || (at === "project" && !profileReady(profile));
 
   return (
-    <OnboardingLayout currentStep={currentStep} totalSteps={2}>
-      {renderStep()}
-    </OnboardingLayout>
+    <GuidedShell
+      stepIndex={stepIndex}
+      flow={flow}
+      lit={LIT_FOR[at]}
+      footer={
+        <>
+          {stepIndex > 0 ? (
+            <Button variant="secondary" onClick={handleBack} disabled={busy}>
+              Back
+            </Button>
+          ) : (
+            <span />
+          )}
+          <Button
+            variant={skipping ? "secondary" : "default"}
+            onClick={handleContinue}
+            disabled={continueDisabled}
+          >
+            {busy ? "Saving…" : skipping ? "Skip for now" : "Continue"}
+            {!busy && !skipping ? (
+              <ArrowRightIcon aria-hidden="true" className="ml-1.5 h-4 w-4" />
+            ) : null}
+          </Button>
+        </>
+      }
+    >
+      {at === "project" && (
+        <StepProject
+          value={profile}
+          onChange={setProfile}
+          onEnter={handleContinue}
+        />
+      )}
+      {at === "technical" && <StepTechnical role={role} onRole={setRole} />}
+      {at === "dns" && (
+        <StepDns handingOver={role === "operator"} website={profile.website} />
+      )}
+      {at === "contract" && (
+        <StepContract
+          value={profile.contract}
+          onChange={(v) => setProfile((p) => ({ ...p, contract: v }))}
+        />
+      )}
+    </GuidedShell>
   );
 }

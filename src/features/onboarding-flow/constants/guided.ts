@@ -57,18 +57,9 @@ export const EMPTY_PROFILE: ProjectProfile = {
   contract: "",
 };
 
-export const SECTORS = [
-  "Blockchain protocol (L1 / L2)",
-  "DeFi",
-  "NFTs & gaming",
-  "Exchange",
-  "Wallet",
-  "Infrastructure & tooling",
-  "RWA & tokenization",
-  "Payments & stablecoins",
-  "DAO & community",
-  "Other",
-] as const;
+// Sectors come from the app's existing grouped Web3 / Web2 picker
+// (`constants/index.ts` organizationOptions + web2Options), not a flat list, so
+// the "web2 clients skip contract indexing" logic keeps working.
 
 /** Enough to qualify the account: a name, a website that looks like a domain, and a sector. */
 export const profileReady = (p: ProjectProfile): boolean =>

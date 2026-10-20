@@ -11,6 +11,7 @@ import { cn, getSelectedOrganizationId } from "@/lib/utils";
 
 import {
   billingService,
+  SEND_MIN_SUBSCRIBERS,
   SUITE_TIER_ANCHORS,
 } from "@/features/billing/billing.service";
 import {
@@ -23,6 +24,15 @@ const clamp = (n: number, lo: number, hi: number): number =>
   Math.min(hi, Math.max(lo, n));
 
 const CONTACT_MAX = 150_000;
+const SEND_MAX = 500_000;
+
+type Line = "suite" | "send" | "payg";
+
+const LINES: { id: Line; name: string; sub: string }[] = [
+  { id: "suite", name: "Suite", sub: "Wallet + email" },
+  { id: "send", name: "Send", sub: "Email only" },
+  { id: "payg", name: "Pay as you go", sub: "$0 + usage" },
+];
 
 const TIER_LINE: Record<string, string> = {
   launch: "Up to 24,999 contacts",
@@ -31,10 +41,11 @@ const TIER_LINE: Record<string, string> = {
 };
 
 /**
- * Step 5 - the plan, in the guided layout (slider + tier rows) but wired to real billing. The
- * contact slider decides the Suite tier; prices come from the billing quote and the shared tier
- * anchors (the pricing SSOT, same numbers as Settings > Billing), never mock values. Nothing is
- * charged here: Continue opens the real checkout, Skip starts pay-as-you-go.
+ * Step 5 - the plan, in the guided layout but wired to real billing. A Suite / Send / Pay-as-you-go
+ * line chooser, then a slider that decides the tier (Suite) or the size (Send); prices come from
+ * the billing quote and the shared tier anchors (the pricing SSOT, same numbers as Settings >
+ * Billing), never mock values. Nothing is charged here: Continue opens the real checkout, Skip
+ * starts pay-as-you-go.
  */
 export function StepPlan({
   onBack,
@@ -43,19 +54,27 @@ export function StepPlan({
   onBack: () => void;
   onCompleted: (planSlug: string) => void;
 }) {
+  const [selection, setSelection] = useState<Line>("suite");
   const [contacts, setContacts] = useState(11_000);
+  const [subscribers, setSubscribers] = useState(10_000);
   const [submitting, setSubmitting] = useState(false);
-  const [debounced, setDebounced] = useState(contacts);
+
+  const units = selection === "send" ? subscribers : contacts;
+  const [debounced, setDebounced] = useState(units);
   useEffect(() => {
-    const h = window.setTimeout(() => setDebounced(contacts), 250);
+    const h = window.setTimeout(() => setDebounced(units), 250);
     return () => window.clearTimeout(h);
-  }, [contacts]);
+  }, [units]);
 
   const quoteQuery = useQuery({
-    queryKey: ["billing", "line-quote", "suite", debounced],
+    queryKey: ["billing", "line-quote", selection, debounced],
     queryFn: () =>
-      billingService.getLineQuote("suite", debounced, { extraSeats: 0 }),
-    enabled: debounced > 0,
+      billingService.getLineQuote(
+        selection === "send" ? "send" : "suite",
+        debounced,
+        { extraSeats: 0 }
+      ),
+    enabled: selection !== "payg",
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000,
@@ -63,33 +82,45 @@ export function StepPlan({
   });
   const quote = quoteQuery.data;
 
-  const isEmpty = contacts <= 0;
-  const resolvedPlan = isEmpty ? "payg" : (quote?.plan ?? "launch");
-  const headline = isEmpty
-    ? "Free"
-    : quote
-      ? usd(quote.totalMonthlyPrice ?? quote.monthlyPrice)
-      : "…";
-  const pct = (clamp(contacts, 0, CONTACT_MAX) / CONTACT_MAX) * 100;
+  const isEmptySuite = selection === "suite" && contacts <= 0;
+  const resolvedPlan =
+    selection === "payg" || isEmptySuite
+      ? "payg"
+      : selection === "send"
+        ? "send"
+        : (quote?.plan ?? "launch");
+  const headline =
+    selection === "payg" || isEmptySuite
+      ? "$0"
+      : quote
+        ? usd(quote.totalMonthlyPrice ?? quote.monthlyPrice)
+        : "…";
+
+  const sliderMax = selection === "send" ? SEND_MAX : CONTACT_MAX;
+  const sliderMin = selection === "send" ? SEND_MIN_SUBSCRIBERS : 0;
+  const pct =
+    ((clamp(units, sliderMin, sliderMax) - sliderMin) /
+      (sliderMax - sliderMin)) *
+    100;
 
   const finish = async (choosePlan: boolean) => {
     if (submitting) return;
     setSubmitting(true);
     try {
-      if (!choosePlan || isEmpty) {
+      if (!choosePlan || resolvedPlan === "payg") {
         const orgId = getSelectedOrganizationId();
-        if (orgId && isEmpty) {
+        if (orgId && resolvedPlan === "payg") {
           await billingService
             .startPayg(orgId, { orgId })
             .catch(() => undefined);
         }
-        onCompleted(isEmpty ? "payg" : "skipped");
+        onCompleted(resolvedPlan === "payg" ? "payg" : "skipped");
         return;
       }
-      const planRef = quote?.plan ?? "launch";
+      const planRef = selection === "send" ? "send" : (quote?.plan ?? "launch");
       const checkout = await startPlanCheckout(planRef, undefined, {
         paymentMethod: "card",
-        contacts,
+        contacts: units,
         extraSeats: 0,
       });
       if (!checkout?.paymentUrl) {
@@ -108,6 +139,13 @@ export function StepPlan({
     }
   };
 
+  const continueLabel =
+    resolvedPlan === "payg"
+      ? "Start free"
+      : selection === "send"
+        ? "Continue with Send"
+        : `Continue with ${quote?.planLabel ?? "Launch"}`;
+
   return (
     <>
       <h1 className="text-foreground text-3xl font-bold">Choose your plan</h1>
@@ -115,89 +153,159 @@ export function StepPlan({
         You won&apos;t be charged here, and you can change it any time.
       </p>
 
-      {/* Contacts slider: it decides the tier. */}
-      <div className="mt-8 rounded-xl border border-border p-4">
-        <div className="flex items-baseline justify-between">
-          <label
-            htmlFor="ob-contacts"
-            className="text-foreground text-sm font-medium"
-          >
-            How many contacts?
-          </label>
-          <span className="text-foreground text-lg font-bold tabular-nums">
-            {isEmpty ? "0" : contacts.toLocaleString()}
-          </span>
-        </div>
-        <input
-          id="ob-contacts"
-          type="range"
-          min={0}
-          max={CONTACT_MAX}
-          step={500}
-          value={clamp(contacts, 0, CONTACT_MAX)}
-          onChange={(e) => setContacts(Number(e.target.value))}
-          aria-label="Contacts"
-          className="mt-3 w-full"
-          style={{
-            accentColor: "var(--primary)",
-            background: `linear-gradient(90deg, var(--primary) ${pct}%, var(--border) ${pct}%)`,
-          }}
-        />
-        <p className="text-muted-foreground mt-2 text-xs">
-          A contact is one wallet, email address or X handle.
-        </p>
-      </div>
-
-      {/* Tier rows, priced from the real anchors; the resolved one is highlighted. */}
-      <div role="radiogroup" aria-label="Plan" className="mt-4 space-y-2.5">
-        {SUITE_TIER_ANCHORS.map((t) => {
-          const on = resolvedPlan === t.plan;
-          const price =
-            on && quote
-              ? (quote.totalMonthlyPrice ?? quote.monthlyPrice)
-              : t.monthlyPrice;
+      {/* Line chooser: Suite / Send / Pay-as-you-go. */}
+      <div
+        role="radiogroup"
+        aria-label="Plan line"
+        className="mt-8 grid grid-cols-3 gap-2"
+      >
+        {LINES.map((l) => {
+          const on = selection === l.id;
           return (
             <button
-              key={t.plan}
+              key={l.id}
               type="button"
               role="radio"
               aria-checked={on}
-              onClick={() => setContacts(t.contacts)}
+              onClick={() => setSelection(l.id)}
               className={cn(
-                "flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-colors",
+                "rounded-xl border-2 px-3 py-2.5 text-left transition-colors",
                 on
-                  ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                  : "border-border hover:border-primary/40 hover:bg-muted/40"
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/40"
               )}
             >
               <span
                 className={cn(
-                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
-                  on ? "border-primary" : "border-border"
+                  "block text-sm font-semibold",
+                  on ? "text-primary" : "text-foreground"
                 )}
               >
-                {on ? (
-                  <span className="bg-primary h-2.5 w-2.5 rounded-full" />
-                ) : null}
+                {l.name}
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-baseline justify-between gap-2">
-                  <b className="text-foreground font-semibold">{t.planLabel}</b>
-                  <span className="text-foreground font-semibold tabular-nums">
-                    {usd(price)}
-                    <span className="text-muted-foreground text-xs font-normal">
-                      /mo
-                    </span>
-                  </span>
-                </span>
-                <span className="text-muted-foreground mt-0.5 block text-sm">
-                  {TIER_LINE[t.plan] ?? ""}
-                </span>
+              <span className="text-muted-foreground block text-[11px]">
+                {l.sub}
               </span>
             </button>
           );
         })}
       </div>
+
+      {selection !== "payg" ? (
+        <>
+          {/* Size slider: decides the Suite tier, or sizes the Send list. */}
+          <div className="mt-4 rounded-xl border border-border p-4">
+            <div className="flex items-baseline justify-between">
+              <label
+                htmlFor="ob-units"
+                className="text-foreground text-sm font-medium"
+              >
+                {selection === "send"
+                  ? "How many subscribers?"
+                  : "How many contacts?"}
+              </label>
+              <span className="text-foreground text-lg font-bold tabular-nums">
+                {units.toLocaleString()}
+              </span>
+            </div>
+            <input
+              id="ob-units"
+              type="range"
+              min={sliderMin}
+              max={sliderMax}
+              step={selection === "send" ? 1000 : 500}
+              value={clamp(units, sliderMin, sliderMax)}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (selection === "send") setSubscribers(v);
+                else setContacts(v);
+              }}
+              aria-label={selection === "send" ? "Subscribers" : "Contacts"}
+              className="mt-3 w-full"
+              style={{
+                accentColor: "var(--primary)",
+                background: `linear-gradient(90deg, var(--primary) ${pct}%, var(--border) ${pct}%)`,
+              }}
+            />
+            <p className="text-muted-foreground mt-2 text-xs">
+              {selection === "send"
+                ? `${headline}/mo · email only, priced per subscriber.`
+                : "A contact is one wallet, email address or X handle."}
+            </p>
+          </div>
+
+          {/* Suite: the tier rows, priced from the real anchors; resolved tier highlighted. */}
+          {selection === "suite" ? (
+            <div
+              role="radiogroup"
+              aria-label="Plan"
+              className="mt-4 space-y-2.5"
+            >
+              {SUITE_TIER_ANCHORS.map((t) => {
+                const on = resolvedPlan === t.plan;
+                const price =
+                  on && quote
+                    ? (quote.totalMonthlyPrice ?? quote.monthlyPrice)
+                    : t.monthlyPrice;
+                return (
+                  <button
+                    key={t.plan}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setContacts(t.contacts)}
+                    className={cn(
+                      "flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-colors",
+                      on
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                        : "border-border hover:border-primary/40 hover:bg-muted/40"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
+                        on ? "border-primary" : "border-border"
+                      )}
+                    >
+                      {on ? (
+                        <span className="bg-primary h-2.5 w-2.5 rounded-full" />
+                      ) : null}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-2">
+                        <b className="text-foreground font-semibold">
+                          {t.planLabel}
+                        </b>
+                        <span className="text-foreground font-semibold tabular-nums">
+                          {usd(price)}
+                          <span className="text-muted-foreground text-xs font-normal">
+                            /mo
+                          </span>
+                        </span>
+                      </span>
+                      <span className="text-muted-foreground mt-0.5 block text-sm">
+                        {TIER_LINE[t.plan] ?? ""}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </>
+      ) : (
+        // Pay-as-you-go: the metered $0 entry, no sizing.
+        <div className="mt-4 rounded-xl border border-border p-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-foreground text-2xl font-bold">$0</span>
+            <span className="text-muted-foreground text-sm">/mo + usage</span>
+          </div>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Every capability, metered at list price. Prepaid wallet, $10 minimum
+            top-up. Free until you import contacts.
+          </p>
+        </div>
+      )}
 
       <footer className="mt-8 flex items-center justify-between gap-3">
         <Button variant="secondary" onClick={onBack} disabled={submitting}>
@@ -212,11 +320,7 @@ export function StepPlan({
             Skip for now
           </Button>
           <Button onClick={() => finish(true)} disabled={submitting}>
-            {submitting
-              ? "Setting up…"
-              : isEmpty
-                ? "Start free"
-                : `Continue with ${quote?.planLabel ?? "Launch"}`}
+            {submitting ? "Setting up…" : continueLabel}
             {!submitting ? (
               <ArrowRightIcon aria-hidden="true" className="ml-1.5 h-4 w-4" />
             ) : null}
@@ -225,9 +329,9 @@ export function StepPlan({
       </footer>
 
       <p className="text-muted-foreground mt-3 text-center text-xs">
-        {isEmpty
+        {resolvedPlan === "payg"
           ? "No credit card required. Upgrade anytime."
-          : `${headline}/mo · you complete payment on a secure checkout page, and the price shown is what you're billed.`}
+          : "You complete payment on a secure checkout page, and the price shown is what you're billed."}
       </p>
     </>
   );

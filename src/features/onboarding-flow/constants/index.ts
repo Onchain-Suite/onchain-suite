@@ -117,7 +117,7 @@ export const organizationOptions = [
 ];
 
 /**
- * Web2 sectors — we now onboard non-crypto teams too, so the Sector picker
+ * Web2 sectors: we now onboard non-crypto teams too, so the Sector picker
  * offers these alongside the Web3 list above.
  */
 export const web2Options = [

@@ -190,6 +190,19 @@ function Delegate({ onSent }: { onSent: (email: string) => void }) {
 }
 
 /**
+ * The canonical app origin for a link shared outside this session: the invited developer clicks it
+ * in production, not on whatever host the owner happened to generate it from, so it must never be
+ * the owner's localhost. Prefer an explicit prod `NEXT_PUBLIC_APP_URL`, fall back to the app's
+ * production domain.
+ */
+const APP_ORIGIN = (() => {
+  const env = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (env && !/localhost|127\.0\.0\.1/.test(env)) return env.replace(/\/$/, "");
+  return "https://app.onchainsuite.com";
+})();
+const HANDOFF_LINK = `${APP_ORIGIN}${AUTH_ROUTES.ONBOARDING}?mode=${HANDOFF_MODE}`;
+
+/**
  * Confirmation after the invite goes out, with the link that drops the developer straight into the
  * scoped setup flow (sending domain + contract) for this workspace. The invite gives them access;
  * this link is the shortcut past the dashboard to the two steps they were brought in for, to paste
@@ -197,20 +210,13 @@ function Delegate({ onSent }: { onSent: (email: string) => void }) {
  */
 function HandoffSent({ email }: { email: string }) {
   const [copied, setCopied] = useState(false);
-  const [link, setLink] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  useEffect(() => {
-    // Built on the client so it carries whatever origin the app is served from.
-    setLink(
-      `${window.location.origin}${AUTH_ROUTES.ONBOARDING}?mode=${HANDOFF_MODE}`
-    );
-    return () => clearTimeout(timer.current);
-  }, []);
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(HANDOFF_LINK);
       setCopied(true);
       clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), 1600);
@@ -229,16 +235,10 @@ function HandoffSent({ email }: { email: string }) {
         </span>
       </p>
       <div className="border-border bg-muted/30 flex items-center gap-2 rounded-lg border p-2">
-        <code className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
-          {link || "…"}
+        <code className="text-muted-foreground min-w-0 flex-1 truncate font-mono text-xs">
+          {HANDOFF_LINK}
         </code>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={copy}
-          disabled={!link}
-        >
+        <Button type="button" variant="secondary" size="sm" onClick={copy}>
           {copied ? (
             <ClipboardDocumentCheckIcon
               aria-hidden="true"

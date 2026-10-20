@@ -32,6 +32,7 @@ import {
   useOnboardingPersistence,
   useOnboardingTracking,
 } from "./hooks";
+import { type SuggestedContract } from "./onboarding.service";
 import { type OnboardingData } from "./types";
 import { useOnboardingAbandonment } from "@/features/onboarding/hooks/use-onboarding-abandonment";
 import {
@@ -136,6 +137,26 @@ export function OnboardingFlow() {
   // The developer invited from the technical step, so the DNS step can say the
   // records travel with that invite.
   const [handoffSentTo, setHandoffSentTo] = React.useState<string | null>(null);
+  // Contracts accepted from the suggestion panel on the contract step. They ride
+  // along in the completion payload and seed index-after-plan.
+  const [picked, setPicked] = React.useState<SuggestedContract[]>([]);
+
+  const pickedKey = (c: SuggestedContract) =>
+    `${c.name}::${c.chainHint}::${c.address ?? ""}`;
+  const acceptContract = React.useCallback((c: SuggestedContract) => {
+    setPicked((prev) =>
+      prev.some((x) => pickedKey(x) === pickedKey(c)) ? prev : [...prev, c]
+    );
+  }, []);
+  const removeContract = React.useCallback((c: SuggestedContract) => {
+    setPicked((prev) => prev.filter((x) => pickedKey(x) !== pickedKey(c)));
+  }, []);
+  // Handing the technical setup over drops the contract step, so a pick made
+  // before switching must not linger into completion.
+  const chooseRole = React.useCallback((r: Role) => {
+    setRole(r);
+    if (r === "operator") setPicked([]);
+  }, []);
 
   const flow = flowFor(role);
   const at: StepId = flow[Math.min(stepIndex, flow.length - 1)];
@@ -262,7 +283,12 @@ export function OnboardingFlow() {
   ) => {
     // A normal finish must not also fire the abandonment flush.
     markCompleted();
-    const finalData = { ...formData, ...stepData, sector: profile.sector };
+    const finalData = {
+      ...formData,
+      ...stepData,
+      sector: profile.sector,
+      ...(picked.length > 0 ? { contracts: picked } : {}),
+    };
 
     // Stamp the sector durably so the dashboard first-mile can skip the
     // "index your contract" nudge for web2 clients (indexing is optional; for
@@ -368,7 +394,8 @@ export function OnboardingFlow() {
   }
 
   const skipping =
-    at === "dns" || (at === "contract" && !profile.contract.trim());
+    at === "dns" ||
+    (at === "contract" && !profile.contract.trim() && picked.length === 0);
   const continueDisabled = busy || (at === "project" && !profileReady(profile));
 
   return (
@@ -408,7 +435,7 @@ export function OnboardingFlow() {
       {at === "technical" && (
         <StepTechnical
           role={role}
-          onRole={setRole}
+          onRole={chooseRole}
           onHandoffSent={setHandoffSentTo}
         />
       )}
@@ -423,6 +450,11 @@ export function OnboardingFlow() {
         <StepContract
           value={profile.contract}
           onChange={(v) => setProfile((p) => ({ ...p, contract: v }))}
+          picked={picked}
+          onAccept={acceptContract}
+          onRemove={removeContract}
+          projectName={profile.name}
+          sector={profile.sector}
         />
       )}
     </GuidedShell>

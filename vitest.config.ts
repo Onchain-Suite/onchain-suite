@@ -24,7 +24,14 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     // Agent worktrees under .claude are full copies of the repo — without
     // this every suite runs twice, the second time against stale code.
-    exclude: [...configDefaults.exclude, '**/.claude/**'],
+    // `reference/` is the vendored v2.7 reference app (build-excluded); it
+    // ships its own test setup and dev deps that this repo does not install,
+    // so its suites are not ours to run.
+    exclude: [
+      ...configDefaults.exclude,
+      '**/.claude/**',
+      'reference/**',
+    ],
     pool: 'threads',
     fileParallelism: false,
     maxWorkers: 1,

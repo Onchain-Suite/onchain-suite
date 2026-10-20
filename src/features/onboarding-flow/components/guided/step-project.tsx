@@ -4,12 +4,14 @@ import { useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 import { profileReady, type ProjectProfile } from "../../constants/guided";
 import { classify } from "../../utils/contract-input";
 import {
   KNOWN_SECTOR_LABELS,
   sectorGroupOf,
+  shortSectorLabel,
   WEB2_SECTOR_OPTIONS,
   WEB3_SECTOR_OPTIONS,
 } from "../../utils/sector";
@@ -17,7 +19,7 @@ import {
 type SectorTab = "web3" | "web2";
 
 const chipClass = (on: boolean) =>
-  `rounded-full border px-3 py-1.5 text-sm transition-colors ${
+  `rounded-full border px-2.5 py-1 text-xs transition-colors ${
     on
       ? "border-primary bg-primary/10 text-primary font-medium"
       : "border-border text-foreground hover:border-primary/40 hover:bg-muted/50"
@@ -119,7 +121,13 @@ export function StepProject({
                   type="button"
                   role="tab"
                   aria-selected={group === g}
-                  onClick={() => setGroup(g)}
+                  onClick={() => {
+                    setGroup(g);
+                    // Web2 projects have no contract to index, so drop any stray value.
+                    if (g === "web2" && value.contract) {
+                      onChange({ ...value, contract: "" });
+                    }
+                  }}
                   className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
                     group === g
                       ? "bg-card text-foreground shadow-sm"
@@ -141,7 +149,7 @@ export function StepProject({
                 onClick={() => pickSector(o.label)}
                 className={chipClass(!sectorOther && value.sector === o.label)}
               >
-                {o.label}
+                {shortSectorLabel(o)}
               </button>
             ))}
             <button
@@ -173,7 +181,9 @@ export function StepProject({
           )}
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
+        {/* Contract is a Web3 concept: a Web2 project has none, so the field is
+            hidden once Web2 is chosen. */}
+        {group !== "web2" ? (
           <div className="space-y-2">
             <Label htmlFor="ob-contract">
               Contract address{" "}
@@ -203,22 +213,20 @@ export function StepProject({
               )}
             </p>
           </div>
+        ) : null}
 
-          <div className="space-y-2">
-            <Label htmlFor="ob-desc">
-              What does it do?{" "}
-              <span className="text-muted-foreground font-normal">
-                Optional
-              </span>
-            </Label>
-            <Input
-              id="ob-desc"
-              value={value.description}
-              onChange={set("description")}
-              onKeyDown={onKeyDown}
-              placeholder="A lending market on Base for long-tail assets"
-            />
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="ob-desc">
+            What does it do?{" "}
+            <span className="text-muted-foreground font-normal">Optional</span>
+          </Label>
+          <Textarea
+            id="ob-desc"
+            rows={3}
+            value={value.description}
+            onChange={set("description")}
+            placeholder="A lending market on Base for long-tail assets"
+          />
         </div>
       </form>
     </>

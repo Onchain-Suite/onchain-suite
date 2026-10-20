@@ -32,7 +32,10 @@ import {
   useOnboardingPersistence,
   useOnboardingTracking,
 } from "./hooks";
-import { type SuggestedContract } from "./onboarding.service";
+import {
+  onboardingService,
+  type SuggestedContract,
+} from "./onboarding.service";
 import { type OnboardingData } from "./types";
 import { sectorGroupOf } from "./utils/sector";
 import { useOnboardingAbandonment } from "@/features/onboarding/hooks/use-onboarding-abandonment";
@@ -368,6 +371,29 @@ export function OnboardingFlow() {
     } catch (error) {
       console.error("Error completing onboarding:", error);
     }
+
+    // Index-after-plan: indexing is the part that costs, so it only starts once
+    // a plan is chosen. With a plan and at least one picked contract that has an
+    // address, kick off the initial historical indexing through the
+    // `connect-chain` task - which also marks that card done on the dashboard.
+    // Fire-and-forget: it must never delay the hop to the workspace.
+    if (user?.id && finalData.selectedPlan && picked.length > 0) {
+      const contracts = picked
+        .filter((c) => c.address)
+        .map((c) => ({
+          address: c.address as string,
+          chain: c.chainHint || undefined,
+          name: c.name,
+        }));
+      if (contracts.length > 0) {
+        onboardingService
+          .completeTask("connect-chain", { contracts, lookbackDays: 90 })
+          .catch((error) => {
+            console.warn("Failed to start contract indexing:", error);
+          });
+      }
+    }
+
     push(PRIVATE_ROUTES.DASHBOARD);
   };
 

@@ -154,6 +154,20 @@ export const normalizeContractSuggestions = (
   };
 };
 
+/** One contract handed to the indexer when the connect-chain task completes. */
+export interface IndexContractInput {
+  address: string;
+  /** Backend chain hint (e.g. "eth-mainnet", "base"); from the suggestion's chainHint. */
+  chain?: string;
+  name?: string;
+}
+
+/** Body for `PUT /onboarding/tasks/connect-chain/complete`. */
+export interface CompleteOnboardingTaskBody {
+  contracts?: IndexContractInput[];
+  lookbackDays?: number;
+}
+
 export const onboardingService = {
   /**
    * `POST /onboarding/suggest-contracts` - LLM-assisted contract/event
@@ -177,5 +191,28 @@ export const onboardingService = {
       orgId
     );
     return normalizeContractSuggestions(payload);
+  },
+
+  /**
+   * `PUT /onboarding/tasks/{taskId}/complete` - marks an onboarding task done.
+   * For `connect-chain` the backend also enqueues the initial historical
+   * indexing job for the supplied contracts, which is how index-after-plan
+   * kicks off. Requires an active org (x-org-id). Best-effort for callers:
+   * indexing starting is not allowed to block finishing onboarding.
+   */
+  async completeTask(
+    taskId: string,
+    body: CompleteOnboardingTaskBody,
+    orgId?: string
+  ): Promise<void> {
+    await request<unknown>(
+      {
+        method: "PUT",
+        url: `/onboarding/tasks/${taskId}/complete`,
+        data: body,
+        timeout: 20_000,
+      },
+      orgId
+    );
   },
 };

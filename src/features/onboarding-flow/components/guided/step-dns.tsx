@@ -1,30 +1,29 @@
 "use client";
 
-/**
- * The sending domain. Six DNS records so email leaves as the project rather than as us. Nothing
- * here blocks: the records resolve on their own schedule and can be added whenever the account
- * owner can reach their DNS, so Continue is a skip.
- *
- * Interim: this describes the records and points to where they are generated and verified
- * (Settings -> Integrations -> Channels). The in-step generator/verifier panel is a later stage.
- */
-const RECORDS = [
-  { kind: "TXT", label: "SPF", note: "Lets our servers send as your domain" },
-  {
-    kind: "TXT",
-    label: "DKIM",
-    note: "Signs each message so it is not forged",
-  },
-  { kind: "TXT", label: "DMARC", note: "Tells inboxes what to trust" },
-  {
-    kind: "CNAME",
-    label: "Tracking",
-    note: "Opens and clicks, on your domain",
-  },
-  { kind: "CNAME", label: "Return-Path", note: "Bounces come back to us" },
-  { kind: "MX", label: "Mail", note: "Routes replies and bounces" },
-];
+import dynamic from "next/dynamic";
 
+// The real sending-domain flow (input -> generate DNS records -> check -> verified) lives in
+// Settings and is self-contained (no props, no routing, no role gating). It is below the fold of
+// onboarding and pulls in React Query + the settings records table, so it is code-split and only
+// loads when the step is reached.
+const SenderVerificationCard = dynamic(
+  () =>
+    import("@/features/settings/components/account/sender-verification-card").then(
+      (m) => m.SenderVerificationCard
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="border-border bg-muted/30 h-40 animate-pulse rounded-xl border" />
+    ),
+  }
+);
+
+/**
+ * The sending domain. The real generate-and-verify card from Settings, dropped into the step so
+ * the records can be set up here and now. Nothing blocks: the records resolve on their own
+ * schedule and can be added whenever the account owner can reach their DNS, so Continue is a skip.
+ */
 export function StepDns({
   handingOver,
   handoffSent,
@@ -46,33 +45,18 @@ export function StepDns({
       <p className="text-muted-foreground mt-3">
         {handingOver
           ? handoffSent
-            ? "Six DNS records so email leaves as you. If you can reach your DNS you can add them from Settings now; if not, skip, they are in the steps your developer was just invited to."
-            : "Six DNS records so email leaves as you. If you can reach your DNS you can add them from Settings now; if not, skip and invite your developer from Settings later."
-          : "Six DNS records so email leaves as you rather than as us. You can generate and verify them from Settings whenever you can reach your DNS."}
+            ? `A few DNS records so email leaves as ${domain || "you"}. If you can reach your DNS you can add them now; if not, skip, they are in the steps your developer was just invited to.`
+            : `A few DNS records so email leaves as ${domain || "you"}. If you can reach your DNS you can add them now; if not, skip and invite your developer from Settings later.`
+          : `A few DNS records so email leaves as ${domain || "you"} rather than as us. Generate them now and add them whenever you can reach your DNS.`}
       </p>
 
-      <div className="mt-8 overflow-hidden rounded-xl border border-border">
-        <div className="bg-muted/40 text-muted-foreground border-b border-border px-4 py-2 text-xs font-medium">
-          For {domain || "your domain"}
-        </div>
-        <ul className="divide-y divide-border">
-          {RECORDS.map((r) => (
-            <li key={r.label} className="flex items-center gap-3 px-4 py-3">
-              <span className="text-muted-foreground w-14 shrink-0 font-mono text-xs">
-                {r.kind}
-              </span>
-              <span className="text-foreground w-28 shrink-0 text-sm font-medium">
-                {r.label}
-              </span>
-              <span className="text-muted-foreground text-sm">{r.note}</span>
-            </li>
-          ))}
-        </ul>
+      <div className="mt-8">
+        <SenderVerificationCard />
       </div>
 
       <p className="text-muted-foreground mt-4 text-sm">
-        Generate the exact values and verify them in Settings → Integrations →
-        Channels. You do not have to wait here.
+        You do not have to finish this here. Verification runs on its own, and
+        you can come back to it from Settings → Integrations → Channels.
       </p>
     </>
   );

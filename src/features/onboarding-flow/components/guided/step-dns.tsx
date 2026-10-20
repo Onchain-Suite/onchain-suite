@@ -27,9 +27,11 @@ const RECORDS = [
 
 export function StepDns({
   handingOver,
+  handoffSent,
   website,
 }: {
   handingOver: boolean;
+  handoffSent: boolean;
   website: string;
 }) {
   const domain = website
@@ -43,7 +45,9 @@ export function StepDns({
       </h1>
       <p className="text-muted-foreground mt-3">
         {handingOver
-          ? "Six DNS records so email leaves as you. If you can reach your DNS you can add them from Settings now; if not, skip, they go with the steps you send your developer."
+          ? handoffSent
+            ? "Six DNS records so email leaves as you. If you can reach your DNS you can add them from Settings now; if not, skip, they are in the steps your developer was just invited to."
+            : "Six DNS records so email leaves as you. If you can reach your DNS you can add them from Settings now; if not, skip and invite your developer from Settings later."
           : "Six DNS records so email leaves as you rather than as us. You can generate and verify them from Settings whenever you can reach your DNS."}
       </p>
 

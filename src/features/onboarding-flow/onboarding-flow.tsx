@@ -133,6 +133,9 @@ export function OnboardingFlow() {
     Date.now()
   );
   const [busy, setBusy] = React.useState(false);
+  // The developer invited from the technical step, so the DNS step can say the
+  // records travel with that invite.
+  const [handoffSentTo, setHandoffSentTo] = React.useState<string | null>(null);
 
   const flow = flowFor(role);
   const at: StepId = flow[Math.min(stepIndex, flow.length - 1)];
@@ -402,9 +405,19 @@ export function OnboardingFlow() {
           onEnter={handleContinue}
         />
       )}
-      {at === "technical" && <StepTechnical role={role} onRole={setRole} />}
+      {at === "technical" && (
+        <StepTechnical
+          role={role}
+          onRole={setRole}
+          onHandoffSent={setHandoffSentTo}
+        />
+      )}
       {at === "dns" && (
-        <StepDns handingOver={role === "operator"} website={profile.website} />
+        <StepDns
+          handingOver={role === "operator"}
+          handoffSent={Boolean(handoffSentTo)}
+          website={profile.website}
+        />
       )}
       {at === "contract" && (
         <StepContract

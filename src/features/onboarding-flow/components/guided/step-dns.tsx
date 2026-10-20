@@ -3,9 +3,10 @@
 import dynamic from "next/dynamic";
 
 // The real sending-domain flow (input -> generate DNS records -> check -> verified) lives in
-// Settings and is self-contained (no props, no routing, no role gating). It is below the fold of
-// onboarding and pulls in React Query + the settings records table, so it is code-split and only
-// loads when the step is reached.
+// Settings and is self-contained (no routing, no role gating). The "bare" variant drops the
+// Settings card chrome so it sits under this step's own heading, matching the zip's single-panel
+// layout. It is below the fold of onboarding and pulls in React Query + the records table, so it
+// is code-split and only loads when the step is reached.
 const SenderVerificationCard = dynamic(
   () =>
     import("@/features/settings/components/account/sender-verification-card").then(
@@ -51,7 +52,7 @@ export function StepDns({
       </p>
 
       <div className="mt-8">
-        <SenderVerificationCard />
+        <SenderVerificationCard variant="bare" defaultDomain={domain} />
       </div>
 
       <p className="text-muted-foreground mt-4 text-sm">

@@ -50,11 +50,24 @@ const DOMAINS_PER_PAGE = 5;
 const domainsKey = (orgId: string | null) =>
   ["account", "domains", orgId] as const;
 
-export function SenderVerificationCard() {
+export function SenderVerificationCard({
+  variant = "card",
+  defaultDomain = "",
+}: {
+  // "card" wraps the flow in the Settings card chrome (title + stepper). "bare"
+  // drops both so onboarding can drop the same backend-wired flow under its own
+  // step heading, matching the zip's single-panel layout.
+  variant?: "card" | "bare";
+  // Seeds the sending-domain input (onboarding suggests one from the project
+  // website); the user can still edit it before generating records.
+  defaultDomain?: string;
+}) {
   const { organizationId, orgHeaders } = useAccountOrg();
   const activeOrg = useOrgSwitcherContextOptional()?.activeOrg;
   const queryClient = useQueryClient();
-  const [domainInput, setDomainInput] = useState("");
+  const [domainInput, setDomainInput] = useState(() =>
+    defaultDomain ? cleanDomain(defaultDomain) : ""
+  );
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const domainsQuery = useQuery({
@@ -200,15 +213,17 @@ export function SenderVerificationCard() {
       ),
   });
 
-  return (
-    <SettingsCard
-      title="Sender verification"
-      description="Domains, DKIM and SPF for branded sending"
-    >
-      <SettingsStepper steps={STEPS} current={currentStep} />
+  const body = (
+    <>
+      {variant === "card" ? (
+        <SettingsStepper steps={STEPS} current={currentStep} />
+      ) : null}
 
       <form
-        className="mt-6 flex max-w-xl flex-wrap items-end gap-2"
+        className={cn(
+          "flex max-w-xl flex-wrap items-end gap-2",
+          variant === "card" ? "mt-6" : ""
+        )}
         onSubmit={(e) => {
           e.preventDefault();
           createMutation.mutate();
@@ -328,6 +343,16 @@ export function SenderVerificationCard() {
           <ListPager pagination={domainsPager} label="domains" />
         </div>
       ) : null}
+    </>
+  );
+
+  if (variant === "bare") return body;
+  return (
+    <SettingsCard
+      title="Sender verification"
+      description="Domains, DKIM and SPF for branded sending"
+    >
+      {body}
     </SettingsCard>
   );
 }

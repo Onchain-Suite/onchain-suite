@@ -5,22 +5,16 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { organizationOptions, web2Options } from "../../constants";
 import { profileReady, type ProjectProfile } from "../../constants/guided";
 import { classify } from "../../utils/contract-input";
+import {
+  KNOWN_SECTOR_LABELS,
+  sectorGroupOf,
+  WEB2_SECTOR_OPTIONS,
+  WEB3_SECTOR_OPTIONS,
+} from "../../utils/sector";
 
-// The Web3 list drops its own "Other" entry: the picker has a single free-text "Other" chip that
-// covers Web3 and Web2 alike (mirrors the original organization-setup step).
-const web3SectorOptions = organizationOptions.filter(
-  (o) => o.id !== "other-web3-innovator"
-);
-const WEB2_LABELS = new Set(web2Options.map((o) => o.label));
-const KNOWN_SECTOR_LABELS = new Set([
-  ...web3SectorOptions.map((o) => o.label),
-  ...WEB2_LABELS,
-]);
-
-type SectorGroup = "web3" | "web2";
+type SectorTab = "web3" | "web2";
 
 const chipClass = (on: boolean) =>
   `rounded-full border px-3 py-1.5 text-sm transition-colors ${
@@ -48,15 +42,15 @@ export function StepProject({
     Boolean(value.sector) && !KNOWN_SECTOR_LABELS.has(value.sector)
   );
   // Which tag group is on screen. Start on the side the saved sector belongs to.
-  const [group, setGroup] = useState<SectorGroup>(
-    WEB2_LABELS.has(value.sector) ? "web2" : "web3"
+  const [group, setGroup] = useState<SectorTab>(
+    sectorGroupOf(value.sector) === "web2" ? "web2" : "web3"
   );
 
   const set = (k: keyof ProjectProfile) => (e: { target: { value: string } }) =>
     onChange({ ...value, [k]: e.target.value });
 
   const guess = classify(value.contract);
-  const options = group === "web3" ? web3SectorOptions : web2Options;
+  const options = group === "web3" ? WEB3_SECTOR_OPTIONS : WEB2_SECTOR_OPTIONS;
 
   // Enter moves on from any single-line field once the required three are filled: a form with
   // several inputs and no visible submit button would otherwise do nothing on Enter.

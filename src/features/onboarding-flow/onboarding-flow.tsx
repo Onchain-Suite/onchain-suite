@@ -34,6 +34,7 @@ import {
 } from "./hooks";
 import { type SuggestedContract } from "./onboarding.service";
 import { type OnboardingData } from "./types";
+import { sectorGroupOf } from "./utils/sector";
 import { useOnboardingAbandonment } from "@/features/onboarding/hooks/use-onboarding-abandonment";
 import {
   FIRST_MILE_SECTOR_KEY,
@@ -253,9 +254,18 @@ export function OnboardingFlow() {
               organizationName: profile.name,
               websiteUrl: profile.website,
               sector: profile.sector,
+              sectorType: sectorGroupOf(profile.sector),
+              hasContractAddress: profile.contract.trim().length > 0,
             },
             flowVersion: FLOW_VERSION,
-            metadata: { completionPercentage: 50 },
+            // guidedStep + role give the richer funnel its granularity while the
+            // backend's step name stays one of its two known values.
+            metadata: {
+              completionPercentage: 50,
+              guidedStep: "project",
+              role,
+              sectorType: sectorGroupOf(profile.sector),
+            },
           }).catch(() => {});
         }
       }
@@ -263,16 +273,27 @@ export function OnboardingFlow() {
       return;
     }
 
-    // technical / dns / contract: nothing here blocks. Only the hop into the
-    // plan step is worth a track event (it is a real backend step).
+    // technical / dns / contract: nothing here blocks. Each hop is tracked (coarse
+    // step name, `guidedStep` for the real granularity) so drop-off per guided
+    // step is visible; entering the plan flips to the plan_selection step.
     const next = stepIndex + 1;
-    if (flow[next] === "plan" && user?.id) {
+    if (user?.id) {
+      const enteringPlan = flow[next] === "plan";
       trackStep({
-        stepName: "plan_selection",
-        action: "started",
-        timeSpentSeconds: 0,
-        currentStep: "plan_selection",
+        stepName: enteringPlan ? "plan_selection" : "organization_setup",
+        action: enteringPlan ? "started" : "completed",
+        timeSpentSeconds,
+        currentStep: enteringPlan ? "plan_selection" : "organization_setup",
         flowVersion: FLOW_VERSION,
+        metadata: {
+          guidedStep: at,
+          nextGuidedStep: flow[next],
+          role,
+          ...(at === "contract" ? { contractsPicked: picked.length } : {}),
+          ...(at === "technical"
+            ? { handoffInvited: Boolean(handoffSentTo) }
+            : {}),
+        },
       }).catch(() => {});
     }
     goToIndex(next);
@@ -287,6 +308,14 @@ export function OnboardingFlow() {
       ...formData,
       ...stepData,
       sector: profile.sector,
+      // Everything we collected, so the server has the full picture to analyse by:
+      // Web3 vs Web2, who set up the technical side, whether a developer was invited,
+      // whether a contract was given, and which plan was chosen.
+      sectorType: sectorGroupOf(profile.sector),
+      role,
+      handoffInvited: Boolean(handoffSentTo),
+      hasContractAddress: profile.contract.trim().length > 0,
+      flowVersion: FLOW_VERSION,
       ...(picked.length > 0 ? { contracts: picked } : {}),
     };
 
@@ -369,17 +398,19 @@ export function OnboardingFlow() {
     }
   }, [user?.id, progress, resume, flow.length, setData]);
 
-  // organization_setup starts when the project step is on screen.
+  // Each guided step logs a "started" event when it comes on screen. The backend step name stays
+  // one of its two known values (so resume + completion stay compatible), while `guidedStep` in
+  // the metadata carries the real per-step granularity the funnel needs.
   React.useEffect(() => {
     if (!user?.id) return;
-    if (at === "project") {
-      trackStep({
-        stepName: "organization_setup",
-        action: "started",
-        currentStep: "organization_setup",
-        flowVersion: FLOW_VERSION,
-      }).catch(() => {});
-    }
+    const coarse = at === "plan" ? "plan_selection" : "organization_setup";
+    trackStep({
+      stepName: coarse,
+      action: "started",
+      currentStep: coarse,
+      flowVersion: FLOW_VERSION,
+      metadata: { guidedStep: at },
+    }).catch(() => {});
   }, [user?.id, at, trackStep]);
 
   // The plan step owns the full-width pricing layout and its own Back/Continue

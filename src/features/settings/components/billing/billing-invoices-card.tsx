@@ -1,7 +1,11 @@
 "use client";
 
-import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowDownTrayIcon,
+  ArrowTopRightOnSquareIcon,
+} from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { isJsonObject } from "@/lib/utils";
 
@@ -38,7 +42,13 @@ const statusTone = (
   const s = status.toLowerCase();
   if (s === "paid") return "success";
   if (s === "open" || s === "due") return "pending";
-  if (s === "uncollectible" || s === "void" || s === "failed") return "danger";
+  if (
+    s === "overdue" ||
+    s === "uncollectible" ||
+    s === "void" ||
+    s === "failed"
+  )
+    return "danger";
   return "neutral";
 };
 
@@ -70,6 +80,24 @@ export function BillingInvoicesCard() {
 
   const invoices = toInvoiceArray(invoicesQuery.data);
   const pager = usePagination(invoices, INVOICES_PER_PAGE);
+
+  // Which row's receipt is currently being fetched, so its button can show a
+  // pending state and can't be double-clicked.
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownload = async (invoiceId: string) => {
+    if (downloadingId) return;
+    setDownloadingId(invoiceId);
+    try {
+      const { url } = await billingService.getInvoiceDownloadUrl(invoiceId);
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      // The signed URL couldn't be minted (expired session, storage blip). The
+      // row stays put; the user can retry.
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <SettingsCard
@@ -117,7 +145,7 @@ export function BillingInvoicesCard() {
                 const date = isPaid ? invoice.paidAt : invoice.dueAt;
                 return (
                   <tr
-                    key={invoice.number || `invoice-${index}`}
+                    key={invoice.id || invoice.number || `invoice-${index}`}
                     className="border-b border-border/50 last:border-0"
                   >
                     <td className="py-3 pr-4">
@@ -158,6 +186,21 @@ export function BillingInvoicesCard() {
                               className="ml-1.5 size-3.5"
                             />
                           </a>
+                        </Button>
+                      ) : isPaid && invoice.canDownload !== false ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={downloadingId === invoice.id}
+                          onClick={() => handleDownload(invoice.id)}
+                        >
+                          {downloadingId === invoice.id
+                            ? "Preparing…"
+                            : "Receipt"}
+                          <ArrowDownTrayIcon
+                            aria-hidden="true"
+                            className="ml-1.5 size-3.5"
+                          />
                         </Button>
                       ) : null}
                     </td>

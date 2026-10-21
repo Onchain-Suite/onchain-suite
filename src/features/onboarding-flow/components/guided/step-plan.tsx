@@ -229,10 +229,32 @@ export function StepPlan({
             />
             <p className="text-muted-foreground mt-2 text-xs">
               {selection === "send"
-                ? `${headline}/mo · email only, priced per subscriber.`
+                ? "Email only, priced per subscriber."
                 : "A contact is one wallet, email address or X handle."}
             </p>
           </div>
+
+          {/* Send: a prominent price, so the monthly cost is unmissable. */}
+          {selection === "send" ? (
+            <div className="border-primary/30 bg-primary/5 mt-4 flex items-end justify-between rounded-xl border p-4">
+              <div>
+                <span className="text-muted-foreground block text-xs font-medium">
+                  Your Send plan
+                </span>
+                <span className="text-muted-foreground mt-0.5 block text-sm">
+                  {subscribers.toLocaleString()} subscribers · email only
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-foreground text-3xl font-bold tabular-nums">
+                  {headline}
+                </span>
+                <span className="text-muted-foreground text-sm font-medium">
+                  /mo
+                </span>
+              </div>
+            </div>
+          ) : null}
 
           {/* Suite: the tier rows, priced from the real anchors; resolved tier highlighted. */}
           {selection === "suite" ? (

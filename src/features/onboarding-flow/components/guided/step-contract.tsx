@@ -3,12 +3,13 @@
 import {
   ArrowLeftIcon,
   CheckBadgeIcon,
+  ChevronDownIcon,
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,8 +48,38 @@ const EMPTY_MANUAL: ManualContractDraft = {
   type: "erc20",
 };
 
-const selectClass =
-  "border-input bg-background ring-offset-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none";
+/** A select styled to match the inputs, with its own chevron (native arrow hidden). */
+function StyledSelect({
+  id,
+  value,
+  onChange,
+  children,
+  "aria-label": ariaLabel,
+}: {
+  id?: string;
+  value: string;
+  onChange: (v: string) => void;
+  children: ReactNode;
+  "aria-label"?: string;
+}) {
+  return (
+    <div className="relative">
+      <select
+        id={id}
+        value={value}
+        aria-label={ariaLabel}
+        onChange={(e) => onChange(e.target.value)}
+        className="border-input bg-background ring-offset-background focus-visible:border-primary focus-visible:ring-ring h-10 w-full appearance-none rounded-md border px-3 pr-9 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+      >
+        {children}
+      </select>
+      <ChevronDownIcon
+        aria-hidden="true"
+        className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2"
+      />
+    </div>
+  );
+}
 
 /** Order the chain list with the project's chosen chains first. */
 function useChainOptions(chains: string[]) {
@@ -202,9 +233,10 @@ function AddressEntry({
       </p>
 
       <div className="mt-8 space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="ob-address">Contract address</Label>
-          <div className="flex items-start gap-2">
+        {/* Address (3/4) + chain (1/4) on one line. */}
+        <div className="flex items-end gap-3">
+          <div className="flex-[3] space-y-2">
+            <Label htmlFor="ob-address">Contract address</Label>
             <Input
               id="ob-address"
               autoComplete="off"
@@ -212,43 +244,40 @@ function AddressEntry({
               value={value}
               onChange={(e) => onChange(e.target.value)}
               placeholder="0x…"
-              className="flex-1 font-mono"
+              className="font-mono"
               aria-invalid={invalid}
               aria-describedby={invalid ? "ob-address-err" : undefined}
             />
-            <Button
-              type="button"
-              onClick={() => resolveQuery.refetch()}
-              disabled={!address}
-            >
-              <MagnifyingGlassIcon
-                aria-hidden="true"
-                className="mr-1.5 h-4 w-4"
-              />
-              Look it up
-            </Button>
           </div>
-          {invalid ? (
-            <p id="ob-address-err" className="text-destructive text-xs">
-              Enter a valid address (0x followed by 40 hex characters).
-            </p>
-          ) : null}
+          <div className="flex-1 space-y-2">
+            <Label htmlFor="ob-chain">Chain</Label>
+            <StyledSelect id="ob-chain" value={chain} onChange={onChain}>
+              {chainOptions.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
+              ))}
+            </StyledSelect>
+          </div>
         </div>
+        {invalid ? (
+          <p id="ob-address-err" className="text-destructive text-xs">
+            Enter a valid address (0x followed by 40 hex characters).
+          </p>
+        ) : null}
 
-        <div className="space-y-2">
-          <Label htmlFor="ob-chain">Chain</Label>
-          <select
-            id="ob-chain"
-            value={chain}
-            onChange={(e) => onChain(e.target.value)}
-            className={selectClass}
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            onClick={() => resolveQuery.refetch()}
+            disabled={!address}
           >
-            {chainOptions.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+            <MagnifyingGlassIcon
+              aria-hidden="true"
+              className="mr-1.5 h-4 w-4"
+            />
+            Look it up
+          </Button>
         </div>
 
         {/* Live resolution of the address on the chosen chain. */}
@@ -359,33 +388,31 @@ function ManualEntry({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label htmlFor="ob-m-chain">Chain</Label>
-            <select
+            <StyledSelect
               id="ob-m-chain"
               value={draft.chain || (chainOptions[0]?.key ?? DEFAULT_CHAIN)}
-              onChange={(e) => set({ chain: e.target.value })}
-              className={selectClass}
+              onChange={(c) => set({ chain: c })}
             >
               {chainOptions.map((c) => (
                 <option key={c.key} value={c.key}>
                   {c.label}
                 </option>
               ))}
-            </select>
+            </StyledSelect>
           </div>
           <div className="space-y-2">
             <Label htmlFor="ob-m-type">Type</Label>
-            <select
+            <StyledSelect
               id="ob-m-type"
               value={draft.type}
-              onChange={(e) => set({ type: e.target.value })}
-              className={selectClass}
+              onChange={(t) => set({ type: t })}
             >
               {CONTRACT_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>
               ))}
-            </select>
+            </StyledSelect>
           </div>
         </div>
 

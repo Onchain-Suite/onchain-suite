@@ -49,14 +49,14 @@ export function SceneContract() {
               Verified on Base
             </span>
           </div>
-          <span className="flex items-center gap-1">
+          <span className="flex items-center -space-x-1.5">
             {CHAINS.map((c) => (
-              <span
+              <ChainLogo
                 key={c}
-                className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-white"
-              >
-                <ChainLogo chain={c} size={14} />
-              </span>
+                chain={c}
+                size={22}
+                className="ring-card rounded-full ring-2"
+              />
             ))}
           </span>
         </div>

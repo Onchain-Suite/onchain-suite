@@ -161,6 +161,7 @@ import {
 import { resolveContractCatalog } from "@/features/automation/utils/contracts";
 import { canRunLendingHealthFactorNow } from "@/features/automation/utils/run-now";
 import { campaignsService } from "@/features/campaigns/campaigns.service";
+import { useFormsList } from "@/features/forms/hooks/use-forms";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
@@ -264,6 +265,7 @@ const OFFCHAIN_CAMPAIGN_TRIGGER_TYPES = new Set([
   "email_clicked",
   "campaign_completed",
 ]);
+const OFFCHAIN_FORM_TRIGGER_TYPES = new Set(["form_submitted"]);
 
 const nodeTypes = {
   // Renderer keys used by the drag-and-drop builder.
@@ -323,6 +325,10 @@ const NODE_PANEL_LABELS: Record<string, string> = {
   branch: "Branch",
   tag: "Add tag",
   add_tag: "Add tag",
+  remove_tag: "Remove tag",
+  list: "Add to list",
+  add_to_list: "Add to list",
+  remove_from_list: "Remove from list",
   webhook: "Webhook",
   dispatch: "Dispatch campaign",
   dispatch_campaign: "Dispatch campaign",
@@ -347,7 +353,9 @@ const ACTION_NODE_RENDERER: Record<string, string> = {
   send_inapp: "inapp",
   dispatch_campaign: "dispatch",
   add_tag: "tag",
+  remove_tag: "tag",
   add_to_list: "list",
+  remove_from_list: "list",
   webhook: "webhook",
   wait: "wait",
   branch: "branch",
@@ -936,6 +944,18 @@ const CreateAutomationContent = () => {
     [segmentsQuery.data]
   );
 
+  // Org capture forms for the "Form submitted" trigger picker. Shares the
+  // forms-list cache (FORMS_KEY) with the forms feature.
+  const formsQuery = useFormsList();
+  const formOptions = useMemo<PropertySelectOption[]>(
+    () =>
+      (formsQuery.data ?? []).map((f) => ({
+        value: f.id,
+        label: f.name || f.id,
+      })),
+    [formsQuery.data]
+  );
+
   const tagsQuery = useQuery({
     queryKey: ["automations", "builder", "tags"],
     queryFn: () => audienceService.listTags(),
@@ -1481,6 +1501,15 @@ const CreateAutomationContent = () => {
   const selectedIsTag = isSelectedRenderer("tag");
   const selectedIsList = isSelectedRenderer("list");
   const selectedIsWait = isSelectedRenderer("wait");
+  // The Tag/List panels are shared by the add and remove actions (both route to
+  // the "tag"/"list" renderer). The canonical actionType is what distinguishes
+  // them, so copy that says "add"/"create" is suppressed for the remove case.
+  const selectedCanonicalActionType =
+    asString(selectedNodeData.actionType) ||
+    asString(selectedNodeData.nodeType);
+  const selectedIsRemoveTag = selectedCanonicalActionType === "remove_tag";
+  const selectedIsRemoveFromList =
+    selectedCanonicalActionType === "remove_from_list";
   // Action nodes have their own dedicated config panels above, so the generic
   // schema "Configuration" dump is redundant noise for them - hide it. It stays
   // for off-chain triggers (segment/form) where it is still the only config.
@@ -1536,7 +1565,7 @@ const CreateAutomationContent = () => {
   // Off-chain triggers that are really "which <resource>?": we give them a
   // real dropdown (list / tag / campaign) instead of the generic schema's
   // free-text field, and suppress the generic block for them.
-  const selectedTriggerResource: "list" | "tag" | "campaign" | null =
+  const selectedTriggerResource: "list" | "tag" | "campaign" | "form" | null =
     selectedIsTrigger &&
     !selectedTriggerIsOnchain &&
     !selectedIsDefiHealthTrigger
@@ -1546,7 +1575,9 @@ const CreateAutomationContent = () => {
           ? "tag"
           : OFFCHAIN_CAMPAIGN_TRIGGER_TYPES.has(selectedNodeSchemaType)
             ? "campaign"
-            : null
+            : OFFCHAIN_FORM_TRIGGER_TYPES.has(selectedNodeSchemaType)
+              ? "form"
+              : null
       : null;
   const selectedNodeSchemaQuery = useQuery({
     queryKey: [
@@ -3417,7 +3448,13 @@ const CreateAutomationContent = () => {
                         </span>
                         <div>
                           <h3 className="font-semibold leading-tight tracking-tight text-foreground">
-                            {nodePanelLabel(selectedNodeDetails?.type)}
+                            {nodePanelLabel(
+                              selectedIsTrigger
+                                ? selectedNodeDetails?.type
+                                : asString(selectedNodeData.actionType) ||
+                                    asString(selectedNodeData.nodeType) ||
+                                    selectedNodeDetails?.type
+                            )}
                           </h3>
                           <p className="text-[11px] text-muted-foreground">
                             Step settings
@@ -3602,6 +3639,41 @@ const CreateAutomationContent = () => {
                               />
                               <p className={PROPERTY_HINT_CLASS}>
                                 Fires on this campaign&apos;s email activity.
+                              </p>
+                            </div>
+                          )}
+                          {selectedTriggerResource === "form" && (
+                            <div className="space-y-2">
+                              <label className={PROPERTY_LABEL_CLASS}>
+                                Form
+                              </label>
+                              <PropertySelect
+                                value={asString(selectedNodeData.formId)}
+                                options={ensureOption(
+                                  formOptions,
+                                  asString(selectedNodeData.formId),
+                                  asString(selectedNodeData.formName) ||
+                                    undefined
+                                )}
+                                onChange={(next) => {
+                                  const picked = formOptions.find(
+                                    (o) => o.value === next
+                                  );
+                                  updateSelectedNodeData({
+                                    formId: next,
+                                    formName: picked?.label ?? next,
+                                  });
+                                }}
+                                placeholder={
+                                  formsQuery.isLoading
+                                    ? "Loading forms…"
+                                    : formOptions.length === 0
+                                      ? "No forms yet"
+                                      : "Select a form"
+                                }
+                              />
+                              <p className={PROPERTY_HINT_CLASS}>
+                                Fires when a contact completes this form.
                               </p>
                             </div>
                           )}
@@ -3938,21 +4010,26 @@ const CreateAutomationContent = () => {
                             placeholder={
                               tagsQuery.isLoading
                                 ? "Loading tags…"
-                                : "Add a tag"
+                                : selectedIsRemoveTag
+                                  ? "Remove a tag"
+                                  : "Add a tag"
                             }
                           />
-                          <InlineCreate
-                            value={newTagName}
-                            onChange={setNewTagName}
-                            onSubmit={() =>
-                              createTagMutation.mutate(newTagName.trim())
-                            }
-                            pending={createTagMutation.isPending}
-                            placeholder="Or create a new tag"
-                          />
+                          {!selectedIsRemoveTag && (
+                            <InlineCreate
+                              value={newTagName}
+                              onChange={setNewTagName}
+                              onSubmit={() =>
+                                createTagMutation.mutate(newTagName.trim())
+                              }
+                              pending={createTagMutation.isPending}
+                              placeholder="Or create a new tag"
+                            />
+                          )}
                           <p className={PROPERTY_HINT_CLASS}>
-                            Tags to apply to the contact. Pick an existing tag
-                            or create a new one.
+                            {selectedIsRemoveTag
+                              ? "Tags to remove from the contact."
+                              : "Tags to apply to the contact. Pick an existing tag or create a new one."}
                           </p>
                         </div>
                       )}
@@ -3986,18 +4063,21 @@ const CreateAutomationContent = () => {
                                 : "Select a list"
                             }
                           />
-                          <InlineCreate
-                            value={newListName}
-                            onChange={setNewListName}
-                            onSubmit={() =>
-                              createListMutation.mutate(newListName.trim())
-                            }
-                            pending={createListMutation.isPending}
-                            placeholder="Or create a new list"
-                          />
+                          {!selectedIsRemoveFromList && (
+                            <InlineCreate
+                              value={newListName}
+                              onChange={setNewListName}
+                              onSubmit={() =>
+                                createListMutation.mutate(newListName.trim())
+                              }
+                              pending={createListMutation.isPending}
+                              placeholder="Or create a new list"
+                            />
+                          )}
                           <p className={PROPERTY_HINT_CLASS}>
-                            The contact will be added to this list. Pick an
-                            existing list or create a new one.
+                            {selectedIsRemoveFromList
+                              ? "The contact will be removed from this list."
+                              : "The contact will be added to this list. Pick an existing list or create a new one."}
                           </p>
                         </div>
                       )}

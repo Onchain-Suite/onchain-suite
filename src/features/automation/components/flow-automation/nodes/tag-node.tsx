@@ -8,8 +8,12 @@ interface TagNodeProps {
   selected: boolean;
 }
 
-/** Audience action node that tags the matched profile (`add_tag`). */
+/** Audience action node that tags (`add_tag`) or untags (`remove_tag`) the
+ *  matched profile. Both share this renderer; the eyebrow reflects which. */
 export const TagNode = ({ data, selected }: TagNodeProps) => {
+  const isRemove =
+    data.actionType === "remove_tag" || data.nodeType === "remove_tag";
+  const eyebrow = isRemove ? "Remove Tag" : "Add Tag";
   const tags =
     Array.isArray(data.tags) && data.tags.length > 0
       ? data.tags
@@ -51,7 +55,7 @@ export const TagNode = ({ data, selected }: TagNodeProps) => {
         </div>
         <div className="flex-1">
           <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            Add Tag
+            {eyebrow}
           </p>
           <p className="text-sm font-semibold tracking-tight text-foreground">
             {data.label}

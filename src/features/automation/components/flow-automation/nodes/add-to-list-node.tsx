@@ -8,8 +8,14 @@ interface AddToListNodeProps {
   selected: boolean;
 }
 
-/** Audience action node that adds the matched contact to a list (`add_to_list`). */
+/** Audience action node that adds (`add_to_list`) or removes
+ *  (`remove_from_list`) the matched contact from a list. Both share this
+ *  renderer; the eyebrow reflects which. */
 export const AddToListNode = ({ data, selected }: AddToListNodeProps) => {
+  const isRemove =
+    data.actionType === "remove_from_list" ||
+    data.nodeType === "remove_from_list";
+  const eyebrow = isRemove ? "Remove from List" : "Add to List";
   const listName =
     typeof data.listName === "string" && data.listName.length > 0
       ? data.listName
@@ -53,7 +59,7 @@ export const AddToListNode = ({ data, selected }: AddToListNodeProps) => {
         </div>
         <div className="flex-1">
           <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            Add to List
+            {eyebrow}
           </p>
           <p className="text-sm font-semibold tracking-tight text-foreground">
             {data.label}

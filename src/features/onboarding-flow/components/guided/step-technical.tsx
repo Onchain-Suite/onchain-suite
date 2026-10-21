@@ -190,16 +190,17 @@ function Delegate({ onSent }: { onSent: (email: string) => void }) {
 }
 
 /**
- * The canonical app origin for a link shared outside this session: the invited developer clicks it
- * in production, not on whatever host the owner happened to generate it from, so it must never be
- * the owner's localhost. Prefer an explicit prod `NEXT_PUBLIC_APP_URL`, fall back to the app's
- * production domain.
+ * The app origin for a link shared outside this session: the invited developer clicks it in
+ * production, not on whatever host the owner generated it from. Built from `NEXT_PUBLIC_APP_URL`
+ * (set to the real origin in every deployed env), falling back only to the current origin.
  */
-const APP_ORIGIN = (() => {
-  const env = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (env && !/localhost|127\.0\.0\.1/.test(env)) return env.replace(/\/$/, "");
-  return "https://app.onchainsuite.com";
-})();
+const ENV_ORIGIN = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "");
+const APP_ORIGIN =
+  ENV_ORIGIN && ENV_ORIGIN.length > 0
+    ? ENV_ORIGIN
+    : typeof window !== "undefined"
+      ? window.location.origin
+      : "";
 const HANDOFF_LINK = `${APP_ORIGIN}${AUTH_ROUTES.ONBOARDING}?mode=${HANDOFF_MODE}`;
 
 /**

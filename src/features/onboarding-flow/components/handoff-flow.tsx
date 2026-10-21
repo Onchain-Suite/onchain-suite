@@ -14,13 +14,9 @@ import {
   type ManualContractDraft,
   type OnboardingContract,
 } from "../constants/guided";
-import { chainByKey, DEFAULT_CHAIN } from "../data/chains";
-import {
-  onboardingService,
-  type SuggestedContract,
-} from "../onboarding.service";
+import { DEFAULT_CHAIN } from "../data/chains";
+import { onboardingService } from "../onboarding.service";
 import { GuidedShell, StepContract, StepDns } from "./guided";
-import { useOrgSwitcherContextOptional } from "@/features/common/layout/components/org-switcher-context";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 /**
@@ -38,7 +34,6 @@ import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 export function HandoffFlow() {
   const { push } = useRouter();
   const { data: session } = useSession();
-  const activeOrg = useOrgSwitcherContextOptional()?.activeOrg;
 
   const orgId =
     getSelectedOrganizationId() ??
@@ -47,25 +42,13 @@ export function HandoffFlow() {
 
   const [idx, setIdx] = useState(0);
   const [contract, setContract] = useState("");
-  const [picked, setPicked] = useState<SuggestedContract[]>([]);
   const [resolvedChain, setResolvedChain] = useState<string | null>(null);
   const [manual, setManual] = useState<ManualContractDraft | null>(null);
   const [busy, setBusy] = useState(false);
 
   const at = HANDOFF_FLOW[Math.min(idx, HANDOFF_FLOW.length - 1)];
 
-  const pickedKey = (c: SuggestedContract) =>
-    `${c.name}::${c.chainHint}::${c.address ?? ""}`;
-  const acceptContract = useCallback((c: SuggestedContract) => {
-    setPicked((prev) =>
-      prev.some((x) => pickedKey(x) === pickedKey(c)) ? prev : [...prev, c]
-    );
-  }, []);
-  const removeContract = useCallback((c: SuggestedContract) => {
-    setPicked((prev) => prev.filter((x) => pickedKey(x) !== pickedKey(c)));
-  }, []);
-
-  // What the indexer is pointed at: the contract pasted here plus any accepted suggestions.
+  // What the indexer is pointed at: the by-hand contract if given, else the pasted address.
   const allContracts: OnboardingContract[] = useMemo(() => {
     const manualAddr = manual?.address.trim() ?? "";
     const typed = contract.trim();
@@ -74,22 +57,14 @@ export function HandoffFlow() {
         (c): c is string => typeof c === "string" && c.trim().length > 0
       ) ?? DEFAULT_CHAIN;
     const manualName = manual?.name.trim() ? manual.name.trim() : undefined;
-    const primary: OnboardingContract[] = manualAddr
-      ? [{ address: manualAddr, chain: manualChain, name: manualName }]
-      : typed
-        ? [{ address: typed, chain: resolvedChain ?? DEFAULT_CHAIN }]
-        : [];
-    return [
-      ...primary,
-      ...picked
-        .filter((p) => p.address)
-        .map((p) => ({
-          address: p.address as string,
-          chain: chainByKey(p.chainHint)?.key ?? DEFAULT_CHAIN,
-          name: p.name,
-        })),
-    ];
-  }, [contract, picked, resolvedChain, manual]);
+    if (manualAddr) {
+      return [{ address: manualAddr, chain: manualChain, name: manualName }];
+    }
+    if (typed) {
+      return [{ address: typed, chain: resolvedChain ?? DEFAULT_CHAIN }];
+    }
+    return [];
+  }, [contract, resolvedChain, manual]);
 
   const finish = useCallback(async () => {
     if (busy) return;
@@ -171,15 +146,10 @@ export function HandoffFlow() {
         <StepContract
           value={contract}
           onChange={setContract}
-          picked={picked}
-          onAcceptSuggestion={acceptContract}
-          onRemoveSuggestion={removeContract}
           chain={resolvedChain ?? DEFAULT_CHAIN}
           onChain={setResolvedChain}
           manual={manual}
           onManual={setManual}
-          projectName={activeOrg?.name ?? ""}
-          sector=""
           chains={[]}
         />
       )}

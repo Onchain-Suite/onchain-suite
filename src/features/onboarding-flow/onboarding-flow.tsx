@@ -29,17 +29,14 @@ import {
   type Role,
   type StepId,
 } from "./constants/guided";
-import { chainByKey, DEFAULT_CHAIN } from "./data/chains";
+import { DEFAULT_CHAIN } from "./data/chains";
 import {
   resolveResumeFlowStep,
   useCreateOrganization,
   useOnboardingPersistence,
   useOnboardingTracking,
 } from "./hooks";
-import {
-  onboardingService,
-  type SuggestedContract,
-} from "./onboarding.service";
+import { onboardingService } from "./onboarding.service";
 import { type OnboardingData } from "./types";
 import { sectorGroupOf } from "./utils/sector";
 import { useOnboardingAbandonment } from "@/features/onboarding/hooks/use-onboarding-abandonment";
@@ -151,68 +148,42 @@ export function OnboardingFlow() {
   // The developer invited from the technical step, so the DNS step can say the
   // records travel with that invite.
   const [handoffSentTo, setHandoffSentTo] = React.useState<string | null>(null);
-  // Contracts accepted from the suggestion panel on the contract step.
-  const [picked, setPicked] = React.useState<SuggestedContract[]>([]);
   // The chain a pasted address actually resolved on (from the real on-chain
-  // resolver), so indexing uses it instead of a step-1 guess.
+  // resolver) or the chain the user picked, so indexing uses it.
   const [resolvedChain, setResolvedChain] = React.useState<string | null>(null);
   // A contract entered by hand on step 4 (the fallback when auto-find misses).
   const [manual, setManual] = React.useState<ManualContractDraft | null>(null);
 
-  const pickedKey = (c: SuggestedContract) =>
-    `${c.name}::${c.chainHint}::${c.address ?? ""}`;
-  const acceptContract = React.useCallback((c: SuggestedContract) => {
-    setPicked((prev) =>
-      prev.some((x) => pickedKey(x) === pickedKey(c)) ? prev : [...prev, c]
-    );
-  }, []);
-  const removeContract = React.useCallback((c: SuggestedContract) => {
-    setPicked((prev) => prev.filter((x) => pickedKey(x) !== pickedKey(c)));
-  }, []);
   // Handing the technical setup over drops the contract step, so anything added
   // before switching must not linger into completion.
   const chooseRole = React.useCallback((r: Role) => {
     setRole(r);
-    if (r === "operator") {
-      setPicked([]);
-      setManual(null);
-    }
+    if (r === "operator") setManual(null);
   }, []);
 
-  // The full list the backend indexes: the contract pasted into the resolver box
-  // on the contract step (if any) plus the suggestions accepted there, each
-  // mapped to a chain.
+  // The one contract the backend indexes: the by-hand one if given, otherwise
+  // the address pasted on the contract step, on the resolver's/chosen chain.
   const allContracts: OnboardingContract[] = React.useMemo(() => {
     const manualAddr = manual?.address.trim() ?? "";
     const typedAddr = profile.contract.trim();
-    // A by-hand contract takes over the primary slot; otherwise the pasted one,
-    // on the resolver's real chain when we have it, else a step-1 guess.
     const manualChain =
       [manual?.chain, resolvedChain, profile.chains[0]].find(
         (c): c is string => typeof c === "string" && c.trim().length > 0
       ) ?? DEFAULT_CHAIN;
     const manualName = manual?.name.trim() ? manual.name.trim() : undefined;
-    const primary: OnboardingContract[] = manualAddr
-      ? [{ address: manualAddr, chain: manualChain, name: manualName }]
-      : typedAddr
-        ? [
-            {
-              address: typedAddr,
-              chain: resolvedChain ?? profile.chains[0] ?? DEFAULT_CHAIN,
-            },
-          ]
-        : [];
-    return [
-      ...primary,
-      ...picked
-        .filter((p) => p.address)
-        .map((p) => ({
-          address: p.address as string,
-          chain: chainByKey(p.chainHint)?.key ?? DEFAULT_CHAIN,
-          name: p.name,
-        })),
-    ];
-  }, [profile.contract, profile.chains, picked, resolvedChain, manual]);
+    if (manualAddr) {
+      return [{ address: manualAddr, chain: manualChain, name: manualName }];
+    }
+    if (typedAddr) {
+      return [
+        {
+          address: typedAddr,
+          chain: resolvedChain ?? profile.chains[0] ?? DEFAULT_CHAIN,
+        },
+      ];
+    }
+    return [];
+  }, [profile.contract, profile.chains, resolvedChain, manual]);
 
   const at: StepId = flow[Math.min(stepIndex, flow.length - 1)];
 
@@ -548,13 +519,8 @@ export function OnboardingFlow() {
           onChange={(v) => setProfile((p) => ({ ...p, contract: v }))}
           chain={resolvedChain ?? profile.chains[0] ?? DEFAULT_CHAIN}
           onChain={setResolvedChain}
-          picked={picked}
-          onAcceptSuggestion={acceptContract}
-          onRemoveSuggestion={removeContract}
           manual={manual}
           onManual={setManual}
-          projectName={profile.name}
-          sector={profile.sector}
           chains={profile.chains}
         />
       )}

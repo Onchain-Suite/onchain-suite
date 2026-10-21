@@ -20,9 +20,7 @@ import { DEFAULT_CHAIN, SUPPORTED_CHAINS } from "../../data/chains";
 import {
   onboardingService,
   type ResolvedContractFound,
-  type SuggestedContract,
 } from "../../onboarding.service";
-import { ContractSuggestionsPanel } from "../contract-suggestions";
 
 const EVM_ADDRESS_RE = /^0x[0-9a-f]{40}$/i;
 
@@ -113,13 +111,8 @@ export function StepContract({
   onChange,
   chain,
   onChain,
-  picked,
-  onAcceptSuggestion,
-  onRemoveSuggestion,
   manual,
   onManual,
-  projectName,
-  sector,
   chains,
 }: {
   value: string;
@@ -127,14 +120,9 @@ export function StepContract({
   /** The chain to read the address on (backend key), chosen by the user. */
   chain: string;
   onChain: (c: string) => void;
-  picked: SuggestedContract[];
-  onAcceptSuggestion: (c: SuggestedContract) => void;
-  onRemoveSuggestion: (c: SuggestedContract) => void;
   /** The by-hand contract (orchestrator-owned so it survives step navigation). */
   manual: ManualContractDraft | null;
   onManual: (m: ManualContractDraft | null) => void;
-  projectName: string;
-  sector: string;
   chains: string[];
 }) {
   const [byHand, setByHand] = useState(manual !== null);
@@ -159,11 +147,6 @@ export function StepContract({
       onChange={onChange}
       chain={chain}
       onChain={onChain}
-      picked={picked}
-      onAcceptSuggestion={onAcceptSuggestion}
-      onRemoveSuggestion={onRemoveSuggestion}
-      projectName={projectName}
-      sector={sector}
       chains={chains}
       onEnterByHand={() => {
         onManual({
@@ -183,11 +166,6 @@ function AddressEntry({
   onChange,
   chain,
   onChain,
-  picked,
-  onAcceptSuggestion,
-  onRemoveSuggestion,
-  projectName,
-  sector,
   chains,
   onEnterByHand,
 }: {
@@ -195,11 +173,6 @@ function AddressEntry({
   onChange: (v: string) => void;
   chain: string;
   onChain: (c: string) => void;
-  picked: SuggestedContract[];
-  onAcceptSuggestion: (c: SuggestedContract) => void;
-  onRemoveSuggestion: (c: SuggestedContract) => void;
-  projectName: string;
-  sector: string;
   chains: string[];
   onEnterByHand: () => void;
 }) {
@@ -311,18 +284,6 @@ function AddressEntry({
             </span>
           </span>
         </button>
-      </div>
-
-      {/* Suggestions from the project name + chains, when there are any. */}
-      <div className="mt-6">
-        <ContractSuggestionsPanel
-          protocolName={projectName}
-          sector={sector}
-          chains={chains}
-          accepted={picked}
-          onAccept={onAcceptSuggestion}
-          onRemove={onRemoveSuggestion}
-        />
       </div>
     </>
   );

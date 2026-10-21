@@ -1641,8 +1641,7 @@ const CreateAutomationContent = () => {
 
   const [newListName, setNewListName] = useState("");
   const createListMutation = useMutation({
-    mutationFn: (name: string) =>
-      audienceService.createSegment({ name, type: "static" }),
+    mutationFn: (name: string) => audienceService.createSegment({ name }),
     onSuccess: async (created) => {
       await queryClient.invalidateQueries({
         queryKey: ["automations", "builder", "segments"],

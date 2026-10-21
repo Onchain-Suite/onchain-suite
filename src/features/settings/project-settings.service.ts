@@ -42,6 +42,10 @@ export interface ProjectSettingsFormData {
   contractAddresses: ProjectSettingsAddressRow[];
   treasuryWallets: ProjectSettingsAddressRow[];
   teamWallets: ProjectSettingsAddressRow[];
+  /** Reveal (decrypt) contact emails in the dashboard. UI visibility only.
+   *  Optional so the big settings form needn't set it; the dedicated toggle
+   *  (and a merged partial PUT) owns it. */
+  revealContactEmails?: boolean;
 }
 
 const DEFAULT_PROJECT_SETTINGS: ProjectSettingsFormData = {
@@ -56,6 +60,7 @@ const DEFAULT_PROJECT_SETTINGS: ProjectSettingsFormData = {
   contractAddresses: [],
   treasuryWallets: [],
   teamWallets: [],
+  revealContactEmails: false,
 };
 
 const unwrapData = (payload: unknown): unknown => {
@@ -172,6 +177,7 @@ const normalizeLegacyOrganization = (
     teamWallets: normalizeAddressRows(
       projectMeta.teamWallets ?? projectMeta.deployerWallets
     ),
+    revealContactEmails: settings.revealContactEmails === true,
   };
 };
 
@@ -204,6 +210,7 @@ export const normalizeProjectSettings = (
     contractAddresses,
     treasuryWallets,
     teamWallets,
+    revealContactEmails: root.revealContactEmails === true,
   };
 };
 
@@ -369,5 +376,18 @@ export const projectSettingsService = {
         }
       );
     }
+  },
+
+  /**
+   * Flip just the "reveal contact emails" flag. The backend merges project
+   * settings, so a partial PUT leaves every other field untouched.
+   */
+  async setRevealContactEmails(value: boolean, organizationId?: string) {
+    const response = await apiClient.put(
+      "/organization/project-settings",
+      { revealContactEmails: value },
+      { headers: getHeaders(organizationId) }
+    );
+    return normalizeProjectSettings(response.data);
   },
 };

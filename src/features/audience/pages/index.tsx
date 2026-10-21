@@ -55,13 +55,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { cn, isJsonObject } from "@/lib/utils";
@@ -202,17 +195,13 @@ function ReachTile({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Read a list's display metadata. `type`/`source`/`reachableVia` aren't in the
- * segments API yet (see docs/audience-backend-needs.md §2), so this reads them
- * when present and falls back to sensible defaults.
+ * Read a list's display metadata (`source`/`reachableVia`), falling back to
+ * sensible defaults. A list has no static/growing type — a list is just a list.
  */
 function listMeta(seg: AudienceSegment): {
-  type: "growing" | "static";
   source: string;
   reachable: string[];
 } {
-  const type: "growing" | "static" =
-    seg.type === "static" ? "static" : "growing";
   const sourceObj = isJsonObject(seg.source) ? seg.source : null;
   const source =
     typeof seg.source === "string" && seg.source.trim().length > 0
@@ -223,7 +212,7 @@ function listMeta(seg: AudienceSegment): {
   const reachable: string[] = Array.isArray(seg.reachableVia)
     ? [...seg.reachableVia]
     : ["email"];
-  return { type, source, reachable };
+  return { source, reachable };
 }
 
 export function AudiencePages() {
@@ -278,7 +267,6 @@ export function AudiencePages() {
   // Inline "New list" form (no modal, per convention).
   const [creatingList, setCreatingList] = useState(false);
   const [listName, setListName] = useState("");
-  const [listType, setListType] = useState<"growing" | "static">("growing");
   const [creatingTag, setCreatingTag] = useState(false);
   // A list selected from the Lists table opens its in-page detail.
   const [selectedList, setSelectedList] = useState<AudienceSegment | null>(
@@ -617,13 +605,12 @@ export function AudiencePages() {
   });
 
   const createListMutation = useMutation({
-    mutationFn: (input: { name: string; type: "growing" | "static" }) =>
+    mutationFn: (input: { name: string }) =>
       audienceService.createSegment(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["audience", "segments"] });
       setCreatingList(false);
       setListName("");
-      setListType("growing");
     },
   });
 
@@ -1427,7 +1414,7 @@ export function AudiencePages() {
                   <p className="text-sm font-semibold text-foreground">
                     New list
                   </p>
-                  <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <div className="mt-3">
                     <div className="space-y-1.5">
                       <label
                         htmlFor="new-list-name"
@@ -1444,40 +1431,7 @@ export function AudiencePages() {
                         className="h-10 rounded-lg"
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="new-list-type"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        Type
-                      </label>
-                      <Select
-                        value={listType}
-                        onValueChange={(v) =>
-                          setListType(v as "growing" | "static")
-                        }
-                      >
-                        <SelectTrigger
-                          id="new-list-type"
-                          className="h-10 w-full rounded-lg"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="growing">
-                            Growing - keeps gaining members
-                          </SelectItem>
-                          <SelectItem value="static">
-                            Static - a fixed set
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Growing lists keep gaining members from forms and rules.
-                    Static lists are a fixed set.
-                  </p>
                   <div className="mt-4 flex justify-end gap-2">
                     <Button
                       variant="outline"
@@ -1486,7 +1440,6 @@ export function AudiencePages() {
                       onClick={() => {
                         setCreatingList(false);
                         setListName("");
-                        setListType("growing");
                       }}
                     >
                       Cancel
@@ -1500,7 +1453,7 @@ export function AudiencePages() {
                           toast.error("Name your list.");
                           return;
                         }
-                        createListMutation.mutate({ name, type: listType });
+                        createListMutation.mutate({ name });
                       }}
                     >
                       {createListMutation.isPending
@@ -1523,7 +1476,6 @@ export function AudiencePages() {
                       <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                         <th className="px-5 py-3 font-medium">List</th>
                         <th className="px-4 py-3 font-medium">Source</th>
-                        <th className="px-4 py-3 font-medium">Type</th>
                         <th className="px-4 py-3 font-medium">Reachable via</th>
                         <th className="px-4 py-3 text-right font-medium">
                           Contacts
@@ -1551,26 +1503,6 @@ export function AudiencePages() {
                             </td>
                             <td className="px-4 py-4 text-muted-foreground">
                               {meta.source}
-                            </td>
-                            <td className="px-4 py-4">
-                              <span
-                                className={cn(
-                                  "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium",
-                                  meta.type === "growing"
-                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                    : "bg-muted text-muted-foreground"
-                                )}
-                              >
-                                <span
-                                  className={cn(
-                                    "size-1.5 rounded-full",
-                                    meta.type === "growing"
-                                      ? "bg-emerald-500"
-                                      : "bg-muted-foreground"
-                                  )}
-                                />
-                                {meta.type === "growing" ? "Growing" : "Static"}
-                              </span>
                             </td>
                             <td className="px-4 py-4">
                               <span className="flex items-center gap-1.5 text-muted-foreground">

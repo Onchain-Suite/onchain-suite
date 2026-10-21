@@ -552,8 +552,7 @@ export default function ImportExportPage() {
     [listsQuery.data]
   );
   const createListMutation = useMutation({
-    mutationFn: (name: string) =>
-      audienceService.createSegment({ name, type: "static" }),
+    mutationFn: (name: string) => audienceService.createSegment({ name }),
     onSuccess: async (seg) => {
       setSelectedListId(seg.id);
       setNewListName("");

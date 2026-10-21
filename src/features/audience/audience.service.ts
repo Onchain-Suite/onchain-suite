@@ -648,9 +648,6 @@ export const audienceService = {
   createSegment(
     body: {
       name: string;
-      /** Growing = keeps gaining members from forms/rules; static = fixed set.
-       *  Forwarded now; the backend ignores it until it supports list types. */
-      type?: "growing" | "static";
       criteria?: unknown;
     },
     orgId?: string

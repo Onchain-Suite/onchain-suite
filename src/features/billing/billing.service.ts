@@ -654,6 +654,8 @@ export interface InvoiceDownloadResponse {
  * errors, Stripe ids) are never exposed here.
  */
 export interface CustomerInvoice {
+  /** Real row id — used for the download / pay actions. */
+  id: string;
   number: string;
   description: string;
   amountUsd: number;
@@ -661,6 +663,8 @@ export interface CustomerInvoice {
   dueAt?: string | null;
   paidAt?: string | null;
   payUrl?: string | null;
+  /** True when a receipt PDF can be downloaded (every paid invoice). */
+  canDownload?: boolean;
 }
 
 /** The org's saved card from `GET /billing/card?organizationId=`. */

@@ -91,7 +91,9 @@ const LIBRARY_ICONS: Record<string, typeof BoltIcon> = {
   wait: ClockIcon,
   branch: ArrowsUpDownIcon,
   add_tag: TagIcon,
+  remove_tag: TagIcon,
   add_to_list: QueueListIcon,
+  remove_from_list: QueueListIcon,
   webhook: GlobeAltIcon,
   dispatch_campaign: MegaphoneIcon,
 };

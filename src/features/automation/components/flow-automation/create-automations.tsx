@@ -10,15 +10,10 @@ import {
   ChartBarIcon,
   CheckCircleIcon,
   Cog6ToothIcon,
-  CurrencyDollarIcon,
-  GlobeAltIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
   ShieldCheckIcon,
-  SparklesIcon,
   TrashIcon,
-  UserGroupIcon,
-  ViewfinderCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -64,7 +59,6 @@ import {
   type AutomationWatchTrigger,
   type OnchainCatalogDefinition,
 } from "../../automation.service";
-import { Confetti } from "../confetti";
 import {
   AddableEdge,
   EdgeInsertContext,
@@ -75,7 +69,7 @@ import { AutomationBuilderSkeleton } from "./automation-builder-skeleton";
 import { BuilderIssuesPanel } from "./builder-issues-panel";
 import { DefiHealthFactorFields } from "./defi-health-factor-fields";
 import { FlowSettingsPanel } from "./flow-settings-panel";
-import { LibraryIcon, RECIPE_ICONS } from "./node-icons";
+import { LibraryIcon } from "./node-icons";
 import { NodeLibrarySection } from "./node-library-section";
 import {
   AddToListNode,
@@ -97,7 +91,6 @@ import {
   PropertySelect,
   type PropertySelectOption,
 } from "./property-select";
-import { AUTOMATION_RECIPES, type AutomationRecipe } from "./recipes";
 import { audienceService } from "@/features/audience/audience.service";
 import {
   emailTemplates as fallbackEmailTemplates,
@@ -205,53 +198,72 @@ if (typeof window === "undefined") {
   };
 }
 
-/**
- * Paints the analytics overlay's per-node funnel (reached / dropped) as a small
- * chip just under any node, without every node component knowing about it. The
- * chip is absolutely positioned so it never disturbs the card layout or the
- * ReactFlow handles inside it. No stats → renders exactly the wrapped node.
- */
-function withNodeStats<P extends { data?: { stats?: unknown } }>(
-  Component: React.ComponentType<P>
-): React.FC<P> {
-  const Wrapped: React.FC<P> = (props) => {
-    const stats = (props.data?.stats ?? null) as {
-      reached: number;
-      dropped: number;
-    } | null;
-    return (
-      <div className="relative">
-        <Component {...props} />
-        {stats ? (
-          <div className="pointer-events-none absolute -bottom-3 left-4 z-10 flex items-center gap-2 rounded-full border border-border bg-card px-2.5 py-0.5 text-[10px] font-semibold tabular-nums shadow-sm">
-            <span className="text-emerald-600 dark:text-emerald-400">
-              {stats.reached.toLocaleString()} reached
-            </span>
-            {stats.dropped > 0 ? (
-              <span className="text-amber-600 dark:text-amber-400">
-                {stats.dropped.toLocaleString()} dropped
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    );
-  };
-  Wrapped.displayName = `withNodeStats(${
-    Component.displayName ?? Component.name ?? "Node"
-  })`;
-  return Wrapped;
+// Node performance chips were removed; the canvas renders the plain node cards.
+const TriggerNodeA = TriggerNode;
+const WaitNodeA = WaitNode;
+const BranchNodeA = BranchNode;
+const EmailNodeA = EmailNode;
+const InappNodeA = InappNode;
+const TagNodeA = TagNode;
+const AddToListNodeA = AddToListNode;
+const WebhookNodeA = WebhookNode;
+const DispatchCampaignNodeA = DispatchCampaignNode;
+
+/** A small "type a name + Create" row for making a new tag/list inline. */
+function InlineCreate({
+  value,
+  onChange,
+  onSubmit,
+  pending,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: () => void;
+  pending: boolean;
+  placeholder: string;
+}) {
+  const trimmed = value.trim();
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && trimmed && !pending) {
+            e.preventDefault();
+            onSubmit();
+          }
+        }}
+        placeholder={placeholder}
+        className={`${PROPERTY_INPUT_CLASS} flex-1`}
+      />
+      <button
+        type="button"
+        disabled={!trimmed || pending}
+        onClick={onSubmit}
+        className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 disabled:opacity-50"
+      >
+        {pending ? "Creating…" : "Create"}
+      </button>
+    </div>
+  );
 }
 
-const TriggerNodeA = withNodeStats(TriggerNode);
-const WaitNodeA = withNodeStats(WaitNode);
-const BranchNodeA = withNodeStats(BranchNode);
-const EmailNodeA = withNodeStats(EmailNode);
-const InappNodeA = withNodeStats(InappNode);
-const TagNodeA = withNodeStats(TagNode);
-const AddToListNodeA = withNodeStats(AddToListNode);
-const WebhookNodeA = withNodeStats(WebhookNode);
-const DispatchCampaignNodeA = withNodeStats(DispatchCampaignNode);
+// Off-chain triggers whose core config is "which <resource>?" - they get a real
+// dropdown of existing lists / tags / campaigns instead of a free-text field.
+const OFFCHAIN_LIST_TRIGGER_TYPES = new Set([
+  "list_joined",
+  "segment_entered",
+  "segment_exited",
+]);
+const OFFCHAIN_TAG_TRIGGER_TYPES = new Set(["tag_added"]);
+const OFFCHAIN_CAMPAIGN_TRIGGER_TYPES = new Set([
+  "email_opened",
+  "email_clicked",
+  "campaign_completed",
+]);
 
 const nodeTypes = {
   // Renderer keys used by the drag-and-drop builder.
@@ -441,7 +453,6 @@ const CreateAutomationContent = () => {
   // the graph's `settings` and read by the runtime. Hydrated from the backend.
   const [flowSettings, setFlowSettings] = useState<Record<string, unknown>>({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [showConfetti, setShowConfetti] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("builder");
   const [automationData, setAutomationData] = useState(
@@ -1488,29 +1499,6 @@ const CreateAutomationContent = () => {
       null
     );
   }, [emailTemplateOptions, selectedNodeData]);
-  const selectedNodeStats = useMemo(
-    () =>
-      isJsonObject(selectedNodeData.stats)
-        ? (selectedNodeData.stats as Record<string, unknown>)
-        : {},
-    [selectedNodeData]
-  );
-  // Per-node performance numbers are attached to node.data.stats by the backend
-  // once an automation is published and starts processing entries. Drafts have
-  // none, so we surface an explicit empty state instead of a wall of zeros.
-  const selectedNodeStatsView = useMemo(() => {
-    const conversions = asNumber(selectedNodeStats.conversions);
-    const active = asNumber(selectedNodeStats.active);
-    const clickRate = asNumber(selectedNodeStats.clickRate);
-    const revenue = asNumber(selectedNodeStats.revenue);
-    return {
-      conversions,
-      active,
-      clickRate,
-      revenue,
-      hasData: conversions > 0 || active > 0 || clickRate > 0 || revenue > 0,
-    };
-  }, [selectedNodeStats]);
   const selectedNodeSchemaType = useMemo(
     () =>
       pickText(
@@ -1545,6 +1533,21 @@ const CreateAutomationContent = () => {
   const selectedTriggerHasImpliedEvent =
     selectedTriggerIsOnchain &&
     !GENERIC_ONCHAIN_TRIGGER_TYPES.has(selectedNodeSchemaType);
+  // Off-chain triggers that are really "which <resource>?": we give them a
+  // real dropdown (list / tag / campaign) instead of the generic schema's
+  // free-text field, and suppress the generic block for them.
+  const selectedTriggerResource: "list" | "tag" | "campaign" | null =
+    selectedIsTrigger &&
+    !selectedTriggerIsOnchain &&
+    !selectedIsDefiHealthTrigger
+      ? OFFCHAIN_LIST_TRIGGER_TYPES.has(selectedNodeSchemaType)
+        ? "list"
+        : OFFCHAIN_TAG_TRIGGER_TYPES.has(selectedNodeSchemaType)
+          ? "tag"
+          : OFFCHAIN_CAMPAIGN_TRIGGER_TYPES.has(selectedNodeSchemaType)
+            ? "campaign"
+            : null
+      : null;
   const selectedNodeSchemaQuery = useQuery({
     queryKey: [
       "automations",
@@ -1614,6 +1617,87 @@ const CreateAutomationContent = () => {
     },
     [updateSelectedNodeData]
   );
+
+  // Create-new affordances for the Add tag / Add to list actions, so a user can
+  // make a tag/list inline instead of only choosing an existing one. Both reuse
+  // the audience create endpoints and refresh the builder's option lists.
+  const [newTagName, setNewTagName] = useState("");
+  const createTagMutation = useMutation({
+    mutationFn: (name: string) => audienceService.createTag({ name }),
+    onSuccess: async (created, name) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["automations", "builder", "tags"],
+      });
+      const label =
+        asString((created as { name?: unknown } | null)?.name) || name;
+      setNewTagName("");
+      const tags = Array.from(new Set([...selectedTags, label]));
+      updateSelectedNodeData({ tags, tag: tags[0] ?? "" });
+      toast.success(`Created and added "${label}".`);
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Couldn't create the tag."),
+  });
+
+  const [newListName, setNewListName] = useState("");
+  const createListMutation = useMutation({
+    mutationFn: (name: string) =>
+      audienceService.createSegment({ name, type: "static" }),
+    onSuccess: async (created) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["automations", "builder", "segments"],
+      });
+      const id = asString((created as { id?: unknown } | null)?.id);
+      const label =
+        asString((created as { name?: unknown } | null)?.name) ||
+        newListName.trim();
+      setNewListName("");
+      if (id) updateSelectedNodeData({ listId: id, listName: label });
+      toast.success(`Created list "${label}".`);
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Couldn't create the list."),
+  });
+
+  const [openingEmailBuilder, setOpeningEmailBuilder] = useState(false);
+  // Open the visual email editor for the selected email node. The editor needs a
+  // real campaign draft to attach the design to, so we mint one the first time
+  // (reused on later opens via the node's `campaignId`) instead of passing the
+  // automation id - which is not a campaign and returned 404 "Campaign not
+  // found". No template is required: the editor opens blank for from-scratch.
+  const openEmailBuilder = async () => {
+    setOpeningEmailBuilder(true);
+    try {
+      let campaignId = asString(selectedNodeData.campaignId);
+      if (!campaignId) {
+        const created = await campaignsService.createCampaign({
+          name: asString(selectedNodeData.subject) || "Automation email",
+          type: "email",
+          status: "draft",
+        });
+        if (!created?.id) throw new Error("Failed to create an email draft.");
+        campaignId = created.id;
+        updateSelectedNodeData({ campaignId });
+      }
+      const qs = new URLSearchParams({
+        campaign: campaignId,
+        returnTo: `/automations/${automationId}`,
+        templateName: asString(selectedNodeData.templateName),
+        subject: asString(selectedNodeData.subject),
+      });
+      window.open(
+        `/campaigns/editor?${qs.toString()}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "We couldn't start the email editor."
+      );
+    } finally {
+      setOpeningEmailBuilder(false);
+    }
+  };
 
   // The email node's explicit sender override. The runtime accepts either
   // `senderEmail` or `from` in node data - `senderEmail` is canonical here,
@@ -1983,8 +2067,6 @@ const CreateAutomationContent = () => {
       if ("builder" in res && res.builder) {
         hydrateBuilderState(res.builder);
       }
-      setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 5000);
       if (res.createdId) {
         window.location.href = `/automations/${res.createdId}`;
       }
@@ -2402,72 +2484,6 @@ const CreateAutomationContent = () => {
   // (trigger → actions) and the "addable" edges between them, so the flow lands
   // ready to configure and publish. Recipe steps carry a `data` override merged
   // over the resolved node data (a wait's duration, a tag, starter in-app copy).
-  const applyRecipe = (recipe: AutomationRecipe) => {
-    const stamp = Date.now();
-    const newNodes: Node[] = recipe.steps.map((step, i) => {
-      const { rendererType, data } = resolveNodeShape(step.type, step.label);
-      return {
-        id: `recipe-${recipe.id}-${i}-${stamp}`,
-        type: rendererType,
-        position: { x: 400, y: 50 + i * 130 },
-        data: { ...data, ...(step.data ?? {}) },
-      };
-    });
-
-    const color = EDGE_COLORS.default;
-    const newEdges: Edge[] = newNodes.slice(1).map((node, i) => {
-      const source = newNodes[i].id;
-      return {
-        id: `e-${source}-${node.id}`,
-        source,
-        target: node.id,
-        type: "addable",
-        animated: false,
-        style: { stroke: color, strokeWidth: 1.5 },
-        markerEnd: { type: MarkerType.ArrowClosed, color },
-      };
-    });
-
-    setNodes(newNodes);
-    setEdges(newEdges);
-    setSelectedNode(newNodes[0]?.id ?? null);
-    setShowNodeSelector({ show: false, x: 0, y: 0 });
-    setShowTriggerPicker(false);
-    toast.success(`Started from "${recipe.title}"`);
-
-    // Mirror addNode: on a saved (non-new) automation, hydrate each node's
-    // config schema so the properties panel is populated without a click.
-    if (!isNew) {
-      newNodes.forEach((node) => {
-        const schemaType = String(
-          (node.data as Record<string, unknown>).nodeType ?? ""
-        );
-        if (!schemaType) return;
-        const loadSchema = async () => {
-          try {
-            const schema =
-              node.type === "trigger"
-                ? await automationService.getTriggerSchema(schemaType)
-                : await automationService.getActionSchema(schemaType);
-            setNodes((nds) =>
-              nds.map((n) =>
-                n.id === node.id
-                  ? {
-                      ...n,
-                      data: { ...(n.data as Record<string, unknown>), schema },
-                    }
-                  : n
-              )
-            );
-          } catch (_e) {
-            String(_e);
-          }
-        };
-        loadSchema().catch(() => undefined);
-      });
-    }
-  };
-
   // Insert an action node that splits the clicked edge (source → new → target).
   const insertNodeOnEdge = (
     target: EdgeInsertTarget,
@@ -2770,8 +2786,6 @@ const CreateAutomationContent = () => {
       animate="animate"
       className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-3"
     >
-      <Confetti show={!showConfetti} />
-
       <SendConfirmDialog
         open={showActivateConfirm}
         onOpenChange={setShowActivateConfirm}
@@ -3189,82 +3203,6 @@ const CreateAutomationContent = () => {
                 </ReactFlow>
               </EdgeInsertContext.Provider>
 
-              {nodes.length === 0 ? (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
-                  <div className="scrollbar-sleek pointer-events-auto max-h-[calc(100%-2rem)] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-border bg-card p-7 text-center shadow-[0_32px_80px_rgba(15,23,42,0.45)] backdrop-blur-xl">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-                      <GlobeAltIcon aria-hidden="true" className="h-6 w-6" />
-                    </div>
-                    <h3 className="mt-4 text-lg font-semibold tracking-tight text-foreground">
-                      Start from a clean canvas
-                    </h3>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      Add your first trigger to begin this automation, or drag
-                      triggers and actions from the left panel onto the canvas.
-                    </p>
-                    <div className="mt-5 flex justify-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowTriggerPicker(true)}
-                        className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                      >
-                        Add trigger
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSidebarOpen(true)}
-                        className="rounded-xl border border-border bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                      >
-                        Browse blocks
-                      </button>
-                    </div>
-
-                    <div className="mt-6 flex items-center gap-3">
-                      <span className="h-px flex-1 bg-border" />
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                        Or start from a recipe
-                      </span>
-                      <span className="h-px flex-1 bg-border" />
-                    </div>
-
-                    <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
-                      {AUTOMATION_RECIPES.map((recipe) => {
-                        const Icon =
-                          RECIPE_ICONS[recipe.iconKey] ?? SparklesIcon;
-                        return (
-                          <button
-                            key={recipe.id}
-                            type="button"
-                            onClick={() => applyRecipe(recipe)}
-                            className="group flex items-start gap-3 rounded-2xl border border-border/60 bg-background p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
-                          >
-                            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-                              <Icon aria-hidden="true" className="h-4 w-4" />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="flex items-center justify-between gap-2">
-                                <span className="truncate text-sm font-semibold text-foreground">
-                                  {recipe.title}
-                                </span>
-                                <span className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                  {recipe.category}
-                                </span>
-                              </span>
-                              <span className="mt-0.5 line-clamp-2 block text-[11px] leading-snug text-muted-foreground">
-                                {recipe.description}
-                              </span>
-                              <span className="mt-1 block text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
-                                {recipe.steps.length} steps
-                              </span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
               {/* "Add trigger" grid - choose the automation's entry trigger. */}
               {showTriggerPicker ? (
                 <>
@@ -3504,6 +3442,102 @@ const CreateAutomationContent = () => {
                               eventDefinitionByValue={eventDefinitionByValue}
                             />
                           )}
+                          {selectedTriggerResource === "list" && (
+                            <div className="space-y-2">
+                              <label className={PROPERTY_LABEL_CLASS}>
+                                List
+                              </label>
+                              <PropertySelect
+                                value={
+                                  asString(selectedNodeData.listId) ||
+                                  asString(selectedNodeData.segmentId)
+                                }
+                                options={ensureOption(
+                                  segmentOptions,
+                                  asString(selectedNodeData.listId) ||
+                                    asString(selectedNodeData.segmentId),
+                                  asString(selectedNodeData.listName) ||
+                                    undefined
+                                )}
+                                onChange={(next) => {
+                                  const picked = segmentOptions.find(
+                                    (o) => o.value === next
+                                  );
+                                  updateSelectedNodeData({
+                                    listId: next,
+                                    segmentId: next,
+                                    listName: picked?.label ?? next,
+                                  });
+                                }}
+                                placeholder={
+                                  segmentsQuery.isLoading
+                                    ? "Loading lists…"
+                                    : "Select a list"
+                                }
+                              />
+                              <p className={PROPERTY_HINT_CLASS}>
+                                Fires when a contact joins this list.
+                              </p>
+                            </div>
+                          )}
+                          {selectedTriggerResource === "tag" && (
+                            <div className="space-y-2">
+                              <label className={PROPERTY_LABEL_CLASS}>
+                                Tag
+                              </label>
+                              <PropertySelect
+                                value={asString(selectedNodeData.tag)}
+                                options={ensureOption(
+                                  tagOptions,
+                                  asString(selectedNodeData.tag)
+                                )}
+                                onChange={(next) =>
+                                  updateSelectedNodeData({ tag: next })
+                                }
+                                placeholder={
+                                  tagsQuery.isLoading
+                                    ? "Loading tags…"
+                                    : "Select a tag"
+                                }
+                              />
+                              <p className={PROPERTY_HINT_CLASS}>
+                                Fires when this tag is added to a contact.
+                              </p>
+                            </div>
+                          )}
+                          {selectedTriggerResource === "campaign" && (
+                            <div className="space-y-2">
+                              <label className={PROPERTY_LABEL_CLASS}>
+                                Campaign
+                              </label>
+                              <PropertySelect
+                                value={asString(selectedNodeData.campaignId)}
+                                options={ensureOption(
+                                  campaignOptions,
+                                  asString(selectedNodeData.campaignId),
+                                  asString(selectedNodeData.campaignName) ||
+                                    undefined
+                                )}
+                                onChange={(next) => {
+                                  const picked = campaignOptions.find(
+                                    (o) => o.value === next
+                                  );
+                                  updateSelectedNodeData({
+                                    campaignId: next,
+                                    campaignName: picked?.label ?? next,
+                                  });
+                                }}
+                                placeholder={
+                                  campaignsQuery.isLoading
+                                    ? "Loading campaigns…"
+                                    : "Select a campaign"
+                                }
+                              />
+                              <p className={PROPERTY_HINT_CLASS}>
+                                Fires on this campaign&apos;s email activity.
+                              </p>
+                            </div>
+                          )}
                           {/* The DeFi trigger has no synthetic runtime event -
                               its "Run now" sweep above is how it is tested. */}
                           {!isNew && !selectedIsDefiHealthTrigger ? (
@@ -3633,44 +3667,29 @@ const CreateAutomationContent = () => {
                           <div className="space-y-1.5">
                             <button
                               type="button"
+                              disabled={openingEmailBuilder}
                               onClick={() => {
-                                if (!asString(selectedNodeData.templateId)) {
-                                  toast.error(
-                                    "Pick a template first, then open the builder to edit it."
-                                  );
-                                  return;
-                                }
                                 if (isNew) {
                                   toast.error(
                                     "Save the automation first - the builder attaches the design to a saved draft."
                                   );
                                   return;
                                 }
-                                const qs = new URLSearchParams({
-                                  campaign: automationId,
-                                  returnTo: `/automations/${automationId}`,
-                                  templateName: asString(
-                                    selectedNodeData.templateName
-                                  ),
-                                  subject: asString(selectedNodeData.subject),
-                                });
-                                window.open(
-                                  `/campaigns/editor?${qs.toString()}`,
-                                  "_blank",
-                                  "noopener,noreferrer"
-                                );
+                                openEmailBuilder().catch(() => undefined);
                               }}
-                              className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+                              className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
                             >
                               <PencilSquareIcon
                                 aria-hidden="true"
                                 className="h-4 w-4"
                               />
-                              Open email builder
+                              {openingEmailBuilder
+                                ? "Opening…"
+                                : "Open email builder"}
                             </button>
                             <p className={PROPERTY_HINT_CLASS}>
-                              Edit the selected template&apos;s design in the
-                              visual editor.
+                              Design this email in the visual editor - start
+                              from a template or from a blank canvas.
                             </p>
                           </div>
                           <div className="rounded-2xl border border-border bg-card p-3">
@@ -3855,9 +3874,18 @@ const CreateAutomationContent = () => {
                                 : "Add a tag"
                             }
                           />
+                          <InlineCreate
+                            value={newTagName}
+                            onChange={setNewTagName}
+                            onSubmit={() =>
+                              createTagMutation.mutate(newTagName.trim())
+                            }
+                            pending={createTagMutation.isPending}
+                            placeholder="Or create a new tag"
+                          />
                           <p className={PROPERTY_HINT_CLASS}>
-                            Tags to apply to the contact. Pick from your
-                            existing tags.
+                            Tags to apply to the contact. Pick an existing tag
+                            or create a new one.
                           </p>
                         </div>
                       )}
@@ -3891,8 +3919,18 @@ const CreateAutomationContent = () => {
                                 : "Select a list"
                             }
                           />
+                          <InlineCreate
+                            value={newListName}
+                            onChange={setNewListName}
+                            onSubmit={() =>
+                              createListMutation.mutate(newListName.trim())
+                            }
+                            pending={createListMutation.isPending}
+                            placeholder="Or create a new list"
+                          />
                           <p className={PROPERTY_HINT_CLASS}>
-                            The contact will be added to this list.
+                            The contact will be added to this list. Pick an
+                            existing list or create a new one.
                           </p>
                         </div>
                       )}
@@ -4187,6 +4225,7 @@ const CreateAutomationContent = () => {
 
                       {!selectedTriggerIsOnchain &&
                       !selectedIsDefiHealthTrigger &&
+                      !selectedTriggerResource &&
                       selectedNodeSchemaType !== "split" &&
                       !selectedHasDedicatedPanel &&
                       (selectedNodeSchemaQuery.isFetching ||
@@ -4450,87 +4489,6 @@ const CreateAutomationContent = () => {
                           })()}
                         </div>
                       ) : null}
-
-                      {/* Node performance */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                            Node performance
-                          </div>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                              selectedNodeStatsView.hasData
-                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {selectedNodeStatsView.hasData
-                              ? "Live"
-                              : "No data yet"}
-                          </span>
-                        </div>
-
-                        {selectedNodeStatsView.hasData ? (
-                          <div className="grid grid-cols-2 gap-2.5">
-                            {[
-                              {
-                                key: "conv",
-                                icon: CheckCircleIcon,
-                                tone: "text-sky-500 dark:text-sky-300",
-                                label: "Conversions",
-                                value:
-                                  selectedNodeStatsView.conversions.toLocaleString(),
-                              },
-                              {
-                                key: "active",
-                                icon: UserGroupIcon,
-                                tone: "text-sky-500 dark:text-sky-300",
-                                label: "Active users",
-                                value:
-                                  selectedNodeStatsView.active.toLocaleString(),
-                              },
-                              {
-                                key: "click",
-                                icon: ViewfinderCircleIcon,
-                                tone: "text-violet-500 dark:text-violet-300",
-                                label: "Click rate",
-                                value: `${selectedNodeStatsView.clickRate}%`,
-                              },
-                              {
-                                key: "rev",
-                                icon: CurrencyDollarIcon,
-                                tone: "text-emerald-500 dark:text-emerald-300",
-                                label: "Revenue",
-                                value: `$${selectedNodeStatsView.revenue.toLocaleString()}`,
-                              },
-                            ].map((stat) => (
-                              <div
-                                key={stat.key}
-                                className="rounded-xl border border-border bg-card p-3"
-                              >
-                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                                  <stat.icon
-                                    aria-hidden="true"
-                                    className={`h-3.5 w-3.5 ${stat.tone}`}
-                                  />
-                                  {stat.label}
-                                </div>
-                                <div className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-                                  {stat.value}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="rounded-xl border border-dashed border-border bg-muted/30 px-3.5 py-4 text-[11px] leading-5 text-muted-foreground">
-                            No data yet - see the full breakdown in the{" "}
-                            <span className="font-medium text-foreground">
-                              Stats
-                            </span>{" "}
-                            tab once published.
-                          </div>
-                        )}
-                      </div>
 
                       {/* Actions */}
                       <div className="flex items-center gap-2 border-t border-border pt-6">

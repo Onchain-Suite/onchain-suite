@@ -43,6 +43,7 @@ export interface ProjectSettingsFormData {
   treasuryWallets: ProjectSettingsAddressRow[];
   teamWallets: ProjectSettingsAddressRow[];
   /** Reveal (decrypt) contact emails in the dashboard. UI visibility only.
+   *  Shown by default; turning the toggle off persists `false` to opt out.
    *  Optional so the big settings form needn't set it; the dedicated toggle
    *  (and a merged partial PUT) owns it. */
   revealContactEmails?: boolean;
@@ -60,7 +61,7 @@ const DEFAULT_PROJECT_SETTINGS: ProjectSettingsFormData = {
   contractAddresses: [],
   treasuryWallets: [],
   teamWallets: [],
-  revealContactEmails: false,
+  revealContactEmails: true,
 };
 
 const unwrapData = (payload: unknown): unknown => {
@@ -177,7 +178,8 @@ const normalizeLegacyOrganization = (
     teamWallets: normalizeAddressRows(
       projectMeta.teamWallets ?? projectMeta.deployerWallets
     ),
-    revealContactEmails: settings.revealContactEmails === true,
+    // Shown by default; only an explicit `false` opts out.
+    revealContactEmails: settings.revealContactEmails !== false,
   };
 };
 
@@ -210,7 +212,8 @@ export const normalizeProjectSettings = (
     contractAddresses,
     treasuryWallets,
     teamWallets,
-    revealContactEmails: root.revealContactEmails === true,
+    // Shown by default; only an explicit `false` opts out.
+    revealContactEmails: root.revealContactEmails !== false,
   };
 };
 

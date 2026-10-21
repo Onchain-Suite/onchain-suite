@@ -39,7 +39,7 @@ export default function PrivacyIdentitySettings() {
     queryKey: ["project-settings", "reveal-emails"],
     queryFn: () => projectSettingsService.getProjectSettings(),
   });
-  const reveal = settingsQuery.data?.revealContactEmails ?? false;
+  const reveal = settingsQuery.data?.revealContactEmails ?? true;
   const revealMutation = useMutation({
     mutationFn: (value: boolean) =>
       projectSettingsService.setRevealContactEmails(value),
@@ -67,11 +67,12 @@ export default function PrivacyIdentitySettings() {
       >
         <div className="flex items-start justify-between gap-4">
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            Off by default: emails stay encrypted and the dashboard shows
-            &quot;&mdash;&quot;, so you can message contacts without ever seeing
-            who they are. Turn this on for a web2 / consented audience to reveal
-            the addresses to your operators. Emails are encrypted at rest either
-            way &mdash; this only controls what the dashboard displays.
+            On by default: contact email addresses are shown in the dashboard.
+            Turn this off for a privacy-first / ZK audience to keep addresses
+            hidden &mdash; the dashboard then shows &quot;&mdash;&quot; so your
+            operators can message contacts without seeing who they are. Emails
+            are encrypted at rest either way; this only controls what the
+            dashboard displays.
           </p>
           <Switch
             checked={reveal}

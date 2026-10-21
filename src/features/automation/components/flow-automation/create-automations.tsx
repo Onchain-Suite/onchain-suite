@@ -21,7 +21,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addEdge,
   Background,
@@ -1660,6 +1660,60 @@ const CreateAutomationContent = () => {
   });
 
   const [openingEmailBuilder, setOpeningEmailBuilder] = useState(false);
+  // The email node whose editor is open in another tab, so we can pull the saved
+  // design's subject / preview / template back onto it when this tab refocuses.
+  const emailSyncRef = useRef<{ nodeId: string; campaignId: string } | null>(
+    null
+  );
+  const syncEmailNodeFromEditor = useCallback(async () => {
+    const ref = emailSyncRef.current;
+    if (!ref) return;
+    try {
+      const content = await campaignsService.getEmailContent(ref.campaignId);
+      const patch: Record<string, unknown> = {};
+      const subject = asString(content.subject);
+      const previewText = asString(content.previewText);
+      const templateId = asString(content.source?.templateId);
+      if (subject) patch.subject = subject;
+      if (previewText) patch.previewText = previewText;
+      if (templateId) {
+        patch.templateId = templateId;
+        const opt = emailTemplateOptions.find((t) => t.id === templateId);
+        if (opt?.name) patch.templateName = opt.name;
+      }
+      if (Object.keys(patch).length === 0) return;
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === ref.nodeId
+            ? {
+                ...n,
+                data: {
+                  ...(n.data as Record<string, unknown>),
+                  ...patch,
+                },
+              }
+            : n
+        )
+      );
+      // Surface a freshly-created template in the picker.
+      queryClient.invalidateQueries({
+        queryKey: ["automations", "builder", "email-templates"],
+      });
+    } catch {
+      // Best-effort: a failed read just leaves the node as-is.
+    }
+  }, [emailTemplateOptions, setNodes, queryClient]);
+
+  // Pull the latest email design back whenever this tab regains focus (the
+  // editor opens in another tab and saves to the campaign).
+  useEffect(() => {
+    const onFocus = () => {
+      syncEmailNodeFromEditor().catch(() => undefined);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [syncEmailNodeFromEditor]);
+
   // Open the visual email editor for the selected email node. The editor needs a
   // real campaign draft to attach the design to, so we mint one the first time
   // (reused on later opens via the node's `campaignId`) instead of passing the
@@ -1668,6 +1722,8 @@ const CreateAutomationContent = () => {
   const openEmailBuilder = async () => {
     setOpeningEmailBuilder(true);
     try {
+      const nodeId = selectedNode;
+      const templateId = asString(selectedNodeData.templateId);
       let campaignId = asString(selectedNodeData.campaignId);
       if (!campaignId) {
         const created = await campaignsService.createCampaign({
@@ -1679,9 +1735,20 @@ const CreateAutomationContent = () => {
         campaignId = created.id;
         updateSelectedNodeData({ campaignId });
       }
+      // Attaching an existing template: seed the campaign with it so the editor
+      // opens that design, and pass `template` so saves update it in place.
+      if (templateId) {
+        await campaignsService
+          .setTemplate(campaignId, { templateId })
+          .catch(() => undefined);
+      }
+      // Remember which node this editor belongs to; on return we read the saved
+      // subject / preview / template back off the campaign and reflect them here.
+      emailSyncRef.current = nodeId ? { nodeId, campaignId } : null;
       const qs = new URLSearchParams({
         campaign: campaignId,
         returnTo: `/automations/${automationId}`,
+        ...(templateId ? { template: templateId } : {}),
         templateName: asString(selectedNodeData.templateName),
         subject: asString(selectedNodeData.subject),
       });

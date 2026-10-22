@@ -2942,7 +2942,7 @@ function MainstreamCompanies() {
     lanes={[
       { k: "Product lane", d: "What a customer does inside your product, such as signing up, finishing setup or using a feature, from the records and events you bring in.", e: ["Signed up", "Finished setup", "Last opened the app"] },
       { k: "Messages you send", d: "Delivery and engagement from your emails, next to what each customer did in your product.", e: ["Opened 3 of 4 emails", "Clicked the upgrade link", "Has not opened in 30 days"] },
-      { k: "Wallet lane", off: "Suite plan", d: "What customers' wallets do on the blockchain. The Send plan leaves this lane switched off, and the Suite plan turns it on when your product starts to use wallets.", e: ["Deposits and withdrawals", "Wallet activity", "In-app messages to wallets"] }
+      { k: "Wallet lane", off: "Suite plan", d: "The moment your product adds a wallet feature, such as loyalty points, token rewards, stablecoin payments or wallet sign-in, this lane reads what each customer does with it, so your team can act on it like any other behaviour. The Send plan leaves it off; the Suite plan turns it on.", e: ["Earned loyalty points", "Paid with a stablecoin", "Claimed a reward"] }
     ]}
     toPoints="With your product data and your email results on one record, here is what your team can do."
     pointsTitle={<>Find who needs a message and send it. <span>Segments, campaigns and Loops all read the same record.</span></>}

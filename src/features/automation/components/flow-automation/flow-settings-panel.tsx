@@ -1,75 +1,36 @@
 "use client";
 
-import { ChevronDownIcon } from "@heroicons/react/24/outline";
-import { useState } from "react";
+import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
 
 import { isJsonObject } from "@/lib/utils";
 
-import {
-  PROPERTY_HINT_CLASS,
-  PROPERTY_INPUT_CLASS,
-  PROPERTY_LABEL_CLASS,
-  PropertySelect,
-  type PropertySelectOption,
-} from "./property-select";
+import type { PropertySelectOption } from "./property-select";
+import { PanelHead, Toggle } from "./step-panel/panel-ui";
+import { PickField } from "./step-panel/pick-field";
 import {
   reentryConfigToUi,
   reentryUiToConfig,
 } from "@/features/automation/utils/reentry";
 
-/** A labeled on/off switch used in the flow-settings panel. */
-function FlowToggle({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm text-foreground">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        onClick={() => onChange(!checked)}
-        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-          checked ? "bg-primary" : "bg-muted"
-        }`}
-      >
-        <span
-          aria-hidden="true"
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
-            checked ? "left-[18px]" : "left-0.5"
-          }`}
-        />
-      </button>
-    </div>
-  );
-}
-
 const REENTRY_OPTIONS: PropertySelectOption[] = [
-  { value: "once", label: "Never re-enter" },
-  { value: "daily", label: "Once per day" },
-  { value: "weekly", label: "Once per week" },
-  { value: "always", label: "Always" },
+  { value: "once", label: "No, once only" },
+  { value: "daily", label: "Yes, once a day at most" },
+  { value: "weekly", label: "Yes, once a week at most" },
+  { value: "always", label: "Yes, every time" },
 ];
 
 /**
  * The events a goal can actually convert on.
  *
  * ONLY THESE FOUR SOURCES CALL THE CONVERSION RECORDER, so a goal set to
- * anything else never fires — silently, with the Stats tab reading 0% forever
+ * anything else never fires: silently, with the Stats tab reading 0% forever
  * and nothing to say why. This field used to be free text whose placeholder
  * suggested "purchase, swap_completed": neither exists, so a user following
  * the hint got a goal that could never convert.
  *
  * Labels are what the contact DID, not the internal event name, because the
  * person configuring a flow is picking an outcome, not a topic string.
- * `list_joined` is deliberately absent — it arrives as `segment_entered`, and
+ * `list_joined` is deliberately absent: it arrives as `segment_entered`, and
  * offering both would imply a distinction the runtime does not make.
  */
 const GOAL_EVENT_OPTIONS: PropertySelectOption[] = [
@@ -104,7 +65,7 @@ const GOAL_EVENT_OPTIONS: PropertySelectOption[] = [
 /**
  * Right-panel flow-level guardrails, shown when no node is selected. Controlled
  * by the parent's `flowSettings` (persisted in the graph's `settings` and read
- * by the runtime) — re-entry policy (onchain-backend #307) + per-contact
+ * by the runtime): re-entry policy (onchain-backend #307) + per-contact
  * frequency cap (#309). Only guardrails the runtime actually enforces are shown.
  */
 export function FlowSettingsPanel({
@@ -119,7 +80,7 @@ export function FlowSettingsPanel({
    * The event that STARTS this flow, so the goal picker can warn when the two
    * match. Conversions are recorded in the same ingest that creates the
    * enrolment, so a goal equal to its own trigger converts every enrolment the
-   * instant it begins — a 100% rate that measures nothing.
+   * instant it begins: a 100% rate that measures nothing.
    */
   triggerEventType?: string;
   /** Root class override so the panel works both as the desktop column and
@@ -162,109 +123,66 @@ export function FlowSettingsPanel({
     onChange({ ...value, goal: { event: e, windowDays } });
   };
 
-  // Collapsible: on desktop (no override className) the whole column narrows to
-  // a thin rail when collapsed, so the ReactFlow canvas reclaims the ~290px.
-  // Defaults open. On mobile (className passed) it just folds the body away.
-  const [collapsed, setCollapsed] = useState(false);
-  const railed = collapsed && className === undefined;
-
   return (
-    <div
-      className={
-        className ??
-        `hidden shrink-0 overflow-y-auto rounded-xl border border-border bg-card transition-[width,padding] duration-200 md:block ${
-          collapsed ? "w-12 p-2" : "w-[344px] p-6"
-        }`
-      }
-    >
-      <button
-        type="button"
-        onClick={() => setCollapsed((c) => !c)}
-        aria-expanded={!collapsed}
-        aria-label={collapsed ? "Expand flow settings" : undefined}
-        title={railed ? "Flow settings" : undefined}
-        className={`flex w-full items-center gap-3 text-left ${
-          railed ? "justify-center" : "justify-between"
-        }`}
-      >
-        {railed ? null : (
-          <h3 className="font-semibold tracking-tight text-foreground">
-            Flow settings
-          </h3>
-        )}
-        <ChevronDownIcon
-          aria-hidden="true"
-          className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
-            collapsed ? "-rotate-90" : ""
-          }`}
-        />
-      </button>
-      {collapsed ? null : (
-        <>
-          <div className="mt-6 space-y-5">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-foreground">Re-entry</span>
-              <PropertySelect
-                value={reentryUi}
-                onChange={setReentry}
-                className="w-40"
-                options={REENTRY_OPTIONS}
-              />
-            </div>
-            <FlowToggle
-              label="Max 1 message / 10h"
-              checked={freqOn}
-              onChange={setFreq}
-            />
-          </div>
+    <div className={className ?? "abp"}>
+      <PanelHead
+        icon={<AdjustmentsHorizontalIcon aria-hidden="true" />}
+        eyebrow="Automation"
+        title="Settings"
+      />
+      <PickField
+        label="Can someone go through it again?"
+        value={reentryUi}
+        onChange={setReentry}
+        options={REENTRY_OPTIONS}
+      />
+      <Toggle
+        label="At most one message per 10 hours"
+        checked={freqOn}
+        onChange={setFreq}
+      />
 
-          {/* Goal — the outcome that counts as "this flow worked". A matching event
-          within the window marks the enrolment converted; the rate shows on the
-          Stats tab. */}
-          <div className="mt-7 border-t border-border pt-5">
-            <label className={PROPERTY_LABEL_CLASS}>Conversion goal</label>
-            <PropertySelect
-              value={goalEvent}
-              onChange={(e) => setGoal(e, goalWindow)}
-              className="mt-2 w-full"
-              placeholder="No goal"
-              options={GOAL_EVENT_OPTIONS}
-            />
-            <p className={`${PROPERTY_HINT_CLASS} mt-2`}>
-              What a contact has to do for this flow to have worked. It counts
-              once per enrolment, and only if they do it within the window.
-            </p>
-            {goalEvent && goalEvent === triggerEventType ? (
-              <p className="mt-2 text-xs leading-5 text-amber-500">
-                This is the same event that starts the flow, so every enrolment
-                converts the moment it begins. Pick a different outcome to
-                measure anything.
-              </p>
-            ) : null}
-            {goalEvent ? (
-              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                <span>within</span>
-                <input
-                  type="number"
-                  min={1}
-                  className={`${PROPERTY_INPUT_CLASS} w-16 py-1.5 text-center`}
-                  value={goalWindow}
-                  onChange={(e) =>
-                    setGoal(goalEvent, Math.max(1, Number(e.target.value) || 7))
-                  }
-                />
-                <span>days of enrolling</span>
-              </div>
-            ) : null}
-          </div>
+      <div className="abp-sep" />
 
-          <p className="mt-6 text-xs leading-5 text-muted-foreground">
-            Re-entry limits how often a contact can start this flow; the cap
-            limits how many messages it sends one contact per window; the goal
-            measures whether it worked. Select a node to configure it.
-          </p>
-        </>
-      )}
+      {/* The outcome that counts as "this flow worked": a matching event within
+          the window marks the enrolment converted, shown on the Stats tab. */}
+      <PickField
+        label="Conversion goal"
+        optional
+        value={goalEvent}
+        onChange={(e) => setGoal(e, goalWindow)}
+        placeholder="No goal"
+        options={GOAL_EVENT_OPTIONS}
+        hint="What a contact has to do for this flow to have worked. It counts once per enrolment, within the window."
+      />
+      {goalEvent && goalEvent === triggerEventType ? (
+        <p className="abp-warn">
+          This is the same event that starts the flow, so every enrolment
+          converts the moment it begins. Pick a different outcome to measure
+          anything.
+        </p>
+      ) : null}
+      {goalEvent ? (
+        <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+          <span>Within</span>
+          <input
+            type="number"
+            min={1}
+            aria-label="Goal window in days"
+            className="abp-input w-16 text-center"
+            value={goalWindow}
+            onChange={(e) =>
+              setGoal(goalEvent, Math.max(1, Number(e.target.value) || 7))
+            }
+          />
+          <span>days of starting</span>
+        </div>
+      ) : null}
+
+      <p className="abp-hint">
+        The message cap counts every automation and campaign, so nobody hears
+        from you three times in a morning. Click a step to change it.
+      </p>
     </div>
   );
 }

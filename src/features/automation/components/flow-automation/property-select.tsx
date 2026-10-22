@@ -132,24 +132,18 @@ export function PropertySelect({
         aria-controls={open ? listId : undefined}
         onClick={() => !disabled && setOpen((o) => !o)}
         onKeyDown={onKeyDown}
-        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-background px-3 py-2.5 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50 ${
-          open
-            ? "border-primary/50 ring-1 ring-primary/30"
-            : "border-border hover:border-primary/30"
-        }`}
+        className="abp-select"
       >
         <span
           className={`truncate ${
-            selected ? "text-foreground" : "text-muted-foreground/60"
+            selected ? "text-foreground" : "text-muted-foreground"
           }`}
         >
           {selected ? selected.label : placeholder}
         </span>
         <ChevronUpDownIcon
           aria-hidden="true"
-          className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
-            open ? "text-primary" : ""
-          }`}
+          className={open ? "text-primary" : undefined}
         />
       </button>
 
@@ -163,7 +157,7 @@ export function PropertySelect({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.14, ease: "easeOut" }}
-            className="scrollbar-sleek absolute z-50 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-[0_20px_60px_-24px_rgba(0,0,0,0.6)]"
+            className="scrollbar-sleek absolute z-50 mt-1.5 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg"
           >
             {options.length === 0 ? (
               <li className="px-3 py-2 text-xs text-muted-foreground">
@@ -186,7 +180,7 @@ export function PropertySelect({
                         commit(idx);
                       }
                     }}
-                    className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors ${
+                    className={`flex cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 py-2 text-[13px] transition-colors ${
                       isActive
                         ? "bg-primary/10 text-foreground"
                         : "text-muted-foreground"
@@ -220,14 +214,12 @@ export function PropertySelect({
 export default PropertySelect;
 
 /**
- * Styling for the property panel's non-select fields, kept beside PropertySelect
- * so a panel field looks the same wherever it is rendered from.
+ * Styling for the panel's non-select fields, kept beside PropertySelect so a
+ * field looks the same wherever it is rendered from. Defined in
+ * step-panel/step-panel.css, after the reference builder's panel.
  */
-export const PROPERTY_LABEL_CLASS =
-  "text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground";
+export const PROPERTY_LABEL_CLASS = "abp-label";
 
-export const PROPERTY_INPUT_CLASS =
-  "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/30";
+export const PROPERTY_INPUT_CLASS = "abp-input";
 
-export const PROPERTY_HINT_CLASS =
-  "text-[11px] leading-5 text-muted-foreground";
+export const PROPERTY_HINT_CLASS = "abp-hint";

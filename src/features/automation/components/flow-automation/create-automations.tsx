@@ -159,6 +159,10 @@ import {
   pickText,
 } from "@/features/automation/utils/coerce";
 import { resolveContractCatalog } from "@/features/automation/utils/contracts";
+import {
+  emailNodePatch,
+  hasEmailPatch,
+} from "@/features/automation/utils/email-node-sync";
 import { canRunLendingHealthFactorNow } from "@/features/automation/utils/run-now";
 import { campaignsService } from "@/features/campaigns/campaigns.service";
 import { useFormsList } from "@/features/forms/hooks/use-forms";
@@ -1695,53 +1699,80 @@ const CreateAutomationContent = () => {
   const emailSyncRef = useRef<{ nodeId: string; campaignId: string } | null>(
     null
   );
+  // Prevents focus + visibilitychange (which both fire on a tab return) from
+  // running two overlapping polls at once.
+  const emailSyncingRef = useRef(false);
   const syncEmailNodeFromEditor = useCallback(async () => {
     const ref = emailSyncRef.current;
-    if (!ref) return;
+    if (!ref || emailSyncingRef.current) return;
+    emailSyncingRef.current = true;
     try {
-      const content = await campaignsService.getEmailContent(ref.campaignId);
-      const patch: Record<string, unknown> = {};
-      const subject = asString(content.subject);
-      const previewText = asString(content.previewText);
-      const templateId = asString(content.source?.templateId);
-      if (subject) patch.subject = subject;
-      if (previewText) patch.previewText = previewText;
-      if (templateId) {
-        patch.templateId = templateId;
-        const opt = emailTemplateOptions.find((t) => t.id === templateId);
-        if (opt?.name) patch.templateName = opt.name;
+      // The design is saved in the editor tab; when the user switches back that
+      // save can still be in flight, so read a few times until it lands instead
+      // of once - a single read silently missed a just-built email, which is why
+      // the step never got tagged with the subject / preview.
+      for (let attempt = 0; attempt < 6; attempt++) {
+        let patch: Record<string, unknown> = {};
+        try {
+          const content = await campaignsService.getEmailContent(
+            ref.campaignId
+          );
+          patch = emailNodePatch(
+            {
+              subject: content.subject,
+              previewText: content.previewText,
+              templateId: content.source?.templateId,
+            },
+            emailTemplateOptions
+          );
+        } catch {
+          // A transient read error should not abandon the sync; keep polling.
+        }
+        if (hasEmailPatch(patch)) {
+          setNodes((nds) =>
+            nds.map((n) =>
+              n.id === ref.nodeId
+                ? {
+                    ...n,
+                    data: {
+                      ...(n.data as Record<string, unknown>),
+                      ...patch,
+                    },
+                  }
+                : n
+            )
+          );
+          // Surface a freshly-created template in the picker so the next open
+          // and the name lookup see it.
+          queryClient.invalidateQueries({
+            queryKey: ["automations", "builder", "email-templates"],
+          });
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 700));
       }
-      if (Object.keys(patch).length === 0) return;
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === ref.nodeId
-            ? {
-                ...n,
-                data: {
-                  ...(n.data as Record<string, unknown>),
-                  ...patch,
-                },
-              }
-            : n
-        )
-      );
-      // Surface a freshly-created template in the picker.
-      queryClient.invalidateQueries({
-        queryKey: ["automations", "builder", "email-templates"],
-      });
-    } catch {
-      // Best-effort: a failed read just leaves the node as-is.
+    } finally {
+      emailSyncingRef.current = false;
     }
   }, [emailTemplateOptions, setNodes, queryClient]);
 
-  // Pull the latest email design back whenever this tab regains focus (the
-  // editor opens in another tab and saves to the campaign).
+  // Pull the latest email design back whenever this tab is shown again. The
+  // editor opens in another tab, so `visibilitychange` (fires reliably on a
+  // tab switch back) is the primary signal; `focus` is kept as a fallback for
+  // window-level refocus.
   useEffect(() => {
-    const onFocus = () => {
+    const sync = () => {
       syncEmailNodeFromEditor().catch(() => undefined);
     };
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [syncEmailNodeFromEditor]);
 
   // Open the visual email editor for the selected email node. The editor needs a

@@ -2042,6 +2042,58 @@ const CreateAutomationContent = () => {
     },
   });
 
+  // "Save draft" persists via the lenient draft endpoint (no publish-level
+  // validation), creating the automation first when it is new. A draft is a
+  // work in progress: a Send Email step whose design has not been built yet, a
+  // step still missing a field. Requiring a valid flow here was a deadlock -
+  // the email builder needs a saved automation to attach its design to, but the
+  // automation could not be saved until that design existed. Publish still runs
+  // the full validation.
+  const saveDraftMutation = useMutation({
+    mutationFn: async () => {
+      const name =
+        (typeof automationData.name === "string"
+          ? automationData.name.trim()
+          : "") || "Untitled automation";
+      const graph = {
+        ...toWireGraph({ nodes, edges }),
+        settings: flowSettings,
+      };
+      if (isNew) {
+        const created = await automationService.createAutomation({
+          name,
+          description: automationData.description ?? "",
+          builder: toWireGraph({ nodes, edges }),
+        });
+        const createdId = created.automationId;
+        if (!createdId) throw new Error("Could not create the automation.");
+        // Create does not seed the draft graph getBuilder reads back, so write
+        // it explicitly - this is the lenient store the deadlock needed.
+        await automationService.saveBuilderDraft(createdId, graph);
+        return { createdId };
+      }
+      await automationService.updateAutomation(automationId, {
+        name,
+        description: automationData.description ?? "",
+      });
+      await automationService.saveBuilderDraft(automationId, graph);
+      return { createdId: null as string | null };
+    },
+    onSuccess: async (res) => {
+      await queryClient.invalidateQueries({ queryKey: ["automations"] });
+      setIsSaving(false);
+      if (res.createdId) {
+        window.location.href = `/automations/${res.createdId}`;
+        return;
+      }
+      toast.success("Draft saved.");
+    },
+    onError: (err) => {
+      setIsSaving(false);
+      reportGraphError(err, "Failed to save draft");
+    },
+  });
+
   // Persist the automation NAME the moment the user finishes editing it (blur /
   // Enter), like the campaign editor. The builder autosave below only saves
   // nodes/edges, so without this the title would revert unless the user hit the
@@ -2116,34 +2168,12 @@ const CreateAutomationContent = () => {
     }
   };
 
+  // Saving a draft never blocks on validation: a draft is allowed to be
+  // incomplete, and the backend draft endpoint stores it as-is. Publish (below)
+  // is where the flow is validated before it can go live.
   const handleSave = async () => {
     setIsSaving(true);
-    // Validate first: a save the backend refuses comes back as one opaque line
-    // ("Automation builder graph is invalid"), whereas the validate pass names
-    // the offending steps.
-    let parsed: BuilderIssue[] = [];
-    try {
-      parsed = await runValidation();
-    } catch (err) {
-      if (
-        isBuilderInvalidError(err) ||
-        parseBuilderErrorIssues(err).length > 0
-      ) {
-        setIsSaving(false);
-        reportGraphError(err, "Failed to save");
-        return;
-      }
-      // The validation call itself failed (offline, 5xx, endpoint missing).
-      // Don't hold the draft hostage to it - PUT /builder validates server-side
-      // too, and its rejection lands in the same panel.
-    }
-    const blocking = parsed.filter((issue) => issue.severity === "error");
-    if (blocking.length > 0) {
-      setIsSaving(false);
-      toast.error(`Can't save yet - ${summarizeIssues(parsed)}`);
-      return;
-    }
-    saveMutation.mutate();
+    saveDraftMutation.mutate();
   };
 
   // Explicit publish: validate, persist the current draft, then promote it to
@@ -3002,9 +3032,14 @@ const CreateAutomationContent = () => {
                     onSender={updateSenderEmail}
                     onOpenBuilder={() => {
                       if (isNew) {
-                        toast.error(
-                          "Save the automation first. The editor attaches the email to a saved draft."
+                        // The editor attaches its design to a saved draft, so
+                        // create one now (lenient - no validation) rather than
+                        // dead-ending. The page reloads on the new id; reopen
+                        // the builder then.
+                        toast.message(
+                          "Saving this automation as a draft first, then reopen the email builder."
                         );
+                        handleSave();
                         return;
                       }
                       openEmailBuilder().catch(() => undefined);

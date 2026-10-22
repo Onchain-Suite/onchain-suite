@@ -2431,11 +2431,11 @@ const CreateAutomationContent = () => {
       } catch (err) {
         if ((err as { code?: string })?.code === "AUTOMATION_DRAFT_STALE") {
           try {
+            // Silently reconcile to the newer draft instead of clobbering it. No
+            // toast: with the single-tab editor flow this is rare, and surfacing
+            // it to the user was more confusing than helpful.
             const fresh = await automationService.getBuilder(id);
             hydrateBuilderState(fresh);
-            toast(
-              "Loaded newer changes saved from another tab. Review before saving again."
-            );
           } catch {
             // Best-effort reconcile; leave the client as-is on a failed reload.
           }

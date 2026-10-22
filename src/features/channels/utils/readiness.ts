@@ -7,6 +7,10 @@ import type {
 } from "../types/channel";
 import type { DomainStatus } from "@/features/settings/components/account/domain-status";
 
+/** Same states as the integrations connection helper, kept local so this
+ *  stays a dependency-free pure module. */
+export type SocialConnectionState = "connected" | "broken" | "none";
+
 /**
  * Normalized inputs the readiness derivation needs, independent of how each
  * channel's backend is shaped. The hook maps real service data to this; the
@@ -17,18 +21,11 @@ export interface ReadinessInputs {
   domainStatuses: DomainStatus[];
   webPush: { hasKey: boolean; sessionCount: number | null };
   mobilePush: { hasCredential: boolean; hasVerified: boolean };
-  x: { connected: boolean; pending: boolean };
   /**
-   * The remaining social channels. Their send backends are not deployed, so
-   * these default to not connected; connect-state is threaded through once each
-   * lands.
+   * Each social channel's saved connection (`/organization/connections`):
+   * verified, saved but rejected by the platform, or absent. Missing = absent.
    */
-  social?: Partial<
-    Record<
-      Exclude<SocialChannelId, "x">,
-      { connected: boolean; pending: boolean }
-    >
-  >;
+  social?: Partial<Record<SocialChannelId, SocialConnectionState>>;
 }
 
 const entry = (
@@ -95,16 +92,14 @@ function pushEntry(
 
 function socialEntry(
   id: SocialChannelId,
-  conn: { connected: boolean; pending: boolean }
+  state: SocialConnectionState = "none"
 ): ChannelReadiness {
-  if (conn.connected) return entry(id, "connected", null);
-  if (conn.pending) {
+  if (state === "connected") return entry(id, "connected", null);
+  if (state === "broken") {
     return entry(
       id,
       "pending",
-      id === "x"
-        ? "Authorised. No followers with a linked wallet yet"
-        : "Authorised, finishing setup"
+      `Saved, but ${CHANNEL_META[id].label} rejected the credential`
     );
   }
   return entry(id, "none", "Not connected yet");
@@ -121,23 +116,11 @@ export function deriveChannelReadiness(
       webPushStatus(inputs.webPush),
       mobilePushStatus(inputs.mobilePush)
     ),
-    x: socialEntry("x", inputs.x),
-    whatsapp: socialEntry(
-      "whatsapp",
-      inputs.social?.whatsapp ?? { connected: false, pending: false }
-    ),
-    telegram: socialEntry(
-      "telegram",
-      inputs.social?.telegram ?? { connected: false, pending: false }
-    ),
-    discord: socialEntry(
-      "discord",
-      inputs.social?.discord ?? { connected: false, pending: false }
-    ),
-    farcaster: socialEntry(
-      "farcaster",
-      inputs.social?.farcaster ?? { connected: false, pending: false }
-    ),
+    x: socialEntry("x", inputs.social?.x),
+    whatsapp: socialEntry("whatsapp", inputs.social?.whatsapp),
+    telegram: socialEntry("telegram", inputs.social?.telegram),
+    discord: socialEntry("discord", inputs.social?.discord),
+    farcaster: socialEntry("farcaster", inputs.social?.farcaster),
   };
   return CHANNEL_ORDER.map((id) => byId[id]);
 }

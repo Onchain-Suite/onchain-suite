@@ -3,8 +3,8 @@ import type { ChannelId, ChannelKind } from "../types/channel";
 /**
  * The channel catalog: label, sending model, who each reaches, and the one setup
  * step. Static data, React-free (the tab maps each id to a Heroicon). Email and
- * push are live; the rest are surfaced with a connect panel but send through
- * backends that are not deployed yet.
+ * push are set up in their own cards; the social channels connect your own
+ * account through `/organization/connections`.
  */
 export interface ChannelMeta {
   label: string;
@@ -35,7 +35,7 @@ export const CHANNEL_META: Record<ChannelId, ChannelMeta> = {
     kind: "post",
     reaches: "Followers who have linked a wallet",
     setup:
-      "Authorise DM access. X only allows DMs to accounts that follow you, so reach grows with linked followers.",
+      "Paste an OAuth 2.0 user token with DM access from your X app. X only allows DMs to accounts that follow you, so reach grows with linked followers.",
   },
   whatsapp: {
     label: "WhatsApp",

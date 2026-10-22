@@ -1804,6 +1804,15 @@ const ensureBackendAuthHeaders = (req: NextRequest, headers: Headers) => {
   }
 };
 
+/** `organization/integrations/oauth/:connector/authorize` (a top-level
+ *  navigation whose 302 must reach the browser). */
+const isOAuthAuthorizePath = (path: string[]) =>
+  path.length === 5 &&
+  path[0] === "organization" &&
+  path[1] === "integrations" &&
+  path[2] === "oauth" &&
+  path[4] === "authorize";
+
 const ensureOrgIdHeader = (req: NextRequest, headers: Headers) => {
   if (headers.has("x-org-id")) return;
   const params = req.nextUrl.searchParams;
@@ -2062,6 +2071,9 @@ const forward = async (
       headers,
       body,
       cache: "no-store",
+      // OAuth authorize answers with a 302 to the provider; pass it to the
+      // browser instead of following it server-side.
+      ...(isOAuthAuthorizePath(path) ? { redirect: "manual" as const } : {}),
     });
     if (isAgentQueryPath) {
       const upstreamPreview = await upstream

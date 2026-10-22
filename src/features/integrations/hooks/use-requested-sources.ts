@@ -61,6 +61,9 @@ export function requestSource(name: string): boolean {
   return true;
 }
 
+/** Stable server snapshot: a fresh `[]` per call makes React warn and loop. */
+const NONE: string[] = [];
+
 export function useRequestedSources(): string[] {
   return useSyncExternalStore(
     (f) => {
@@ -68,6 +71,6 @@ export function useRequestedSources(): string[] {
       return () => subscribers.delete(f);
     },
     () => requested,
-    () => []
+    () => NONE
   );
 }

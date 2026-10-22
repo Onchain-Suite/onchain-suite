@@ -434,6 +434,11 @@ export const MIGRATIONS: Migration[] = [
     brings: "Subscribers and collector addresses",
   },
   {
+    id: "emailoctopus",
+    name: "EmailOctopus",
+    brings: "Lists and subscribers, with their subscription status",
+  },
+  {
     id: "attio",
     name: "Attio",
     brings: "People and companies, as contacts with attributes",

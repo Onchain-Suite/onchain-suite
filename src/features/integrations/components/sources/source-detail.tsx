@@ -6,6 +6,7 @@ import { CopyButton } from "@/components/common/copy-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+import { connectorFor } from "../../data/connectors";
 import { FRESHNESS, LANE_LABEL, SOURCE_KINDS } from "../../data/sources";
 import type { DataSource, SourceStatus } from "../../types/sources";
 import { setupDocUrl } from "../../utils/sources";
@@ -45,12 +46,23 @@ export function SourceDetail({
           <p className="text-sm text-muted-foreground">{source.gives}</p>
         </div>
         {effective === "connected" ? (
-          <Badge
-            variant="outline"
-            className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
-          >
-            Connected
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+            >
+              Connected
+            </Badge>
+            {connectorFor(source.id) ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onConnect(source)}
+              >
+                Manage
+              </Button>
+            ) : null}
+          </div>
         ) : effective === "soon" ? (
           <Badge variant="outline" className="text-muted-foreground">
             Not available yet

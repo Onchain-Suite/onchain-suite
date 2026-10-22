@@ -11,7 +11,7 @@ import type { InAppReadiness } from "../../utils/inapp-readiness";
 
 /** Deep-link to Settings -> Integrations, where in-app keys/origins and mobile
  *  push credentials are set up. */
-const SETUP_HREF = "/settings?tab=integrations";
+const SETUP_HREF = "/integrations?tab=channels&channel=push";
 
 interface InAppReadinessNoticeProps {
   readiness: InAppReadiness;

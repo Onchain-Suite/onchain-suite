@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import BillingSettings from "../components/billing/billing";
-import IntegrationsSettings from "../components/integrations/integrations";
 import PrivacyIdentitySettings from "../components/privacy/privacy";
 import ProfileSettings from "../components/profile/profile";
 import RewardsSettings from "../components/rewards/rewards";
@@ -82,7 +81,6 @@ export default function SettingsPage() {
             {activeTab === "account" && <CompanySettingsView />}
             {activeTab === "privacy" && <PrivacyIdentitySettings />}
             {activeTab === "billing" && isOwner && <BillingSettings />}
-            {activeTab === "integrations" && <IntegrationsSettings />}
             {activeTab === "rewards" && <RewardsSettings />}
           </motion.div>
         </AnimatePresence>

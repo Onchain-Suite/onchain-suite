@@ -8,7 +8,7 @@ import {
   type WorkspaceSignals,
 } from "../utils/workspace";
 import { audienceService } from "@/features/audience/audience.service";
-import { useOrganizationId } from "@/features/dashboard/components/get-started";
+import { useOrganizationId } from "@/features/dashboard/hooks/use-setup-steps";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 
 export interface UseWorkspaceModeResult {

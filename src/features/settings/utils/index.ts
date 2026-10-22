@@ -1,6 +1,5 @@
 import {
   BuildingOffice2Icon,
-  CodeBracketIcon,
   CreditCardIcon,
   GiftIcon,
   ShieldCheckIcon,
@@ -37,7 +36,6 @@ export const tabs = [
   { id: "account", label: "Account", icon: BuildingOffice2Icon },
   { id: "privacy", label: "Privacy & Identity", icon: ShieldCheckIcon },
   { id: "billing", label: "Billing", icon: CreditCardIcon },
-  { id: "integrations", label: "Integrations", icon: CodeBracketIcon },
   { id: "rewards", label: "Rewards", icon: GiftIcon },
 ];
 

@@ -70,6 +70,7 @@ above; reject unknown values with `400 INVALID_CHART`.
 | DELETE | `/analytics/dashboards/:id` | | 204 |
 | GET | `/analytics/dashboards/:id/links` | | `PublishedLink[]` |
 | POST | `/analytics/dashboards/:id/links` | `{ title? }` | `PublishedLink` |
+| GET | `/analytics/links` | | `PublishedLink[]` (every live link in the org; the Getting started checklist ticks "Publish a dashboard" from it) |
 | DELETE | `/analytics/links/:token` | | 204 |
 
 Rules:

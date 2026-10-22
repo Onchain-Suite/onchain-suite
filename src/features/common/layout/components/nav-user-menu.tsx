@@ -6,6 +6,7 @@ import {
   CheckIcon,
   ChevronUpDownIcon,
   Cog6ToothIcon,
+  MapIcon,
   PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
@@ -35,6 +36,7 @@ import { getAvatarColor, getInitials, isValidImageUrl } from "@/lib/user-utils";
 import { cn } from "@/lib/utils";
 
 import { useOrgSwitcherContext } from "./org-switcher-context";
+import { startTour } from "@/features/onboarding/hooks/use-tour";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const orgInitials = (name: string) =>
@@ -176,7 +178,11 @@ export function NavUserMenu({
               }
             >
               <Cog6ToothIcon aria-hidden="true" className="mr-2 size-4" />
-              <span>Workspace settings</span>
+              <span>Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={startTour}>
+              <MapIcon aria-hidden="true" className="mr-2 size-4" />
+              <span>Take the tour</span>
             </DropdownMenuItem>
 
             {/* Switch workspace (absorbs the old top-bar org-switcher) */}

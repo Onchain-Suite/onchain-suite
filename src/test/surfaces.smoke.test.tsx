@@ -276,7 +276,6 @@ describe("settings tabs smoke", () => {
     { nav: /^account$/i, content: /token ticker/i },
     { nav: /privacy/i, content: /zero-knowledge identity/i },
     { nav: /^billing$/i, content: /plan & usage/i },
-    { nav: /integrations/i, content: /in-app push/i },
     { nav: /rewards/i, content: /launch waitlist/i },
   ];
 

@@ -4,7 +4,6 @@ import {
   BoltIcon,
   ChartBarIcon,
   CircleStackIcon,
-  Cog6ToothIcon,
   CpuChipIcon,
   DocumentTextIcon,
   MegaphoneIcon,
@@ -59,8 +58,8 @@ const withWipFlags = (items: NavItem[]): NavItem[] =>
   }));
 
 // Resolved once at module scope - the routes and the WIP flag are both static.
-// Matches the reference shell: Analytics is a top-level entry and Settings sits
-// inline at the foot of the list (no separate utility group).
+// Matches the reference shell: Analytics is a top-level entry, and Settings is
+// reached from the profile menu at the foot of the sidebar, not the list.
 const NAV_MAIN: NavItem[] = withWipFlags([
   { title: "Dashboard", url: PRIVATE_ROUTES.DASHBOARD, icon: Squares2X2Icon },
   { title: "Campaigns", url: PRIVATE_ROUTES.CAMPAIGNS, icon: MegaphoneIcon },
@@ -78,7 +77,6 @@ const NAV_MAIN: NavItem[] = withWipFlags([
     url: PRIVATE_ROUTES.INTEGRATIONS,
     icon: CircleStackIcon,
   },
-  { title: "Settings", url: PRIVATE_ROUTES.SETTINGS, icon: Cog6ToothIcon },
 ]);
 
 function DashboardLayoutInner({

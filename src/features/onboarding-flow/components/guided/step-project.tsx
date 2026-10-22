@@ -4,13 +4,6 @@ import { useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 import { profileReady, type ProjectProfile } from "../../constants/guided";
@@ -24,7 +17,7 @@ import {
   WEB2_SECTOR_OPTIONS,
   WEB3_SECTOR_OPTIONS,
 } from "../../utils/sector";
-import { ChainLogo } from "@/onchain-suite-website/components/landing/v2/chain-logos";
+import { ObSelect } from "./ob-select";
 
 type SectorTab = "web3" | "web2";
 
@@ -203,28 +196,16 @@ export function StepProject({
               </span>
             </Label>
             <div className="flex items-start gap-2">
-              <Select
+              <ObSelect
+                aria-label="Chain"
                 value={value.chains[0] ?? DEFAULT_CHAIN}
-                onValueChange={(v) => onChange({ ...value, chains: [v] })}
-              >
-                <SelectTrigger className="w-40 shrink-0" aria-label="Chain">
-                  <SelectValue placeholder="Chain" />
-                </SelectTrigger>
-                <SelectContent>
-                  {supportedChains.map((chain) => (
-                    <SelectItem key={chain.key} value={chain.key}>
-                      <span className="flex items-center gap-2">
-                        {chain.logo ? (
-                          <ChainLogo chain={chain.logo} size={15} />
-                        ) : (
-                          <span className="bg-muted-foreground/30 h-3.5 w-3.5 rounded-full" />
-                        )}
-                        {chain.label}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(v) => onChange({ ...value, chains: [v] })}
+                options={supportedChains.map((chain) => ({
+                  value: chain.key,
+                  label: chain.label,
+                  logo: chain.logo,
+                }))}
+              />
               <Input
                 id="ob-contract"
                 autoComplete="off"

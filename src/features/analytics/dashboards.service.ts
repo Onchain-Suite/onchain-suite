@@ -42,6 +42,8 @@ export interface DashboardsApi {
   duplicate(id: string): Promise<Dashboard>;
   remove(id: string): Promise<void>;
   links(id: string): Promise<PublishedLink[]>;
+  /** Every live link in the workspace (the Getting started checklist). */
+  allLinks(): Promise<PublishedLink[]>;
   publish(id: string, title: string): Promise<PublishedLink>;
   revoke(token: string): Promise<void>;
   /** A published dashboard's name and charts, as its link shows them. */
@@ -116,6 +118,9 @@ export const localDashboardsApi: DashboardsApi = {
   },
   async links(id) {
     return read().links.filter((l) => l.dashboardId === id);
+  },
+  async allLinks() {
+    return read().links;
   },
   async publish(id, title) {
     const r = publish(read(), id, title, window.location.origin);
@@ -199,6 +204,10 @@ export const httpDashboardsApi: DashboardsApi = {
       `/analytics/dashboards/${encodeURIComponent(id)}/links`,
       { headers: headers() }
     );
+    return unwrap<PublishedLink[]>(r.data);
+  },
+  async allLinks() {
+    const r = await apiClient.get("/analytics/links", { headers: headers() });
     return unwrap<PublishedLink[]>(r.data);
   },
   async publish(id, title) {

@@ -12,8 +12,9 @@ import {
   PaperAirplaneIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
+import { useSearchParams } from "next/navigation";
 import type { ComponentType, SVGProps } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -80,6 +81,14 @@ function StatusBadge({ status }: { status: ChannelReadinessStatus }) {
 export function ChannelsTab() {
   const { readiness, isLoading } = useChannelReadiness();
   const [open, setOpen] = useState<ChannelId | null>(null);
+
+  // `?channel=email` (from the Getting started checklist) opens that channel.
+  const channelParam = useSearchParams()?.get("channel") ?? null;
+  useEffect(() => {
+    if (channelParam && channelParam in CHANNEL_META) {
+      setOpen(channelParam as ChannelId);
+    }
+  }, [channelParam]);
 
   const current = readiness.find((c) => c.id === open);
   if (current) {

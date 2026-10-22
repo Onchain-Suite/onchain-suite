@@ -799,6 +799,19 @@ export function AudiencePages() {
     );
   };
 
+  // Copy a list's ID — the handle developers pass to POST /events (`listIds`)
+  // or POST /audience/segments/:id/members to add contacts to this list.
+  const copyListId = (id: string) => {
+    navigator.clipboard?.writeText(id).then(
+      () => {
+        setCopiedId(id);
+        window.setTimeout(() => setCopiedId(null), 1200);
+        toast.success("List ID copied");
+      },
+      () => toast.error("Couldn't copy the List ID")
+    );
+  };
+
   const statCards: Array<{
     label: string;
     value: number | undefined;
@@ -1550,6 +1563,25 @@ export function AudiencePages() {
                                   align="end"
                                   onClick={(e) => e.stopPropagation()}
                                 >
+                                  <DropdownMenuItem
+                                    onSelect={(e) => {
+                                      e.preventDefault();
+                                      copyListId(seg.id);
+                                    }}
+                                  >
+                                    {copiedId === seg.id ? (
+                                      <CheckIcon
+                                        className="size-4"
+                                        aria-hidden="true"
+                                      />
+                                    ) : (
+                                      <ClipboardDocumentIcon
+                                        className="size-4"
+                                        aria-hidden="true"
+                                      />
+                                    )}
+                                    Copy list ID
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onSelect={(e) => {
                                       e.preventDefault();

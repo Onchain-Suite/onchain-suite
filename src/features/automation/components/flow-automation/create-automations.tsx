@@ -166,6 +166,7 @@ const nodePanelLabel = stepKindLabel;
 const ACTION_NODE_RENDERER: Record<string, string> = {
   send_email: "email",
   send_inapp: "inapp",
+  send_telegram: "telegram",
   dispatch_campaign: "dispatch",
   add_tag: "tag",
   remove_tag: "tag",
@@ -1305,6 +1306,7 @@ const CreateAutomationContent = () => {
   const isSelectedRenderer = (key: string) =>
     selectedRenderer === key || selectedActionType === key;
   const selectedIsInapp = isSelectedRenderer("inapp");
+  const selectedIsTelegram = isSelectedRenderer("telegram");
   const selectedIsWebhook = isSelectedRenderer("webhook");
   const selectedIsDispatch = isSelectedRenderer("dispatch");
   const selectedIsTag = isSelectedRenderer("tag");
@@ -1325,6 +1327,7 @@ const CreateAutomationContent = () => {
   const selectedHasDedicatedPanel =
     selectedIsEmail ||
     selectedIsInapp ||
+    selectedIsTelegram ||
     selectedIsWebhook ||
     selectedIsDispatch ||
     selectedIsTag ||
@@ -2968,6 +2971,17 @@ const CreateAutomationContent = () => {
                       hint="Shows the next time they open your app. Tapping it opens this page."
                     />
                   </>
+                )}
+
+                {selectedIsTelegram && (
+                  <TextField
+                    label="Message"
+                    multiline
+                    value={asString(selectedNodeData.text)}
+                    onChange={(text) => updateSelectedNodeData({ text })}
+                    placeholder="Your rewards are ready. Claim them in the app."
+                    hint="Sent to the contact on Telegram."
+                  />
                 )}
 
                 {selectedIsWebhook && (

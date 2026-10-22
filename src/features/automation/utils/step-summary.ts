@@ -13,6 +13,8 @@ const STEP_KIND_LABELS: Record<string, string> = {
   send_email: "Send an email",
   inapp: "Send in-app push",
   send_inapp: "Send in-app push",
+  telegram: "Send Telegram",
+  send_telegram: "Send Telegram",
   wait: "Wait",
   branch: "If / else",
   tag: "Add tag",
@@ -75,6 +77,9 @@ export function stepSummary(type: string | undefined, data: unknown): string {
     case "send_inapp":
     case "inapp":
       return text(d.title) || text(d.body);
+    case "send_telegram":
+    case "telegram":
+      return text(d.text) || text(d.body);
     case "wait": {
       if (d.mode === "until_event" && text(d.waitFor)) {
         return `Until ${text(d.waitFor).replace(/_/g, " ")}`;

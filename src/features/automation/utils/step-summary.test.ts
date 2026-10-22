@@ -13,6 +13,9 @@ describe("stepKindLabel", () => {
 
 describe("stepSummary", () => {
   it("says what a configured step does", () => {
+    expect(stepSummary("telegram", { text: "Claim your rewards" })).toBe(
+      "Claim your rewards"
+    );
     expect(stepSummary("email", { subject: "Welcome aboard" })).toBe(
       "Welcome aboard"
     );

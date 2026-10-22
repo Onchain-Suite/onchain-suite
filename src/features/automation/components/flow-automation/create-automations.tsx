@@ -266,6 +266,13 @@ const OFFCHAIN_LIST_TRIGGER_TYPES = new Set([
   "segment_exited",
 ]);
 const OFFCHAIN_TAG_TRIGGER_TYPES = new Set(["tag_added"]);
+
+// Handoff for the single-tab email-builder flow: openEmailBuilder writes which
+// node is being designed here before navigating this tab to the editor, and the
+// builder reads it back on return (the builder is unmounted while the editor is
+// open, so the live broadcast can't reach it) to reflect the saved design onto
+// the node. sessionStorage so it is scoped to this tab and cleared on return.
+const PENDING_EMAIL_DESIGN_KEY = "onchain.automation.pendingEmailDesign.v1";
 const OFFCHAIN_CAMPAIGN_TRIGGER_TYPES = new Set([
   "email_opened",
   "email_clicked",
@@ -1894,28 +1901,40 @@ const CreateAutomationContent = () => {
       // A new automation has no real id yet to attach the design to. Create it
       // in the background (lenient draft, no reload) and go straight to the
       // editor - no "save first, then click again" dance.
-      const id = isNew ? await persistDraftReturningId() : automationId;
-      // The editor mints the design session itself; we only need to remember the
-      // node so the saved email reflects back onto it (the editor also
-      // broadcasts the designId). No builder-side mint, so the editor's token is
-      // the only one bound to the design.
+      // Flush the CURRENT draft (including unsaved panel edits like the subject)
+      // so the editor and the return both load from the latest graph. Returns the
+      // automation id, creating it first when this automation is still new.
+      const id = await persistDraftReturningId();
       emailSyncRef.current = { nodeId };
+      // Record which node is being designed so the builder can reflect the saved
+      // design back onto it when this SAME tab returns from the editor (the
+      // builder is unmounted while the editor is open, so the broadcast can't
+      // reach it). sessionStorage is per-tab and read-once on return.
+      try {
+        sessionStorage.setItem(
+          PENDING_EMAIL_DESIGN_KEY,
+          JSON.stringify({ automationId: id, nodeId })
+        );
+      } catch {
+        // Private mode / storage disabled: the editor's broadcast + the backend
+        // design re-join are the fallback paths.
+      }
+      // Drop the cached builder query so returning to this tab refetches the
+      // fresh draft rather than re-hydrating stale cache (which would discard the
+      // flush above and lose the just-typed subject).
+      queryClient.removeQueries({
+        queryKey: ["automations", id, "builder"],
+      });
       const qs = new URLSearchParams({
         automation: id,
         node: nodeId,
         returnTo: `/automations/${id}`,
         subject: asString(selectedNodeData.subject),
       });
-      window.open(
-        `/campaigns/editor?${qs.toString()}`,
-        "_blank",
-        "noopener,noreferrer"
-      );
-      // Settle the page on the real id without a hard reload (the editor tab is
-      // already open).
-      if (isNew && id !== automationId) {
-        router.replace(`/automations/${id}`);
-      }
+      // Same-tab navigation (not a new tab) so only ONE builder client ever edits
+      // the draft - this removes the "changed in another tab" conflict at its
+      // source. The editor's Back button returns to `returnTo` (this automation).
+      router.push(`/campaigns/editor?${qs.toString()}`);
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : "We couldn't start the email editor."
@@ -2072,6 +2091,65 @@ const CreateAutomationContent = () => {
   // reset nodes/edges to the last-saved graph - silently deleting nodes the user
   // just added but hasn't saved yet. Save/publish success still hydrate the graph
   // they return explicitly, so the server's response is never ignored.
+  // Reflect a design saved in the editor back onto its node when this tab
+  // returns from the single-tab editor flow. The builder was unmounted while the
+  // editor was open, so the live broadcast/focus sync never reached it - read
+  // the per-tab handoff, pull the design (mint is idempotent: it returns the
+  // existing design id), and patch the node. Runs AFTER hydration so it is not
+  // overwritten. Clears the handoff so it fires once.
+  const reflectPendingEmailDesign = useCallback(
+    async (currentAutomationId: string) => {
+      let pending: { automationId?: string; nodeId?: string } | null = null;
+      try {
+        const raw = sessionStorage.getItem(PENDING_EMAIL_DESIGN_KEY);
+        if (raw) pending = JSON.parse(raw);
+      } catch {
+        return;
+      }
+      const nodeId = asString(pending?.nodeId);
+      if (pending?.automationId !== currentAutomationId || !nodeId) {
+        return;
+      }
+      try {
+        sessionStorage.removeItem(PENDING_EMAIL_DESIGN_KEY);
+      } catch {
+        // ignore
+      }
+      try {
+        const session = await automationService.createNodeEmailEditorSession(
+          currentAutomationId,
+          nodeId
+        );
+        const designId = asString(session?.designId);
+        if (!designId) return;
+        const content = await automationService.getDesignEmail(designId);
+        const patch: Record<string, unknown> = {
+          designId,
+          emailSource: "builder",
+        };
+        const subject = asString(content.subject);
+        const previewText = asString(content.previewText);
+        const html = asString(content.html);
+        if (subject) patch.subject = subject;
+        if (previewText) patch.previewText = previewText;
+        if (html) patch.body = html;
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === nodeId
+              ? {
+                  ...n,
+                  data: { ...(n.data as Record<string, unknown>), ...patch },
+                }
+              : n
+          )
+        );
+      } catch {
+        // Best-effort: the backend design re-join still reflects it on a later load.
+      }
+    },
+    [setNodes]
+  );
+
   const hydratedAutomationRef = useRef<string | null>(null);
   useEffect(() => {
     if (isNew) return;
@@ -2080,7 +2158,15 @@ const CreateAutomationContent = () => {
     if (hydratedAutomationRef.current === automationId) return;
     hydratedAutomationRef.current = automationId;
     hydrateBuilderState(payload);
-  }, [builderQuery.data, hydrateBuilderState, isNew, automationId]);
+    // After hydration, fold in any design saved during a same-tab editor trip.
+    reflectPendingEmailDesign(automationId).catch(() => undefined);
+  }, [
+    builderQuery.data,
+    hydrateBuilderState,
+    isNew,
+    automationId,
+    reflectPendingEmailDesign,
+  ]);
 
   useEffect(() => {
     if (!selectedNode) return;

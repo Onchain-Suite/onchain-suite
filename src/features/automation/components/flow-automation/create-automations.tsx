@@ -1937,12 +1937,21 @@ const CreateAutomationContent = () => {
     }));
   }, [automationDetailQuery.data, automationId, isNew]);
 
+  // Hydrate the canvas from the server ONCE per automation. The effect must not
+  // re-run on every builderQuery refetch: any `invalidateQueries(["automations"])`
+  // (save, publish, even a name blur) refetches this query, and re-hydrating would
+  // reset nodes/edges to the last-saved graph - silently deleting nodes the user
+  // just added but hasn't saved yet. Save/publish success still hydrate the graph
+  // they return explicitly, so the server's response is never ignored.
+  const hydratedAutomationRef = useRef<string | null>(null);
   useEffect(() => {
     if (isNew) return;
     const payload = builderQuery.data;
     if (!payload || !isJsonObject(payload)) return;
+    if (hydratedAutomationRef.current === automationId) return;
+    hydratedAutomationRef.current = automationId;
     hydrateBuilderState(payload);
-  }, [builderQuery.data, hydrateBuilderState, isNew]);
+  }, [builderQuery.data, hydrateBuilderState, isNew, automationId]);
 
   useEffect(() => {
     if (!selectedNode) return;

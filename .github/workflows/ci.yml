@@ -28,6 +28,15 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      # The API types in src/lib/api-types.ts are generated from
+      # openapi/swagger.json (the backend's OpenAPI contract). This regenerates
+      # them and fails if the committed types drifted — so the spec and the types
+      # the app compiles against can't fall out of sync. Typecheck then compiles
+      # the app against the current contract, turning a backend break into a
+      # frontend type error.
+      - name: API types in sync
+        run: bun run api:types:check
+
       - name: Typecheck
         run: bun run type-check
 

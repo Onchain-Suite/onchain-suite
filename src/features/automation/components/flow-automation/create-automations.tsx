@@ -177,6 +177,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/shared/components/ui/sheet";
+import { subscribeEmailDesignSaved } from "@/shared/utils/email-design-channel";
 
 // This is a known benign error with ReactFlow that can be safely ignored
 if (typeof window === "undefined") {
@@ -1774,6 +1775,39 @@ const CreateAutomationContent = () => {
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [syncEmailNodeFromEditor]);
+
+  // Instant path: the editor tab broadcasts the moment it saves, so reflect the
+  // design onto the matching Send Email node right away instead of waiting for
+  // this tab to regain focus. The focus/visibility poll above stays as the
+  // fallback for browsers without BroadcastChannel or a dropped message.
+  useEffect(() => {
+    return subscribeEmailDesignSaved((message) => {
+      // Apply whatever the broadcast carried immediately (keyed by campaign, so
+      // the right node updates even if it was not the one that opened the
+      // editor), then reconcile from the authoritative email content.
+      const patch = emailNodePatch(
+        {
+          subject: message.subject,
+          previewText: message.previewText,
+          templateId: message.templateId,
+        },
+        emailTemplateOptions
+      );
+      if (hasEmailPatch(patch)) {
+        setNodes((nds) =>
+          nds.map((n) =>
+            isJsonObject(n.data) &&
+            asString(n.data.campaignId) === message.campaignId
+              ? { ...n, data: { ...n.data, ...patch } }
+              : n
+          )
+        );
+      }
+      if (emailSyncRef.current?.campaignId === message.campaignId) {
+        syncEmailNodeFromEditor().catch(() => undefined);
+      }
+    });
+  }, [emailTemplateOptions, setNodes, syncEmailNodeFromEditor]);
 
   // Open the visual email editor for the selected email node. The editor needs a
   // real campaign draft to attach the design to, so we mint one the first time

@@ -9,11 +9,18 @@ import { Button } from "@/components/ui/button";
 
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import { automationService } from "@/features/automation/automation.service";
 import { campaignsService } from "@/features/campaigns/campaigns.service";
 import { templatesService } from "@/features/templates/templates.service";
+import { publishEmailDesignSaved } from "@/shared/utils/email-design-channel";
 
 interface EmbeddedEmailEditorProps {
-  campaignId: string;
+  /** Campaign editor mode: the campaign whose email is being edited. */
+  campaignId?: string;
+  /** Design mode: edit a Send Email automation node's standalone design (no
+   *  campaign, no template). Both automationId and nodeId are required for it. */
+  automationId?: string;
+  nodeId?: string;
   /** When editing an existing saved template, saves update it in place. */
   templateId?: string;
   title?: string;
@@ -41,11 +48,14 @@ function originOf(url: string): string {
  * that one is being stabilised; restoring it is a one-file revert of the route.
  */
 export function EmbeddedEmailEditor({
-  campaignId,
+  campaignId = "",
+  automationId = "",
+  nodeId = "",
   templateId,
   title,
   onBack,
 }: EmbeddedEmailEditorProps) {
+  const isDesign = Boolean(automationId && nodeId);
   const queryClient = useQueryClient();
   const orgId = getSelectedOrganizationId() ?? undefined;
   const [ready, setReady] = useState(false);
@@ -64,18 +74,31 @@ export function EmbeddedEmailEditor({
     return /^https:\/\//i.test(value) ? value : "";
   }, []);
 
-  // A mutation (not a query) because minting a session writes a token hash onto
-  // the campaign server-side; we want exactly one per editor open.
-  const sessionMutation = useMutation({
-    mutationFn: () => campaignsService.getEditorSession(campaignId, orgId),
+  // A mutation (not a query) because minting a session writes a token hash
+  // server-side; we want exactly one per editor open. Design mode mints a
+  // design-scoped session (no campaign); campaign mode mints the campaign one.
+  const sessionMutation = useMutation<{
+    editorUrl?: string;
+    token?: string;
+    designId?: string;
+  }>({
+    mutationFn: () =>
+      isDesign
+        ? automationService.createNodeEmailEditorSession(
+            automationId,
+            nodeId,
+            orgId
+          )
+        : campaignsService.getEditorSession(campaignId, orgId),
   });
 
   const { mutate: startSession } = sessionMutation;
   useEffect(() => {
-    if (campaignId.length > 0) startSession();
-  }, [campaignId, startSession]);
+    if (isDesign || campaignId.length > 0) startSession();
+  }, [isDesign, campaignId, startSession]);
 
   const session = sessionMutation.data;
+  const designId = session?.designId ?? "";
 
   const iframeSrc = useMemo(() => {
     const editorUrl = session?.editorUrl;
@@ -85,13 +108,18 @@ export function EmbeddedEmailEditor({
     const params = new URLSearchParams({
       embedded: "1",
       token,
-      campaign: campaignId,
       parentOrigin: typeof window !== "undefined" ? window.location.origin : "",
     });
+    // Design mode targets the node design's routes; campaign mode the campaign's.
+    if (isDesign) {
+      if (designId) params.set("design", designId);
+    } else {
+      params.set("campaign", campaignId);
+    }
     if (orgId) params.set("orgId", orgId);
     if (apiBaseUrl) params.set("apiBaseUrl", apiBaseUrl);
     return `${base}/?${params.toString()}`;
-  }, [session, campaignId, orgId, apiBaseUrl]);
+  }, [session, isDesign, designId, campaignId, orgId, apiBaseUrl]);
 
   const allowedOrigin = useMemo(
     () => originOf(session?.editorUrl ?? ""),
@@ -107,11 +135,13 @@ export function EmbeddedEmailEditor({
   }, [session?.editorUrl]);
 
   const leave = () => {
-    // The builder persists via the editor token; refresh what the wizard reads.
-    queryClient.invalidateQueries({
-      queryKey: ["campaigns", "editor-content", campaignId],
-    });
-    queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
+    if (!isDesign) {
+      // The builder persists via the editor token; refresh what the wizard reads.
+      queryClient.invalidateQueries({
+        queryKey: ["campaigns", "editor-content", campaignId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] });
+    }
     onBack();
   };
 
@@ -167,9 +197,8 @@ export function EmbeddedEmailEditor({
     if (!win || !allowedOrigin || !token) return;
     const payload: Record<string, unknown> = {
       type: "HOST_CONFIG",
-      campaignId,
-      campaign: campaignId,
       token,
+      ...(isDesign ? { designId } : { campaignId, campaign: campaignId }),
     };
     if (orgId) payload.orgId = orgId;
     if (apiBaseUrl) {
@@ -177,7 +206,15 @@ export function EmbeddedEmailEditor({
       payload.apiUrl = apiBaseUrl;
     }
     win.postMessage(payload, allowedOrigin);
-  }, [allowedOrigin, session?.token, campaignId, orgId, apiBaseUrl]);
+  }, [
+    allowedOrigin,
+    session?.token,
+    isDesign,
+    designId,
+    campaignId,
+    orgId,
+    apiBaseUrl,
+  ]);
 
   useEffect(() => {
     if (!allowedOrigin) return;
@@ -208,7 +245,40 @@ export function EmbeddedEmailEditor({
             ? data.payload
             : data
           : {};
+        const subject =
+          typeof payload.subject === "string" ? payload.subject : undefined;
+        const previewText =
+          typeof payload.previewText === "string"
+            ? payload.previewText
+            : undefined;
+        const html =
+          typeof payload.html === "string" ? payload.html : undefined;
+
+        if (isDesign) {
+          // Design mode: the builder already saved to the node design. Do NOT
+          // materialize a /templates row. Tell the automation builder tab to
+          // pull the design onto its Send Email node now, then return.
+          publishEmailDesignSaved({
+            designId: designId || undefined,
+            nodeId,
+            subject,
+            previewText,
+            html,
+          });
+          toast.success("Email saved to this step.");
+          leave();
+          return;
+        }
+
         persistAsTemplate(payload).then((asTemplate) => {
+          // Tell an automation builder open in another tab to pull this design
+          // onto its Send Email node now, rather than waiting for a tab refocus.
+          publishEmailDesignSaved({
+            campaignId,
+            templateId: savedTemplateIdRef.current || undefined,
+            subject,
+            previewText,
+          });
           toast.success(
             asTemplate
               ? "Saved to Email Saved. You can select it and send."

@@ -15,10 +15,12 @@ if (isDom) {
   // tab's react-query run -> status poll -> results fetch, gated on
   // `enabled` flags flipping across renders — can take longer than 1s to
   // settle and make `findBy`/`waitFor` flake, even though the same test passes
-  // in isolation. 5s is headroom, not latency: these helpers resolve the
+  // in isolation. 10s is headroom, not latency: these helpers resolve the
   // instant the element appears, so passing tests are not slowed; only a
-  // genuine miss now takes longer to surface.
-  configure({ asyncUtilTimeout: 5000 });
+  // genuine miss now takes longer to surface. Raised from 5s because the
+  // heaviest async suites (settings company form, intelligence query tab) still
+  // flaked a pre-push run under full-suite contention at 5s.
+  configure({ asyncUtilTimeout: 10000 });
 
   afterEach(() => cleanup());
 

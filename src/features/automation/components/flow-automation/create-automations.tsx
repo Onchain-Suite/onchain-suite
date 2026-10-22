@@ -159,6 +159,10 @@ import {
   pickText,
 } from "@/features/automation/utils/coerce";
 import { resolveContractCatalog } from "@/features/automation/utils/contracts";
+import {
+  emailNodePatch,
+  hasEmailPatch,
+} from "@/features/automation/utils/email-node-sync";
 import { canRunLendingHealthFactorNow } from "@/features/automation/utils/run-now";
 import { campaignsService } from "@/features/campaigns/campaigns.service";
 import { useFormsList } from "@/features/forms/hooks/use-forms";
@@ -173,6 +177,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/shared/components/ui/sheet";
+import { subscribeEmailDesignSaved } from "@/shared/utils/email-design-channel";
 
 // This is a known benign error with ReactFlow that can be safely ignored
 if (typeof window === "undefined") {
@@ -1692,94 +1697,195 @@ const CreateAutomationContent = () => {
   const [openingEmailBuilder, setOpeningEmailBuilder] = useState(false);
   // The email node whose editor is open in another tab, so we can pull the saved
   // design's subject / preview / template back onto it when this tab refocuses.
-  const emailSyncRef = useRef<{ nodeId: string; campaignId: string } | null>(
-    null
-  );
+  const emailSyncRef = useRef<{
+    nodeId: string;
+    designId?: string;
+    campaignId?: string;
+  } | null>(null);
+  // Prevents focus + visibilitychange (which both fire on a tab return) from
+  // running two overlapping polls at once.
+  const emailSyncingRef = useRef(false);
   const syncEmailNodeFromEditor = useCallback(async () => {
     const ref = emailSyncRef.current;
-    if (!ref) return;
+    if (!ref || emailSyncingRef.current) return;
+    emailSyncingRef.current = true;
     try {
-      const content = await campaignsService.getEmailContent(ref.campaignId);
-      const patch: Record<string, unknown> = {};
-      const subject = asString(content.subject);
-      const previewText = asString(content.previewText);
-      const templateId = asString(content.source?.templateId);
-      if (subject) patch.subject = subject;
-      if (previewText) patch.previewText = previewText;
-      if (templateId) {
-        patch.templateId = templateId;
-        const opt = emailTemplateOptions.find((t) => t.id === templateId);
-        if (opt?.name) patch.templateName = opt.name;
+      // The design is saved in the editor tab; when the user switches back that
+      // save can still be in flight, so read a few times until it lands instead
+      // of once - a single read silently missed a just-built email, which is why
+      // the step never got tagged with the subject / preview.
+      for (let attempt = 0; attempt < 6; attempt++) {
+        let patch: Record<string, unknown> = {};
+        try {
+          if (ref.designId) {
+            // Standalone node design: reflect subject / preview and store the
+            // HTML as the node's inline `body` so send_email sends it with no
+            // campaign or template.
+            const content = await automationService.getDesignEmail(
+              ref.designId
+            );
+            const subject = asString(content.subject);
+            const previewText = asString(content.previewText);
+            const html = asString(content.html);
+            if (subject) patch.subject = subject;
+            if (previewText) patch.previewText = previewText;
+            if (html) {
+              patch.body = html;
+              patch.emailSource = "builder";
+            }
+          } else if (ref.campaignId) {
+            const content = await campaignsService.getEmailContent(
+              ref.campaignId
+            );
+            patch = emailNodePatch(
+              {
+                subject: content.subject,
+                previewText: content.previewText,
+                templateId: content.source?.templateId,
+              },
+              emailTemplateOptions
+            );
+          }
+        } catch {
+          // A transient read error should not abandon the sync; keep polling.
+        }
+        if (hasEmailPatch(patch)) {
+          setNodes((nds) =>
+            nds.map((n) =>
+              n.id === ref.nodeId
+                ? {
+                    ...n,
+                    data: {
+                      ...(n.data as Record<string, unknown>),
+                      ...patch,
+                    },
+                  }
+                : n
+            )
+          );
+          // Surface a freshly-created template in the picker so the next open
+          // and the name lookup see it.
+          queryClient.invalidateQueries({
+            queryKey: ["automations", "builder", "email-templates"],
+          });
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 700));
       }
-      if (Object.keys(patch).length === 0) return;
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === ref.nodeId
-            ? {
-                ...n,
-                data: {
-                  ...(n.data as Record<string, unknown>),
-                  ...patch,
-                },
-              }
-            : n
-        )
-      );
-      // Surface a freshly-created template in the picker.
-      queryClient.invalidateQueries({
-        queryKey: ["automations", "builder", "email-templates"],
-      });
-    } catch {
-      // Best-effort: a failed read just leaves the node as-is.
+    } finally {
+      emailSyncingRef.current = false;
     }
   }, [emailTemplateOptions, setNodes, queryClient]);
 
-  // Pull the latest email design back whenever this tab regains focus (the
-  // editor opens in another tab and saves to the campaign).
+  // Pull the latest email design back whenever this tab is shown again. The
+  // editor opens in another tab, so `visibilitychange` (fires reliably on a
+  // tab switch back) is the primary signal; `focus` is kept as a fallback for
+  // window-level refocus.
   useEffect(() => {
-    const onFocus = () => {
+    const sync = () => {
       syncEmailNodeFromEditor().catch(() => undefined);
     };
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [syncEmailNodeFromEditor]);
 
-  // Open the visual email editor for the selected email node. The editor needs a
-  // real campaign draft to attach the design to, so we mint one the first time
-  // (reused on later opens via the node's `campaignId`) instead of passing the
-  // automation id - which is not a campaign and returned 404 "Campaign not
-  // found". No template is required: the editor opens blank for from-scratch.
+  // Instant path: the editor tab broadcasts the moment it saves, so reflect the
+  // design onto the matching Send Email node right away instead of waiting for
+  // this tab to regain focus. The focus/visibility poll above stays as the
+  // fallback for browsers without BroadcastChannel or a dropped message.
+  useEffect(() => {
+    return subscribeEmailDesignSaved((message) => {
+      if (message.designId) {
+        // Standalone node design: apply subject / preview and the HTML as the
+        // node's inline `body`, matched by the node the editor was opened for.
+        const patch: Record<string, unknown> = {};
+        const subject = asString(message.subject);
+        const previewText = asString(message.previewText);
+        const html = asString(message.html);
+        if (subject) patch.subject = subject;
+        if (previewText) patch.previewText = previewText;
+        if (html) {
+          patch.body = html;
+          patch.emailSource = "builder";
+        }
+        patch.designId = message.designId;
+        const targetNodeId = message.nodeId ?? emailSyncRef.current?.nodeId;
+        if (targetNodeId) {
+          setNodes((nds) =>
+            nds.map((n) =>
+              n.id === targetNodeId
+                ? {
+                    ...n,
+                    data: { ...(n.data as Record<string, unknown>), ...patch },
+                  }
+                : n
+            )
+          );
+        }
+        if (emailSyncRef.current?.designId === message.designId) {
+          syncEmailNodeFromEditor().catch(() => undefined);
+        }
+        return;
+      }
+
+      // Campaign editor: apply what the broadcast carried (keyed by campaign),
+      // then reconcile from the authoritative email content.
+      const patch = emailNodePatch(
+        {
+          subject: message.subject,
+          previewText: message.previewText,
+          templateId: message.templateId,
+        },
+        emailTemplateOptions
+      );
+      if (hasEmailPatch(patch)) {
+        setNodes((nds) =>
+          nds.map((n) =>
+            isJsonObject(n.data) &&
+            asString(n.data.campaignId) === message.campaignId
+              ? { ...n, data: { ...n.data, ...patch } }
+              : n
+          )
+        );
+      }
+      if (emailSyncRef.current?.campaignId === message.campaignId) {
+        syncEmailNodeFromEditor().catch(() => undefined);
+      }
+    });
+  }, [emailTemplateOptions, setNodes, syncEmailNodeFromEditor]);
+
+  // Open the visual email editor for the selected email node against a
+  // STANDALONE design - no Campaign draft and no saved/public Template. We mint
+  // the node's design session (idempotent per automation+node) so we know its
+  // design id, remember it on the node, then open the editor in design mode. On
+  // return the saved subject / preview / body are reflected back onto the node,
+  // which sends them inline.
   const openEmailBuilder = async () => {
     setOpeningEmailBuilder(true);
     try {
       const nodeId = selectedNode;
-      const templateId = asString(selectedNodeData.templateId);
-      let campaignId = asString(selectedNodeData.campaignId);
-      if (!campaignId) {
-        const created = await campaignsService.createCampaign({
-          name: asString(selectedNodeData.subject) || "Automation email",
-          type: "email",
-          status: "draft",
-        });
-        if (!created?.id) throw new Error("Failed to create an email draft.");
-        campaignId = created.id;
-        updateSelectedNodeData({ campaignId });
-      }
-      // Attaching an existing template: seed the campaign with it so the editor
-      // opens that design, and pass `template` so saves update it in place.
-      if (templateId) {
-        await campaignsService
-          .setTemplate(campaignId, { templateId })
-          .catch(() => undefined);
-      }
-      // Remember which node this editor belongs to; on return we read the saved
-      // subject / preview / template back off the campaign and reflect them here.
-      emailSyncRef.current = nodeId ? { nodeId, campaignId } : null;
+      if (!nodeId) throw new Error("Select the email step first.");
+      const session = await automationService.createNodeEmailEditorSession(
+        automationId,
+        nodeId
+      );
+      const designId = asString(session.designId);
+      if (designId) updateSelectedNodeData({ designId });
+      emailSyncRef.current = {
+        nodeId,
+        designId: designId || undefined,
+      };
       const qs = new URLSearchParams({
-        campaign: campaignId,
+        automation: automationId,
+        node: nodeId,
         returnTo: `/automations/${automationId}`,
-        ...(templateId ? { template: templateId } : {}),
-        templateName: asString(selectedNodeData.templateName),
         subject: asString(selectedNodeData.subject),
       });
       window.open(
@@ -1937,12 +2043,21 @@ const CreateAutomationContent = () => {
     }));
   }, [automationDetailQuery.data, automationId, isNew]);
 
+  // Hydrate the canvas from the server ONCE per automation. The effect must not
+  // re-run on every builderQuery refetch: any `invalidateQueries(["automations"])`
+  // (save, publish, even a name blur) refetches this query, and re-hydrating would
+  // reset nodes/edges to the last-saved graph - silently deleting nodes the user
+  // just added but hasn't saved yet. Save/publish success still hydrate the graph
+  // they return explicitly, so the server's response is never ignored.
+  const hydratedAutomationRef = useRef<string | null>(null);
   useEffect(() => {
     if (isNew) return;
     const payload = builderQuery.data;
     if (!payload || !isJsonObject(payload)) return;
+    if (hydratedAutomationRef.current === automationId) return;
+    hydratedAutomationRef.current = automationId;
     hydrateBuilderState(payload);
-  }, [builderQuery.data, hydrateBuilderState, isNew]);
+  }, [builderQuery.data, hydrateBuilderState, isNew, automationId]);
 
   useEffect(() => {
     if (!selectedNode) return;
@@ -2174,6 +2289,58 @@ const CreateAutomationContent = () => {
     },
   });
 
+  // "Save draft" persists via the lenient draft endpoint (no publish-level
+  // validation), creating the automation first when it is new. A draft is a
+  // work in progress: a Send Email step whose design has not been built yet, a
+  // step still missing a field. Requiring a valid flow here was a deadlock -
+  // the email builder needs a saved automation to attach its design to, but the
+  // automation could not be saved until that design existed. Publish still runs
+  // the full validation.
+  const saveDraftMutation = useMutation({
+    mutationFn: async () => {
+      const name =
+        (typeof automationData.name === "string"
+          ? automationData.name.trim()
+          : "") || "Untitled automation";
+      const graph = {
+        ...toWireGraph({ nodes, edges }),
+        settings: flowSettings,
+      };
+      if (isNew) {
+        const created = await automationService.createAutomation({
+          name,
+          description: automationData.description ?? "",
+          builder: toWireGraph({ nodes, edges }),
+        });
+        const createdId = created.automationId;
+        if (!createdId) throw new Error("Could not create the automation.");
+        // Create does not seed the draft graph getBuilder reads back, so write
+        // it explicitly - this is the lenient store the deadlock needed.
+        await automationService.saveBuilderDraft(createdId, graph);
+        return { createdId };
+      }
+      await automationService.updateAutomation(automationId, {
+        name,
+        description: automationData.description ?? "",
+      });
+      await automationService.saveBuilderDraft(automationId, graph);
+      return { createdId: null as string | null };
+    },
+    onSuccess: async (res) => {
+      await queryClient.invalidateQueries({ queryKey: ["automations"] });
+      setIsSaving(false);
+      if (res.createdId) {
+        window.location.href = `/automations/${res.createdId}`;
+        return;
+      }
+      toast.success("Draft saved.");
+    },
+    onError: (err) => {
+      setIsSaving(false);
+      reportGraphError(err, "Failed to save draft");
+    },
+  });
+
   // Persist the automation NAME the moment the user finishes editing it (blur /
   // Enter), like the campaign editor. The builder autosave below only saves
   // nodes/edges, so without this the title would revert unless the user hit the
@@ -2282,34 +2449,12 @@ const CreateAutomationContent = () => {
     }
   };
 
+  // Saving a draft never blocks on validation: a draft is allowed to be
+  // incomplete, and the backend draft endpoint stores it as-is. Publish (below)
+  // is where the flow is validated before it can go live.
   const handleSave = async () => {
     setIsSaving(true);
-    // Validate first: a save the backend refuses comes back as one opaque line
-    // ("Automation builder graph is invalid"), whereas the validate pass names
-    // the offending steps.
-    let parsed: BuilderIssue[] = [];
-    try {
-      parsed = await runValidation();
-    } catch (err) {
-      if (
-        isBuilderInvalidError(err) ||
-        parseBuilderErrorIssues(err).length > 0
-      ) {
-        setIsSaving(false);
-        reportGraphError(err, "Failed to save");
-        return;
-      }
-      // The validation call itself failed (offline, 5xx, endpoint missing).
-      // Don't hold the draft hostage to it - PUT /builder validates server-side
-      // too, and its rejection lands in the same panel.
-    }
-    const blocking = parsed.filter((issue) => issue.severity === "error");
-    if (blocking.length > 0) {
-      setIsSaving(false);
-      toast.error(`Can't save yet - ${summarizeIssues(parsed)}`);
-      return;
-    }
-    saveMutation.mutate();
+    saveDraftMutation.mutate();
   };
 
   // Explicit publish: validate, persist the current draft, then promote it to
@@ -3808,9 +3953,14 @@ const CreateAutomationContent = () => {
                               disabled={openingEmailBuilder}
                               onClick={() => {
                                 if (isNew) {
-                                  toast.error(
-                                    "Save the automation first - the builder attaches the design to a saved draft."
+                                  // The editor attaches its design to a saved
+                                  // draft, so create one now (lenient - no
+                                  // validation) rather than dead-ending. The
+                                  // page reloads on the new id; reopen then.
+                                  toast.message(
+                                    "Saving this automation as a draft first, then reopen the email builder."
                                   );
+                                  handleSave();
                                   return;
                                 }
                                 openEmailBuilder().catch(() => undefined);

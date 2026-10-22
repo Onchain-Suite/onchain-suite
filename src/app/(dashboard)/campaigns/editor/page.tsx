@@ -20,6 +20,11 @@ function EditorScreen() {
   const searchParams = useSearchParams();
 
   const campaignId = (searchParams?.get("campaign") ?? "").trim();
+  // Design mode: editing a Send Email automation node's standalone design (no
+  // campaign, no template). Opened as ?automation=<id>&node=<nodeId>.
+  const automationId = (searchParams?.get("automation") ?? "").trim();
+  const nodeId = (searchParams?.get("node") ?? "").trim();
+  const isDesign = Boolean(automationId && nodeId);
   const returnTo = (searchParams?.get("returnTo") ?? "").trim();
   // Present when editing an existing saved template - saves update it in place
   // instead of creating a new one.
@@ -33,6 +38,19 @@ function EditorScreen() {
 
   const goBack = () =>
     router.push(returnTo.startsWith("/") ? returnTo : "/campaigns");
+
+  if (isDesign) {
+    return (
+      <FullScreen>
+        <EmbeddedEmailEditor
+          automationId={automationId}
+          nodeId={nodeId}
+          title={title}
+          onBack={goBack}
+        />
+      </FullScreen>
+    );
+  }
 
   if (!campaignId) {
     return (

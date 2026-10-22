@@ -230,7 +230,7 @@ describe("dashboard surfaces smoke", () => {
   });
 
   it("AnalyticsDashboard mounts", async () => {
-    renderWithClient(<AnalyticsDashboard activeTab="overview" />);
+    renderWithClient(<AnalyticsDashboard dash="overview" />);
     expect(
       await screen.findByRole(
         "heading",

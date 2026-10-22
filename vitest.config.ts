@@ -4,6 +4,9 @@ import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],
+  // Components may import plain CSS. Tests never need it processed, and the
+  // app's Tailwind PostCSS config does not load under Vitest, so skip PostCSS.
+  css: { postcss: { plugins: [] } },
   resolve: {
     alias: {
       '@/auth': path.resolve(__dirname, './src/features/core/auth'),

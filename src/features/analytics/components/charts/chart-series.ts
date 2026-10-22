@@ -9,7 +9,7 @@ export interface ChartSeries {
 }
 
 /** A row of chart data. Values are numbers to plot plus string labels/keys. */
-export type ChartRow = Record<string, string | number>;
+export type ChartRow = Record<string, string | number | null>;
 
 /**
  * Builds the shadcn `ChartConfig` from a series list. `ChartContainer` turns each

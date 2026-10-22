@@ -4,11 +4,20 @@ import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import type {
+  FormAnalyticsFunnel,
+  FormAnalyticsRange,
+} from "./contracts/analytics";
+import type {
   FormCaptureType,
   FormStyleId,
   FormSurface,
   FormTemplateId,
 } from "./forms.catalog";
+
+export type {
+  FormAnalyticsFunnel,
+  FormAnalyticsRange,
+} from "./contracts/analytics";
 
 /**
  * Field kinds a capture form can collect. Wallet-first: `wallet` is the
@@ -293,6 +302,41 @@ export const formsService = {
       },
       orgId
     );
+  },
+
+  /**
+   * Funnel analytics for the Performance view. Views/starts need a backend that
+   * tracks the hosted page's view + first-interaction events (not deployed yet),
+   * so each field is parsed only when present and left undefined otherwise - the
+   * UI shows an honest "not tracked yet" rather than a fabricated number. A
+   * missing endpoint returns an empty funnel instead of throwing, so Performance
+   * still renders with just completions.
+   */
+  getFormAnalytics(
+    id: string,
+    range: FormAnalyticsRange,
+    orgId?: string
+  ): Promise<FormAnalyticsFunnel> {
+    const num = (v: unknown): number | undefined =>
+      typeof v === "number" && Number.isFinite(v) ? v : undefined;
+    return request<unknown>(
+      { method: "GET", url: `/forms/${id}/analytics`, params: { range } },
+      orgId
+    )
+      .then((payload): FormAnalyticsFunnel => {
+        const root = isJsonObject(payload) ? payload : {};
+        return {
+          views: num(root.views),
+          starts: num(root.starts),
+          completions: num(root.completions),
+          biggestDropOff:
+            typeof root.biggestDropOff === "string"
+              ? root.biggestDropOff
+              : undefined,
+          range,
+        };
+      })
+      .catch((): FormAnalyticsFunnel => ({ range }));
   },
 };
 

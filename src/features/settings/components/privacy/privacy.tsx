@@ -1,7 +1,10 @@
 "use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { toast } from "sonner";
 
+import { projectSettingsService } from "../../project-settings.service";
 import { DefinitionGrid, SettingsCard, StatusPill } from "../settings-card";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -11,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
+import { Switch } from "@/shared/components/ui/switch";
 
 /**
  * Privacy & Identity settings - how wallets link to email/socials, how the
@@ -29,9 +33,56 @@ The link is stored off-chain and encrypted. Your wallet address is treated as pe
 
 export default function PrivacyIdentitySettings() {
   const [consentOpen, setConsentOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  const settingsQuery = useQuery({
+    queryKey: ["project-settings", "reveal-emails"],
+    queryFn: () => projectSettingsService.getProjectSettings(),
+  });
+  const reveal = settingsQuery.data?.revealContactEmails ?? true;
+  const revealMutation = useMutation({
+    mutationFn: (value: boolean) =>
+      projectSettingsService.setRevealContactEmails(value),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["project-settings", "reveal-emails"], data);
+      // Reachability/display changes, so refresh the audience views.
+      queryClient.invalidateQueries({ queryKey: ["audience"] });
+      toast.success(
+        data.revealContactEmails
+          ? "Contact emails are now visible in the dashboard."
+          : "Contact emails are now hidden."
+      );
+    },
+    onError: (e: unknown) =>
+      toast.error(
+        e instanceof Error ? e.message : "Couldn't update the setting."
+      ),
+  });
 
   return (
     <div className="space-y-6">
+      <SettingsCard
+        title="Contact email visibility"
+        description="Show contact email addresses in the dashboard for this workspace"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            On by default: contact email addresses are shown in the dashboard.
+            Turn this off for a privacy-first / ZK audience to keep addresses
+            hidden &mdash; the dashboard then shows &quot;&mdash;&quot; so your
+            operators can message contacts without seeing who they are. Emails
+            are encrypted at rest either way; this only controls what the
+            dashboard displays.
+          </p>
+          <Switch
+            checked={reveal}
+            disabled={settingsQuery.isLoading || revealMutation.isPending}
+            onCheckedChange={(v) => revealMutation.mutate(v)}
+            aria-label="Reveal contact emails in the dashboard"
+          />
+        </div>
+      </SettingsCard>
+
       <SettingsCard
         title="Zero-knowledge identity"
         description="How wallets link to email and socials"

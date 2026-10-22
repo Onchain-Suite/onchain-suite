@@ -84,6 +84,9 @@ const eslintConfig = [
       // fail the pre-push hook on every regeneration.
       "src/app/(payload)/**",
       "src/payload-types.ts",
+      // Generated from openapi/swagger.json by `api:types` (openapi-typescript).
+      // Not hand-authored; satisfies neither the filename rule nor prettier.
+      "src/lib/api-types.ts",
       "src/migrations/**",
       // Build-time Node scripts (e.g. asset generation). Plain .mjs run with
       // node, outside tsconfig's project, so the typed parser can't lint them.

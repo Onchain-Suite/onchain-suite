@@ -1,8 +1,9 @@
-import { PRIVATE_ROUTES, publicRoutes } from "@/shared/config/app-routes";
+import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 export type BreadcrumbItem = { href: string; label: string };
 
-const HOME: BreadcrumbItem = { href: publicRoutes.HOME, label: "Home" };
+// "Home" in the authenticated shell is the dashboard, not the marketing landing.
+const HOME: BreadcrumbItem = { href: PRIVATE_ROUTES.DASHBOARD, label: "Home" };
 
 /**
  * Route → breadcrumb mapping for the shared dashboard shell. Replaces the

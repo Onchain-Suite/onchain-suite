@@ -1,0 +1,221 @@
+/* /retention-playbook: Loop flows and the example message previews (email
+   view and in-app phone view). */
+
+/* ---------- Loop cards ---------- */
+.ns .rp-loops {
+  list-style: none;
+  margin: 20px 0 28px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.ns .rp-loop {
+  padding: 16px 18px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+.ns .rp-loop-name {
+  margin: 0 0 12px;
+  font-size: 16.5px;
+  font-weight: 600;
+}
+.ns .rp-flow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+}
+.ns .rp-flow-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--panel);
+}
+.ns .rp-flow-v {
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.ns .rp-flow-arrow {
+  position: absolute;
+  top: 50%;
+  right: -23px;
+  width: 18px;
+  height: 18px;
+  margin-top: -9px;
+  color: var(--accent);
+}
+
+/* ---------- example messages ---------- */
+.ns .rp-msg {
+  max-width: 640px;
+  margin: 12px 0 0;
+}
+.ns .rp-msg-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  margin-bottom: 10px;
+}
+.ns .rp-mail {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 20px 50px -30px rgba(16, 24, 40, 0.35);
+}
+.ns .rp-mail-bar {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.ns .rp-mail-bar i,
+.ns .rp-phone-app i {
+  display: block;
+  border-radius: 6px;
+  background: #dce2ee;
+}
+.ns .rp-mail-bar i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.ns .rp-mail-head {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.ns .rp-mail-head > div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+.ns .rp-mail-head dd {
+  margin: 0;
+}
+.ns .rp-mail-subject {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ns .rp-mail-preview {
+  font-size: 14.5px;
+  color: var(--grey);
+}
+.ns .rp-mail-body {
+  padding: 20px 20px 24px;
+}
+.ns .rp-mail-body p,
+.ns .rp-inapp p {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.ns .rp-mock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  margin-top: 6px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: var(--btn);
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 500;
+}
+.ns .rp-phone {
+  width: min(300px, 100%);
+  padding: 10px;
+  border-radius: 38px;
+  background: var(--dark);
+  box-shadow: 0 30px 60px -30px rgba(1, 15, 49, 0.55);
+}
+.ns .rp-phone-screen {
+  position: relative;
+  min-height: 460px;
+  padding: 44px 14px 16px;
+  overflow: hidden;
+  border-radius: 30px;
+  background: linear-gradient(180deg, var(--cloud), #fff 60%);
+}
+.ns .rp-phone-notch {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  width: 84px;
+  height: 20px;
+  margin-left: -42px;
+  border-radius: 999px;
+  background: var(--dark);
+}
+.ns .rp-phone-app {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.ns .rp-phone-app i {
+  height: 10px;
+}
+.ns .rp-phone-app i:nth-child(1) {
+  width: 45%;
+}
+.ns .rp-phone-app i:nth-child(2) {
+  width: 85%;
+}
+.ns .rp-phone-app i:nth-child(3) {
+  width: 65%;
+}
+.ns .rp-inapp {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 16px 36px -20px rgba(16, 24, 40, 0.4);
+}
+.ns .rp-inapp p {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.ns .rp-inapp .rp-inapp-title {
+  margin-bottom: 8px;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+.ns .rp-inapp .rp-mock-btn {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .ns .rp-flow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .ns .rp-flow-arrow {
+    top: auto;
+    right: auto;
+    bottom: -21px;
+    left: 50%;
+    margin: 0 0 0 -9px;
+    transform: rotate(90deg);
+  }
+
+  .ns .rp-mail-head > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}

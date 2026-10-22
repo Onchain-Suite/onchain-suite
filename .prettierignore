@@ -46,6 +46,8 @@ bun.lock
 CHANGELOG.md
 *.min.js
 *.min.css
+# Generated from openapi/swagger.json by `bun run api:types`
+src/lib/api-types.ts
 
 # Public assets
 public/

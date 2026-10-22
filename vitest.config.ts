@@ -14,6 +14,12 @@ export default defineConfig({
       '@/types': path.resolve(__dirname, './src/shared/types'),
       '@/validations': path.resolve(__dirname, './src/shared/validations'),
       '@/features': path.resolve(__dirname, './src/features'),
+      // Mirrors tsconfig's paths. Without it, a test that imports a value
+      // (not just a type) from the website feature fails to resolve.
+      '@/onchain-suite-website': path.resolve(
+        __dirname,
+        './src/features/website/onchain-suite'
+      ),
       '@/shared': path.resolve(__dirname, './src/shared'),
       '@': path.resolve(__dirname, './src'),
     },

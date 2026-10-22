@@ -1,6 +1,10 @@
 "use client";
 
-import { ArrowLeftIcon, UsersIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowLeftIcon,
+  PlusIcon,
+  UsersIcon,
+} from "@heroicons/react/24/outline";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
@@ -11,6 +15,7 @@ import type {
   AudienceSegmentMember,
 } from "../audience.service";
 import { audienceService } from "../audience.service";
+import { AudienceAddContacts } from "./audience-add-contacts";
 import { MemberTable, toDetailMemberFromSegment } from "./member-table";
 
 const MEMBERS_PER_PAGE = 25;
@@ -31,6 +36,7 @@ export function AudienceListDetail({
   onBack: () => void;
 }) {
   const [page, setPage] = useState(1);
+  const [adding, setAdding] = useState(false);
 
   const detailQuery = useQuery({
     queryKey: ["audience", "segment-members", segment.id, page],
@@ -70,21 +76,40 @@ export function AudienceListDetail({
         Back to lists
       </button>
 
-      <div>
-        <div className="flex flex-wrap items-baseline gap-2">
-          <h2 className="text-xl font-semibold tracking-tight text-foreground">
-            {segment.name}
-          </h2>
-          <span className="text-sm text-muted-foreground">
-            List · {count.toLocaleString()} contact{count === 1 ? "" : "s"}
-          </span>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-baseline gap-2">
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">
+              {segment.name}
+            </h2>
+            <span className="text-sm text-muted-foreground">
+              List · {count.toLocaleString()} contact{count === 1 ? "" : "s"}
+            </span>
+          </div>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+            Every wallet in this list. Addresses show only for imported contacts
+            - ZK-linked emails stay protected, so you can message them without
+            ever seeing who they are.
+          </p>
         </div>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Every wallet in this list. Addresses show only for imported contacts -
-          ZK-linked emails stay protected, so you can message them without ever
-          seeing who they are.
-        </p>
+        {!adding ? (
+          <Button
+            size="sm"
+            className="shrink-0 rounded-lg"
+            onClick={() => setAdding(true)}
+          >
+            <PlusIcon className="mr-1.5 size-4" aria-hidden="true" />
+            Add contacts
+          </Button>
+        ) : null}
       </div>
+
+      {adding ? (
+        <AudienceAddContacts
+          segmentId={segment.id}
+          onClose={() => setAdding(false)}
+        />
+      ) : null}
 
       {detailQuery.isLoading ? (
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">

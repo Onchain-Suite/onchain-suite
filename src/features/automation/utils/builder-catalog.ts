@@ -15,13 +15,10 @@
  */
 export const NON_ONCHAIN_TRIGGER_TYPES = new Set([
   "segment_entered",
-  "segment_exited",
   "list_joined",
   "form_submitted",
   "email_opened",
   "email_clicked",
-  "tag_added",
-  "campaign_completed",
   "health_threshold",
   // Custom Events API triggers. Not on-chain in the EVM/contract sense: they
   // carry no contract/event address and must NOT show the "save a contract"

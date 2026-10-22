@@ -11,12 +11,10 @@ import {
   EnvelopeIcon,
   EnvelopeOpenIcon,
   ExclamationTriangleIcon,
-  FlagIcon,
   LinkIcon,
   QueueListIcon,
   RocketLaunchIcon,
   TagIcon,
-  UserMinusIcon,
   UserPlusIcon,
   WalletIcon,
 } from "@heroicons/react/24/outline";
@@ -108,18 +106,12 @@ export const triggerNodes = [
     description: "A position approaches liquidation",
     icon: catalogIcon(ExclamationTriangleIcon),
   },
-  // Off-chain (9) - fire from CRM / engagement events, no contract needed.
+  // Off-chain (6) - fire from CRM / engagement events, no contract needed.
   {
     type: "segment_entered",
     label: "Entered segment",
     description: "A wallet joins a segment",
     icon: catalogIcon(UserPlusIcon),
-  },
-  {
-    type: "segment_exited",
-    label: "Left segment",
-    description: "A wallet leaves a segment",
-    icon: catalogIcon(UserMinusIcon),
   },
   {
     type: "list_joined",
@@ -144,18 +136,6 @@ export const triggerNodes = [
     label: "Clicked email",
     description: "A contact clicks a link in an email",
     icon: catalogIcon(CursorArrowRaysIcon),
-  },
-  {
-    type: "tag_added",
-    label: "Tag added",
-    description: "A tag is applied to a contact",
-    icon: catalogIcon(TagIcon),
-  },
-  {
-    type: "campaign_completed",
-    label: "Completed campaign",
-    description: "A contact finishes a campaign",
-    icon: catalogIcon(FlagIcon),
   },
   {
     type: "health_threshold",

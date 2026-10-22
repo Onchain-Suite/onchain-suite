@@ -709,6 +709,22 @@ export const audienceService = {
     );
   },
 
+  /**
+   * `DELETE /audience/segments/{id}/members/{profileId}` - remove one contact
+   * from a list (detaches the backing tag). The contact itself is kept.
+   */
+  removeSegmentMember(id: string, profileId: string, orgId?: string) {
+    return request<{ removed: boolean; count: number }>(
+      {
+        method: "DELETE",
+        url: `/audience/segments/${encodeURIComponent(
+          id
+        )}/members/${encodeURIComponent(profileId)}`,
+      },
+      orgId
+    );
+  },
+
   createProfile(body: Record<string, unknown>, orgId?: string) {
     return request<AudienceProfile>(
       { method: "POST", url: "/audience/profiles", data: body },

@@ -1,42 +1,23 @@
-const KPI_KEYS = ["k1", "k2", "k3", "k4"];
-const TEMPLATE_KEYS = ["t1", "t2", "t3", "t4", "t5", "t6"];
-
 /**
- * The true analytics body skeleton - a single shared source so the route-level
- * loading.tsx (shown during navigation) and the in-page loading state (shown
- * while the client query loads) render the identical layout. Mirrors the real
- * page: KPI strip → off-chain/on-chain pair → in-app push → report templates.
+ * The analytics loading shape, shared by the route `loading.tsx` files so
+ * navigation shows the layout the page settles into: heading, tab bar, the
+ * headline strip, then the first row of cards.
  */
 export function AnalyticsSkeleton() {
   return (
-    <div className="space-y-6" aria-hidden="true">
-      {/* KPI strip */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {KPI_KEYS.map((k) => (
-          <div
-            key={k}
-            className="h-28 animate-pulse rounded-xl border border-border/60 bg-card/60"
-          />
-        ))}
-      </div>
-      {/* Off-chain + On-chain */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="h-44 animate-pulse rounded-xl border border-border/60 bg-card/60" />
-        <div className="h-44 animate-pulse rounded-xl border border-border/60 bg-card/60" />
-      </div>
-      {/* In-app push delivery */}
-      <div className="h-40 animate-pulse rounded-xl border border-border/60 bg-card/60" />
-      {/* Report templates */}
-      <div className="space-y-3">
-        <div className="h-4 w-32 animate-pulse rounded bg-card/60" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {TEMPLATE_KEYS.map((k) => (
-            <div
-              key={k}
-              className="h-36 animate-pulse rounded-xl border border-border/60 bg-card/60"
-            />
-          ))}
-        </div>
+    <div
+      className="mx-auto flex w-full max-w-[1560px] flex-col gap-4"
+      aria-hidden="true"
+    >
+      <div className="h-9 w-48 animate-pulse rounded-md bg-muted" />
+      <div className="h-10 w-full animate-pulse rounded-md border-b border-border bg-muted/40" />
+      <div className="h-[84px] w-full animate-pulse rounded-lg border border-border bg-card" />
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="h-[280px] animate-pulse rounded-lg border border-border bg-card lg:col-span-2" />
+        <div className="h-[280px] animate-pulse rounded-lg border border-border bg-card" />
+        <div className="h-[280px] animate-pulse rounded-lg border border-border bg-card" />
+        <div className="h-[280px] animate-pulse rounded-lg border border-border bg-card" />
+        <div className="h-[280px] animate-pulse rounded-lg border border-border bg-card" />
       </div>
     </div>
   );

@@ -112,3 +112,18 @@ Steps 1-2 and the Overview relayout are the real frontend-shippable work now.
 Steps 4-10 are gated on new backend endpoints (attribution and chain indexing
 are the big lifts) - build each chart behind the existing honest empty state and
 switch it on when its endpoint ships.
+
+## Status 2026-10-22: tabs, custom dashboards and publishing built
+
+Branch `feat/analytics-dashboards-v2.7`. All four tabs now follow the reference
+layout on real data from `/organization/analytics/*`, `/analytics/reports/*`,
+`/audience/report`, `/audience/overview` and `/campaigns/analytics/overview`
+(`org-analytics.service.ts`, normalized in `utils/normalize.ts`). Cards with no
+backend data keep their place and say what they need (`NotMeasuredCard`).
+
+Custom dashboards, the chart builder ("Show [measure] as a [chart]", over the
+metric catalog in `data/metric-catalog.ts`), CSV export and published links
+(`/d/<token>`) are built; dashboards and links are stored in the browser until
+the backend implements `migration/analytics-api-draft.md`, which also lists
+every endpoint the remaining not-measured cards need. Steps 4–9 above are
+superseded by that draft.

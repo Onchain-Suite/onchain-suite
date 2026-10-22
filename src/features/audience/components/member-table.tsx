@@ -4,6 +4,7 @@ import {
   DevicePhoneMobileIcon,
   EnvelopeIcon,
   ShieldCheckIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 
 import type {
@@ -79,7 +80,17 @@ export function toDetailMemberFromSegment(
   };
 }
 
-export function MemberTable({ members }: { members: DetailMember[] }) {
+export function MemberTable({
+  members,
+  onRemove,
+  removingId,
+}: {
+  members: DetailMember[];
+  /** When provided, each row gets a "Remove from list" action. */
+  onRemove?: (member: DetailMember) => void;
+  /** The member whose removal is in flight, to disable its button. */
+  removingId?: string | null;
+}) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-border bg-card">
       <table className="w-full min-w-[720px] text-sm">
@@ -89,6 +100,11 @@ export function MemberTable({ members }: { members: DetailMember[] }) {
             <th className="px-4 py-3 font-medium">Email</th>
             <th className="px-4 py-3 font-medium">Reachable via</th>
             <th className="px-4 py-3 text-right font-medium">Lifetime</th>
+            {onRemove ? (
+              <th className="px-4 py-3 text-right font-medium">
+                <span className="sr-only">Actions</span>
+              </th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -158,6 +174,22 @@ export function MemberTable({ members }: { members: DetailMember[] }) {
                   ? formatUsd(m.lifetimeUsd)
                   : "-"}
               </td>
+              {onRemove ? (
+                <td className="px-4 py-4 text-right">
+                  <button
+                    type="button"
+                    onClick={() => onRemove(m)}
+                    disabled={removingId === m.id}
+                    aria-label={`Remove ${
+                      [m.name, m.email, m.walletShort].find(Boolean) ??
+                      "contact"
+                    } from this list`}
+                    className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-destructive/30 focus-visible:outline-none disabled:opacity-40"
+                  >
+                    <TrashIcon className="size-4" aria-hidden="true" />
+                  </button>
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>

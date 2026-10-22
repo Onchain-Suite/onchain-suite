@@ -103,20 +103,18 @@ export function SettingsStepper({
   className?: string;
 }) {
   return (
-    <ol
-      className={cn("flex flex-wrap items-center gap-x-3 gap-y-2", className)}
-    >
+    <ol className={cn("flex items-center gap-x-2", className)}>
       {steps.map((label, index) => {
         const done = index < current;
         const active = index === current;
         return (
-          <li key={label} className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+          <li key={label} className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 items-center gap-1.5">
               <span
                 className={cn(
-                  "flex h-6 w-6 items-center justify-center rounded-full border text-xs font-medium",
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-medium",
                   done
-                    ? "border-primary/40 bg-primary/10 text-primary"
+                    ? "border-primary bg-primary text-primary-foreground"
                     : active
                       ? "border-primary/60 bg-primary/15 text-primary"
                       : "border-border text-muted-foreground"
@@ -130,7 +128,7 @@ export function SettingsStepper({
               </span>
               <span
                 className={cn(
-                  "text-sm",
+                  "truncate text-sm",
                   done || active
                     ? "font-medium text-foreground"
                     : "text-muted-foreground"
@@ -142,7 +140,7 @@ export function SettingsStepper({
             {index < steps.length - 1 ? (
               <span
                 aria-hidden="true"
-                className="hidden h-px w-8 bg-border sm:block"
+                className="bg-border h-px w-4 shrink-0"
               />
             ) : null}
           </li>

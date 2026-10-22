@@ -1,19 +1,44 @@
 "use client";
 
+import { ArrowRightIcon } from "@heroicons/react/20/solid";
 import { useRouter, useSearchParams } from "next/navigation";
 import React from "react";
 import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
+
 import { useSession } from "@/lib/auth-client";
 
-import { OrganizationSetupStep, PlanSelectionStep } from "./components";
-import { OnboardingLayout } from "./components/onboarding-layout";
+import {
+  GuidedShell,
+  StepContract,
+  StepDns,
+  StepPlan,
+  StepProject,
+  StepTechnical,
+} from "./components/guided";
+import { HandoffFlow } from "./components/handoff-flow";
+import {
+  EMPTY_PROFILE,
+  flowFor,
+  HANDOFF_MODE,
+  type ManualContractDraft,
+  type OnboardingContract,
+  profileReady,
+  type ProjectProfile,
+  type Role,
+  type StepId,
+} from "./constants/guided";
+import { DEFAULT_CHAIN } from "./data/chains";
 import {
   resolveResumeFlowStep,
+  useCreateOrganization,
   useOnboardingPersistence,
   useOnboardingTracking,
 } from "./hooks";
+import { onboardingService } from "./onboarding.service";
 import { type OnboardingData } from "./types";
+import { sectorGroupOf } from "./utils/sector";
 import { useOnboardingAbandonment } from "@/features/onboarding/hooks/use-onboarding-abandonment";
 import {
   FIRST_MILE_SECTOR_KEY,
@@ -22,11 +47,18 @@ import {
 } from "@/features/onboarding/utils/onboarding-timing";
 import { AUTH_ROUTES, PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
+const FLOW_VERSION = "onboarding-guided-v2";
+
 export function OnboardingFlow() {
   const { push } = useRouter();
   const searchParams = useSearchParams();
   const { data: session, isPending } = useSession();
   const user = session?.user;
+
+  // The invited developer the owner handed setup to runs a separate, scoped flow
+  // (sending domain + contract against the existing org); everything below is the
+  // owner's journey and does not apply to them.
+  const handoffMode = searchParams?.get("mode") === HANDOFF_MODE;
 
   React.useEffect(() => {
     if (!isPending && !session) {
@@ -38,8 +70,11 @@ export function OnboardingFlow() {
   // `user.onboardingCompleted` true for invited members on invite accept
   // (docs/backend.md 2026-07-29) - anyone carrying that flag is bounced
   // straight to the team dashboard, whatever path routed them here. New
-  // owners (auto-provisioned org, flag false) still onboard normally.
+  // owners (auto-provisioned org, flag false) still onboard normally. The
+  // handoff flow is the one exception: an invited member reaches it on purpose,
+  // flag set and all, to finish the setup they were brought in for.
   React.useEffect(() => {
+    if (handoffMode) return;
     if (isPending || !session) return;
     const onboarded =
       (session.user as { onboardingCompleted?: unknown } | undefined)
@@ -54,7 +89,7 @@ export function OnboardingFlow() {
       )}; Path=/; Max-Age=31536000; SameSite=Lax`;
     }
     push(PRIVATE_ROUTES.DASHBOARD);
-  }, [isPending, session, push]);
+  }, [handoffMode, isPending, session, push]);
 
   React.useEffect(() => {
     const reason = searchParams?.get("reason") ?? null;
@@ -84,17 +119,73 @@ export function OnboardingFlow() {
   }, [session, isPending]);
 
   const {
-    step: currentStep,
     data: formData,
+    step: persistedStep,
     setStep,
     setData,
   } = useOnboardingPersistence<OnboardingData>();
 
   const { progress, resume, trackStep, completeOnboarding } =
     useOnboardingTracking();
+  const createOrganization = useCreateOrganization();
+
+  // The guided flow branches on who sets up the technical side (Section 0.5). Step index is the
+  // position within that branched flow; the backend only knows `organization_setup` and
+  // `plan_selection`, so everything up to the plan is tracked as the former.
+  const [role, setRole] = React.useState<Role>("builder");
+  const [profile, setProfile] = React.useState<ProjectProfile>(EMPTY_PROFILE);
+  // The persisted step (URL ?step= + localStorage) is the single source of the guided position, so
+  // a reload or re-mount restores the exact step instead of snapping back to the project step.
+  const flow = flowFor(role);
+  const stepIndex = Math.max(
+    0,
+    Math.min((persistedStep ?? 1) - 1, flow.length - 1)
+  );
   const [stepStartedAtMs, setStepStartedAtMs] = React.useState<number>(
     Date.now()
   );
+  const [busy, setBusy] = React.useState(false);
+  // The developer invited from the technical step, so the DNS step can say the
+  // records travel with that invite.
+  const [handoffSentTo, setHandoffSentTo] = React.useState<string | null>(null);
+  // The chain a pasted address actually resolved on (from the real on-chain
+  // resolver) or the chain the user picked, so indexing uses it.
+  const [resolvedChain, setResolvedChain] = React.useState<string | null>(null);
+  // A contract entered by hand on step 4 (the fallback when auto-find misses).
+  const [manual, setManual] = React.useState<ManualContractDraft | null>(null);
+
+  // Handing the technical setup over drops the contract step, so anything added
+  // before switching must not linger into completion.
+  const chooseRole = React.useCallback((r: Role) => {
+    setRole(r);
+    if (r === "operator") setManual(null);
+  }, []);
+
+  // The one contract the backend indexes: the by-hand one if given, otherwise
+  // the address pasted on the contract step, on the resolver's/chosen chain.
+  const allContracts: OnboardingContract[] = React.useMemo(() => {
+    const manualAddr = manual?.address.trim() ?? "";
+    const typedAddr = profile.contract.trim();
+    const manualChain =
+      [manual?.chain, resolvedChain, profile.chains[0]].find(
+        (c): c is string => typeof c === "string" && c.trim().length > 0
+      ) ?? DEFAULT_CHAIN;
+    const manualName = manual?.name.trim() ? manual.name.trim() : undefined;
+    if (manualAddr) {
+      return [{ address: manualAddr, chain: manualChain, name: manualName }];
+    }
+    if (typedAddr) {
+      return [
+        {
+          address: typedAddr,
+          chain: resolvedChain ?? profile.chains[0] ?? DEFAULT_CHAIN,
+        },
+      ];
+    }
+    return [];
+  }, [profile.contract, profile.chains, resolvedChain, manual]);
+
+  const at: StepId = flow[Math.min(stepIndex, flow.length - 1)];
 
   // Report wizard time for protocols that leave before finishing. Measures the
   // current step's partial time (prior steps already sent their completed
@@ -102,46 +193,131 @@ export function OnboardingFlow() {
   const { markCompleted } = useOnboardingAbandonment({
     enabled: Boolean(user?.id),
     startedAtMs: stepStartedAtMs,
-    stepName: currentStep === 2 ? "plan_selection" : "organization_setup",
+    stepName: at === "plan" ? "plan_selection" : "organization_setup",
   });
+
   // The server-side resume block seeds the starting step exactly once per
   // mount; afterwards local navigation + progress sync own the step.
   const resumeAppliedRef = React.useRef(false);
+  // Seed the profile from persisted/resumed data exactly once.
+  const seededRef = React.useRef(false);
+  // The org is created on leaving the project step; guard against a repeat if
+  // the user steps back into it and forward again.
+  const orgCreatedRef = React.useRef(false);
 
-  const handleStepComplete = async (stepData: Partial<OnboardingData>) => {
+  // Seed the project profile from whatever the persistence/resume layer restored.
+  React.useEffect(() => {
+    if (seededRef.current) return;
+    if (formData.organizationName || formData.websiteUrl || formData.sector) {
+      seededRef.current = true;
+      setProfile((p) => ({
+        ...p,
+        name: formData.organizationName ?? p.name,
+        website: formData.websiteUrl ?? p.website,
+        sector: formData.sector ?? p.sector,
+        description: formData.description ?? p.description,
+      }));
+    }
+  }, [formData]);
+
+  const persistProfile = React.useCallback(
+    (p: ProjectProfile) => {
+      setData({
+        organizationName: p.name,
+        websiteUrl: p.website,
+        sector: p.sector,
+        description: p.description,
+      });
+    },
+    [setData]
+  );
+
+  const goToIndex = (next: number) => {
+    setStep(Math.max(1, next + 1));
+    setStepStartedAtMs(Date.now());
+  };
+
+  const handleBack = () => {
+    if (stepIndex > 0) goToIndex(stepIndex - 1);
+  };
+
+  const handleContinue = async () => {
     const now = Date.now();
     const timeSpentSeconds = Math.max(
       0,
       Math.floor((now - stepStartedAtMs) / 1000)
     );
 
-    setData(stepData);
-    const nextStep = currentStep + 1;
-    setStep(nextStep);
-    setStepStartedAtMs(now);
+    if (at === "project") {
+      if (!profileReady(profile) || busy) return;
+      persistProfile(profile);
 
-    if (user?.id) {
-      await trackStep({
-        stepName: "organization_setup",
-        action: "completed",
-        timeSpentSeconds,
-        currentStep: "plan_selection",
-        stepData,
-        flowVersion: "onboarding-v1",
-        metadata: { completionPercentage: 50 },
-      });
-      await trackStep({
-        stepName: "plan_selection",
-        action: "started",
-        timeSpentSeconds: 0,
-        currentStep: "plan_selection",
-        flowVersion: "onboarding-v1",
-      });
+      if (!orgCreatedRef.current) {
+        setBusy(true);
+        const ok = await createOrganization({
+          name: profile.name,
+          websiteUrl: profile.website,
+          description: profile.description,
+        });
+        setBusy(false);
+        if (!ok) return;
+        orgCreatedRef.current = true;
+
+        if (user?.id) {
+          trackStep({
+            stepName: "organization_setup",
+            action: "completed",
+            timeSpentSeconds,
+            currentStep: "organization_setup",
+            stepData: {
+              organizationName: profile.name,
+              websiteUrl: profile.website,
+              sector: profile.sector,
+              sectorType: sectorGroupOf(profile.sector),
+              hasContractAddress: profile.contract.trim().length > 0,
+            },
+            flowVersion: FLOW_VERSION,
+            // guidedStep + role give the richer funnel its granularity while the
+            // backend's step name stays one of its two known values.
+            metadata: {
+              completionPercentage: 50,
+              guidedStep: "project",
+              role,
+              sectorType: sectorGroupOf(profile.sector),
+            },
+          }).catch(() => {});
+        }
+      }
+      goToIndex(stepIndex + 1);
+      return;
     }
-  };
 
-  const handleBack = () => {
-    setStep(Math.max(1, currentStep - 1));
+    // technical / dns / contract: nothing here blocks. Each hop is tracked (coarse
+    // step name, `guidedStep` for the real granularity) so drop-off per guided
+    // step is visible; entering the plan flips to the plan_selection step.
+    const next = stepIndex + 1;
+    if (user?.id) {
+      const enteringPlan = flow[next] === "plan";
+      trackStep({
+        stepName: enteringPlan ? "plan_selection" : "organization_setup",
+        action: enteringPlan ? "started" : "completed",
+        timeSpentSeconds,
+        currentStep: enteringPlan ? "plan_selection" : "organization_setup",
+        flowVersion: FLOW_VERSION,
+        metadata: {
+          guidedStep: at,
+          nextGuidedStep: flow[next],
+          role,
+          ...(at === "contract"
+            ? { contractsPicked: allContracts.length }
+            : {}),
+          ...(at === "technical"
+            ? { handoffInvited: Boolean(handoffSentTo) }
+            : {}),
+        },
+      }).catch(() => {});
+    }
+    goToIndex(next);
   };
 
   const handleOnboardingComplete = async (
@@ -149,7 +325,21 @@ export function OnboardingFlow() {
   ) => {
     // A normal finish must not also fire the abandonment flush.
     markCompleted();
-    const finalData = { ...formData, ...stepData };
+    const finalData = {
+      ...formData,
+      ...stepData,
+      sector: profile.sector,
+      // Everything we collected, so the server has the full picture to analyse by:
+      // Web3 vs Web2, who set up the technical side, whether a developer was invited,
+      // whether a contract was given, and which plan was chosen.
+      sectorType: sectorGroupOf(profile.sector),
+      role,
+      handoffInvited: Boolean(handoffSentTo),
+      hasContractAddress:
+        profile.contract.trim().length > 0 || allContracts.length > 0,
+      flowVersion: FLOW_VERSION,
+      ...(allContracts.length > 0 ? { contracts: allContracts } : {}),
+    };
 
     // Stamp the sector durably so the dashboard first-mile can skip the
     // "index your contract" nudge for web2 clients (indexing is optional; for
@@ -194,90 +384,154 @@ export function OnboardingFlow() {
           totalTimeSeconds: totalSeconds,
           currentStep: "plan_selection",
           stepData: finalData,
-          flowVersion: "onboarding-v1",
+          flowVersion: FLOW_VERSION,
         });
       }
     } catch (error) {
       console.error("Error completing onboarding:", error);
     }
+
+    // Index-after-plan: indexing is the part that costs, so it only starts once
+    // a plan is chosen. With a plan and at least one picked contract that has an
+    // address, kick off the initial historical indexing through the
+    // `connect-chain` task - which also marks that card done on the dashboard.
+    // Fire-and-forget: it must never delay the hop to the workspace.
+    if (user?.id && finalData.selectedPlan && allContracts.length > 0) {
+      onboardingService
+        .completeTask("connect-chain", {
+          contracts: allContracts.map((c) => ({
+            address: c.address,
+            chain: c.chain,
+            name: c.name,
+          })),
+          lookbackDays: 90,
+        })
+        .catch((error) => {
+          console.warn("Failed to start contract indexing:", error);
+        });
+    }
+
     push(PRIVATE_ROUTES.DASHBOARD);
   };
 
+  // Resumable onboarding: seed the starting step exactly once per mount, then
+  // never touch it again - local navigation owns the step after that. The
+  // guard is essential: this effect re-runs on every `progress` change (each
+  // track event updates it), and without it the seed would keep snapping the
+  // user back to the project step the moment they advanced. The guided flow
+  // collapses the backend's two known steps onto its own ends - `plan_selection`
+  // resumes at the plan step, anything else starts at the project step (the
+  // default), so we only ever move forward to the plan, never back.
   React.useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || resumeAppliedRef.current) return;
     if (!progress || progress.is_completed) return;
-
-    // Resumable onboarding: an `in_progress` resume block wins for the
-    // initial step (cross-device continuity), then progress sync takes over.
-    const useResume =
-      !resumeAppliedRef.current && resume?.status === "in_progress";
     resumeAppliedRef.current = true;
-    const stepNumber = useResume
-      ? resolveResumeFlowStep(resume.step)
-      : progress.current_step === "plan_selection"
-        ? 2
-        : 1;
-    if (stepNumber !== currentStep) {
-      setStep(stepNumber);
+
+    const landsOnPlan =
+      resume?.status === "in_progress"
+        ? resolveResumeFlowStep(resume.step) === 2
+        : progress.current_step === "plan_selection";
+    if (landsOnPlan) {
+      setStep(flow.length);
       setStepStartedAtMs(Date.now());
     }
 
     if (progress.step_data && Object.keys(progress.step_data).length > 0) {
       setData(progress.step_data as Partial<OnboardingData>);
     }
-  }, [user?.id, progress, resume, currentStep, setData, setStep]);
+  }, [user?.id, progress, resume, flow.length, setData, setStep]);
 
+  // Each guided step logs a "started" event when it comes on screen. The backend step name stays
+  // one of its two known values (so resume + completion stay compatible), while `guidedStep` in
+  // the metadata carries the real per-step granularity the funnel needs.
   React.useEffect(() => {
     if (!user?.id) return;
-    if (currentStep === 1) {
-      trackStep({
-        stepName: "organization_setup",
-        action: "started",
-        currentStep: "organization_setup",
-        flowVersion: "onboarding-v1",
-      }).catch(() => {});
-    }
-  }, [user?.id, currentStep, trackStep]);
+    const coarse = at === "plan" ? "plan_selection" : "organization_setup";
+    trackStep({
+      stepName: coarse,
+      action: "started",
+      currentStep: coarse,
+      flowVersion: FLOW_VERSION,
+      metadata: { guidedStep: at },
+    }).catch(() => {});
+  }, [user?.id, at, trackStep]);
 
-  const renderStep = () => {
-    const commonProps = {
-      initialData: formData,
-      onBack: handleBack,
-    };
+  const skipping =
+    at === "dns" || (at === "contract" && allContracts.length === 0);
+  const continueDisabled = busy || (at === "project" && !profileReady(profile));
 
-    switch (currentStep) {
-      case 1:
-        return (
-          <OrganizationSetupStep
-            initialData={formData}
-            onNext={handleStepComplete}
-            onBack={handleBack}
-          />
-        );
-      case 2:
-        return (
-          <PlanSelectionStep
-            {...commonProps}
-            onNext={handleOnboardingComplete}
-          />
-        );
-      default:
-        return (
-          <div className="text-center">
-            <h1 className="text-foreground mb-4 text-3xl font-bold">
-              Welcome to Onchain Suite!
-            </h1>
-            <p className="text-muted-foreground">
-              Your account has been set up successfully.
-            </p>
-          </div>
-        );
-    }
-  };
+  // An invited developer runs the scoped handoff flow instead of the owner journey above.
+  if (handoffMode) return <HandoffFlow />;
 
   return (
-    <OnboardingLayout currentStep={currentStep} totalSteps={2}>
-      {renderStep()}
-    </OnboardingLayout>
+    <GuidedShell
+      stepIndex={stepIndex}
+      flow={flow}
+      // The plan step owns its own Back / Skip / Continue, so the shell footer is omitted for it.
+      footer={
+        at === "plan" ? undefined : (
+          <>
+            {stepIndex > 0 ? (
+              <Button variant="secondary" onClick={handleBack} disabled={busy}>
+                Back
+              </Button>
+            ) : (
+              <span />
+            )}
+            <Button
+              variant={skipping ? "secondary" : "default"}
+              onClick={handleContinue}
+              disabled={continueDisabled}
+            >
+              {busy ? "Saving…" : skipping ? "Skip for now" : "Continue"}
+              {!busy && !skipping ? (
+                <ArrowRightIcon aria-hidden="true" className="ml-1.5 h-4 w-4" />
+              ) : null}
+            </Button>
+          </>
+        )
+      }
+    >
+      {at === "project" && (
+        <StepProject
+          value={profile}
+          onChange={setProfile}
+          onEnter={handleContinue}
+        />
+      )}
+      {at === "technical" && (
+        <StepTechnical
+          role={role}
+          onRole={chooseRole}
+          onHandoffSent={setHandoffSentTo}
+        />
+      )}
+      {at === "dns" && (
+        <StepDns
+          handingOver={role === "operator"}
+          handoffSent={Boolean(handoffSentTo)}
+          website={profile.website}
+        />
+      )}
+      {at === "contract" && (
+        <StepContract
+          value={profile.contract}
+          onChange={(v) => setProfile((p) => ({ ...p, contract: v }))}
+          chain={resolvedChain ?? profile.chains[0] ?? DEFAULT_CHAIN}
+          onChain={setResolvedChain}
+          manual={manual}
+          onManual={setManual}
+          chains={profile.chains}
+        />
+      )}
+      {at === "plan" && (
+        <StepPlan
+          onBack={handleBack}
+          onCompleted={(plan) =>
+            handleOnboardingComplete({ selectedPlan: plan })
+          }
+        />
+      )}
+    </GuidedShell>
   );
 }

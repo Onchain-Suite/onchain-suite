@@ -1,31 +1,5 @@
 import { z } from "zod";
 
-export const organizationSetupSchema = z.object({
-  organizationName: z.string().min(1, "Organization name is required"),
-  websiteUrl: z
-    .string()
-    .optional()
-    .or(z.literal(""))
-    .refine(
-      (val) => {
-        const raw = (val ?? "").trim();
-        if (!raw) return true;
-        const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-        try {
-          new URL(withScheme);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { message: "Must be a valid URL" }
-    ),
-  description: z.string().optional(),
-  sector: z.string().optional(),
-});
-
-export type OrganizationSetupFormData = z.infer<typeof organizationSetupSchema>;
-
 export const personalInfoSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),

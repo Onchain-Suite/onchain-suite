@@ -164,3 +164,50 @@ export function moveStep<N extends FlowNodeLike, E extends FlowEdgeLike>(
   });
   return wireIn(d, id, fresh, [null], makeEdge);
 }
+
+/** The path a step sits on, and where on it. */
+function findOnPath(
+  path: FlowPath,
+  id: string
+): { path: FlowPath; index: number } | null {
+  const index = path.steps.findIndex((s) => s.item.id === id);
+  if (index >= 0) return { path, index };
+  for (const s of path.steps) {
+    if (s.item.kind !== "branch") continue;
+    for (const p of s.item.paths) {
+      const found = findOnPath(p.path, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/** Can a step move one place up (-1) or down (1) on its own path? */
+export function canNudge(tree: FlowTree, id: string, dir: -1 | 1): boolean {
+  const at = findOnPath(tree.path, id);
+  if (!at || at.path.steps[at.index].item.kind === "branch") return false;
+  const to = at.index + dir;
+  return to >= 0 && to < at.path.steps.length;
+}
+
+/**
+ * Moves a plain step one place up or down its own path, past the step next
+ * to it. A branch next to it counts as one step, paths and all.
+ */
+export function nudgeStep<N extends FlowNodeLike, E extends FlowEdgeLike>(
+  g: Graph<N, E>,
+  id: string,
+  dir: -1 | 1,
+  tree: FlowTree,
+  makeEdge: MakeEdge<E>
+): Graph<N, E> {
+  const at = findOnPath(tree.path, id);
+  if (!at || !canNudge(tree, id, dir)) return g;
+  const { path, index } = at;
+  // Up: just above the step before it. Down: just below the step after it.
+  const slots =
+    dir === -1
+      ? path.steps[index - 1].slots
+      : (path.steps[index + 2]?.slots ?? path.tails);
+  return moveStep(g, id, slots, makeEdge);
+}

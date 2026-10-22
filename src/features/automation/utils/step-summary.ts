@@ -9,8 +9,8 @@ import { isJsonObject } from "@/lib/utils";
 /** Human name for a step, keyed by its renderer or canonical type. */
 const STEP_KIND_LABELS: Record<string, string> = {
   trigger: "Trigger",
-  email: "Send email",
-  send_email: "Send email",
+  email: "Send an email",
+  send_email: "Send an email",
   inapp: "Send in-app push",
   send_inapp: "Send in-app push",
   wait: "Wait",

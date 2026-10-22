@@ -65,8 +65,8 @@
 .ab-card:hover { border-color:var(--border-strong); }
 .ab-card.is-on { border-color:var(--action-primary); box-shadow:0 0 0 3px var(--focus-ring); }
 .ab-card:focus-visible { outline:none; box-shadow:0 0 0 3px var(--focus-ring); }
-.ab-card.is-todo { border-color:color-mix(in srgb, var(--status-warning-border) 60%, transparent); }
-.ab-card.is-error { border-color:color-mix(in srgb, var(--status-error-border, var(--status-warning-border)) 80%, transparent); }
+.ab-card.is-todo:not(.is-on) { border-color:color-mix(in srgb, var(--status-warning-border) 60%, transparent); }
+.ab-card.is-error:not(.is-on) { border-color:color-mix(in srgb, var(--status-error-border, var(--status-warning-border)) 80%, transparent); }
 .ab-card[draggable="true"] { cursor:grab; }
 .ab-card--entry { width:280px; background:color-mix(in srgb, var(--action-primary) 5%, var(--bg-surface)); }
 .ab-card__ic { width:26px; height:26px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-md);

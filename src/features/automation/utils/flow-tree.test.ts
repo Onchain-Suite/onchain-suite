@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { insertStep, moveStep, removeStep } from "./flow-edit";
+import {
+  canNudge,
+  insertStep,
+  moveStep,
+  nudgeStep,
+  removeStep,
+} from "./flow-edit";
 import {
   buildFlowTree,
   type FlowEdgeLike,
@@ -149,5 +155,28 @@ describe("flow edits", () => {
     const t = tree(g0.nodes, g0.edges);
     const g = moveStep(g0, "c", t.path.steps[0].slots, mk);
     expect(pathNodeIds(tree(g.nodes, g.edges).path)).toEqual(["c", "a", "b"]);
+  });
+
+  it("nudges a step up and down its path", () => {
+    const g0 = {
+      nodes: [...base.nodes, n("c")],
+      edges: [...base.edges, e("b", "c")],
+    };
+    const t = tree(g0.nodes, g0.edges);
+    expect(canNudge(t, "a", -1)).toBe(false);
+    const down = nudgeStep(g0, "a", 1, t, mk);
+    expect(pathNodeIds(tree(down.nodes, down.edges).path)).toEqual([
+      "b",
+      "a",
+      "c",
+    ]);
+    const up = nudgeStep(g0, "c", -1, t, mk);
+    expect(pathNodeIds(tree(up.nodes, up.edges).path)).toEqual(["a", "c", "b"]);
+    const last = nudgeStep(g0, "b", 1, t, mk);
+    expect(pathNodeIds(tree(last.nodes, last.edges).path)).toEqual([
+      "a",
+      "c",
+      "b",
+    ]);
   });
 });

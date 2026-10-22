@@ -4,7 +4,7 @@ import { stepKindLabel, stepSummary } from "./step-summary";
 
 describe("stepKindLabel", () => {
   it("names known steps and humanises the rest", () => {
-    expect(stepKindLabel("send_email")).toBe("Send email");
+    expect(stepKindLabel("send_email")).toBe("Send an email");
     expect(stepKindLabel("branch")).toBe("If / else");
     expect(stepKindLabel("swap_completed")).toBe("Swap completed");
     expect(stepKindLabel()).toBe("Step");

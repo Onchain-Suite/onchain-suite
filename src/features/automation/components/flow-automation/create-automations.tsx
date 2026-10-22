@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  ArrowPathIcon,
-  BoltIcon,
-  ChartBarIcon,
-  CheckCircleIcon,
-  ExclamationCircleIcon,
-  PencilSquareIcon,
-  TrashIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
+import { BoltIcon, ChartBarIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useParams } from "next/navigation";
@@ -35,7 +26,6 @@ import {
   type AutomationWatchTrigger,
   type OnchainCatalogDefinition,
 } from "../../automation.service";
-import { AutoGrowTextarea } from "./auto-grow-textarea";
 import { AutomationBuilderSkeleton } from "./automation-builder-skeleton";
 import { BuilderIssuesPanel } from "./builder-issues-panel";
 import { DefiHealthFactorFields } from "./defi-health-factor-fields";
@@ -45,13 +35,29 @@ import type { StepMenuGroup } from "./flow-canvas/step-menu";
 import { FlowSettingsPanel } from "./flow-settings-panel";
 import { LibraryIcon } from "./node-icons";
 import { OnchainTriggerFields } from "./onchain-trigger-fields";
+import { type PropertySelectOption } from "./property-select";
 import {
-  PROPERTY_HINT_CLASS,
-  PROPERTY_INPUT_CLASS,
-  PROPERTY_LABEL_CLASS,
-  PropertySelect,
-  type PropertySelectOption,
-} from "./property-select";
+  ListStepFields,
+  TagStepFields,
+} from "./step-panel/audience-step-fields";
+import { BranchStepFields } from "./step-panel/branch-step-fields";
+import {
+  type EmailSource,
+  EmailStepFields,
+} from "./step-panel/email-step-fields";
+import {
+  PanelFoot,
+  PanelHead,
+  PanelTodo,
+  TextField,
+} from "./step-panel/panel-ui";
+import { ActionBox, PickField } from "./step-panel/pick-field";
+import { SchemaFields } from "./step-panel/schema-fields";
+import {
+  SplitStepFields,
+  type SplitVariant,
+} from "./step-panel/split-step-fields";
+import { WaitStepFields } from "./step-panel/wait-step-fields";
 import { audienceService } from "@/features/audience/audience.service";
 import {
   emailTemplates as fallbackEmailTemplates,
@@ -96,22 +102,18 @@ import {
   type NodeSetupIssue,
   nodeSetupIssue,
   parseBuilderErrorIssues,
-  parseDurationToSeconds,
   parseValidationIssues,
   parseWatchesSkipped,
   parseWatchState,
   summarizeIssues,
 } from "@/features/automation/utils/builder-issues";
 import {
-  BRANCH_OPERATORS,
-  BRANCH_VALUELESS_OPERATORS,
   type BranchRule,
   type BuilderSchemaField,
   normalizeBranchRule,
   normalizeSchemaFields,
 } from "@/features/automation/utils/builder-schema";
 import {
-  asBoolean,
   asNumber,
   asString,
   pickArray,
@@ -119,8 +121,10 @@ import {
 } from "@/features/automation/utils/coerce";
 import { resolveContractCatalog } from "@/features/automation/utils/contracts";
 import {
+  canNudge,
   insertStep,
   moveStep,
+  nudgeStep,
   removeStep,
 } from "@/features/automation/utils/flow-edit";
 import {
@@ -135,48 +139,6 @@ import { ContractAddressNudge } from "@/features/settings/components/contract-ad
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
 import { SendConfirmDialog } from "@/shared/components/common/send-confirm-dialog";
-
-/** A small "type a name + Create" row for making a new tag/list inline. */
-function InlineCreate({
-  value,
-  onChange,
-  onSubmit,
-  pending,
-  placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  onSubmit: () => void;
-  pending: boolean;
-  placeholder: string;
-}) {
-  const trimmed = value.trim();
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && trimmed && !pending) {
-            e.preventDefault();
-            onSubmit();
-          }
-        }}
-        placeholder={placeholder}
-        className={`${PROPERTY_INPUT_CLASS} flex-1`}
-      />
-      <button
-        type="button"
-        disabled={!trimmed || pending}
-        onClick={onSubmit}
-        className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 disabled:opacity-50"
-      >
-        {pending ? "Creating…" : "Create"}
-      </button>
-    </div>
-  );
-}
 
 // Off-chain triggers whose core config is "which <resource>?" - they get a real
 // dropdown of existing lists / tags / campaigns instead of a free-text field.
@@ -290,6 +252,15 @@ type RecentEntryRow = {
   path: string;
 };
 
+/** A split step's variants as the panel edits them. */
+const splitVariants = (raw: unknown): SplitVariant[] =>
+  Array.isArray(raw)
+    ? raw.map((v) => {
+        const r = isJsonObject(v) ? v : {};
+        return { label: String(r.label ?? ""), weight: Number(r.weight) || 0 };
+      })
+    : [];
+
 /** The steps the "+" menu lists first. */
 const COMMON_STEP_TYPES = new Set([
   "send_email",
@@ -333,9 +304,6 @@ const CreateAutomationContent = () => {
   const [automationData, setAutomationData] = useState(
     getAutomationData(automationId)
   );
-  const [jsonFieldDrafts, setJsonFieldDrafts] = useState<
-    Record<string, string>
-  >({});
   // Guard before an automation goes live and starts enrolling contacts.
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
   // The "to finish" list under the bar: opened from the bar, or by a check.
@@ -1361,7 +1329,8 @@ const CreateAutomationContent = () => {
     selectedIsDispatch ||
     selectedIsTag ||
     selectedIsList ||
-    selectedIsWait;
+    selectedIsWait ||
+    selectedIsBranch;
   const selectedTemplate = useMemo(() => {
     const templateId = asString(selectedNodeData.templateId);
     return (
@@ -1493,7 +1462,6 @@ const CreateAutomationContent = () => {
   // Create-new affordances for the Add tag / Add to list actions, so a user can
   // make a tag/list inline instead of only choosing an existing one. Both reuse
   // the audience create endpoints and refresh the builder's option lists.
-  const [newTagName, setNewTagName] = useState("");
   const createTagMutation = useMutation({
     mutationFn: (name: string) => audienceService.createTag({ name }),
     onSuccess: async (created, name) => {
@@ -1502,7 +1470,6 @@ const CreateAutomationContent = () => {
       });
       const label =
         asString((created as { name?: unknown } | null)?.name) || name;
-      setNewTagName("");
       const tags = Array.from(new Set([...selectedTags, label]));
       updateSelectedNodeData({ tags, tag: tags[0] ?? "" });
       toast.success(`Created and added "${label}".`);
@@ -1511,18 +1478,15 @@ const CreateAutomationContent = () => {
       toast.error(e instanceof Error ? e.message : "Couldn't create the tag."),
   });
 
-  const [newListName, setNewListName] = useState("");
   const createListMutation = useMutation({
     mutationFn: (name: string) => audienceService.createSegment({ name }),
-    onSuccess: async (created) => {
+    onSuccess: async (created, name) => {
       await queryClient.invalidateQueries({
         queryKey: ["automations", "builder", "segments"],
       });
       const id = asString((created as { id?: unknown } | null)?.id);
       const label =
-        asString((created as { name?: unknown } | null)?.name) ||
-        newListName.trim();
-      setNewListName("");
+        asString((created as { name?: unknown } | null)?.name) || name;
       if (id) updateSelectedNodeData({ listId: id, listName: label });
       toast.success(`Created list "${label}".`);
     },
@@ -1790,10 +1754,6 @@ const CreateAutomationContent = () => {
     if (nodes.some((node) => node.id === selectedNode)) return;
     setSelectedNode(null);
   }, [nodes, selectedNode]);
-
-  useEffect(() => {
-    setJsonFieldDrafts({});
-  }, [selectedNode]);
 
   useEffect(() => {
     if (!selectedNodeSchemaQuery.data) return;
@@ -2274,6 +2234,25 @@ const CreateAutomationContent = () => {
     return node;
   };
 
+  /* "What starts it": every trigger, so the panel can swap one for another. */
+  const triggerKindOptions = useMemo(
+    () =>
+      triggerGroups.flatMap((g) =>
+        g.items.map((t) => ({ value: t.id, label: t.label, hint: g.label }))
+      ),
+    [triggerGroups]
+  );
+
+  /** Swaps a trigger for another kind in place, keeping where it leads. */
+  const changeTriggerType = (id: string, type: string) => {
+    const label =
+      triggerCatalog.find((t) => t.type === type)?.label ?? stepKindLabel(type);
+    const { rendererType, data } = resolveNodeShape(type, label);
+    setNodes((nds) =>
+      nds.map((n) => (n.id === id ? { ...n, type: rendererType, data } : n))
+    );
+  };
+
   /** The trigger, wired to whatever the flow already starts with. */
   const addTrigger = (type: string) => {
     if (flowTree.root) {
@@ -2303,6 +2282,12 @@ const CreateAutomationContent = () => {
 
   const moveTo = (id: string, slots: Slot[]) => {
     const next = moveStep({ nodes, edges }, id, slots, makeEdge);
+    setNodes(next.nodes);
+    setEdges(next.edges);
+  };
+
+  const nudge = (id: string, dir: -1 | 1) => {
+    const next = nudgeStep({ nodes, edges }, id, dir, flowTree, makeEdge);
     setNodes(next.nodes);
     setEdges(next.edges);
   };
@@ -2738,14 +2723,10 @@ const CreateAutomationContent = () => {
             aria-label={selectedNode ? "Step settings" : "Flow settings"}
           >
             {selectedNode && selectedNodeDetails ? (
-              <div className="flex flex-col gap-5">
-                <header className="abp-head">
-                  <span
-                    className={cn(
-                      "abp-ic",
-                      selectedIsTrigger && "abp-ic--entry"
-                    )}
-                  >
+              <div className="abp">
+                <PanelHead
+                  entry={selectedIsTrigger}
+                  icon={
                     <LibraryIcon
                       type={
                         asString(selectedNodeData.actionType) ||
@@ -2753,586 +2734,69 @@ const CreateAutomationContent = () => {
                         asString(selectedNodeData.nodeType) ||
                         (selectedNodeDetails.type ?? "")
                       }
-                      className="h-4 w-4"
                     />
-                  </span>
-                  <div>
-                    <i>{selectedIsTrigger ? "Trigger" : "Step"}</i>
-                    <b>
-                      {nodePanelLabel(
-                        selectedIsTrigger
-                          ? asString(selectedNodeData.triggerType) ||
-                              selectedNodeDetails.type
-                          : asString(selectedNodeData.actionType) ||
-                              asString(selectedNodeData.nodeType) ||
-                              selectedNodeDetails.type
-                      )}
-                    </b>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedNode(null)}
-                    aria-label="Close step settings"
-                    className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  >
-                    <XMarkIcon aria-hidden="true" className="h-4 w-4" />
-                  </button>
-                </header>
+                  }
+                  eyebrow={selectedIsTrigger ? "Trigger" : "Step"}
+                  title={nodePanelLabel(
+                    selectedIsTrigger
+                      ? asString(selectedNodeData.triggerType) ||
+                          selectedNodeDetails.type
+                      : asString(selectedNodeData.actionType) ||
+                          asString(selectedNodeData.nodeType) ||
+                          selectedNodeDetails.type
+                  )}
+                  onClose={() => setSelectedNode(null)}
+                />
                 {selectedSetupHint ? (
-                  <p className="abp-todo">
-                    <ExclamationCircleIcon aria-hidden="true" />
-                    {selectedSetupHint}
-                  </p>
+                  <PanelTodo>{selectedSetupHint}</PanelTodo>
                 ) : null}
 
-                {/* Properties Content based on node type */}
-                <div className="space-y-6">
-                  {/* Common fields */}
-                  <div className="space-y-2">
-                    <label className={PROPERTY_LABEL_CLASS}>Label</label>
-                    <input
-                      type="text"
-                      className={PROPERTY_INPUT_CLASS}
-                      value={asString(selectedNodeData.label)}
-                      onChange={(e) =>
-                        updateSelectedNodeData({ label: e.target.value })
-                      }
-                    />
-                  </div>
+                {selectedIsTrigger && (
+                  <PickField
+                    label="What starts it"
+                    value={
+                      asString(selectedNodeData.triggerType) ||
+                      asString(selectedNodeData.nodeType)
+                    }
+                    options={triggerKindOptions}
+                    onChange={(type) => changeTriggerType(selectedNode, type)}
+                  />
+                )}
 
-                  {/* Specific fields */}
-                  {selectedIsTrigger && (
-                    <>
-                      {/* DeFi Health Factor: pool + threshold + chain, then
-                              run the sweep on demand instead of waiting for the
-                              30-minute schedule. */}
-                      {selectedIsDefiHealthTrigger && (
-                        <DefiHealthFactorFields
-                          nodeData={selectedNodeData}
-                          onChange={updateSelectedNodeData}
-                          chainOptions={chainOptions}
-                        />
-                      )}
-                      {/* Run the lending check on demand instead of waiting
-                              for the 30-minute schedule. Saved automations only
-                              (needs a persisted id + a configured pool/chain). */}
-                      {selectedIsDefiHealthTrigger && !isNew && (
-                        <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium text-foreground">
-                                Run now
-                              </div>
-                              <p className={PROPERTY_HINT_CLASS}>
-                                Check every position immediately, ignoring the
-                                30-minute schedule.
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => runHealthFactorMutation.mutate()}
-                              disabled={runHealthFactorMutation.isPending}
-                              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              <BoltIcon
-                                className="h-3.5 w-3.5"
-                                aria-hidden="true"
-                              />
-                              {runHealthFactorMutation.isPending
-                                ? "Running…"
-                                : "Run now"}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {selectedTriggerIsOnchain && (
-                        <OnchainTriggerFields
-                          nodeData={selectedNodeData}
-                          onChange={updateSelectedNodeData}
-                          schemaType={selectedNodeSchemaType}
-                          hasImpliedEvent={selectedTriggerHasImpliedEvent}
-                          contractCatalog={contractCatalog}
-                          chainOptions={chainOptions}
-                          svm={svmByTriggerType.get(selectedNodeSchemaType)}
-                          eventOptions={eventOptions}
-                          eventDefinitionByValue={eventDefinitionByValue}
-                        />
-                      )}
-                      {selectedTriggerResource === "list" && (
-                        <div className="space-y-2">
-                          <label className={PROPERTY_LABEL_CLASS}>List</label>
-                          <PropertySelect
-                            value={
-                              asString(selectedNodeData.listId) ||
-                              asString(selectedNodeData.segmentId)
-                            }
-                            options={ensureOption(
-                              segmentOptions,
-                              asString(selectedNodeData.listId) ||
-                                asString(selectedNodeData.segmentId),
-                              asString(selectedNodeData.listName) || undefined
-                            )}
-                            onChange={(next) => {
-                              const picked = segmentOptions.find(
-                                (o) => o.value === next
-                              );
-                              updateSelectedNodeData({
-                                listId: next,
-                                segmentId: next,
-                                listName: picked?.label ?? next,
-                              });
-                            }}
-                            placeholder={
-                              segmentsQuery.isLoading
-                                ? "Loading lists…"
-                                : "Select a list"
-                            }
-                          />
-                          <p className={PROPERTY_HINT_CLASS}>
-                            Fires when a contact joins this list.
-                          </p>
-                        </div>
-                      )}
-                      {selectedTriggerResource === "tag" && (
-                        <div className="space-y-2">
-                          <label className={PROPERTY_LABEL_CLASS}>Tag</label>
-                          <PropertySelect
-                            value={asString(selectedNodeData.tag)}
-                            options={ensureOption(
-                              tagOptions,
-                              asString(selectedNodeData.tag)
-                            )}
-                            onChange={(next) =>
-                              updateSelectedNodeData({ tag: next })
-                            }
-                            placeholder={
-                              tagsQuery.isLoading
-                                ? "Loading tags…"
-                                : "Select a tag"
-                            }
-                          />
-                          <p className={PROPERTY_HINT_CLASS}>
-                            Fires when this tag is added to a contact.
-                          </p>
-                        </div>
-                      )}
-                      {selectedTriggerResource === "campaign" && (
-                        <div className="space-y-2">
-                          <label className={PROPERTY_LABEL_CLASS}>
-                            Campaign
-                          </label>
-                          <PropertySelect
-                            value={asString(selectedNodeData.campaignId)}
-                            options={ensureOption(
-                              campaignOptions,
-                              asString(selectedNodeData.campaignId),
-                              asString(selectedNodeData.campaignName) ||
-                                undefined
-                            )}
-                            onChange={(next) => {
-                              const picked = campaignOptions.find(
-                                (o) => o.value === next
-                              );
-                              updateSelectedNodeData({
-                                campaignId: next,
-                                campaignName: picked?.label ?? next,
-                              });
-                            }}
-                            placeholder={
-                              campaignsQuery.isLoading
-                                ? "Loading campaigns…"
-                                : "Select a campaign"
-                            }
-                          />
-                          <p className={PROPERTY_HINT_CLASS}>
-                            Fires on this campaign&apos;s email activity.
-                          </p>
-                        </div>
-                      )}
-                      {selectedTriggerResource === "form" && (
-                        <div className="space-y-2">
-                          <label className={PROPERTY_LABEL_CLASS}>Form</label>
-                          <PropertySelect
-                            value={asString(selectedNodeData.formId)}
-                            options={ensureOption(
-                              formOptions,
-                              asString(selectedNodeData.formId),
-                              asString(selectedNodeData.formName) || undefined
-                            )}
-                            onChange={(next) => {
-                              const picked = formOptions.find(
-                                (o) => o.value === next
-                              );
-                              updateSelectedNodeData({
-                                formId: next,
-                                formName: picked?.label ?? next,
-                              });
-                            }}
-                            placeholder={
-                              formsQuery.isLoading
-                                ? "Loading forms…"
-                                : formOptions.length === 0
-                                  ? "No forms yet"
-                                  : "Select a form"
-                            }
-                          />
-                          <p className={PROPERTY_HINT_CLASS}>
-                            Fires when a contact completes this form.
-                          </p>
-                        </div>
-                      )}
-                      {/* The DeFi trigger has no synthetic runtime event -
-                              its "Run now" sweep above is how it is tested. */}
-                      {!isNew && !selectedIsDefiHealthTrigger ? (
-                        <div className="rounded-2xl border border-primary/15 bg-primary/5 p-3.5">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="text-xs font-medium text-foreground">
-                              Test runtime trigger
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => runtimeTriggerMutation.mutate()}
-                              disabled={runtimeTriggerMutation.isPending}
-                              className="shrink-0 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                            >
-                              {runtimeTriggerMutation.isPending
-                                ? "Sending..."
-                                : "Send test event"}
-                            </button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </>
-                  )}
-
-                  {selectedIsEmail && (
-                    <>
-                      <div className="space-y-2">
-                        <label className={PROPERTY_LABEL_CLASS}>Template</label>
-                        <PropertySelect
-                          placeholder="Select template"
-                          value={asString(selectedNodeData.templateId)}
-                          options={emailTemplateOptions.map((t) => ({
-                            value: t.id,
-                            label: t.name,
-                          }))}
-                          onChange={(next) => {
-                            const template =
-                              emailTemplateOptions.find(
-                                (item) => item.id === next
-                              ) ?? null;
-                            updateSelectedNodeData({
-                              templateId: next,
-                              templateName: template?.name ?? "",
-                              subject: template?.subject ?? "",
-                              previewText: template?.previewText ?? "",
-                            });
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className={PROPERTY_LABEL_CLASS}>
-                          Subject line
-                        </label>
-                        <input
-                          type="text"
-                          className={PROPERTY_INPUT_CLASS}
-                          value={asString(selectedNodeData.subject)}
-                          onChange={(e) =>
-                            updateSelectedNodeData({
-                              subject: e.target.value,
-                            })
-                          }
-                          placeholder="What lands in the inbox subject line"
-                        />
-                        <p className={PROPERTY_HINT_CLASS}>
-                          Required — Gmail and Outlook reject mail with no
-                          subject. Choosing a template fills this in; edit to
-                          override.
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <label className={PROPERTY_LABEL_CLASS}>
-                          Preview text
-                        </label>
-                        <input
-                          type="text"
-                          className={PROPERTY_INPUT_CLASS}
-                          value={asString(selectedNodeData.previewText)}
-                          onChange={(e) =>
-                            updateSelectedNodeData({
-                              previewText: e.target.value,
-                            })
-                          }
-                          placeholder="Preheader shown after the subject"
-                        />
-                        <p className={PROPERTY_HINT_CLASS}>
-                          Optional — the snippet inbox clients show next to the
-                          subject line.
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <label className={PROPERTY_LABEL_CLASS}>Send as</label>
-                        <PropertySelect
-                          placeholder={
-                            senderIdentitiesQuery.isLoading
-                              ? "Loading senders…"
-                              : "Organization default"
-                          }
-                          value={selectedNodeSenderEmail}
-                          options={senderSelectOptions}
-                          onChange={updateSenderEmail}
-                        />
-                        {!senderIdentitiesQuery.isLoading &&
-                        verifiedSenderIdentities.length === 0 ? (
-                          <p className={PROPERTY_HINT_CLASS}>
-                            No verified sender identity yet - emails from this
-                            node will use the platform fallback sender
-                            (DoNotReply@…azurecomm.net). Verify a domain and add
-                            a sender in Settings to send from your own address.
-                          </p>
-                        ) : (
-                          <p className={PROPERTY_HINT_CLASS}>
-                            Verified sender used as the From address.
-                            &quot;Organization default&quot; lets the backend
-                            pick your org&apos;s default identity at send time.
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-1.5">
-                        <button
-                          type="button"
-                          disabled={openingEmailBuilder}
-                          onClick={() => {
-                            if (isNew) {
-                              toast.error(
-                                "Save the automation first - the builder attaches the design to a saved draft."
-                              );
-                              return;
-                            }
-                            openEmailBuilder().catch(() => undefined);
-                          }}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
-                        >
-                          <PencilSquareIcon
-                            aria-hidden="true"
-                            className="h-4 w-4"
-                          />
-                          {openingEmailBuilder
-                            ? "Opening…"
-                            : "Open email builder"}
-                        </button>
-                        <p className={PROPERTY_HINT_CLASS}>
-                          Design this email in the visual editor - start from a
-                          template or from a blank canvas.
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-border bg-card p-3">
-                        <p className="mb-2 text-xs font-medium text-muted-foreground">
-                          Preview
-                        </p>
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-foreground">
-                            Subject:{" "}
-                            {(selectedTemplate?.subject ??
-                              asString(selectedNodeData.subject)) ||
-                              "Select a template"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {(selectedTemplate?.previewText ??
-                              asString(selectedNodeData.previewText)) ||
-                              "Template preview text will appear here."}
-                          </p>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {selectedIsInapp && (
-                    <>
-                      <div className="space-y-2">
-                        <label className={PROPERTY_LABEL_CLASS}>Title</label>
-                        <input
-                          type="text"
-                          className={PROPERTY_INPUT_CLASS}
-                          value={asString(selectedNodeData.title)}
-                          onChange={(e) =>
-                            updateSelectedNodeData({
-                              title: e.target.value,
-                            })
-                          }
-                          placeholder="Notification title"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className={PROPERTY_LABEL_CLASS}>Message</label>
-                        <textarea
-                          className={`${PROPERTY_INPUT_CLASS} min-h-[80px]`}
-                          value={asString(selectedNodeData.body)}
-                          onChange={(e) =>
-                            updateSelectedNodeData({ body: e.target.value })
-                          }
-                          placeholder="What should the in-app push say?"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className={PROPERTY_LABEL_CLASS}>
-                          Link (optional)
-                        </label>
-                        <input
-                          type="text"
-                          className={PROPERTY_INPUT_CLASS}
-                          value={asString(selectedNodeData.url)}
-                          onChange={(e) =>
-                            updateSelectedNodeData({ url: e.target.value })
-                          }
-                          placeholder="/app/rewards"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {selectedIsWebhook && (
-                    <>
-                      <div className="space-y-2">
-                        <label className={PROPERTY_LABEL_CLASS}>
-                          Endpoint URL
-                        </label>
-                        <input
-                          type="text"
-                          className={PROPERTY_INPUT_CLASS}
-                          value={asString(selectedNodeData.url)}
-                          onChange={(e) =>
-                            updateSelectedNodeData({ url: e.target.value })
-                          }
-                          placeholder="https://api.example.com/hook"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className={PROPERTY_LABEL_CLASS}>Method</label>
-                        <PropertySelect
-                          placeholder="POST"
-                          value={asString(selectedNodeData.method) || "POST"}
-                          options={WEBHOOK_METHODS}
-                          onChange={(next) =>
-                            updateSelectedNodeData({ method: next })
-                          }
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {selectedIsDispatch && (
-                    <div className="space-y-2">
-                      <label className={PROPERTY_LABEL_CLASS}>Campaign</label>
-                      <PropertySelect
-                        value={asString(selectedNodeData.campaignId)}
-                        options={ensureOption(
-                          campaignOptions,
-                          asString(selectedNodeData.campaignId)
-                        )}
-                        onChange={(next) =>
-                          updateSelectedNodeData({ campaignId: next })
-                        }
-                        placeholder={
-                          campaignsQuery.isLoading
-                            ? "Loading campaigns…"
-                            : "Select a campaign"
-                        }
+                {selectedIsTrigger && (
+                  <>
+                    {/* DeFi Health Factor: pool + threshold + chain. */}
+                    {selectedIsDefiHealthTrigger && (
+                      <DefiHealthFactorFields
+                        nodeData={selectedNodeData}
+                        onChange={updateSelectedNodeData}
+                        chainOptions={chainOptions}
                       />
-                      <p className={PROPERTY_HINT_CLASS}>
-                        The campaign to dispatch when this step runs.
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedIsTag && (
-                    <div className="space-y-2">
-                      <label className={PROPERTY_LABEL_CLASS}>Tags</label>
-                      {selectedTags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {selectedTags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-foreground"
-                            >
-                              {tag}
-                              <button
-                                type="button"
-                                aria-label={`Remove ${tag}`}
-                                className="text-muted-foreground hover:text-foreground"
-                                onClick={() => {
-                                  const tags = selectedTags.filter(
-                                    (t) => t !== tag
-                                  );
-                                  updateSelectedNodeData({
-                                    tags,
-                                    tag: tags[0] ?? "",
-                                  });
-                                }}
-                              >
-                                <XMarkIcon
-                                  aria-hidden="true"
-                                  className="size-3"
-                                />
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <PropertySelect
-                        value=""
-                        options={tagOptions.filter(
-                          (o) => !selectedTags.includes(o.value)
-                        )}
-                        onChange={(next) => {
-                          if (!next || selectedTags.includes(next)) return;
-                          const tags = [...selectedTags, next];
-                          updateSelectedNodeData({
-                            tags,
-                            tag: tags[0] ?? "",
-                          });
-                        }}
-                        placeholder={
-                          tagsQuery.isLoading
-                            ? "Loading tags…"
-                            : selectedIsRemoveTag
-                              ? "Remove a tag"
-                              : "Add a tag"
-                        }
+                    )}
+                    {selectedTriggerIsOnchain && (
+                      <OnchainTriggerFields
+                        nodeData={selectedNodeData}
+                        onChange={updateSelectedNodeData}
+                        schemaType={selectedNodeSchemaType}
+                        hasImpliedEvent={selectedTriggerHasImpliedEvent}
+                        contractCatalog={contractCatalog}
+                        chainOptions={chainOptions}
+                        svm={svmByTriggerType.get(selectedNodeSchemaType)}
+                        eventOptions={eventOptions}
+                        eventDefinitionByValue={eventDefinitionByValue}
                       />
-                      {!selectedIsRemoveTag && (
-                        <InlineCreate
-                          value={newTagName}
-                          onChange={setNewTagName}
-                          onSubmit={() =>
-                            createTagMutation.mutate(newTagName.trim())
-                          }
-                          pending={createTagMutation.isPending}
-                          placeholder="Or create a new tag"
-                        />
-                      )}
-                      <p className={PROPERTY_HINT_CLASS}>
-                        {selectedIsRemoveTag
-                          ? "Tags to remove from the contact."
-                          : "Tags to apply to the contact. Pick an existing tag or create a new one."}
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedIsList && (
-                    <div className="space-y-2">
-                      <label className={PROPERTY_LABEL_CLASS}>List</label>
-                      <PropertySelect
+                    )}
+                    {selectedTriggerResource === "list" && (
+                      <PickField
+                        label="List"
                         value={
                           asString(selectedNodeData.listId) ||
-                          asString(selectedNodeData.listName)
+                          asString(selectedNodeData.segmentId)
                         }
                         options={ensureOption(
                           segmentOptions,
                           asString(selectedNodeData.listId) ||
-                            asString(selectedNodeData.listName),
+                            asString(selectedNodeData.segmentId),
                           asString(selectedNodeData.listName) || undefined
                         )}
                         onChange={(next) => {
@@ -3341,599 +2805,363 @@ const CreateAutomationContent = () => {
                           );
                           updateSelectedNodeData({
                             listId: next,
+                            segmentId: next,
                             listName: picked?.label ?? next,
                           });
                         }}
                         placeholder={
                           segmentsQuery.isLoading
                             ? "Loading lists…"
-                            : "Select a list"
+                            : "Choose a list"
                         }
+                        hint="Starts when a contact joins this list."
                       />
-                      {!selectedIsRemoveFromList && (
-                        <InlineCreate
-                          value={newListName}
-                          onChange={setNewListName}
-                          onSubmit={() =>
-                            createListMutation.mutate(newListName.trim())
-                          }
-                          pending={createListMutation.isPending}
-                          placeholder="Or create a new list"
-                        />
-                      )}
-                      <p className={PROPERTY_HINT_CLASS}>
-                        {selectedIsRemoveFromList
-                          ? "The contact will be removed from this list."
-                          : "The contact will be added to this list. Pick an existing list or create a new one."}
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedIsWait && (
-                    <div className="space-y-2">
-                      <label className={PROPERTY_LABEL_CLASS}>Duration</label>
-                      <input
-                        type="text"
-                        className={PROPERTY_INPUT_CLASS}
-                        value={asString(selectedNodeData.duration)}
-                        onChange={(e) => {
-                          // The runtime wants a positive `seconds`, not
-                          // prose - without this the step reads "Wait 2
-                          // days" on the canvas and publish still fails
-                          // with INVALID_WAIT_CONFIG.
-                          const duration = e.target.value;
+                    )}
+                    {selectedTriggerResource === "tag" && (
+                      <PickField
+                        label="Tag"
+                        value={asString(selectedNodeData.tag)}
+                        options={ensureOption(
+                          tagOptions,
+                          asString(selectedNodeData.tag)
+                        )}
+                        onChange={(next) =>
+                          updateSelectedNodeData({ tag: next })
+                        }
+                        placeholder={
+                          tagsQuery.isLoading ? "Loading tags…" : "Choose a tag"
+                        }
+                        hint="Starts when this tag is added to a contact."
+                      />
+                    )}
+                    {selectedTriggerResource === "campaign" && (
+                      <PickField
+                        label="Campaign"
+                        value={asString(selectedNodeData.campaignId)}
+                        options={ensureOption(
+                          campaignOptions,
+                          asString(selectedNodeData.campaignId),
+                          asString(selectedNodeData.campaignName) || undefined
+                        )}
+                        onChange={(next) => {
+                          const picked = campaignOptions.find(
+                            (o) => o.value === next
+                          );
                           updateSelectedNodeData({
-                            duration,
-                            seconds: parseDurationToSeconds(duration),
+                            campaignId: next,
+                            campaignName: picked?.label ?? next,
                           });
                         }}
-                        placeholder="e.g. 2 days"
+                        placeholder={
+                          campaignsQuery.isLoading
+                            ? "Loading campaigns…"
+                            : "Choose a campaign"
+                        }
+                        hint="Starts on this campaign's email activity."
                       />
-                      <p className={PROPERTY_HINT_CLASS}>
-                        {parseDurationToSeconds(selectedNodeData.duration) > 0
-                          ? `How long to wait before the next step. Saved as ${parseDurationToSeconds(
-                              selectedNodeData.duration
-                            ).toLocaleString()} seconds.`
-                          : "How long to wait before the next step - e.g. 30 minutes, 2 days, 1 week."}
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedIsBranch && (
-                    <div className="space-y-4 rounded-[20px] border border-border bg-card p-4">
-                      <div>
-                        <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
-                          Branch logic
-                        </div>
-                        <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-                          Rules run top to bottom. The first match routes to its
-                          target node; if none match, the else branch is used.
-                        </p>
-                      </div>
-
-                      {branchRules.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-border bg-muted/30 px-3 py-4 text-center text-[11px] text-muted-foreground">
-                          No rules yet. Add one to route matching profiles.
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {branchRules.map((rule, index) => {
-                            const needsValue = !BRANCH_VALUELESS_OPERATORS.has(
-                              rule.operator
-                            );
-                            return (
-                              <div
-                                key={rule.id}
-                                className="space-y-2 rounded-xl border border-border bg-background p-3"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                                    If #{index + 1}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeBranchRule(rule.id)}
-                                    aria-label="Remove rule"
-                                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                                  >
-                                    <TrashIcon
-                                      aria-hidden="true"
-                                      className="h-3.5 w-3.5"
-                                    />
-                                  </button>
-                                </div>
-                                <input
-                                  className={PROPERTY_INPUT_CLASS}
-                                  placeholder="Field (e.g. tier, balance)"
-                                  value={rule.field}
-                                  onChange={(e) =>
-                                    updateBranchRule(rule.id, {
-                                      field: e.target.value,
-                                    })
-                                  }
-                                />
-                                <div
-                                  className={
-                                    needsValue
-                                      ? "grid grid-cols-2 gap-2"
-                                      : undefined
-                                  }
-                                >
-                                  <PropertySelect
-                                    placeholder="Operator"
-                                    value={rule.operator}
-                                    options={BRANCH_OPERATORS}
-                                    onChange={(next) =>
-                                      updateBranchRule(rule.id, {
-                                        operator: next,
-                                      })
-                                    }
-                                  />
-                                  {needsValue ? (
-                                    <input
-                                      className={PROPERTY_INPUT_CLASS}
-                                      placeholder="Value"
-                                      value={rule.value}
-                                      onChange={(e) =>
-                                        updateBranchRule(rule.id, {
-                                          value: e.target.value,
-                                        })
-                                      }
-                                    />
-                                  ) : null}
-                                </div>
-                                <div className="space-y-1">
-                                  <label className={PROPERTY_LABEL_CLASS}>
-                                    Route to
-                                  </label>
-                                  <PropertySelect
-                                    placeholder={
-                                      branchTargetOptions.length > 0
-                                        ? "Select node"
-                                        : "Add more nodes first"
-                                    }
-                                    value={rule.target}
-                                    options={branchTargetOptions}
-                                    onChange={(next) =>
-                                      updateBranchRule(rule.id, {
-                                        target: next,
-                                      })
-                                    }
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={addBranchRule}
-                        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-                      >
-                        + Add rule
-                      </button>
-
-                      <div className="space-y-1 border-t border-border pt-3">
-                        <label className={PROPERTY_LABEL_CLASS}>
-                          Else → default branch
-                        </label>
-                        <PropertySelect
-                          placeholder={
-                            branchTargetOptions.length > 0
-                              ? "Select fallback node"
-                              : "Add more nodes first"
-                          }
-                          value={branchDefaultTarget}
-                          options={branchTargetOptions}
-                          onChange={(next) =>
-                            updateSelectedNodeData({ defaultTarget: next })
-                          }
-                        />
-                        <p className={PROPERTY_HINT_CLASS}>
-                          Where profiles go when no rule matches.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* The schema-driven CONFIGURATION section is the low-level
-                          field dump (event source, standard, topic0, filters…).
-                          Hidden for on-chain triggers (covered by the simplified
-                          token+event+chain panel above) AND for action nodes,
-                          which now have their own dedicated panels. It stays only
-                          for off-chain triggers (segment/form), where it is still
-                          the only place their config (segmentId, formId, …) is
-                          edited - remove it there only once those get a real
-                          panel. */}
-                  {/* A/B split variants — a friendly editor instead of the raw
-                          JSON the schema would render. Weights are relative. */}
-                  {selectedNodeSchemaType === "split"
-                    ? (() => {
-                        const variants = Array.isArray(
-                          selectedNodeData.variants
-                        )
-                          ? (selectedNodeData.variants as unknown[]).map(
-                              (v) => {
-                                const r = isJsonObject(v) ? v : {};
-                                return {
-                                  label: String(r.label ?? ""),
-                                  weight: Number(r.weight) || 0,
-                                };
-                              }
-                            )
-                          : [];
-                        const write = (
-                          next: { label: string; weight: number }[]
-                        ) => updateSelectedNodeData({ variants: next });
-                        const total =
-                          variants.reduce((s, v) => s + v.weight, 0) || 0;
-                        return (
-                          <div className="space-y-3 rounded-[20px] border border-border bg-card p-4">
-                            <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
-                              Variants
-                            </div>
-                            {variants.map((v, i) => (
-                              <div
-                                // Variants have no stable id and the inputs
-                                // are fully controlled (value from state), so
-                                // an index key is safe here - there is no
-                                // per-row local state to mismatch on edit.
-                                // eslint-disable-next-line react/no-array-index-key
-                                key={i}
-                                className="flex items-center gap-2"
-                              >
-                                <input
-                                  className={PROPERTY_INPUT_CLASS}
-                                  placeholder="Label (e.g. A, holdout)"
-                                  value={v.label}
-                                  onChange={(e) => {
-                                    const n = [...variants];
-                                    n[i] = { ...v, label: e.target.value };
-                                    write(n);
-                                  }}
-                                />
-                                <input
-                                  type="number"
-                                  min={0}
-                                  className={`${PROPERTY_INPUT_CLASS} w-20 text-center`}
-                                  value={v.weight}
-                                  onChange={(e) => {
-                                    const n = [...variants];
-                                    n[i] = {
-                                      ...v,
-                                      weight: Math.max(
-                                        0,
-                                        Number(e.target.value) || 0
-                                      ),
-                                    };
-                                    write(n);
-                                  }}
-                                />
-                                <button
-                                  type="button"
-                                  aria-label={`Remove variant ${v.label || i + 1}`}
-                                  className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                                  onClick={() =>
-                                    write(variants.filter((_, j) => j !== i))
-                                  }
-                                >
-                                  <XMarkIcon className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ))}
-                            <button
-                              type="button"
-                              className="w-full rounded-xl border border-dashed border-border py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-                              onClick={() =>
-                                write([...variants, { label: "", weight: 50 }])
-                              }
-                            >
-                              + Add variant
-                            </button>
-                            <p className={PROPERTY_HINT_CLASS}>
-                              Weights are relative
-                              {total > 0 ? ` (total ${total})` : ""}. Label a
-                              variant <span className="mono">holdout</span> and
-                              leave its branch empty for a control group.
-                              Assignment is deterministic per contact.
-                            </p>
-                          </div>
-                        );
-                      })()
-                    : null}
-
-                  {!selectedTriggerIsOnchain &&
-                  !selectedIsDefiHealthTrigger &&
-                  !selectedTriggerResource &&
-                  selectedNodeSchemaType !== "split" &&
-                  !selectedHasDedicatedPanel &&
-                  (selectedNodeSchemaQuery.isFetching ||
-                    selectedNodeSchemaFields.length > 0 ||
-                    selectedNodeSchemaQuery.error instanceof Error) ? (
-                    <div className="space-y-4 rounded-[20px] border border-border bg-card p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
-                          Trigger setup
-                        </div>
-                        {selectedNodeSchemaQuery.isFetching ? (
-                          <ArrowPathIcon
-                            aria-hidden="true"
-                            className="h-4 w-4 animate-spin text-sky-300"
-                          />
-                        ) : null}
-                      </div>
-
-                      {selectedNodeSchemaQuery.error instanceof Error ? (
-                        <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[11px] leading-5 text-amber-100">
-                          Failed to load backend schema:{" "}
-                          {selectedNodeSchemaQuery.error.message}
-                        </div>
-                      ) : null}
-
-                      {(() => {
-                        const renderSchemaField = (
-                          field: BuilderSchemaField
-                        ) => {
-                          const rawValue = selectedNodeData[field.key];
-                          const jsonDraftKey = `${selectedNode ?? "node"}:${field.key}`;
-
-                          if (
-                            field.options.length > 0 ||
-                            field.type === "select" ||
-                            field.type === "enum"
-                          ) {
-                            return (
-                              <div key={field.key} className="space-y-2">
-                                <label className={PROPERTY_LABEL_CLASS}>
-                                  {field.label}
-                                  {field.required ? " *" : ""}
-                                </label>
-                                <PropertySelect
-                                  placeholder={
-                                    field.placeholder ?? `Select ${field.label}`
-                                  }
-                                  value={pickText(rawValue)}
-                                  options={field.options.map((option) => ({
-                                    value: option.value,
-                                    label: option.label,
-                                  }))}
-                                  onChange={(next) =>
-                                    updateSchemaFieldValue(field, next)
-                                  }
-                                />
-                                {field.description ? (
-                                  <p className={PROPERTY_HINT_CLASS}>
-                                    {field.description}
-                                  </p>
-                                ) : null}
-                              </div>
-                            );
-                          }
-
-                          if (
-                            field.type === "boolean" ||
-                            field.type === "toggle"
-                          ) {
-                            return (
-                              <label
-                                key={field.key}
-                                className="flex items-start gap-3 rounded-2xl border border-border bg-background px-3 py-3"
-                              >
-                                <input
-                                  type="checkbox"
-                                  className="mt-1 h-4 w-4 rounded border-border bg-background text-primary"
-                                  checked={asBoolean(rawValue)}
-                                  onChange={(e) =>
-                                    updateSchemaFieldValue(
-                                      field,
-                                      e.target.checked
-                                    )
-                                  }
-                                />
-                                <span className="space-y-1">
-                                  <span className="block text-sm font-medium text-foreground">
-                                    {field.label}
-                                  </span>
-                                  {field.description ? (
-                                    <span className="block text-[11px] leading-5 text-muted-foreground">
-                                      {field.description}
-                                    </span>
-                                  ) : null}
-                                </span>
-                              </label>
-                            );
-                          }
-
-                          if (
-                            field.type === "object" ||
-                            field.type === "array" ||
-                            field.type === "json"
-                          ) {
-                            const jsonValue =
-                              jsonFieldDrafts[jsonDraftKey] ??
-                              (rawValue === undefined
-                                ? ""
-                                : JSON.stringify(rawValue, null, 2));
-                            const isJsonInvalid =
-                              jsonValue.trim().length > 0 &&
-                              (() => {
-                                try {
-                                  JSON.parse(jsonValue);
-                                  return false;
-                                } catch {
-                                  return true;
-                                }
-                              })();
-
-                            return (
-                              <div key={field.key} className="space-y-2">
-                                <label className={PROPERTY_LABEL_CLASS}>
-                                  {field.label}
-                                  {field.required ? " *" : ""}
-                                </label>
-                                <textarea
-                                  rows={5}
-                                  className={PROPERTY_INPUT_CLASS}
-                                  placeholder={
-                                    field.placeholder ??
-                                    `Enter valid JSON for ${field.label}`
-                                  }
-                                  value={jsonValue}
-                                  onChange={(e) => {
-                                    const nextValue = e.target.value;
-                                    setJsonFieldDrafts((prev) => ({
-                                      ...prev,
-                                      [jsonDraftKey]: nextValue,
-                                    }));
-                                    if (nextValue.trim().length === 0) {
-                                      updateSchemaFieldValue(
-                                        field,
-                                        field.type === "array" ? [] : {}
-                                      );
-                                      return;
-                                    }
-                                    try {
-                                      updateSchemaFieldValue(
-                                        field,
-                                        JSON.parse(nextValue)
-                                      );
-                                    } catch {
-                                      // Keep draft local until the JSON becomes valid.
-                                    }
-                                  }}
-                                />
-                                {field.description ? (
-                                  <p className={PROPERTY_HINT_CLASS}>
-                                    {field.description}
-                                  </p>
-                                ) : null}
-                                {isJsonInvalid ? (
-                                  <p className="text-[11px] text-amber-300">
-                                    Enter valid JSON to apply this field.
-                                  </p>
-                                ) : null}
-                              </div>
-                            );
-                          }
-
-                          const inputType =
-                            field.type === "number" || field.type === "integer"
-                              ? "number"
-                              : field.type === "date"
-                                ? "date"
-                                : "text";
-                          const isTextarea =
-                            field.type === "textarea" ||
-                            field.type === "multiline" ||
-                            field.type === "long_text";
-                          // Custom Event trigger: suggest the org's recent
-                          // event names (POST /events, last 30 days) on the
-                          // event-name field, while still allowing a name
-                          // that hasn't been ingested yet (free text).
-                          const eventNameSuggestions =
-                            field.key === "event" && selectedIsTrigger
-                              ? (eventsCatalogQuery.data ?? [])
-                              : [];
-                          const eventListId =
-                            eventNameSuggestions.length > 0
-                              ? `events-${selectedNode ?? "node"}-${field.key}`
-                              : undefined;
-
-                          return (
-                            <div key={field.key} className="space-y-2">
-                              <label className={PROPERTY_LABEL_CLASS}>
-                                {field.label}
-                                {field.required ? " *" : ""}
-                              </label>
-                              {isTextarea ? (
-                                <AutoGrowTextarea
-                                  className={PROPERTY_INPUT_CLASS}
-                                  placeholder={field.placeholder}
-                                  value={String(rawValue ?? "")}
-                                  onChange={(e) =>
-                                    updateSchemaFieldValue(
-                                      field,
-                                      e.target.value
-                                    )
-                                  }
-                                />
-                              ) : (
-                                <>
-                                  <input
-                                    type={inputType}
-                                    className={PROPERTY_INPUT_CLASS}
-                                    placeholder={field.placeholder}
-                                    list={eventListId}
-                                    value={
-                                      rawValue === undefined ||
-                                      rawValue === null
-                                        ? ""
-                                        : String(rawValue)
-                                    }
-                                    onChange={(e) =>
-                                      updateSchemaFieldValue(
-                                        field,
-                                        inputType === "number"
-                                          ? e.target.value === ""
-                                            ? ""
-                                            : Number(e.target.value)
-                                          : e.target.value
-                                      )
-                                    }
-                                  />
-                                  {eventListId ? (
-                                    <datalist id={eventListId}>
-                                      {eventNameSuggestions.map((name) => (
-                                        <option key={name} value={name} />
-                                      ))}
-                                    </datalist>
-                                  ) : null}
-                                </>
-                              )}
-                              {field.description ? (
-                                <p className={PROPERTY_HINT_CLASS}>
-                                  {field.description}
-                                </p>
-                              ) : null}
-                            </div>
+                    )}
+                    {selectedTriggerResource === "form" && (
+                      <PickField
+                        label="Form"
+                        value={asString(selectedNodeData.formId)}
+                        options={ensureOption(
+                          formOptions,
+                          asString(selectedNodeData.formId),
+                          asString(selectedNodeData.formName) || undefined
+                        )}
+                        onChange={(next) => {
+                          const picked = formOptions.find(
+                            (o) => o.value === next
                           );
-                        };
-                        return (
-                          <>{schemaEssentialFields.map(renderSchemaField)}</>
-                        );
-                      })()}
-                    </div>
-                  ) : null}
+                          updateSelectedNodeData({
+                            formId: next,
+                            formName: picked?.label ?? next,
+                          });
+                        }}
+                        placeholder={
+                          formsQuery.isLoading
+                            ? "Loading forms…"
+                            : formOptions.length === 0
+                              ? "No forms yet"
+                              : "Choose a form"
+                        }
+                        hint="Starts when a contact completes this form."
+                      />
+                    )}
+                  </>
+                )}
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 border-t border-border pt-6">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedNode(null)}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                    >
-                      <CheckCircleIcon aria-hidden="true" className="h-4 w-4" />
-                      Apply
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeNode(selectedNode)}
-                      className="flex items-center justify-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/15"
-                    >
-                      <TrashIcon aria-hidden="true" className="h-4 w-4" />
-                      Remove
-                    </button>
-                  </div>
-                </div>
+                {selectedIsEmail && (
+                  <EmailStepFields
+                    values={{
+                      source: (asString(selectedNodeData.emailSource) || "") as
+                        EmailSource | "",
+                      body: asString(selectedNodeData.body),
+                      templateId: asString(selectedNodeData.templateId),
+                      templateName:
+                        asString(selectedNodeData.templateName) ||
+                        (selectedTemplate?.name ?? ""),
+                      subject: asString(selectedNodeData.subject),
+                      previewText: asString(selectedNodeData.previewText),
+                      sender: selectedNodeSenderEmail,
+                    }}
+                    templateOptions={emailTemplateOptions.map((t) => ({
+                      value: t.id,
+                      label: t.name,
+                    }))}
+                    senderOptions={senderSelectOptions}
+                    sendersLoading={senderIdentitiesQuery.isLoading}
+                    noVerifiedSender={verifiedSenderIdentities.length === 0}
+                    opening={openingEmailBuilder}
+                    onTemplate={(next) => {
+                      const template =
+                        emailTemplateOptions.find((item) => item.id === next) ??
+                        null;
+                      updateSelectedNodeData({
+                        emailSource: "saved",
+                        templateId: next,
+                        templateName: template?.name ?? "",
+                        // Keep a subject already written; a template fills an empty one.
+                        subject:
+                          asString(selectedNodeData.subject) ||
+                          (template?.subject ?? ""),
+                        previewText:
+                          asString(selectedNodeData.previewText) ||
+                          (template?.previewText ?? ""),
+                      });
+                    }}
+                    onChange={updateSelectedNodeData}
+                    onSender={updateSenderEmail}
+                    onOpenBuilder={() => {
+                      if (isNew) {
+                        toast.error(
+                          "Save the automation first. The editor attaches the email to a saved draft."
+                        );
+                        return;
+                      }
+                      openEmailBuilder().catch(() => undefined);
+                    }}
+                  />
+                )}
+
+                {selectedIsInapp && (
+                  <>
+                    <TextField
+                      label="Title"
+                      value={asString(selectedNodeData.title)}
+                      onChange={(title) => updateSelectedNodeData({ title })}
+                      placeholder="Your rewards are ready"
+                    />
+                    <TextField
+                      label="Message"
+                      multiline
+                      value={asString(selectedNodeData.body)}
+                      onChange={(body) => updateSelectedNodeData({ body })}
+                      placeholder="What should the push say?"
+                    />
+                    <TextField
+                      label="Opens"
+                      optional
+                      value={asString(selectedNodeData.url)}
+                      onChange={(url) => updateSelectedNodeData({ url })}
+                      placeholder="/app/rewards"
+                      hint="Shows the next time they open your app. Tapping it opens this page."
+                    />
+                  </>
+                )}
+
+                {selectedIsWebhook && (
+                  <>
+                    <TextField
+                      label="URL"
+                      type="url"
+                      value={asString(selectedNodeData.url)}
+                      onChange={(url) => updateSelectedNodeData({ url })}
+                      placeholder="https://api.your-app.com/hooks/automation"
+                    />
+                    <PickField
+                      label="Method"
+                      value={asString(selectedNodeData.method) || "POST"}
+                      options={WEBHOOK_METHODS}
+                      onChange={(method) => updateSelectedNodeData({ method })}
+                      hint="We send the contact and the step as JSON."
+                    />
+                  </>
+                )}
+
+                {selectedIsDispatch && (
+                  <PickField
+                    label="Campaign"
+                    value={asString(selectedNodeData.campaignId)}
+                    options={ensureOption(
+                      campaignOptions,
+                      asString(selectedNodeData.campaignId)
+                    )}
+                    onChange={(next) => {
+                      const picked = campaignOptions.find(
+                        (o) => o.value === next
+                      );
+                      updateSelectedNodeData({
+                        campaignId: next,
+                        campaignName: picked?.label ?? next,
+                      });
+                    }}
+                    placeholder={
+                      campaignsQuery.isLoading
+                        ? "Loading campaigns…"
+                        : "Choose a campaign"
+                    }
+                    hint="Sends this campaign to the contact when they reach this step."
+                  />
+                )}
+
+                {selectedIsTag && (
+                  <TagStepFields
+                    tags={selectedTags}
+                    options={tagOptions}
+                    loading={tagsQuery.isLoading}
+                    removing={selectedIsRemoveTag}
+                    creating={createTagMutation.isPending}
+                    onChange={(tags) =>
+                      updateSelectedNodeData({ tags, tag: tags[0] ?? "" })
+                    }
+                    onCreate={(name) => createTagMutation.mutate(name)}
+                  />
+                )}
+
+                {selectedIsList && (
+                  <ListStepFields
+                    value={
+                      asString(selectedNodeData.listId) ||
+                      asString(selectedNodeData.listName)
+                    }
+                    options={ensureOption(
+                      segmentOptions,
+                      asString(selectedNodeData.listId) ||
+                        asString(selectedNodeData.listName),
+                      asString(selectedNodeData.listName) || undefined
+                    )}
+                    loading={segmentsQuery.isLoading}
+                    removing={selectedIsRemoveFromList}
+                    creating={createListMutation.isPending}
+                    onChange={(next) => {
+                      const picked = segmentOptions.find(
+                        (o) => o.value === next
+                      );
+                      updateSelectedNodeData({
+                        listId: next,
+                        listName: picked?.label ?? next,
+                      });
+                    }}
+                    onCreate={(name) => createListMutation.mutate(name)}
+                  />
+                )}
+
+                {selectedIsWait && (
+                  <WaitStepFields
+                    data={selectedNodeData}
+                    onChange={updateSelectedNodeData}
+                  />
+                )}
+
+                {selectedIsBranch && (
+                  <BranchStepFields
+                    rules={branchRules}
+                    targets={branchTargetOptions}
+                    fallback={branchDefaultTarget}
+                    onAdd={addBranchRule}
+                    onUpdate={updateBranchRule}
+                    onRemove={removeBranchRule}
+                    onFallback={(next) =>
+                      updateSelectedNodeData({ defaultTarget: next })
+                    }
+                  />
+                )}
+
+                {selectedNodeSchemaType === "split" && (
+                  <SplitStepFields
+                    variants={splitVariants(selectedNodeData.variants)}
+                    onChange={(variants) =>
+                      updateSelectedNodeData({ variants })
+                    }
+                  />
+                )}
+
+                {/* Off-chain triggers with no panel of their own (custom
+                    events and the like): the fields the backend's schema
+                    lists, as plain fields. */}
+                {!selectedTriggerIsOnchain &&
+                !selectedIsDefiHealthTrigger &&
+                !selectedTriggerResource &&
+                selectedNodeSchemaType !== "split" &&
+                !selectedHasDedicatedPanel &&
+                (selectedNodeSchemaQuery.isFetching ||
+                  selectedNodeSchemaFields.length > 0 ||
+                  selectedNodeSchemaQuery.error instanceof Error) ? (
+                  <SchemaFields
+                    key={selectedNode}
+                    fields={schemaEssentialFields}
+                    values={selectedNodeData}
+                    loading={selectedNodeSchemaQuery.isFetching}
+                    error={
+                      selectedNodeSchemaQuery.error instanceof Error
+                        ? selectedNodeSchemaQuery.error.message
+                        : null
+                    }
+                    eventSuggestions={
+                      selectedIsTrigger ? (eventsCatalogQuery.data ?? []) : []
+                    }
+                    onValue={updateSchemaFieldValue}
+                  />
+                ) : null}
+
+                {/* Run the lending check now instead of waiting for the
+                    30-minute schedule. Saved automations only. */}
+                {selectedIsTrigger && selectedIsDefiHealthTrigger && !isNew && (
+                  <ActionBox
+                    title="Run now"
+                    body="Check every position immediately, ignoring the 30-minute schedule."
+                    actionLabel="Run now"
+                    busyLabel="Running…"
+                    busy={runHealthFactorMutation.isPending}
+                    icon={
+                      <BoltIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                    }
+                    onAction={() => runHealthFactorMutation.mutate()}
+                  />
+                )}
+                {selectedIsTrigger &&
+                  !selectedIsDefiHealthTrigger &&
+                  !isNew && (
+                    <ActionBox
+                      title="Try it"
+                      body="Send a test event through this trigger to see the automation run. Nothing is sent to real contacts."
+                      actionLabel="Send a test event"
+                      busyLabel="Sending…"
+                      busy={runtimeTriggerMutation.isPending}
+                      onAction={() => runtimeTriggerMutation.mutate()}
+                    />
+                  )}
+
+                <PanelFoot
+                  removeLabel={
+                    selectedIsTrigger ? "Remove trigger" : "Remove step"
+                  }
+                  onRemove={() => removeNode(selectedNode)}
+                  onMove={
+                    selectedIsTrigger
+                      ? undefined
+                      : (dir) => nudge(selectedNode, dir)
+                  }
+                  canMoveUp={canNudge(flowTree, selectedNode, -1)}
+                  canMoveDown={canNudge(flowTree, selectedNode, 1)}
+                />
               </div>
             ) : (
               <FlowSettingsPanel
                 value={flowSettings}
                 onChange={setFlowSettings}
                 triggerEventType={triggerEventType}
-                className="w-full"
               />
             )}
           </aside>

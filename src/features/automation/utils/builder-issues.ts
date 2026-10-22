@@ -477,7 +477,10 @@ export const nodeSetupIssue = (
         !field(data, "body") &&
         !field(data, "campaignId")
       ) {
-        return { code: "INVALID_EMAIL_CONFIG", message: "Needs a template" };
+        return {
+          code: "INVALID_EMAIL_CONFIG",
+          message: "Write the email, pick a saved one, or paste HTML",
+        };
       }
       if (!field(data, "subject")) {
         return {

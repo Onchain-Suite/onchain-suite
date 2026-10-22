@@ -42,7 +42,21 @@ describe("parseEmailDesignMessage", () => {
     ).toBeNull();
   });
 
-  it("rejects a message with no campaignId", () => {
+  it("accepts a node design message (designId + nodeId + html, no campaign)", () => {
+    const msg = parseEmailDesignMessage({
+      type: "email-design-saved",
+      designId: "dsn_1",
+      nodeId: "node_a",
+      subject: "Hi",
+      html: "<p>body</p>",
+    });
+    expect(msg?.designId).toBe("dsn_1");
+    expect(msg?.nodeId).toBe("node_a");
+    expect(msg?.html).toBe("<p>body</p>");
+    expect(msg?.campaignId).toBeUndefined();
+  });
+
+  it("rejects a message with neither campaignId nor designId", () => {
     expect(parseEmailDesignMessage({ type: "email-design-saved" })).toBeNull();
     expect(
       parseEmailDesignMessage({ type: "email-design-saved", campaignId: "  " })

@@ -1697,9 +1697,11 @@ const CreateAutomationContent = () => {
   const [openingEmailBuilder, setOpeningEmailBuilder] = useState(false);
   // The email node whose editor is open in another tab, so we can pull the saved
   // design's subject / preview / template back onto it when this tab refocuses.
-  const emailSyncRef = useRef<{ nodeId: string; campaignId: string } | null>(
-    null
-  );
+  const emailSyncRef = useRef<{
+    nodeId: string;
+    designId?: string;
+    campaignId?: string;
+  } | null>(null);
   // Prevents focus + visibilitychange (which both fire on a tab return) from
   // running two overlapping polls at once.
   const emailSyncingRef = useRef(false);
@@ -1715,17 +1717,35 @@ const CreateAutomationContent = () => {
       for (let attempt = 0; attempt < 6; attempt++) {
         let patch: Record<string, unknown> = {};
         try {
-          const content = await campaignsService.getEmailContent(
-            ref.campaignId
-          );
-          patch = emailNodePatch(
-            {
-              subject: content.subject,
-              previewText: content.previewText,
-              templateId: content.source?.templateId,
-            },
-            emailTemplateOptions
-          );
+          if (ref.designId) {
+            // Standalone node design: reflect subject / preview and store the
+            // HTML as the node's inline `body` so send_email sends it with no
+            // campaign or template.
+            const content = await automationService.getDesignEmail(
+              ref.designId
+            );
+            const subject = asString(content.subject);
+            const previewText = asString(content.previewText);
+            const html = asString(content.html);
+            if (subject) patch.subject = subject;
+            if (previewText) patch.previewText = previewText;
+            if (html) {
+              patch.body = html;
+              patch.emailSource = "builder";
+            }
+          } else if (ref.campaignId) {
+            const content = await campaignsService.getEmailContent(
+              ref.campaignId
+            );
+            patch = emailNodePatch(
+              {
+                subject: content.subject,
+                previewText: content.previewText,
+                templateId: content.source?.templateId,
+              },
+              emailTemplateOptions
+            );
+          }
         } catch {
           // A transient read error should not abandon the sync; keep polling.
         }
@@ -1782,9 +1802,41 @@ const CreateAutomationContent = () => {
   // fallback for browsers without BroadcastChannel or a dropped message.
   useEffect(() => {
     return subscribeEmailDesignSaved((message) => {
-      // Apply whatever the broadcast carried immediately (keyed by campaign, so
-      // the right node updates even if it was not the one that opened the
-      // editor), then reconcile from the authoritative email content.
+      if (message.designId) {
+        // Standalone node design: apply subject / preview and the HTML as the
+        // node's inline `body`, matched by the node the editor was opened for.
+        const patch: Record<string, unknown> = {};
+        const subject = asString(message.subject);
+        const previewText = asString(message.previewText);
+        const html = asString(message.html);
+        if (subject) patch.subject = subject;
+        if (previewText) patch.previewText = previewText;
+        if (html) {
+          patch.body = html;
+          patch.emailSource = "builder";
+        }
+        patch.designId = message.designId;
+        const targetNodeId = message.nodeId ?? emailSyncRef.current?.nodeId;
+        if (targetNodeId) {
+          setNodes((nds) =>
+            nds.map((n) =>
+              n.id === targetNodeId
+                ? {
+                    ...n,
+                    data: { ...(n.data as Record<string, unknown>), ...patch },
+                  }
+                : n
+            )
+          );
+        }
+        if (emailSyncRef.current?.designId === message.designId) {
+          syncEmailNodeFromEditor().catch(() => undefined);
+        }
+        return;
+      }
+
+      // Campaign editor: apply what the broadcast carried (keyed by campaign),
+      // then reconcile from the authoritative email content.
       const patch = emailNodePatch(
         {
           subject: message.subject,
@@ -1809,42 +1861,31 @@ const CreateAutomationContent = () => {
     });
   }, [emailTemplateOptions, setNodes, syncEmailNodeFromEditor]);
 
-  // Open the visual email editor for the selected email node. The editor needs a
-  // real campaign draft to attach the design to, so we mint one the first time
-  // (reused on later opens via the node's `campaignId`) instead of passing the
-  // automation id - which is not a campaign and returned 404 "Campaign not
-  // found". No template is required: the editor opens blank for from-scratch.
+  // Open the visual email editor for the selected email node against a
+  // STANDALONE design - no Campaign draft and no saved/public Template. We mint
+  // the node's design session (idempotent per automation+node) so we know its
+  // design id, remember it on the node, then open the editor in design mode. On
+  // return the saved subject / preview / body are reflected back onto the node,
+  // which sends them inline.
   const openEmailBuilder = async () => {
     setOpeningEmailBuilder(true);
     try {
       const nodeId = selectedNode;
-      const templateId = asString(selectedNodeData.templateId);
-      let campaignId = asString(selectedNodeData.campaignId);
-      if (!campaignId) {
-        const created = await campaignsService.createCampaign({
-          name: asString(selectedNodeData.subject) || "Automation email",
-          type: "email",
-          status: "draft",
-        });
-        if (!created?.id) throw new Error("Failed to create an email draft.");
-        campaignId = created.id;
-        updateSelectedNodeData({ campaignId });
-      }
-      // Attaching an existing template: seed the campaign with it so the editor
-      // opens that design, and pass `template` so saves update it in place.
-      if (templateId) {
-        await campaignsService
-          .setTemplate(campaignId, { templateId })
-          .catch(() => undefined);
-      }
-      // Remember which node this editor belongs to; on return we read the saved
-      // subject / preview / template back off the campaign and reflect them here.
-      emailSyncRef.current = nodeId ? { nodeId, campaignId } : null;
+      if (!nodeId) throw new Error("Select the email step first.");
+      const session = await automationService.createNodeEmailEditorSession(
+        automationId,
+        nodeId
+      );
+      const designId = asString(session.designId);
+      if (designId) updateSelectedNodeData({ designId });
+      emailSyncRef.current = {
+        nodeId,
+        designId: designId || undefined,
+      };
       const qs = new URLSearchParams({
-        campaign: campaignId,
+        automation: automationId,
+        node: nodeId,
         returnTo: `/automations/${automationId}`,
-        ...(templateId ? { template: templateId } : {}),
-        templateName: asString(selectedNodeData.templateName),
         subject: asString(selectedNodeData.subject),
       });
       window.open(

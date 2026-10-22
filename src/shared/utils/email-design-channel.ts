@@ -13,14 +13,20 @@
 const CHANNEL_NAME = "onchain:email-design";
 const MESSAGE_TYPE = "email-design-saved";
 
-/** A saved-email signal. Only `campaignId` is required; the rest ride along
- *  when the editor has them so the node can update before the re-read lands. */
+/** A saved-email signal. Carries a `campaignId` (campaign editor) OR a
+ *  `designId` + `nodeId` (a Send Email node's standalone design); at least one
+ *  id is required. The rest ride along when the editor has them so the node can
+ *  update before any re-read lands. */
 export interface EmailDesignSavedMessage {
   type: typeof MESSAGE_TYPE;
-  campaignId: string;
+  campaignId?: string;
+  designId?: string;
+  nodeId?: string;
   templateId?: string;
   subject?: string;
   previewText?: string;
+  /** The rendered email HTML - stored as the node's inline `body` so it sends. */
+  html?: string;
 }
 
 const str = (value: unknown): string | undefined =>
@@ -39,13 +45,18 @@ export function parseEmailDesignMessage(
   const record = data as Record<string, unknown>;
   if (record.type !== MESSAGE_TYPE) return null;
   const campaignId = str(record.campaignId);
-  if (!campaignId) return null;
+  const designId = str(record.designId);
+  // At least one resource id, or the message cannot be routed to a node.
+  if (!campaignId && !designId) return null;
   return {
     type: MESSAGE_TYPE,
     campaignId,
+    designId,
+    nodeId: str(record.nodeId),
     templateId: str(record.templateId),
     subject: str(record.subject),
     previewText: str(record.previewText),
+    html: typeof record.html === "string" ? record.html : undefined,
   };
 }
 
@@ -56,7 +67,8 @@ const canBroadcast = (): boolean =>
 export function publishEmailDesignSaved(
   message: Omit<EmailDesignSavedMessage, "type">
 ): void {
-  if (!canBroadcast() || !str(message.campaignId)) return;
+  if (!canBroadcast() || (!str(message.campaignId) && !str(message.designId)))
+    return;
   try {
     const channel = new BroadcastChannel(CHANNEL_NAME);
     channel.postMessage({ type: MESSAGE_TYPE, ...message });

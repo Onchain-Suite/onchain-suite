@@ -134,6 +134,26 @@ export type AutomationBuilderResponse = {
   [key: string]: unknown;
 };
 
+/** `GET /automations/{id}/nodes/{nodeId}/email-editor-session` - the hosted
+ *  editor host, a design-scoped token, and the design id. */
+export type NodeEmailEditorSession = {
+  editorUrl?: string;
+  token?: string;
+  designId?: string;
+  expiresAt?: string;
+};
+
+/** `GET /email-designs/{id}/email` - a node design's saved email. The builder
+ *  reflects `subject`/`previewText` onto the node and stores `html` as the
+ *  node's inline `body` so send_email sends it without a campaign/template. */
+export type DesignEmailContent = {
+  subject?: string;
+  previewText?: string;
+  html?: string;
+  source?: { designId?: string };
+  [key: string]: unknown;
+};
+
 /** One on-chain trigger's CURRENT subscription state, from
  *  `GET /automations/{id}/watches`. Distinct from `watchesSkipped`, which
  *  records what went wrong at the last sync: a watch can bind cleanly at
@@ -500,6 +520,37 @@ export const automationService = {
         url: `/automations/${automationId}/builder/draft`,
         data: body,
       },
+      orgId
+    );
+  },
+
+  /**
+   * Open an editor session for a Send Email node's standalone design. Unlike the
+   * campaign editor this creates no Campaign and no reusable Template: the design
+   * lives on the node. Returns the editor host + a design-scoped token + the
+   * design id (stable per automation+node, so re-opening edits it in place).
+   */
+  createNodeEmailEditorSession(
+    automationId: string,
+    nodeId: string,
+    orgId?: string
+  ) {
+    return request<NodeEmailEditorSession>(
+      {
+        method: "GET",
+        url: `/automations/${automationId}/nodes/${encodeURIComponent(
+          nodeId
+        )}/email-editor-session`,
+      },
+      orgId
+    );
+  },
+
+  /** Read a node design's saved email (subject/preview + content) to reflect it
+   *  back onto the Send Email node after the user builds it. */
+  getDesignEmail(designId: string, orgId?: string) {
+    return request<DesignEmailContent>(
+      { method: "GET", url: `/email-designs/${designId}/email` },
       orgId
     );
   },

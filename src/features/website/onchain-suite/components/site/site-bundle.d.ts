@@ -36,5 +36,10 @@ export const DormantPage: FC;
 export const LtvCalculatorPage: FC;
 export const WalletChurnRatePage: FC;
 export const ReachabilityPage: FC;
+// "For" audience pages + Hypothesis + Refer (each brings its own SiteChrome).
+export const BlockchainCompanies: FC;
+export const MainstreamCompanies: FC;
+export const HypothesisPage: FC;
+export const ReferPage: FC;
 declare const App: FC;
 export default App;

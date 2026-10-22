@@ -2942,7 +2942,7 @@ function MainstreamCompanies() {
     lanes={[
       { k: "Product lane", d: "What a customer does inside your product, such as signing up, finishing setup or using a feature, from the records and events you bring in.", e: ["Signed up", "Finished setup", "Last opened the app"] },
       { k: "Messages you send", d: "Delivery and engagement from your emails, next to what each customer did in your product.", e: ["Opened 3 of 4 emails", "Clicked the upgrade link", "Has not opened in 30 days"] },
-      { k: "Smart contract lane", off: "Suite plan", d: "What customers' wallets do on the blockchain. The Send plan leaves this lane switched off, and the Suite plan turns it on when your product starts to use wallets.", e: ["Deposits and withdrawals", "Wallet activity", "In-app messages to wallets"] }
+      { k: "Wallet lane", off: "Suite plan", d: "What customers' wallets do on the blockchain. The Send plan leaves this lane switched off, and the Suite plan turns it on when your product starts to use wallets.", e: ["Deposits and withdrawals", "Wallet activity", "In-app messages to wallets"] }
     ]}
     toPoints="With your product data and your email results on one record, here is what your team can do."
     pointsTitle={<>Find who needs a message and send it. <span>Segments, campaigns and Loops all read the same record.</span></>}
@@ -2959,10 +2959,10 @@ function MainstreamCompanies() {
       unit: "a month plus $3.95 per 1,000 subscribers",
       line: "That is $15.88 a month at 2,500 subscribers, $45.50 at 10,000 and $104.75 at 25,000.",
       items: ["Your product lane and email results on one record", "Email campaigns and Loops", "Segments, including people who have not done something", "AI that answers questions and builds segments in plain English"],
-      other: <>Your product uses wallets? <Link href="/for/blockchain-companies">The Suite plan adds the smart contract lane</Link> and in-app messages, from $39 a month.</>
+      other: <>Your product uses wallets? <Link href="/for/blockchain-companies">The Suite plan adds the wallet lane</Link> and in-app messages, from $39 a month.</>
     }}
     faqs={[
-      { q: "What is the difference between the Send and Suite plans?", a: "The Send plan is the same software with the blockchain layer switched off, so we read your product data and email results. The Suite plan adds the smart contract lane, in-app messages to wallets and list checks." },
+      { q: "What is the difference between the Send and Suite plans?", a: "The Send plan is the same software with the blockchain layer switched off, so we read your product data and email results. The Suite plan adds the wallet lane, in-app messages to wallets and list checks." },
       { q: "How is the Send plan priced?", a: "The Send plan is $6 a month plus $3.95 per 1,000 subscribers. That is $15.88 a month at 2,500 subscribers, $45.50 at 10,000 and $104.75 at 25,000." },
       { q: "Can I send in-app messages on the Send plan?", a: "Not on the Send plan. In-app messages reach a connected wallet, which is part of the Suite plan." },
       { q: "Can I move to the Suite plan later?", a: "Yes. The Suite plan is the same software with the blockchain layer switched on. Book a walkthrough and we will look at the contracts and wallet data you would add." }
@@ -5935,4 +5935,8 @@ export {
   LtvCalculatorPage,
   WalletChurnRatePage,
   ReachabilityPage,
+  BlockchainCompanies,
+  MainstreamCompanies,
+  HypothesisPage,
+  ReferPage,
 };

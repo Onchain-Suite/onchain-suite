@@ -5,15 +5,14 @@ import { Suspense } from "react";
 
 import { Button } from "@/components/ui/button";
 
-import { EmbeddedEmailEditor } from "@/features/campaigns/components/embedded-email-editor";
+import { CampaignEmailEditor } from "@/features/email-editor/components/campaign-email-editor";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Campaign email editor route. For now this embeds the hosted OnchainSuite
- * builder (editor.onchainsuite.com) via {@link EmbeddedEmailEditor} while the
- * from-scratch block editor (`@/features/email-editor`) is being stabilised.
- * The block editor is left in the codebase; swapping back is a one-file change.
+ * Campaign email editor route: the Tiptap editor in `@/features/email-editor`,
+ * which loads and autosaves the campaign's design itself. The hosted builder
+ * iframe (`EmbeddedEmailEditor`) is kept; swapping back is a one-file change.
  */
 function EditorScreen() {
   const router = useRouter();
@@ -65,7 +64,7 @@ function EditorScreen() {
 
   return (
     <FullScreen>
-      <EmbeddedEmailEditor
+      <CampaignEmailEditor
         campaignId={campaignId}
         templateId={templateId}
         title={title}

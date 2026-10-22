@@ -336,6 +336,14 @@ describe("nodeSetupIssue", () => {
     expect(
       action("send_email", { templateId: "t1", subject: "Hi" })
     ).toBeNull();
+    // A node linked to a visual-editor design (designId) is valid content even
+    // with no inline body; it only still needs a subject.
+    expect(action("send_email", { designId: "design_1" })).toMatchObject({
+      code: "INVALID_EMAIL_SUBJECT",
+    });
+    expect(
+      action("send_email", { designId: "design_1", subject: "Hi" })
+    ).toBeNull();
     expect(action("wait", { duration: "" })).toMatchObject({
       code: "INVALID_WAIT_CONFIG",
     });

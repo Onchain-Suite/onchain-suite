@@ -1,4 +1,5 @@
 import { withPayload } from "@payloadcms/next/withPayload";
+import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const pickNonEmpty = (...values: Array<string | undefined | null>) => {
@@ -186,4 +187,18 @@ const nextConfig: NextConfig = {
 
 // withPayload wires up the aliases + server-external packages the CMS needs and
 // mounts Payload (admin UI + /cms-api) alongside the existing app.
-export default withPayload(nextConfig);
+const configWithCms = withPayload(nextConfig);
+
+// Sentry build instrumentation is applied ONLY when a DSN is set at build time,
+// so the current (no-DSN) build is byte-for-byte unchanged until the DSN env is
+// provisioned in Vercel. Source maps upload only when an auth token is present.
+export default process.env.NEXT_PUBLIC_SENTRY_DSN
+  ? withSentryConfig(configWithCms, {
+      silent: true,
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      widenClientFileUpload: true,
+      disableLogger: true,
+      sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+    })
+  : configWithCms;

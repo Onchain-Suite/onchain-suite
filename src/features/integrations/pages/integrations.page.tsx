@@ -8,15 +8,18 @@ import {
   PaperAirplaneIcon,
   SignalIcon,
 } from "@heroicons/react/24/outline";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ComponentType, SVGProps } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { EventsTab } from "../components/events-tab";
-import { MigrateList } from "../components/migrate-list";
+import { MigrateList } from "../components/migrate/migrate-list";
 import { SourceDirectory } from "../components/sources/source-directory";
+import { CONNECTORS } from "../data/connectors";
+import { oauthReturnMessage } from "../utils/connections";
 import { ChannelsTab } from "@/features/channels/components/channels-tab";
 import { DeveloperApiCard } from "@/features/settings/components/integrations/developer-api";
 
@@ -89,6 +92,7 @@ const TAB_TRIGGER_CLASS =
 
 export default function IntegrationsPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams?.get("tab") ?? null;
   const searchParamsString = searchParams?.toString() ?? "";
@@ -100,6 +104,31 @@ export default function IntegrationsPage() {
     if (!TAB_IDS.has(tabFromUrl)) return;
     setActiveTab(tabFromUrl);
   }, [tabFromUrl]);
+
+  // Back from an OAuth consent screen: say how it went, once, then drop the
+  // params so a reload doesn't repeat it.
+  const oauthHandled = useRef(false);
+  const [reopen, setReopen] = useState<string | null>(null);
+  useEffect(() => {
+    if (oauthHandled.current) return;
+    const params = new URLSearchParams(searchParamsString);
+    const outcome = oauthReturnMessage({
+      connected: params.get("connected"),
+      error: params.get("error"),
+      connector: params.get("connector"),
+      label: (id) => CONNECTORS.get(id)?.label ?? id,
+    });
+    if (!outcome) return;
+    oauthHandled.current = true;
+    if (outcome.kind === "success") {
+      toast.success(outcome.message);
+      setReopen(params.get("connected"));
+    } else {
+      toast.error(outcome.message);
+    }
+    for (const k of ["connected", "error", "connector"]) params.delete(k);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [pathname, router, searchParamsString]);
 
   const handleTabChange = useCallback(
     (tab: string) => {
@@ -150,7 +179,7 @@ export default function IntegrationsPage() {
             ) : tab.id === "channels" ? (
               <ChannelsTab />
             ) : tab.id === "migrate" ? (
-              <MigrateList />
+              <MigrateList reopen={reopen} />
             ) : tab.id === "api" ? (
               <DeveloperApiCard
                 only="keys"

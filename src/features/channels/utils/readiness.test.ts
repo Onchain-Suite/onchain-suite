@@ -11,7 +11,6 @@ const base: ReadinessInputs = {
   domainStatuses: [],
   webPush: { hasKey: false, sessionCount: null },
   mobilePush: { hasCredential: false, hasVerified: false },
-  x: { connected: false, pending: false },
 };
 
 const byId = (inputs: ReadinessInputs) =>
@@ -80,12 +79,18 @@ describe("deriveChannelReadiness - push combines web and mobile", () => {
   });
 });
 
-describe("deriveChannelReadiness - x stub", () => {
-  it("reads as not connected until the X connector lands", () => {
+describe("deriveChannelReadiness - social connections", () => {
+  it("reads X as connected once its token verifies", () => {
     expect(byId(base).x.status).toBe("none");
-    expect(
-      byId({ ...base, x: { connected: true, pending: false } }).x.status
-    ).toBe("connected");
+    expect(byId({ ...base, social: { x: "connected" } }).x.status).toBe(
+      "connected"
+    );
+  });
+
+  it("pends a saved credential the platform rejected, and says so", () => {
+    const r = byId({ ...base, social: { whatsapp: "broken" } });
+    expect(r.whatsapp.status).toBe("pending");
+    expect(r.whatsapp.blocker).toMatch(/WhatsApp rejected the credential/);
   });
 });
 
@@ -110,7 +115,7 @@ describe("deriveChannelReadiness - all channels", () => {
   it("reflects a connected social channel when its state is threaded through", () => {
     const r = byId({
       ...base,
-      social: { telegram: { connected: true, pending: false } },
+      social: { telegram: "connected" },
     });
     expect(r.telegram.status).toBe("connected");
     expect(r.telegram.blocker).toBeNull();

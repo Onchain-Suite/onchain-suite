@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { SOURCE_KINDS, SOURCES } from "../../data/sources";
+import { useConnections } from "../../hooks/use-connections";
 import {
   requestSource,
   useRequestedSources,
@@ -28,6 +29,7 @@ import {
   searchSources,
   sourceCount,
   sourcesOfKind,
+  sourceStatus,
 } from "../../utils/sources";
 import { ConnectSourceDialog } from "./connect-source-dialog";
 import { SourceCard } from "./source-card";
@@ -56,9 +58,8 @@ export function SourceDirectory() {
   const { organizationId } = useAccountOrg();
   const queryClient = useQueryClient();
 
-  // Live status for the one connector whose state is real today: "Your
-  // contracts" is connected once the workspace has indexed any. Everything else
-  // uses the static catalog status until its backend lands.
+  // Live status: contracts from project settings, connectors from the saved
+  // connections; anything with no backend reads as "soon".
   const settingsQuery = useQuery({
     queryKey: projectSettingsKey(organizationId),
     enabled: Boolean(organizationId),
@@ -67,16 +68,13 @@ export function SourceDirectory() {
       projectSettingsService.getProjectSettings(organizationId ?? undefined),
   });
   const contractCount = settingsQuery.data?.contractAddresses?.length ?? 0;
+  const { connections } = useConnections();
 
   const statusFor = (s: DataSource): SourceStatus =>
-    s.id === "contracts"
-      ? contractCount > 0
-        ? "connected"
-        : "available"
-      : s.status;
+    sourceStatus(s, connections, contractCount);
 
-  // "Your contracts" opens the real contract-import dialog; everything else
-  // opens the (stubbed) connect dialog.
+  // "Your contracts" opens the contract-import dialog; everything else opens
+  // the connect dialog (a real form when the backend has the connector).
   const handleConnect = (s: DataSource) => {
     if (s.id === "contracts") {
       setContractsOpen(true);
@@ -87,6 +85,15 @@ export function SourceDirectory() {
 
   const term = q.trim();
   const results = useMemo(() => searchSources(q), [q]);
+
+  const connectDialog = (
+    <ConnectSourceDialog
+      source={connecting}
+      onOpenChange={(open) => {
+        if (!open) setConnecting(null);
+      }}
+    />
+  );
 
   const contractsDialog = (
     <ImportContractsDialog
@@ -109,6 +116,7 @@ export function SourceDirectory() {
           onBack={() => setDetail(null)}
           onConnect={handleConnect}
         />
+        {connectDialog}
         {contractsDialog}
       </>
     );
@@ -247,12 +255,7 @@ export function SourceDirectory() {
         </div>
       </div>
 
-      <ConnectSourceDialog
-        source={connecting}
-        onOpenChange={(open) => {
-          if (!open) setConnecting(null);
-        }}
-      />
+      {connectDialog}
       {contractsDialog}
     </div>
   );

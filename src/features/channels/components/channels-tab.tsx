@@ -25,8 +25,7 @@ import type {
   ChannelReadiness,
   ChannelReadinessStatus,
 } from "../types/channel";
-import { SocialConnect } from "./social-connect";
-import { XConnect } from "./x-connect";
+import { ChannelConnect } from "./social/channel-connect";
 import { SenderVerificationCard } from "@/features/settings/components/account/sender-verification-card";
 import InAppIntegration from "@/features/settings/components/integrations/inapp";
 import { PushCredentialsCard } from "@/features/settings/components/integrations/push-credentials";
@@ -36,9 +35,9 @@ type IconType = ComponentType<SVGProps<SVGSVGElement>>;
 /**
  * Integrations -> Channels: where messages go out. The state of every channel
  * first, one row each, with what is blocking it in plain words; open a row for
- * its setup. Email and push reuse the real settings cards, X has its own panel,
- * and the remaining social channels show a connect panel backed by a pending
- * backend. Channel copy lives in the catalog (../data/channels).
+ * its setup. Email and push reuse the real settings cards; the social channels
+ * connect your own bot, number or token through `/organization/connections`.
+ * Channel copy lives in the catalog (../data/channels).
  */
 const CHANNEL_ICON: Record<ChannelId, IconType> = {
   email: EnvelopeIcon,
@@ -195,10 +194,8 @@ function ChannelDetail({
           <InAppIntegration />
           <PushCredentialsCard />
         </div>
-      ) : channel.id === "x" ? (
-        <XConnect />
       ) : (
-        <SocialConnect channel={channel.id} />
+        <ChannelConnect channel={channel.id} />
       )}
     </div>
   );

@@ -148,8 +148,60 @@ richer. Adopt the reference's layout, not its behaviour.
 
 ## Gotchas
 
-- The reference connect flow is a mock ("Authorise" -> toast). Real OAuth / API-key /
-  webhook connect flows are net-new backend work; stub them in the UI meanwhile.
-- No inbound ingestion endpoint exists yet (see the channels + integrations scoping
-  doc). The streaming connectors (Segment, PostHog, Zapier, Inbound webhook) do
-  nothing until that lands.
+- The reference connect flow is a mock ("Authorise" -> toast). Superseded
+  2026-10-22: the flows are real now (see the status section below).
+- Inbound ingestion is `POST /events` / `/events/batch` with a secret key; the
+  SDK and Inbound webhook sources point at it. Segment, Zapier and the other
+  streaming connectors still have no backend.
+
+## Status 2026-10-22: wired to the connectors backend (staging)
+
+The connect flows are real now, against `/organization/connections/*` and
+`/organization/integrations/*` (staging only; a 404 surfaces as "This isn't
+available on this server yet"). All are OWNER/ADMIN; other roles see a note
+instead of a form.
+
+- **Sources.** `data/connectors.ts` lists every connector the backend verifies,
+  with the exact credential fields. A catalog source with a connector gets the
+  real form (live verification, saved-but-rejected state, replace, disconnect)
+  and then its run controls: a paged identity sync for Privy, Clerk and Dynamic,
+  a one-call pull for Dune and Google Sheets, an SDK note for Magic, Reown,
+  thirdweb and Web3Auth. SDK and Inbound webhook show the `POST /events` call.
+  Sources with no backend (Segment, Mixpanel, Amplitude, RudderStack, Zapier)
+  read as "Soon" and offer "Ask for it", instead of a fake connect.
+- **Migrate.** Mailchimp, beehiiv, EmailOctopus (added to the list), Kit, Attio,
+  HubSpot, Salesforce and Intercom run the paged migrate route with Stop, a
+  round cap, and held-back counts. Iterable starts its background job and
+  polls it. HubSpot, Salesforce and Intercom connect by OAuth. Tools with no
+  importer take the CSV route.
+- **Channels.** Telegram, Discord, WhatsApp, X and Farcaster connect through
+  the same panel. Then: Telegram turns on opt-ins (`/activate`), Discord
+  imports server members, WhatsApp shows its Meta webhook URL and verify
+  token. Readiness reads the saved connections. The X stub
+  (`/channels/x/status`, which never existed) is gone.
+- **Events.** Product events come from `GET /events/catalog`.
+- **OAuth.** The `/api/v1` proxy passes the authorize 302 through instead of
+  following it. `/settings/integrations` (the callback's target) forwards to
+  `/integrations?tab=migrate`, which toasts the outcome and reopens the tool.
+
+### Backend issues found while wiring (for the backend team)
+
+1. `APP_BASE_URL` in `.env.example` is the API base (`.../api/v1`), but the
+   OAuth callback redirects to `${APP_BASE_URL}/settings/integrations`. It must
+   be the frontend origin, or the person lands on the API after consenting.
+2. `CreateOptInLinkDto` (Telegram) has no class-validator decorators, so the
+   global `whitelist: true` strips `walletAddress` and
+   `POST /organization/connections/telegram/opt-in-link` always answers
+   `WALLET_ADDRESS_REQUIRED`. The Settings Telegram card calls it.
+3. `GET /organization/integrations/iterable/migrate/:jobId` does not check the
+   job belongs to the caller's org.
+4. `GET /events/catalog` has no `OrganizationRoleGuard`; with no org resolved,
+   the Prisma filter drops `organizationId` and the query is unscoped.
+5. `GET /organization/connections/discord/opt-in-link` does not validate
+   `walletAddress`.
+6. PostHog verifies and saves, but nothing reads events from it yet.
+7. The directory route `GET /organization/connections/available` exists only on
+   `feat/connector-directory`. Once it ships, the static field list in
+   `data/connectors.ts` can come from it. Its comment gives the OAuth path as
+   `/organization/connections/oauth/...`; the real path is
+   `/organization/integrations/oauth/...`.

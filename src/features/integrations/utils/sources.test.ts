@@ -8,6 +8,7 @@ import {
   setupDocUrl,
   sourceCount,
   sourcesOfKind,
+  sourceStatus,
 } from "./sources";
 
 describe("searchSources", () => {
@@ -64,5 +65,52 @@ describe("searchMigrations", () => {
   it("matches on name and what it brings", () => {
     expect(searchMigrations("klaviyo").map((m) => m.id)).toEqual(["klaviyo"]);
     expect(searchMigrations("consent").map((m) => m.id)).toContain("klaviyo");
+  });
+});
+
+describe("sourceStatus", () => {
+  const byId = (id: string) => {
+    const s = SOURCES.find((x) => x.id === id);
+    if (!s) throw new Error(id);
+    return s;
+  };
+  const verified = {
+    connector: "privy",
+    kind: "source" as const,
+    config: {},
+    fingerprint: "",
+    verified: true,
+    verifiedAt: "2026-10-22T00:00:00Z",
+    lastError: null,
+    updatedAt: "",
+  };
+
+  it("reads contracts from the indexed count", () => {
+    expect(sourceStatus(byId("contracts"), [], 0)).toBe("available");
+    expect(sourceStatus(byId("contracts"), [], 2)).toBe("connected");
+  });
+
+  it("is connected only once a connector's credential verifies", () => {
+    expect(sourceStatus(byId("privy"), [], 0)).toBe("available");
+    expect(sourceStatus(byId("privy"), [verified], 0)).toBe("connected");
+    expect(
+      sourceStatus(byId("privy"), [{ ...verified, verified: false }], 0)
+    ).toBe("available");
+  });
+
+  it("matches Google Sheets by its backend id", () => {
+    expect(
+      sourceStatus(
+        byId("sheets"),
+        [{ ...verified, connector: "googlesheets" }],
+        0
+      )
+    ).toBe("connected");
+  });
+
+  it("reads anything with no backend as soon, but keeps the events API and CSV", () => {
+    expect(sourceStatus(byId("segment"), [], 0)).toBe("soon");
+    expect(sourceStatus(byId("sdk"), [], 0)).toBe("available");
+    expect(sourceStatus(byId("csv"), [], 0)).toBe("connected");
   });
 });

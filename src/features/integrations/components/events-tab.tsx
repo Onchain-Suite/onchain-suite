@@ -12,6 +12,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { ProductEvents } from "./events/product-events";
 import { ImportContractsDialog } from "@/features/audience/components/import-contracts-dialog";
 import {
   projectSettingsKey,
@@ -25,10 +26,9 @@ function shortAddress(addr: string): string {
 }
 
 /**
- * The Events tab: the inputs Loops trigger on. Indexed contracts are real (read
- * from project settings); product events need a backend that does not exist yet
- * (see migration/integrations.md), so that section is an honest empty state
- * pointing at the SDK/analytics connectors rather than seeded mock data.
+ * The Events tab: the inputs Loops trigger on. Indexed contracts come from
+ * project settings; product events from `GET /events/catalog` (what arrived
+ * through the events API in the last 30 days).
  */
 export function EventsTab() {
   const { organizationId } = useAccountOrg();
@@ -121,7 +121,7 @@ export function EventsTab() {
           title="Product events"
           blurb="What customers do inside your own app, sent through the SDK. The other half of every segment that crosses both lanes."
         />
-        <EmptyState text="No product events yet. They arrive through our SDK or a connected analytics source - connect one from the Sources tab." />
+        <ProductEvents orgId={organizationId} />
       </section>
 
       <ImportContractsDialog

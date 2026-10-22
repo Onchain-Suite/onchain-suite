@@ -366,8 +366,7 @@ Every request/response type that mirrors `docs/backend.md` belongs in
   `automation/components/flow-automation/create-automations.tsx` (~5.6k),
   `intelligence/components/query/index.tsx` (~3.6k),
   `campaigns/pages/form.tsx` (~2.5k),
-  `audience/components/import-export.tsx` (~2.5k),
-  `app/api/v1/[...path]/route.ts` (~2.4k).
+  `audience/components/import-export.tsx` (~2.5k).
 
 ### 15.6 Naming
 

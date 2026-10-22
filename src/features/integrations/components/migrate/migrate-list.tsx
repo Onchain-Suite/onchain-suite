@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 import { connectorFor } from "../../data/connectors";
-import { MIGRATIONS } from "../../data/sources";
+import { MIGRATIONS } from "../../data/migrations";
 import { useConnections } from "../../hooks/use-connections";
 import { requestSource } from "../../hooks/use-requested-sources";
 import type { Migration } from "../../types/sources";

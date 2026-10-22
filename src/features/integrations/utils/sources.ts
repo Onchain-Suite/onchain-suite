@@ -1,11 +1,7 @@
 import type { ConnectionSummary } from "../contracts/connections";
 import { connectorFor } from "../data/connectors";
-import {
-  FALLBACK_IDS,
-  MIGRATIONS,
-  SETUP_DOC_BASE,
-  SOURCES,
-} from "../data/sources";
+import { MIGRATIONS } from "../data/migrations";
+import { FALLBACK_IDS, SETUP_DOC_BASE, SOURCES } from "../data/sources";
 import type {
   DataSource,
   Migration,

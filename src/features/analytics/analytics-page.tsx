@@ -17,6 +17,8 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo } from "react";
 
+import { Skeleton } from "@/components/ui/skeleton";
+
 import { cn } from "@/lib/utils";
 
 import {
@@ -28,6 +30,8 @@ import {
   type MetricBacking,
 } from "./analytics.service";
 import { AnalyticsSkeleton } from "./analytics-skeleton";
+import { AnalyticsBarChart } from "./components/charts";
+import { campaignsService } from "@/features/campaigns/campaigns.service";
 import { useCampaignEngagement } from "@/features/campaigns/hooks/use-campaign-engagement";
 import { intelligenceService } from "@/features/intelligence/intelligence.service";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
@@ -185,7 +189,7 @@ const seriesPoints = (
     .join(" ");
 };
 
-export function AnalyticsPage() {
+export function AnalyticsOverview() {
   const overviewQuery = useQuery({
     queryKey: ["analytics", "dashboard", "overview"],
     queryFn: () => analyticsService.getDashboardOverview(),
@@ -228,10 +232,9 @@ export function AnalyticsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6">
-      {/* Header */}
+    <div className="space-y-6">
+      {/* Overview controls (the title + tab bar are owned by the dashboard). */}
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold text-foreground">Analytics</h1>
         <div className="ml-auto flex items-center gap-2">
           <span
             className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground"
@@ -260,6 +263,47 @@ export function AnalyticsPage() {
         <Content overview={overview} />
       )}
     </div>
+  );
+}
+
+/** Real email-vs-in-app send volume over 30 days, from the campaign overview.
+ *  Shares the query key with the Campaigns overview so it reads from one cache. */
+function MessagesByChannelCard() {
+  const query = useQuery({
+    queryKey: ["campaigns", "analytics", "overview", 30],
+    queryFn: () => campaignsService.getAnalyticsOverview(30),
+    staleTime: 60_000,
+  });
+  const overview = query.data;
+  const emailSent = overview?.email?.sent ?? 0;
+  const inAppSent = overview?.inapp?.sent ?? 0;
+  const hasData = emailSent + inAppSent > 0;
+
+  return (
+    <Card
+      title="Messages sent by channel"
+      right={
+        <Info hint="Email vs in-app push volume over the last 30 days, from your campaigns." />
+      }
+    >
+      {query.isLoading ? (
+        <Skeleton className="h-[240px] w-full rounded-lg" />
+      ) : !hasData ? (
+        <EmptyState
+          title="No messages yet"
+          body="Once you send email or in-app campaigns, their volume by channel shows here."
+        />
+      ) : (
+        <AnalyticsBarChart
+          data={[
+            { channel: "Email", messages: emailSent },
+            { channel: "In-app push", messages: inAppSent },
+          ]}
+          categoryKey="channel"
+          series={[{ key: "messages", label: "Messages sent" }]}
+        />
+      )}
+    </Card>
   );
 }
 
@@ -295,6 +339,9 @@ function Content({ overview }: { overview: DashboardOverview }) {
           );
         })}
       </div>
+
+      {/* Messages sent by channel - real, from the campaign overview. */}
+      <MessagesByChannelCard />
 
       {/* Off-chain + On-chain - no backing endpoint yet */}
       <div className="grid gap-4 lg:grid-cols-2">

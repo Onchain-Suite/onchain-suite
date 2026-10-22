@@ -477,7 +477,10 @@ export const nodeSetupIssue = (
         !field(data, "body") &&
         !field(data, "campaignId")
       ) {
-        return { code: "INVALID_EMAIL_CONFIG", message: "Needs a template" };
+        return {
+          code: "INVALID_EMAIL_CONFIG",
+          message: "Write the email, pick a saved one, or paste HTML",
+        };
       }
       if (!field(data, "subject")) {
         return {
@@ -492,6 +495,11 @@ export const nodeSetupIssue = (
       return field(data, "title") || field(data, "body")
         ? null
         : { code: "INVALID_INAPP_CONFIG", message: "Needs a title or body" };
+    case "telegram":
+    case "send_telegram":
+      return field(data, "text")
+        ? null
+        : { code: "INVALID_TELEGRAM_CONFIG", message: "Needs a message" };
     case "wait":
       return parseDurationToSeconds(
         data.seconds ?? data.delaySeconds ?? data.duration ?? data.minutes

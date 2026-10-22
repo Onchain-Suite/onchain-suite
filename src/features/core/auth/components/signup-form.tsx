@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import posthog from "posthog-js";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -112,6 +113,8 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
       } catch (err) {
         console.error("Failed to sync user data:", err);
       }
+
+      posthog.capture("account_created", { method: "password" });
 
       // Store form data for onboarding (used after they verify).
       setValue(data);

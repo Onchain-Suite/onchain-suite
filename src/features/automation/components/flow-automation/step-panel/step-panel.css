@@ -1,0 +1,154 @@
+/* The settings panel beside the canvas, after the reference Loop builder's panel. Prefixed
+   abp- (panel). Plain fields with a short label above, a hint below, no boxed sections:
+   a box only for something that is an action of its own, like "Send a test event". */
+
+.abp { display:flex; flex-direction:column; gap:14px; }
+.abp-head { display:flex; align-items:center; gap:10px; }
+.abp-head > div { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.abp-head i { font-style:normal; font-size:11px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; color:var(--text-tertiary); }
+.abp-head b { font-size:15px; font-weight:600; color:var(--text-primary); }
+.abp-ic { width:34px; height:34px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-md);
+  background:var(--surface-subtle); color:var(--text-secondary); }
+.abp-ic svg { width:16px; height:16px; }
+.abp-ic--entry { background:var(--bg-brand-subtle); color:var(--action-primary); }
+.abp-close { padding:6px; border-radius:999px; color:var(--text-tertiary); }
+.abp-close:hover { background:var(--surface-hover); color:var(--text-primary); }
+.abp-todo { display:flex; align-items:center; gap:6px; margin:0; padding:8px 10px; border-radius:var(--radius-md); background:var(--status-warning-bg);
+  font-size:12.5px; color:var(--status-warning-text); }
+.abp-todo svg { width:13px; height:13px; flex-shrink:0; }
+
+/* Fields. */
+.abp-field { display:flex; flex-direction:column; gap:5px; }
+.abp-label { display:block; font-size:12.5px; font-weight:500; line-height:1.4; color:var(--text-primary); letter-spacing:0; text-transform:none; }
+.abp-label i { font-style:normal; font-weight:400; color:var(--text-tertiary); }
+.abp-field__head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.abp-input { width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid var(--border-default); border-radius:var(--radius-md);
+  background:var(--bg-surface); font:inherit; font-size:13.5px; line-height:1.45; color:var(--text-primary); }
+.abp-input::placeholder { color:var(--text-tertiary); }
+.abp-input:focus { outline:none; border-color:var(--border-focus); box-shadow:0 0 0 3px var(--focus-ring); }
+textarea.abp-input { resize:vertical; }
+.abp-select { display:flex; width:100%; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; text-align:left;
+  border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--bg-surface); font-size:13.5px; line-height:1.45; color:var(--text-primary); }
+.abp-select:hover:not(:disabled) { border-color:var(--border-strong); }
+.abp-select:focus-visible, .abp-select[aria-expanded="true"] { outline:none; border-color:var(--border-focus); box-shadow:0 0 0 3px var(--focus-ring); }
+.abp-select:disabled { opacity:.55; cursor:not-allowed; }
+.abp-select svg { width:15px; height:15px; flex-shrink:0; color:var(--text-tertiary); }
+.abp-pair { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.abp-hint, .abp-warn { margin:0; font-size:12px; line-height:1.55; color:var(--text-tertiary); }
+.abp-warn { color:var(--status-warning-text); }
+.abp-error { margin:0; font-size:12px; line-height:1.55; color:var(--status-error-text, var(--status-warning-text)); }
+.abp-ok { margin:0; font-size:12px; line-height:1.55; color:var(--status-success-text); }
+.abp-note { display:flex; align-items:flex-start; gap:6px; margin:0; padding:8px 10px; border-radius:var(--radius-md); background:var(--surface-subtle);
+  font-size:12.5px; line-height:1.5; color:var(--text-secondary); }
+.abp-note svg { width:13px; height:13px; margin-top:2px; flex-shrink:0; }
+.abp-note--warn { background:var(--status-warning-bg); color:var(--status-warning-text); }
+.abp-mono { font-family:var(--font-mono); font-size:12px; word-break:break-all; }
+
+/* Segmented choice. */
+.abp-seg { display:grid; grid-auto-columns:1fr; grid-auto-flow:column; gap:2px; padding:3px; border-radius:var(--radius-md);
+  background:var(--surface-subtle); border:1px solid var(--border-subtle); }
+.abp-seg button { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border:0; background:none; padding:6px 8px;
+  border-radius:var(--radius-sm); cursor:pointer; font:inherit; font-size:12.5px; font-weight:500; color:var(--text-secondary); }
+.abp-seg button[aria-checked="true"] { background:var(--bg-surface); color:var(--text-primary); box-shadow:var(--elevation-1); }
+.abp-seg button:focus-visible { outline:none; box-shadow:0 0 0 3px var(--focus-ring); }
+
+/* A switch on a row with its label. */
+.abp-toggle { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px; color:var(--text-primary); }
+.abp-switch { position:relative; width:36px; height:20px; flex-shrink:0; border-radius:999px; background:var(--border-strong); transition:background .15s ease; }
+.abp-switch[aria-checked="true"] { background:var(--action-primary); }
+.abp-switch span { position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:var(--elevation-1); transition:left .15s ease; }
+.abp-switch[aria-checked="true"] span { left:18px; }
+.abp-switch:focus-visible { outline:none; box-shadow:0 0 0 3px var(--focus-ring); }
+
+/* A box: something that is an action of its own. */
+.abp-box { display:flex; flex-direction:column; gap:8px; align-items:flex-start; padding:12px; border-radius:var(--radius-md); background:var(--surface-subtle); }
+.abp-box > b { font-size:13px; font-weight:600; color:var(--text-primary); }
+.abp-box > p { margin:0; font-size:12.5px; line-height:1.5; color:var(--text-secondary); }
+.abp-box--warn { background:var(--status-warning-bg); }
+.abp-pick { display:flex; width:100%; align-items:flex-start; justify-content:space-between; gap:10px; padding:8px 10px; text-align:left;
+  border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--bg-surface); }
+.abp-pick:hover { border-color:var(--action-primary); }
+.abp-pick b { display:block; font-size:12.5px; font-weight:500; color:var(--text-primary); }
+.abp-pick i { display:block; font-style:normal; font-size:12px; line-height:1.45; color:var(--text-tertiary); }
+.abp-pick em { flex-shrink:0; font-style:normal; font-size:12px; font-weight:500; color:var(--action-primary); }
+
+.abp-link { align-self:flex-start; border:0; background:none; padding:0; cursor:pointer; font:inherit; font-size:12.5px; font-weight:500; color:var(--action-primary); }
+.abp-link:disabled { opacity:.5; cursor:not-allowed; }
+.abp-chips { display:flex; flex-wrap:wrap; gap:5px; }
+.abp-chip { display:inline-flex; align-items:center; gap:4px; padding:2px 6px 2px 9px; border:1px solid var(--border-default); border-radius:999px;
+  background:var(--bg-surface); font-size:12.5px; color:var(--text-primary); }
+.abp-chip button { display:flex; padding:2px; border-radius:999px; color:var(--text-tertiary); }
+.abp-chip button:hover { background:var(--surface-hover); color:var(--text-primary); }
+.abp-chip svg { width:12px; height:12px; }
+.abp-create { display:flex; gap:6px; }
+.abp-create .abp-input { flex:1; }
+
+/* The email: how it is made, then what it is. */
+.abp-mail { display:flex; flex-direction:column; gap:10px; padding:10px; border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--bg-surface); }
+.abp-mail__row { display:flex; align-items:center; gap:10px; }
+.abp-mail__ic { width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm);
+  background:var(--bg-brand-subtle); color:var(--action-primary); }
+.abp-mail__ic svg { width:16px; height:16px; }
+.abp-mail__meta { flex:1; display:flex; flex-direction:column; gap:2px; min-width:0; }
+.abp-mail__meta b { font-size:13px; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.abp-mail__meta i { font-style:normal; font-size:12px; color:var(--text-tertiary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.abp-drop { display:flex; flex-direction:column; align-items:center; gap:4px; padding:22px 14px; border:1.5px dashed var(--border-default); border-radius:var(--radius-md);
+  background:var(--surface-subtle); cursor:pointer; font:inherit; text-align:center; color:var(--action-primary); }
+.abp-drop:hover:not(:disabled) { border-color:var(--action-primary); background:var(--bg-brand-subtle); }
+.abp-drop:disabled { opacity:.6; cursor:progress; }
+.abp-drop svg { width:18px; height:18px; }
+.abp-drop b { margin-top:4px; font-size:13px; font-weight:600; color:var(--text-primary); }
+.abp-drop i { font-style:normal; font-size:12px; line-height:1.5; color:var(--text-tertiary); }
+
+/* Rules and variants: one row each. */
+.abp-rows { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.abp-rows > li { display:flex; align-items:flex-start; gap:8px; padding:8px 10px; border:1px solid var(--border-default); border-radius:var(--radius-md); }
+.abp-rowtag { width:30px; height:26px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm);
+  background:var(--bg-selected); color:var(--action-primary); font-size:11.5px; font-weight:600; }
+.abp-rowbody { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+.abp-rowbody .abp-input, .abp-rowbody .abp-select { padding:6px 8px; font-size:13px; }
+.abp-x { display:flex; padding:5px; border-radius:var(--radius-sm); color:var(--text-tertiary); }
+.abp-x:hover { background:var(--surface-hover); color:var(--text-primary); }
+.abp-x svg { width:14px; height:14px; }
+
+.abp-foot { display:flex; align-items:center; gap:6px; padding-top:12px; border-top:1px solid var(--border-subtle); }
+.abp-remove { margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:var(--radius-md);
+  font-size:13px; font-weight:500; color:var(--status-error-text, #c4320a); }
+.abp-remove:hover { background:var(--status-error-bg, var(--surface-hover)); }
+.abp-remove svg { width:14px; height:14px; }
+.abp-sep { height:1px; background:var(--border-subtle); }
+
+/* The email's three ways in, as one list. */
+.abp-choices { display:flex; flex-direction:column; border:1px solid var(--border-default); border-radius:var(--radius-md); overflow:hidden; background:var(--bg-surface); }
+.abp-choice { display:flex; align-items:center; gap:12px; padding:12px; border:0; border-top:1px solid var(--border-subtle); background:none; cursor:pointer;
+  font:inherit; text-align:left; color:var(--text-tertiary); transition:background .12s ease; }
+.abp-choice:first-child { border-top:0; }
+.abp-choice:hover { background:var(--surface-subtle); }
+.abp-choice:focus-visible { outline:none; box-shadow:inset 0 0 0 2px var(--border-focus); }
+.abp-choice__ic { width:32px; height:32px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm);
+  background:var(--bg-brand-subtle); color:var(--action-primary); }
+.abp-choice__ic svg { width:16px; height:16px; }
+.abp-choice__txt { flex:1; display:flex; flex-direction:column; gap:2px; min-width:0; }
+.abp-choice__txt b { font-size:13.5px; font-weight:600; color:var(--text-primary); }
+.abp-choice__txt i { font-style:normal; font-size:12.5px; color:var(--text-tertiary); }
+.abp-choice__go { width:15px; height:15px; flex-shrink:0; }
+.abp-mail__acts { display:flex; gap:6px; flex-wrap:wrap; }
+.abp-btn { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border:1px solid var(--border-default); border-radius:var(--radius-md);
+  background:var(--bg-surface); font-size:13px; font-weight:500; color:var(--text-primary); }
+.abp-btn:hover:not(:disabled) { background:var(--surface-hover); }
+.abp-btn:disabled { opacity:.6; cursor:progress; }
+.abp-thumb { position:relative; height:190px; overflow:hidden; border-radius:var(--radius-sm); background:#f4f5f7; border:1px solid var(--border-subtle); }
+.abp-thumb iframe { position:absolute; top:0; left:0; width:600px; height:900px; border:0; transform-origin:0 0; pointer-events:none; background:#fff; }
+.abp-thumb__open { position:absolute; inset:0; z-index:1; display:flex; align-items:center; justify-content:center; border:0; background:transparent; cursor:pointer; }
+.abp-thumb__open span { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; background:var(--bg-surface); box-shadow:var(--elevation-2);
+  font-size:12.5px; font-weight:500; color:var(--text-primary); opacity:0; transition:opacity .12s ease; }
+.abp-thumb__open:hover span, .abp-thumb__open:focus-visible span { opacity:1; }
+.abp-frame { width:100%; height:560px; border:0; border-radius:var(--radius-md); background:#f4f5f7; }
+
+/* Move up / down beside Remove. */
+.abp-move { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border-default);
+  border-radius:var(--radius-md); background:var(--bg-surface); color:var(--text-secondary); }
+.abp-move:hover:not(:disabled) { background:var(--surface-hover); color:var(--text-primary); }
+.abp-move:disabled { opacity:.4; cursor:not-allowed; }
+.abp-move svg { width:15px; height:15px; }
+.abp-mail__meta .abp-select { margin-top:2px; padding:6px 8px; font-size:13px; }

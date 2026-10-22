@@ -23,6 +23,15 @@ export const NON_ONCHAIN_TRIGGER_TYPES = new Set([
   "tag_added",
   "campaign_completed",
   "health_threshold",
+  // Custom Events API triggers. Not on-chain in the EVM/contract sense: they
+  // carry no contract/event address and must NOT show the "save a contract"
+  // nudge. The generic Custom Event, plus the Sovren (sovr-1 Cosmos) presets,
+  // which reach automations through POST /events rather than a contract log.
+  "custom_event",
+  "sovren_license_assigned",
+  "sovren_license_reserve_issued",
+  "sovren_license_activated",
+  "sovren_rewards_claimed",
 ]);
 
 /**
@@ -75,6 +84,23 @@ export const GENERIC_ONCHAIN_TRIGGER_TYPES = new Set([
   "onchain",
   "trigger",
   "onchain_event",
+]);
+
+/**
+ * Cosmos / Sovren triggers (Custom Events API). Sovren (sovr-1) is a Cosmos
+ * chain with no contracts, so it reaches automations through POST /events, not
+ * the contract-watching on-chain path. These get their OWN palette group so
+ * users find them instead of hunting the generic off-chain bucket: the generic
+ * Custom Event trigger plus the four Sovren presets. Kept separate from both
+ * ON_CHAIN_TRIGGER_TYPES (which routes to the EVM contract panel) and the
+ * off-chain group (where they are not discoverable as "the Sovren triggers").
+ */
+export const COSMOS_SOVREN_TRIGGER_TYPES = new Set([
+  "custom_event",
+  "sovren_license_assigned",
+  "sovren_license_reserve_issued",
+  "sovren_license_activated",
+  "sovren_rewards_claimed",
 ]);
 
 /**
@@ -190,6 +216,11 @@ export const FIXED_ACTIONS: {
     type: "send_inapp",
     label: "Send in-app",
     description: "Push to the matched wallet",
+  },
+  {
+    type: "send_telegram",
+    label: "Send Telegram",
+    description: "Message the wallet on Telegram",
   },
   { type: "wait", label: "Wait", description: "Pause the flow for a duration" },
   {
@@ -309,6 +340,14 @@ export const TRIGGER_NODE_TYPES = new Set([
   "campaign_completed",
   "health_threshold",
   "defi_health_factor",
+  // Custom Events API triggers. Must be recognized here too, or a saved
+  // automation/template loaded with one of these as its `node.type` fails the
+  // trigger check and the go-live gate falsely reports MISSING_TRIGGER.
+  "custom_event",
+  "sovren_license_assigned",
+  "sovren_license_reserve_issued",
+  "sovren_license_activated",
+  "sovren_rewards_claimed",
 ]);
 
 /**

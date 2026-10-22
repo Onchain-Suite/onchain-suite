@@ -78,6 +78,17 @@ export function ConflictBox({
           <span className="inline-flex rounded-full border border-border/70 bg-background/70 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase">
             {action.action}
           </span>
+          {action.host && !action.currentValue && !action.newValue ? (
+            // A value-less action (e.g. "remove the misplaced record") is about
+            // a record NAME, not a value — the value is already on the card.
+            // Show the full name to act on, with a copy button to find it.
+            <span className="flex items-center gap-1">
+              <code className="break-all rounded bg-muted px-1.5 py-0.5 text-[11px]">
+                {action.host}
+              </code>
+              <CopyButton value={action.host} label="Copy" />
+            </span>
+          ) : null}
           {action.currentValue ? (
             <code className="break-all rounded bg-muted px-1.5 py-0.5 text-[11px] line-through opacity-70">
               {action.currentValue}

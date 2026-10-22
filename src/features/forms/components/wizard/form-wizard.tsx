@@ -6,6 +6,7 @@ import {
   CheckIcon,
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import { useState } from "react";
 
 import { Button } from "@/ui/button";
@@ -90,6 +91,12 @@ export function FormWizard({ onClose }: { onClose: () => void }) {
   const surface = surfaceForStyle(style);
 
   const create = useCreateForm((form) => {
+    posthog.capture("form_created", {
+      form_style: style,
+      form_template: template?.id ?? "custom",
+      form_type: type,
+    });
+
     // New forms start as DRAFT (like automations and campaigns) - live only on
     // explicit publish. POST /forms has no status field, so set it right after
     // create via PATCH; a failure here can't block creation.

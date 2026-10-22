@@ -4,6 +4,14 @@ import { isJsonObject } from "@/lib/utils";
 export interface DnsRecordRow {
   id: string;
   host: string;
+  /**
+   * The full record name to publish (e.g. "bounce.mg.example.com"), computed by
+   * the backend from the host + sending domain. Shown in the UI/CSV instead of
+   * the relative host so a record is never created one zone level too high
+   * ("bounce" entered at the apex becomes "bounce.example.com", not the
+   * intended "bounce.mg.example.com"). Falls back to host when absent.
+   */
+  fqdn?: string;
   type: string;
   value: string;
   /** true = passed, false = failed, undefined = not yet checked. */
@@ -213,6 +221,7 @@ export function parseDomainDns(payload: unknown): DomainDnsData {
       return {
         id: str(entry.id) ?? `${host}-${type}-${index}`,
         host,
+        fqdn: str(entry.fqdn),
         type,
         value,
         verified,

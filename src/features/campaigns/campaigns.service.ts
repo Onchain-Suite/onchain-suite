@@ -150,6 +150,19 @@ export interface CampaignSendInAppResult {
   [key: string]: unknown;
 }
 
+/** Result of POST /campaigns/{id}/send-telegram. */
+export interface CampaignSendTelegramResult {
+  recipients?: number;
+  /** Audience wallets with a verified Telegram chat id. */
+  reachable?: number;
+  sent?: number;
+  failed?: number;
+  /** Recipients with no verified Telegram handle. */
+  skipped?: number;
+  status?: string;
+  [key: string]: unknown;
+}
+
 /**
  * Engagement analytics (docs/backend.md). Rates are percentages (2 dp);
  * open/click denominators use `delivered` when ACS delivery events exist,
@@ -991,6 +1004,70 @@ export const campaignsService = {
         url: `/campaigns/${id}/send-inapp`,
         data: overrides ?? {},
       },
+      orgId
+    );
+  },
+
+  /**
+   * Save the campaign's Telegram text. Stored under `channelsContent.telegram`
+   * (PUT /campaigns/{id}/channels/telegram/content); consumed by sendTelegram.
+   */
+  setTelegramContent(id: string, text: string, orgId?: string) {
+    return request<unknown>(
+      {
+        method: "PUT",
+        url: `/campaigns/${id}/channels/telegram/content`,
+        data: { text },
+      },
+      orgId
+    );
+  },
+
+  /**
+   * Send the campaign on Telegram to its wallet-reachable audience - wallets
+   * with a verified Telegram chat id (POST /campaigns/{id}/send-telegram).
+   * Immediate fan-out; gate the "sent" UI on `sent`, not a bare 200.
+   */
+  sendTelegram(id: string, orgId?: string) {
+    return request<CampaignSendTelegramResult>(
+      { method: "POST", url: `/campaigns/${id}/send-telegram`, data: {} },
+      orgId
+    );
+  },
+
+  /**
+   * Save the campaign's Discord broadcast (message + target channel id). Stored
+   * under `channelsContent.discord` (PUT /campaigns/{id}/channels/discord/content);
+   * consumed by sendDiscord.
+   */
+  setDiscordContent(
+    id: string,
+    content: { text: string; channelId: string },
+    orgId?: string
+  ) {
+    return request<unknown>(
+      {
+        method: "PUT",
+        url: `/campaigns/${id}/channels/discord/content`,
+        data: content,
+      },
+      orgId
+    );
+  },
+
+  /**
+   * Broadcast the campaign to its configured Discord channel - one post through
+   * the org's bot (POST /campaigns/{id}/send-discord). Gate the "sent" UI on
+   * `ok`, not a bare 200.
+   */
+  sendDiscord(id: string, orgId?: string) {
+    return request<{
+      ok: boolean;
+      messageId: string | null;
+      channelId: string;
+      reason?: string;
+    }>(
+      { method: "POST", url: `/campaigns/${id}/send-discord`, data: {} },
       orgId
     );
   },

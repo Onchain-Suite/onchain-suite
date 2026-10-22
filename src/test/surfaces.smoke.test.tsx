@@ -25,7 +25,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as LibUtils from "@/lib/utils";
 
-import { AnalyticsPage } from "@/features/analytics/analytics-page";
+import { AnalyticsDashboard } from "@/features/analytics/analytics-dashboard";
 import { AudiencePages } from "@/features/audience/pages";
 import { AutomationsPage } from "@/features/automation/pages";
 import { CampaignsListsView } from "@/features/campaigns/pages";
@@ -229,8 +229,8 @@ describe("dashboard surfaces smoke", () => {
     ).toBeInTheDocument();
   });
 
-  it("AnalyticsPage mounts", async () => {
-    renderWithClient(<AnalyticsPage />);
+  it("AnalyticsDashboard mounts", async () => {
+    renderWithClient(<AnalyticsDashboard activeTab="overview" />);
     expect(
       await screen.findByRole(
         "heading",

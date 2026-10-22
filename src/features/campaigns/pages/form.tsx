@@ -58,11 +58,13 @@ import {
 } from "@/features/campaigns/campaigns.service";
 import { AudienceStep } from "@/features/campaigns/components/campaign-form/audience-step";
 import { ConfirmationPage } from "@/features/campaigns/components/campaign-form/campaign-confirmation";
+import { DiscordMessageStep } from "@/features/campaigns/components/campaign-form/discord-message-step";
 import {
   InAppMessageStep,
   InAppPreview,
 } from "@/features/campaigns/components/campaign-form/in-app-message-step";
 import { InlineSchedule } from "@/features/campaigns/components/campaign-form/inline-schedule";
+import { TelegramMessageStep } from "@/features/campaigns/components/campaign-form/telegram-message-step";
 import { TemplateStep } from "@/features/campaigns/components/campaign-form/template-step";
 import { WizardStepRail } from "@/features/campaigns/components/campaign-form/wizard-step-rail";
 import { WizardSummary } from "@/features/campaigns/components/campaign-form/wizard-summary";
@@ -250,6 +252,28 @@ const persistCampaignContent = async (
   // and rides the send payload, instead of the email content/template.
   if (data.channel === "in-app-push") {
     await campaignsService.setPushContent(campaignId, toPushContent(data));
+    return;
+  }
+  if (data.channel === "telegram") {
+    // Telegram is a single plain-text body → channelsContent.telegram.text.
+    await campaignsService.setTelegramContent(
+      campaignId,
+      (data.telegramText ?? "").trim()
+    );
+    return;
+  }
+  if (data.channel === "discord") {
+    // Discord broadcast → channelsContent.discord.{text,channelId} (one post).
+    // Enable the channel first: the content route rejects content for a channel
+    // not in channelsUsed, and this persist can run before the launch-time
+    // ensureChannels. Idempotent, so the launch call stays a no-op.
+    await campaignsService
+      .ensureChannels(campaignId, ["discord"])
+      .catch(() => undefined);
+    await campaignsService.setDiscordContent(campaignId, {
+      text: (data.discordText ?? "").trim(),
+      channelId: (data.discordChannelId ?? "").trim(),
+    });
     return;
   }
   await campaignsService.updateContent(campaignId, {
@@ -676,6 +700,14 @@ function CampaignPreviewStep({
 
   const selectedTemplateId = form.watch("selectedTemplate") ?? "";
   const isPush = form.watch("channel") === "in-app-push";
+  const isTelegram = form.watch("channel") === "telegram";
+  const isDiscord = form.watch("channel") === "discord";
+  // Telegram/Discord, like in-app, send immediately with no email
+  // sender/subject/inbox preview — so they share the non-email UI path.
+  // `isWalletChannel` equals `isPush` for email/in-app, so reusing it in "not
+  // email" branches leaves those unchanged. (Discord broadcast isn't literally
+  // per-wallet, but it takes the same no-sender/no-inbox path.)
+  const isWalletChannel = isPush || isTelegram || isDiscord;
 
   // Auto-load the rendered email as soon as the step opens - no manual
   // "Generate preview" click required. The selected template is part of the
@@ -688,7 +720,7 @@ function CampaignPreviewStep({
       selectedTemplateId,
     ],
     queryFn: getCanonicalPreview,
-    enabled: normalizedCampaignId.length > 0 && !isPush,
+    enabled: normalizedCampaignId.length > 0 && !isWalletChannel,
     retry: false,
   });
 
@@ -708,7 +740,7 @@ function CampaignPreviewStep({
   const recipientLabel =
     est !== null
       ? `${est.toLocaleString()} ${
-          isPush
+          isWalletChannel
             ? est === 1
               ? "wallet"
               : "wallets"
@@ -716,7 +748,7 @@ function CampaignPreviewStep({
               ? "recipient"
               : "recipients"
         }`
-      : isPush
+      : isWalletChannel
         ? "Wallet-reachable contacts"
         : "Your selected audience";
   const audienceSummary = `${recipientLabel}${
@@ -781,7 +813,7 @@ function CampaignPreviewStep({
                 value={values.emailSubject || "No subject"}
                 onEdit={onEditStep ? () => onEditStep(2) : undefined}
               />
-              {!isPush ? (
+              {!isWalletChannel ? (
                 <ReviewRow
                   label="From"
                   value={
@@ -850,7 +882,7 @@ function CampaignPreviewStep({
                 </span>
               </button>
 
-              {!isPush ? (
+              {!isWalletChannel ? (
                 <button
                   type="button"
                   onClick={() =>
@@ -888,15 +920,22 @@ function CampaignPreviewStep({
                     className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground"
                   />
                   <span className="text-xs text-muted-foreground">
-                    In-app push always sends immediately.
+                    {isTelegram
+                      ? "Telegram"
+                      : isDiscord
+                        ? "Discord"
+                        : "In-app push"}{" "}
+                    always sends immediately.
                   </span>
                 </div>
               )}
             </div>
-            {!isPush && isScheduled ? <InlineSchedule form={form} /> : null}
+            {!isWalletChannel && isScheduled ? (
+              <InlineSchedule form={form} />
+            ) : null}
           </div>
 
-          {!isPush && previewMissingFields.length > 0 ? (
+          {!isWalletChannel && previewMissingFields.length > 0 ? (
             <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
               <div className="text-sm font-medium text-foreground">
                 {previewMissingFields.length} merge variable
@@ -932,10 +971,16 @@ function CampaignPreviewStep({
         <div className="min-w-0">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm font-medium text-foreground">
-              {isPush ? "Notification preview" : "Inbox preview"}
+              {isTelegram
+                ? "Telegram preview"
+                : isDiscord
+                  ? "Discord preview"
+                  : isPush
+                    ? "Notification preview"
+                    : "Inbox preview"}
             </div>
             {/* Send a test reveals an inline field on click. */}
-            {!isPush ? (
+            {!isWalletChannel ? (
               <button
                 type="button"
                 onClick={() => setShowTestField((v) => !v)}
@@ -954,7 +999,7 @@ function CampaignPreviewStep({
           </div>
 
           {/* Inline test field, revealed by the Send a test button. */}
-          {!isPush && showTestField ? (
+          {!isWalletChannel && showTestField ? (
             <div className="mt-3 flex gap-2 rounded-xl border border-border bg-muted/30 p-2">
               <Input
                 id="campaign-test-recipient"
@@ -1003,7 +1048,7 @@ function CampaignPreviewStep({
           ) : null}
 
           {/* Envelope header - mirrors what lands in the inbox. */}
-          {!isPush ? (
+          {!isWalletChannel ? (
             <dl className="mt-3 space-y-1 rounded-xl border border-border bg-muted/30 p-3 text-xs">
               <div className="flex gap-2">
                 <dt className="w-14 shrink-0 text-muted-foreground">From</dt>
@@ -1033,6 +1078,27 @@ function CampaignPreviewStep({
             {!normalizedCampaignId ? (
               <div className="flex h-[560px] sm:h-[720px] items-center justify-center bg-card p-6 text-center text-sm text-muted-foreground">
                 Missing campaign id.
+              </div>
+            ) : isTelegram ? (
+              <div className="flex min-h-[320px] flex-col justify-end gap-2 bg-[#e7ebf0] p-4 dark:bg-slate-800/60">
+                <div className="max-w-[80%] self-start whitespace-pre-wrap break-words rounded-2xl rounded-bl-md bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100">
+                  {(values.telegramText ?? "").trim().length > 0
+                    ? values.telegramText
+                    : "Your Telegram message will appear here."}
+                </div>
+              </div>
+            ) : isDiscord ? (
+              <div className="flex min-h-[320px] flex-col justify-end gap-2 bg-[#313338] p-4">
+                <div className="whitespace-pre-wrap break-words px-1 py-2 text-sm text-slate-100">
+                  {(values.discordText ?? "").trim().length > 0
+                    ? values.discordText
+                    : "Your Discord message will appear here."}
+                </div>
+                <div className="px-1 text-[11px] text-slate-400">
+                  {(values.discordChannelId ?? "").trim().length > 0
+                    ? `→ channel ${values.discordChannelId}`
+                    : "Set a channel ID in the composer."}
+                </div>
               </div>
             ) : isPush ? (
               <div className="bg-muted/20 p-3">
@@ -1405,6 +1471,37 @@ export function CreateCampaignPage() {
     });
   }, [form, verifiedSenderIdentities]);
 
+  // Re-link a verified sender whose ADDRESS survived a round-trip but whose
+  // identity LINK did not. The email editor flush persists `senderEmail` without
+  // `senderIdentityId`, so on return the "Send as" dropdown still shows the
+  // sender (it matches purely by address) while the link is gone. The schema
+  // only waives the sender NAME when the link is present, so without this,
+  // Continue fails validation on a blank name — and the offending field sits
+  // below the fold, so the button just reads as dead. Matching by address is
+  // safe: the dropdown already treats this identity as the selected one.
+  const watchedSenderEmail = form.watch("senderEmail");
+  const watchedSenderIdentityId = form.watch("senderIdentityId");
+  useEffect(() => {
+    if (verifiedSenderIdentities.length === 0) return;
+    const email = (watchedSenderEmail ?? "").trim().toLowerCase();
+    if (!email) return;
+    const link = (watchedSenderIdentityId ?? "").toString().trim();
+    if (link) return;
+    const match = verifiedSenderIdentities.find(
+      (identity) => identity.email.toLowerCase() === email
+    );
+    if (!match) return;
+    form.setValue("senderIdentityId", match.id, {
+      shouldDirty: false,
+      shouldValidate: true,
+    });
+  }, [
+    form,
+    verifiedSenderIdentities,
+    watchedSenderEmail,
+    watchedSenderIdentityId,
+  ]);
+
   useEffect(() => {
     const current = form.getValues("timezone");
     if (current === activeTimezone) return;
@@ -1618,6 +1715,47 @@ export function CreateCampaignPage() {
           nextValues.channel = "in-app-push";
         }
 
+        // Telegram composer: restore the saved text + channel the same way, from
+        // `channelsContent.telegram.text`, so reopening a Telegram draft doesn't
+        // fall back to the email composer.
+        const telegramSource = (() => {
+          if (
+            campaignRes.status === "fulfilled" &&
+            isJsonObject(campaignRes.value)
+          ) {
+            const cc = campaignRes.value.channelsContent;
+            if (isJsonObject(cc) && isJsonObject(cc.telegram))
+              return cc.telegram;
+          }
+          return undefined;
+        })();
+        if (telegramSource) {
+          const text = telegramSource.text ?? telegramSource.body;
+          if (typeof text === "string") nextValues.telegramText = text;
+          nextValues.channel = "telegram";
+        }
+
+        // Discord broadcast: restore text + channel id from
+        // `channelsContent.discord`, same as Telegram, so a draft reopens on the
+        // Discord composer rather than the email one.
+        const discordSource = (() => {
+          if (
+            campaignRes.status === "fulfilled" &&
+            isJsonObject(campaignRes.value)
+          ) {
+            const cc = campaignRes.value.channelsContent;
+            if (isJsonObject(cc) && isJsonObject(cc.discord)) return cc.discord;
+          }
+          return undefined;
+        })();
+        if (discordSource) {
+          const text = discordSource.text ?? discordSource.body;
+          if (typeof text === "string") nextValues.discordText = text;
+          if (typeof discordSource.channelId === "string")
+            nextValues.discordChannelId = discordSource.channelId;
+          nextValues.channel = "discord";
+        }
+
         if (audienceRes.status === "fulfilled") {
           const aObj: Record<string, unknown> = isJsonObject(audienceRes.value)
             ? audienceRes.value
@@ -1769,7 +1907,11 @@ export function CreateCampaignPage() {
     if (senderName) form.setValue("senderName", senderName);
     if (senderEmail) form.setValue("senderEmail", senderEmail);
     if (name) form.setValue("campaignName", name);
-    if (channel === "email" || channel === "in-app-push") {
+    if (
+      channel === "email" ||
+      channel === "in-app-push" ||
+      channel === "telegram"
+    ) {
       form.setValue("channel", channel);
     }
   }, [form, safeSearchParams]);
@@ -1791,12 +1933,31 @@ export function CreateCampaignPage() {
         : currentStep === 2
           ? form.getValues("channel") === "in-app-push"
             ? ["emailSubject"]
-            : ["emailSubject", "senderName", "senderEmail"]
+            : form.getValues("channel") === "telegram"
+              ? ["telegramText"]
+              : ["emailSubject", "senderName", "senderEmail"]
           : [];
 
     const isValid = await form.trigger(fieldsToValidate);
 
-    if (!isValid) return;
+    if (!isValid) {
+      // Never fail silently. A blocked Continue with no feedback reads as a
+      // dead button (the reported bug). Focus and announce the first offending
+      // field — most often `senderName`, required when the sender-identity link
+      // is missing and the name is blank, on a field below the fold.
+      const { errors } = form.formState;
+      const firstInvalid = fieldsToValidate.find((field) => errors[field]);
+      if (firstInvalid) {
+        form.setFocus(firstInvalid);
+        const message = errors[firstInvalid]?.message;
+        toast.error(
+          typeof message === "string" && message.length > 0
+            ? message
+            : "Fix the highlighted field to continue."
+        );
+      }
+      return;
+    }
     if (!campaignId) {
       if (bootstrapError) {
         toast.error(bootstrapError);
@@ -1984,6 +2145,47 @@ export function CreateCampaignPage() {
         return;
       }
 
+      // Telegram: like in-app, an immediate fan-out to wallet-reachable
+      // contacts - here, wallets with a verified Telegram chat id. No schedule.
+      if (data.channel === "telegram") {
+        await campaignsService
+          .ensureChannels(campaignId, ["telegram"])
+          .catch(() => undefined);
+        const result = await campaignsService.sendTelegram(campaignId);
+        const sent = result.sent ?? 0;
+        await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+        if (sent === 0) {
+          toast.warning(
+            "Nobody was reached. Telegram only reaches wallets that opted in via your bot - this audience has none yet. Share opt-in links from Settings → Integrations, or pick a reachable audience."
+          );
+          return;
+        }
+        toast.success(
+          `Telegram message sent to ${sent} wallet${sent === 1 ? "" : "s"}.`
+        );
+        setShowConfirmation(true);
+        return;
+      }
+
+      if (data.channel === "discord") {
+        await campaignsService
+          .ensureChannels(campaignId, ["discord"])
+          .catch(() => undefined);
+        const result = await campaignsService.sendDiscord(campaignId);
+        await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+        if (!result.ok) {
+          toast.error(
+            result.reason
+              ? `Discord broadcast failed: ${result.reason}`
+              : "Discord broadcast failed. Check the bot is in the server and the channel ID is right."
+          );
+          return;
+        }
+        toast.success("Broadcast posted to Discord.");
+        setShowConfirmation(true);
+        return;
+      }
+
       const scheduleDateIso = computeScheduleUtcIso(data);
       await campaignsService.updateSchedule(campaignId, {
         sendOption: data.sendOption,
@@ -2100,6 +2302,12 @@ export function CreateCampaignPage() {
 
   // Persistent right-column summary, kept in sync across steps.
   const wizIsPush = form.watch("channel") === "in-app-push";
+  const wizIsTelegram = form.watch("channel") === "telegram";
+  const wizIsDiscord = form.watch("channel") === "discord";
+  // Telegram/Discord, like in-app, send immediately (no email
+  // sender/subject/schedule). `wizIsWallet` equals `wizIsPush` for email/in-app,
+  // so reusing it in "not email" branches preserves those flows unchanged.
+  const wizIsWallet = wizIsPush || wizIsTelegram || wizIsDiscord;
 
   // In-app delivery readiness (web SDK keys/origins + mobile APNs/FCM). Drives
   // the setup notice in the composer and the launch guard below. Only fetched
@@ -2156,13 +2364,23 @@ export function CreateCampaignPage() {
   }, [wizTemplate, summaryTemplatesQuery.data]);
   const wizSummary = {
     campaignName: form.watch("campaignName") ?? "",
-    channel: wizIsPush ? "In-app push" : "Email",
-    sender: wizIsPush
-      ? "In-app push"
-      : [form.watch("senderName"), form.watch("senderEmail")]
-          .map((value) => (value ?? "").trim())
-          .filter(Boolean)
-          .join(" · ") || "-",
+    channel: wizIsTelegram
+      ? "Telegram"
+      : wizIsDiscord
+        ? "Discord"
+        : wizIsPush
+          ? "In-app push"
+          : "Email",
+    sender: wizIsTelegram
+      ? "Telegram bot"
+      : wizIsDiscord
+        ? "Discord bot"
+        : wizIsPush
+          ? "In-app push"
+          : [form.watch("senderName"), form.watch("senderEmail")]
+              .map((value) => (value ?? "").trim())
+              .filter(Boolean)
+              .join(" · ") || "-",
     template: wizTemplateName.length > 0 ? wizTemplateName : "-",
     delivery: sendOption === "schedule" ? "Scheduled" : "Send immediately",
   };
@@ -2199,7 +2417,7 @@ export function CreateCampaignPage() {
     const recipients =
       wizEstimate !== null
         ? `${wizEstimate.toLocaleString()} ${
-            wizIsPush
+            wizIsWallet
               ? wizEstimate === 1
                 ? "wallet"
                 : "wallets"
@@ -2207,12 +2425,12 @@ export function CreateCampaignPage() {
                 ? "recipient"
                 : "recipients"
           }`
-        : wizIsPush
+        : wizIsWallet
           ? "Wallet-reachable contacts"
           : "Your selected audience";
 
     let delivery = "Immediately";
-    if (!wizIsPush && sendOption === "schedule") {
+    if (!wizIsWallet && sendOption === "schedule") {
       const date = form.getValues("scheduleDate");
       const time = form.getValues("scheduleTime");
       if (date && time) {
@@ -2251,7 +2469,7 @@ export function CreateCampaignPage() {
     ];
   }, [
     wizEstimate,
-    wizIsPush,
+    wizIsWallet,
     wizSummary.campaignName,
     wizSummary.channel,
     sendOption,
@@ -2265,23 +2483,25 @@ export function CreateCampaignPage() {
         open={showSendConfirm}
         onOpenChange={setShowSendConfirm}
         title={
-          !wizIsPush && sendOption === "schedule"
+          !wizIsWallet && sendOption === "schedule"
             ? "Schedule this campaign?"
             : "Send this campaign?"
         }
         description={
-          wizIsPush
-            ? "This delivers an in-app push to the wallets below."
-            : sendOption === "schedule"
-              ? "It will send automatically at the scheduled time."
-              : "This sends to the recipients below right away."
+          wizIsTelegram
+            ? "This sends a Telegram message to the wallets below."
+            : wizIsPush
+              ? "This delivers an in-app push to the wallets below."
+              : sendOption === "schedule"
+                ? "It will send automatically at the scheduled time."
+                : "This sends to the recipients below right away."
         }
         details={sendConfirmDetails}
         confirmLabel={
-          !wizIsPush && sendOption === "schedule" ? "Schedule" : "Send now"
+          !wizIsWallet && sendOption === "schedule" ? "Schedule" : "Send now"
         }
         confirmingLabel={
-          !wizIsPush && sendOption === "schedule" ? "Scheduling…" : "Sending…"
+          !wizIsWallet && sendOption === "schedule" ? "Scheduling…" : "Sending…"
         }
         confirming={isLaunching}
         onConfirm={performLaunch}
@@ -2435,6 +2655,10 @@ export function CreateCampaignPage() {
                           <div className="h-24 animate-pulse rounded-lg bg-muted" />
                           <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
                         </div>
+                      ) : wizIsTelegram ? (
+                        <TelegramMessageStep form={form} />
+                      ) : wizIsDiscord ? (
+                        <DiscordMessageStep form={form} />
                       ) : wizIsPush ? (
                         <InAppMessageStep
                           form={form}
@@ -2518,6 +2742,8 @@ export function CreateCampaignPage() {
                         (() => {
                           const sendIsPush =
                             form.watch("channel") === "in-app-push";
+                          const sendIsWallet =
+                            sendIsPush || form.watch("channel") === "telegram";
                           const sendIsScheduled =
                             form.watch("sendOption") === "schedule";
                           const submitting = form.formState.isSubmitting;
@@ -2529,7 +2755,7 @@ export function CreateCampaignPage() {
                           const audienceLabel =
                             wizEstimate !== null
                               ? `${wizEstimate.toLocaleString()} ${
-                                  sendIsPush
+                                  sendIsWallet
                                     ? wizEstimate === 1
                                       ? "wallet"
                                       : "wallets"
@@ -2580,7 +2806,7 @@ export function CreateCampaignPage() {
                 <WizardSummary
                   estimatedRecipients={wizEstimate}
                   estimateLabel={
-                    wizIsPush ? "Estimated wallets" : "Estimated recipients"
+                    wizIsWallet ? "Estimated wallets" : "Estimated recipients"
                   }
                   rows={wizPushRows}
                   channel={wizSummary.channel}

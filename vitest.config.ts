@@ -24,14 +24,13 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     // Agent worktrees under .claude are full copies of the repo — without
     // this every suite runs twice, the second time against stale code.
-    // `reference/` is the vendored v2.7 reference app (build-excluded); it
-    // ships its own test setup and dev deps that this repo does not install,
-    // so its suites are not ours to run.
-    exclude: [
-      ...configDefaults.exclude,
-      '**/.claude/**',
-      'reference/**',
-    ],
+    //
+    // `reference/` is a vendored v2.7 snapshot (design prototypes, a handoff
+    // web app) — not the product under `src/`. Its ~21 tests pull dev deps the
+    // app doesn't carry (e.g. @testing-library/user-event), so left in they
+    // fail to even load and — because the husky pre-push runs this suite — they
+    // silently block every push. It is reference material, never run as a gate.
+    exclude: [...configDefaults.exclude, '**/.claude/**', 'reference/**'],
     pool: 'threads',
     fileParallelism: false,
     maxWorkers: 1,

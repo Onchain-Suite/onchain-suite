@@ -1,10 +1,15 @@
 import z from "zod";
 
 /**
- * Delivery channel for a campaign. Smart campaigns currently support in-app
- * push only; social channels (Telegram, Discord, X) will be added later.
+ * Delivery channel for a campaign. Smart campaigns support in-app push and
+ * Telegram; the other social channels (Discord, X) will be added later.
  */
-export const campaignChannels = ["email", "in-app-push"] as const;
+export const campaignChannels = [
+  "email",
+  "in-app-push",
+  "telegram",
+  "discord",
+] as const;
 
 export const campaignFormSchema = z
   .object({
@@ -91,6 +96,14 @@ export const campaignFormSchema = z
     pushExpiresDays: z.string().default("14"),
     pushMaxPerSession: z.string().default("1"),
 
+    // Telegram: a single plain-text body, persisted to channelsContent.telegram.text.
+    telegramText: z.string().optional(),
+
+    // Discord BROADCAST: a plain-text message + the target channel id, persisted
+    // to channelsContent.discord.{text,channelId}. Not per-contact — one post.
+    discordText: z.string().optional(),
+    discordChannelId: z.string().optional(),
+
     // Send timing (chosen on the template step: send now or schedule)
     sendOption: z.enum(["now", "schedule"]),
     scheduleDate: z.date().optional(),
@@ -98,7 +111,9 @@ export const campaignFormSchema = z
     timezone: z.string().default("UTC"),
   })
   .superRefine((data, ctx) => {
-    if (data.channel !== "in-app-push") {
+    // Email is the only channel with a sender identity; in-app push and Telegram
+    // send through the SDK / the org's bot and need no sender fields.
+    if (data.channel === "email") {
       // A blank sender name is valid when an identity is linked: the name is
       // inherited from it at render time. Requiring one here is what forced the
       // UI to copy the identity's name into the form, which is how a stale
@@ -125,6 +140,42 @@ export const campaignFormSchema = z
           code: z.ZodIssueCode.custom,
           path: ["senderEmail"],
           message: "Please enter a valid email address",
+        });
+      }
+    }
+
+    if (data.channel === "telegram") {
+      if (
+        typeof data.telegramText !== "string" ||
+        data.telegramText.trim().length === 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["telegramText"],
+          message: "Enter a message to send",
+        });
+      }
+    }
+
+    if (data.channel === "discord") {
+      if (
+        typeof data.discordText !== "string" ||
+        data.discordText.trim().length === 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["discordText"],
+          message: "Enter a message to send",
+        });
+      }
+      if (
+        typeof data.discordChannelId !== "string" ||
+        data.discordChannelId.trim().length === 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["discordChannelId"],
+          message: "Enter the Discord channel ID to post to",
         });
       }
     }

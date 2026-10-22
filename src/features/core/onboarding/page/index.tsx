@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 
 import {
   completeOnboarding,
@@ -58,6 +59,7 @@ export function OnboardingFlow() {
       // Mark onboarding as completed in the database
 
       await completeOnboarding(finalData);
+      posthog.capture("onboarding_completed");
 
       push(PRIVATE_ROUTES.DASHBOARD);
     } catch (error) {

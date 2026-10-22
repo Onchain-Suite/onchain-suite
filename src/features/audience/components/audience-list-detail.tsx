@@ -5,8 +5,14 @@ import {
   PlusIcon,
   UsersIcon,
 } from "@heroicons/react/24/outline";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
@@ -16,7 +22,11 @@ import type {
 } from "../audience.service";
 import { audienceService } from "../audience.service";
 import { AudienceAddContacts } from "./audience-add-contacts";
-import { MemberTable, toDetailMemberFromSegment } from "./member-table";
+import {
+  type DetailMember,
+  MemberTable,
+  toDetailMemberFromSegment,
+} from "./member-table";
 
 const MEMBERS_PER_PAGE = 25;
 
@@ -37,6 +47,8 @@ export function AudienceListDetail({
 }) {
   const [page, setPage] = useState(1);
   const [adding, setAdding] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const detailQuery = useQuery({
     queryKey: ["audience", "segment-members", segment.id, page],
@@ -48,6 +60,27 @@ export function AudienceListDetail({
     placeholderData: keepPreviousData,
     retry: false,
     refetchOnWindowFocus: false,
+  });
+
+  // Remove one contact from this list (detaches the backing tag; the contact
+  // itself is kept). Reversible — re-add from "Add contacts".
+  const removeMutation = useMutation({
+    mutationFn: (member: DetailMember) =>
+      audienceService.removeSegmentMember(segment.id, member.id),
+    onMutate: (member) => setRemovingId(member.id),
+    onSuccess: (_res, member) => {
+      toast.success(
+        `Removed ${
+          [member.name, member.email, member.walletShort].find(Boolean) ??
+          "contact"
+        } from ${segment.name}`
+      );
+      // Refresh this list's members and every list/segment count in the UI.
+      queryClient.invalidateQueries({ queryKey: ["audience"] });
+    },
+    onError: () =>
+      toast.error("We couldn't remove the contact. Please try again."),
+    onSettled: () => setRemovingId(null),
   });
 
   const members = useMemo(() => {
@@ -131,7 +164,11 @@ export function AudienceListDetail({
         </div>
       ) : members.length > 0 ? (
         <>
-          <MemberTable members={members} />
+          <MemberTable
+            members={members}
+            onRemove={(m) => removeMutation.mutate(m)}
+            removingId={removingId}
+          />
           {totalPages > 1 ? (
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>

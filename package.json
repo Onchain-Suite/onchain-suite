@@ -74,6 +74,7 @@
     "@radix-ui/react-tabs": "^1.1.21",
     "@radix-ui/react-tooltip": "^1.2.16",
     "@react-oauth/google": "^0.13.5",
+    "@sentry/nextjs": "10.70.0",
     "@simplewebauthn/browser": "^13.3.0",
     "@t3-oss/env-nextjs": "^0.13.11",
     "@tabler/icons-react": "^3.45.0",

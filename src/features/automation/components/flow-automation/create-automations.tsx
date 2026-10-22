@@ -19,7 +19,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -450,6 +450,7 @@ const EDGE_COLORS = {
 
 const CreateAutomationContent = () => {
   const params = useParams();
+  const router = useRouter();
   const automationId = params?.id as string;
   const isNew = automationId === "new-id";
 
@@ -1828,6 +1829,14 @@ const CreateAutomationContent = () => {
                 : n
             )
           );
+          // Learn the design id for this node so the focus/visibility re-read
+          // fallback can pull it again if a later broadcast is missed.
+          if (emailSyncRef.current?.nodeId === targetNodeId) {
+            emailSyncRef.current = {
+              ...emailSyncRef.current,
+              designId: message.designId,
+            };
+          }
         }
         if (emailSyncRef.current?.designId === message.designId) {
           syncEmailNodeFromEditor().catch(() => undefined);
@@ -1872,20 +1881,19 @@ const CreateAutomationContent = () => {
     try {
       const nodeId = selectedNode;
       if (!nodeId) throw new Error("Select the email step first.");
-      const session = await automationService.createNodeEmailEditorSession(
-        automationId,
-        nodeId
-      );
-      const designId = asString(session.designId);
-      if (designId) updateSelectedNodeData({ designId });
-      emailSyncRef.current = {
-        nodeId,
-        designId: designId || undefined,
-      };
+      // A new automation has no real id yet to attach the design to. Create it
+      // in the background (lenient draft, no reload) and go straight to the
+      // editor - no "save first, then click again" dance.
+      const id = isNew ? await persistDraftReturningId() : automationId;
+      // The editor mints the design session itself; we only need to remember the
+      // node so the saved email reflects back onto it (the editor also
+      // broadcasts the designId). No builder-side mint, so the editor's token is
+      // the only one bound to the design.
+      emailSyncRef.current = { nodeId };
       const qs = new URLSearchParams({
-        automation: automationId,
+        automation: id,
         node: nodeId,
-        returnTo: `/automations/${automationId}`,
+        returnTo: `/automations/${id}`,
         subject: asString(selectedNodeData.subject),
       });
       window.open(
@@ -1893,6 +1901,11 @@ const CreateAutomationContent = () => {
         "_blank",
         "noopener,noreferrer"
       );
+      // Settle the page on the real id without a hard reload (the editor tab is
+      // already open).
+      if (isNew && id !== automationId) {
+        router.replace(`/automations/${id}`);
+      }
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : "We couldn't start the email editor."
@@ -2280,7 +2293,8 @@ const CreateAutomationContent = () => {
         hydrateBuilderState(res.builder);
       }
       if (res.createdId) {
-        window.location.href = `/automations/${res.createdId}`;
+        // Soft nav (no hard reload) so creating via Publish doesn't flash.
+        router.replace(`/automations/${res.createdId}`);
       }
     },
     onError: (err) => {
@@ -2296,41 +2310,48 @@ const CreateAutomationContent = () => {
   // the email builder needs a saved automation to attach its design to, but the
   // automation could not be saved until that design existed. Publish still runs
   // the full validation.
-  const saveDraftMutation = useMutation({
-    mutationFn: async () => {
-      const name =
-        (typeof automationData.name === "string"
-          ? automationData.name.trim()
-          : "") || "Untitled automation";
-      const graph = {
-        ...toWireGraph({ nodes, edges }),
-        settings: flowSettings,
-      };
-      if (isNew) {
-        const created = await automationService.createAutomation({
-          name,
-          description: automationData.description ?? "",
-          builder: toWireGraph({ nodes, edges }),
-        });
-        const createdId = created.automationId;
-        if (!createdId) throw new Error("Could not create the automation.");
-        // Create does not seed the draft graph getBuilder reads back, so write
-        // it explicitly - this is the lenient store the deadlock needed.
-        await automationService.saveBuilderDraft(createdId, graph);
-        return { createdId };
-      }
+  // Persist the current graph as a lenient draft and return the automation id -
+  // creating the automation first when new. Shared by "Save draft" and "Open
+  // Email Builder" so neither needs a validated save or a full-page reload.
+  const persistDraftReturningId = useCallback(async (): Promise<string> => {
+    const name =
+      (typeof automationData.name === "string"
+        ? automationData.name.trim()
+        : "") || "Untitled automation";
+    const graph = { ...toWireGraph({ nodes, edges }), settings: flowSettings };
+    if (!isNew) {
       await automationService.updateAutomation(automationId, {
         name,
         description: automationData.description ?? "",
       });
       await automationService.saveBuilderDraft(automationId, graph);
-      return { createdId: null as string | null };
+      return automationId;
+    }
+    const created = await automationService.createAutomation({
+      name,
+      description: automationData.description ?? "",
+      builder: toWireGraph({ nodes, edges }),
+    });
+    const createdId = created.automationId;
+    if (!createdId) throw new Error("Could not create the automation.");
+    // Create does not seed the draft graph getBuilder reads back, so write it
+    // explicitly - this is the lenient store the deadlock needed.
+    await automationService.saveBuilderDraft(createdId, graph);
+    return createdId;
+  }, [automationData, automationId, edges, flowSettings, isNew, nodes]);
+
+  const saveDraftMutation = useMutation({
+    mutationFn: async () => {
+      const createdId = await persistDraftReturningId();
+      return { createdId: isNew ? createdId : null };
     },
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: ["automations"] });
       setIsSaving(false);
       if (res.createdId) {
-        window.location.href = `/automations/${res.createdId}`;
+        // Soft client nav (no full-page reload) so the page settles on the new
+        // id without the white flash / glitch a hard reload caused.
+        router.replace(`/automations/${res.createdId}`);
         return;
       }
       toast.success("Draft saved.");
@@ -3952,17 +3973,10 @@ const CreateAutomationContent = () => {
                               type="button"
                               disabled={openingEmailBuilder}
                               onClick={() => {
-                                if (isNew) {
-                                  // The editor attaches its design to a saved
-                                  // draft, so create one now (lenient - no
-                                  // validation) rather than dead-ending. The
-                                  // page reloads on the new id; reopen then.
-                                  toast.message(
-                                    "Saving this automation as a draft first, then reopen the email builder."
-                                  );
-                                  handleSave();
-                                  return;
-                                }
+                                // Goes straight to the editor; for a new
+                                // automation openEmailBuilder creates the draft
+                                // in the background first (no reload, no second
+                                // click).
                                 openEmailBuilder().catch(() => undefined);
                               }}
                               className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"

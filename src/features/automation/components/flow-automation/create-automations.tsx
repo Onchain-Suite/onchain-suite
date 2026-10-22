@@ -55,6 +55,7 @@ import { cn, isJsonObject } from "@/lib/utils";
 
 import "reactflow/dist/style.css";
 import {
+  type AutomationBuilderResponse,
   automationService,
   type AutomationWatchTrigger,
   type OnchainCatalogDefinition,
@@ -599,6 +600,11 @@ const CreateAutomationContent = () => {
     [recordServerIssues]
   );
 
+  // The `draftSavedAt` of the draft this client last loaded or wrote. Sent back
+  // on every draft autosave so the backend can reject a stale write (another tab
+  // saved in between) with 409 AUTOMATION_DRAFT_STALE instead of clobbering it.
+  const draftBaseRef = useRef<string | null>(null);
+
   const hydrateBuilderState = useCallback(
     (payload: unknown) => {
       const record = isJsonObject(payload)
@@ -631,6 +637,10 @@ const CreateAutomationContent = () => {
         if (Array.isArray(record.watchesSkipped)) {
           setWatchIssues(parseWatchesSkipped(record));
         }
+        // Base this client's future autosaves on the draft it just loaded, so a
+        // stale tab's write is rejected rather than overwriting fresher work.
+        const loadedDraftSavedAt = asString(record.draftSavedAt);
+        if (loadedDraftSavedAt) draftBaseRef.current = loadedDraftSavedAt;
       }
       setSelectedNode(null);
       setShowNodeSelector({ show: false, x: 0, y: 0 });
@@ -2313,6 +2323,44 @@ const CreateAutomationContent = () => {
   // Persist the current graph as a lenient draft and return the automation id -
   // creating the automation first when new. Shared by "Save draft" and "Open
   // Email Builder" so neither needs a validated save or a full-page reload.
+  // Persist a draft stamped with the base `draftSavedAt` this client loaded, and
+  // advance the base from the response. On a 409 stale conflict (another tab
+  // saved in between) adopt the newer draft by re-hydrating from the server
+  // instead of overwriting it - the fix for the Send Email design getting wiped
+  // by a stale builder tab's autosave.
+  const pushDraftGuarded = useCallback(
+    async (
+      id: string,
+      graph: Record<string, unknown>
+    ): Promise<AutomationBuilderResponse | null> => {
+      try {
+        const res = await automationService.saveBuilderDraft(id, {
+          ...graph,
+          ...(draftBaseRef.current
+            ? { baseDraftSavedAt: draftBaseRef.current }
+            : {}),
+        });
+        if (res?.draftSavedAt) draftBaseRef.current = res.draftSavedAt;
+        return res;
+      } catch (err) {
+        if ((err as { code?: string })?.code === "AUTOMATION_DRAFT_STALE") {
+          try {
+            const fresh = await automationService.getBuilder(id);
+            hydrateBuilderState(fresh);
+            toast(
+              "Loaded newer changes saved from another tab. Review before saving again."
+            );
+          } catch {
+            // Best-effort reconcile; leave the client as-is on a failed reload.
+          }
+          return null;
+        }
+        throw err;
+      }
+    },
+    [hydrateBuilderState]
+  );
+
   const persistDraftReturningId = useCallback(async (): Promise<string> => {
     const name =
       (typeof automationData.name === "string"
@@ -2324,7 +2372,7 @@ const CreateAutomationContent = () => {
         name,
         description: automationData.description ?? "",
       });
-      await automationService.saveBuilderDraft(automationId, graph);
+      await pushDraftGuarded(automationId, graph);
       return automationId;
     }
     const created = await automationService.createAutomation({
@@ -2336,9 +2384,17 @@ const CreateAutomationContent = () => {
     if (!createdId) throw new Error("Could not create the automation.");
     // Create does not seed the draft graph getBuilder reads back, so write it
     // explicitly - this is the lenient store the deadlock needed.
-    await automationService.saveBuilderDraft(createdId, graph);
+    await pushDraftGuarded(createdId, graph);
     return createdId;
-  }, [automationData, automationId, edges, flowSettings, isNew, nodes]);
+  }, [
+    automationData,
+    automationId,
+    edges,
+    flowSettings,
+    isNew,
+    nodes,
+    pushDraftGuarded,
+  ]);
 
   const saveDraftMutation = useMutation({
     mutationFn: async () => {
@@ -2387,7 +2443,9 @@ const CreateAutomationContent = () => {
       // Omitting them let the 1s autosave overwrite draftGraph.settings with {},
       // silently wiping a goal the user had just set — it survived only a full
       // save/publish, so it "saved for some automations" and not others.
-      await automationService.saveBuilderDraft(automationId, {
+      // Guarded: stamps the base draftSavedAt so a stale tab can't clobber a
+      // newer draft, and reconciles on a 409 instead of overwriting.
+      await pushDraftGuarded(automationId, {
         ...toWireGraph({ nodes, edges }),
         settings: flowSettings,
       });

@@ -987,33 +987,62 @@ var NAV_LINKS = [
   { href: "/pricing", label: "Pricing" }
 ];
 var DOC = "https://docs.onchainsuite.com";
-// Reference-site footer: four single-group columns (Platform / Resources /
-// Company / Legal). Kept in sync with the live redesign footer.
+// Reference-site footer: grouped columns (Attio-style), a "New" tag, an arrow on
+// links that leave the site, and a source tag on every link. Integrations are the
+// ones the docs describe; "Switching from" goes to each comparison page.
 var FOOT = [
   [
     { title: "Platform", items: [
       { label: "Audience", href: "/platform/audience" },
       { label: "Segments", href: "/platform/segments" },
       { label: "Loops", href: "/platform/loops" },
-      { label: "Intelligence MCP", href: "/platform/intelligence-mcp" },
+      { label: "Intelligence MCP", href: "/platform/intelligence-mcp", tag: "New" },
       { label: "How we use data", href: "/platform/data" },
       { label: "Pricing", href: "/pricing" }
+    ] },
+    { title: "Company", items: [
+      { label: "Team", href: "/team" },
+      { label: "Our hypothesis", href: "/hypothesis" },
+      { label: "Refer a team", href: "/refer", tag: "New" }
+    ] }
+  ],
+  [
+    { title: "OnchainSuite for", items: [
+      { label: "Blockchain companies", href: "/for/blockchain-companies" },
+      { label: "Mainstream companies", href: "/for/mainstream-companies" }
+    ] },
+    { title: "Switching from", items: [
+      { label: "Klaviyo", href: "/compare/klaviyo" },
+      { label: "Customer.io", href: "/compare/customer-io" },
+      { label: "Braze", href: "/compare/braze" },
+      { label: "Brevo", href: "/compare/brevo" },
+      { label: "SendGrid", href: "/compare/sendgrid" },
+      { label: "Dotdigital", href: "/compare/dotdigital" },
+      { label: "EmailOctopus", href: "/compare/emailoctopus" }
+    ] }
+  ],
+  [
+    { title: "Integrations", items: [
+      { label: "In-app SDK", href: `${DOC}/integrations/in-app-notifications` },
+      { label: "Mobile push", href: `${DOC}/integrations/in-app-notifications` },
+      { label: "Server API", href: `${DOC}/integrations/server-api` },
+      { label: "Webhooks", href: `${DOC}/api/webhooks` },
+      { label: "Custom events", href: `${DOC}/integrations/custom-events` },
+      { label: "Forms", href: `${DOC}/integrations/forms` },
+      { label: "Wallet and contract data", href: `${DOC}/integrations/wallet-and-contract-data` },
+      { label: "CSV and JSON import", href: `${DOC}/audience/imports-and-exports` }
     ] }
   ],
   [
     { title: "Resources", items: [
       { label: "Compare", href: "/compare" },
       { label: "Free tools", href: "/tools" },
-      { label: "Docs", href: DOC }
-    ] }
-  ],
-  [
-    { title: "Company", items: [
-      { label: "Team", href: "/team" },
-      { label: "Book a walkthrough", href: "/early-access" }
-    ] }
-  ],
-  [
+      { label: "Docs", href: DOC },
+      { label: "Help centre", href: `${DOC}/help/faq` },
+      { label: "Troubleshooting", href: `${DOC}/help/troubleshooting` },
+      { label: "Hire an expert", href: "/pricing#cmp-h" },
+      { label: "Trust centre", href: "/platform/data" }
+    ] },
     { title: "Legal", items: [
       { label: "Terms", href: "/terms" },
       { label: "Privacy", href: "/privacy" },
@@ -1197,7 +1226,7 @@ function HomeBody() {
   </section>
 
   <div className="logos" aria-label="Paying customers">
-    <a className="rv" href="#" aria-label="Vault777"><img src="https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/vault777_c3ceoc.jpg" alt="" />Vault777</a><a className="rv" href="https://www.yauga.com/" target="_blank" rel="noreferrer" aria-label="Yauga"><img src="/site/logos/yauga.jpg" alt="" />Yauga</a><a className="rv" href="https://rehitagestays.co.uk/" target="_blank" rel="noreferrer" aria-label="Rehitage"><img src="/site/logos/rehitage.svg" alt="" />Rehitage</a><a className="rv" href="https://surgence.io/" target="_blank" rel="noreferrer" aria-label="Surgence Labs"><img src="/site/logos/surgence.jpg" alt="" />Surgence Labs</a>
+    <a className="rv" href="https://app.vault777.com/" target="_blank" rel="noreferrer" aria-label="Vault777"><img src="https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/vault777_c3ceoc.jpg" alt="" />Vault777</a><a className="rv" href="https://www.yauga.com/" target="_blank" rel="noreferrer" aria-label="Yauga"><img src="/site/logos/yauga.jpg" alt="" />Yauga</a><a className="rv" href="https://rehitagestays.co.uk/" target="_blank" rel="noreferrer" aria-label="Rehitage"><img src="/site/logos/rehitage.svg" alt="" />Rehitage</a><a className="rv" href="https://surgence.io/" target="_blank" rel="noreferrer" aria-label="Surgence Labs"><img src="/site/logos/surgence.jpg" alt="" />Surgence Labs</a>
   </div>
 
   <section className="state" id="platform" aria-labelledby="platform-h">
@@ -1611,7 +1640,14 @@ var CONTACT_STEPS = [
   4e5,
   5e5
 ];
-var PRO_TERMS = ["Unlimited access to the whole platform", "Priority support from our team", "Volume discounts as you grow", "A contract and terms agreed with you"];
+var PRO_TERMS = [
+  "Unlimited access to the whole platform",
+  "Onramp included, plus migration from your current tool",
+  "A named person for an hour a week, with quarterly reviews",
+  "A compliance register check for your jurisdiction",
+  "Priority support from our team",
+  "A custom annual contract"
+];
 var LEVEL_INFO = [
   { id: "launch", name: "Launch", band: "2,500 to 24,999 contacts", ref: 2500 },
   { id: "growth", name: "Growth", band: "25,000 to 74,999 contacts", ref: 25e3 },
@@ -1627,11 +1663,21 @@ var METERS = [
 var SEND_BASE = 6;
 var SEND_PER_1K = 3.95;
 var sendPrice = (subscribers) => SEND_BASE + subscribers / 1e3 * SEND_PER_1K;
+/* Onramp: the 90-day done-with-you programme. Not offered on Launch, optional on
+   Growth at $500/mo for three months, included on Enterprise. 20 hours. */
+var ONRAMP = { usdPerMonth: 500, months: 3, hours: 20 };
+var ONRAMP_STEPS = [
+  { when: "Weeks 1 to 2", what: "Your data connected and your audience built" },
+  { when: "Week 3", what: "Your segments set up" },
+  { when: "Weeks 4 to 6", what: "Three Loops live" },
+  { when: "Weeks 7 to 8", what: "Your first campaign sent, and the results read with you" },
+  { when: "Every two weeks", what: "A 30-minute call with our team" },
+  { when: "Week 12", what: "Handover and a plan for the next quarter" }
+];
 var ADDONS = [
   { item: "Extra team seats", detail: "Each seat above the ones your contact count includes, up to 50", price: "$10 a month", send: "Ask us" },
   { item: "+10,000 wallet-data credits", detail: "Enough to fully enrich 2,500 more wallets", price: "$10", send: false },
-  { item: "+100,000 wallet-data credits", detail: "Enough to fully enrich 25,000 more wallets", price: "$100", send: false },
-  { item: "Concierge", detail: "Our team plans and runs lifecycle work with you, scoped in advance", price: "$150 an hour", send: "$150 an hour" }
+  { item: "+100,000 wallet-data credits", detail: "Enough to fully enrich 25,000 more wallets", price: "$100", send: false }
 ];
 var fmt = (n) => n.toLocaleString("en-US");
 var usd = (n) => "$" + (Number.isInteger(n) ? fmt(n) : n.toFixed(2));
@@ -1680,18 +1726,20 @@ var COMPARE_GROUPS = [
   {
     title: "Support and terms",
     rows: [
+      { label: "Onramp", info: "onramp", note: "90 days with our team, from your data to your first campaign.", cells: [false, { yes: true, note: "$500 a month for 3 months" }, { yes: true, note: "Included" }], send: "Ask us" },
+      { label: "Migration from your current tool", cells: [false, false, true], send: false },
+      { label: "A named person and quarterly reviews", cells: [false, false, true], send: false },
+      { label: "Compliance register check for your jurisdiction", cells: [false, false, true], send: false },
       { label: "Priority support", cells: [false, false, true], send: false },
-      { label: "Volume discounts", cells: [false, false, true], send: false },
-      { label: "Custom contract and pricing", cells: [false, false, true], send: false }
+      { label: "Custom annual contract", cells: [false, false, true], send: false }
     ]
   },
   {
     title: "Add-ons",
-    rows: ADDONS.map((a) => ({ label: a.item, note: a.detail, cells: [a.price], span: true, send: a.send }))
-  },
-  {
-    title: "Usage beyond your allowance",
-    rows: METERS.map((m) => ({ label: m.item, note: m.unit, cells: [m.price], span: true, send: m.send }))
+    rows: [
+      ...ADDONS.map((a) => ({ label: a.item, note: a.detail, cells: [a.price], span: true, send: a.send })),
+      { label: "Usage beyond your allowance", info: "usage", note: "Emails, in-app messages, credits, list checks and AI actions above your monthly allowance.", cells: ["From $1 per 1,000"], span: true, send: "From $1 per 1,000" }
+    ]
   }
 ];
 var PRICING_FAQ = [
@@ -1701,7 +1749,11 @@ var PRICING_FAQ = [
   },
   {
     q: "How do I choose a package?",
-    a: "Set the number of contacts you plan to import and the price follows. Your level comes from that number: Launch up to 24,999 contacts and Growth from 25,000. From 75,000 contacts, Enterprise is priced as a custom deal with unlimited access, priority support and volume discounts. Many companies start with one customer group rather than every wallet that has touched their contracts."
+    a: "Set the number of contacts you plan to import and the price follows. Your level comes from that number: Launch up to 24,999 contacts and Growth from 25,000. From 75,000 contacts, Enterprise is a custom annual contract with Onramp, migration from your current tool and a named person included. Many companies start with one customer group rather than every wallet that has touched their contracts."
+  },
+  {
+    q: "What is Onramp?",
+    a: "A 90-day programme in which our team spends 20 hours with yours. We connect your data and build your audience, set up your segments, put three Loops live and send your first campaign with you, with a call every two weeks and a handover plan at the end. It is $500 a month for the first three months on Growth, included on Enterprise and not offered on Launch, and we start three a month."
   },
   {
     q: "What counts as a contact?",
@@ -1780,13 +1832,19 @@ function PricingPlans() {
         </div>}
     </div>;
 }
-var MIN_C = CONTACT_STEPS[0];
+var LEVEL_LINE = {
+  launch: "Set up yourself",
+  growth: "Onramp, $500 a month for 3 months",
+  pro: "Onramp included"
+};
 var MAX_C = CONTACT_STEPS[CONTACT_STEPS.length - 1];
 var MAX_EXTRA_SEATS = 50;
+/* Suite is priced by contacts on the SSOT curve, plus any seats above the included
+   count. The level is not chosen; it follows from the contact band. */
 function SuiteConfigurator({ cur }) {
-  const [contacts, setContacts] = useState4(25e3);
-  const [draft, setDraft] = useState4(null);
+  const [contacts, setContacts] = useState4(5e3);
   const [extra, setExtra] = useState4(0);
+  const [onramp, setOnramp] = useState4(false);
   const level = levelFor(contacts);
   const custom = level === "pro";
   const al = allowances(contacts);
@@ -1794,34 +1852,38 @@ function SuiteConfigurator({ cur }) {
   const seatsUsd = extra * EXTRA_SEAT_USD;
   const money3 = (u) => cur === "usd" ? "$" + fmt(u) : "£" + fmt(Math.round(u * FX_GBP));
   const total = cur === "usd" ? "$" + fmt(suiteUsd + seatsUsd) : "£" + fmt(Math.round(suiteUsd * FX_GBP) + Math.round(seatsUsd * FX_GBP));
+  const withOnramp = level === "growth" && onramp;
+  const firstMonths = cur === "usd" ? "$" + fmt(suiteUsd + seatsUsd + ONRAMP.usdPerMonth) : "£" + fmt(Math.round(suiteUsd * FX_GBP) + Math.round(seatsUsd * FX_GBP) + Math.round(ONRAMP.usdPerMonth * FX_GBP));
   const seatPrice = cur === "usd" ? "$" + EXTRA_SEAT_USD : "£" + (EXTRA_SEAT_USD * FX_GBP).toFixed(2);
-  const down = () => setContacts([...CONTACT_STEPS].reverse().find((s) => s < contacts) ?? MIN_C);
-  const up = () => setContacts(CONTACT_STEPS.find((s) => s > contacts) ?? MAX_C);
-  const commit = () => {
-    if (draft === null) return;
-    const n = parseInt(draft.replace(/[^0-9]/g, ""), 10);
-    if (!Number.isNaN(n)) setContacts(Math.min(MAX_C, Math.max(MIN_C, n)));
-    setDraft(null);
-  };
+  const idx = Math.max(0, CONTACT_STEPS.indexOf(contacts));
+  const last = CONTACT_STEPS.length - 1;
+  const pct = (c) => CONTACT_STEPS.indexOf(c) / last * 100;
+  const gStart = pct(25e3), eStart = pct(75e3);
   return <div className="cfg">
       <div className="cfg-set">
-        <div className="cfg-row">
-          <div>
-            <label htmlFor="cfgContacts"><b>Contacts</b></label>
-            <span>Each email address, wallet or social handle you import counts as one.</span>
+        <div className="cfg-slider">
+          <div className="cfg-slider-h">
+            <label htmlFor="cfgContacts">How many contacts do you have?</label>
+            <output htmlFor="cfgContacts">{fmt(contacts)}{contacts >= MAX_C ? "+" : ""}</output>
           </div>
-          <div className="step">
-            <button type="button" onClick={down} disabled={contacts <= MIN_C} aria-label="Fewer contacts">−</button>
+          <div className="cfg-track" style={{ "--fill": `${idx / last * 100}%`, "--g": `${gStart}%`, "--e": `${eStart}%` }}>
             <input
     id="cfgContacts"
-    inputMode="numeric"
-    value={draft ?? fmt(contacts)}
-    onChange={(e) => setDraft(e.target.value)}
-    onBlur={commit}
-    onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+    type="range"
+    min={0}
+    max={last}
+    step={1}
+    value={idx}
+    onChange={(e) => setContacts(CONTACT_STEPS[+e.target.value])}
+    aria-valuetext={`${fmt(contacts)} contacts, ${LEVEL_INFO.find((l) => l.id === level).name}`}
   />
-            <button type="button" onClick={up} disabled={contacts >= MAX_C} aria-label="More contacts">+</button>
           </div>
+          <div className="cfg-bands" aria-hidden="true">
+            <span style={{ left: 0, width: `${gStart}%` }} className={level === "launch" ? "on" : ""}>Launch</span>
+            <span style={{ left: `${gStart}%`, width: `${eStart - gStart}%` }} className={level === "growth" ? "on" : ""}>Growth</span>
+            <span style={{ left: `${eStart}%`, width: `${100 - eStart}%` }} className={level === "pro" ? "on" : ""}>Enterprise</span>
+          </div>
+          <p className="cfg-note">Your level follows your list size. Pick <OnrampButton>Onramp</OnrampButton> if you want us to build it with you.</p>
         </div>
         <div className="cfg-row">
           <div>
@@ -1834,12 +1896,12 @@ function SuiteConfigurator({ cur }) {
             <button type="button" onClick={() => setExtra(Math.min(MAX_EXTRA_SEATS, extra + 1))} disabled={extra >= MAX_EXTRA_SEATS} aria-label="More seats">+</button>
           </div>}
         </div>
-        <div className="cfg-levels" role="group" aria-label="Level, set by your contacts">
+        <div className="cfg-levels" role="group" aria-label="Levels">
           {LEVEL_INFO.map((l) => <button key={l.id} type="button" aria-pressed={level === l.id} onClick={() => setContacts(l.ref)}>
-              <b>{l.name}</b><span>{l.band}</span><em>{l.id === "pro" ? "Custom pricing" : <>from {money3(suitePrice(l.ref))} a month</>}</em>
+              <b>{l.name}</b>
+              <span>{LEVEL_LINE[l.id].replace("$500", money3(ONRAMP.usdPerMonth))}</span>
             </button>)}
         </div>
-        <p className="cfg-note">Your level follows from your contacts, and every level includes the whole platform. From 75,000 contacts, Enterprise is priced as a custom deal with you.</p>
       </div>
 
       <div className="cfg-sum">
@@ -1850,11 +1912,16 @@ function SuiteConfigurator({ cur }) {
             <ul className="checks cfg-pro">{PRO_TERMS.map((t) => <li key={t}>{t}</li>)}</ul>
             <Link className="btn solid lg" href="/early-access">Talk to sales</Link>
           </> : <>
-            <p className="price"><b>{total}</b><span>a month</span></p>
+            {withOnramp ? <p className="price"><b>{firstMonths}</b><span>a month for months one to three, then {total}</span></p> : <p className="price"><b>{total}</b><span>a month</span></p>}
             <ul className="cfg-break">
               <li><span>Suite plan for {fmt(contacts)} contacts</span><b>{money3(suiteUsd)}</b></li>
               {extra > 0 && <li><span>{extra} extra {extra === 1 ? "seat" : "seats"}</span><b>{money3(seatsUsd)}</b></li>}
+              {withOnramp && <li><span>Onramp, months one to three</span><b>{money3(ONRAMP.usdPerMonth)}</b></li>}
             </ul>
+            {level === "growth" ? <label className="cfg-onramp">
+                <input type="checkbox" checked={onramp} onChange={(e) => setOnramp(e.target.checked)} />
+                <span><b>Add Onramp</b>{money3(ONRAMP.usdPerMonth)} a month for three months. <OnrampButton>What&rsquo;s included</OnrampButton></span>
+              </label> : <p className="cfg-onramp-note">On Launch you set it up yourself, with the Intelligence MCP and a walkthrough call. <OnrampButton>Onramp</OnrampButton> starts on Growth.</p>}
             <p className="cfg-h">Included every month</p>
             <ul className="cfg-al">
               <li><span>Wallet-data credits</span><b>{fmt(al.credits)}</b></li>
@@ -1870,6 +1937,7 @@ function SuiteConfigurator({ cur }) {
 
 // components/ns/CompareTable.jsx
 function CellView({ c }) {
+  if (typeof c === "object" && c !== null) return <div role="cell" className="yes yes-note"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg><span>{c.note}</span></div>;
   if (typeof c !== "boolean") return <div role="cell" className="val">{c}</div>;
   return c ? <div role="cell" className="yes"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg><span className="sr-only">Included</span></div> : <div role="cell" className="no"><span aria-hidden="true">—</span><span className="sr-only">Not included</span></div>;
 }
@@ -1897,7 +1965,7 @@ function CompareTable() {
         {COMPARE_GROUPS.map((g) => <div key={g.title} role="rowgroup" className="cmp-group">
             <div className="cmp-gt" role="row"><div role="cell">{g.title}</div></div>
             {g.rows.map((r) => <div key={r.label} className="cmp-row" role="row">
-                <div role="rowheader">{r.label}{r.note && <small>{r.note}</small>}</div>
+                <div role="rowheader">{r.info ? <InfoButton kind={r.info} className="onr-row">{r.label}<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" strokeWidth="1.3" /><path d="M8 7.2v3.6M8 5.2v.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg></InfoButton> : r.label}{r.note && <small>{r.note}</small>}</div>
                 {send && <CellView c={r.send} />}
                 {r.span ? <div role="cell" className="val span">{r.cells[0]}</div> : r.cells.map((c, i) => <CellView key={i} c={c} />)}
               </div>)}
@@ -1908,7 +1976,7 @@ function CompareTable() {
 
 // components/ns/Blocks.jsx
 var CUSTOMERS = [
-  { name: "Vault777", logo: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/vault777_c3ceoc.jpg", href: "#" /* TODO: set Vault777 site URL */ },
+  { name: "Vault777", logo: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/vault777_c3ceoc.jpg", href: "https://app.vault777.com/" },
   { name: "Yauga", logo: "/site/logos/yauga.jpg", href: "https://www.yauga.com/" },
   { name: "Rehitage", logo: "/site/logos/rehitage.svg", href: "https://rehitagestays.co.uk/" },
   { name: "Surgence Labs", logo: "/site/logos/surgence.jpg", href: "https://surgence.io/" }
@@ -1956,6 +2024,93 @@ function PageHero({ title, sub, children }) {
     </section>;
 }
 
+// components/ns/OnrampPanel.jsx
+var ONR_OPEN = "pricing-info:open";
+function InfoButton({ kind, children, className }) {
+  return <button type="button" className={"onr-link " + (className || "")} aria-haspopup="dialog" onClick={() => window.dispatchEvent(new CustomEvent(ONR_OPEN, { detail: kind }))}>
+      {children}
+    </button>;
+}
+function OnrampButton({ children, className }) {
+  return <InfoButton kind="onramp" className={className}>{children}</InfoButton>;
+}
+var ONRAMP_LEVELS = [
+  { name: "Launch", value: "Not offered", tone: "off" },
+  { name: "Growth", value: `$${ONRAMP.usdPerMonth} a month for ${ONRAMP.months} months`, tone: "on" },
+  { name: "Enterprise", value: "Included", tone: "on" }
+];
+var Tick = () => <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>;
+function OnrampBody() {
+  return <>
+      <p className="onr-lead">90 days and {ONRAMP.hours} hours with our team, from your data to your first campaign.</p>
+      <ul className="onr-levels">
+        {ONRAMP_LEVELS.map((l) => <li key={l.name} className={l.tone}><span>{l.name}</span><b>{l.tone === "on" ? <Tick /> : null}{l.value}</b></li>)}
+      </ul>
+      <ol className="onr-tl">
+        {ONRAMP_STEPS.map((s) => <li key={s.when}><i>{s.when}</i><b>{s.what}</b></li>)}
+      </ol>
+    </>;
+}
+function UsageBody() {
+  return <>
+      <p className="onr-lead">Every level includes a monthly allowance. Anything above it is charged at these list prices.</p>
+      <ul className="onr-levels usage">
+        {METERS.map((m) => <li key={m.item}>
+            <span><b>{m.item}</b><small>{m.unit}</small></span>
+            <b>{m.price}</b>
+          </li>)}
+      </ul>
+      <p className="onr-note">On the Send plan, only emails and AI actions apply, because Send has no wallet data, in-app messages or list checks.</p>
+    </>;
+}
+function OnrampPanel() {
+  const [kind, setKind] = useState(null);
+  const [shown, setShown] = useState("onramp");
+  const closeRef = useRef(null);
+  const lastFocus = useRef(null);
+  const open = kind !== null;
+  const close = () => setKind(null);
+  useEffect(() => {
+    const onOpen = (e) => {
+      const k = e.detail;
+      lastFocus.current = document.activeElement;
+      setShown(k);
+      setKind(k);
+    };
+    window.addEventListener(ONR_OPEN, onOpen);
+    return () => window.removeEventListener(ONR_OPEN, onOpen);
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    closeRef.current?.focus();
+    const onKey = (e) => e.key === "Escape" && close();
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+      lastFocus.current?.focus?.();
+    };
+  }, [open]);
+  return <div className={"onr-layer" + (open ? " open" : "")} aria-hidden={!open}>
+      <div className="onr-backdrop" onClick={close} />
+      <aside className="onr-panel" role="dialog" aria-modal="true" aria-labelledby="onr-title" tabIndex={-1}>
+        <header className="onr-head">
+          <h2 id="onr-title">{shown === "onramp" ? "Onramp" : "Usage beyond your allowance"}</h2>
+          <button ref={closeRef} type="button" className="onr-close" onClick={close} aria-label="Close">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+          </button>
+        </header>
+        {shown === "onramp" ? <OnrampBody /> : <UsageBody />}
+        <footer className="onr-foot2">
+          {shown === "onramp" && <p>We start three a month.</p>}
+          <Link className="btn solid lg" href="/early-access" onClick={close}>Book a walkthrough</Link>
+        </footer>
+      </aside>
+    </div>;
+}
+
 // app/pricing/page.jsx
 var metadata = {
   title: "Pricing",
@@ -1978,7 +2133,7 @@ function PricingBody() {
           <h1 className="h1 load" style={{ animationDelay: ".08s" }}>Pricing that grows with the customers you bring in.</h1>
           <p className="sub load" style={{ animationDelay: ".16s" }}>Set the contacts you plan to import and the seats your team needs, and the price follows.</p>
           <div className="load" style={{ animationDelay: ".24s" }}><PricingPlans /></div>
-          <p className="bridge rv center"><a href="#cmp-h">Not sure which package fits? Every one reads both lanes, and here is how they differ.<span aria-hidden="true">↓</span></a></p>
+          <p className="bridge rv center"><a href="#cmp-h">Not sure which level fits? Every level reads both lanes, and here is how they differ.<span aria-hidden="true">↓</span></a></p>
         </section>
 
         <LogoRow label="Trusted by blockchain companies including" />
@@ -1991,6 +2146,7 @@ function PricingBody() {
         <Faq items={PRICING_FAQ} />
         <CloseCta />
       </div>
+      <OnrampPanel />
       </PricingLineProvider>;
 }
 

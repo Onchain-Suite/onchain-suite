@@ -471,7 +471,23 @@ const request = async <T>(
         : typeof data === "string"
           ? data
           : (err.message ?? "Audience request failed");
-    throw new Error(String(message), { cause: e });
+    // Keep the HTTP status and the backend domain `code` on the Error. Flattening
+    // to the message string alone threw both away, so the import UI could not
+    // tell a 402 (payment), 409 (contact limit), 400 (bad list) or 5xx apart and
+    // collapsed every failure to one generic toast. Callers branch on these.
+    const code =
+      isJsonObject(nestedError) && typeof nestedError.code === "string"
+        ? nestedError.code
+        : isJsonObject(data) && typeof data.code === "string"
+          ? data.code
+          : undefined;
+    const error = new Error(String(message), { cause: e }) as Error & {
+      status?: number;
+      code?: string;
+    };
+    error.status = err.response?.status;
+    error.code = code;
+    throw error;
   }
 };
 

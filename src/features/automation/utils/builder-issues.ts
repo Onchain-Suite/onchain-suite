@@ -475,7 +475,12 @@ export const nodeSetupIssue = (
         !field(data, "templateName") &&
         !field(data, "template") &&
         !field(data, "body") &&
-        !field(data, "campaignId")
+        !field(data, "campaignId") &&
+        // A node built in the visual editor is linked to its design by
+        // `designId`; the HTML lives on that design row and the backend resolves
+        // it at send time, so a linked design is valid content even when no
+        // inline body currently rides on the node.
+        !field(data, "designId")
       ) {
         return { code: "INVALID_EMAIL_CONFIG", message: "Needs a template" };
       }

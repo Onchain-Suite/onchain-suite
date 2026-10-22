@@ -11,6 +11,7 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import { campaignsService } from "@/features/campaigns/campaigns.service";
 import { templatesService } from "@/features/templates/templates.service";
+import { publishEmailDesignSaved } from "@/shared/utils/email-design-channel";
 
 interface EmbeddedEmailEditorProps {
   campaignId: string;
@@ -208,7 +209,21 @@ export function EmbeddedEmailEditor({
             ? data.payload
             : data
           : {};
+        const subject =
+          typeof payload.subject === "string" ? payload.subject : undefined;
+        const previewText =
+          typeof payload.previewText === "string"
+            ? payload.previewText
+            : undefined;
         persistAsTemplate(payload).then((asTemplate) => {
+          // Tell an automation builder open in another tab to pull this design
+          // onto its Send Email node now, rather than waiting for a tab refocus.
+          publishEmailDesignSaved({
+            campaignId,
+            templateId: savedTemplateIdRef.current || undefined,
+            subject,
+            previewText,
+          });
           toast.success(
             asTemplate
               ? "Saved to Email Saved. You can select it and send."

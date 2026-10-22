@@ -1042,7 +1042,6 @@ function SiteChrome({ children }) {
           <Logo />
           <NavMenu />
           <div className="acts">
-            <Link className="btn" href="/auth/signin">Sign in</Link>
             <Link className="btn solid" href="/early-access">Book a walkthrough</Link>
             <MobileMenu links={NAV_LINKS} />
           </div>
@@ -1198,7 +1197,7 @@ function HomeBody() {
   </section>
 
   <div className="logos" aria-label="Paying customers">
-    <a className="rv" href="https://adipredictstreet.com/" target="_blank" rel="noreferrer" aria-label="Predict Street"><img src="/site/logos/predict-street.png" alt="" />Predict Street</a><a className="rv" href="https://www.yauga.com/" target="_blank" rel="noreferrer" aria-label="Yauga"><img src="/site/logos/yauga.jpg" alt="" />Yauga</a><a className="rv" href="https://rehitagestays.co.uk/" target="_blank" rel="noreferrer" aria-label="Rehitage"><img src="/site/logos/rehitage.svg" alt="" />Rehitage</a><a className="rv" href="https://surgence.io/" target="_blank" rel="noreferrer" aria-label="Surgence Labs"><img src="/site/logos/surgence.jpg" alt="" />Surgence Labs</a>
+    <a className="rv" href="#" aria-label="Vault777"><img src="https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/vault777_c3ceoc.jpg" alt="" />Vault777</a><a className="rv" href="https://www.yauga.com/" target="_blank" rel="noreferrer" aria-label="Yauga"><img src="/site/logos/yauga.jpg" alt="" />Yauga</a><a className="rv" href="https://rehitagestays.co.uk/" target="_blank" rel="noreferrer" aria-label="Rehitage"><img src="/site/logos/rehitage.svg" alt="" />Rehitage</a><a className="rv" href="https://surgence.io/" target="_blank" rel="noreferrer" aria-label="Surgence Labs"><img src="/site/logos/surgence.jpg" alt="" />Surgence Labs</a>
   </div>
 
   <section className="state" id="platform" aria-labelledby="platform-h">
@@ -1909,7 +1908,7 @@ function CompareTable() {
 
 // components/ns/Blocks.jsx
 var CUSTOMERS = [
-  { name: "Predict Street", logo: "/site/logos/predict-street.png", href: "https://adipredictstreet.com/" },
+  { name: "Vault777", logo: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/vault777_c3ceoc.jpg", href: "#" /* TODO: set Vault777 site URL */ },
   { name: "Yauga", logo: "/site/logos/yauga.jpg", href: "https://www.yauga.com/" },
   { name: "Rehitage", logo: "/site/logos/rehitage.svg", href: "https://rehitagestays.co.uk/" },
   { name: "Surgence Labs", logo: "/site/logos/surgence.jpg", href: "https://surgence.io/" }

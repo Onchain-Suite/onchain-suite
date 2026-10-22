@@ -37,6 +37,7 @@ import {
 import { cn, getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import { isChainRequired } from "../imports/chain-requirement";
+import { importErrorMessage } from "../utils/import-error";
 import {
   type AudienceExportJobStatus,
   type AudienceImportExportFormat,
@@ -448,32 +449,6 @@ function FilePreviewTable({ table }: { table: PreviewTable }) {
 }
 
 /** Turn an import failure into plain language - never a raw code or HTTP text. */
-function friendlyImportError(error: unknown): string {
-  const raw =
-    error instanceof Error
-      ? `${error.message} ${error.cause instanceof Error ? error.cause.message : ""}`
-      : String(error ?? "");
-  const text = raw.toUpperCase();
-  if (text.includes("IMPORT_LIST_REQUIRED"))
-    return "Choose a list for these contacts before importing.";
-  if (text.includes("IMPORT_CHAIN_REQUIRED"))
-    return "Choose the chain these wallets should be enriched on before importing.";
-  if (text.includes("IMPORT_LIST_NOT_FOUND"))
-    return "That list no longer exists. Pick another one or create a new list.";
-  if (text.includes("IMPORT_LIST_NOT_TAG_BACKED"))
-    return "That list can't receive imported contacts (it's a rule-based segment). Pick a simple list or create a new one.";
-  if (text.includes("UNSUPPORTED FILE") || text.includes("UNSUPPORTED_FILE"))
-    return "That file type isn't supported. Upload a .csv or .json file.";
-  if (text.includes("PLAN_LIMIT") || text.includes("402"))
-    return "This import would go over your plan's contact limit. Upgrade your plan or import fewer contacts.";
-  if (text.includes("HTTP 413") || text.includes("TOO LARGE"))
-    return "That file is too large to import here. Split it into smaller files (under 4MB) and try again.";
-  if (text.includes("HTTP 401") || text.includes("HTTP 403"))
-    return "Your session expired. Refresh the page and try the import again.";
-  // Keep a short, human message the user typed nothing wrong for.
-  return "We couldn't start the import. Please check your file and try again.";
-}
-
 export default function ImportExportPage() {
   const router = useRouter();
   const [dragActive, setDragActive] = useState(false);
@@ -1093,7 +1068,7 @@ export default function ImportExportPage() {
       router.push(`/audience?import=${encodeURIComponent(jobId)}`);
     },
     onError: (e: unknown) => {
-      toast.error(friendlyImportError(e));
+      toast.error(importErrorMessage(e));
     },
     onSettled: () => {
       setIsImporting(false);

@@ -3,9 +3,15 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
-import type { AudienceImportEstimate } from "./contracts/imports";
+import type {
+  AudienceImportEstimate,
+  ImportUpgradeCheckout,
+} from "./contracts/imports";
 
-export type { AudienceImportEstimate } from "./contracts/imports";
+export type {
+  AudienceImportEstimate,
+  ImportUpgradeCheckout,
+} from "./contracts/imports";
 
 export interface AudienceOverview {
   total?: number;
@@ -1101,6 +1107,50 @@ export const audienceService = {
       {
         method: "POST",
         url: "/audience/imports/estimate",
+        data: fd,
+        params,
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+      orgId
+    );
+  },
+
+  /**
+   * `POST /billing/checkout/import-upgrade` - the "upgrade & import" flow for an
+   * over-cap import: holds the import server-side, starts a plan-upgrade checkout
+   * sized to cover the whole file, and resumes the import on payment. Returns the
+   * held job id and the checkout to redirect to. OWNER-only on the backend.
+   */
+  startImportUpgradeCheckout(
+    input: {
+      file: File;
+      format?: AudienceImportExportFormat;
+      mapping?: Record<string, string>;
+      platform?: AudienceImportPlatform | string;
+      query?: Record<string, string | number | boolean | undefined>;
+      billingCycle?: "monthly" | "annual";
+      paymentMethod?: "card" | "crypto";
+    },
+    orgId?: string
+  ) {
+    const fd = new FormData();
+    fd.append("file", input.file);
+    if (input.mapping && Object.keys(input.mapping).length > 0) {
+      fd.append("mapping", JSON.stringify(input.mapping));
+    }
+
+    const params: Record<string, unknown> = { ...(input.query ?? {}) };
+    if (input.format) params.format = input.format;
+    if (input.platform && input.platform.trim().length > 0) {
+      params.platform = input.platform.trim();
+    }
+    if (input.billingCycle) params.billingCycle = input.billingCycle;
+    if (input.paymentMethod) params.paymentMethod = input.paymentMethod;
+
+    return request<ImportUpgradeCheckout>(
+      {
+        method: "POST",
+        url: "/billing/checkout/import-upgrade",
         data: fd,
         params,
         headers: { "Content-Type": "multipart/form-data" },

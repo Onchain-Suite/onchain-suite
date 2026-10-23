@@ -42,3 +42,30 @@ export interface AudienceImportEstimate {
   /** How many rows would be quarantined over the cap (0 when within it). */
   overCapBy: number;
 }
+
+/**
+ * `POST /billing/checkout/import-upgrade` response (backend 2026-10-23): the
+ * "upgrade & import" flow. The import is held server-side (AWAITING_PAYMENT) and
+ * a plan-upgrade checkout is returned; on payment the backend raises the cap and
+ * resumes the import in the background, so the user can leave the page.
+ */
+export interface ImportUpgradeCheckout {
+  /** The held import job that resumes once the upgrade is paid. */
+  jobId: string;
+  /** Contact capacity the upgrade buys (existing + imported), the new plan size. */
+  targetContacts: number;
+  /** Contacts already in the org. */
+  existingContacts: number;
+  /** Rows in the file. */
+  importContacts: number;
+  /** Rows that would have been over the old cap. */
+  overCapBy: number;
+  /** Checkout to send the user to; `url` is the hosted payment page. */
+  checkout: {
+    url?: string;
+    paymentUrl?: string;
+    sessionId?: string;
+    plan?: string;
+    cycle?: string;
+  };
+}

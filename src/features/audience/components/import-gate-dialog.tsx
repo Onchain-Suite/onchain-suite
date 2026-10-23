@@ -53,7 +53,9 @@ export function ImportGateDialog({
   estimate,
   planName,
   busy,
+  upgradeBusy,
   onProceed,
+  onUpgradeImport,
   onClose,
 }: {
   open: boolean;
@@ -62,8 +64,16 @@ export function ImportGateDialog({
   planName?: string;
   /** True once the user confirmed and the import is starting. */
   busy?: boolean;
-  /** Warn path only: run the import despite the cap overflow. */
+  /** True once the user chose "Upgrade & import" and checkout is being prepared. */
+  upgradeBusy?: boolean;
+  /** Warn path only: run the import despite the cap overflow (quarantine). */
   onProceed: () => void;
+  /**
+   * Warn path only: upgrade the plan to cover the whole file and resume the
+   * import after payment. When omitted, the cap warning falls back to a plain
+   * "Upgrade plan" link to Billing.
+   */
+  onUpgradeImport?: () => void;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -160,6 +170,16 @@ export function ImportGateDialog({
                 {estimate.overCapBy.toLocaleString()}
               </span>{" "}
               until you upgrade. Held contacts aren&apos;t billed or messaged.
+              {onUpgradeImport ? (
+                <>
+                  {" "}
+                  Or upgrade to cover all{" "}
+                  <span className="font-medium text-foreground">
+                    {estimate.contacts.toLocaleString()}
+                  </span>{" "}
+                  and we&apos;ll import them in the background after payment.
+                </>
+              ) : null}
             </p>
           )}
         </div>
@@ -186,17 +206,28 @@ export function ImportGateDialog({
               <Button
                 variant="outline"
                 className="rounded-xl"
-                onClick={() => goToBilling()}
-              >
-                Upgrade plan
-              </Button>
-              <Button
-                className="rounded-xl"
-                disabled={busy}
+                disabled={Boolean(busy) || Boolean(upgradeBusy)}
                 onClick={onProceed}
               >
                 {busy ? "Starting…" : "Import anyway"}
               </Button>
+              {onUpgradeImport ? (
+                <Button
+                  className="rounded-xl"
+                  disabled={Boolean(busy) || Boolean(upgradeBusy)}
+                  onClick={onUpgradeImport}
+                >
+                  {upgradeBusy ? "Preparing…" : "Upgrade & import"}
+                </Button>
+              ) : (
+                <Button
+                  className="rounded-xl"
+                  disabled={busy}
+                  onClick={() => goToBilling()}
+                >
+                  Upgrade plan
+                </Button>
+              )}
             </>
           )}
         </DialogFooter>

@@ -50,6 +50,7 @@ import {
 } from "@/features/audience/audience.service";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { PageHeader } from "@/shared/components/page/page-header";
+import { useMyOrgRole } from "@/shared/hooks/client/use-my-org-role";
 
 const fieldOptions = [
   { value: "", label: "Skip this column" },
@@ -453,6 +454,10 @@ function FilePreviewTable({ table }: { table: PreviewTable }) {
 /** Turn an import failure into plain language - never a raw code or HTTP text. */
 export default function ImportExportPage() {
   const router = useRouter();
+  // Owner-only: the "upgrade & import" path starts a plan-upgrade checkout, which
+  // is OWNER-guarded on the backend. Cosmetic gating so non-owners don't see a
+  // button that would 403.
+  const { role: myOrgRole } = useMyOrgRole();
   const [dragActive, setDragActive] = useState(false);
   const [importStep, setImportStep] = useState<ImportStep>("upload");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -1327,6 +1332,72 @@ export default function ImportExportPage() {
         // verification will actually bill.
         dedupeKey: "auto",
       }),
+  });
+
+  // "Upgrade & import": holds the over-cap import server-side and sends the user
+  // to a plan-upgrade checkout; the backend resumes the import after payment. The
+  // query/mapping mirror the real import so the held job runs identically.
+  const upgradeImportMutation = useMutation({
+    mutationFn: async () => {
+      if (!uploadedFile) throw new Error("No file selected");
+      if (!selectedListId) throw new Error("IMPORT_LIST_REQUIRED");
+      const lower = uploadedFile.name.toLowerCase();
+      const format: AudienceImportExportFormat | undefined = lower.endsWith(
+        ".csv"
+      )
+        ? "csv"
+        : lower.endsWith(".json")
+          ? "json"
+          : undefined;
+      if (!format) throw new Error("Unsupported file type");
+
+      const mapping: Record<string, string> = {};
+      if (format === "csv") {
+        for (const col of csvColumns) {
+          const target = col.mappedTo?.trim();
+          if (!target) continue;
+          if (target === "custom") {
+            const key = col.header.trim().replace(/\s+/g, "_");
+            mapping[col.header] = `attributes.${key}`;
+            continue;
+          }
+          mapping[col.header] = target;
+        }
+      }
+
+      const query: Record<string, string | number | boolean | undefined> = {
+        mode: "upsert",
+        onConflict: "update",
+        dedupeKey: "auto",
+        maxErrors: 10000,
+        listId: selectedListId,
+        defaultChain: selectedChain,
+        ...(importTagList.length > 0 ? { tags: importTagList.join(",") } : {}),
+      };
+
+      const res = await audienceService.startImportUpgradeCheckout({
+        file: uploadedFile,
+        format,
+        mapping: format === "csv" ? mapping : undefined,
+        platform: importPlatform || undefined,
+        query,
+        billingCycle: "monthly",
+        paymentMethod: "card",
+      });
+      const url = res.checkout?.url ?? res.checkout?.paymentUrl;
+      if (!url)
+        throw new Error("Upgrade checkout did not return a payment URL.");
+      return { url };
+    },
+    onSuccess: ({ url }) => {
+      toast.success(
+        "Taking you to checkout. Your import resumes automatically once payment is confirmed."
+      );
+      window.location.href = url;
+    },
+    onError: (e: unknown) => {
+      toast.error(importErrorMessage(e));
+    },
   });
 
   const handleImport = async () => {
@@ -2638,11 +2709,19 @@ export default function ImportExportPage() {
         open={gateEstimate !== null}
         estimate={gateEstimate}
         busy={importMutation.isPending || isImporting}
+        upgradeBusy={upgradeImportMutation.isPending}
         onClose={() => setGateEstimate(null)}
         onProceed={() => {
           setGateEstimate(null);
           runImport();
         }}
+        // Owner-only: the upgrade path starts a plan checkout (OWNER-guarded).
+        // Non-owners keep the quarantine ("Import anyway") + the Billing link.
+        onUpgradeImport={
+          myOrgRole === "OWNER"
+            ? () => upgradeImportMutation.mutate()
+            : undefined
+        }
       />
     </motion.div>
   );

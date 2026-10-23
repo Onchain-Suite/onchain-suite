@@ -3,6 +3,10 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import type { AudienceImportEstimate } from "./contracts/imports";
+
+export type { AudienceImportEstimate } from "./contracts/imports";
+
 export interface AudienceOverview {
   total?: number;
   withWallet?: number;
@@ -1065,6 +1069,38 @@ export const audienceService = {
       {
         method: "POST",
         url: "/audience/imports",
+        data: fd,
+        params,
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+      orgId
+    );
+  },
+
+  /**
+   * `POST /audience/imports/estimate` - dry pre-check (no writes): parses the
+   * file to count rows, prices the PAYG verification against the wallet, and
+   * reports plan contact-cap headroom. The import UI calls this after column
+   * mapping to block on a wallet shortfall and warn on a cap overflow before it
+   * commits the real import.
+   */
+  estimateImport(
+    input: {
+      file: File;
+      format?: AudienceImportExportFormat;
+      dedupeKey?: string;
+    },
+    orgId?: string
+  ) {
+    const fd = new FormData();
+    fd.append("file", input.file);
+    const params: Record<string, unknown> = {};
+    if (input.format) params.format = input.format;
+    if (input.dedupeKey) params.dedupeKey = input.dedupeKey;
+    return request<AudienceImportEstimate>(
+      {
+        method: "POST",
+        url: "/audience/imports/estimate",
         data: fd,
         params,
         headers: { "Content-Type": "multipart/form-data" },

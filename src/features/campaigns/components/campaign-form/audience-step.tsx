@@ -764,8 +764,16 @@ export function AudienceStep({
     // panel stays short on a clean list. The toggle always shows: its whole
     // job is to be available before anyone is tagged.
   ].filter((row) => {
+    // Toggles always show: their whole job is to be available before anyone is
+    // tagged, and before the first estimate resolves.
     if (row.toggle === true) return true;
-    return row.count === null || row.count > 0;
+    // Locked hygiene rows show only once the estimate has resolved with a real
+    // count. Before that `estimateBreakdown` is null and every count is null;
+    // treating null as "show" here flashed all five compliance chips during
+    // load, then dropped them the instant real zeros arrived - a visible
+    // content swap / layout shift. Now they appear only with a known count > 0.
+    if (estimateBreakdown === null) return false;
+    return (row.count ?? 0) > 0;
   });
 
   return (

@@ -38,8 +38,10 @@ import { cn, getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import { isChainRequired } from "../imports/chain-requirement";
 import { importErrorMessage } from "../utils/import-error";
+import { ImportGateDialog } from "./import-gate-dialog";
 import {
   type AudienceExportJobStatus,
+  type AudienceImportEstimate,
   type AudienceImportExportFormat,
   type AudienceImportIssue,
   type AudienceImportJobStatus,
@@ -503,6 +505,10 @@ export default function ImportExportPage() {
   // Chain every wallet in this import is enriched on (a per-row Chain column
   // still wins). Required so an ADI file is enriched on ADI, not eth-mainnet.
   const [selectedChain, setSelectedChain] = useState<string>("");
+  // Pre-import gate: the estimate that opened it (wallet shortfall or cap
+  // overflow), null when no gate is showing.
+  const [gateEstimate, setGateEstimate] =
+    useState<AudienceImportEstimate | null>(null);
 
   const chainsQuery = useQuery({
     queryKey: ["audience", "import", "supported-chains"],
@@ -1302,8 +1308,66 @@ export default function ImportExportPage() {
       toast.error(e instanceof Error ? e.message : "Failed to download export"),
   });
 
-  const handleImport = () => {
+  // Files the authenticated proxy can estimate in one request. A larger file
+  // skips the client gate and relies on the backend's own pre-import check (it
+  // falls back to the empty-wallet gate above its own count threshold), so a
+  // big import is never blocked from running by a failed estimate.
+  const ESTIMATE_MAX_BYTES = 4 * 1024 * 1024;
+
+  const runImport = () => {
     importMutation.mutateAsync().catch(() => undefined);
+  };
+
+  const estimateMutation = useMutation({
+    mutationFn: (input: { file: File; format: AudienceImportExportFormat }) =>
+      audienceService.estimateImport({
+        file: input.file,
+        format: input.format,
+        // Mirror the real import's dedupeKey so the cost estimate matches what
+        // verification will actually bill.
+        dedupeKey: "auto",
+      }),
+  });
+
+  const handleImport = async () => {
+    if (!uploadedFile) return;
+    if (!selectedListId) {
+      runImport(); // let the import mutation surface IMPORT_LIST_REQUIRED
+      return;
+    }
+    if (chainRequired && !selectedChain) {
+      runImport(); // same: surface IMPORT_CHAIN_REQUIRED via the import path
+      return;
+    }
+
+    const lower = uploadedFile.name.toLowerCase();
+    const format: AudienceImportExportFormat | undefined = lower.endsWith(
+      ".csv"
+    )
+      ? "csv"
+      : lower.endsWith(".json")
+        ? "json"
+        : undefined;
+
+    // Gate only what we can cheaply estimate; otherwise go straight to import
+    // (the backend still gates). The estimate is advisory - any failure falls
+    // through to the real import rather than blocking a legitimate one.
+    if (format && uploadedFile.size <= ESTIMATE_MAX_BYTES) {
+      try {
+        const estimate = await estimateMutation.mutateAsync({
+          file: uploadedFile,
+          format,
+        });
+        if (estimate.willExceedBalance || estimate.willExceedCap) {
+          setGateEstimate(estimate);
+          return;
+        }
+      } catch {
+        // Advisory only: fall through and let the import run + backend gate.
+      }
+    }
+
+    runImport();
   };
 
   const resetImport = () => {
@@ -2260,6 +2324,7 @@ export default function ImportExportPage() {
                   disabled={
                     isImporting ||
                     importMutation.isPending ||
+                    estimateMutation.isPending ||
                     !uploadedFile ||
                     !selectedImportFormat ||
                     // Backend requires a list for every import.
@@ -2276,9 +2341,11 @@ export default function ImportExportPage() {
                   }
                   className="rounded-xl bg-primary px-6 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isImporting || importMutation.isPending
-                    ? "Importing..."
-                    : "Import Data"}
+                  {estimateMutation.isPending
+                    ? "Checking…"
+                    : isImporting || importMutation.isPending
+                      ? "Importing..."
+                      : "Import Data"}
                 </button>
               </div>
             </div>
@@ -2566,6 +2633,17 @@ export default function ImportExportPage() {
             );
           })()}
       </div>
+
+      <ImportGateDialog
+        open={gateEstimate !== null}
+        estimate={gateEstimate}
+        busy={importMutation.isPending || isImporting}
+        onClose={() => setGateEstimate(null)}
+        onProceed={() => {
+          setGateEstimate(null);
+          runImport();
+        }}
+      />
     </motion.div>
   );
 }

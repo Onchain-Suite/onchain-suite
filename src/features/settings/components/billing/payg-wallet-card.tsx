@@ -2,7 +2,8 @@
 
 import { WalletIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { getSelectedOrganizationId } from "@/lib/utils";
@@ -82,6 +83,20 @@ export function PaygWalletCard({ planName }: { planName: string }) {
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [amount, setAmount] = useState("25");
   const [startingCheckout, setStartingCheckout] = useState(false);
+  const searchParams = useSearchParams();
+
+  // Deep link from the import gate: `/settings?tab=billing&topup=<shortfall>`
+  // opens the top-up dialog prefilled with at least the shortfall, so a blocked
+  // import is one click from being funded. Clamped to the $10–$1,000 range the
+  // handler accepts.
+  useEffect(() => {
+    const raw = searchParams?.get("topup");
+    if (!raw) return;
+    const amt = Number(raw);
+    if (!Number.isFinite(amt)) return;
+    setAmount(String(Math.min(1000, Math.max(10, Math.ceil(amt)))));
+    setTopUpOpen(true);
+  }, [searchParams]);
 
   const walletQuery = useQuery({
     queryKey: ["billing", "payg-wallet", orgId],

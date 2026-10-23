@@ -88,7 +88,13 @@ export async function syncAudienceSettings(
   await Promise.all(writes);
 
   let estimate: CampaignAudienceEstimate | null = null;
-  if (!options.skipEstimate && (audienceChanged || options.forceEstimate)) {
+  // Re-estimate on a tracking change too, not just an audience change: toggles
+  // like Smart Sending and the Inactive (sunset) filter live in `tracking` and
+  // move the recipient count, so the number must refresh when they flip.
+  if (
+    !options.skipEstimate &&
+    (audienceChanged || trackingChanged || options.forceEstimate)
+  ) {
     estimate = await campaignsService
       .estimateAudience(campaignId)
       .catch(() => null);

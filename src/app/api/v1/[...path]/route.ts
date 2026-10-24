@@ -37,6 +37,13 @@ type AudienceImportJob = {
   createdCount: number;
   updatedCount: number;
   skippedCount: number;
+  /**
+   * Rows stored but HELD over the plan's contact cap (`over_capacity`): created
+   * on the backend, but unmailable until the org upgrades. Counted apart from
+   * `createdCount` so the import summary can show "added but held" and offer the
+   * upgrade path, matching the worker importer's own quarantine accounting.
+   */
+  quarantinedCount: number;
   errorCount: number;
   errors: AudienceImportError[];
 };
@@ -368,6 +375,28 @@ const fetchBackendJson = async (
   return { ok: upstream.ok, status: upstream.status, json, text };
 };
 
+/**
+ * True when a created-contact response says the contact was HELD over the plan
+ * cap. The backend used to reject an over-cap single create with 402; it now
+ * stores the contact `over_capacity` (unmailable) and returns 201, with the
+ * hold recorded on `metadata.quarantine.reasons`. Tolerates the `{ data }`
+ * response envelope and a raw contact, and anything malformed.
+ */
+const isHeldOverCapacity = (body: unknown): boolean => {
+  const root = isJsonObject(body) ? body : {};
+  const contact = isJsonObject(root.data) ? root.data : root;
+  const metadata = isJsonObject(contact.metadata)
+    ? contact.metadata
+    : undefined;
+  const quarantine =
+    metadata && isJsonObject(metadata.quarantine)
+      ? metadata.quarantine
+      : undefined;
+  const reasons =
+    quarantine && Array.isArray(quarantine.reasons) ? quarantine.reasons : [];
+  return reasons.includes("over_capacity");
+};
+
 const handleAudienceImportExport = async (
   req: NextRequest,
   path: string[],
@@ -523,6 +552,7 @@ const handleAudienceImportExport = async (
         createdCount: 0,
         updatedCount: 0,
         skippedCount: 0,
+        quarantinedCount: 0,
         errorCount: 0,
         errors: [],
       };
@@ -551,7 +581,10 @@ const handleAudienceImportExport = async (
           cache: "no-store",
         });
         if (res.ok) {
-          job.createdCount += 1;
+          // Over the plan cap the contact is stored but HELD (over_capacity),
+          // not rejected — count it apart from the mailable ones.
+          if (isHeldOverCapacity(res.json)) job.quarantinedCount += 1;
+          else job.createdCount += 1;
           return;
         }
         if (res.status === 409) {

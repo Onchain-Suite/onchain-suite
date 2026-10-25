@@ -221,6 +221,16 @@ export function AutomationsListView() {
     { label: "Active flows", value: m ? m.active.toLocaleString() : "-" },
     { label: "Entries · 30d", value: m ? m.entries.toLocaleString() : "-" },
     {
+      // Double-opt-in confirmation emails sent (incl. re-sends): a pending
+      // contact that becomes an entry once it confirms — so the pipeline
+      // (forms → audience → entries) reads end-to-end here.
+      label: "Opt-in emails · 30d",
+      value:
+        m && typeof m.optInEmailsSent === "number"
+          ? m.optInEmailsSent.toLocaleString()
+          : "-",
+    },
+    {
       label: "Avg completion",
       // Served by the backend from enrolment status; it used to be computed
       // here from conversions, which is a different measure entirely.
@@ -287,7 +297,7 @@ export function AutomationsListView() {
 
       <ContractAddressNudge context="automation" />
 
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-5">
         {statCards.map((card) => (
           <div key={card.label} className="bg-card px-5 py-4">
             <div className="text-sm text-muted-foreground">{card.label}</div>

@@ -1,6 +1,12 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-const STAT_KEYS = ["active", "entries", "completion", "conversions"] as const;
+const STAT_KEYS = [
+  "active",
+  "entries",
+  "optin",
+  "completion",
+  "conversions",
+] as const;
 const TAB_KEYS = ["all", "active", "paused", "draft"] as const;
 const ROW_KEYS = ["r1", "r2", "r3", "r4", "r5", "r6"] as const;
 
@@ -10,7 +16,7 @@ const COLS = "grid-cols-[2fr_0.9fr_0.9fr_0.9fr_0.9fr_1fr_2.25rem]";
 
 /**
  * Mirrors AutomationsListView: centered max-w-7xl shell → header (+ "New
- * automation") → the joined 4-cell stat strip → search + status tabs toolbar →
+ * automation") → the joined 5-cell stat strip → search + status tabs toolbar →
  * the 7-column automations table.
  */
 export default function AutomationsLoading() {
@@ -25,7 +31,7 @@ export default function AutomationsLoading() {
       </div>
 
       {/* Joined stat strip - one segmented card, no icons/hints */}
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border lg:grid-cols-5">
         {STAT_KEYS.map((k) => (
           <div key={k} className="bg-card px-5 py-4">
             <Skeleton className="h-3 w-24" />

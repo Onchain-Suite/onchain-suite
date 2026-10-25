@@ -92,6 +92,8 @@ export type AutomationsMetricsResponse = {
   completionRate: number;
   conversions: number;
   revenue: number;
+  /** Double-opt-in confirmation emails sent in the last 30 days (incl. re-sends). */
+  optInEmailsSent?: number;
 };
 
 export type AutomationsCreateBody = {

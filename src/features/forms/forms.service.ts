@@ -333,6 +333,16 @@ export const formsService = {
             typeof root.biggestDropOff === "string"
               ? root.biggestDropOff
               : undefined,
+          // Double-opt-in funnel (GET /forms/:id/analytics): the opt-in
+          // analysis — Submitted → Confirmation sent → Confirmed → Pending.
+          doubleOptIn:
+            typeof root.doubleOptIn === "boolean"
+              ? root.doubleOptIn
+              : undefined,
+          submissions: num(root.submissions),
+          confirmationsSent: num(root.confirmationsSent),
+          confirmed: num(root.confirmed),
+          pendingConfirmation: num(root.pendingConfirmation),
           range,
         };
       })

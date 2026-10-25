@@ -26,6 +26,17 @@ export interface FormAnalyticsFunnel {
   biggestDropOff?: string;
   /** The range this payload reflects, echoed back by the backend. */
   range?: FormAnalyticsRange;
+
+  /** Double-opt-in funnel (undefined until the backend returns it). */
+  doubleOptIn?: boolean;
+  /** Total submissions in the range. */
+  submissions?: number;
+  /** Confirmation emails sent — incl. operator re-sends ("we emailed them"). */
+  confirmationsSent?: number;
+  /** Submitters who clicked the confirmation link. */
+  confirmed?: number;
+  /** Emailed but not yet confirmed (= confirmationsSent − confirmed). */
+  pendingConfirmation?: number;
 }
 
 export const FORM_ANALYTICS_RANGES: Array<{

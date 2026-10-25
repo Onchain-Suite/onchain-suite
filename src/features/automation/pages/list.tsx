@@ -38,6 +38,8 @@ interface Row {
   triggerLabel: string;
   status: Status;
   entries: number;
+  /** Double-opt-in confirmation emails sent for this flow's form(s). */
+  optInEmailsSent: number;
   /** Enrolments that reached the end of the flow. */
   completionRate: number;
   conversions: number;
@@ -108,6 +110,7 @@ const toRow = (input: unknown): Row | null => {
     triggerLabel,
     status,
     entries: asNumber(input.entries ?? input.entryCount),
+    optInEmailsSent: asNumber(input.optInEmailsSent),
     completionRate: asNumber(input.completionRate),
     conversions: asNumber(input.conversions ?? input.conversionCount),
     lastTriggered: asString(
@@ -362,7 +365,10 @@ export function AutomationsListView() {
             </thead>
             <tbody>
               {rows.map((row) => {
-                const hasData = row.entries > 0;
+                // Entries + opt-in emails sent (pending contacts that become
+                // entries on confirm) — matches the "Entries · 30d" tile.
+                const rowEntries = row.entries + row.optInEmailsSent;
+                const hasData = rowEntries > 0;
                 // COMPLETED is completion, not conversion. This divided
                 // conversions by entries — a conversion rate under a
                 // "Completed" heading — so a flow whose every enrolment
@@ -397,7 +403,7 @@ export function AutomationsListView() {
                       </span>
                     </td>
                     <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                      {hasData ? row.entries.toLocaleString() : "-"}
+                      {hasData ? rowEntries.toLocaleString() : "-"}
                     </td>
                     <td className="px-4 py-4 text-right tabular-nums text-foreground">
                       {completion}

@@ -219,16 +219,13 @@ export function AutomationsListView() {
   const m = metricsQuery.data;
   const statCards = [
     { label: "Active flows", value: m ? m.active.toLocaleString() : "-" },
-    { label: "Entries · 30d", value: m ? m.entries.toLocaleString() : "-" },
     {
-      // Double-opt-in confirmation emails sent (incl. re-sends): a pending
-      // contact that becomes an entry once it confirms — so the pipeline
-      // (forms → audience → entries) reads end-to-end here.
-      label: "Opt-in emails · 30d",
-      value:
-        m && typeof m.optInEmailsSent === "number"
-          ? m.optInEmailsSent.toLocaleString()
-          : "-",
+      // Entries + double-opt-in confirmation emails sent (incl. re-sends): one
+      // pipeline number. A confirmation sent is a pending contact that becomes
+      // an entry once it confirms, so this keeps forms → audience → entries
+      // reconciled in a single figure without a second tile.
+      label: "Entries · 30d",
+      value: m ? (m.entries + (m.optInEmailsSent ?? 0)).toLocaleString() : "-",
     },
     {
       label: "Avg completion",
@@ -297,7 +294,7 @@ export function AutomationsListView() {
 
       <ContractAddressNudge context="automation" />
 
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-4">
         {statCards.map((card) => (
           <div key={card.label} className="bg-card px-5 py-4">
             <div className="text-sm text-muted-foreground">{card.label}</div>

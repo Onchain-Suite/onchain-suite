@@ -10,7 +10,7 @@ const STAT_KEYS = [
 const TAB_KEYS = ["all", "active", "paused", "draft"] as const;
 const ROW_KEYS = ["r1", "r2", "r3", "r4", "r5", "r6"] as const;
 
-// Matches the automations table: Automation · Status · Entries (30d) ·
+// Matches the automations table: Automation · Status · Entries ·
 // Completed · Conversions · Last triggered · (menu).
 const COLS = "grid-cols-[2fr_0.9fr_0.9fr_0.9fr_0.9fr_1fr_2.25rem]";
 

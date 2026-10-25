@@ -3,9 +3,13 @@
 import {
   ArrowDownTrayIcon,
   ArrowTrendingDownIcon,
+  CheckBadgeIcon,
   CheckCircleIcon,
+  ClockIcon,
   CursorArrowRaysIcon,
+  EnvelopeIcon,
   EyeIcon,
+  PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
 import { useState } from "react";
 
@@ -106,6 +110,14 @@ export function FormPerformance({
       : null,
   ].filter(Boolean);
 
+  // Double-opt-in: % of the confirmation emails we sent that got clicked.
+  const confirmedPct =
+    data?.confirmationsSent &&
+    data.confirmationsSent > 0 &&
+    typeof data.confirmed === "number"
+      ? Math.round((data.confirmed / data.confirmationsSent) * 1000) / 10
+      : undefined;
+
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -167,6 +179,43 @@ export function FormPerformance({
           <ArrowTrendingDownIcon className="size-3.5" aria-hidden="true" />
           {funnel.dropOff}
         </p>
+      ) : null}
+
+      {data?.doubleOptIn ? (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-foreground">Double opt-in</h3>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <MetricCard
+              icon={<EnvelopeIcon className="size-4" aria-hidden="true" />}
+              label="Submitted"
+              value={fmt(data.submissions)}
+            />
+            <MetricCard
+              icon={<PaperAirplaneIcon className="size-4" aria-hidden="true" />}
+              label="Confirmation sent"
+              value={fmt(data.confirmationsSent)}
+              sub="opt-in emails sent"
+              subMuted
+            />
+            <MetricCard
+              icon={<CheckBadgeIcon className="size-4" aria-hidden="true" />}
+              label="Confirmed"
+              value={fmt(data.confirmed)}
+              sub={
+                typeof confirmedPct === "number"
+                  ? `${confirmedPct}% of sent`
+                  : undefined
+              }
+            />
+            <MetricCard
+              icon={<ClockIcon className="size-4" aria-hidden="true" />}
+              label="Pending"
+              value={fmt(data.pendingConfirmation)}
+              sub="emailed, not yet confirmed"
+              subMuted
+            />
+          </div>
+        </div>
       ) : null}
     </section>
   );

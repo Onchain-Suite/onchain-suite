@@ -1307,6 +1307,12 @@ const CreateAutomationContent = () => {
   const statsEntries = asNumber(
     (statsOverview as Record<string, unknown>).entries
   );
+  // Double-opt-in confirmation emails sent for this flow's source form(s):
+  // pending contacts that become entries once they confirm. Folded into the
+  // Entries card so this view matches the list row and header tile.
+  const statsOptInEmails = asNumber(
+    (statsOverview as Record<string, unknown>).optInEmailsSent
+  );
   const statsConversions = asNumber(
     (statsOverview as Record<string, unknown>).conversions
   );
@@ -5030,7 +5036,7 @@ const CreateAutomationContent = () => {
                 {[
                   {
                     label: "Entries",
-                    value: statsEntries.toLocaleString(),
+                    value: (statsEntries + statsOptInEmails).toLocaleString(),
                   },
                   {
                     label: "Completed",

@@ -346,7 +346,7 @@ export function AutomationsListView() {
               <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 <th className="px-5 py-3">Automation</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Entries · 30d</th>
+                <th className="px-4 py-3 text-right">Entries</th>
                 <th className="px-4 py-3 text-right">Completed</th>
                 <th className="px-4 py-3 text-right">Conversions</th>
                 <th className="px-4 py-3 text-right">Last triggered</th>

@@ -414,6 +414,363 @@ function StackNarrow({
   );
 }
 
+type Spoke = {
+  label: string;
+  note?: string;
+  dir?: "in" | "out" | "both";
+  tone?: StageTone;
+};
+
+/** An arrow between two points, pointing in, out, or both ways. */
+function Flow({
+  from,
+  to,
+  dir = "in",
+  rand,
+  i,
+}: {
+  from: [number, number];
+  to: [number, number];
+  dir?: "in" | "out" | "both";
+  rand: Rand;
+  i: number;
+}) {
+  if (dir === "both") {
+    // Two arrows a few pixels apart, one each way.
+    const dx = to[0] - from[0];
+    const dy = to[1] - from[1];
+    const len = Math.hypot(dx, dy) || 1;
+    const ox = (-dy / len) * 5;
+    const oy = (dx / len) * 5;
+    return (
+      <>
+        <Ink
+          d={roughArrow(
+            from[0] + ox,
+            from[1] + oy,
+            to[0] + ox,
+            to[1] + oy,
+            rand
+          )}
+          i={i}
+        />
+        <Ink
+          d={roughArrow(
+            to[0] - ox,
+            to[1] - oy,
+            from[0] - ox,
+            from[1] - oy,
+            rand
+          )}
+          i={i}
+        />
+      </>
+    );
+  }
+  const [a, b] = dir === "out" ? [to, from] : [from, to];
+  return <Ink d={roughArrow(a[0], a[1], b[0], b[1], rand)} i={i} />;
+}
+
+/** The centre in the middle, spokes alternating left and right, notes under each. */
+function HubWide({
+  centre,
+  spokes,
+  rand,
+}: {
+  centre: { label: string; note?: string };
+  spokes: Spoke[];
+  rand: Rand;
+}) {
+  const colW = 196;
+  const bh = 50;
+  const top = 14;
+  const cw = 220;
+  const ch = 60;
+  const cx = (WIDE - cw) / 2;
+  const notes = spokes.map((sp) => (sp.note ? wrapLines(sp.note, 25) : []));
+  const labels = spokes.map((sp) => wrapLines(sp.label, 17));
+  const rowCount = Math.ceil(spokes.length / 2);
+  const rowH = Array.from({ length: rowCount }, (_, r) => {
+    const lines = Math.max(
+      notes[r * 2]?.length ?? 0,
+      notes[r * 2 + 1]?.length ?? 0
+    );
+    return bh + (lines ? 10 + lines * 16 : 0) + 26;
+  });
+  const ys = rowH.map(
+    (_, r) => top + rowH.slice(0, r).reduce((a, b) => a + b, 0)
+  );
+  const total = top + rowH.reduce((a, b) => a + b, 0) - 14;
+  const cy = Math.max(top, total / 2 - ch / 2);
+  const cNote = centre.note ? wrapLines(centre.note, 28) : [];
+  return (
+    <Svg w={WIDE} h={total + (cNote.length ? 6 : 0)} wide>
+      <Ink d={roughRect(cx, cy, cw, ch, rand)} i={0} />
+      <Words
+        x={WIDE / 2}
+        y={cy + ch / 2 + 7 - (wrapLines(centre.label, 20).length - 1) * 11}
+        lines={wrapLines(centre.label, 20)}
+        size={21}
+        i={0}
+      />
+      {cNote.length > 0 && (
+        <Words
+          x={WIDE / 2}
+          y={cy + ch + 20}
+          lines={cNote}
+          size={15}
+          i={0}
+          soft
+        />
+      )}
+      {spokes.map((sp, k) => {
+        const r = Math.floor(k / 2);
+        const isLeft = k % 2 === 0;
+        const x = isLeft ? 12 : WIDE - 12 - colW;
+        const y = ys[r];
+        const edge: [number, number] = isLeft
+          ? [x + colW + 4, y + bh / 2]
+          : [x - 4, y + bh / 2];
+        const centreEdge: [number, number] = isLeft
+          ? [cx - 4, cy + ch / 2]
+          : [cx + cw + 4, cy + ch / 2];
+        return (
+          <g key={sp.label}>
+            <Ink d={roughRect(x, y, colW, bh, rand)} i={k + 1} tone={sp.tone} />
+            <Words
+              x={x + colW / 2}
+              y={y + bh / 2 + 7 - (labels[k].length - 1) * 11}
+              lines={labels[k]}
+              size={21}
+              i={k + 1}
+            />
+            {notes[k].length > 0 && (
+              <Words
+                x={x + colW / 2}
+                y={y + bh + 24}
+                lines={notes[k]}
+                size={15}
+                i={k + 1}
+                soft
+              />
+            )}
+            <Flow
+              from={edge}
+              to={centreEdge}
+              dir={sp.dir}
+              rand={rand}
+              i={k + 1}
+            />
+          </g>
+        );
+      })}
+    </Svg>
+  );
+}
+
+/** The centre on top, a spine down the middle, spokes in two columns joined
+    to the spine sideways, so no arrow crosses a box. */
+function HubNarrow({
+  centre,
+  spokes,
+  rand,
+}: {
+  centre: { label: string; note?: string };
+  spokes: Spoke[];
+  rand: Rand;
+}) {
+  const colW = 136;
+  const spineX = NARROW / 2;
+  const xs = [6, NARROW - 6 - colW];
+  const bh = 46;
+  const cw = 240;
+  const ch = 50;
+  const cx = (NARROW - cw) / 2;
+  const cNote = centre.note ? wrapLines(centre.note, 34) : [];
+  const spineTop = 8 + ch + (cNote.length ? 14 + cNote.length * 15 : 0) + 4;
+  const spokesTop = spineTop + 26;
+  const notes = spokes.map((sp) => (sp.note ? wrapLines(sp.note, 20) : []));
+  const labels = spokes.map((sp) => wrapLines(sp.label, 13));
+  const rowCount = Math.ceil(spokes.length / 2);
+  const rowH = Array.from({ length: rowCount }, (_, r) => {
+    const lines = Math.max(
+      notes[r * 2]?.length ?? 0,
+      notes[r * 2 + 1]?.length ?? 0
+    );
+    return bh + (lines ? 8 + lines * 15 : 0) + 24;
+  });
+  const ys = rowH.map(
+    (_, r) => spokesTop + rowH.slice(0, r).reduce((a, b) => a + b, 0)
+  );
+  const total = spokesTop + rowH.reduce((a, b) => a + b, 0) - 16;
+  const spineEnd = ys[rowCount - 1] + bh / 2;
+  return (
+    <Svg w={NARROW} h={total} wide={false}>
+      <Ink d={roughRect(cx, 8, cw, ch, rand)} i={0} />
+      <Words
+        x={NARROW / 2}
+        y={8 + ch / 2 + 7 - (wrapLines(centre.label, 22).length - 1) * 11}
+        lines={wrapLines(centre.label, 22)}
+        size={20}
+        i={0}
+      />
+      {cNote.length > 0 && (
+        <Words
+          x={NARROW / 2}
+          y={8 + ch + 20}
+          lines={cNote}
+          size={13}
+          i={0}
+          soft
+        />
+      )}
+      <Ink d={roughLine(spineX, spineTop, spineX, spineEnd, rand)} i={0} />
+      {spokes.map((sp, k) => {
+        const r = Math.floor(k / 2);
+        const isLeft = k % 2 === 0;
+        const x = xs[k % 2];
+        const y = ys[r];
+        const edge: [number, number] = isLeft
+          ? [x + colW + 3, y + bh / 2]
+          : [x - 3, y + bh / 2];
+        const spine: [number, number] = isLeft
+          ? [spineX - 3, y + bh / 2]
+          : [spineX + 3, y + bh / 2];
+        return (
+          <g key={sp.label}>
+            <Ink d={roughRect(x, y, colW, bh, rand)} i={k + 1} tone={sp.tone} />
+            <Words
+              x={x + colW / 2}
+              y={y + bh / 2 + 7 - (labels[k].length - 1) * 10}
+              lines={labels[k]}
+              size={18}
+              i={k + 1}
+            />
+            {notes[k].length > 0 && (
+              <Words
+                x={x + colW / 2}
+                y={y + bh + 20}
+                lines={notes[k]}
+                size={13}
+                i={k + 1}
+                soft
+              />
+            )}
+            <Flow from={edge} to={spine} dir={sp.dir} rand={rand} i={k + 1} />
+          </g>
+        );
+      })}
+    </Svg>
+  );
+}
+
+/** Bars that narrow from top to bottom, each with its note beside it. */
+function FunnelWide({
+  stages,
+  rand,
+}: {
+  stages: { label: string; note: string; tone?: StageTone }[];
+  rand: Rand;
+}) {
+  const n = stages.length;
+  const bh = 46;
+  const gap = 12;
+  const top = 10;
+  const centre = 280;
+  const maxW = 520;
+  const minW = 240;
+  const step = n > 1 ? (maxW - minW) / (n - 1) : 0;
+  const noteX = centre + maxW / 2 + 16;
+  const notes = stages.map((st) => wrapLines(st.note, 25));
+  let y = top;
+  const rows = stages.map((st, i) => {
+    const w = maxW - i * step;
+    const h = Math.max(bh, notes[i].length * 16 + 6);
+    const row = { st, w, y, h, lines: notes[i] };
+    y += h + gap;
+    return row;
+  });
+  return (
+    <Svg w={WIDE} h={y - gap + 8} wide>
+      {rows.map((row, i) => (
+        <g key={row.st.label}>
+          <Ink
+            d={roughRect(centre - row.w / 2, row.y, row.w, bh, rand)}
+            i={i}
+            tone={row.st.tone}
+          />
+          <Words
+            x={centre}
+            y={row.y + bh / 2 + 7}
+            lines={[row.st.label]}
+            size={20}
+            i={i}
+          />
+          <Words
+            x={noteX}
+            y={row.y + 20}
+            lines={row.lines}
+            size={15}
+            i={i}
+            anchor="start"
+            soft
+          />
+        </g>
+      ))}
+    </Svg>
+  );
+}
+
+function FunnelNarrow({
+  stages,
+  rand,
+}: {
+  stages: { label: string; note: string; tone?: StageTone }[];
+  rand: Rand;
+}) {
+  const n = stages.length;
+  const bh = 40;
+  const centre = NARROW / 2;
+  const maxW = 320;
+  const minW = 150;
+  const step = n > 1 ? (maxW - minW) / (n - 1) : 0;
+  let y = 8;
+  const rows = stages.map((st, i) => {
+    const lines = wrapLines(st.note, 44);
+    const row = { st, w: maxW - i * step, y, lines };
+    y += bh + 8 + lines.length * 15 + 12;
+    return row;
+  });
+  return (
+    <Svg w={NARROW} h={y - 4} wide={false}>
+      {rows.map((row, i) => (
+        <g key={row.st.label}>
+          <Ink
+            d={roughRect(centre - row.w / 2, row.y, row.w, bh, rand)}
+            i={i}
+            tone={row.st.tone}
+          />
+          <Words
+            x={centre}
+            y={row.y + bh / 2 + 7}
+            lines={[row.st.label]}
+            size={19}
+            i={i}
+          />
+          <Words
+            x={centre}
+            y={row.y + bh + 18}
+            lines={row.lines}
+            size={13}
+            i={i}
+            soft
+          />
+        </g>
+      ))}
+    </Svg>
+  );
+}
+
 /** Draws a diagram in both layouts from one seed. */
 export function DiagramSketch({
   diagram,
@@ -453,6 +810,28 @@ export function DiagramSketch({
         <>
           <StackWide layers={diagram.layers} rand={wide} />
           <StackNarrow layers={diagram.layers} rand={narrow} />
+        </>
+      );
+    case "hub":
+      return (
+        <>
+          <HubWide
+            centre={diagram.centre}
+            spokes={diagram.spokes}
+            rand={wide}
+          />
+          <HubNarrow
+            centre={diagram.centre}
+            spokes={diagram.spokes}
+            rand={narrow}
+          />
+        </>
+      );
+    case "funnel":
+      return (
+        <>
+          <FunnelWide stages={diagram.stages} rand={wide} />
+          <FunnelNarrow stages={diagram.stages} rand={narrow} />
         </>
       );
   }

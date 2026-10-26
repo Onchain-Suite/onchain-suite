@@ -3,7 +3,9 @@ const DESCRIPTION =
 
 export const SITE_CONFIG = {
   name: "OnchainSuite",
-  url: "https://onchainsuite.com",
+  // Canonical host: the site serves on www (the apex 308-redirects to it), so
+  // canonical/OG/sitemap must all use www or Google reports cross-host redirects.
+  url: "https://www.onchainsuite.com",
   description: DESCRIPTION,
   ogImage:
     "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761105693/Banner_Option_-_2_ppdgtf.png",
@@ -20,7 +22,9 @@ export const SITE_CONFIG = {
 
 export const SITE_CONFIG_META = {
   name: "OnchainSuite",
-  url: "https://onchainsuite.com",
+  // Canonical host: the site serves on www (the apex 308-redirects to it), so
+  // canonical/OG/sitemap must all use www or Google reports cross-host redirects.
+  url: "https://www.onchainsuite.com",
   description: DESCRIPTION,
   ogImage:
     "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761105693/Banner_Option_-_2_ppdgtf.png",

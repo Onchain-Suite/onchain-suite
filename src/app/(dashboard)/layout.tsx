@@ -1,9 +1,17 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
 import { ProtectedLayout } from "@/lib/guard";
 
 import { DashboardLayout } from "@/features/common/layout/components/dashboard-layout";
 import { AUTH_ROUTES, PRIVATE_ROUTES } from "@/shared/config/app-routes";
+
+// The authenticated app must never be indexed — belt-and-suspenders behind the
+// robots.txt disallow. (A 401 to Googlebot can't surface a noindex, but a page
+// that is ever linked or briefly reachable is still kept out of the index here.)
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default async function DashboardGroupLayout({
   children,

@@ -65,7 +65,24 @@ export type Diagram =
     }
   | { type: "flow"; nodes: { label: string; note?: string }[] }
   | { type: "timeline"; points: { when: string; label: string }[] }
-  | { type: "stack"; layers: { label: string; note: string }[] };
+  | { type: "stack"; layers: { label: string; note: string }[] }
+  /** One centre with the parts around it, and which way each one flows. */
+  | {
+      type: "hub";
+      centre: { label: string; note?: string };
+      spokes: {
+        label: string;
+        note?: string;
+        /** Into the centre (default), out of it, or both ways. */
+        dir?: "in" | "out" | "both";
+        tone?: StageTone;
+      }[];
+    }
+  /** Stages that narrow from top to bottom. */
+  | {
+      type: "funnel";
+      stages: { label: string; note: string; tone?: StageTone }[];
+    };
 
 /**
  * One piece of chapter content. Text fields accept `**bold**` and
@@ -114,6 +131,8 @@ export interface Chapter {
   /** One-line standfirst under the title. */
   dek: string;
   tldr?: string[];
+  /** Illustrations shown after the opening paragraphs, before the sections. */
+  intro?: Block[];
   sections: ChapterSection[];
 }
 

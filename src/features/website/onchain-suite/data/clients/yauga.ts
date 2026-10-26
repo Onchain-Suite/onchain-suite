@@ -21,6 +21,71 @@ export const YAUGA: Chapter = {
     "The proposal is one record per person. Every Yauga system reports what happened, and email follows the person rather than the product. The step that matters most is Attend to Join: live experiences bring people in, and email is how they find the app and the ring after they go home. The first automations we build sit on a check-in.",
     "It has four parts: campaigns and the newsletter, Loops, lifecycle, and retention triggers. Email is the channel that carries them, from Yauga's own sending domain; the app keeps its own push, and Haus OS keeps its receipts. One broadcast a week, and every email passes the Yauga Test.",
   ],
+  intro: [
+    {
+      kind: "artifact",
+      code: "04.06",
+      title: "The Yauga ecosystem, and where email sits",
+      diagram: {
+        type: "hub",
+        centre: { label: "One record per person", note: "OnchainSuite" },
+        spokes: [
+          {
+            label: "Yauga Haus OS",
+            note: "the Haus, Ritual Rooms, Run Club, Social Club and the shop",
+          },
+          {
+            label: "Yauga App",
+            note: "sign-up and focus, sessions, challenges, membership",
+          },
+          {
+            label: "Yauga Cult",
+            note: "the ring: paired, streaks, gone quiet",
+          },
+          { label: "Website", note: "Letters sign-up, confirmed by email" },
+          {
+            label: "Yauga HQ",
+            note: "quiet members and referrals in; unsubscribes back",
+            dir: "both",
+          },
+          {
+            label: "Email to members",
+            note: "Loops, triggers, city news and Letters, from Yauga's domain",
+            dir: "out",
+          },
+        ],
+      },
+    },
+    {
+      kind: "artifact",
+      code: "04.07",
+      title: "Yauga's participation funnel",
+      diagram: {
+        type: "funnel",
+        stages: [
+          {
+            label: "Discover",
+            note: "joins a waitlist, or takes Yauga Letters",
+          },
+          { label: "Attend", note: "books a ticket and checks in at a Haus" },
+          {
+            label: "Join",
+            note: "an app account, the ring or a membership: the step that matters most",
+            tone: "orange",
+          },
+          { label: "Practise", note: "sessions, streaks and challenges" },
+          {
+            label: "Connect",
+            note: "repeat check-ins and their city's shared sits",
+          },
+          {
+            label: "Return and refer",
+            note: "back after a quiet spell, and brings someone",
+          },
+        ],
+      },
+    },
+  ],
   sections: [
     {
       id: "says",

@@ -24,6 +24,21 @@ describe("canonicalNodeType", () => {
     );
   });
 
+  it("preserves the remove-membership actions, which share the add renderer", () => {
+    // remove_tag / remove_from_list render with the "tag" / "list" cards, but
+    // the canonical type carried in data must survive the save or the backend
+    // would run an add instead of a remove.
+    expect(
+      canonicalNodeType({ type: "tag", data: { actionType: "remove_tag" } })
+    ).toBe("remove_tag");
+    expect(
+      canonicalNodeType({
+        type: "list",
+        data: { actionType: "remove_from_list" },
+      })
+    ).toBe("remove_from_list");
+  });
+
   it("leaves types that are already canonical alone", () => {
     expect(
       canonicalNodeType({
@@ -104,5 +119,15 @@ describe("fromWireNodes", () => {
     expect(nodes.map((n) => n.type)).toEqual(["trigger", "tag", "dispatch"]);
     // The canonical type stays available for everything that keys off it.
     expect(nodes[0].data).toMatchObject({ nodeType: "swap_completed" });
+  });
+
+  it("renders a backend-saved remove_from_list onto the list card", () => {
+    // Without a renderer mapping this node fell through to a default card.
+    const nodes = fromWireNodes([
+      { id: "a1", type: "remove_tag", data: {} },
+      { id: "a2", type: "remove_from_list", data: {} },
+    ]);
+
+    expect(nodes.map((n) => n.type)).toEqual(["tag", "list"]);
   });
 });

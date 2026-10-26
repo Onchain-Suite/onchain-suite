@@ -23,6 +23,7 @@ export const ACTION_RENDERER_BY_TYPE: Record<string, string> = {
   add_tag: "tag",
   remove_tag: "tag",
   add_to_list: "list",
+  remove_from_list: "list",
   webhook: "webhook",
   wait: "wait",
   branch: "branch",

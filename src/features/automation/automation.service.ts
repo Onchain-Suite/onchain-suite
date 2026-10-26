@@ -92,7 +92,26 @@ export type AutomationsMetricsResponse = {
   completionRate: number;
   conversions: number;
   revenue: number;
+  /** Double-opt-in confirmation emails sent in the last 30 days (incl. re-sends). */
+  optInEmailsSent?: number;
 };
+
+/** One day of the org-wide automation trend. `date` is a UTC `YYYY-MM-DD`. */
+export type AutomationTimeSeriesPoint = {
+  date: string;
+  entries: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+};
+
+export type AutomationTimeSeriesResponse = {
+  period: string;
+  days: number;
+  series: AutomationTimeSeriesPoint[];
+};
+
+export type AutomationTimeSeriesPeriod = "7days" | "30days" | "90days";
 
 export type AutomationsCreateBody = {
   name: string;
@@ -131,6 +150,26 @@ export type AutomationBuilderResponse = {
   draftSavedAt?: string;
   builderWarnings?: unknown[];
   watchesSkipped?: AutomationWatchSkip[];
+  [key: string]: unknown;
+};
+
+/** `GET /automations/{id}/nodes/{nodeId}/email-editor-session` - the hosted
+ *  editor host, a design-scoped token, and the design id. */
+export type NodeEmailEditorSession = {
+  editorUrl?: string;
+  token?: string;
+  designId?: string;
+  expiresAt?: string;
+};
+
+/** `GET /email-designs/{id}/email` - a node design's saved email. The builder
+ *  reflects `subject`/`previewText` onto the node and stores `html` as the
+ *  node's inline `body` so send_email sends it without a campaign/template. */
+export type DesignEmailContent = {
+  subject?: string;
+  previewText?: string;
+  html?: string;
+  source?: { designId?: string };
   [key: string]: unknown;
 };
 
@@ -323,12 +362,19 @@ export type SubmittedInterface =
     };
 
 export const automationService = {
-  listAutomations(params?: AutomationsListParams, orgId?: string) {
+  listAutomations(
+    params?: AutomationsListParams,
+    orgId?: string,
+    options?: { signal?: AbortSignal }
+  ) {
     return request<
       | { items?: unknown[]; meta?: unknown }
       | { data?: unknown[]; meta?: unknown }
       | unknown[]
-    >({ method: "GET", url: "/automations", params }, orgId);
+    >(
+      { method: "GET", url: "/automations", params, signal: options?.signal },
+      orgId
+    );
   },
 
   searchAutomations(params?: AutomationsSearchParams, orgId?: string) {
@@ -348,6 +394,23 @@ export const automationService = {
   getMetrics(orgId?: string) {
     return request<AutomationsMetricsResponse>(
       { method: "GET", url: "/automations/metrics" },
+      orgId
+    );
+  },
+
+  /** Org-wide daily enrolments + email engagement for the Stats tab trend. */
+  getMetricsTimeSeries(
+    period: AutomationTimeSeriesPeriod,
+    options?: { signal?: AbortSignal },
+    orgId?: string
+  ) {
+    return request<AutomationTimeSeriesResponse>(
+      {
+        method: "GET",
+        url: "/automations/metrics/time-series",
+        params: { period },
+        signal: options?.signal,
+      },
       orgId
     );
   },
@@ -500,6 +563,37 @@ export const automationService = {
         url: `/automations/${automationId}/builder/draft`,
         data: body,
       },
+      orgId
+    );
+  },
+
+  /**
+   * Open an editor session for a Send Email node's standalone design. Unlike the
+   * campaign editor this creates no Campaign and no reusable Template: the design
+   * lives on the node. Returns the editor host + a design-scoped token + the
+   * design id (stable per automation+node, so re-opening edits it in place).
+   */
+  createNodeEmailEditorSession(
+    automationId: string,
+    nodeId: string,
+    orgId?: string
+  ) {
+    return request<NodeEmailEditorSession>(
+      {
+        method: "GET",
+        url: `/automations/${automationId}/nodes/${encodeURIComponent(
+          nodeId
+        )}/email-editor-session`,
+      },
+      orgId
+    );
+  },
+
+  /** Read a node design's saved email (subject/preview + content) to reflect it
+   *  back onto the Send Email node after the user builds it. */
+  getDesignEmail(designId: string, orgId?: string) {
+    return request<DesignEmailContent>(
+      { method: "GET", url: `/email-designs/${designId}/email` },
       orgId
     );
   },
@@ -909,7 +1003,11 @@ export const automationService = {
   },
 
   /** Per-message delivery counts (sent/delivered/opened/clicked) keyed by node. */
-  getMessageStats(automationId: string, orgId?: string) {
+  getMessageStats(
+    automationId: string,
+    orgId?: string,
+    options?: { signal?: AbortSignal }
+  ) {
     return request<{
       messages: {
         nodeId: string;
@@ -921,7 +1019,11 @@ export const automationService = {
         failed: number;
       }[];
     }>(
-      { method: "GET", url: `/automations/${automationId}/stats/messages` },
+      {
+        method: "GET",
+        url: `/automations/${automationId}/stats/messages`,
+        signal: options?.signal,
+      },
       orgId
     );
   },

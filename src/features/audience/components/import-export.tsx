@@ -37,8 +37,11 @@ import {
 import { cn, getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import { isChainRequired } from "../imports/chain-requirement";
+import { importErrorMessage } from "../utils/import-error";
+import { ImportGateDialog } from "./import-gate-dialog";
 import {
   type AudienceExportJobStatus,
+  type AudienceImportEstimate,
   type AudienceImportExportFormat,
   type AudienceImportIssue,
   type AudienceImportJobStatus,
@@ -47,6 +50,7 @@ import {
 } from "@/features/audience/audience.service";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { PageHeader } from "@/shared/components/page/page-header";
+import { useMyOrgRole } from "@/shared/hooks/client/use-my-org-role";
 
 const fieldOptions = [
   { value: "", label: "Skip this column" },
@@ -448,34 +452,12 @@ function FilePreviewTable({ table }: { table: PreviewTable }) {
 }
 
 /** Turn an import failure into plain language - never a raw code or HTTP text. */
-function friendlyImportError(error: unknown): string {
-  const raw =
-    error instanceof Error
-      ? `${error.message} ${error.cause instanceof Error ? error.cause.message : ""}`
-      : String(error ?? "");
-  const text = raw.toUpperCase();
-  if (text.includes("IMPORT_LIST_REQUIRED"))
-    return "Choose a list for these contacts before importing.";
-  if (text.includes("IMPORT_CHAIN_REQUIRED"))
-    return "Choose the chain these wallets should be enriched on before importing.";
-  if (text.includes("IMPORT_LIST_NOT_FOUND"))
-    return "That list no longer exists. Pick another one or create a new list.";
-  if (text.includes("IMPORT_LIST_NOT_TAG_BACKED"))
-    return "That list can't receive imported contacts (it's a rule-based segment). Pick a simple list or create a new one.";
-  if (text.includes("UNSUPPORTED FILE") || text.includes("UNSUPPORTED_FILE"))
-    return "That file type isn't supported. Upload a .csv or .json file.";
-  if (text.includes("PLAN_LIMIT") || text.includes("402"))
-    return "This import would go over your plan's contact limit. Upgrade your plan or import fewer contacts.";
-  if (text.includes("HTTP 413") || text.includes("TOO LARGE"))
-    return "That file is too large to import here. Split it into smaller files (under 4MB) and try again.";
-  if (text.includes("HTTP 401") || text.includes("HTTP 403"))
-    return "Your session expired. Refresh the page and try the import again.";
-  // Keep a short, human message the user typed nothing wrong for.
-  return "We couldn't start the import. Please check your file and try again.";
-}
-
 export default function ImportExportPage() {
   const router = useRouter();
+  // Owner-only: the "upgrade & import" path starts a plan-upgrade checkout, which
+  // is OWNER-guarded on the backend. Cosmetic gating so non-owners don't see a
+  // button that would 403.
+  const { role: myOrgRole } = useMyOrgRole();
   const [dragActive, setDragActive] = useState(false);
   const [importStep, setImportStep] = useState<ImportStep>("upload");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -528,6 +510,10 @@ export default function ImportExportPage() {
   // Chain every wallet in this import is enriched on (a per-row Chain column
   // still wins). Required so an ADI file is enriched on ADI, not eth-mainnet.
   const [selectedChain, setSelectedChain] = useState<string>("");
+  // Pre-import gate: the estimate that opened it (wallet shortfall or cap
+  // overflow), null when no gate is showing.
+  const [gateEstimate, setGateEstimate] =
+    useState<AudienceImportEstimate | null>(null);
 
   const chainsQuery = useQuery({
     queryKey: ["audience", "import", "supported-chains"],
@@ -552,8 +538,7 @@ export default function ImportExportPage() {
     [listsQuery.data]
   );
   const createListMutation = useMutation({
-    mutationFn: (name: string) =>
-      audienceService.createSegment({ name, type: "static" }),
+    mutationFn: (name: string) => audienceService.createSegment({ name }),
     onSuccess: async (seg) => {
       setSelectedListId(seg.id);
       setNewListName("");
@@ -1094,7 +1079,7 @@ export default function ImportExportPage() {
       router.push(`/audience?import=${encodeURIComponent(jobId)}`);
     },
     onError: (e: unknown) => {
-      toast.error(friendlyImportError(e));
+      toast.error(importErrorMessage(e));
     },
     onSettled: () => {
       setIsImporting(false);
@@ -1328,8 +1313,132 @@ export default function ImportExportPage() {
       toast.error(e instanceof Error ? e.message : "Failed to download export"),
   });
 
-  const handleImport = () => {
+  // Files the authenticated proxy can estimate in one request. A larger file
+  // skips the client gate and relies on the backend's own pre-import check (it
+  // falls back to the empty-wallet gate above its own count threshold), so a
+  // big import is never blocked from running by a failed estimate.
+  const ESTIMATE_MAX_BYTES = 4 * 1024 * 1024;
+
+  const runImport = () => {
     importMutation.mutateAsync().catch(() => undefined);
+  };
+
+  const estimateMutation = useMutation({
+    mutationFn: (input: { file: File; format: AudienceImportExportFormat }) =>
+      audienceService.estimateImport({
+        file: input.file,
+        format: input.format,
+        // Mirror the real import's dedupeKey so the cost estimate matches what
+        // verification will actually bill.
+        dedupeKey: "auto",
+      }),
+  });
+
+  // "Upgrade & import": holds the over-cap import server-side and sends the user
+  // to a plan-upgrade checkout; the backend resumes the import after payment. The
+  // query/mapping mirror the real import so the held job runs identically.
+  const upgradeImportMutation = useMutation({
+    mutationFn: async () => {
+      if (!uploadedFile) throw new Error("No file selected");
+      if (!selectedListId) throw new Error("IMPORT_LIST_REQUIRED");
+      const lower = uploadedFile.name.toLowerCase();
+      const format: AudienceImportExportFormat | undefined = lower.endsWith(
+        ".csv"
+      )
+        ? "csv"
+        : lower.endsWith(".json")
+          ? "json"
+          : undefined;
+      if (!format) throw new Error("Unsupported file type");
+
+      const mapping: Record<string, string> = {};
+      if (format === "csv") {
+        for (const col of csvColumns) {
+          const target = col.mappedTo?.trim();
+          if (!target) continue;
+          if (target === "custom") {
+            const key = col.header.trim().replace(/\s+/g, "_");
+            mapping[col.header] = `attributes.${key}`;
+            continue;
+          }
+          mapping[col.header] = target;
+        }
+      }
+
+      const query: Record<string, string | number | boolean | undefined> = {
+        mode: "upsert",
+        onConflict: "update",
+        dedupeKey: "auto",
+        maxErrors: 10000,
+        listId: selectedListId,
+        defaultChain: selectedChain,
+        ...(importTagList.length > 0 ? { tags: importTagList.join(",") } : {}),
+      };
+
+      const res = await audienceService.startImportUpgradeCheckout({
+        file: uploadedFile,
+        format,
+        mapping: format === "csv" ? mapping : undefined,
+        platform: importPlatform || undefined,
+        query,
+        billingCycle: "monthly",
+        paymentMethod: "card",
+      });
+      const url = res.checkout?.url ?? res.checkout?.paymentUrl;
+      if (!url)
+        throw new Error("Upgrade checkout did not return a payment URL.");
+      return { url };
+    },
+    onSuccess: ({ url }) => {
+      toast.success(
+        "Taking you to checkout. Your import resumes automatically once payment is confirmed."
+      );
+      window.location.href = url;
+    },
+    onError: (e: unknown) => {
+      toast.error(importErrorMessage(e));
+    },
+  });
+
+  const handleImport = async () => {
+    if (!uploadedFile) return;
+    if (!selectedListId) {
+      runImport(); // let the import mutation surface IMPORT_LIST_REQUIRED
+      return;
+    }
+    if (chainRequired && !selectedChain) {
+      runImport(); // same: surface IMPORT_CHAIN_REQUIRED via the import path
+      return;
+    }
+
+    const lower = uploadedFile.name.toLowerCase();
+    const format: AudienceImportExportFormat | undefined = lower.endsWith(
+      ".csv"
+    )
+      ? "csv"
+      : lower.endsWith(".json")
+        ? "json"
+        : undefined;
+
+    // Gate only what we can cheaply estimate; otherwise go straight to import
+    // (the backend still gates). The estimate is advisory - any failure falls
+    // through to the real import rather than blocking a legitimate one.
+    if (format && uploadedFile.size <= ESTIMATE_MAX_BYTES) {
+      try {
+        const estimate = await estimateMutation.mutateAsync({
+          file: uploadedFile,
+          format,
+        });
+        if (estimate.willExceedBalance || estimate.willExceedCap) {
+          setGateEstimate(estimate);
+          return;
+        }
+      } catch {
+        // Advisory only: fall through and let the import run + backend gate.
+      }
+    }
+
+    runImport();
   };
 
   const resetImport = () => {
@@ -2286,6 +2395,7 @@ export default function ImportExportPage() {
                   disabled={
                     isImporting ||
                     importMutation.isPending ||
+                    estimateMutation.isPending ||
                     !uploadedFile ||
                     !selectedImportFormat ||
                     // Backend requires a list for every import.
@@ -2302,9 +2412,11 @@ export default function ImportExportPage() {
                   }
                   className="rounded-xl bg-primary px-6 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isImporting || importMutation.isPending
-                    ? "Importing..."
-                    : "Import Data"}
+                  {estimateMutation.isPending
+                    ? "Checking…"
+                    : isImporting || importMutation.isPending
+                      ? "Importing..."
+                      : "Import Data"}
                 </button>
               </div>
             </div>
@@ -2592,6 +2704,25 @@ export default function ImportExportPage() {
             );
           })()}
       </div>
+
+      <ImportGateDialog
+        open={gateEstimate !== null}
+        estimate={gateEstimate}
+        busy={importMutation.isPending || isImporting}
+        upgradeBusy={upgradeImportMutation.isPending}
+        onClose={() => setGateEstimate(null)}
+        onProceed={() => {
+          setGateEstimate(null);
+          runImport();
+        }}
+        // Owner-only: the upgrade path starts a plan checkout (OWNER-guarded).
+        // Non-owners keep the quarantine ("Import anyway") + the Billing link.
+        onUpgradeImport={
+          myOrgRole === "OWNER"
+            ? () => upgradeImportMutation.mutate()
+            : undefined
+        }
+      />
     </motion.div>
   );
 }

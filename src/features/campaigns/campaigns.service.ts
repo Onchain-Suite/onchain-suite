@@ -93,6 +93,16 @@ export interface CampaignAudienceEstimate {
   missingEmail?: number;
   messagedRecently?: number;
   internal?: number;
+  /**
+   * How many reachable contacts the inactivity (sunset) filter WOULD drop -
+   * contacts with no recorded engagement past the window. Shown as the
+   * "Inactive" exclusion chip. Independent of whether it is applied.
+   */
+  sunsetExcluded?: number;
+  /** Whether this campaign currently applies the inactivity filter (chip checked). */
+  sunsetApplied?: boolean;
+  /** The inactivity window in days, for the chip copy. */
+  sunsetInactiveDays?: number;
   [key: string]: unknown;
 }
 
@@ -259,6 +269,12 @@ export interface CampaignTrackingSettings {
    * default. Same resolution at send time and in the recipient estimate.
    */
   smartSendingWindowHours?: number;
+  /**
+   * Apply the inactivity (sunset) filter to this campaign. Opt-in, default
+   * false, so a campaign reaches its full reachable audience unless the sender
+   * ticks the "Inactive" exclusion chip.
+   */
+  applySunset?: boolean;
   /**
    * Campaign-authored UTM values. Since 2026-08-02 `trackingParameters: true`
    * already applies product defaults (`utm_source=onchainsuite`,

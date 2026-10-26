@@ -1,33 +1,61 @@
 "use client";
 
 import {
-  ArrowDownTrayIcon,
   CheckBadgeIcon,
+  ClipboardDocumentCheckIcon,
+  ClipboardDocumentIcon,
   InboxIcon,
 } from "@heroicons/react/24/outline";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/ui/button";
-
 import { formsService, type FormSubmission } from "../forms.service";
 import { useSubmissions } from "../hooks/use-forms";
+import { FormPerformance } from "./form-performance";
 
 const shorten = (v: string) =>
   /^0x[a-fA-F0-9]{8,}$/.test(v) ? `${v.slice(0, 6)}…${v.slice(-4)}` : v;
 
-/** Turn a submission's captured field values into a compact summary string. */
-function fieldSummary(sub: FormSubmission): string {
-  const entries = Object.entries(sub.data ?? {})
-    .filter(([, v]) => v !== null && v !== undefined && String(v).length > 0)
-    .map(([k, v]) => `${k}: ${shorten(String(v))}`);
-  return entries.length > 0 ? entries.join(" · ") : "-";
+/** Readable label for a captured channel key. */
+const CHANNEL_LABEL: Record<string, string> = {
+  email: "Email",
+  x: "X",
+  farcaster: "Farcaster",
+  telegram: "Telegram",
+  discord: "Discord",
+  wallet: "Wallet",
+};
+
+const channelLabel = (c: string) =>
+  CHANNEL_LABEL[c.toLowerCase()] ?? c.charAt(0).toUpperCase() + c.slice(1);
+
+/** Deterministic hue for the wallet avatar, so each wallet looks consistent. */
+function hue(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1)
+    h = (h * 31 + seed.charCodeAt(i)) % 360;
+  return h;
+}
+
+/** The email a submission captured, if any (keyed by the `email` field). */
+function submissionEmail(sub: FormSubmission): string | null {
+  const v = sub.data?.email;
+  return typeof v === "string" && v.length > 0 ? v : null;
+}
+
+/** A display name the submission carried (ens / name field), if any. */
+function submissionName(sub: FormSubmission): string | null {
+  const candidate = sub.data?.ens ?? sub.data?.name;
+  return typeof candidate === "string" && candidate.length > 0
+    ? candidate
+    : null;
 }
 
 export function SubmissionsTab({ formId }: { formId: string }) {
   const [page, setPage] = useState(1);
   const [exporting, setExporting] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const limit = 25;
   const { data, isLoading, isError } = useSubmissions(formId, page, limit);
 
@@ -56,141 +84,183 @@ export function SubmissionsTab({ formId }: { formId: string }) {
     }
   };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {total.toLocaleString()} submission{total === 1 ? "" : "s"}
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={exportCsv}
-          disabled={exporting || total === 0}
-        >
-          <ArrowDownTrayIcon className="size-4" aria-hidden="true" />
-          {exporting ? "Exporting…" : "Export CSV"}
-        </Button>
-      </div>
+  const copyWallet = async (address: string) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(address);
+      window.setTimeout(() => setCopied(null), 1200);
+    } catch {
+      toast.error("Couldn't copy address.");
+    }
+  };
 
-      {isLoading ? (
-        <div className="rounded-xl border border-border p-8 text-center text-sm text-muted-foreground">
-          Loading submissions…
-        </div>
-      ) : isError ? (
-        <div className="rounded-xl border border-border p-8 text-center text-sm text-muted-foreground">
-          Couldn&apos;t load submissions.
-        </div>
-      ) : items.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-10 text-center">
-          <InboxIcon
-            className="size-8 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <p className="text-sm font-medium text-foreground">
-            No submissions yet
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Share the form link to start collecting wallet-first signups.
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl border border-border">
+  return (
+    <div className="space-y-6">
+      <FormPerformance
+        formId={formId}
+        completionsFallback={total}
+        onExport={exportCsv}
+        exporting={exporting}
+        exportDisabled={total === 0}
+      />
+
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-foreground">
+          Recent submissions
+        </h3>
+
+        {isLoading ? (
+          <div className="rounded-xl border border-border p-8 text-center text-sm text-muted-foreground">
+            Loading submissions…
+          </div>
+        ) : isError ? (
+          <div className="rounded-xl border border-border p-8 text-center text-sm text-muted-foreground">
+            Couldn&apos;t load submissions.
+          </div>
+        ) : items.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-10 text-center">
+            <InboxIcon
+              className="size-8 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <p className="text-sm font-medium text-foreground">
+              No submissions yet
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Share the form link to start collecting wallet-first signups.
+            </p>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/40 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  <th className="px-4 py-2.5">Wallet</th>
-                  <th className="px-4 py-2.5">Channels</th>
-                  <th className="px-4 py-2.5">Captured</th>
-                  <th className="px-4 py-2.5">Verified</th>
-                  <th className="px-4 py-2.5 text-right">When</th>
+                <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <th className="py-2.5 pr-4">Wallet</th>
+                  <th className="px-4 py-2.5">Email</th>
+                  <th className="px-4 py-2.5">Linked via</th>
+                  <th className="px-4 py-2.5 text-right">Submitted</th>
                 </tr>
               </thead>
               <tbody>
-                {items.map((sub) => (
-                  <tr
-                    key={sub.id}
-                    className="border-b border-border/60 last:border-0"
-                  >
-                    <td className="px-4 py-3 font-mono text-xs text-foreground">
-                      {sub.walletAddress ? shorten(sub.walletAddress) : "-"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {sub.channels?.length ? (
-                        <div className="flex flex-wrap gap-1">
-                          {sub.channels.map((c) => (
+                {items.map((sub) => {
+                  const email = submissionEmail(sub);
+                  const name = submissionName(sub);
+                  const addr = sub.walletAddress;
+                  return (
+                    <tr
+                      key={sub.id}
+                      className="border-b border-border/60 last:border-0"
+                    >
+                      <td className="py-3.5 pr-4">
+                        <div className="flex items-center gap-2.5">
+                          {addr ? (
                             <span
-                              key={c}
-                              className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground"
-                            >
-                              {c}
+                              aria-hidden="true"
+                              className="size-6 shrink-0 rounded-full"
+                              style={{
+                                background: `linear-gradient(135deg, hsl(${hue(
+                                  addr
+                                )} 70% 55%), hsl(${(hue(addr) + 40) % 360} 70% 45%))`,
+                              }}
+                            />
+                          ) : null}
+                          {name ? (
+                            <span className="font-medium text-foreground">
+                              {name}
                             </span>
-                          ))}
+                          ) : null}
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {addr ? shorten(addr) : "No wallet"}
+                          </span>
+                          {addr ? (
+                            <button
+                              type="button"
+                              onClick={() => copyWallet(addr)}
+                              aria-label="Copy wallet address"
+                              className="text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                              {copied === addr ? (
+                                <ClipboardDocumentCheckIcon className="size-3.5" />
+                              ) : (
+                                <ClipboardDocumentIcon className="size-3.5" />
+                              )}
+                            </button>
+                          ) : null}
                         </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
-                    <td className="max-w-[280px] truncate px-4 py-3 text-muted-foreground">
-                      {fieldSummary(sub)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {sub.verified ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                          <CheckBadgeIcon
-                            className="size-4"
-                            aria-hidden="true"
-                          />
-                          Verified
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right text-xs text-muted-foreground">
-                      {sub.createdAt
-                        ? formatDistanceToNow(new Date(sub.createdAt), {
-                            addSuffix: true,
-                          })
-                        : "-"}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {email ? (
+                          <span
+                            className="block max-w-[220px] truncate font-mono text-xs text-foreground"
+                            title={email}
+                          >
+                            {email}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            No email
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {sub.channels.length > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-foreground">
+                            {sub.verified ? (
+                              <CheckBadgeIcon
+                                className="size-4 text-primary"
+                                aria-hidden="true"
+                              />
+                            ) : null}
+                            {sub.channels.map(channelLabel).join(" · ")}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            -
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-right text-xs text-muted-foreground">
+                        {sub.createdAt
+                          ? formatDistanceToNow(new Date(sub.createdAt), {
+                              addSuffix: true,
+                            })
+                          : "-"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
 
-      {totalPages > 1 ? (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of{" "}
-            {total.toLocaleString()}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-lg"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-lg"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next
-            </Button>
+        {totalPages > 1 ? (
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              Showing {(page - 1) * limit + 1}-{Math.min(page * limit, total)}{" "}
+              of {total.toLocaleString()}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </button>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }

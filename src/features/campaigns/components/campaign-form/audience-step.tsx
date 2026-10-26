@@ -133,6 +133,12 @@ export function AudienceStep({
   const [excludeInternal, setExcludeInternal] = useState(false);
   const hasSeededInternalRef = useRef(false);
 
+  // Inactivity (sunset) filter. Default OFF: a campaign reaches its full
+  // reachable audience unless the sender ticks the "Inactive" chip. Seeded once
+  // from the server's stored value, then owned here (same pattern as internal).
+  const [applySunset, setApplySunset] = useState(false);
+  const hasSeededSunsetRef = useRef(false);
+
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [sendTab, setSendTab] = useState<SendTab>("everyone");
@@ -458,6 +464,7 @@ export function AudienceStep({
     utmParams,
     windowOverride,
     excludeInternal,
+    applySunset,
   });
   syncInputsRef.current = {
     selectedAudiences,
@@ -467,6 +474,7 @@ export function AudienceStep({
     utmParams,
     windowOverride,
     excludeInternal,
+    applySunset,
   };
 
   // Live autosync. The backend rate-limits these endpoints (3 requests/10s),
@@ -516,6 +524,9 @@ export function AudienceStep({
         tracking: {
           smartSending: Boolean(smartSending),
           trackingParameters: Boolean(trackingParameters),
+          // Always sent (not omitted when false) for the same reason as
+          // excludeInternal: turning it back off must reach the server.
+          applySunset: inputs.applySunset,
           // Omitted when blank so the org setting applies.
           ...(inputs.windowOverride !== undefined
             ? { smartSendingWindowHours: inputs.windowOverride }
@@ -548,6 +559,12 @@ export function AudienceStep({
             hasSeededInternalRef.current = true;
             if (typeof estimate.excludeInternal === "boolean") {
               setExcludeInternal(estimate.excludeInternal);
+            }
+          }
+          if (!hasSeededSunsetRef.current) {
+            hasSeededSunsetRef.current = true;
+            if (typeof estimate.sunsetApplied === "boolean") {
+              setApplySunset(estimate.sunsetApplied);
             }
           }
         }
@@ -589,6 +606,7 @@ export function AudienceStep({
     trackingParameters,
     utmKey,
     excludeInternal,
+    applySunset,
   ]);
 
   const displayedEstimatedRecipients =
@@ -670,6 +688,12 @@ export function AudienceStep({
   // actually skipped (never "0 of N").
   const missingEmailCount = asCount(estimateBreakdown?.missingEmail);
   const totalRecipientCount = asCount(estimateBreakdown?.totalWallets);
+  // Inactivity (sunset) filter: shown as a toggleable chip only when the org has
+  // a window configured. Default OFF, so the count is informational until ticked.
+  const sunsetExcludedCount = asCount(estimateBreakdown?.sunsetExcluded);
+  const sunsetInactiveDays = asCount(estimateBreakdown?.sunsetInactiveDays);
+  const sunsetConfigured =
+    typeof sunsetInactiveDays === "number" && sunsetInactiveDays > 0;
   // One row per reason the backend reports, in the order it applies them. The
   // buckets are disjoint and partition the selection, so "15 selected, 14 will
   // receive it" can always account for the difference - which is what the old
@@ -723,16 +747,43 @@ export function AudienceStep({
       count: internalCount,
       applied: excludeInternal,
       toggle: true,
+      onToggle: () => setExcludeInternal((v) => !v),
       hint: excludeInternal
         ? `Withheld from this campaign. Click to include internal / team ${isWalletChannel ? "wallets" : "contacts"}.`
         : `Included in this campaign. Click to withhold it from internal / team ${isWalletChannel ? "wallets" : "contacts"}.`,
     },
+    // Inactivity (sunset): opt-in, OFF by default, shown only when the org has a
+    // window set. Ticking it excludes long-dormant contacts (reputation
+    // protection); left off, the campaign reaches them.
+    ...(sunsetConfigured
+      ? [
+          {
+            key: "sunset",
+            label: isPush ? "Inactive wallets" : "Inactive contacts",
+            count: sunsetExcludedCount,
+            applied: applySunset,
+            toggle: true as const,
+            onToggle: () => setApplySunset((v) => !v),
+            hint: applySunset
+              ? `Excluded — no opens or clicks in ${sunsetInactiveDays} days. Click to include them (sending to a dormant list can raise bounces/complaints and hurt deliverability).`
+              : `Included. Click to exclude contacts with no opens or clicks in ${sunsetInactiveDays} days — protects your sender reputation.`,
+          },
+        ]
+      : []),
     // A locked row with nothing in it says nothing, so it is dropped — the
     // panel stays short on a clean list. The toggle always shows: its whole
     // job is to be available before anyone is tagged.
   ].filter((row) => {
+    // Toggles always show: their whole job is to be available before anyone is
+    // tagged, and before the first estimate resolves.
     if (row.toggle === true) return true;
-    return row.count === null || row.count > 0;
+    // Locked hygiene rows show only once the estimate has resolved with a real
+    // count. Before that `estimateBreakdown` is null and every count is null;
+    // treating null as "show" here flashed all five compliance chips during
+    // load, then dropped them the instant real zeros arrived - a visible
+    // content swap / layout shift. Now they appear only with a known count > 0.
+    if (estimateBreakdown === null) return false;
+    return (row.count ?? 0) > 0;
   });
 
   return (
@@ -1094,7 +1145,10 @@ export function AudienceStep({
                   ? {
                       type: "button" as const,
                       "aria-pressed": ex.applied,
-                      onClick: () => setExcludeInternal((v) => !v),
+                      onClick:
+                        "onToggle" in ex && typeof ex.onToggle === "function"
+                          ? ex.onToggle
+                          : undefined,
                     }
                   : {})}
                 title={ex.hint}

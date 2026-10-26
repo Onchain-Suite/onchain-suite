@@ -3,6 +3,24 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import type {
+  AudienceImportEstimate,
+  ImportUpgradeCheckout,
+} from "./contracts/imports";
+
+export type {
+  AudienceImportEstimate,
+  ImportUpgradeCheckout,
+} from "./contracts/imports";
+
+/** Company-vs-consumer email domain counts for the org (GET /audience/email-domains/summary). */
+export interface EmailDomainSummary {
+  totalContacts: number;
+  withEmail: number;
+  companyDomain: number;
+  consumerDomain: number;
+}
+
 export interface AudienceOverview {
   total?: number;
   withWallet?: number;
@@ -471,7 +489,23 @@ const request = async <T>(
         : typeof data === "string"
           ? data
           : (err.message ?? "Audience request failed");
-    throw new Error(String(message), { cause: e });
+    // Keep the HTTP status and the backend domain `code` on the Error. Flattening
+    // to the message string alone threw both away, so the import UI could not
+    // tell a 402 (payment), 409 (contact limit), 400 (bad list) or 5xx apart and
+    // collapsed every failure to one generic toast. Callers branch on these.
+    const code =
+      isJsonObject(nestedError) && typeof nestedError.code === "string"
+        ? nestedError.code
+        : isJsonObject(data) && typeof data.code === "string"
+          ? data.code
+          : undefined;
+    const error = new Error(String(message), { cause: e }) as Error & {
+      status?: number;
+      code?: string;
+    };
+    error.status = err.response?.status;
+    error.code = code;
+    throw error;
   }
 };
 
@@ -571,6 +605,18 @@ export const audienceService = {
     );
   },
 
+  /** Company-vs-consumer email domain counts, computed server-side. */
+  getEmailDomainSummary(options?: { signal?: AbortSignal }, orgId?: string) {
+    return request<EmailDomainSummary>(
+      {
+        method: "GET",
+        url: "/audience/email-domains/summary",
+        signal: options?.signal,
+      },
+      orgId
+    );
+  },
+
   listProfiles(
     params?: ListProfilesParams,
     orgId?: string,
@@ -648,9 +694,6 @@ export const audienceService = {
   createSegment(
     body: {
       name: string;
-      /** Growing = keeps gaining members from forms/rules; static = fixed set.
-       *  Forwarded now; the backend ignores it until it supports list types. */
-      type?: "growing" | "static";
       criteria?: unknown;
     },
     orgId?: string
@@ -691,6 +734,22 @@ export const audienceService = {
         data: opts?.deleteContacts
           ? { deleteContacts: true, confirmCount: opts.confirmCount }
           : undefined,
+      },
+      orgId
+    );
+  },
+
+  /**
+   * `DELETE /audience/segments/{id}/members/{profileId}` - remove one contact
+   * from a list (detaches the backing tag). The contact itself is kept.
+   */
+  removeSegmentMember(id: string, profileId: string, orgId?: string) {
+    return request<{ removed: boolean; count: number }>(
+      {
+        method: "DELETE",
+        url: `/audience/segments/${encodeURIComponent(
+          id
+        )}/members/${encodeURIComponent(profileId)}`,
       },
       orgId
     );
@@ -1036,6 +1095,82 @@ export const audienceService = {
       {
         method: "POST",
         url: "/audience/imports",
+        data: fd,
+        params,
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+      orgId
+    );
+  },
+
+  /**
+   * `POST /audience/imports/estimate` - dry pre-check (no writes): parses the
+   * file to count rows, prices the PAYG verification against the wallet, and
+   * reports plan contact-cap headroom. The import UI calls this after column
+   * mapping to block on a wallet shortfall and warn on a cap overflow before it
+   * commits the real import.
+   */
+  estimateImport(
+    input: {
+      file: File;
+      format?: AudienceImportExportFormat;
+      dedupeKey?: string;
+    },
+    orgId?: string
+  ) {
+    const fd = new FormData();
+    fd.append("file", input.file);
+    const params: Record<string, unknown> = {};
+    if (input.format) params.format = input.format;
+    if (input.dedupeKey) params.dedupeKey = input.dedupeKey;
+    return request<AudienceImportEstimate>(
+      {
+        method: "POST",
+        url: "/audience/imports/estimate",
+        data: fd,
+        params,
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+      orgId
+    );
+  },
+
+  /**
+   * `POST /billing/checkout/import-upgrade` - the "upgrade & import" flow for an
+   * over-cap import: holds the import server-side, starts a plan-upgrade checkout
+   * sized to cover the whole file, and resumes the import on payment. Returns the
+   * held job id and the checkout to redirect to. OWNER-only on the backend.
+   */
+  startImportUpgradeCheckout(
+    input: {
+      file: File;
+      format?: AudienceImportExportFormat;
+      mapping?: Record<string, string>;
+      platform?: AudienceImportPlatform | string;
+      query?: Record<string, string | number | boolean | undefined>;
+      billingCycle?: "monthly" | "annual";
+      paymentMethod?: "card" | "crypto";
+    },
+    orgId?: string
+  ) {
+    const fd = new FormData();
+    fd.append("file", input.file);
+    if (input.mapping && Object.keys(input.mapping).length > 0) {
+      fd.append("mapping", JSON.stringify(input.mapping));
+    }
+
+    const params: Record<string, unknown> = { ...(input.query ?? {}) };
+    if (input.format) params.format = input.format;
+    if (input.platform && input.platform.trim().length > 0) {
+      params.platform = input.platform.trim();
+    }
+    if (input.billingCycle) params.billingCycle = input.billingCycle;
+    if (input.paymentMethod) params.paymentMethod = input.paymentMethod;
+
+    return request<ImportUpgradeCheckout>(
+      {
+        method: "POST",
+        url: "/billing/checkout/import-upgrade",
         data: fd,
         params,
         headers: { "Content-Type": "multipart/form-data" },

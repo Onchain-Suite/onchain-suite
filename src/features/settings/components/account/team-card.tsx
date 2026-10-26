@@ -17,6 +17,7 @@ import { billingService } from "@/features/billing/billing.service";
 import {
   includedSeatsForPlan,
   SEAT_PRICE_USD,
+  seatBilling,
 } from "@/features/billing/seat-pricing";
 import {
   type AssignableRole,
@@ -187,6 +188,13 @@ export function TeamCard() {
   const seatPercent = hasSeatMeter
     ? Math.min(100, Math.round((seatUsed / seatLimit) * 100))
     : 0;
+  // Seats are usage-billed: adding a member past the included allowance bills
+  // the extra at $10/mo on the next invoice (no separate purchase). Drive the
+  // "+$10/mo" disclosure and the current extra-seat cost off the SSOT helper.
+  const seats = seatBilling(seatUsed, seatLimit);
+  // Only disclose the charge when we actually know the allowance; without the
+  // meter we can't tell a free seat from a billable one, so don't guess.
+  const nextSeatBillable = hasSeatMeter && seats.nextIsBillable;
 
   return (
     <SettingsCard
@@ -222,10 +230,14 @@ export function TeamCard() {
               style={{ width: `${seatPercent}%` }}
             />
           </div>
-          {seatsFull ? (
+          {seats.extraSeats > 0 ? (
             <p className="mt-2 text-xs text-muted-foreground">
-              All {seatLimit} seats are in use. Add more at ${SEAT_PRICE_USD}/mo
-              each from{" "}
+              {seats.extraSeats} extra{" "}
+              {seats.extraSeats === 1 ? "seat" : "seats"} beyond your plan ·{" "}
+              <span className="font-medium text-foreground">
+                +${seats.extraMonthlyUsd}/mo
+              </span>{" "}
+              on your invoice. Manage in{" "}
               <Link
                 href="/settings?tab=billing"
                 className="font-medium text-foreground underline-offset-2 hover:underline"
@@ -233,6 +245,12 @@ export function TeamCard() {
                 Billing
               </Link>
               .
+            </p>
+          ) : seatsFull ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              All {seatLimit} included seats are in use. Inviting another
+              teammate adds a seat at ${SEAT_PRICE_USD}/mo, billed on your next
+              invoice.
             </p>
           ) : null}
         </div>
@@ -269,9 +287,23 @@ export function TeamCard() {
               ))}
             </SelectContent>
           </Select>
+          {nextSeatBillable ? (
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              This teammate uses an extra seat.{" "}
+              <span className="font-medium text-foreground">
+                +${SEAT_PRICE_USD}/mo
+              </span>{" "}
+              will be added to your plan and billed on your next invoice once
+              they accept.
+            </p>
+          ) : null}
           <div className="flex gap-2 sm:col-span-2">
             <Button type="submit" size="sm" disabled={inviteMutation.isPending}>
-              {inviteMutation.isPending ? "Sending…" : "Send invite"}
+              {inviteMutation.isPending
+                ? "Sending…"
+                : nextSeatBillable
+                  ? `Add seat & invite · +$${SEAT_PRICE_USD}/mo`
+                  : "Send invite"}
             </Button>
             <Button
               type="button"

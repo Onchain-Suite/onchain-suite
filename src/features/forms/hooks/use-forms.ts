@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import type { FormAnalyticsRange } from "../contracts/analytics";
 import {
   type CaptureForm,
   type CreateFormInput,
@@ -14,6 +15,20 @@ export const FORMS_KEY = ["forms", "list"] as const;
 export const formDetailKey = (id: string) => ["forms", "detail", id] as const;
 export const formSubmissionsKey = (id: string, page: number, limit: number) =>
   ["forms", "submissions", id, { page, limit }] as const;
+export const formAnalyticsKey = (id: string, range: FormAnalyticsRange) =>
+  ["forms", "analytics", id, range] as const;
+
+/** Funnel analytics for the Performance view (views/starts/completions). */
+export function useFormAnalytics(id: string, range: FormAnalyticsRange) {
+  return useQuery({
+    queryKey: formAnalyticsKey(id, range),
+    queryFn: () => formsService.getFormAnalytics(id, range),
+    enabled: id.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
+  });
+}
 
 /** Server state for capture forms - owned by React Query, inherits app caching defaults. */
 export function useFormsList() {

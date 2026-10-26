@@ -13,6 +13,14 @@ export type {
   ImportUpgradeCheckout,
 } from "./contracts/imports";
 
+/** Company-vs-consumer email domain counts for the org (GET /audience/email-domains/summary). */
+export interface EmailDomainSummary {
+  totalContacts: number;
+  withEmail: number;
+  companyDomain: number;
+  consumerDomain: number;
+}
+
 export interface AudienceOverview {
   total?: number;
   withWallet?: number;
@@ -593,6 +601,18 @@ export const audienceService = {
   getOverview(orgId?: string) {
     return request<AudienceOverview>(
       { method: "GET", url: "/audience/overview" },
+      orgId
+    );
+  },
+
+  /** Company-vs-consumer email domain counts, computed server-side. */
+  getEmailDomainSummary(options?: { signal?: AbortSignal }, orgId?: string) {
+    return request<EmailDomainSummary>(
+      {
+        method: "GET",
+        url: "/audience/email-domains/summary",
+        signal: options?.signal,
+      },
       orgId
     );
   },

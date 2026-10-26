@@ -3,28 +3,35 @@ import { notFound } from "next/navigation";
 
 import { PlaybookChapterPage } from "@/onchain-suite-website/components/retention-playbook/playbook-chapter-page";
 import { SITE_CONFIG_META } from "@/onchain-suite-website/config";
+import { CLIENT_STRATEGIES } from "@/onchain-suite-website/data/clients";
 import { PLAYBOOK_CHAPTERS } from "@/onchain-suite-website/data/playbooks";
-import type { PlaybookChapter } from "@/onchain-suite-website/types/retention-playbook";
+import type { Chapter } from "@/onchain-suite-website/types/retention-playbook";
 import {
   categoryOfSlug,
   playbookPath,
+  strategyPathForSlug,
 } from "@/onchain-suite-website/utils/retention-playbook-params";
 
-function chapterFor(slug: string): PlaybookChapter | undefined {
+/** A slug names a sector strategy, or a client's, or nothing. */
+function chapterFor(slug: string): Chapter | undefined {
   const category = categoryOfSlug(slug);
-  return category
-    ? PLAYBOOK_CHAPTERS.find((c) => c.id === category)
-    : undefined;
+  if (category) {
+    return PLAYBOOK_CHAPTERS.find((c) => c.id === category);
+  }
+  return CLIENT_STRATEGIES.find((s) => s.slug === slug)?.chapter;
 }
 
-/** The three sector pages are known at build time, so they are prerendered. */
+/** Every strategy page is known at build time, so all are prerendered. */
 export function generateStaticParams() {
-  return PLAYBOOK_CHAPTERS.map((c) => ({
-    category: playbookPath(c.id).split("/").pop() as string,
-  }));
+  return [
+    ...PLAYBOOK_CHAPTERS.map(
+      (c) => playbookPath(c.id).split("/").pop() as string
+    ),
+    ...CLIENT_STRATEGIES.map((s) => s.slug),
+  ].map((category) => ({ category }));
 }
 
-/** Only the three sector slugs exist; anything else is a 404. */
+/** Only those slugs exist; anything else is a 404. */
 export const dynamicParams = false;
 
 // Same as the landing page: out of search results, but a proper preview card
@@ -43,7 +50,7 @@ export async function generateMetadata({
     title: chapter.title,
     description: chapter.dek,
     robots: { index: false, follow: false },
-    alternates: { canonical: playbookPath(chapter.id) },
+    alternates: { canonical: strategyPathForSlug(category) },
     openGraph: {
       title: chapter.title,
       description: chapter.dek,
@@ -70,5 +77,5 @@ export default async function Page({
   if (!chapter) {
     notFound();
   }
-  return <PlaybookChapterPage chapter={chapter} />;
+  return <PlaybookChapterPage chapter={chapter} slug={category} />;
 }

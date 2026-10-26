@@ -34,16 +34,23 @@ export function parseCategory(raw: RawParam): CategoryId | null {
 /** Where the playbooks live: the landing page, with one page per sector under it. */
 export const PLAYBOOK_BASE = "/retention-playbook";
 
+/** Any strategy page by its slug, sector or client: "/retention-playbook/<slug>". */
+export const strategyPathForSlug = (slug: string) => `${PLAYBOOK_BASE}/${slug}`;
+
+/** Any strategy's PDF by its slug, exported by scripts/export-playbook-pdfs.sh. */
+export const pdfPathForSlug = (slug: string) => `/playbooks/${slug}.pdf`;
+
+const slugOf = (category: CategoryId) =>
+  CATEGORIES.find((c) => c.id === category)?.slug ?? category;
+
 /** Path of a sector's page, e.g. "/retention-playbook/perp-dexes". */
 export function playbookPath(category: CategoryId): string {
-  const slug = CATEGORIES.find((c) => c.id === category)?.slug ?? category;
-  return `${PLAYBOOK_BASE}/${slug}`;
+  return strategyPathForSlug(slugOf(category));
 }
 
-/** The strategy's PDF, exported by scripts/export-playbook-pdfs.sh into public/. */
+/** A sector strategy's PDF. */
 export function playbookPdfPath(category: CategoryId): string {
-  const slug = CATEGORIES.find((c) => c.id === category)?.slug ?? category;
-  return `/playbooks/${slug}.pdf`;
+  return pdfPathForSlug(slugOf(category));
 }
 
 /** The category a page slug names: "perp-dexes" is the perp DEX playbook. */

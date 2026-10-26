@@ -24,7 +24,7 @@ for c in \
 done
 [ -n "$CHROME" ] || { echo "No Chrome or Chromium found" >&2; exit 1; }
 
-for slug in perp-dexes prediction-markets defi; do
+for slug in perp-dexes prediction-markets defi yauga; do
   url="$BASE/retention-playbook/$slug"
   pdf="$OUT/$slug.pdf"
   # --virtual-time-budget lets fonts and the hand-drawn SVGs finish before print.

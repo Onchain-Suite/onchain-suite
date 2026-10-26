@@ -15,8 +15,8 @@
  */
 import { isJsonObject } from "@/lib/utils";
 
+import { automationService } from "./automation.service";
 import { audienceService } from "@/features/audience/audience.service";
-import { automationService } from "@/features/automation/automation.service";
 
 /* ------------------------------------------------------------------ */
 /* Company domains                                                     */

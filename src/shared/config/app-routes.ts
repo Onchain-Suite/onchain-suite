@@ -33,8 +33,6 @@ export const PRIVATE_ROUTES = {
   EDIT_SEGMENT: (id: string | number) =>
     `/audience/segments/${id}/edit` as const,
   COMMUNITY: "/community",
-  // Org-wide automation performance report (captured / delivered / engagement).
-  AUTOMATION_REPORT: "/reports/automation",
   INTELLIGENCE: "/intelligence",
   ANALYTICS: "/intelligence/analytics",
   ADVANCED_ANALYTICS: "/intelligence/analytics/advanced",

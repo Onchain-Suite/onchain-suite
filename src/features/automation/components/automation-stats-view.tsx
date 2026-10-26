@@ -19,11 +19,11 @@ import { cn } from "@/lib/utils";
 import {
   type AutomationReportRow,
   buildAutomationReport,
-  COMPANY_DOMAIN_SCAN_MAX_PAGES,
-  COMPANY_DOMAIN_SCAN_PAGE_SIZE,
-  scanCompanyDomains,
+  fetchAutomationTimeSeries,
+  fetchEmailDomainSummary,
 } from "../automation-report.service";
 import {
+  AutomationTrendChart,
   CapturedByAutomationChart,
   CompanyDomainChart,
   DeliveryFunnelChart,
@@ -37,18 +37,8 @@ const formatCount = (value: number) => value.toLocaleString();
 const formatPercent = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(1)}%`;
 
-/** Contacts the domain scan can reach before it reports a sample. */
-const DOMAIN_SCAN_CEILING =
-  COMPANY_DOMAIN_SCAN_MAX_PAGES * COMPANY_DOMAIN_SCAN_PAGE_SIZE;
-
-/** Query key root - shared with the Refresh button so both queries invalidate. */
+/** Query key root - shared with the Refresh button so every query invalidates. */
 const REPORT_QUERY_ROOT = ["reports", "automation"] as const;
-
-interface ScanProgress {
-  scanned: number;
-  withEmail: number;
-  companyDomain: number;
-}
 
 interface ReportProgress {
   current: number;
@@ -176,7 +166,6 @@ export function AutomationStatsView(): ReactElement {
   const organizationId = orgSwitcher?.confirmedActiveOrgId ?? null;
 
   const queryClient = useQueryClient();
-  const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [reportProgress, setReportProgress] = useState<ReportProgress | null>(
     null
   );
@@ -195,18 +184,18 @@ export function AutomationStatsView(): ReactElement {
     staleTime: 60_000,
   });
 
-  const domainScanQuery = useQuery({
-    queryKey: [...REPORT_QUERY_ROOT, "company-domains", organizationId],
-    queryFn: ({ signal }) =>
-      scanCompanyDomains({
-        signal,
-        onProgress: (progress) =>
-          setScanProgress({
-            scanned: progress.scanned,
-            withEmail: progress.withEmail,
-            companyDomain: progress.companyDomain,
-          }),
-      }),
+  const domainSummaryQuery = useQuery({
+    queryKey: [...REPORT_QUERY_ROOT, "email-domains", organizationId],
+    queryFn: ({ signal }) => fetchEmailDomainSummary({ signal }),
+    enabled: Boolean(organizationId),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+
+  const trendQuery = useQuery({
+    queryKey: [...REPORT_QUERY_ROOT, "time-series", organizationId],
+    queryFn: ({ signal }) => fetchAutomationTimeSeries("30days", { signal }),
     enabled: Boolean(organizationId),
     retry: false,
     refetchOnWindowFocus: false,
@@ -221,7 +210,6 @@ export function AutomationStatsView(): ReactElement {
 
   const refresh = useCallback(() => {
     setReportProgress(null);
-    setScanProgress(null);
     queryClient
       .invalidateQueries({ queryKey: REPORT_QUERY_ROOT })
       .catch(() => undefined);
@@ -259,34 +247,20 @@ export function AutomationStatsView(): ReactElement {
 
   const report = reportQuery.data;
   const { totals, rows } = report;
-  const scan = domainScanQuery.data;
+  const domains = domainSummaryQuery.data;
   const isRefreshing =
     (reportQuery.isFetching && !reportQuery.isPending) ||
-    domainScanQuery.isFetching;
+    domainSummaryQuery.isFetching ||
+    trendQuery.isFetching;
 
-  // The scan touches contacts one page at a time, so it reports what it has
-  // already counted instead of holding the tile blank.
-  const domainValue = scan
-    ? formatCount(scan.companyDomain)
-    : scanProgress
-      ? formatCount(scanProgress.companyDomain)
-      : "—";
+  const domainValue = domains ? formatCount(domains.companyDomain) : "—";
 
   const domainHint = (() => {
-    if (domainScanQuery.isError) return "contact scan unavailable";
-    if (domainScanQuery.isPending) {
-      const scanned = scanProgress?.scanned ?? 0;
-      const total = scan?.totalContacts;
-      return scanned > 0
-        ? `scanning ${formatCount(scanned)} contacts…`
-        : `scanning up to ${formatCount(total ?? DOMAIN_SCAN_CEILING)} contacts…`;
-    }
-    if (!scan) return "not available";
-    if (scan.withEmail === 0) return "no contacts have an email address";
-    const base = `of ${formatCount(scan.withEmail)} emails on file`;
-    return scan.truncated
-      ? `${base} · sampled from the first ${formatCount(scan.scanned)} contacts`
-      : base;
+    if (domainSummaryQuery.isError) return "contact lookup unavailable";
+    if (domainSummaryQuery.isPending) return "counting company domains…";
+    if (!domains) return "not available";
+    if (domains.withEmail === 0) return "no contacts have an email address";
+    return `of ${formatCount(domains.withEmail)} emails on file`;
   })();
 
   const tiles = [
@@ -368,21 +342,14 @@ export function AutomationStatsView(): ReactElement {
       <StatStrip tiles={tiles} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {trendQuery.data ? (
+          <AutomationTrendChart series={trendQuery.data} />
+        ) : null}
         <CompanyDomainChart
-          companyDomain={
-            scan?.companyDomain ?? scanProgress?.companyDomain ?? 0
-          }
-          consumerDomain={
-            scan
-              ? Math.max(0, scan.withEmail - scan.companyDomain)
-              : Math.max(
-                  0,
-                  (scanProgress?.withEmail ?? 0) -
-                    (scanProgress?.companyDomain ?? 0)
-                )
-          }
-          totalEmails={scan?.withEmail ?? scanProgress?.withEmail ?? 0}
-          truncated={scan?.truncated ?? false}
+          companyDomain={domains?.companyDomain ?? 0}
+          consumerDomain={domains?.consumerDomain ?? 0}
+          totalEmails={domains?.withEmail ?? 0}
+          truncated={false}
         />
         <DeliveryFunnelChart
           delivered={totals.delivered}

@@ -15,116 +15,13 @@
  */
 import { isJsonObject } from "@/lib/utils";
 
+import type {
+  AutomationTimeSeriesPeriod,
+  AutomationTimeSeriesPoint,
+} from "./automation.service";
 import { automationService } from "./automation.service";
+import type { EmailDomainSummary } from "@/features/audience/audience.service";
 import { audienceService } from "@/features/audience/audience.service";
-
-/* ------------------------------------------------------------------ */
-/* Company domains                                                     */
-/* ------------------------------------------------------------------ */
-
-/**
- * Consumer, ISP and webmail domains. A contact on one of these is a person,
- * not a company, so it is excluded from the "valid company domains" count.
- *
- * Matched on the domain as written in the address, so `mail.gmail.com` is
- * reduced to `gmail.com` first. This is a deliberately boring allowlist - the
- * metric is "is this a company address?", and the honest way to answer that
- * without a paid enrichment call is to rule out the well-known consumer ones.
- */
-export const FREE_EMAIL_DOMAINS: ReadonlySet<string> = new Set([
-  "gmail.com",
-  "googlemail.com",
-  "google.com",
-  "yahoo.com",
-  "yahoo.co.uk",
-  "yahoo.fr",
-  "yahoo.de",
-  "ymail.com",
-  "rocketmail.com",
-  "outlook.com",
-  "outlook.fr",
-  "hotmail.com",
-  "hotmail.co.uk",
-  "hotmail.fr",
-  "live.com",
-  "live.co.uk",
-  "msn.com",
-  "icloud.com",
-  "me.com",
-  "mac.com",
-  "aol.com",
-  "proton.me",
-  "protonmail.com",
-  "pm.me",
-  "gmx.com",
-  "gmx.de",
-  "gmx.net",
-  "mail.com",
-  "email.com",
-  "zoho.com",
-  "yandex.com",
-  "yandex.ru",
-  "ya.ru",
-  "mail.ru",
-  "inbox.ru",
-  "bk.ru",
-  "list.ru",
-  "qq.com",
-  "163.com",
-  "126.com",
-  "sina.com",
-  "naver.com",
-  "daum.net",
-  "hanmail.net",
-  "web.de",
-  "t-online.de",
-  "freenet.de",
-  "free.fr",
-  "orange.fr",
-  "wanadoo.fr",
-  "laposte.net",
-  "sfr.fr",
-  "libero.it",
-  "virgilio.it",
-  "alice.it",
-  "tin.it",
-  "terra.com.br",
-  "uol.com.br",
-  "bol.com.br",
-  "ig.com.br",
-  "comcast.net",
-  "verizon.net",
-  "att.net",
-  "sbcglobal.net",
-  "bellsouth.net",
-  "cox.net",
-  "charter.net",
-  "earthlink.net",
-  "btinternet.com",
-  "sky.com",
-  "virginmedia.com",
-  "ntlworld.com",
-  "blueyonder.co.uk",
-  "talktalk.net",
-]);
-
-/** The domain part of an address, lowercased, or null when there isn't one. */
-export const emailDomain = (email: string): string | null => {
-  const at = email.lastIndexOf("@");
-  if (at <= 0 || at === email.length - 1) return null;
-  const domain = email
-    .slice(at + 1)
-    .trim()
-    .toLowerCase()
-    .replace(/\.+$/, "");
-  return domain.includes(".") ? domain : null;
-};
-
-/** True when the address is on a real domain that is not a consumer provider. */
-export const isCompanyDomain = (email: string): boolean => {
-  const domain = emailDomain(email);
-  return domain !== null && !FREE_EMAIL_DOMAINS.has(domain);
-};
 
 /* ------------------------------------------------------------------ */
 /* Shared helpers                                                      */
@@ -423,84 +320,32 @@ export async function buildAutomationReport(options?: {
 }
 
 /* ------------------------------------------------------------------ */
-/* Company-domain scan                                                 */
+/* Server-side aggregates (replace the old client-side scans)          */
 /* ------------------------------------------------------------------ */
 
-export const COMPANY_DOMAIN_SCAN_PAGE_SIZE = 200;
-export const COMPANY_DOMAIN_SCAN_MAX_PAGES = 50;
-
-export interface CompanyDomainScan {
-  /** Contacts looked at (profiles returned, regardless of email). */
-  scanned: number;
-  /** Of those, how many actually carry an email address. */
-  withEmail: number;
-  /** `withEmail` minus the consumer-provider ones. */
-  companyDomain: number;
-  /** True when the org is bigger than the scan cap - the number is a sample. */
-  truncated: boolean;
-  totalContacts: number | null;
-}
-
-const readEmail = (profile: unknown): string | null => {
-  if (!isJsonObject(profile)) return null;
-  const { email } = profile;
-  if (typeof email !== "string") return null;
-  const trimmed = email.trim();
-  return trimmed.length > 0 ? trimmed : null;
-};
+export type { AutomationTimeSeriesPoint, EmailDomainSummary };
 
 /**
- * Pages the contact list sequentially (`limit=200`, one request in flight) and
- * counts emails on non-consumer domains.
- *
- * This is the only metric in the report that has to touch individual contacts -
- * the API exposes no domain classification - so it is bounded by
- * `COMPANY_DOMAIN_SCAN_MAX_PAGES` and reports `truncated` when the org is
- * larger, rather than pretending a partial scan is the total.
+ * Org-wide daily enrolments + email engagement for the trend chart. One request
+ * to `/automations/metrics/time-series`, zero-filled server-side - no per-
+ * automation fan-out.
  */
-export async function scanCompanyDomains(options?: {
+export async function fetchAutomationTimeSeries(
+  period: AutomationTimeSeriesPeriod,
+  options?: { signal?: AbortSignal }
+): Promise<AutomationTimeSeriesPoint[]> {
+  const res = await automationService.getMetricsTimeSeries(period, {
+    signal: options?.signal,
+  });
+  return Array.isArray(res?.series) ? res.series : [];
+}
+
+/**
+ * Company-vs-consumer email domain counts. One grouped query server-side,
+ * replacing the old scan that paged up to 10,000 contacts into the browser.
+ */
+export async function fetchEmailDomainSummary(options?: {
   signal?: AbortSignal;
-  onProgress?: (progress: {
-    scanned: number;
-    withEmail: number;
-    companyDomain: number;
-    total: number | null;
-  }) => void;
-}): Promise<CompanyDomainScan> {
-  const { signal, onProgress } = options ?? {};
-
-  let scanned = 0;
-  let withEmail = 0;
-  let companyDomain = 0;
-  let truncated = false;
-  let totalContacts: number | null = null;
-
-  for (let page = 1; page <= COMPANY_DOMAIN_SCAN_MAX_PAGES; page += 1) {
-    abortIfCancelled(signal);
-    const response = await withRateLimitRetry(() =>
-      audienceService.listProfiles(
-        { page, limit: COMPANY_DOMAIN_SCAN_PAGE_SIZE },
-        undefined,
-        { signal }
-      )
-    );
-    const batch = pickRows(response);
-    totalContacts ??= readTotal(response);
-
-    for (const profile of batch) {
-      scanned += 1;
-      const email = readEmail(profile);
-      if (!email) continue;
-      withEmail += 1;
-      if (isCompanyDomain(email)) companyDomain += 1;
-    }
-
-    onProgress?.({ scanned, withEmail, companyDomain, total: totalContacts });
-
-    if (batch.length < COMPANY_DOMAIN_SCAN_PAGE_SIZE) break;
-    if (totalContacts !== null && scanned >= totalContacts) break;
-    if (page === COMPANY_DOMAIN_SCAN_MAX_PAGES) truncated = true;
-  }
-
-  return { scanned, withEmail, companyDomain, truncated, totalContacts };
+}): Promise<EmailDomainSummary> {
+  return audienceService.getEmailDomainSummary({ signal: options?.signal });
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -20,7 +22,10 @@ import {
 
 import { cn } from "@/lib/utils";
 
-import type { AutomationReportRow } from "../automation-report.service";
+import type {
+  AutomationReportRow,
+  AutomationTimeSeriesPoint,
+} from "../automation-report.service";
 
 /** Bars are grouped in a shared card; the legend is plain HTML below the plot
  *  so it can carry the value as well as the swatch. */
@@ -110,6 +115,132 @@ function Legend({
         </li>
       ))}
     </ul>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Enrolments & deliveries over time                                   */
+/* ------------------------------------------------------------------ */
+
+const TREND_CONFIG = {
+  entries: { label: "Enrolments", color: "var(--chart-1)" },
+  delivered: { label: "Delivered", color: "var(--chart-2)" },
+} satisfies ChartConfig;
+
+/** "2026-10-26" → "Oct 26", in UTC to match the server's day buckets. */
+const trendDateLabel = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      });
+};
+
+export function AutomationTrendChart({
+  series,
+}: {
+  series: AutomationTimeSeriesPoint[];
+}) {
+  const data = series.map((point) => ({
+    ...point,
+    label: trendDateLabel(point.date),
+  }));
+  const totalEntries = series.reduce((acc, p) => acc + p.entries, 0);
+  const totalDelivered = series.reduce((acc, p) => acc + p.delivered, 0);
+
+  return (
+    <ChartCard
+      title="Enrolments & deliveries over time"
+      description="Contacts enrolled and emails delivered across your automations, by day."
+      isEmpty={totalEntries === 0 && totalDelivered === 0}
+      emptyLabel="No automation activity in this window yet"
+      className="lg:col-span-2"
+    >
+      <ChartContainer
+        config={TREND_CONFIG}
+        className={cn("aspect-auto w-full", CHART_HEIGHT)}
+      >
+        <AreaChart data={data} margin={{ left: 0, right: 8, top: 4 }}>
+          <defs>
+            <linearGradient id="fillEntries" x1="0" y1="0" x2="0" y2="1">
+              <stop
+                offset="0%"
+                stopColor="var(--color-entries)"
+                stopOpacity={0.35}
+              />
+              <stop
+                offset="100%"
+                stopColor="var(--color-entries)"
+                stopOpacity={0.02}
+              />
+            </linearGradient>
+            <linearGradient id="fillDelivered" x1="0" y1="0" x2="0" y2="1">
+              <stop
+                offset="0%"
+                stopColor="var(--color-delivered)"
+                stopOpacity={0.3}
+              />
+              <stop
+                offset="100%"
+                stopColor="var(--color-delivered)"
+                stopOpacity={0.02}
+              />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            axisLine={false}
+            minTickGap={28}
+            interval="preserveStartEnd"
+          />
+          <YAxis
+            tickFormatter={(value: number) => formatCount(value)}
+            tickLine={false}
+            axisLine={false}
+            width={40}
+            allowDecimals={false}
+          />
+          <ChartTooltip
+            cursor={false}
+            content={<ChartTooltipContent indicator="dot" />}
+          />
+          <Area
+            type="monotone"
+            dataKey="entries"
+            stroke="var(--color-entries)"
+            fill="url(#fillEntries)"
+            strokeWidth={2}
+          />
+          <Area
+            type="monotone"
+            dataKey="delivered"
+            stroke="var(--color-delivered)"
+            fill="url(#fillDelivered)"
+            strokeWidth={2}
+          />
+        </AreaChart>
+      </ChartContainer>
+      <Legend
+        className="mt-4"
+        items={[
+          {
+            label: TREND_CONFIG.entries.label,
+            color: SERIES.captured.color,
+            value: formatCount(totalEntries),
+          },
+          {
+            label: TREND_CONFIG.delivered.label,
+            color: SERIES.ctr.color,
+            value: formatCount(totalDelivered),
+          },
+        ]}
+      />
+    </ChartCard>
   );
 }
 

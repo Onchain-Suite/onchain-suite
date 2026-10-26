@@ -155,6 +155,18 @@ const nextConfig: NextConfig = {
       { source: "/f/:path*", headers: hostedFormSecurityHeaders },
     ];
   },
+  async redirects() {
+    return [
+      // Legacy /products (removed — it 404'd and still sat in the old sitemap).
+      // Point it at the lead platform page the nav uses. Permanent so Search
+      // Console drops the 404 and the old URL's link equity passes through.
+      {
+        source: "/products",
+        destination: "/platform/audience",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     const devDefault = "http://127.0.0.1:3333/api/v1";
     const prodDefault = "https://onchain-backend-dvxw.onrender.com/api/v1";

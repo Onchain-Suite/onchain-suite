@@ -53,8 +53,12 @@ const TOOLS: Record<string, ToolDef> = {
   },
 };
 
+/** Slugs with a dedicated calculator — reused by the sitemap so each tool page
+ * is discoverable, not just prerendered. */
+export const TOOL_SLUGS = Object.keys(TOOLS);
+
 export function generateStaticParams() {
-  return Object.keys(TOOLS).map((slug) => ({ slug }));
+  return TOOL_SLUGS.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({

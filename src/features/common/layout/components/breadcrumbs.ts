@@ -28,6 +28,13 @@ const MATCHERS: Array<{
     crumbs: [HOME, { href: PRIVATE_ROUTES.SETTINGS, label: "Settings" }],
   },
   {
+    match: (p) => p.startsWith("/reports/automation"),
+    crumbs: [
+      HOME,
+      { href: PRIVATE_ROUTES.AUTOMATION_REPORT, label: "Automation report" },
+    ],
+  },
+  {
     match: (p) => p.startsWith("/inbox"),
     crumbs: [HOME, { href: PRIVATE_ROUTES.INBOX, label: "Inbox" }],
   },

@@ -2,6 +2,9 @@ import { DiagramSketch } from "@/onchain-suite-website/components/retention-play
 import type { Diagram } from "@/onchain-suite-website/types/retention-playbook";
 import { seedFrom } from "@/onchain-suite-website/utils/sketch";
 
+const centreLine = (c: { label: string; note?: string }) =>
+  c.note ? `${c.label}: ${c.note}` : c.label;
+
 /** Plain-text version of a diagram for screen readers. */
 function describe(diagram: Diagram): string[] {
   switch (diagram.type) {
@@ -15,6 +18,18 @@ function describe(diagram: Diagram): string[] {
       return diagram.points.map((p) => `${p.when}: ${p.label}`);
     case "stack":
       return diagram.layers.map((l) => `${l.label}: ${l.note}`);
+    case "hub": {
+      const way = { in: "into", out: "out of", both: "to and from" };
+      return [
+        centreLine(diagram.centre),
+        ...diagram.spokes.map(
+          (sp) =>
+            `${sp.label}, ${way[sp.dir ?? "in"]} ${diagram.centre.label}${sp.note ? `: ${sp.note}` : ""}`
+        ),
+      ];
+    }
+    case "funnel":
+      return diagram.stages.map((st) => `${st.label}: ${st.note}`);
   }
 }
 

@@ -84,6 +84,12 @@ export function ChapterShell({
         </div>
       )}
 
+      {chapter.intro && (
+        <div className="rp-intro">
+          <BlockList blocks={chapter.intro} g={createGlossaryTracker()} />
+        </div>
+      )}
+
       {chapter.sections.map((s) => {
         const id = sectionAnchor(chapter.id, s.id);
         return (

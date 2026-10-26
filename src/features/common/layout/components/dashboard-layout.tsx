@@ -5,6 +5,7 @@ import {
   ChartBarIcon,
   Cog6ToothIcon,
   CpuChipIcon,
+  DocumentChartBarIcon,
   DocumentTextIcon,
   MegaphoneIcon,
   Squares2X2Icon,
@@ -72,6 +73,11 @@ const NAV_MAIN: NavItem[] = withWipFlags([
     icon: CpuChipIcon,
   },
   { title: "Analytics", url: PRIVATE_ROUTES.ANALYTICS, icon: ChartBarIcon },
+  {
+    title: "Report",
+    url: PRIVATE_ROUTES.AUTOMATION_REPORT,
+    icon: DocumentChartBarIcon,
+  },
   { title: "Settings", url: PRIVATE_ROUTES.SETTINGS, icon: Cog6ToothIcon },
 ]);
 

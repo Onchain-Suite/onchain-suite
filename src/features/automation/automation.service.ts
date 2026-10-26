@@ -345,12 +345,19 @@ export type SubmittedInterface =
     };
 
 export const automationService = {
-  listAutomations(params?: AutomationsListParams, orgId?: string) {
+  listAutomations(
+    params?: AutomationsListParams,
+    orgId?: string,
+    options?: { signal?: AbortSignal }
+  ) {
     return request<
       | { items?: unknown[]; meta?: unknown }
       | { data?: unknown[]; meta?: unknown }
       | unknown[]
-    >({ method: "GET", url: "/automations", params }, orgId);
+    >(
+      { method: "GET", url: "/automations", params, signal: options?.signal },
+      orgId
+    );
   },
 
   searchAutomations(params?: AutomationsSearchParams, orgId?: string) {
@@ -962,7 +969,11 @@ export const automationService = {
   },
 
   /** Per-message delivery counts (sent/delivered/opened/clicked) keyed by node. */
-  getMessageStats(automationId: string, orgId?: string) {
+  getMessageStats(
+    automationId: string,
+    orgId?: string,
+    options?: { signal?: AbortSignal }
+  ) {
     return request<{
       messages: {
         nodeId: string;
@@ -974,7 +985,11 @@ export const automationService = {
         failed: number;
       }[];
     }>(
-      { method: "GET", url: `/automations/${automationId}/stats/messages` },
+      {
+        method: "GET",
+        url: `/automations/${automationId}/stats/messages`,
+        signal: options?.signal,
+      },
       orgId
     );
   },

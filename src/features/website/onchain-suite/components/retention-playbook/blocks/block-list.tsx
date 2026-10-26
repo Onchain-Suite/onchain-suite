@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { CalloutBox } from "@/onchain-suite-website/components/retention-playbook/blocks/callout-box";
 import { DataTable } from "@/onchain-suite-website/components/retention-playbook/blocks/data-table";
 import { PathSteps } from "@/onchain-suite-website/components/retention-playbook/blocks/path-steps";
+import { PullQuote } from "@/onchain-suite-website/components/retention-playbook/blocks/pull-quote";
 import { SaysPanel } from "@/onchain-suite-website/components/retention-playbook/blocks/says-panel";
 import { LoopCards } from "@/onchain-suite-website/components/retention-playbook/loop-cards";
 import { MessagePreview } from "@/onchain-suite-website/components/retention-playbook/message-preview";
@@ -29,6 +30,8 @@ function renderBlock(block: Block, g: GlossaryTracker): ReactNode {
           <RichText segments={g.mark(block.text)} />
         </p>
       );
+    case "pull":
+      return <PullQuote segments={g.mark(block.text)} />;
     case "list": {
       const List = block.ordered ? "ol" : "ul";
       return (

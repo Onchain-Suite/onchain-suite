@@ -29,7 +29,6 @@
    Section ids shared by every strategy page: says, campaigns, loops,
    lifecycle, retention-triggers, measure, platform, need. */
 
-import { DISCLOSURE } from "@/onchain-suite-website/data/retention-playbook";
 import type { PlaybookChapter } from "@/onchain-suite-website/types/retention-playbook";
 
 export const DEFI: PlaybookChapter = {
@@ -56,6 +55,17 @@ export const DEFI: PlaybookChapter = {
           text: 'So we never call a yield guaranteed, risk-free or safe, or a protocol safer than a bank. No headline leads with "up to X% APY", nothing promises withdrawals anytime or instant liquidity, and nothing is called insured without the terms beside it. A rate never sits inside an automated send where it can go stale, and readers in the UK never get referral bonuses, free tokens or limited-time boosts.',
         },
         {
+          kind: "callout",
+          tone: "warning",
+          title: "Written as if a regulator will read it",
+          items: [
+            "No yield is guaranteed, risk-free or safe, and no protocol is safer than a bank",
+            'No headline leads with "up to X% APY", and nothing promises withdrawals anytime',
+            "A rate never sits inside an automated send where it can go stale",
+            "No referral bonuses, free tokens or limited-time boosts for readers in the UK",
+          ],
+        },
+        {
           kind: "p",
           text: 'What we do send is the record. Every rate carries its date and the word "currently". Health factor and liquidation price are given in numbers, with the asset behind them. We say what changed in a position before what to do about it, and the protocol\'s own risk terms are always one link away.',
         },
@@ -72,6 +82,10 @@ export const DEFI: PlaybookChapter = {
         {
           kind: "p",
           text: "Timing matters most here. The date an incentive ends is the date churn starts: after Arbitrum's programme, wallet activity on the protocols in it fell back to where it was before. A message to the exact wallets a change affects, sent before the date, gives them the facts from you before they hear them elsewhere and move.",
+        },
+        {
+          kind: "pull",
+          text: "==The date an incentive ends is the date churn starts.== A message to the exact wallets a change affects, sent before the date, gives them the facts from you first.",
         },
         {
           kind: "p",
@@ -125,6 +139,10 @@ export const DEFI: PlaybookChapter = {
           text: "From then on, active depositors get a statement on the first of each month with what their position earned last month, in dollars. It is the simplest reason to stay: a number they can check. The second-deposit Loop sends new markets for the assets they hold, and stops when they add funds again or open a loan.",
         },
         {
+          kind: "pull",
+          text: "A statement on the first of each month, in dollars: ==the simplest reason to stay is a number they can check==.",
+        },
+        {
           kind: "p",
           text: "Some positions cost the user money quietly, and two Loops watch for that. A liquidity position out of range has stopped earning fees, and research published by 1inch found 29.5% of tracked concentrated-liquidity capital out of range on average in the first half of 2026. After 24 hours out of range, the user gets an email saying it stopped earning, what the position now holds, and how to adjust it, and it stops when the position is back in range. It never pushes constant rebalancing, since an academic study of concentrated liquidity found no significant edge for frequent rebalancers. When claimable rewards pass a set amount, the user gets the amount and one button to claim, until they claim.",
         },
@@ -154,6 +172,17 @@ export const DEFI: PlaybookChapter = {
         {
           kind: "p",
           text: "Each message in a Loop has one owner channel and a fallback: in-app owns the moment a depositor is in the app, email owns the moment they are away from it, and a fallback only fires if the first went unread. A frequency cap counts every channel together. Retention triggers are the one exception, and always send.",
+        },
+        {
+          kind: "callout",
+          tone: "rules",
+          title: "How every Loop behaves",
+          items: [
+            "It starts from something a depositor's position did, or did not do",
+            "It stops the moment they take the step it asks for",
+            "One owner channel, one fallback, and one frequency cap across both",
+            "Retention triggers are the one exception, and always send",
+          ],
         },
       ],
     },
@@ -202,6 +231,12 @@ export const DEFI: PlaybookChapter = {
           text: "New is a wallet connected with nothing in; the first-deposit Loop moves them on. Activated is the first deposit, supplied, staked or added as liquidity; the second-deposit Loop moves them on. Engaged is a depositor who added funds again or borrows against the deposit, and they get campaigns and the letter rather than a Loop. At risk is one rule on every strategy: activity at half the depositor's own 30-day average, which here means net deposit. It needs a baseline, so it applies from Engaged onward, and the slipping Loop answers it. Dormant is 60 days without a deposit or a loan, one message, then rest. Won back is a wallet that deposited again from At risk or Dormant. It is watched for 30 days, then placed as Engaged or At risk like anyone else, and it never goes back through the welcome.",
         },
         {
+          kind: "callout",
+          tone: "rules",
+          title: "The one rule for At risk",
+          text: "Activity at half the depositor's own 30-day average, which here means net deposit. It needs a baseline, so it applies from Engaged onward, and the slipping Loop answers it.",
+        },
+        {
           kind: "p",
           text: "A lifecycle also has exit points, and the rule that keeps them straight is that marketing consent can be withdrawn while service messages about a position the depositor still holds continue until the position is gone. An unsubscribe stops campaigns, the letter and every Loop; a health alert still goes out while they have a loan. A spam complaint stops everything by email that day, and a hard bounce closes the email channel; both leave in-app, service only. A depositor in a restricted country never enters promotion. A wallet that withdraws everything is not an exit: it is At risk or Dormant, and gets the one message and the rest. Rest itself is a state we count, so Dormant never looks like a backlog to work. An account closed, or an erasure request, ends everything, the record included.",
         },
@@ -242,6 +277,10 @@ export const DEFI: PlaybookChapter = {
         {
           kind: "p",
           text: "So when a borrower's health factor falls below the level you set for that collateral, in-app and email go out together with their current health, the price that would trigger liquidation, and how to add collateral or repay. Volatile collateral gets an earlier level, because waiting for 1.0 is too late: in the October 2025 crash, Sentora found most liquidatable volume was taken within about ten blocks, roughly two minutes. If a position is liquidated anyway, an email explains what happened in plain words, what was sold and what is left, with nothing promotional in it.",
+        },
+        {
+          kind: "pull",
+          text: "Waiting for 1.0 is too late. In the October 2025 crash, most liquidatable volume was taken ==within about ten blocks, roughly two minutes==.",
         },
         {
           kind: "messages",
@@ -297,6 +336,10 @@ export const DEFI: PlaybookChapter = {
           text: "We count what depositors do. Opens stopped meaning much once Apple Mail began opening emails by itself, so a message is judged by the deposit, the repayment or the claim that follows it. Every always-on Loop keeps a holdout, a small group left out on purpose, so we can show what the messages caused.",
         },
         {
+          kind: "pull",
+          text: "A message is judged by ==the deposit, the repayment or the claim that follows it==, never by an open.",
+        },
+        {
           kind: "p",
           text: "Every Monday, a stage report shows how many depositors sit at each stage, by count and by capital, and where most of them are stuck. That stage is where the next week's effort goes. Under it, the numbers we watch are deposits still in place 30 and 90 days after they arrive, new deposits from existing depositors each month, loans back above the health level within 24 hours of an alert, liquidations among alerted wallets against the holdout over 30 days, rewards claimed within 48 hours of a reminder, and out-of-range positions adjusted within 7 days of the email. Unsubscribes, complaints and bounces are checked on every send, with the complaint rate held under the 0.3% Gmail and Yahoo allow. Targets are set once the first month gives us a baseline.",
         },
@@ -314,7 +357,6 @@ export const DEFI: PlaybookChapter = {
           kind: "p",
           text: "A mainstream email tool could run the campaigns and the letter. It cannot see a health factor fall or a range go idle, so the Loops, the stages and the retention triggers would have to go.",
         },
-        { kind: "p", text: DISCLOSURE },
       ],
     },
     {

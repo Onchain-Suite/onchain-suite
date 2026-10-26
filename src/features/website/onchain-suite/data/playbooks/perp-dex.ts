@@ -27,7 +27,6 @@
    Section ids shared by every strategy page: says, campaigns, loops,
    lifecycle, retention-triggers, measure, platform, need. */
 
-import { DISCLOSURE } from "@/onchain-suite-website/data/retention-playbook";
 import type { PlaybookChapter } from "@/onchain-suite-website/types/retention-playbook";
 
 export const PERP_DEX: PlaybookChapter = {
@@ -54,6 +53,17 @@ export const PERP_DEX: PlaybookChapter = {
           text: "So we never nudge a trader to add leverage, size or margin, least of all to win back a loss. We never call anything guaranteed, risk-free, safe, easy or liquidation-proof. There are no deposit bonuses, matched deposits, free credits or rebates for trading more, no countdowns the product does not have, and no PnL screenshots or leaderboards without a past-performance warning. Nothing goes to a restricted country, and nothing hints at a VPN.",
         },
         {
+          kind: "callout",
+          tone: "warning",
+          title: "Written as if a regulator will read it",
+          items: [
+            "No nudge to add leverage, size or margin, least of all to win back a loss",
+            "Nothing called guaranteed, risk-free, safe, easy or liquidation-proof",
+            "No deposit bonuses, matched deposits, rebates for trading more, or countdowns the product does not have",
+            "Nothing to a restricted country, and no hint at a VPN",
+          ],
+        },
+        {
           kind: "p",
           text: "What we do send is the record: fills, liquidations, funding and fees as the exchange logged them, with the time. We explain what a tool does before suggesting when to use it, show the full cost of a trade including funding and slippage, and say who can trade before inviting anyone in.",
         },
@@ -70,6 +80,10 @@ export const PERP_DEX: PlaybookChapter = {
         {
           kind: "p",
           text: "These are the messages that hold traders when incentives fade. After dYdX cut its trading bonuses, Chaos Labs found volume fell 35% in season five, and GMX's second incentive round added under 2% of volume. A trader who hears about a new market, or a rule that touches their position, has a reason to stay that outlasts the season.",
+        },
+        {
+          kind: "pull",
+          text: "A trader who hears about a new market, or a rule that touches their position, has ==a reason to stay that outlasts the season==.",
         },
         {
           kind: "p",
@@ -121,6 +135,10 @@ export const PERP_DEX: PlaybookChapter = {
           text: "Fees are the next lesson. A 2026 study presented at the AFT conference followed people trading through Hyperliquid's own web app from March 2025 to June 2026: they lost $1.11B, and $725M of it was fees. When a trader has paid taker fees on most of their trades for a month, one message shows them what they paid and how maker orders, and any discounts the venue offers, bring it down. Paying less keeps them trading without asking them to trade more.",
         },
         {
+          kind: "pull",
+          text: "Traders on Hyperliquid's own web app lost $1.11B, and ==$725M of it was fees==.",
+        },
+        {
           kind: "p",
           text: "The slipping Loop starts when a trader moves to At risk: their weekly volume falls to half their own average. They get one check-in about what is new, and it stops when their volume returns. When someone withdraws more than half their collateral, they get one question, what could we do better, and fourteen days later, if they have not deposited again, what has shipped since. It stops on a new deposit.",
         },
@@ -131,6 +149,17 @@ export const PERP_DEX: PlaybookChapter = {
         {
           kind: "p",
           text: "Each message in a Loop has one owner channel and a fallback: in-app owns the moment a trader is on the exchange, email owns the moment they are away from it, and a fallback only fires if the first went unread. A frequency cap counts every channel together, so a busy week in one does not add a busy week in the other. Retention triggers are the one exception, and always send.",
+        },
+        {
+          kind: "callout",
+          tone: "rules",
+          title: "How every Loop behaves",
+          items: [
+            "It starts from something a trader did, or did not do",
+            "It stops the moment they take the step it asks for",
+            "One owner channel, one fallback, and one frequency cap across both",
+            "Retention triggers are the one exception, and always send",
+          ],
         },
       ],
     },
@@ -173,6 +202,12 @@ export const PERP_DEX: PlaybookChapter = {
         {
           kind: "p",
           text: "New is margin in and no trade; the first-trade Loop moves them on. Activated is the first trade; the second-trade Loop moves them on. Engaged is a trader who trades most weeks, and they get campaigns and the letter rather than a Loop. At risk is one rule on every strategy: activity at half the trader's own 30-day average, which here means weekly volume. It needs a baseline, so it applies from Engaged onward, and the slipping Loop answers it. Dormant is 60 days without a trade, one message, then rest. Won back is a trader who traded again from At risk or Dormant. They are watched for 30 days, then placed as Engaged or At risk like anyone else, and they never go back through the welcome.",
+        },
+        {
+          kind: "callout",
+          tone: "rules",
+          title: "The one rule for At risk",
+          text: "Activity at half the trader's own 30-day average, which here means weekly volume. It needs a baseline, so it applies from Engaged onward, and the slipping Loop answers it.",
         },
         {
           kind: "p",
@@ -220,6 +255,10 @@ export const PERP_DEX: PlaybookChapter = {
           text: "A liquidation is when a trader decides whether the venue is on their side. The AFT study found that web-app traders took 96% of Hyperliquid's liquidation volume, and no venue we checked documents its own liquidation warnings. Hyperliquid's Android push covers fills only, so traders lean on third-party bots.",
         },
         {
+          kind: "pull",
+          text: "A liquidation is when a trader decides ==whether the venue is on their side==.",
+        },
+        {
           kind: "p",
           text: "So the warning comes first. When a position nears its liquidation price, in-app and email go out together with the position, the price that would close it, and what reducing the position or adding margin would change.",
         },
@@ -259,6 +298,10 @@ export const PERP_DEX: PlaybookChapter = {
           text: "We count what traders do. Opens stopped meaning much once Apple Mail began opening emails by itself, so a message is judged by the trade, the deposit or the stop-loss that follows it. Every always-on Loop keeps a holdout, a small group left out on purpose, so we can show what the messages caused.",
         },
         {
+          kind: "pull",
+          text: "A message is judged by ==the trade, the deposit or the stop-loss that follows it==, never by an open.",
+        },
+        {
           kind: "p",
           text: "Every Monday, a stage report shows how many traders sit at each stage, by count and by margin, and where most of them are stuck. That stage is where the next week's effort goes. Under it, the numbers we watch are funded traders who place a first trade within 7 days, traders who place a second within 7 days of the first, liquidations among warned traders against the holdout over 30 days, the share of fills placed as maker orders after the fee message, margin still deposited between trades, and traders still active at 30, 60 and 90 days. Unsubscribes, complaints and bounces are checked on every send, with the complaint rate held under the 0.3% Gmail and Yahoo allow. Targets are set once the first month gives us a baseline.",
         },
@@ -276,7 +319,6 @@ export const PERP_DEX: PlaybookChapter = {
           kind: "p",
           text: "A mainstream email tool could run the campaigns and the weekly letter. It cannot see a position close or a liquidation land, so the Loops, the stages and the retention triggers would have to go.",
         },
-        { kind: "p", text: DISCLOSURE },
       ],
     },
     {

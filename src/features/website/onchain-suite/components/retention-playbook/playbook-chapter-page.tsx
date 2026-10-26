@@ -10,20 +10,28 @@ import { PlaybookMobileBar } from "@/onchain-suite-website/components/retention-
 import { PlaybookRail } from "@/onchain-suite-website/components/retention-playbook/playbook-rail";
 import { ReadingProgress } from "@/onchain-suite-website/components/retention-playbook/reading-progress";
 import { NsShell } from "@/onchain-suite-website/components/site/ns-shell";
-import type { PlaybookChapter } from "@/onchain-suite-website/types/retention-playbook";
+import type { Chapter } from "@/onchain-suite-website/types/retention-playbook";
 import { strategyContents } from "@/onchain-suite-website/utils/playbook-toc";
 import {
+  pdfPathForSlug,
   PLAYBOOK_BASE,
-  playbookPath,
+  strategyPathForSlug,
 } from "@/onchain-suite-website/utils/retention-playbook-params";
 
 /**
- * /retention-playbook/<sector>: one sector's growth and retention strategy,
+ * /retention-playbook/<slug>: one growth and retention strategy, a sector's or a client's,
  * Atlas style. The rail is everything in this strategy, with the section being
  * read circled; then the title and standfirst, the body, and the next strategy
  * at the foot.
  */
-export function PlaybookChapterPage({ chapter }: { chapter: PlaybookChapter }) {
+export function PlaybookChapterPage({
+  chapter,
+  slug,
+}: {
+  chapter: Chapter;
+  /** The page's path segment, which also names its PDF. */
+  slug: string;
+}) {
   const contents = strategyContents(chapter);
   return (
     <NsShell>
@@ -41,12 +49,17 @@ export function PlaybookChapterPage({ chapter }: { chapter: PlaybookChapter }) {
             <div className="rp-main">
               {/* Printed only: the PDF names its sender and its page. */}
               <p className="rp-print-head">
-                Surgence Labs · onchainsuite.com{playbookPath(chapter.id)}
+                Surgence Labs · onchainsuite.com{strategyPathForSlug(slug)}
               </p>
               <PlaybookMobileBar entries={contents} backHref={PLAYBOOK_BASE} />
               <ChapterShell
                 chapter={chapter}
-                action={<PdfButton category={chapter.id} />}
+                action={
+                  <PdfButton
+                    href={pdfPathForSlug(slug)}
+                    strategy={chapter.id}
+                  />
+                }
               />
               <NextPageLink currentId={chapter.id} />
             </div>

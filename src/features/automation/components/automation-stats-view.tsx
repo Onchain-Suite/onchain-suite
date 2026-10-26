@@ -7,41 +7,38 @@ import {
   CheckCircleIcon,
   EnvelopeIcon,
   ExclamationTriangleIcon,
-  InboxArrowDownIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
-import { PageHeader } from "@/components/page/page-header";
 import { Button } from "@/ui/button";
 
 import { cn } from "@/lib/utils";
 
-import { useOrgSwitcherContextOptional } from "@/features/common/layout/components/org-switcher-context";
 import {
   type AutomationReportRow,
   buildAutomationReport,
-  COMPANY_DOMAIN_SCAN_MAX_PAGES,
-  COMPANY_DOMAIN_SCAN_PAGE_SIZE,
-  scanCompanyDomains,
-} from "@/features/reports/automation-report.service";
-import { AutomationReportSkeleton } from "@/features/reports/components/automation-report-skeleton";
+  fetchAutomationTimeSeries,
+  fetchEmailDomainSummary,
+} from "../automation-report.service";
+import {
+  AutomationTrendChart,
+  CapturedByAutomationChart,
+  CompanyDomainChart,
+  DeliveryFunnelChart,
+  EngagementByAutomationChart,
+} from "./automation-report-charts";
+import { AutomationStatsSkeleton } from "./automation-stats-skeleton";
+import { useOrgSwitcherContextOptional } from "@/features/common/layout/components/org-switcher-context";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const formatCount = (value: number) => value.toLocaleString();
 const formatPercent = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(1)}%`;
 
-/** Contacts the domain scan can reach before it reports a sample. */
-const DOMAIN_SCAN_CEILING =
-  COMPANY_DOMAIN_SCAN_MAX_PAGES * COMPANY_DOMAIN_SCAN_PAGE_SIZE;
-
-interface ScanProgress {
-  scanned: number;
-  withEmail: number;
-  companyDomain: number;
-}
+/** Query key root - shared with the Refresh button so every query invalidates. */
+const REPORT_QUERY_ROOT = ["reports", "automation"] as const;
 
 interface ReportProgress {
   current: number;
@@ -160,20 +157,22 @@ function AutomationRowCells({ row }: { row: AutomationReportRow }) {
   );
 }
 
-export function AutomationReportPage(): ReactElement {
+/**
+ * The Stats tab: every number the automations feature reports, read across the
+ * whole workspace rather than per automation.
+ */
+export function AutomationStatsView(): ReactElement {
   const orgSwitcher = useOrgSwitcherContextOptional();
   const organizationId = orgSwitcher?.confirmedActiveOrgId ?? null;
-  const organizationName = orgSwitcher?.activeOrg?.name ?? null;
 
   const queryClient = useQueryClient();
-  const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [reportProgress, setReportProgress] = useState<ReportProgress | null>(
     null
   );
   const [renderedAt, setRenderedAt] = useState<Date | null>(null);
 
   const reportQuery = useQuery({
-    queryKey: ["reports", "automation", "summary", organizationId],
+    queryKey: [...REPORT_QUERY_ROOT, "summary", organizationId],
     queryFn: ({ signal }) =>
       buildAutomationReport({
         signal,
@@ -185,18 +184,18 @@ export function AutomationReportPage(): ReactElement {
     staleTime: 60_000,
   });
 
-  const domainScanQuery = useQuery({
-    queryKey: ["reports", "automation", "company-domains", organizationId],
-    queryFn: ({ signal }) =>
-      scanCompanyDomains({
-        signal,
-        onProgress: (progress) =>
-          setScanProgress({
-            scanned: progress.scanned,
-            withEmail: progress.withEmail,
-            companyDomain: progress.companyDomain,
-          }),
-      }),
+  const domainSummaryQuery = useQuery({
+    queryKey: [...REPORT_QUERY_ROOT, "email-domains", organizationId],
+    queryFn: ({ signal }) => fetchEmailDomainSummary({ signal }),
+    enabled: Boolean(organizationId),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+
+  const trendQuery = useQuery({
+    queryKey: [...REPORT_QUERY_ROOT, "time-series", organizationId],
+    queryFn: ({ signal }) => fetchAutomationTimeSeries("30days", { signal }),
     enabled: Boolean(organizationId),
     retry: false,
     refetchOnWindowFocus: false,
@@ -211,75 +210,57 @@ export function AutomationReportPage(): ReactElement {
 
   const refresh = useCallback(() => {
     setReportProgress(null);
-    setScanProgress(null);
     queryClient
-      .invalidateQueries({ queryKey: ["reports", "automation"] })
+      .invalidateQueries({ queryKey: REPORT_QUERY_ROOT })
       .catch(() => undefined);
   }, [queryClient]);
 
   if (!organizationId) {
-    return <AutomationReportSkeleton />;
+    return <AutomationStatsSkeleton />;
   }
 
   if (reportQuery.isPending) {
-    return <AutomationReportSkeleton />;
+    return <AutomationStatsSkeleton />;
   }
 
   if (reportQuery.isError) {
     return (
-      <div className="mx-auto w-full max-w-7xl space-y-6">
-        <PageHeader
-          title="Automation report"
-          description={organizationName ?? undefined}
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
+        <ExclamationTriangleIcon
+          aria-hidden="true"
+          className="h-8 w-8 text-muted-foreground/60"
         />
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
-          <ExclamationTriangleIcon
-            aria-hidden="true"
-            className="h-8 w-8 text-muted-foreground/60"
-          />
-          <p className="mt-3 text-sm font-semibold text-foreground">
-            Couldn&apos;t build the report
-          </p>
-          <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            {reportQuery.error instanceof Error
-              ? reportQuery.error.message
-              : "The automation metrics request failed."}
-          </p>
-          <Button className="mt-5 rounded-xl" onClick={refresh}>
-            Try again
-          </Button>
-        </div>
+        <p className="mt-3 text-sm font-semibold text-foreground">
+          Couldn&apos;t build the stats view
+        </p>
+        <p className="mt-1 max-w-md text-sm text-muted-foreground">
+          {reportQuery.error instanceof Error
+            ? reportQuery.error.message
+            : "The automation metrics request failed."}
+        </p>
+        <Button className="mt-5 rounded-xl" onClick={refresh}>
+          Try again
+        </Button>
       </div>
     );
   }
 
   const report = reportQuery.data;
   const { totals, rows } = report;
-  const scan = domainScanQuery.data;
+  const domains = domainSummaryQuery.data;
+  const isRefreshing =
+    (reportQuery.isFetching && !reportQuery.isPending) ||
+    domainSummaryQuery.isFetching ||
+    trendQuery.isFetching;
 
-  // The scan touches contacts one page at a time, so it reports what it has
-  // already counted instead of holding the tile blank.
-  const domainValue = scan
-    ? formatCount(scan.companyDomain)
-    : (scanProgress?.companyDomain ?? null) !== null
-      ? formatCount(scanProgress?.companyDomain ?? 0)
-      : "—";
+  const domainValue = domains ? formatCount(domains.companyDomain) : "—";
 
   const domainHint = (() => {
-    if (domainScanQuery.isError) return "contact scan unavailable";
-    if (domainScanQuery.isPending) {
-      const scanned = scanProgress?.scanned ?? 0;
-      const total = scan?.totalContacts;
-      return scanned > 0
-        ? `scanning ${formatCount(scanned)} contacts…`
-        : `scanning up to ${formatCount(total ?? DOMAIN_SCAN_CEILING)} contacts…`;
-    }
-    if (!scan) return "not available";
-    if (scan.withEmail === 0) return "no contacts have an email address";
-    const base = `of ${formatCount(scan.withEmail)} emails on file`;
-    return scan.truncated
-      ? `${base} · sampled from the first ${formatCount(scan.scanned)} contacts`
-      : base;
+    if (domainSummaryQuery.isError) return "contact lookup unavailable";
+    if (domainSummaryQuery.isPending) return "counting company domains…";
+    if (!domains) return "not available";
+    if (domains.withEmail === 0) return "no contacts have an email address";
+    return `of ${formatCount(domains.withEmail)} emails on file`;
   })();
 
   const tiles = [
@@ -314,13 +295,13 @@ export function AutomationReportPage(): ReactElement {
       key: "open",
       label: "Open rate",
       value: totals.openRate,
-      hint: `${formatCount(totals.opened)} of ${formatCount(totals.delivered)} delivered emails opened · summed across automations ${formatPercent(totals.openRateSum)}`,
+      hint: `${formatCount(totals.opened)} of ${formatCount(totals.delivered)} delivered opened · summed across automations ${formatPercent(totals.openRateSum)}`,
     },
     {
       key: "ctr",
       label: "Click-through rate",
       value: totals.clickRate,
-      hint: `${formatCount(totals.clicked)} of ${formatCount(totals.delivered)} delivered emails clicked · summed across automations ${formatPercent(totals.clickRateSum)}`,
+      hint: `${formatCount(totals.clicked)} of ${formatCount(totals.delivered)} delivered clicked · summed across automations ${formatPercent(totals.clickRateSum)}`,
     },
     {
       key: "running",
@@ -331,44 +312,55 @@ export function AutomationReportPage(): ReactElement {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-8">
-      <PageHeader
-        title="Automation report"
-        description={
-          organizationName
-            ? `${organizationName} · email captured, delivery and engagement across every automation.`
-            : "Email captured, delivery and engagement across every automation."
-        }
-        actions={
-          <div className="flex items-center gap-3">
-            {renderedAt ? (
-              <span className="hidden text-xs text-muted-foreground sm:inline">
-                Updated {renderedAt.toLocaleTimeString()}
-              </span>
-            ) : null}
-            <Button
-              variant="outline"
-              className="rounded-xl"
-              onClick={refresh}
-              disabled={reportQuery.isFetching || domainScanQuery.isFetching}
-            >
-              <ArrowPathIcon
-                aria-hidden="true"
-                className={cn(
-                  "mr-1.5 h-4 w-4",
-                  (reportQuery.isFetching || domainScanQuery.isFetching) &&
-                    "animate-spin"
-                )}
-              />
-              Refresh
-            </Button>
-          </div>
-        }
-      />
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        {reportQuery.isFetching && !reportQuery.isPending && reportProgress ? (
+          <span className="text-xs text-muted-foreground">
+            reading stats {formatCount(reportProgress.current)}/
+            {formatCount(reportProgress.total)}
+          </span>
+        ) : renderedAt ? (
+          <span className="text-xs text-muted-foreground">
+            Updated {renderedAt.toLocaleTimeString()}
+          </span>
+        ) : null}
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-lg"
+          onClick={refresh}
+          disabled={isRefreshing}
+        >
+          <ArrowPathIcon
+            aria-hidden="true"
+            className={cn("mr-1.5 h-4 w-4", isRefreshing && "animate-spin")}
+          />
+          Refresh
+        </Button>
+      </div>
 
       <StatStrip tiles={tiles} />
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {trendQuery.data ? (
+          <AutomationTrendChart series={trendQuery.data} />
+        ) : null}
+        <CompanyDomainChart
+          companyDomain={domains?.companyDomain ?? 0}
+          consumerDomain={domains?.consumerDomain ?? 0}
+          totalEmails={domains?.withEmail ?? 0}
+          truncated={false}
+        />
+        <DeliveryFunnelChart
+          delivered={totals.delivered}
+          opened={totals.opened}
+          clicked={totals.clicked}
+        />
+        <CapturedByAutomationChart rows={rows} />
+        <EngagementByAutomationChart rows={rows} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {meters.map((meter) => (
           <RateMeter
             key={meter.key}
@@ -377,42 +369,22 @@ export function AutomationReportPage(): ReactElement {
             hint={meter.hint}
           />
         ))}
-      </section>
+      </div>
 
       <section className="space-y-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold text-foreground">
-            Email captured by automation
-          </h2>
-          {reportQuery.isFetching && !reportQuery.isPending ? (
-            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-              <ArrowPathIcon
-                aria-hidden="true"
-                className="h-3.5 w-3.5 animate-spin"
-              />
-              {reportProgress
-                ? `reading stats ${formatCount(reportProgress.current)}/${formatCount(reportProgress.total)}`
-                : "refreshing"}
-            </span>
-          ) : null}
-        </div>
+        <h2 className="text-lg font-semibold text-foreground">
+          Email captured by automation
+        </h2>
 
         {rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
-            <InboxArrowDownIcon
-              aria-hidden="true"
-              className="h-8 w-8 text-muted-foreground/60"
-            />
-            <p className="mt-3 text-sm font-semibold text-foreground">
+            <p className="text-sm font-semibold text-foreground">
               No automations to report on
             </p>
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
               Once an automation captures its first contact, its numbers appear
               here.
             </p>
-            <Button asChild className="mt-5 rounded-xl">
-              <Link href={PRIVATE_ROUTES.AUTOMATIONS}>Go to automations</Link>
-            </Button>
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-border">
@@ -480,8 +452,8 @@ export function AutomationReportPage(): ReactElement {
                 className="mt-0.5 h-3.5 w-3.5 shrink-0"
               />
               <span>
-                This workspace has more automations than the report reads in one
-                pass, so the totals cover only the first ones returned.
+                This workspace has more automations than the stats view reads in
+                one pass, so the totals cover only the first ones returned.
               </span>
             </p>
           ) : null}
@@ -491,4 +463,4 @@ export function AutomationReportPage(): ReactElement {
   );
 }
 
-export default AutomationReportPage;
+export default AutomationStatsView;

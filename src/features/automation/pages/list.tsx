@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  ChartBarSquareIcon,
   ChevronRightIcon,
   PlusIcon,
+  RectangleStackIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -15,9 +17,11 @@ import {
   automationService,
   type AutomationsListParams,
 } from "../automation.service";
+import { AutomationStatsView } from "../components/automation-stats-view";
 import { useDeleteAutomation } from "../hooks/use-automations";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 import { PageHeader } from "@/shared/components/page/page-header";
+import { type PageTabItem, PageTabs } from "@/shared/components/page/page-tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -151,7 +155,13 @@ const statusPill: Record<Status, string> = {
 
 const PER_PAGE = 10;
 
+const VIEW_TABS: PageTabItem[] = [
+  { id: "automations", label: "Automations", icon: RectangleStackIcon },
+  { id: "stats", label: "Stats", icon: ChartBarSquareIcon },
+];
+
 export function AutomationsListView() {
+  const [view, setView] = useState<"automations" | "stats">("automations");
   const [filter, setFilter] = useState<"all" | Status>("all");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -190,6 +200,9 @@ export function AutomationsListView() {
       return automationService.listAutomations(params);
     },
     placeholderData: keepPreviousData,
+    // The Stats tab fans out over the same endpoints, so the list's own
+    // requests stand down while it is open.
+    enabled: view === "automations",
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -215,6 +228,7 @@ export function AutomationsListView() {
   const metricsQuery = useQuery({
     queryKey: ["automations", "metrics"],
     queryFn: () => automationService.getMetrics(),
+    enabled: view === "automations",
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: 60_000,
@@ -261,6 +275,7 @@ export function AutomationsListView() {
       ]);
       return { all, active, paused, draft };
     },
+    enabled: view === "automations",
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: 60_000,
@@ -295,205 +310,226 @@ export function AutomationsListView() {
         }
       />
 
-      <ContractAddressNudge context="automation" />
+      <PageTabs
+        tabs={VIEW_TABS}
+        value={view}
+        onValueChange={(next) => setView(next as "automations" | "stats")}
+        layoutId="automations-view-tabs"
+      />
 
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-4">
-        {statCards.map((card) => (
-          <div key={card.label} className="bg-card px-5 py-4">
-            <div className="text-sm text-muted-foreground">{card.label}</div>
-            <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-              {metricsQuery.isLoading ? "-" : card.value}
-            </div>
+      {view === "stats" ? (
+        <AutomationStatsView />
+      ) : (
+        <>
+          <ContractAddressNudge context="automation" />
+
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-4">
+            {statCards.map((card) => (
+              <div key={card.label} className="bg-card px-5 py-4">
+                <div className="text-sm text-muted-foreground">
+                  {card.label}
+                </div>
+                <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                  {metricsQuery.isLoading ? "-" : card.value}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search automations…"
-          className="h-9 w-64 rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
-        />
-        <div className="flex flex-wrap gap-1.5">
-          {STATUS_TABS.map((tab) => {
-            const active = filter === tab.id;
-            const c = countFor(tab.id);
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setFilter(tab.id)}
-                aria-pressed={active}
-                className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
-                  active
-                    ? "border-primary/40 bg-primary/10 text-primary"
-                    : "border-border bg-card text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-                {typeof c === "number" ? (
-                  <span
-                    className={
-                      active
-                        ? "ml-1.5 text-primary"
-                        : "ml-1.5 text-muted-foreground/70"
-                    }
-                  >
-                    · {c}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                <th className="px-5 py-3">Automation</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Entries</th>
-                <th className="px-4 py-3 text-right">Completed</th>
-                <th className="px-4 py-3 text-right">Conversions</th>
-                <th className="px-4 py-3 text-right">Last triggered</th>
-                <th className="w-10 px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                // Entries + opt-in emails sent (pending contacts that become
-                // entries on confirm) — matches the "Entries · 30d" tile.
-                const rowEntries = row.entries + row.optInEmailsSent;
-                const hasData = rowEntries > 0;
-                // COMPLETED is completion, not conversion. This divided
-                // conversions by entries — a conversion rate under a
-                // "Completed" heading — so a flow whose every enrolment
-                // finished still read 0.0% unless it also converted. The two
-                // measure different things: an enrolment COMPLETES when it
-                // reaches the end of its flow, and CONVERTS when a delivery
-                // event says the contact did what the flow was for.
-                const completion = hasData
-                  ? `${row.completionRate.toFixed(1)}%`
-                  : "-";
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search automations…"
+              className="h-9 w-64 rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {STATUS_TABS.map((tab) => {
+                const active = filter === tab.id;
+                const c = countFor(tab.id);
                 return (
-                  <tr
-                    key={row.id}
-                    className="group border-b border-border transition-colors last:border-0 hover:bg-muted/40"
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setFilter(tab.id)}
+                    aria-pressed={active}
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                      active
+                        ? "border-primary/40 bg-primary/10 text-primary"
+                        : "border-border bg-card text-muted-foreground hover:text-foreground"
+                    }`}
                   >
-                    <td className="px-5 py-4">
-                      <Link href={`/automations/${row.id}`} className="block">
-                        <div className="font-medium text-foreground">
-                          {row.name}
-                        </div>
-                        <div className="mt-0.5 text-xs text-muted-foreground">
-                          {row.triggerLabel}
-                        </div>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-4">
+                    {tab.label}
+                    {typeof c === "number" ? (
                       <span
-                        className={`inline-flex items-center gap-1.5 text-xs font-medium capitalize ${statusPill[row.status]}`}
+                        className={
+                          active
+                            ? "ml-1.5 text-primary"
+                            : "ml-1.5 text-muted-foreground/70"
+                        }
                       >
-                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                        {row.status}
+                        · {c}
                       </span>
-                    </td>
-                    <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                      {hasData ? rowEntries.toLocaleString() : "-"}
-                    </td>
-                    <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                      {completion}
-                    </td>
-                    <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                      {hasData ? row.conversions.toLocaleString() : "-"}
-                    </td>
-                    <td className="px-4 py-4 text-right text-muted-foreground">
-                      {hasData ? relativeTime(row.lastTriggered) : "-"}
-                    </td>
-                    <td className="px-4 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setPendingDelete(row)}
-                          aria-label={`Delete ${row.name}`}
-                          title="Delete automation"
-                          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          <TrashIcon aria-hidden="true" className="h-4 w-4" />
-                        </button>
-                        <Link
-                          href={`/automations/${row.id}`}
-                          aria-label={`Open ${row.name}`}
-                          className="inline-flex text-muted-foreground transition-colors group-hover:text-foreground"
-                        >
-                          <ChevronRightIcon
-                            aria-hidden="true"
-                            className="h-4 w-4"
-                          />
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
+                    ) : null}
+                  </button>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-
-        {hasPrev || hasNext ? (
-          <div className="flex items-center justify-between pt-4 text-sm text-muted-foreground">
-            <span>
-              {total !== undefined ? (
-                <>
-                  Showing {showingFrom.toLocaleString()}–
-                  {showingTo.toLocaleString()} of {total.toLocaleString()}
-                </>
-              ) : (
-                <>Page {page}</>
-              )}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-lg"
-                disabled={!hasPrev}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-lg"
-                disabled={!hasNext}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </Button>
             </div>
           </div>
-        ) : null}
 
-        {!listQuery.isLoading && rows.length === 0 ? (
-          <div className="rounded-xl border border-border px-5 py-16 text-center">
-            <p className="text-sm font-semibold text-foreground">
-              {search || filter !== "all"
-                ? "No matching automations"
-                : "No automations yet"}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {search || filter !== "all"
-                ? "Try a different search or filter."
-                : "Create your first automation to trigger personalized flows."}
-            </p>
+          <div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[820px] border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <th className="px-5 py-3">Automation</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Entries</th>
+                    <th className="px-4 py-3 text-right">Completed</th>
+                    <th className="px-4 py-3 text-right">Conversions</th>
+                    <th className="px-4 py-3 text-right">Last triggered</th>
+                    <th className="w-10 px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
+                    // Entries + opt-in emails sent (pending contacts that become
+                    // entries on confirm) — matches the "Entries · 30d" tile.
+                    const rowEntries = row.entries + row.optInEmailsSent;
+                    const hasData = rowEntries > 0;
+                    // COMPLETED is completion, not conversion. This divided
+                    // conversions by entries — a conversion rate under a
+                    // "Completed" heading — so a flow whose every enrolment
+                    // finished still read 0.0% unless it also converted. The two
+                    // measure different things: an enrolment COMPLETES when it
+                    // reaches the end of its flow, and CONVERTS when a delivery
+                    // event says the contact did what the flow was for.
+                    const completion = hasData
+                      ? `${row.completionRate.toFixed(1)}%`
+                      : "-";
+                    return (
+                      <tr
+                        key={row.id}
+                        className="group border-b border-border transition-colors last:border-0 hover:bg-muted/40"
+                      >
+                        <td className="px-5 py-4">
+                          <Link
+                            href={`/automations/${row.id}`}
+                            className="block"
+                          >
+                            <div className="font-medium text-foreground">
+                              {row.name}
+                            </div>
+                            <div className="mt-0.5 text-xs text-muted-foreground">
+                              {row.triggerLabel}
+                            </div>
+                          </Link>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span
+                            className={`inline-flex items-center gap-1.5 text-xs font-medium capitalize ${statusPill[row.status]}`}
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            {row.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-right tabular-nums text-foreground">
+                          {hasData ? rowEntries.toLocaleString() : "-"}
+                        </td>
+                        <td className="px-4 py-4 text-right tabular-nums text-foreground">
+                          {completion}
+                        </td>
+                        <td className="px-4 py-4 text-right tabular-nums text-foreground">
+                          {hasData ? row.conversions.toLocaleString() : "-"}
+                        </td>
+                        <td className="px-4 py-4 text-right text-muted-foreground">
+                          {hasData ? relativeTime(row.lastTriggered) : "-"}
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setPendingDelete(row)}
+                              aria-label={`Delete ${row.name}`}
+                              title="Delete automation"
+                              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <TrashIcon
+                                aria-hidden="true"
+                                className="h-4 w-4"
+                              />
+                            </button>
+                            <Link
+                              href={`/automations/${row.id}`}
+                              aria-label={`Open ${row.name}`}
+                              className="inline-flex text-muted-foreground transition-colors group-hover:text-foreground"
+                            >
+                              <ChevronRightIcon
+                                aria-hidden="true"
+                                className="h-4 w-4"
+                              />
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {hasPrev || hasNext ? (
+              <div className="flex items-center justify-between pt-4 text-sm text-muted-foreground">
+                <span>
+                  {total !== undefined ? (
+                    <>
+                      Showing {showingFrom.toLocaleString()}–
+                      {showingTo.toLocaleString()} of {total.toLocaleString()}
+                    </>
+                  ) : (
+                    <>Page {page}</>
+                  )}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-lg"
+                    disabled={!hasPrev}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-lg"
+                    disabled={!hasNext}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {!listQuery.isLoading && rows.length === 0 ? (
+              <div className="rounded-xl border border-border px-5 py-16 text-center">
+                <p className="text-sm font-semibold text-foreground">
+                  {search || filter !== "all"
+                    ? "No matching automations"
+                    : "No automations yet"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {search || filter !== "all"
+                    ? "Try a different search or filter."
+                    : "Create your first automation to trigger personalized flows."}
+                </p>
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
+        </>
+      )}
 
       <AlertDialog
         open={pendingDelete !== null}

@@ -96,6 +96,23 @@ export type AutomationsMetricsResponse = {
   optInEmailsSent?: number;
 };
 
+/** One day of the org-wide automation trend. `date` is a UTC `YYYY-MM-DD`. */
+export type AutomationTimeSeriesPoint = {
+  date: string;
+  entries: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+};
+
+export type AutomationTimeSeriesResponse = {
+  period: string;
+  days: number;
+  series: AutomationTimeSeriesPoint[];
+};
+
+export type AutomationTimeSeriesPeriod = "7days" | "30days" | "90days";
+
 export type AutomationsCreateBody = {
   name: string;
   description?: string;
@@ -377,6 +394,23 @@ export const automationService = {
   getMetrics(orgId?: string) {
     return request<AutomationsMetricsResponse>(
       { method: "GET", url: "/automations/metrics" },
+      orgId
+    );
+  },
+
+  /** Org-wide daily enrolments + email engagement for the Stats tab trend. */
+  getMetricsTimeSeries(
+    period: AutomationTimeSeriesPeriod,
+    options?: { signal?: AbortSignal },
+    orgId?: string
+  ) {
+    return request<AutomationTimeSeriesResponse>(
+      {
+        method: "GET",
+        url: "/automations/metrics/time-series",
+        params: { period },
+        signal: options?.signal,
+      },
       orgId
     );
   },

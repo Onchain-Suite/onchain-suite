@@ -1,6 +1,12 @@
 import type { MetadataRoute } from "next";
 
-import { SITE_CONFIG } from "@/features/website/onchain-suite/config/site";
+import { TOOL_SLUGS } from "./(website)/tools/[slug]/page";
+import {
+  listCategories,
+  listPublishedPostRefs,
+} from "@/onchain-suite-website/blog/blog.service";
+import { COMPARE_SLUGS } from "@/onchain-suite-website/components/site/compare-meta";
+import { SITE_CONFIG } from "@/onchain-suite-website/config/site";
 
 // Same canonical host the pages' <link rel="canonical"> uses, so the sitemap, the
 // canonical and the served page all agree on ONE host. The old base pointed at
@@ -13,11 +19,11 @@ const baseUrl = SITE_CONFIG.url;
 type Freq = NonNullable<MetadataRoute.Sitemap[number]["changeFrequency"]>;
 
 /**
- * Static, indexable marketing pages. Authenticated app routes (/campaigns,
- * /audience, /settings, …) and noindex pages (/retention-playbook) are excluded
- * here and the app routes are also disallowed in robots.ts. Dynamic blog /
- * compare / tools detail pages are not enumerated yet — add them by fetching
- * their lists (see the RSS route for the blog data source).
+ * Static, indexable marketing pages (section indexes included). Authenticated app
+ * routes (/campaigns, /audience, /settings, …) and noindex pages
+ * (/retention-playbook) are excluded here and the app routes are also disallowed
+ * in robots.ts. Per-item detail pages (blog posts, compare, tools) are appended
+ * dynamically in the default export below.
  */
 const PAGES: Array<{ path: string; priority: number; changeFrequency: Freq }> =
   [
@@ -65,20 +71,65 @@ const PAGES: Array<{ path: string; priority: number; changeFrequency: Freq }> =
     { path: "/subprocessors", priority: 0.2, changeFrequency: "yearly" },
   ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date();
-  const pages: MetadataRoute.Sitemap = PAGES.map((p) => ({
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const now = new Date();
+
+  const staticEntries: MetadataRoute.Sitemap = PAGES.map((p) => ({
     url: p.path === "/" ? baseUrl : `${baseUrl}${p.path}`,
-    lastModified,
+    lastModified: now,
     changeFrequency: p.changeFrequency,
     priority: p.priority,
   }));
 
+  // Compare + tools detail pages come from static data (COMPARE_SLUGS / TOOL_SLUGS),
+  // so they are always available — no DB, no try/catch needed.
+  const compareEntries: MetadataRoute.Sitemap = COMPARE_SLUGS.map((slug) => ({
+    url: `${baseUrl}/compare/${slug}`,
+    lastModified: now,
+    changeFrequency: "monthly",
+    priority: 0.6,
+  }));
+  const toolEntries: MetadataRoute.Sitemap = TOOL_SLUGS.map((slug) => ({
+    url: `${baseUrl}/tools/${slug}`,
+    lastModified: now,
+    changeFrequency: "monthly",
+    priority: 0.5,
+  }));
+
+  // Blog posts + categories come from Payload. This file is evaluated during
+  // `next build`, which must not fail when no database is configured, so the DB
+  // reads are wrapped and fall back to no dynamic blog entries (same guard the
+  // RSS route uses).
+  let postEntries: MetadataRoute.Sitemap = [];
+  let categoryEntries: MetadataRoute.Sitemap = [];
+  try {
+    const posts = await listPublishedPostRefs();
+    postEntries = posts.map((p) => ({
+      url: `${baseUrl}/blog/${p.slug}`,
+      lastModified: p.updatedAt ? new Date(p.updatedAt) : now,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    }));
+    const categories = await listCategories();
+    categoryEntries = categories.map((c) => ({
+      url: `${baseUrl}/blog/category/${c.slug}`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.4,
+    }));
+  } catch (error) {
+    console.error("sitemap: could not load blog entries", error);
+  }
+
   return [
-    ...pages,
+    ...staticEntries,
+    ...compareEntries,
+    ...toolEntries,
+    ...postEntries,
+    ...categoryEntries,
     {
       url: "https://docs.onchainsuite.com",
-      lastModified,
+      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.8,
     },

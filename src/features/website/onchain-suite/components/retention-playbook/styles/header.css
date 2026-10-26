@@ -1,6 +1,6 @@
 /* /retention-playbook top bar. The page renders inside the site chrome (for
    the footer, motion and the Cal.com booking handler), so the site nav is
-   hidden here, on this page only, and the Surgence Labs bar takes its place. */
+   hidden here, on this page only, and the OnchainSuite bar takes its place. */
 
 .ns:has(.rp-page) > .nav {
   display: none;
@@ -33,9 +33,10 @@
   letter-spacing: -0.01em;
   border-radius: 8px;
 }
-.ns .rp-brand img {
-  width: 36px;
-  height: 36px;
+.ns .rp-brand-mark {
+  display: block;
+  width: 17px;
+  height: 26px;
 }
 .ns .rp-brand span {
   white-space: nowrap;
@@ -50,9 +51,9 @@
     gap: 8px;
     font-size: 15px;
   }
-  .ns .rp-brand img {
-    width: 30px;
-    height: 30px;
+  .ns .rp-brand-mark {
+    width: 14px;
+    height: 21px;
   }
   .ns .rp-brandbar .btn {
     padding: 0 10px;

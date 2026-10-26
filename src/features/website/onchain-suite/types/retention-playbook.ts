@@ -90,6 +90,8 @@ export type Diagram =
  */
 export type Block =
   | { kind: "p"; text: string }
+  /** One sentence from the section, set large: a pull quote. */
+  | { kind: "pull"; text: string }
   | { kind: "list"; items: string[]; ordered?: boolean }
   | { kind: "table"; head: string[]; rows: string[][] }
   | {

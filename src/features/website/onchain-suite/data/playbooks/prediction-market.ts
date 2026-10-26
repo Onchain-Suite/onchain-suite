@@ -21,7 +21,6 @@
    Section ids shared by every strategy page: says, campaigns, loops,
    lifecycle, retention-triggers, measure, platform, need. */
 
-import { DISCLOSURE } from "@/onchain-suite-website/data/retention-playbook";
 import type { PlaybookChapter } from "@/onchain-suite-website/types/retention-playbook";
 
 export const PREDICTION_MARKET: PlaybookChapter = {
@@ -48,6 +47,17 @@ export const PREDICTION_MARKET: PlaybookChapter = {
           text: 'We never say "win it back", "get even" or "you\'re due", and nothing nudges a user after a loss. We never call a market risk-free, guaranteed, free money or a big payout. Winnings that do not expire are never written as if they do, and there is no urgency such as "before the odds move". Readers in the UK never get skill-not-gambling framing, and nobody blocked or self-excluded gets a promotion.',
         },
         {
+          kind: "callout",
+          tone: "warning",
+          title: "Written as if the regulator will read it",
+          items: [
+            'Never "win it back", "get even" or "you\'re due", and nothing nudges a user after a loss',
+            "No market is risk-free, guaranteed, free money or a big payout",
+            "Winnings that do not expire are never written as if they do, and there is no false urgency",
+            "No skill-not-gambling framing in the UK, and no promotion to anyone blocked or self-excluded",
+          ],
+        },
+        {
           kind: "p",
           text: "What we do send is the record: the result, the payout and the date, as the market settled them. A market's real close time is the only deadline we mention, dispute timelines come from the resolution source, and we say who can trade a market before inviting anyone in.",
         },
@@ -64,6 +74,10 @@ export const PREDICTION_MARKET: PlaybookChapter = {
         {
           kind: "p",
           text: "The recap matters most, because attention fades fast. The day after the 2024 US election, DL News found Polymarket's volume fell 84% and its daily users 53%. A recap that names the next event, sent while the last one is fresh, is how a one-off visit becomes a habit.",
+        },
+        {
+          kind: "pull",
+          text: "A recap that names the next event, sent while the last one is fresh, is ==how a one-off visit becomes a habit==.",
         },
         {
           kind: "p",
@@ -107,6 +121,17 @@ export const PREDICTION_MARKET: PlaybookChapter = {
           kind: "p",
           text: "Each message in a Loop has one owner channel and a fallback: in-app owns the moment a user is in the app, email owns the moment they are away from it, and a fallback only fires if the first went unread. A frequency cap counts every channel together. Retention triggers are the one exception, and always send.",
         },
+        {
+          kind: "callout",
+          tone: "rules",
+          title: "How every Loop behaves",
+          items: [
+            "It starts from something a user did, or did not do",
+            "It stops the moment they take the step it asks for",
+            "One owner channel, one fallback, and one frequency cap across both",
+            "Retention triggers are the one exception, and always send",
+          ],
+        },
       ],
     },
     {
@@ -116,6 +141,10 @@ export const PREDICTION_MARKET: PlaybookChapter = {
         {
           kind: "p",
           text: "Every user sits in one of six stages, the same six on every strategy we run: New, Activated, Engaged, At risk, Dormant and Won back. The stage is worked out from what they do in the market, never set by hand, and it is read by size as well as by count. Between January and June 2025, The Block found Polymarket's active traders fell 47.6% while the average position per account rose from $2.7K to $4.8K: fewer people putting in more each, which a single blended number would have hidden. The lifecycle moves on patterns. Retention triggers, below, fire on single events, and the two never overlap.",
+        },
+        {
+          kind: "pull",
+          text: "Fewer people putting in more each, ==which a single blended number would have hidden==.",
         },
         {
           kind: "p",
@@ -148,6 +177,12 @@ export const PREDICTION_MARKET: PlaybookChapter = {
         {
           kind: "p",
           text: "New is deposited and no position; the first-position Loop moves them on. Activated is the first position; the second-position Loop moves them on. Engaged is a user with positions across two or more resolution cycles, and they get campaigns and the letter rather than a Loop. At risk is one rule on every strategy: activity at half the user's own 30-day average, which here means the positions they open. It needs a baseline, so it applies from Engaged onward, and the slipping Loop answers it. Dormant is 60 days without a position, one message, then rest. Won back is a user who opened a position again from At risk or Dormant. They are watched for 30 days, then placed as Engaged or At risk like anyone else, and they never go back through the welcome.",
+        },
+        {
+          kind: "callout",
+          tone: "rules",
+          title: "The one rule for At risk",
+          text: "Activity at half the user's own 30-day average, which here means the positions they open. It needs a baseline, so it applies from Engaged onward, and the slipping Loop answers it.",
         },
         {
           kind: "p",
@@ -200,6 +235,10 @@ export const PREDICTION_MARKET: PlaybookChapter = {
           text: "If they lost, they get an email with the result and their balance, and a link to deposit limits and account tools. Nothing in it invites a new position. Users leave at two and a half times the rate after a loss, so this is the message that matters most, and the one a regulator would look at first. A clear, factual result keeps their trust without crossing that line.",
         },
         {
+          kind: "pull",
+          text: "Users leave at two and a half times the rate after a loss, so ==this is the message that matters most==, and the one a regulator would look at first.",
+        },
+        {
           kind: "messages",
           messages: [
             {
@@ -246,6 +285,10 @@ export const PREDICTION_MARKET: PlaybookChapter = {
           text: "We count what users do. Opens stopped meaning much once Apple Mail began opening emails by itself, so a message is judged by the position, the claim or the return that follows it. Every always-on Loop keeps a holdout, a small group left out on purpose, so we can show what the messages caused.",
         },
         {
+          kind: "pull",
+          text: "A message is judged by ==the position, the claim or the return that follows it==, never by an open.",
+        },
+        {
           kind: "p",
           text: "Every Monday, a stage report shows how many users sit at each stage, by count and by position size, and where most of them are stuck. That stage is where the next week's effort goes. Under it, the numbers we watch are funded users who open a first position within 7 days, users who open a new position within 14 days of their first market resolving, the return rate after a first loss against the holdout over 30 days, winnings claimed within 48 hours of the reminder, and users active across two or more resolution cycles in 60 days. Unsubscribes, complaints and bounces are checked on every send, with the complaint rate held under the 0.3% Gmail and Yahoo allow. Targets are set once the first month gives us a baseline.",
         },
@@ -263,7 +306,6 @@ export const PREDICTION_MARKET: PlaybookChapter = {
           kind: "p",
           text: "A mainstream email tool could run the event campaigns and the weekly letter. It cannot see a market resolve or a dispute open, so the Loops, the stages and the retention triggers would have to go.",
         },
-        { kind: "p", text: DISCLOSURE },
       ],
     },
     {

@@ -64,6 +64,16 @@
   .ns .rp-sec2 {
     padding: 8pt 0 0;
   }
+  .ns .rp-pull {
+    max-width: none;
+    margin: 8pt 0 10pt;
+    font-size: 15pt;
+    break-inside: avoid;
+  }
+  .ns .rp-box {
+    max-width: none;
+    break-inside: avoid;
+  }
 
   /* The line that only exists on paper: who sent it, and where it lives. */
   .ns .rp-print-head {

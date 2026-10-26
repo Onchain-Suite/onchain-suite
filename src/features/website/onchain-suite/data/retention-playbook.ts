@@ -19,12 +19,11 @@ export const META = {
     "Email and in-app retention playbooks for perp DEXs, prediction markets and DeFi protocols.",
 };
 
-/** Who sends the playbook. Shown in the top bar in place of the site nav. */
+/** Whose pages these are. Shown in the top bar in place of the site nav. */
 export const SENDER = {
-  name: "Surgence Labs",
-  url: "https://surgence.io",
-  domain: "surgence.io",
-  mark: "/site/partners/surgence-labs-mark.png",
+  name: "OnchainSuite",
+  url: "/",
+  domain: "onchainsuite.com",
 };
 
 /** Labels for buttons, controls and screen readers. */
@@ -110,10 +109,6 @@ export const CATEGORIES: CategoryCard[] = [
     line: "Deposits that stay, and depositors who add more over time.",
   },
 ];
-
-/** Shown wherever OnchainSuite is recommended. House rule: never optional. */
-export const DISCLOSURE =
-  "**Disclosure:** OnchainSuite is a related party to Surgence Labs. We say so here so the recommendation is judged on what the platform does, and you are free to test it against any alternative.";
 
 export const SUMMARY: Chapter = {
   id: "summary",
@@ -225,11 +220,11 @@ export const SUMMARY: Chapter = {
     },
     {
       id: "how-we-work",
-      title: "How Surgence works",
+      title: "How we work",
       blocks: [
         {
           kind: "p",
-          text: "Surgence Labs plans and runs the programme with your team, on OnchainSuite. Each strategy that follows is what we would do for a protocol like yours ==before we have seen inside your account==. The first job is to check it against the real thing.",
+          text: "We plan and run the programme with your team, on OnchainSuite. Each strategy that follows is what we would do for a protocol like yours ==before we have seen inside your account==. The first job is to check it against the real thing.",
         },
       ],
     },

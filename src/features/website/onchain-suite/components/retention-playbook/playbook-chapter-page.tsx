@@ -49,7 +49,7 @@ export function PlaybookChapterPage({
             <div className="rp-main">
               {/* Printed only: the PDF names its sender and its page. */}
               <p className="rp-print-head">
-                Surgence Labs · onchainsuite.com{strategyPathForSlug(slug)}
+                OnchainSuite · onchainsuite.com{strategyPathForSlug(slug)}
               </p>
               <PlaybookMobileBar entries={contents} backHref={PLAYBOOK_BASE} />
               <ChapterShell

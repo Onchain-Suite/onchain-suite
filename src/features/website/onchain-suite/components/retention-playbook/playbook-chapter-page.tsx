@@ -13,6 +13,7 @@ import { NsShell } from "@/onchain-suite-website/components/site/ns-shell";
 import type { Chapter } from "@/onchain-suite-website/types/retention-playbook";
 import { strategyContents } from "@/onchain-suite-website/utils/playbook-toc";
 import {
+  categoryOfSlug,
   pdfPathForSlug,
   PLAYBOOK_BASE,
   strategyPathForSlug,
@@ -22,7 +23,8 @@ import {
  * /retention-playbook/<slug>: one growth and retention strategy, a sector's or a client's,
  * Atlas style. The rail is everything in this strategy, with the section being
  * read circled; then the title and standfirst, the body, and the next strategy
- * at the foot.
+ * at the foot. A sector page links back to all the strategies; a client's page
+ * is reached by its link only, so it offers no way to the listing.
  */
 export function PlaybookChapterPage({
   chapter,
@@ -33,6 +35,7 @@ export function PlaybookChapterPage({
   slug: string;
 }) {
   const contents = strategyContents(chapter);
+  const backHref = categoryOfSlug(slug) ? PLAYBOOK_BASE : undefined;
   return (
     <NsShell>
       <div className={`rp-page ${handFont.variable}`}>
@@ -44,14 +47,14 @@ export function PlaybookChapterPage({
             <PlaybookRail
               title={chapter.title}
               entries={contents}
-              backHref={PLAYBOOK_BASE}
+              backHref={backHref}
             />
             <div className="rp-main">
               {/* Printed only: the PDF names its sender and its page. */}
               <p className="rp-print-head">
                 OnchainSuite · onchainsuite.com{strategyPathForSlug(slug)}
               </p>
-              <PlaybookMobileBar entries={contents} backHref={PLAYBOOK_BASE} />
+              <PlaybookMobileBar entries={contents} backHref={backHref} />
               <ChapterShell
                 chapter={chapter}
                 action={

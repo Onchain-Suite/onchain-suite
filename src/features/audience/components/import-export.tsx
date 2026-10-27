@@ -1396,7 +1396,11 @@ export default function ImportExportPage() {
       window.location.href = url;
     },
     onError: (e: unknown) => {
-      toast.error(importErrorMessage(e));
+      // The upgrade failed on checkout/billing, not the file. Close the gate
+      // dialog so the error isn't shown competing with it, and use the
+      // upgrade-context copy (never "check your file").
+      setGateEstimate(null);
+      toast.error(importErrorMessage(e, { context: "upgrade" }));
     },
   });
 

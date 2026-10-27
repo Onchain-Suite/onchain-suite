@@ -48,9 +48,14 @@ export interface AudienceImportEstimate {
  * "upgrade & import" flow. The import is held server-side (AWAITING_PAYMENT) and
  * a plan-upgrade checkout is returned; on payment the backend raises the cap and
  * resumes the import in the background, so the user can leave the page.
+ *
+ * NO-CHARGE case (backend 2026-10-27): when the upgrade prorates below Stripe's
+ * card minimum (the plan already covers these contacts), the backend raises the
+ * capacity and runs the import immediately - `checkout` is `null` and
+ * `noChargeRequired` is true. There is nothing to pay and nowhere to redirect.
  */
 export interface ImportUpgradeCheckout {
-  /** The held import job that resumes once the upgrade is paid. */
+  /** The held import job that resumes once the upgrade is paid (or the running job in the no-charge case). */
   jobId: string;
   /** Contact capacity the upgrade buys (existing + imported), the new plan size. */
   targetContacts: number;
@@ -60,12 +65,17 @@ export interface ImportUpgradeCheckout {
   importContacts: number;
   /** Rows that would have been over the old cap. */
   overCapBy: number;
-  /** Checkout to send the user to; `url` is the hosted payment page. */
+  /** True when no payment was needed: the import is already running. */
+  noChargeRequired?: boolean;
+  /**
+   * Checkout to send the user to; `url` is the hosted payment page. `null` in
+   * the no-charge case, where the import is already running.
+   */
   checkout: {
     url?: string;
     paymentUrl?: string;
     sessionId?: string;
     plan?: string;
     cycle?: string;
-  };
+  } | null;
 }

@@ -1384,16 +1384,30 @@ export default function ImportExportPage() {
         billingCycle: "monthly",
         paymentMethod: "card",
       });
+      // No-charge case: the plan already covers these contacts, so the backend
+      // raised the capacity and the import is already running - there's nothing
+      // to pay and nowhere to redirect.
+      if (res.noChargeRequired || res.checkout === null) {
+        return { noCharge: true as const, jobId: res.jobId };
+      }
       const url = res.checkout?.url ?? res.checkout?.paymentUrl;
       if (!url)
         throw new Error("Upgrade checkout did not return a payment URL.");
-      return { url };
+      return { noCharge: false as const, url };
     },
-    onSuccess: ({ url }) => {
+    onSuccess: (result) => {
+      setGateEstimate(null);
+      if (result.noCharge) {
+        toast.success(
+          "Your plan already covers these contacts, so the import started right away - no charge. We'll bring you to your audience to watch the progress."
+        );
+        router.push(`/audience?import=${encodeURIComponent(result.jobId)}`);
+        return;
+      }
       toast.success(
         "Taking you to checkout. Your import resumes automatically once payment is confirmed."
       );
-      window.location.href = url;
+      window.location.href = result.url;
     },
     onError: (e: unknown) => {
       // The upgrade failed on checkout/billing, not the file. Close the gate

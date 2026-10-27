@@ -121,6 +121,28 @@ const generateUniqueSlug = (baseSlug: string) => {
   return `${baseSlug}-${suffix}`;
 };
 
+/** The id of ANY organization the user already belongs to, from the list
+ *  response (whatever envelope it uses), or null when they have none. */
+const firstOrganizationId = (payload: unknown): string | null => {
+  const root =
+    isJsonObject(payload) && "data" in payload ? payload.data : payload;
+  const list = Array.isArray(root)
+    ? root
+    : isJsonObject(root) && Array.isArray(root.data)
+      ? root.data
+      : isJsonObject(root) &&
+          isJsonObject(root.data) &&
+          Array.isArray(root.data.data)
+        ? root.data.data
+        : [];
+  for (const org of Array.isArray(list) ? list : []) {
+    const orgObj = isJsonObject(org) ? org : {};
+    const id = orgObj.id ?? orgObj.organizationId;
+    if (typeof id === "string" && id.length > 0) return id;
+  }
+  return null;
+};
+
 // The Web3 list drops its own "Other" entry — the picker has a single free-text
 // "Other" at the end that covers Web3 and Web2 alike.
 const web3SectorOptions = organizationOptions.filter(
@@ -206,6 +228,31 @@ export function OrganizationSetupStep({
 
       const websiteUrl = normalizeWebsiteUrl(data.websiteUrl);
       const description = (data.description ?? "").trim();
+
+      // One org per user: a prior onboarding attempt (or a "no org" retry) may
+      // already have created this user's org. Reuse it instead of minting a
+      // duplicate - creating a new org on every retry is exactly what spawned
+      // the four duplicate "Sovren Technologies" workspaces. If they already
+      // belong to any org, set it active and continue; never create a second.
+      try {
+        const listRes = await apiClient.get("/organization/list");
+        const existingId =
+          findExistingOrganizationId(
+            listRes.data,
+            data.organizationName,
+            slug
+          ) ?? firstOrganizationId(listRes.data);
+        if (existingId) {
+          await apiClient.post("/organization/set-active", {
+            organizationId: existingId,
+          });
+          await authClient.getSession();
+          await onNext(stepData);
+          return;
+        }
+      } catch {
+        // Couldn't list (network/transient) - fall through to creation.
+      }
 
       // Try creating via authClient (BetterAuth plugin)
       const { data: org, error } = await authClient.organization.create({

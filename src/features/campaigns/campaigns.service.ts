@@ -246,6 +246,67 @@ export interface CampaignAnalyticsOverview {
   [key: string]: unknown;
 }
 
+/** One day of the org-wide campaign series (GET /campaigns/analytics/time-series). */
+export interface CampaignTimeSeriesPoint {
+  /** UTC day, `YYYY-MM-DD`. */
+  date: string;
+  /** Distinct recipients queued/sent that day. */
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+}
+
+export type CampaignAnalyticsPeriod = "7days" | "30days" | "90days";
+
+export interface CampaignTimeSeriesResponse {
+  period: string;
+  days: number;
+  series: CampaignTimeSeriesPoint[];
+}
+
+/** One campaign's row in the analytics summary (GET /campaigns/analytics/summary). */
+export interface CampaignSummaryRow {
+  id: string;
+  name: string;
+  status: string;
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  /** Opened / delivered, 0-100 (2 dp). */
+  openRate: number;
+  /** Clicked / delivered, 0-100 (2 dp). */
+  clickRate: number;
+}
+
+export interface CampaignSummaryTotals {
+  campaigns: number;
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  openRate: number;
+  clickRate: number;
+}
+
+/** Completion vs still-running, measured over LAUNCHED campaigns (DRAFT/ARCHIVED excluded). */
+export interface CampaignStatusSplit {
+  launched: number;
+  completed: number;
+  running: number;
+  /** completed / launched, 0-100 (2 dp). */
+  completionRate: number;
+  /** running / launched, 0-100 (2 dp). */
+  runningRate: number;
+}
+
+export interface CampaignAnalyticsSummary {
+  rows: CampaignSummaryRow[];
+  totals: CampaignSummaryTotals;
+  status: CampaignStatusSplit;
+}
+
 export interface CampaignTrackingSettings {
   smartSending: boolean;
   trackingParameters: boolean;
@@ -1029,6 +1090,41 @@ export const campaignsService = {
         method: "GET",
         url: "/campaigns/analytics/overview",
         params: { days },
+      },
+      orgId
+    );
+  },
+
+  /**
+   * Org-wide campaign recipients + email engagement per day
+   * (GET /campaigns/analytics/time-series?period=7days|30days|90days).
+   */
+  getAnalyticsTimeSeries(
+    period: CampaignAnalyticsPeriod = "30days",
+    orgId?: string,
+    opts?: { signal?: AbortSignal }
+  ) {
+    return request<CampaignTimeSeriesResponse>(
+      {
+        method: "GET",
+        url: "/campaigns/analytics/time-series",
+        params: { period },
+        signal: opts?.signal,
+      },
+      orgId
+    );
+  },
+
+  /**
+   * Per-campaign recipients + engagement, org totals, and the completion vs
+   * still-running split (GET /campaigns/analytics/summary).
+   */
+  getAnalyticsSummary(orgId?: string, opts?: { signal?: AbortSignal }) {
+    return request<CampaignAnalyticsSummary>(
+      {
+        method: "GET",
+        url: "/campaigns/analytics/summary",
+        signal: opts?.signal,
       },
       orgId
     );

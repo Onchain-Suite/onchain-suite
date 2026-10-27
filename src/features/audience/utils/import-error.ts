@@ -17,6 +17,16 @@ export interface ImportErrorLike {
   cause?: unknown;
 }
 
+/**
+ * Which flow failed. The "upgrade" flow (POST /billing/checkout/import-upgrade)
+ * fails on checkout/billing, NOT on the file, so its generic fallback must not
+ * tell the user to "check your file" - that sent people back to re-checking a
+ * CSV that was fine. Defaults to "import" so existing callers are unchanged.
+ */
+export interface ImportErrorOptions {
+  context?: "import" | "upgrade";
+}
+
 const asRecord = (value: unknown): ImportErrorLike =>
   value && typeof value === "object" ? (value as ImportErrorLike) : {};
 
@@ -30,12 +40,28 @@ const matchText = (error: unknown): string => {
   return `${e.message ?? ""} ${causeMessage ?? ""}`.toUpperCase();
 };
 
-export function importErrorMessage(error: unknown): string {
+export function importErrorMessage(
+  error: unknown,
+  options?: ImportErrorOptions
+): string {
   const e = asRecord(error);
   const status = typeof e.status === "number" ? e.status : undefined;
   const code = (typeof e.code === "string" ? e.code : "").toUpperCase();
   const text = matchText(error);
   const has = (token: string) => code.includes(token) || text.includes(token);
+
+  // Upgrade-checkout failures (POST /billing/checkout/import-upgrade). These are
+  // billing problems, not file problems, so they get their own specific copy
+  // and never fall through to the file-oriented generic below.
+  if (
+    has("FIAT_CHECKOUT_UNAVAILABLE") ||
+    has("CARD CHECKOUT IS NOT CONFIGURED")
+  )
+    return "Card payments aren't available for this workspace right now. Use the crypto checkout to upgrade, or contact support - your import stays held until you do.";
+  if (has("FITS WITHIN YOUR CURRENT PLAN"))
+    return "This import already fits your current plan, so no upgrade is needed. Close this and choose Import anyway.";
+  if (has("FAILED TO CREATE CARD CHECKOUT"))
+    return "We couldn't start the card checkout. Please try again in a moment, or use the crypto checkout instead.";
 
   // Client-side pre-flight guards (thrown by the component with these codes).
   if (has("IMPORT_LIST_REQUIRED"))
@@ -79,6 +105,11 @@ export function importErrorMessage(error: unknown): string {
   // 5xx on the request path to Sentry).
   if (status !== undefined && status >= 500)
     return "Something went wrong on our side while starting the import. We've been notified - please try again in a moment.";
+
+  // The upgrade flow fails on billing, not the file - don't send people back to
+  // re-check a CSV that was fine.
+  if (options?.context === "upgrade")
+    return "We couldn't start the upgrade checkout. Please try again, or use the crypto checkout instead.";
 
   return "We couldn't start the import. Please check your file and try again.";
 }

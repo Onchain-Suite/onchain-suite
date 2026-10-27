@@ -82,4 +82,49 @@ describe("importErrorMessage", () => {
       "We couldn't start the import. Please check your file and try again."
     );
   });
+
+  it("surfaces the card-unavailable upgrade failure, not a file message", () => {
+    const msg = importErrorMessage(
+      apiError({
+        status: 400,
+        code: "FIAT_CHECKOUT_UNAVAILABLE",
+        message: "Card checkout is not configured — use the crypto checkout",
+      }),
+      { context: "upgrade" }
+    );
+    expect(msg).toMatch(/card payments|crypto checkout/i);
+    expect(msg).not.toMatch(/check your file/i);
+  });
+
+  it("maps the 'fits within your current plan' upgrade 400 to actionable copy", () => {
+    expect(
+      importErrorMessage(
+        apiError({
+          status: 400,
+          message:
+            "This import fits within your current plan; no upgrade is needed.",
+        })
+      )
+    ).toMatch(/already fits|import anyway/i);
+  });
+
+  it("maps a failed card checkout to a retry message, not a file message", () => {
+    const msg = importErrorMessage(
+      apiError({ status: 400, message: "Failed to create card checkout" }),
+      { context: "upgrade" }
+    );
+    expect(msg).toMatch(/card checkout|crypto checkout/i);
+    expect(msg).not.toMatch(/check your file/i);
+  });
+
+  it("uses a checkout-oriented generic fallback in the upgrade context", () => {
+    const msg = importErrorMessage(
+      apiError({ status: 400, message: "weird" }),
+      {
+        context: "upgrade",
+      }
+    );
+    expect(msg).toMatch(/upgrade checkout/i);
+    expect(msg).not.toMatch(/check your file/i);
+  });
 });

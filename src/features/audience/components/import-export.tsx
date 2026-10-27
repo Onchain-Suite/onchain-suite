@@ -1447,7 +1447,20 @@ export default function ImportExportPage() {
           file: uploadedFile,
           format,
         });
-        if (estimate.willExceedBalance || estimate.willExceedCap) {
+        // Wallet shortfall always blocks (top up). A cap overflow only needs a
+        // dialog when the upgrade is actually chargeable; when it prorates below
+        // Stripe's card minimum the plan already covers these contacts, so skip
+        // the dialog and import silently - the backend raises the capacity and
+        // the higher contact pricing is collected at the next renewal.
+        if (estimate.willExceedBalance) {
+          setGateEstimate(estimate);
+          return;
+        }
+        if (estimate.willExceedCap) {
+          if (estimate.requiresPaidUpgrade === false) {
+            upgradeImportMutation.mutate();
+            return;
+          }
           setGateEstimate(estimate);
           return;
         }

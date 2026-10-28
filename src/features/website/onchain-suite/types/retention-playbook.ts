@@ -121,6 +121,8 @@ export interface WhatHowWhy {
 export interface ChapterSection {
   id: string;
   title: string;
+  /** The id of the section this one sits under, as a sub-page in the book's contents. */
+  parent?: string;
   blocks?: Block[];
   whw?: WhatHowWhy;
 }

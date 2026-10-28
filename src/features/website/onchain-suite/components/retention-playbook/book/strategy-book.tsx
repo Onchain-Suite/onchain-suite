@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import "../styles/book.css";
 import { renderBlocks } from "@/onchain-suite-website/components/retention-playbook/blocks/block-list";
+import { BookEndpaper } from "@/onchain-suite-website/components/retention-playbook/book/book-endpaper";
 import type { ViewerPart } from "@/onchain-suite-website/components/retention-playbook/book/book-types";
 import { BookViewer } from "@/onchain-suite-website/components/retention-playbook/book/book-viewer";
 import { PricingSheet } from "@/onchain-suite-website/components/retention-playbook/book/pricing-sheet";
@@ -126,10 +127,14 @@ export function StrategyBook({ strategy }: { strategy: ClientStrategy }) {
     if (part.kind === "section") {
       // One glossary tracker per section, so a term is marked on first use.
       const g = createGlossaryTracker();
+      const parent = strategy.chapter.sections.find(
+        (s) => s.id === part.section.parent
+      );
       return {
         kind: "flow",
         key,
         title: part.section.title,
+        parent: parent?.title,
         items: part.items.map((blocks, n) => ({
           key: `${key}-${n}`,
           node: renderBlocks(blocks, g),
@@ -143,5 +148,11 @@ export function StrategyBook({ strategy }: { strategy: ClientStrategy }) {
       node: fixedPage(part, strategy),
     };
   });
-  return <BookViewer title={strategy.chapter.title} parts={parts} />;
+  return (
+    <BookViewer
+      title={strategy.chapter.title}
+      parts={parts}
+      endpaper={strategy.client && <BookEndpaper client={strategy.client} />}
+    />
+  );
 }

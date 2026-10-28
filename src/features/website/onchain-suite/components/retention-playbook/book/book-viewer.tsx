@@ -6,7 +6,14 @@ import {
   BookOpenIcon,
   DocumentTextIcon,
 } from "@heroicons/react/20/solid";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { BookLeaves } from "@/onchain-suite-website/components/retention-playbook/book/book-leaves";
 import {
@@ -48,10 +55,13 @@ function setView(view: "book" | "page") {
 export function BookViewer({
   parts,
   title,
+  endpaper,
 }: {
   parts: ViewerPart[];
   /** The strategy's title: the running head and the page announcement. */
   title: string;
+  /** Inside the front cover: the left of the first spread, under the leaves. */
+  endpaper?: ReactNode;
 }) {
   const head = `${title} · OnchainSuite`;
   const stage = useRef<HTMLDivElement>(null);
@@ -212,6 +222,11 @@ export function BookViewer({
           </div>
         </div>
 
+        {mode === "spread" && endpaper && (
+          <div className="rp-bk-endpaper" aria-hidden="true">
+            {endpaper}
+          </div>
+        )}
         <BookLeaves sheets={sheets} mode={mode} at={index} pageRef={pageRef} />
       </div>
 
@@ -262,7 +277,7 @@ export function BackToBook() {
   return (
     <button
       type="button"
-      className="btn lg rp-bk-back"
+      className="btn lg rp-bk-reopen"
       onClick={() => {
         setView("book");
         window.scrollTo({ top: 0 });

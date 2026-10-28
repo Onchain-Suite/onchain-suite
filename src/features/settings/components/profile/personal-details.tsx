@@ -125,6 +125,7 @@ const PersonalDetails = () => {
 
   return (
     <SettingsCard
+      replayBlock
       title="Profile details"
       description="Your personal information"
       action={

@@ -51,7 +51,7 @@ function measureItem(el: HTMLElement, height: number): PackItem {
  * one page really holds at this size. `column` holds every run's items,
  * hidden at the page's width, one `[data-flow]` per run and one `[data-item]`
  * per item, with `[data-heading]` on section headings. The layout is redone
- * when the page changes size and once the fonts have loaded.
+ * when the page or the items change size and once the fonts have loaded.
  *
  * Returns, per run, the pieces of items on each of its pages, or null until
  * the first measurement.
@@ -92,8 +92,11 @@ export function useBookLayout(
     document.fonts?.ready.then(() => {
       if (!cancelled) measure();
     });
+    // The column changes height when its content does, say a late font or a
+    // new strategy, so it is watched as well as the stage.
     const observer = new ResizeObserver(() => measure());
     if (stage.current) observer.observe(stage.current);
+    if (column.current) observer.observe(column.current);
     return () => {
       cancelled = true;
       observer.disconnect();

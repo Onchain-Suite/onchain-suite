@@ -11,6 +11,8 @@ export interface RunItem {
   /** The section it belongs to, for the running head and the contents. */
   section: string;
   heading?: boolean;
+  /** A heading for a sub-page, indented under its parent in the contents. */
+  sub?: boolean;
 }
 
 /**
@@ -37,9 +39,15 @@ export function toSegments(parts: ViewerPart[]): Segment[] {
     }
     run.items.push({
       key: `${part.key}-heading`,
-      node: <h2 className="rp-bk-h">{part.title}</h2>,
+      node: (
+        <h2 className="rp-bk-h">
+          {part.parent && <span className="rp-bk-hk">{part.parent}</span>}
+          {part.title}
+        </h2>
+      ),
       section: part.title,
       heading: true,
+      sub: Boolean(part.parent),
     });
     for (const item of part.items) {
       run.items.push({ ...item, section: part.title });
@@ -113,7 +121,7 @@ export function buildSheets(
     }
   });
 
-  const contents: { title: string; page: number }[] = [];
+  const contents: { title: string; page: number; sub?: boolean }[] = [];
   segments.forEach((s, si) => {
     if (s.kind === "page" && s.title) {
       contents.push({ title: s.title, page: starts[si] });
@@ -124,6 +132,7 @@ export function buildSheets(
           contents.push({
             title: item.section,
             page: sectionPage.get(item.section) ?? starts[si],
+            sub: item.sub,
           });
         }
       }
@@ -146,7 +155,7 @@ export function buildSheets(
               <h2 className="rp-bk-h">Contents</h2>
               <ol className="rp-bk-toc">
                 {contents.map((c) => (
-                  <li key={c.title}>
+                  <li key={c.title} className={c.sub ? "is-sub" : undefined}>
                     <a href={`#page-${c.page + 1}`}>
                       <span>{c.title}</span>
                       <span className="rp-bk-toc-n">{c.page + 1}</span>

@@ -376,9 +376,43 @@ export function AudienceStep({
       })),
     [contacts]
   );
+  // Channel-adjusted counts, computed once and shared by the picker rows AND
+  // the instant local estimate so the headline and every row always agree.
+  // Critically the tags API historically returns NO count, so summing a raw
+  // `tag.count` made a selected tag contribute 0 to the estimate (the "0
+  // recipients" bug): fall back through the server reach count, then the
+  // sampled per-tag reach count, then the raw tag count.
+  const segmentsWithReach = useMemo<Segment[]>(
+    () =>
+      segments.map((s) => ({
+        ...s,
+        count: reachChannelCount(s.reachable, isPush) ?? s.count,
+      })),
+    [segments, isPush]
+  );
+  const listsWithReach = useMemo<List[]>(
+    () =>
+      lists.map((l) => ({
+        ...l,
+        count: reachChannelCount(l.reachable, isPush) ?? l.count,
+      })),
+    [lists, isPush]
+  );
+  const tagsWithReach = useMemo<List[]>(
+    () =>
+      tags.map((t) => ({
+        ...t,
+        count:
+          reachChannelCount(t.reachable, isPush) ??
+          reachChannelCount(computedTagReach?.[t.name], isPush) ??
+          t.count,
+      })),
+    [tags, isPush, computedTagReach]
+  );
+
   const profileOptions = useMemo<List[]>(
-    () => [...lists, ...contactsAsLists],
-    [lists, contactsAsLists]
+    () => [...listsWithReach, ...contactsAsLists],
+    [listsWithReach, contactsAsLists]
   );
 
   const localEstimatedRecipients = useMemo(() => {
@@ -389,10 +423,16 @@ export function AudienceStep({
     }
     return getEstimatedRecipientsFromSelection(
       selectedAudiences,
-      [...profileOptions, ...tags],
-      segments
+      [...profileOptions, ...tagsWithReach],
+      segmentsWithReach
     );
-  }, [profileOptions, tags, segments, selectedAudiences, everyoneReachable]);
+  }, [
+    profileOptions,
+    tagsWithReach,
+    segmentsWithReach,
+    selectedAudiences,
+    everyoneReachable,
+  ]);
 
   // Assemble the UTM object sent to the backend (only when tracking is on and
   // at least one value is set). Keys map to utm_source/medium/campaign/…
@@ -601,8 +641,29 @@ export function AudienceStep({
     applySunset,
   ]);
 
+  // Drop the server estimate the instant the selection changes. The autosync
+  // that recomputes it is debounced (800ms) and may wait out a rate-limit
+  // window (up to ~11s), so without this the previous selection's number would
+  // linger on screen until the round-trip lands. Clearing it hands the display
+  // back to the instant local figure immediately; the server value replaces it
+  // again when it arrives for the current selection.
+  useEffect(() => {
+    setEstimatedRecipients(null);
+    setEstimateBreakdown(null);
+    // Deliberately keyed on the selection signatures only - not on tracking /
+    // exclusion toggles, which don't change who is in the audience.
+  }, [selectionKey, segmentsKey, profileOptionsKey]);
+
   const displayedEstimatedRecipients =
-    estimatedRecipients ?? localEstimatedRecipients;
+    // Prefer the server estimate once it lands for this selection, except when
+    // it degenerates to 0 while the local figure is positive: that is the
+    // signature of a failed/partial tag->profile expansion (resolveTags… can
+    // return empty and swallow the error), not a genuinely empty audience. In
+    // that case the instant local count is the trustworthy one.
+    estimatedRecipients !== null &&
+    !(estimatedRecipients === 0 && localEstimatedRecipients > 0)
+      ? estimatedRecipients
+      : localEstimatedRecipients;
 
   useEffect(() => {
     onEstimateChange?.(displayedEstimatedRecipients);
@@ -885,7 +946,7 @@ export function AudienceStep({
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           {sendTab === "segments" ? (
             <SelectList
-              rows={segments.map((s) => ({
+              rows={segmentsWithReach.map((s) => ({
                 id: s.id,
                 title: s.name,
                 sub:
@@ -893,7 +954,7 @@ export function AudienceStep({
                   "string"
                     ? (s as { description?: string }).description
                     : undefined,
-                count: reachChannelCount(s.reachable, isPush) ?? s.count,
+                count: s.count,
                 ...reachabilityGate(s.reachableVia, isPush),
               }))}
               loading={segmentsLoading}
@@ -912,10 +973,10 @@ export function AudienceStep({
             />
           ) : sendTab === "lists" ? (
             <SelectList
-              rows={lists.map((l) => ({
+              rows={listsWithReach.map((l) => ({
                 id: l.id,
                 title: l.name,
-                count: reachChannelCount(l.reachable, isPush) ?? l.count,
+                count: l.count,
                 ...reachabilityGate(l.reachableVia, isPush),
               }))}
               searchPlaceholder="Search lists…"
@@ -925,21 +986,15 @@ export function AudienceStep({
             />
           ) : sendTab === "tags" ? (
             <SelectList
-              rows={tags.map((t) => {
-                // Prefer the server's send-grade count; else the profile-sample
-                // count (the tags API historically sent none); else the raw tag
-                // count. A backend 0 is real - don't fall through it.
-                const count =
-                  reachChannelCount(t.reachable, isPush) ??
-                  reachChannelCount(computedTagReach?.[t.name], isPush) ??
-                  t.count;
-                return {
-                  id: t.id,
-                  title: t.name,
-                  count,
-                  ...reachabilityGate(t.reachableVia, isPush),
-                };
-              })}
+              rows={tagsWithReach.map((t) => ({
+                // `count` is the channel-adjusted reach computed once in
+                // `tagsWithReach` (server reach -> sampled reach -> raw count),
+                // so the row and the recipient estimate never disagree.
+                id: t.id,
+                title: t.name,
+                count: t.count,
+                ...reachabilityGate(t.reachableVia, isPush),
+              }))}
               searchPlaceholder="Search tags…"
               emptyText={
                 <>

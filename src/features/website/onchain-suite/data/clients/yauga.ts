@@ -1,13 +1,15 @@
-/* The Yauga growth and retention strategy, for Yauga's team, on the shared
-   structure: campaigns and the newsletter, Loops, lifecycle (capture points,
-   the six stages, exit points) and retention triggers, then what we
-   measure, the platform and what we need. Email is the only member channel.
+/* The Yauga growth and retention strategy, for Yauga's team. It opens on the
+   idea, told through one member and one case study, then the strategy and
+   how we would build it, with its four parts as sub-pages (campaigns and
+   newsletters, Loops, lifecycle and retention triggers), then what we
+   measure, the platform, and what we need and never send. Email is the only
+   member channel.
    Source: the Yauga email marketing plan, October 2026, with the platform's
    capabilities checked against the OnchainSuite documentation. Event names
    are a working draft for Yauga's developers to confirm, and "Yauga Cult" is
-   used throughout pending confirmation of the spelling.
-   Trimmed in October 2026 to read as a book: every rule, number and decision
-   is kept, and repeated prose became Loop cards and tables.
+   used throughout pending confirmation of the spelling. The parkrun case
+   study is from public sources (parkrun's own history and press coverage of
+   its twentieth anniversary, October 2024).
    This page is reached by its link only: it is not on the landing page. */
 
 import type { Chapter } from "@/onchain-suite-website/types/retention-playbook";
@@ -17,106 +19,162 @@ export const YAUGA: Chapter = {
   number: "04",
   title: "Yauga growth and retention strategy",
   dek: "How communication follows a member from a city's waitlist to the Haus, the app and the ring, and brings them back when they go quiet.",
-  tldr: [
-    "Today Yauga's systems do not know each other: Haus emails go out from Haus OS and Yauga Letters from OnchainSuite, while the app, Yauga Cult, the shop, Run Club and Social Club send nothing at all, so ==a person who goes to a Haus and then joins the app is two strangers to the way Yauga communicates.==",
-    "We propose one record per person, so every Yauga system reports what happened and communication follows the person rather than the product. The step that matters most is Attend to Join, because live experiences bring people in and email is how they find the app and the ring after they go home, so the first automations we build start on a check-in.",
-    "The plan has four parts, campaigns and the newsletter, Loops, lifecycle and retention triggers, all carried by email from Yauga's own domain, with one broadcast a week and every email passing the Yauga Test.",
-  ],
-  intro: [
-    {
-      kind: "artifact",
-      code: "04.06",
-      title: "The Yauga ecosystem, and where OnchainSuite sits",
-      diagram: {
-        type: "hub",
-        centre: { label: "One record per person", note: "OnchainSuite" },
-        spokes: [
-          {
-            label: "Yauga Haus OS",
-            note: "the Haus, Ritual Rooms, Run Club, Social Club and the shop",
-          },
-          {
-            label: "Yauga App",
-            note: "sign-up and focus, sessions, challenges, membership",
-          },
-          {
-            label: "Yauga Cult",
-            note: "the ring: paired, streaks, gone quiet",
-          },
-          { label: "Website", note: "Letters sign-up, confirmed by email" },
-          {
-            label: "Yauga HQ",
-            note: "quiet members and referrals in; unsubscribes back",
-            dir: "both",
-          },
-          {
-            label: "Messages to members",
-            note: "Loops, triggers, city news and Letters, from Yauga's domain",
-            dir: "out",
-          },
-        ],
-      },
-    },
-    {
-      kind: "artifact",
-      code: "04.07",
-      title: "Yauga's participation funnel",
-      diagram: {
-        type: "funnel",
-        stages: [
-          {
-            label: "Discover",
-            note: "joins a waitlist, or takes Yauga Letters",
-          },
-          { label: "Attend", note: "books a ticket and checks in at a Haus" },
-          {
-            label: "Join",
-            note: "an app account, the ring or a membership: the step that matters most",
-            tone: "orange",
-          },
-          { label: "Practise", note: "sessions, streaks and challenges" },
-          {
-            label: "Connect",
-            note: "repeat check-ins and their city's shared sits",
-          },
-          {
-            label: "Return and refer",
-            note: "back after a quiet spell, and brings someone",
-          },
-        ],
-      },
-    },
-  ],
   sections: [
     {
-      id: "says",
-      title: "What we never send",
+      id: "overview",
+      title: "Overview of our idea",
       blocks: [
         {
           kind: "p",
-          text: 'Body data stays with Yauga. Sleep, heart rate, HRV, stress and SpO₂ readings never leave Yauga\'s systems, and OnchainSuite only hears that something happened, such as a seven-day streak, which matches "your data is yours" and keeps health data out of member communication altogether.',
+          text: "Picture Ada on the evening she first goes to Yauga Haus Vienna. She books through Haus OS, checks in at the door and goes home feeling better than she has in weeks, and then nothing happens, because the Haus knows she came but the app has never heard of her.",
+        },
+        {
+          kind: "p",
+          text: "Yauga has built something people want to come back to, with a Haus in each city, an app, a ring and a weekly letter. What is missing is the thread between them, because only the Haus and Yauga Letters send email today, ==so a person who goes to a Haus and then joins the app is two strangers to the way Yauga communicates.==",
+        },
+        {
+          kind: "p",
+          text: "Our idea is one record per person, so communication follows Ada rather than the product: that evening she gets one email with a first practice for sleep, and every email after it answers something she did.",
+        },
+        {
+          kind: "artifact",
+          code: "04.01",
+          title: "Ada, from the Vienna waitlist to coming back",
+          diagram: {
+            type: "timeline",
+            points: [
+              { when: "Day 0", label: "Joins the waitlist, confirms" },
+              { when: "Day 20", label: "Checks in at the Haus" },
+              { when: "Day 22", label: "Creates an app account, sleep focus" },
+              { when: "Day 29", label: "Pairs the ring" },
+              { when: "Day 36", label: "Seven-day streak, one email" },
+              { when: "Day 56", label: "Quiet; the next shared sit" },
+            ],
+          },
+        },
+        {
+          kind: "p",
+          text: "None of this is a new idea, and parkrun is the clearest proof we know of that it works for live, local gatherings.",
         },
         {
           kind: "callout",
-          tone: "rules",
-          title: "The Yauga rules",
+          tone: "note",
+          title: "Case study: parkrun",
           items: [
-            "Body data never leaves Yauga's systems; OnchainSuite only hears that something happened",
-            "No marketing to anyone who has not said yes: a ticket buyer gets their ticket, and every automation checks for the letters tag",
-            "One broadcast a week, and since OnchainSuite has no built-in limit on how often one person is emailed, that rule is the limit",
-            "Nothing that is not secular, and anything at 40 or above on the woo-woo scale is rewritten or cut",
-            "City leads never send their own emails, which would split the voice and the sending reputation, and receipts stay in Haus OS, where they already work",
+            "It started on 2 October 2004 as a time trial in Bushy Park, London, with 13 runners",
+            "Every runner has one barcode, so every run at every event adds to one record",
+            "Each runner is emailed their result on the same day as the run",
+            "Milestones at 25, 50, 100, 250 and 500 runs give people a reason to come back next week",
+            "It now runs at more than 2,000 locations in over 20 countries, with more than ten million people registered",
           ],
         },
         {
           kind: "p",
-          text: "Everything we do send passes the Yauga Test, which asks whether it can be felt, practised and explained plainly. Every moment has one owner, so nobody gets two emails about the same thing, every member email comes from one sender with one standard in every city, and practitioners, city leads and partners sit on a separate list, never mixed into member sends.",
+          text: "What parkrun does is simple: it notices what a person did that morning, tells them the same day and gives them one reason to return, without ever chasing them. Yauga already has the live experience that makes this work, so the job is to join up what happens after it. What does that look like across a whole city, from the waitlist to the ring?",
+        },
+      ],
+    },
+    {
+      id: "strategy",
+      title: "Yauga retention and growth strategy",
+      blocks: [
+        {
+          kind: "p",
+          text: "The strategy is one record per person, fed by every Yauga system and sent by email from Yauga's own domain, and the step that matters most is Attend to Join.",
+        },
+        {
+          kind: "artifact",
+          code: "04.02",
+          title: "Yauga's participation funnel",
+          diagram: {
+            type: "funnel",
+            stages: [
+              {
+                label: "Discover",
+                note: "joins a waitlist, or takes Yauga Letters",
+              },
+              {
+                label: "Attend",
+                note: "books a ticket and checks in at a Haus",
+              },
+              {
+                label: "Join",
+                note: "an app account, the ring or a membership: the step that matters most",
+                tone: "orange",
+              },
+              { label: "Practise", note: "sessions, streaks and challenges" },
+              {
+                label: "Connect",
+                note: "repeat check-ins and their city's shared sits",
+              },
+              {
+                label: "Return and refer",
+                note: "back after a quiet spell, and brings someone",
+              },
+            ],
+          },
+        },
+        {
+          kind: "artifact",
+          code: "04.03",
+          title: "The Yauga ecosystem, and where OnchainSuite sits",
+          diagram: {
+            type: "hub",
+            centre: { label: "One record per person", note: "OnchainSuite" },
+            spokes: [
+              {
+                label: "Yauga Haus OS",
+                note: "the Haus, Ritual Rooms, Run Club, Social Club and the shop",
+              },
+              {
+                label: "Yauga App",
+                note: "sign-up and focus, sessions, challenges, membership",
+              },
+              {
+                label: "Yauga Cult",
+                note: "the ring: paired, streaks, gone quiet",
+              },
+              { label: "Website", note: "Letters sign-up, confirmed by email" },
+              {
+                label: "Yauga HQ",
+                note: "quiet members and referrals in; unsubscribes back",
+                dir: "both",
+              },
+              {
+                label: "Messages to members",
+                note: "Loops, triggers, city news and Letters, from Yauga's domain",
+                dir: "out",
+              },
+            ],
+          },
+        },
+        {
+          kind: "p",
+          text: "It has four parts, which the next pages take one at a time: campaigns and newsletters for what is happening in a city, Loops for one member's next step, lifecycle for where each member stands, and retention triggers for moments on a member's own account. All four go out by email, with one broadcast a week at most, and every email passes the Yauga Test.",
+        },
+        {
+          kind: "p",
+          text: "We would build it in three steps, so the first emails go out on the moment that matters most:",
+        },
+        {
+          kind: "list",
+          ordered: true,
+          items: [
+            "Haus OS and the website first, with the Welcome and After the Haus Loops",
+            "Then the Yauga App and Yauga Cult, with the First practice Loop and the retention triggers",
+            "Then Yauga HQ's member_quiet and referral events, which turn on the lifecycle stages and the Slipping, Bring someone and Dormant Loops",
+          ],
+        },
+        {
+          kind: "p",
+          text: "Yauga Letters and the city campaigns run from the first step, since they need only what Haus OS and the website report.",
         },
       ],
     },
     {
       id: "campaigns",
-      title: "Campaigns and the newsletter",
+      title: "Campaigns and newsletters",
+      parent: "strategy",
       blocks: [
         {
           kind: "p",
@@ -175,6 +233,7 @@ export const YAUGA: Chapter = {
     },
     {
       id: "loops",
+      parent: "strategy",
       title: "Loops",
       blocks: [
         {
@@ -231,7 +290,7 @@ export const YAUGA: Chapter = {
         },
         {
           kind: "artifact",
-          code: "04.01",
+          code: "04.05",
           title: "From a check-in to a first practice",
           diagram: {
             type: "flow",
@@ -264,6 +323,7 @@ export const YAUGA: Chapter = {
     },
     {
       id: "lifecycle",
+      parent: "strategy",
       title: "Lifecycle",
       blocks: [
         {
@@ -272,7 +332,7 @@ export const YAUGA: Chapter = {
         },
         {
           kind: "artifact",
-          code: "04.02",
+          code: "04.06",
           title: "The six stages of a member",
           diagram: {
             type: "ladder",
@@ -351,30 +411,11 @@ export const YAUGA: Chapter = {
             "An account deleted, or an erasure request, ends everything, the record included",
           ],
         },
-        {
-          kind: "p",
-          text: "Take Ada, who joins the Vienna waitlist on the website and confirms with one click, and follow her from there.",
-        },
-        {
-          kind: "artifact",
-          code: "04.03",
-          title: "Ada, from the Vienna waitlist to coming back",
-          diagram: {
-            type: "timeline",
-            points: [
-              { when: "Day 0", label: "Joins the waitlist, confirms" },
-              { when: "Day 20", label: "Checks in at the Haus" },
-              { when: "Day 22", label: "Creates an app account, sleep focus" },
-              { when: "Day 29", label: "Pairs the ring" },
-              { when: "Day 36", label: "Seven-day streak, one email" },
-              { when: "Day 56", label: "Quiet; the next shared sit" },
-            ],
-          },
-        },
       ],
     },
     {
       id: "retention-triggers",
+      parent: "strategy",
       title: "Retention triggers",
       blocks: [
         {
@@ -496,7 +537,7 @@ export const YAUGA: Chapter = {
         },
         {
           kind: "artifact",
-          code: "04.05",
+          code: "04.07",
           title: "How it connects",
           diagram: {
             type: "flow",
@@ -555,7 +596,7 @@ export const YAUGA: Chapter = {
     },
     {
       id: "need",
-      title: "What we need from Yauga",
+      title: "What we need from Yauga, and what we never send",
       blocks: [
         {
           kind: "p",
@@ -587,7 +628,27 @@ export const YAUGA: Chapter = {
         },
         {
           kind: "p",
-          text: "This is the strategy, and copy and timing come after Yauga agrees the approach.",
+          text: "And there are things we never send, whatever the plan grows into.",
+        },
+        {
+          kind: "p",
+          text: 'Body data stays with Yauga. Sleep, heart rate, HRV, stress and SpO₂ readings never leave Yauga\'s systems, and OnchainSuite only hears that something happened, such as a seven-day streak, which matches "your data is yours" and keeps health data out of member communication altogether.',
+        },
+        {
+          kind: "callout",
+          tone: "rules",
+          title: "The Yauga rules",
+          items: [
+            "Body data never leaves Yauga's systems; OnchainSuite only hears that something happened",
+            "No marketing to anyone who has not said yes: a ticket buyer gets their ticket, and every automation checks for the letters tag",
+            "One broadcast a week, and since OnchainSuite has no built-in limit on how often one person is emailed, that rule is the limit",
+            "Nothing that is not secular, and anything at 40 or above on the woo-woo scale is rewritten or cut",
+            "City leads never send their own emails, which would split the voice and the sending reputation, and receipts stay in Haus OS, where they already work",
+          ],
+        },
+        {
+          kind: "p",
+          text: "Everything we do send passes the Yauga Test, which asks whether it can be felt, practised and explained plainly. Every moment has one owner, so nobody gets two emails about the same thing, every member email comes from one sender with one standard in every city, and practitioners, city leads and partners sit on a separate list, never mixed into member sends.",
         },
       ],
     },

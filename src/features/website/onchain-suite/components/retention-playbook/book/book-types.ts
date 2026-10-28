@@ -13,5 +13,7 @@ export type ViewerPart =
       kind: "flow";
       key: string;
       title: string;
+      /** The section it is a sub-page of, if any. */
+      parent?: string;
       items: { key: string; node: ReactNode }[];
     };

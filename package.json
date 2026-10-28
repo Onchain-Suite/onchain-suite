@@ -43,6 +43,7 @@
     "@arcjet/inspect": "^1.9.1",
     "@arcjet/next": "^1.9.1",
     "@azure/communication-email": "^1.1.0",
+    "@databuddy/sdk": "^3.3.0",
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^5.5.7",
     "@hugeicons/core-free-icons": "^4.2.3",

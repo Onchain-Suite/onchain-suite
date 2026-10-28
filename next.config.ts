@@ -81,7 +81,9 @@ const APP_CSP_REPORT_ONLY = [
   "form-action 'self'",
   // 'unsafe-inline'/'unsafe-eval' reflect what Next.js needs today; the report
   // stream will tell us what can be dropped on the way to a nonce-based policy.
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.clarity.ms${posthogCspSources.script}`,
+  // cdn.databuddy.cc serves the Databuddy tracker + session-replay recorder
+  // (databuddy.js / replay.js), mounted app-wide in the root layout.
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.clarity.ms https://cdn.databuddy.cc${posthogCspSources.script}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   // Logo CDNs for the audience on-chain columns: chain/protocol icons from
   // DefiLlama, token icons from Covalent (the latter already loaded via
@@ -89,7 +91,8 @@ const APP_CSP_REPORT_ONLY = [
   // cards from DuckDuckGo. Declared so they survive the flip to enforce.
   "img-src 'self' data: blob: https://res.cloudinary.com https://*.clarity.ms https://icons.llamao.fi https://logos.covalenthq.com https://icons.duckduckgo.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  `connect-src 'self' https://*.clarity.ms https://challenges.cloudflare.com${posthogCspSources.connect}`,
+  // basket.databuddy.cc is Databuddy's event + session-replay ingest endpoint.
+  `connect-src 'self' https://*.clarity.ms https://challenges.cloudflare.com https://basket.databuddy.cc${posthogCspSources.connect}`,
   "frame-src 'self' https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",

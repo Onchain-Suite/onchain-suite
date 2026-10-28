@@ -21,6 +21,12 @@ interface SettingsCardProps {
   id?: string;
   className?: string;
   bodyClassName?: string;
+  /**
+   * Exclude this card from Databuddy session replay (`data-replay-block`). Set
+   * it on any card that shows personal data - account details, payment info -
+   * so the whole card is left out of recordings.
+   */
+  replayBlock?: boolean;
 }
 
 export function SettingsCard({
@@ -31,10 +37,12 @@ export function SettingsCard({
   id,
   className,
   bodyClassName,
+  replayBlock,
 }: SettingsCardProps) {
   return (
     <section
       id={id}
+      data-replay-block={replayBlock ? "" : undefined}
       className={cn(
         "rounded-2xl border border-border/60 bg-card/60 shadow-sm",
         className

@@ -101,6 +101,7 @@ export function BillingInvoicesCard() {
 
   return (
     <SettingsCard
+      replayBlock
       title="Invoices"
       description="Your billing history and any amounts due."
     >

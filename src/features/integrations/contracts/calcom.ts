@@ -42,6 +42,7 @@ export type CalcomResponseValue =
 export interface CalcomBookingPayload {
   uid?: string;
   bookingId?: number;
+  createdAt?: string;
   title?: string;
   eventTitle?: string;
   type?: string;
@@ -71,14 +72,33 @@ export interface CalcomWebhookEnvelope {
 }
 
 /**
- * The capture body we forward to `POST /forms/:token/ingest`
- * ({@link SubmitCaptureDto} on the backend). `fields` is bounded server-side to
- * <=20 primitive keys and email-named keys are dropped, so we keep it flat,
- * primitive, and never put the email in `fields`.
+ * The body we POST to the Custom Events ingest API
+ * (`POST /api/v1/events`, docs.onchainsuite.com/integrations/custom-events).
+ *
+ * The event creates/updates the contact, merges `attributes` onto that contact
+ * (so a list-joined automation can personalise with them), and `addToList`
+ * both adds the membership AND fires the list's "List joined" trigger. No form
+ * or form token is involved - the sk_live key is the only credential.
+ *
+ * - `attributes`: contact traits, <=50 keys, values string|number|boolean,
+ *   <=1KB each. Persisted on the contact (last write wins).
+ * - `payload`: event-specific facts, kept with the event (<=16KB), not the
+ *   contact.
+ * - `idempotencyKey`: stable per booking (the Cal `uid`) so a webhook retry is
+ *   accepted-but-not-reprocessed and never double-fires the automation.
  */
-export interface FormCaptureIngest {
-  email: string | null;
-  fields: Record<string, string | number>;
-  consent: boolean;
-  consentText: string | null;
+export interface CalcomEventIngest {
+  event: string;
+  contact: {
+    email?: string;
+    walletAddress?: string;
+    externalId?: string;
+  };
+  attributes: Record<string, string | number | boolean>;
+  payload: Record<string, unknown>;
+  /** List name or id; an unknown name is created as a tag-backed list. */
+  addToList: string;
+  idempotencyKey: string;
+  /** ISO 8601; must be within [now-7d, now+5m]. Omit to default to now. */
+  occurredAt?: string;
 }

@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { backendBaseUrl } from "@/lib/public-forms-backend";
 
 import type { CalcomWebhookEnvelope } from "@/features/integrations/contracts/calcom";
-import { mapCalcomBookingToCapture } from "@/features/integrations/utils/calcom-capture";
+import { mapCalcomBookingToEvent } from "@/features/integrations/utils/calcom-event";
 import { verifyCalcomSignature } from "@/features/integrations/utils/calcom-signature";
 
 // Needs Node crypto (HMAC) and must read the raw body for signature checking,
@@ -11,36 +11,36 @@ import { verifyCalcomSignature } from "@/features/integrations/utils/calcom-sign
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Triggers that create a "Booked a Demo/Walkthrough" contact. */
+/** Triggers that record a demo/walkthrough booking. */
 const CREATE_TRIGGERS = new Set(["BOOKING_CREATED"]);
 
 /**
  * Cal.com -> OnchainSuite relay.
  *
  * Receives a Cal.com booking webhook, verifies its HMAC signature, maps the
- * booking's full details to a capture, and forwards it to the backend's secret-
- * key form-ingest (`POST /forms/:token/ingest`). That ingest creates/updates the
- * contact with every detail, adds it to the list the form is bound to ("Booked a
- * Demo/Walkthrough"), and fires the list-joined trigger - the 5-minute automation
- * runs from there. Stateless: Cal's at-least-once delivery + the ingest's
- * upsert-by-email keep re-deliveries idempotent for the contact.
+ * booking's full details, and forwards it to the Custom Events ingest
+ * (`POST /api/v1/events`) with the sk_live key. That event creates/updates the
+ * contact (email + `attributes`), and `addToList` adds it to "Booked a
+ * Demo/Walkthrough" AND fires the list-joined trigger - the 5-minute automation
+ * runs from there. No capture form is involved. Stateless: the booking `uid` is
+ * sent as the idempotency key, so Cal's at-least-once delivery never
+ * double-fires the automation.
  *
  * Config (server-only env):
  *  - CALCOM_WEBHOOK_SECRET  secret shared with the Cal webhook (signature key)
- *  - CALCOM_FORM_TOKEN      public token of the capture form bound to the list
  *  - CALCOM_INGEST_API_KEY  sk_live secret key (resolves the org, write scope)
+ *  - CALCOM_TARGET_LIST     list name/id to add to (default below) [optional]
+ *  - CALCOM_EVENT_NAME      custom event name (default below) [optional]
  *  - BACKEND_URL            backend base (defaults to api.onchainsuite.com/api/v1)
  */
 export async function POST(req: NextRequest) {
   const secret = process.env.CALCOM_WEBHOOK_SECRET;
-  const formToken = process.env.CALCOM_FORM_TOKEN;
   const apiKey = process.env.CALCOM_INGEST_API_KEY;
 
-  if (!secret || !formToken || !apiKey) {
+  if (!secret || !apiKey) {
     // Misconfiguration, not a bad request: fail closed and make it visible.
     console.error("[calcom] relay not configured", {
       hasSecret: Boolean(secret),
-      hasFormToken: Boolean(formToken),
       hasApiKey: Boolean(apiKey),
     });
     return NextResponse.json(
@@ -76,19 +76,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: trigger || "no-trigger" });
   }
 
-  const capture = mapCalcomBookingToCapture(envelope.payload, {
+  const event = mapCalcomBookingToEvent(envelope.payload, {
     trigger,
-    capturedAt: envelope.createdAt,
+    occurredAt: envelope.createdAt,
+    listName: process.env.CALCOM_TARGET_LIST,
+    eventName: process.env.CALCOM_EVENT_NAME,
   });
-  if (!capture.email) {
-    // No address to key a contact on; acknowledge (retrying won't help).
+  if (!event.contact.email) {
+    // The events API needs an identifier; Cal bookings carry an attendee email,
+    // so a missing one is a malformed payload - ack it (retrying won't help).
     console.warn("[calcom] booking without attendee email, skipped", {
-      uid: capture.fields.calBookingUid,
+      uid: event.payload.bookingUid,
     });
     return NextResponse.json({ ok: true, skipped: "no-email" });
   }
 
-  const targetUrl = `${backendBaseUrl()}/forms/${encodeURIComponent(formToken)}/ingest`;
+  const targetUrl = `${backendBaseUrl()}/events`;
   let res: Response;
   try {
     res = await fetch(targetUrl, {
@@ -97,22 +100,20 @@ export async function POST(req: NextRequest) {
         "content-type": "application/json",
         authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        email: capture.email,
-        fields: capture.fields,
-        consent: capture.consent,
-        consentText: capture.consentText,
-      }),
+      body: JSON.stringify(event),
     });
   } catch (err) {
-    console.error("[calcom] ingest unreachable", err);
+    console.error("[calcom] events ingest unreachable", err);
     // Transient: let Cal retry.
     return NextResponse.json({ error: "ingest-unreachable" }, { status: 502 });
   }
 
+  const detail = await res.text().catch(() => "");
   if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    console.error("[calcom] ingest rejected", { status: res.status, detail });
+    console.error("[calcom] events ingest rejected", {
+      status: res.status,
+      detail,
+    });
     // 5xx is transient (retry); a 4xx is a config/mapping problem where retries
     // only storm - acknowledge it so Cal stops, and rely on the log.
     if (res.status >= 500) {
@@ -124,5 +125,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 202 Accepted may carry warnings (e.g. a consent-gated list skipped the add).
+  if (detail.includes('"warnings"')) {
+    console.warn("[calcom] events ingest warnings", { detail });
+  }
   return NextResponse.json({ ok: true });
 }

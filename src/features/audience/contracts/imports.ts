@@ -41,6 +41,17 @@ export interface AudienceImportEstimate {
   willExceedCap: boolean;
   /** How many rows would be quarantined over the cap (0 when within it). */
   overCapBy: number;
+  /**
+   * When over cap, whether raising the plan to cover the file would actually
+   * cost money (the proration is at/above Stripe's card minimum). `false` means
+   * the plan already prices these contacts - the import can run silently and the
+   * capacity is raised, with the higher contact pricing collected at renewal.
+   * Backend 2026-10-27; absent on older responses (treated as "chargeable", so
+   * the gate still shows).
+   */
+  requiresPaidUpgrade?: boolean;
+  /** The one-time upgrade proration in USD (0 when no paid upgrade is needed). */
+  upgradeChargeUsd?: number;
 }
 
 /**

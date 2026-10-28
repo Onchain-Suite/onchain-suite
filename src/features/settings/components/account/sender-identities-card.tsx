@@ -128,6 +128,7 @@ export function SenderIdentitiesCard() {
 
   return (
     <SettingsCard
+      replayBlock
       title="Sender addresses"
       description="From-addresses on your verified domains"
       action={

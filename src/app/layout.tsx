@@ -13,6 +13,7 @@ import "@/styles/globals.css";
 import { StructuredData } from "@/onchain-suite-website/components";
 import { generateMetadata } from "@/onchain-suite-website/config";
 import { ClarityAnalytics } from "@/shared/components/clarity-analytics";
+import { DatabuddyAnalytics } from "@/shared/components/databuddy-analytics";
 import { RootProviders } from "@/shared/providers";
 
 // App design system (DESIGN.md §4): Instrument Sans for UI/prose, Geist Mono
@@ -75,6 +76,7 @@ export default function RootLayout({
         <Analytics />
         <SpeedInsights />
         <ClarityAnalytics />
+        <DatabuddyAnalytics />
       </body>
     </html>
   );

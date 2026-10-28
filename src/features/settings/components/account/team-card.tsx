@@ -198,6 +198,7 @@ export function TeamCard() {
 
   return (
     <SettingsCard
+      replayBlock
       title="Team"
       description="Access and member roles"
       action={

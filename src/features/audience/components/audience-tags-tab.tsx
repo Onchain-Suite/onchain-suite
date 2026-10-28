@@ -47,6 +47,7 @@ import { audienceService, TagBacksListsError } from "../audience.service";
 import { MemberTable, toDetailMemberFromProfile } from "./member-table";
 
 const MEMBERS_PER_PAGE = 25;
+const TAGS_PER_PAGE = 25;
 
 /** Pull a total-count out of a listProfiles response's meta, if present. */
 function totalFromMeta(res: unknown): number | null {
@@ -157,6 +158,9 @@ export function AudienceTagsTab({
 }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
+  // The tags table is paginated client-side — the full list arrives as a prop,
+  // and an org with hundreds of tags should not render them all at once.
+  const [tagPage, setTagPage] = useState(1);
   // A tag selected from the table opens its in-page member detail.
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [detailPage, setDetailPage] = useState(1);
@@ -348,6 +352,18 @@ export function AudienceTagsTab({
   });
   const counts = countsQuery.data ?? {};
 
+  const tagTotalPages = Math.max(1, Math.ceil(tags.length / TAGS_PER_PAGE));
+  // Clamp so deleting the last tag on a page doesn't strand us past the end.
+  const safeTagPage = Math.min(tagPage, tagTotalPages);
+  const pagedTags = useMemo(
+    () =>
+      tags.slice(
+        (safeTagPage - 1) * TAGS_PER_PAGE,
+        safeTagPage * TAGS_PER_PAGE
+      ),
+    [tags, safeTagPage]
+  );
+
   const createMutation = useMutation({
     mutationFn: (n: string) => audienceService.createTag({ name: n.trim() }),
     onSuccess: () => {
@@ -509,110 +525,144 @@ export function AudienceTagsTab({
           them.
         </div>
       ) : tags.length > 0 ? (
-        <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-          <table className="w-full min-w-[560px] text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-5 py-3 font-medium">Tag</th>
-                <th className="px-4 py-3 font-medium">Rule</th>
-                <th className="px-4 py-3 text-right font-medium">Contacts</th>
-                <th className="px-4 py-3 font-medium">Updated</th>
-                <th className="w-8 py-3" aria-hidden="true" />
-              </tr>
-            </thead>
-            <tbody>
-              {tags.map((tag) => {
-                const meta = tagMetaByName.get(tag);
-                const objCount = meta?.count;
-                const count =
-                  typeof objCount === "number" ? objCount : counts[tag];
-                const updated = formatUpdated(meta?.updatedAt);
-                return (
-                  <tr
-                    key={tag}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openTag(tag)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") openTag(tag);
-                    }}
-                    className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
-                  >
-                    <td className="px-5 py-4 font-medium text-foreground">
-                      {tag}
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                        <span className="size-1.5 rounded-full bg-muted-foreground" />
-                        Manual
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                      {typeof count === "number"
-                        ? count.toLocaleString()
-                        : countsQuery.isLoading || tagObjectsQuery.isLoading
-                          ? "…"
-                          : "-"}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
-                      {updated ? (
-                        <span title={meta?.updatedAt}>{updated}</span>
-                      ) : tagObjectsQuery.isLoading ? (
-                        "…"
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="py-4 pr-3 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
+        <>
+          <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="px-5 py-3 font-medium">Tag</th>
+                  <th className="px-4 py-3 font-medium">Rule</th>
+                  <th className="px-4 py-3 text-right font-medium">Contacts</th>
+                  <th className="px-4 py-3 font-medium">Updated</th>
+                  <th className="w-8 py-3" aria-hidden="true" />
+                </tr>
+              </thead>
+              <tbody>
+                {pagedTags.map((tag) => {
+                  const meta = tagMetaByName.get(tag);
+                  const objCount = meta?.count;
+                  const count =
+                    typeof objCount === "number" ? objCount : counts[tag];
+                  const updated = formatUpdated(meta?.updatedAt);
+                  return (
+                    <tr
+                      key={tag}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openTag(tag)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") openTag(tag);
+                      }}
+                      className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
+                    >
+                      <td className="px-5 py-4 font-medium text-foreground">
+                        {tag}
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                          <span className="size-1.5 rounded-full bg-muted-foreground" />
+                          Manual
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-right tabular-nums text-foreground">
+                        {typeof count === "number"
+                          ? count.toLocaleString()
+                          : countsQuery.isLoading || tagObjectsQuery.isLoading
+                            ? "…"
+                            : "-"}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
+                        {updated ? (
+                          <span title={meta?.updatedAt}>{updated}</span>
+                        ) : tagObjectsQuery.isLoading ? (
+                          "…"
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td className="py-4 pr-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label={`Actions for ${tag}`}
+                              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
+                            >
+                              <EllipsisHorizontalIcon
+                                className="size-4"
+                                aria-hidden="true"
+                              />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
                             onClick={(e) => e.stopPropagation()}
-                            aria-label={`Actions for ${tag}`}
-                            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
                           >
-                            <EllipsisHorizontalIcon
-                              className="size-4"
-                              aria-hidden="true"
-                            />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <DropdownMenuItem
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              startRename(tag);
-                            }}
-                          >
-                            <PencilSquareIcon
-                              className="size-4"
-                              aria-hidden="true"
-                            />
-                            Rename
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              startDelete(tag);
-                            }}
-                          >
-                            <TrashIcon className="size-4" aria-hidden="true" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                            <DropdownMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                startRename(tag);
+                              }}
+                            >
+                              <PencilSquareIcon
+                                className="size-4"
+                                aria-hidden="true"
+                              />
+                              Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                startDelete(tag);
+                              }}
+                            >
+                              <TrashIcon
+                                className="size-4"
+                                aria-hidden="true"
+                              />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {tagTotalPages > 1 ? (
+            <div className="flex items-center justify-between pt-1 text-sm text-muted-foreground">
+              <span>
+                {tags.length.toLocaleString()} tag{tags.length === 1 ? "" : "s"}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={safeTagPage <= 1}
+                  onClick={() => setTagPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={safeTagPage >= tagTotalPages}
+                  onClick={() =>
+                    setTagPage((p) => Math.min(tagTotalPages, p + 1))
+                  }
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : null}
 
       {/* Rename a tag (in place - the id is stable). */}

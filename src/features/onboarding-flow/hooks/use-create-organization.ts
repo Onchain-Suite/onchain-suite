@@ -10,6 +10,7 @@ import { isJsonObject } from "@/lib/utils";
 import {
   extractAxiosError,
   findExistingOrganizationId,
+  firstOrganizationId,
   generateUniqueSlug,
   normalizeWebsiteUrl,
   slugify,
@@ -88,6 +89,28 @@ export function useCreateOrganization() {
 
         const websiteUrl = normalizeWebsiteUrl(input.websiteUrl);
         const description = (input.description ?? "").trim();
+
+        // One org per user: a prior onboarding attempt (or a "no org" retry) may
+        // already have created this user's org. Reuse it instead of minting a
+        // duplicate - creating a new org on every retry is exactly what spawned
+        // the duplicate workspaces. If they already belong to any org, set it
+        // active and continue; never create a second. (The 409 path below only
+        // adopts an org whose name/slug matches; this catches a retry under a
+        // different name.)
+        try {
+          const listRes = await apiClient.get("/organization/list");
+          const existingId = firstOrganizationId(listRes.data);
+          if (existingId) {
+            await apiClient.post("/organization/set-active", {
+              organizationId: existingId,
+            });
+            rememberActiveOrg(existingId);
+            await persistActiveOrg();
+            return true;
+          }
+        } catch (_e) {
+          String(_e);
+        }
 
         // Try creating via authClient (BetterAuth plugin) first.
         const { data: org, error } = await authClient.organization.create({

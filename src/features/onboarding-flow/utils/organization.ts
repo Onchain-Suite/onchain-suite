@@ -98,6 +98,33 @@ export const findExistingOrganizationId = (
   return typeof id === "string" && id.length > 0 ? id : null;
 };
 
+/**
+ * The id of ANY organization the user already belongs to, from a
+ * `GET /organization/list` payload (whatever envelope it uses), or null when
+ * they have none. Used to reuse an existing org on an onboarding retry instead
+ * of minting a duplicate - one org per user, regardless of name/slug.
+ */
+export const firstOrganizationId = (payload: unknown): string | null => {
+  const root =
+    isJsonObject(payload) && "data" in payload ? payload.data : payload;
+  const list = Array.isArray(root)
+    ? root
+    : isJsonObject(root) && Array.isArray(root.data)
+      ? root.data
+      : isJsonObject(root) &&
+          isJsonObject(root.data) &&
+          Array.isArray(root.data.data)
+        ? root.data.data
+        : [];
+
+  for (const org of Array.isArray(list) ? list : []) {
+    const orgObj = isJsonObject(org) ? org : {};
+    const id = orgObj.id ?? orgObj.organizationId;
+    if (typeof id === "string" && id.length > 0) return id;
+  }
+  return null;
+};
+
 /** A slug with a short random suffix, to retry past a name/slug collision. */
 export const generateUniqueSlug = (baseSlug: string): string => {
   const suffix = Math.random().toString(36).slice(2, 6);

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractAxiosError,
   findExistingOrganizationId,
+  firstOrganizationId,
   normalizeWebsiteUrl,
   pickNonEmptyString,
   slugify,
@@ -68,5 +69,30 @@ describe("findExistingOrganizationId", () => {
   it("returns null when nothing matches", () => {
     expect(findExistingOrganizationId(payload, "Gamma", "gamma")).toBeNull();
     expect(findExistingOrganizationId({ data: [] }, "Acme", "acme")).toBeNull();
+  });
+});
+
+describe("firstOrganizationId", () => {
+  it("returns the first org id regardless of name/slug", () => {
+    expect(
+      firstOrganizationId({
+        data: [
+          { id: "org_1", name: "Acme" },
+          { id: "org_2", name: "Beta" },
+        ],
+      })
+    ).toBe("org_1");
+    // tolerant of the nested { data: { data: [...] } } envelope and organizationId
+    expect(
+      firstOrganizationId({ data: { data: [{ organizationId: "org_9" }] } })
+    ).toBe("org_9");
+    // and a bare array
+    expect(firstOrganizationId([{ id: "org_3" }])).toBe("org_3");
+  });
+
+  it("returns null when the user belongs to no org", () => {
+    expect(firstOrganizationId({ data: [] })).toBeNull();
+    expect(firstOrganizationId(null)).toBeNull();
+    expect(firstOrganizationId({ data: [{ name: "no id here" }] })).toBeNull();
   });
 });

@@ -1,0 +1,562 @@
+/* A client strategy read as a book: one page open at a time, turned like a
+   paper page rather than slid like a slide. The open page lifts from its
+   right edge and lays over to the left around the spine; the stacked edges at
+   either side show how far through the book the reader is.
+
+   Visual choices here (paper sheet, page edges, the turn) are new for this
+   view and use the site tokens only: --ink, --line, --grey, --soft, --btn,
+   --cloud and --dark. */
+
+/* Which view shows. The book is the default on a client strategy; ?view=page
+   (or "Read as one page") shows the original scrolling page instead. */
+.ns .rp-has-book .rp-scroll {
+  display: none;
+}
+html[data-rp-view="page"] .ns .rp-has-book .rp-scroll {
+  display: block;
+}
+html[data-rp-view="page"] .ns .rp-has-book .rp-book {
+  display: none;
+}
+.ns .rp-has-book .rp-bk-back {
+  margin: 0 0 24px;
+}
+
+.ns .rp-book {
+  --rp-bk-w: min(880px, calc(100vw - 32px));
+  --rp-bk-h: calc(100svh - 60px - 88px);
+  padding: 20px 16px 0;
+  background: var(--cloud);
+}
+
+.ns .rp-bk-stage {
+  position: relative;
+  width: var(--rp-bk-w);
+  height: max(560px, var(--rp-bk-h));
+  margin: 0 auto;
+  perspective: 2400px;
+  perspective-origin: 50% 40%;
+}
+
+/* The edges of the pages already read (left) and still to read (right). */
+.ns .rp-bk-stage::before,
+.ns .rp-bk-stage::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    90deg,
+    #fff 0 2px,
+    var(--line) 2px 3px
+  );
+  border-radius: 2px;
+}
+.ns .rp-bk-stage::before {
+  right: 100%;
+  width: calc(var(--rp-bk-left) * 3px);
+}
+.ns .rp-bk-stage::after {
+  left: 100%;
+  width: calc(var(--rp-bk-right) * 3px);
+}
+
+.ns .rp-bk-sheet {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 4px 10px 10px 4px;
+  box-shadow: 0 1px 2px rgba(1, 15, 49, 0.06), 0 12px 32px rgba(1, 15, 49, 0.08);
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  transition:
+    transform 760ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    box-shadow 760ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  outline: none;
+  overflow: hidden;
+}
+/* The light falls across the page as it lifts. */
+.ns .rp-bk-sheet::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(1, 15, 49, 0.1), rgba(1, 15, 49, 0) 40%);
+  opacity: 0;
+  transition: opacity 760ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.ns .rp-bk-sheet[data-state="turned"] {
+  transform: rotateY(-178deg);
+  box-shadow: 0 0 0 rgba(1, 15, 49, 0);
+}
+.ns .rp-bk-sheet[data-state="turned"]::after {
+  opacity: 1;
+}
+.ns .rp-bk-sheet[data-state="under"] {
+  transform: none;
+}
+
+/* A page face fills its sheet or its side of a leaf; the folio sits on it. */
+.ns .rp-bk-face-single,
+.ns .rp-bk-face {
+  position: absolute;
+  inset: 0;
+  outline: none;
+}
+
+/* Two-page spreads, on a wide screen. The stage is the open book: leaves
+   are hinged on the spine down the middle, each with its right-hand page on
+   the front and its left-hand page on the back. */
+.ns .rp-book:has(.rp-bk-stage[data-mode="spread"]) {
+  --rp-bk-w: min(1320px, calc(100vw - 64px));
+}
+.ns .rp-bk-stage[data-mode="spread"] .rp-bk-probe {
+  inset: 0 0 0 50%;
+}
+.ns .rp-bk-leaf {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 50%;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  transition: transform 820ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.ns .rp-bk-leaf[data-state="turned"] {
+  transform: rotateY(-180deg);
+}
+.ns .rp-bk-face {
+  background: #fff;
+  border: 1px solid var(--line);
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+.ns .rp-bk-front {
+  border-radius: 0 10px 10px 0;
+  box-shadow: 0 12px 32px rgba(1, 15, 49, 0.08);
+}
+.ns .rp-bk-back {
+  transform: rotateY(180deg);
+  border-radius: 10px 0 0 10px;
+  box-shadow: 0 12px 32px rgba(1, 15, 49, 0.08);
+}
+/* The shade where the paper curves into the spine. */
+.ns .rp-bk-front::before,
+.ns .rp-bk-back::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  pointer-events: none;
+  z-index: 1;
+}
+.ns .rp-bk-front::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(1, 15, 49, 0.09), transparent);
+}
+.ns .rp-bk-back::before {
+  right: 0;
+  background: linear-gradient(270deg, rgba(1, 15, 49, 0.09), transparent);
+}
+.ns .rp-bk-back .rp-bk-folio {
+  right: auto;
+  left: 28px;
+}
+.ns .rp-bk-stage[data-mode="spread"] .rp-bk-page {
+  padding-inline: 48px 44px;
+}
+.ns .rp-bk-stage[data-mode="spread"] .rp-bk-cover {
+  padding: 44px 48px 48px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ns .rp-bk-sheet,
+  .ns .rp-bk-sheet::after,
+  .ns .rp-bk-leaf {
+    transition: opacity 200ms linear;
+  }
+  .ns .rp-bk-sheet[data-state="turned"] {
+    transform: none;
+    opacity: 0;
+  }
+  .ns .rp-bk-leaf[data-state="turned"] {
+    transform: rotateY(-180deg);
+  }
+}
+
+/* Inside a page */
+.ns .rp-bk-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 56px 40px;
+  overflow-y: auto;
+}
+.ns .rp-bk-head {
+  margin: 0 0 22px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--grey);
+}
+.ns .rp-book .rp-chapter.rp-bk-body {
+  max-width: 690px;
+  padding: 0;
+  margin: 0;
+}
+/* Book type is set for a page, not a long scroll: the scrolling page's 20px
+   body and 28px pull quotes would put half as much on each page. */
+.ns .rp-book .rp-chapter .rp-p {
+  margin-bottom: 16px;
+  font-size: 17px;
+  line-height: 1.6;
+}
+.ns .rp-book .rp-pull {
+  margin: 6px 0 12px;
+  font-size: 22px;
+}
+.ns .rp-book .rp-list {
+  font-size: 15.5px;
+  gap: 6px;
+}
+.ns .rp-bk-h {
+  margin: 0 0 20px;
+  font-weight: 500;
+  font-size: clamp(24px, 2.6vw, 30px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.ns .rp-bk-cont {
+  margin-left: 12px;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--grey);
+}
+.ns .rp-bk-folio {
+  position: absolute;
+  right: 28px;
+  bottom: 16px;
+  margin: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--grey);
+}
+.ns .rp-bk-k {
+  margin: 0 0 12px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--btn);
+}
+
+/* Cover */
+.ns .rp-bk-cover {
+  justify-content: space-between;
+  padding: 48px 64px 56px;
+  background: var(--dark);
+  color: #fff;
+}
+.ns .rp-bk-kicker {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.ns .rp-bk-cover .rp-bk-k {
+  color: #a3b4ff;
+}
+.ns .rp-bk-title {
+  margin: 0 0 18px;
+  max-width: 14ch;
+  font-weight: 500;
+  font-size: clamp(36px, 5.4vw, 60px);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.ns .rp-bk-dek {
+  margin: 0;
+  max-width: 560px;
+  font-size: 18px;
+  line-height: 1.55;
+  color: #c9d5ff;
+}
+.ns .rp-bk-for {
+  margin: 0 0 18px;
+  font-size: 14px;
+  color: #c9d5ff;
+}
+.ns .rp-bk-hint {
+  margin: 18px 0 0;
+  font-size: 13px;
+  color: #7a8efb;
+}
+.ns .rp-bk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+.ns .rp-bk-cover .rp-bk-actions {
+  margin-top: 0;
+}
+
+/* Contents */
+.ns .rp-bk-toc {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.ns .rp-bk-toc a {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+}
+.ns .rp-bk-toc a:hover span:first-child {
+  color: var(--btn);
+}
+.ns .rp-bk-toc-n {
+  font-variant-numeric: tabular-nums;
+  color: var(--grey);
+}
+
+/* A section page: the heading, then a flow area that fills the rest. The
+   probe page measures that area, and the column under it measures items. */
+.ns .rp-book .rp-bk-body-flow {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ns .rp-bk-flow {
+  flex: 1;
+  min-height: 0;
+}
+.ns .rp-bk-probe {
+  visibility: hidden;
+  pointer-events: none;
+  z-index: -1 !important;
+}
+.ns .rp-bk-probe .rp-bk-page {
+  overflow: hidden;
+}
+.ns .rp-bk-measure {
+  position: absolute;
+  inset: 0 0 auto 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Figures sit centred on their own page. */
+.ns .rp-book .rp-bk-figure .rp-chapter.rp-bk-body {
+  margin-block: auto;
+}
+
+/* A paragraph cut across two pages: each page shows its slice of the lines. */
+.ns .rp-bk-clip {
+  overflow: hidden;
+}
+/* A table split into pieces reads as one table when the pieces share a page:
+   the second piece drops its header and joins the first. Fixed layout keeps
+   the columns lined up across pieces. */
+.ns .rp-book .rp-table {
+  table-layout: fixed;
+}
+.ns .rp-book .rp-bk-flow > .rp-block:has(.rp-table) + .rp-block:has(.rp-table) {
+  margin-top: -18px;
+}
+.ns .rp-book .rp-bk-flow > .rp-block:has(.rp-table):has(+ .rp-block .rp-table) .rp-table {
+  border-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.ns .rp-book .rp-bk-flow > .rp-block:has(.rp-table) + .rp-block:has(.rp-table) .rp-table {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.ns .rp-book .rp-bk-flow > .rp-block:has(.rp-table) + .rp-block:has(.rp-table) thead {
+  display: none;
+}
+/* The measuring column joins table pieces the same way, so it measures them
+   as the page will show them. */
+.ns .rp-bk-measure [data-item]:has(.rp-table) + [data-item]:has(.rp-table) > .rp-block {
+  margin-top: -18px;
+}
+.ns .rp-bk-measure [data-item]:has(.rp-table) + [data-item]:has(.rp-table) thead {
+  display: none;
+}
+/* A list split between bullets still reads as one list. */
+.ns .rp-book .rp-list + .rp-list {
+  margin-top: 6px;
+}
+/* A section that starts partway down a page gets room above its heading. */
+.ns .rp-bk-flow > * + .rp-bk-h {
+  margin-top: 28px;
+}
+
+/* Pricing */
+.ns .rp-bk-plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.ns .rp-bk-plan {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px 18px;
+}
+.ns .rp-bk-plan-k {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--grey);
+}
+.ns .rp-bk-plan-name {
+  margin: 0;
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink);
+}
+.ns .rp-bk-plan-name span {
+  margin-left: 8px;
+  font-weight: 400;
+  font-size: 14px;
+  color: var(--grey);
+}
+.ns .rp-bk-plan-price {
+  margin: 8px 0 2px;
+  font-weight: 500;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.ns .rp-bk-plan-price span {
+  font-size: 15px;
+  color: var(--grey);
+}
+.ns .rp-bk-plan-band {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--grey);
+}
+.ns .rp-bk-plan-dl {
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+.ns .rp-bk-plan-dl div {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.ns .rp-bk-plan-dl dt {
+  color: var(--soft);
+}
+.ns .rp-bk-plan-dl dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.ns .rp-bk-plan-onramp {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--soft);
+}
+.ns .rp-bk-note,
+.ns .rp-bk-fine {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--soft);
+}
+.ns .rp-bk-pricing .rp-bk-k {
+  margin-top: 22px;
+}
+.ns .rp-bk-incl {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+/* The bar under the book */
+.ns .rp-bk-bar {
+  width: var(--rp-bk-w);
+  margin: 0 auto;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ns .rp-bk-count {
+  margin: 0 auto;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--soft);
+}
+.ns .rp-bk-turn,
+.ns .rp-bk-contents,
+.ns .rp-bk-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ns .rp-bk-turn {
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+}
+.ns .rp-bk-turn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (max-width: 720px) {
+  .ns .rp-bk-page {
+    padding: 20px 22px 40px;
+  }
+  .ns .rp-bk-cover {
+    padding: 32px 24px 40px;
+  }
+  .ns .rp-bk-view span,
+  .ns .rp-bk-contents {
+    display: none;
+  }
+}
+
+@media print {
+  .ns .rp-has-book .rp-book {
+    display: none !important;
+  }
+  .ns .rp-has-book .rp-scroll {
+    display: block !important;
+  }
+  .ns .rp-has-book .rp-bk-back {
+    display: none !important;
+  }
+}

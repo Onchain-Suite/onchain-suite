@@ -6,17 +6,14 @@ import {
   BookOpenIcon,
   DocumentTextIcon,
 } from "@heroicons/react/20/solid";
-import {
-  Fragment,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { BookLeaves } from "@/onchain-suite-website/components/retention-playbook/book/book-leaves";
+import {
+  buildSheets,
+  type Segment,
+  toSegments,
+} from "@/onchain-suite-website/components/retention-playbook/book/book-sheets";
 import type { ViewerPart } from "@/onchain-suite-website/components/retention-playbook/book/book-types";
 import { useBookLayout } from "@/onchain-suite-website/components/retention-playbook/book/use-book-layout";
 import { useBookMode } from "@/onchain-suite-website/components/retention-playbook/book/use-book-mode";
@@ -42,33 +39,6 @@ function setView(view: "book" | "page") {
   window.history.replaceState(null, "", url);
 }
 
-function FlowPage({
-  head,
-  title,
-  continued,
-  children,
-}: {
-  head: string;
-  title: string;
-  continued: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div className="rp-bk-page">
-      <p className="rp-bk-head" aria-hidden="true">
-        {head}
-      </p>
-      <div className="rp-chapter rp-bk-body rp-bk-body-flow">
-        <h2 className="rp-bk-h">
-          {title}
-          {continued && <span className="rp-bk-cont">continued</span>}
-        </h2>
-        <div className="rp-bk-flow">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 /**
  * Turns the pages of a strategy book. Fixed pages arrive rendered from the
  * server; a section's items are measured here and laid out across as many
@@ -90,79 +60,18 @@ export function BookViewer({
   const mode = useBookMode();
   const layout = useBookLayout(stage, box, column);
 
-  const flows = useMemo(
+  const segments = useMemo(() => toSegments(parts), [parts]);
+  const runs = useMemo(
     () =>
-      parts.filter(
-        (p): p is Extract<ViewerPart, { kind: "flow" }> => p.kind === "flow"
+      segments.filter(
+        (s): s is Extract<Segment, { kind: "run" }> => s.kind === "run"
       ),
-    [parts]
+    [segments]
   );
-
-  const sheets = useMemo(() => {
-    // Until the first measurement, a section is one page that scrolls.
-    let flowIndex = 0;
-    const counts = parts.map((p) =>
-      p.kind === "flow" ? (layout?.[flowIndex++]?.length ?? 1) : 1
-    );
-    const starts = counts.map((_, i) =>
-      counts.slice(0, i).reduce((a, b) => a + b, 0)
-    );
-    const out: { key: string; node: ReactNode }[] = [];
-    flowIndex = 0;
-    parts.forEach((p) => {
-      if (p.kind === "page") {
-        out.push({ key: p.key, node: p.node });
-      } else if (p.kind === "contents") {
-        out.push({
-          key: p.key,
-          node: (
-            <div className="rp-bk-page">
-              <p className="rp-bk-head" aria-hidden="true">
-                {head}
-              </p>
-              <div className="rp-chapter rp-bk-body">
-                <h2 className="rp-bk-h">Contents</h2>
-                <ol className="rp-bk-toc">
-                  {parts.map((q, qi) => {
-                    const t =
-                      q.kind === "flow"
-                        ? q.title
-                        : q.kind === "page"
-                          ? q.title
-                          : undefined;
-                    return t ? (
-                      <li key={q.key}>
-                        <a href={`#page-${starts[qi] + 1}`}>
-                          <span>{t}</span>
-                          <span className="rp-bk-toc-n">{starts[qi] + 1}</span>
-                        </a>
-                      </li>
-                    ) : null;
-                  })}
-                </ol>
-              </div>
-            </div>
-          ),
-        });
-      } else {
-        const pages = layout?.[flowIndex] ?? [p.items.map((_, i) => i)];
-        flowIndex++;
-        pages.forEach((indexes, n) =>
-          out.push({
-            key: `${p.key}-${n}`,
-            node: (
-              <FlowPage head={head} title={p.title} continued={n > 0}>
-                {indexes.map((i) => (
-                  <Fragment key={p.items[i].key}>{p.items[i].node}</Fragment>
-                ))}
-              </FlowPage>
-            ),
-          })
-        );
-      }
-    });
-    return out;
-  }, [parts, layout, head]);
+  const sheets = useMemo(
+    () => buildSheets(segments, layout, title),
+    [segments, layout, title]
+  );
 
   const count = sheets.length;
   const [index, setIndex] = useState(0);
@@ -283,13 +192,16 @@ export function BookViewer({
           <div className="rp-bk-page">
             <p className="rp-bk-head">{head}</p>
             <div className="rp-chapter rp-bk-body rp-bk-body-flow">
-              <h2 className="rp-bk-h">{title}</h2>
               <div className="rp-bk-flow" ref={box} />
               <div className="rp-bk-measure" ref={column}>
-                {flows.map((f) => (
-                  <div key={f.key} data-flow="">
-                    {f.items.map((it) => (
-                      <div key={it.key} data-item="">
+                {runs.map((run) => (
+                  <div key={run.key} data-flow="">
+                    {run.items.map((it) => (
+                      <div
+                        key={it.key}
+                        data-item=""
+                        data-heading={it.heading ? "" : undefined}
+                      >
                         {it.node}
                       </div>
                     ))}

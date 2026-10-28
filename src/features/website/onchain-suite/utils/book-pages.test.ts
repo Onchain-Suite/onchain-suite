@@ -4,7 +4,6 @@ import { YAUGA } from "@/onchain-suite-website/data/clients/yauga";
 import type { Block } from "@/onchain-suite-website/types/retention-playbook";
 import {
   bookParts,
-  packItems,
   partTitle,
   sectionItems,
   TABLE_ROWS_PER_ITEM,
@@ -40,6 +39,11 @@ describe("book parts", () => {
     }
   });
 
+  it("breaks a bulleted list between bullets", () => {
+    const items = sectionItems([{ kind: "list", items: ["a", "b", "c"] }]);
+    expect(items).toHaveLength(3);
+  });
+
   it("opens with a cover and contents and ends with pricing and the close", () => {
     const parts = bookParts(YAUGA, true);
     expect(parts[0].kind).toBe("cover");
@@ -53,18 +57,5 @@ describe("book parts", () => {
     for (const s of YAUGA.sections) {
       expect(titles.filter((t) => t === s.title)).toHaveLength(1);
     }
-  });
-});
-
-describe("packing measured items into pages", () => {
-  it("fills each page up to its height and keeps the order", () => {
-    expect(packItems([100, 100, 100, 250, 50], 300)).toEqual([
-      [0, 1, 2],
-      [3, 4],
-    ]);
-  });
-
-  it("gives an item taller than a page a page of its own", () => {
-    expect(packItems([50, 500, 50], 300)).toEqual([[0], [1], [2]]);
   });
 });

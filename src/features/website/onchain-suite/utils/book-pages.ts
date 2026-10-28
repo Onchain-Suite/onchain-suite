@@ -24,12 +24,13 @@ export type BookPart =
   | { kind: "close" };
 
 /** Table rows that stay together on one page, with the header repeated. */
-export const TABLE_ROWS_PER_ITEM = 3;
+export const TABLE_ROWS_PER_ITEM = 2;
 
 /**
  * Breaks a section's blocks into items. A margin note stays with the block
- * before it, a run of Loop cards breaks between cards, and a long table
- * breaks between rows.
+ * before it, a run of Loop cards breaks between cards, a long table breaks
+ * between rows and a bulleted list between bullets. Paragraphs stay whole
+ * here; the packer cuts them between lines.
  */
 export function sectionItems(blocks: Block[]): Block[][] {
   const items: Block[][] = [];
@@ -37,6 +38,8 @@ export function sectionItems(blocks: Block[]): Block[][] {
     const last = items[items.length - 1];
     if (b.kind === "note" && last) {
       last.push(b);
+    } else if (b.kind === "list" && !b.ordered && b.items.length > 1) {
+      for (const item of b.items) items.push([{ kind: "list", items: [item] }]);
     } else if (b.kind === "loops") {
       for (const loop of b.loops) {
         items.push([{ kind: "loops", loops: [loop] }]);
@@ -109,26 +112,4 @@ export function partTitle(part: BookPart): string | undefined {
     default:
       return undefined;
   }
-}
-
-/**
- * Packs measured item heights into pages no taller than `capacity`, in
- * order, never splitting an item. An item taller than a page gets a page of
- * its own, which then scrolls. Returns the item indexes on each page.
- */
-export function packItems(heights: number[], capacity: number): number[][] {
-  const pages: number[][] = [];
-  let page: number[] = [];
-  let used = 0;
-  heights.forEach((h, i) => {
-    if (page.length > 0 && used + h > capacity) {
-      pages.push(page);
-      page = [];
-      used = 0;
-    }
-    page.push(i);
-    used += h;
-  });
-  if (page.length > 0) pages.push(page);
-  return pages;
 }

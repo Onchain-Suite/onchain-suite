@@ -359,8 +359,50 @@ html[data-rp-view="page"] .ns .rp-has-book .rp-book {
 }
 
 /* Figures sit centred on their own page. */
-.ns .rp-bk-figure .rp-bk-body {
+.ns .rp-book .rp-bk-figure .rp-chapter.rp-bk-body {
   margin-block: auto;
+}
+
+/* A paragraph cut across two pages: each page shows its slice of the lines. */
+.ns .rp-bk-clip {
+  overflow: hidden;
+}
+/* A table split into pieces reads as one table when the pieces share a page:
+   the second piece drops its header and joins the first. Fixed layout keeps
+   the columns lined up across pieces. */
+.ns .rp-book .rp-table {
+  table-layout: fixed;
+}
+.ns .rp-book .rp-bk-flow > .rp-block:has(.rp-table) + .rp-block:has(.rp-table) {
+  margin-top: -18px;
+}
+.ns .rp-book .rp-bk-flow > .rp-block:has(.rp-table):has(+ .rp-block .rp-table) .rp-table {
+  border-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.ns .rp-book .rp-bk-flow > .rp-block:has(.rp-table) + .rp-block:has(.rp-table) .rp-table {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.ns .rp-book .rp-bk-flow > .rp-block:has(.rp-table) + .rp-block:has(.rp-table) thead {
+  display: none;
+}
+/* The measuring column joins table pieces the same way, so it measures them
+   as the page will show them. */
+.ns .rp-bk-measure [data-item]:has(.rp-table) + [data-item]:has(.rp-table) > .rp-block {
+  margin-top: -18px;
+}
+.ns .rp-bk-measure [data-item]:has(.rp-table) + [data-item]:has(.rp-table) thead {
+  display: none;
+}
+/* A list split between bullets still reads as one list. */
+.ns .rp-book .rp-list + .rp-list {
+  margin-top: 6px;
+}
+/* A section that starts partway down a page gets room above its heading. */
+.ns .rp-bk-flow > * + .rp-bk-h {
+  margin-top: 28px;
 }
 
 /* Pricing */

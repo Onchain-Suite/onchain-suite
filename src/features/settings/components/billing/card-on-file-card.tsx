@@ -126,6 +126,7 @@ export function CardOnFileCard() {
 
   return (
     <SettingsCard
+      replayBlock
       title="Card on file"
       description="Save a card to auto-charge renewals on the expiry day."
     >

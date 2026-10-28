@@ -65,14 +65,17 @@ const APP_CSP_REPORT_ONLY = [
   "form-action 'self'",
   // 'unsafe-inline'/'unsafe-eval' reflect what Next.js needs today; the report
   // stream will tell us what can be dropped on the way to a nonce-based policy.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.clarity.ms",
+  // cdn.databuddy.cc serves the Databuddy tracker + session-replay recorder
+  // (databuddy.js / replay.js), mounted app-wide in the root layout.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.clarity.ms https://cdn.databuddy.cc",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   // Logo CDNs for the audience on-chain columns: chain/protocol icons from
   // DefiLlama, token icons from Covalent (the latter already loaded via
   // backend-provided logoUrl). Declared so they survive the flip to enforce.
   "img-src 'self' data: blob: https://res.cloudinary.com https://*.clarity.ms https://icons.llamao.fi https://logos.covalenthq.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "connect-src 'self' https://*.clarity.ms https://challenges.cloudflare.com",
+  // basket.databuddy.cc is Databuddy's event + session-replay ingest endpoint.
+  "connect-src 'self' https://*.clarity.ms https://challenges.cloudflare.com https://basket.databuddy.cc",
   "frame-src 'self' https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",

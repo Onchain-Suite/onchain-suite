@@ -39,6 +39,7 @@ import { cn, getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 import { isChainRequired } from "../imports/chain-requirement";
 import { importErrorMessage } from "../utils/import-error";
 import { ImportGateDialog } from "./import-gate-dialog";
+import { ImportReportDialog } from "./import-report-dialog";
 import {
   type AudienceExportJobStatus,
   type AudienceImportEstimate,
@@ -493,6 +494,11 @@ export default function ImportExportPage() {
   const [exportJobId, setExportJobId] = useState<string | null>(null);
   const [importHistory, setImportHistory] = useState<ImportHistoryItem[]>([]);
   const [exportHistory, setExportHistory] = useState<ExportHistoryItem[]>([]);
+  // The import whose outcome report (modal + PDF) is open, if any.
+  const [reportTarget, setReportTarget] = useState<{
+    jobId: string;
+    fileName: string;
+  } | null>(null);
   const [filePreviewText, setFilePreviewText] = useState<string>("");
   const [filePreviewError, setFilePreviewError] = useState<string>("");
   const [previewTable, setPreviewTable] = useState<PreviewTable | null>(null);
@@ -2007,6 +2013,20 @@ export default function ImportExportPage() {
                               </div>
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
+                              {isDone ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setReportTarget({
+                                      jobId: item.jobId,
+                                      fileName: item.fileName,
+                                    })
+                                  }
+                                  className="text-xs font-medium text-primary hover:underline"
+                                >
+                                  View report
+                                </button>
+                              ) : null}
                               <span
                                 className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.className}`}
                               >
@@ -2753,6 +2773,12 @@ export default function ImportExportPage() {
             ? () => upgradeImportMutation.mutate()
             : undefined
         }
+      />
+
+      <ImportReportDialog
+        jobId={reportTarget?.jobId ?? null}
+        fileName={reportTarget?.fileName}
+        onClose={() => setReportTarget(null)}
       />
     </motion.div>
   );

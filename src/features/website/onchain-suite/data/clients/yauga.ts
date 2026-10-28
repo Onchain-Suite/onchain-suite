@@ -6,6 +6,8 @@
    capabilities checked against the OnchainSuite documentation. Event names
    are a working draft for Yauga's developers to confirm, and "Yauga Cult" is
    used throughout pending confirmation of the spelling.
+   Trimmed in October 2026 to read as a book: every rule, number and decision
+   is kept, and repeated prose became Loop cards and tables.
    This page is reached by its link only: it is not on the landing page. */
 
 import type { Chapter } from "@/onchain-suite-website/types/retention-playbook";
@@ -16,9 +18,9 @@ export const YAUGA: Chapter = {
   title: "Yauga growth and retention strategy",
   dek: "How communication follows a member from a city's waitlist to the Haus, the app and the ring, and brings them back when they go quiet.",
   tldr: [
-    "Today Yauga's systems do not know each other. Haus emails go out from Haus OS and Yauga Letters from OnchainSuite, and the app, Yauga Cult, the shop, Run Club and Social Club send nothing at all. ==A person who goes to a Haus and then joins the app is two strangers to the way Yauga communicates.==",
-    "The proposal is one record per person. Every Yauga system reports what happened, and communication follows the person rather than the product. The step that matters most is Attend to Join: live experiences bring people in, and email is how they find the app and the ring after they go home. The first automations we build sit on a check-in.",
-    "It has four parts: campaigns and the newsletter, Loops, lifecycle, and retention triggers. Email is the channel that carries them, from Yauga's own sending domain; the app keeps its own push, and Haus OS keeps its receipts. One broadcast a week, and every email passes the Yauga Test.",
+    "Today Yauga's systems do not know each other: Haus emails go out from Haus OS and Yauga Letters from OnchainSuite, while the app, Yauga Cult, the shop, Run Club and Social Club send nothing at all, so ==a person who goes to a Haus and then joins the app is two strangers to the way Yauga communicates.==",
+    "We propose one record per person, so every Yauga system reports what happened and communication follows the person rather than the product. The step that matters most is Attend to Join, because live experiences bring people in and email is how they find the app and the ring after they go home, so the first automations we build start on a check-in.",
+    "The plan has four parts, campaigns and the newsletter, Loops, lifecycle and retention triggers, all carried by email from Yauga's own domain, with one broadcast a week and every email passing the Yauga Test.",
   ],
   intro: [
     {
@@ -92,11 +94,7 @@ export const YAUGA: Chapter = {
       blocks: [
         {
           kind: "p",
-          text: 'Body data stays with Yauga. Sleep, heart rate, HRV, stress and SpO₂ readings never leave Yauga\'s systems. OnchainSuite only hears that something happened, such as a seven-day streak, never the readings behind it. That matches "your data is yours", and it keeps health data out of member communication altogether.',
-        },
-        {
-          kind: "p",
-          text: "So we never send marketing to someone who has not said yes: a ticket buyer gets their ticket, and gets Yauga Letters only if they opted in, and every automation checks for the letters tag before it sends. We never send more than one broadcast a week, and since OnchainSuite has no built-in limit on how often one person is emailed, that rule is the limit. Nothing goes out that is not secular, and anything at 40 or above on the woo-woo scale is rewritten or cut. City leads never send their own emails, because that splits the voice and the sending reputation, and receipts never move out of Haus OS, because they work there today.",
+          text: 'Body data stays with Yauga. Sleep, heart rate, HRV, stress and SpO₂ readings never leave Yauga\'s systems, and OnchainSuite only hears that something happened, such as a seven-day streak, which matches "your data is yours" and keeps health data out of member communication altogether.',
         },
         {
           kind: "callout",
@@ -104,15 +102,15 @@ export const YAUGA: Chapter = {
           title: "The Yauga rules",
           items: [
             "Body data never leaves Yauga's systems; OnchainSuite only hears that something happened",
-            "No marketing to anyone who has not said yes, and every automation checks for the letters tag",
-            "One broadcast a week, and that rule is the limit",
-            "Nothing that is not secular; anything at 40 or above on the woo-woo scale is rewritten or cut",
-            "City leads never send their own emails, and receipts stay in Haus OS",
+            "No marketing to anyone who has not said yes: a ticket buyer gets their ticket, and every automation checks for the letters tag",
+            "One broadcast a week, and since OnchainSuite has no built-in limit on how often one person is emailed, that rule is the limit",
+            "Nothing that is not secular, and anything at 40 or above on the woo-woo scale is rewritten or cut",
+            "City leads never send their own emails, which would split the voice and the sending reputation, and receipts stay in Haus OS, where they already work",
           ],
         },
         {
           kind: "p",
-          text: "What we do send passes the Yauga Test: can it be felt, practised and explained plainly? Every moment has one owner, so nobody gets two emails about the same thing. Every member email comes from one sender with one standard in every city, and practitioners, city leads and partners sit on a separate list, never mixed into member sends.",
+          text: "Everything we do send passes the Yauga Test, which asks whether it can be felt, practised and explained plainly. Every moment has one owner, so nobody gets two emails about the same thing, every member email comes from one sender with one standard in every city, and practitioners, city leads and partners sit on a separate list, never mixed into member sends.",
         },
       ],
     },
@@ -122,15 +120,33 @@ export const YAUGA: Chapter = {
       blocks: [
         {
           kind: "p",
-          text: "A campaign goes to a tag, because something is happening for the people who carry it. When a city launches, one launch campaign goes to that city's waitlist. Before each event, a campaign goes to that event's ticket tag with what to bring and how to arrive ready, because an automation cannot wait until two days before an event date; if Haus OS sends a reminder two days out, that event takes over. Local city news is written by the city lead and sent by HQ to the city tag, from the same sender as everything else, so the parts that must not drift stay the same in every city.",
+          text: "A campaign goes to a tag, because something is happening for the people who carry it, and since a city is only a tag, the same system runs every city from one workspace. A member who moves from Bournemouth to Barcelona stays one person with one history, and Chicago and Vienna get separate sends in their own time.",
         },
         {
-          kind: "p",
-          text: "The same system runs every city, because a city is only a tag. One workspace holds every city, so a member who moves from Bournemouth to Barcelona stays one person with one history, and reporting never splits. Chicago and Vienna get separate sends in their own time, since date triggers run on one team time zone.",
-        },
-        {
-          kind: "pull",
-          text: "The same system runs every city, ==because a city is only a tag==.",
+          kind: "table",
+          head: ["Send", "Goes to", "When and how"],
+          rows: [
+            [
+              "City launch",
+              "That city's waitlist",
+              "One campaign, when the city opens",
+            ],
+            [
+              "Before an event",
+              "The event's ticket tag",
+              "What to bring and how to arrive ready, unless Haus OS sends a reminder two days out",
+            ],
+            [
+              "City news",
+              "The city tag",
+              "Written by the city lead and sent by HQ, from the same sender as everything else",
+            ],
+            [
+              "Yauga Letters",
+              "Everyone with the letters tag",
+              "Once a week, one broadcast split by focus and city",
+            ],
+          ],
         },
         {
           kind: "artifact",
@@ -153,7 +169,7 @@ export const YAUGA: Chapter = {
         },
         {
           kind: "p",
-          text: "Yauga Letters is the one scheduled send: one email a week, as one broadcast split by focus and city. The member's pillar carries the practice, whether that is sleep and Tranquility, stress and Stillness, attention and Attention, or movement and Energy, and the city section carries what is on near them. It goes only to people with the letters tag. Selling to employers, universities and studios stays outside OnchainSuite, because that is sales, not member email, and members who join through them get a source tag so we know where they came from.",
+          text: "Yauga Letters carries the member's pillar, whether that is sleep and Tranquility, stress and Stillness, attention and Attention, or movement and Energy, beside what is on in their city. Selling to employers, universities and studios stays outside OnchainSuite, because that is sales rather than member email, and members who join through them get a source tag.",
         },
       ],
     },
@@ -163,19 +179,55 @@ export const YAUGA: Chapter = {
       blocks: [
         {
           kind: "p",
-          text: 'A Loop is a sequence of emails to one member. It starts from something they did, or did not do, and it stops the moment they take the step it asks for, so nobody is chased for something they already did. On OnchainSuite a member enters a "joined a segment" flow only once, ever, so every Loop here starts from a fresh event each time, and moments that repeat, each event and each quiet spell, start again from scratch.',
+          text: "A Loop is a short sequence of emails to one member. It starts from something they did, or did not do, and stops the moment they take the step it asks for, so nobody is chased for something they have already done.",
         },
         {
-          kind: "p",
-          text: "The welcome Loop starts at capture. Someone who joins a city's waitlist or signs up for Yauga Letters on the website goes through an OnchainSuite form that asks them to confirm by email with one click. Once they confirm, one email says what they will get, Letters and news from their city, and points at the one next thing: their city's next event, or their place on the waitlist until launch. It stops on confirmation, and nothing else goes to an address that has not confirmed. Opt-ins at checkout are passed to the same form from Yauga's server.",
-        },
-        {
-          kind: "p",
-          text: "The after-the-Haus Loop is the one that matters most, and it starts on a check-in. That evening, one email with one next step: the app, with a first practice for the focus they came for. It stops when they create an account. Live experiences bring people in; this is how they find the app after they go home.",
-        },
-        {
-          kind: "pull",
-          text: "Live experiences bring people in. ==This is how they find the app after they go home.==",
+          kind: "loops",
+          loops: [
+            {
+              name: "Welcome",
+              startsWhen:
+                "Someone joins a city's waitlist or Yauga Letters through an OnchainSuite form and confirms by email",
+              sends:
+                "One email on what they will get, pointing at their city's next event or their place on the waitlist",
+              stopsWhen:
+                "On confirmation, and nothing goes to an address that has not confirmed",
+            },
+            {
+              name: "After the Haus",
+              startsWhen: "A check-in at a Haus",
+              sends:
+                "That evening, one email pointing at the app with a first practice for their focus",
+              stopsWhen: "They create an account",
+            },
+            {
+              name: "First practice",
+              startsWhen: "An app account is created",
+              sends:
+                "A first practice for their pillar, then how to set up the ring",
+              stopsWhen: "They complete a session or pair the ring",
+            },
+            {
+              name: "Slipping",
+              startsWhen:
+                "Yauga sends member_quiet as the member moves to At risk",
+              sends:
+                "The next shared sit in their city, with the date, and nothing else",
+              stopsWhen: "They check in or complete a session",
+            },
+            {
+              name: "Bring someone",
+              startsWhen: "A third check-in, when a member is a regular",
+              sends: "One email inviting them to bring someone",
+              stopsWhen: "A referral is made",
+            },
+            {
+              name: "Dormant",
+              startsWhen: "60 days without a check-in, a session or a streak",
+              sends: "One good reason to come back",
+              stopsWhen: "After that one email, and then we leave them alone",
+            },
+          ],
         },
         {
           kind: "artifact",
@@ -193,29 +245,18 @@ export const YAUGA: Chapter = {
           },
         },
         {
-          kind: "p",
-          text: "The first-practice Loop starts when an account is created, branched by the focus they chose: a first practice for their pillar, then how to get the ring set up. It stops when they complete a session or pair the ring. When a streak is reached or a challenge completed, one email notices the progress and offers one small next practice; it is a single email per fresh event, so it fires again at the next milestone.",
-        },
-        {
-          kind: "p",
-          text: "The slipping Loop starts when a member moves to At risk, which Yauga signals as member_quiet. It makes coming back easy: the next shared sit in their city, with the date, and nothing else. It stops when they check in or complete a session. At a third check-in a member is a regular, and one email invites them to bring someone; it stops when a referral is made.",
-        },
-        {
-          kind: "p",
-          text: "The last Loop is one email. After 60 days without a check-in, a session or a streak, a Dormant member gets one good reason to come back. Then we leave them alone.",
-        },
-        {
-          kind: "p",
-          text: "Email is the only channel for members. OnchainSuite's in-app messages and push reach people who sign in with a crypto wallet, which Yauga's members do not, and the Yauga App keeps its own push. Haus OS keeps ticket confirmations, receipts and refunds, which already work and must arrive instantly. One owner per moment, and one broadcast a week as the cap.",
+          kind: "pull",
+          text: "Live experiences bring people in. ==This is how they find the app after they go home.==",
         },
         {
           kind: "callout",
           tone: "rules",
           title: "How every Loop behaves",
           items: [
-            "It starts from a fresh event each time, so each event and each quiet spell starts again from scratch",
+            'It starts from a fresh event each time, because on OnchainSuite a member enters a "joined a segment" flow only once, ever',
             "It stops the moment the member takes the step it asks for",
             "One owner per moment, so nobody gets two emails about the same thing",
+            "Email is the only member channel: OnchainSuite's in-app messages and push need a wallet sign-in, which Yauga's members do not use, so the Yauga App keeps its own push",
             "One broadcast a week is the cap, and retention triggers are the exception",
           ],
         },
@@ -227,15 +268,7 @@ export const YAUGA: Chapter = {
       blocks: [
         {
           kind: "p",
-          text: "Every member sits in one of six stages, the same six on every strategy we run: New, Activated, Engaged, At risk, Dormant and Won back. The stage is worked out from what the member did across every Yauga system, never set by hand, and it is read by city and by focus. The lifecycle moves on patterns in what a member does. Retention triggers, below, fire on single events, and the two never overlap.",
-        },
-        {
-          kind: "p",
-          text: "A lifecycle starts at a capture point, and each capture point sets what we are allowed to send. The waitlist and Yauga Letters forms on the website carry news consent, confirmed by email. An opt-in tick at a Haus OS checkout carries the same, passed to the same form; a ticket bought without the tick carries service only, so that person gets their ticket and the follow-ups to the events they attend, and never Letters, launches or city news. An opt-in tick at app sign-up works the same way. The Haus emails Yauga holds today carry whatever those people originally agreed to, and where nobody can show what that was, the first email asks.",
-        },
-        {
-          kind: "p",
-          text: 'Everything hangs off one record per person, found by email first and Yauga member ID second, and labelled with five layers of tags as events arrive: who they are (member, attendee, waitlist, practitioner, city lead, partner), where (their city), their focus and its pillar, the formats they use (Haus, Ritual Room, Run Club, Social Club, the app, the ring, membership, Letters) and their state. Tags carry the meaning because OnchainSuite\'s segment builder reads tags, so a group like "Vienna, sleep focus" is always current without anyone rebuilding it. Groups that depend on history, such as "came to three Haus events but never opened the app", are built as a SQL segment from the event log.',
+          text: "Every member sits in one of six stages, the same six on every strategy we run. The stage is worked out from what the member did across every Yauga system, never set by hand, and it is read by city and by focus; it moves on patterns, while retention triggers answer single events, and the two never overlap.",
         },
         {
           kind: "artifact",
@@ -266,22 +299,61 @@ export const YAUGA: Chapter = {
           },
         },
         {
-          kind: "p",
-          text: "New is an email on a waitlist or taking Letters, with no check-in yet; the launch campaign and the welcome Loop move them on. Activated is a first check-in at a Haus; the after-the-Haus Loop moves them on. Engaged is a member who came back: an app account, a paired ring, a membership, or a second check-in, and no Loop runs for them: they get Letters and the city's campaigns. At risk is one rule on every strategy: activity at half the member's own 30-day average, counted across check-ins, sessions and streaks. OnchainSuite's built-in engagement scores are designed for wallets, so Yauga works this out from its own data and sends it as member_quiet, and the slipping Loop answers it. Dormant is 60 days with nothing, one email, then rest. Won back is a member who checked in or completed a session again from At risk or Dormant. They are watched for 30 days, then placed as Engaged or At risk like anyone else, and they never go back through the welcome.",
+          kind: "table",
+          head: ["Stage", "What it means", "What moves them on"],
+          rows: [
+            [
+              "New",
+              "On a waitlist or taking Letters, with no check-in yet",
+              "The launch campaign and the welcome Loop",
+            ],
+            [
+              "Activated",
+              "A first check-in at a Haus",
+              "The after-the-Haus Loop",
+            ],
+            [
+              "Engaged",
+              "An app account, a paired ring, a membership or a second check-in",
+              "No Loop: Letters and the city's campaigns",
+            ],
+            [
+              "At risk",
+              "Activity at half their own 30-day average",
+              "The slipping Loop",
+            ],
+            ["Dormant", "60 days with nothing", "One email, then rest"],
+            [
+              "Won back",
+              "Back at a Haus or in the app from At risk or Dormant",
+              "Watched for 30 days, then Engaged or At risk, never back through the welcome",
+            ],
+          ],
         },
         {
           kind: "callout",
           tone: "rules",
           title: "The one rule for At risk",
-          text: "Activity at half the member's own 30-day average, counted across check-ins, sessions and streaks. Yauga works it out from its own data and sends it as member_quiet, and the slipping Loop answers it.",
+          text: "Activity at half the member's own 30-day average, counted across check-ins, sessions and streaks. OnchainSuite's built-in scores are designed for wallets, so Yauga works it out from its own data and sends it as member_quiet.",
         },
         {
           kind: "p",
-          text: "A lifecycle also has exit points, and the rule that keeps them straight is that marketing consent can be withdrawn while the emails about a member's own activity continue. An unsubscribe stops Letters, launches, city news and every Loop, and it flows back to HQ Control by webhook the same day; tickets and receipts still come from Haus OS. A spam complaint stops everything that day, and a hard bounce closes the address. A membership cancelled is not an exit: it is a retention trigger, then the member is At risk or Dormant like anyone else. Rest itself is a state we count, so Dormant never looks like a backlog to work. An account deleted, or an erasure request, ends everything, the record included.",
+          text: "Each capture point sets what we may send. The website forms, and an opt-in tick at a Haus OS checkout or at app sign-up, carry news consent confirmed by email, while a ticket bought without the tick carries service only, so that person gets their ticket and event follow-ups but never Letters, launches or city news. Where nobody can show what the people on Yauga's existing Haus list agreed to, the first email asks.",
+        },
+        {
+          kind: "callout",
+          tone: "note",
+          title: "Exit points",
+          items: [
+            "An unsubscribe stops Letters, launches, city news and every Loop, and reaches HQ Control by webhook the same day; tickets and receipts still come from Haus OS",
+            "A spam complaint stops everything that day, and a hard bounce closes the address",
+            "A cancelled membership is a retention trigger, not an exit",
+            "An account deleted, or an erasure request, ends everything, the record included",
+          ],
         },
         {
           kind: "p",
-          text: "Take Ada. She joins the Vienna waitlist on the website and confirms with one click. When Vienna launches, the launch campaign reaches her and she books. Two days before, the ticket campaign tells her how to arrive ready. She checks in on day 20, and that evening one email points her at the app with a first practice for sleep. She creates an account on day 22, completes a first practice, and pairs the ring the following week. A seven-day streak earns one email that notices it and offers one small next practice. In week eight she goes quiet, Yauga sends member_quiet, and she gets the next shared sit in Vienna, with the date. She checks in again.",
+          text: "Take Ada, who joins the Vienna waitlist on the website and confirms with one click, and follow her from there.",
         },
         {
           kind: "artifact",
@@ -307,15 +379,37 @@ export const YAUGA: Chapter = {
       blocks: [
         {
           kind: "p",
-          text: "A retention trigger is a single email sent the same day something happens to a member's own account. It comes from the event, never from a calendar, it carries no offer, and it goes to anyone the event belongs to, with or without the letters tag, because it is about something they did. It explains, then stops.",
+          text: "A retention trigger is one email, sent the same day something happens to a member's own account. It comes from the event rather than a calendar, carries no offer, and goes to anyone the event belongs to, with or without the letters tag, because it is about something they did.",
+        },
+        {
+          kind: "table",
+          head: ["Moment", "The email"],
+          rows: [
+            [
+              "A streak reached or a challenge completed",
+              "Notices it and offers one small next practice; Yauga works out the streak and sends only the milestone",
+            ],
+            [
+              "The ring gone quiet",
+              "Says it has stopped syncing, and how to get it going again",
+            ],
+            [
+              "A membership cancelled",
+              "What changes, what stays and how to come back, with no offer",
+            ],
+            [
+              "Two days before an event",
+              "Only if Haus OS sends reminder_due; otherwise the ticket campaign carries it",
+            ],
+            [
+              "A refund",
+              "Nothing from OnchainSuite, because Haus OS sends the receipt instantly",
+            ],
+          ],
         },
         {
           kind: "p",
-          text: "Four moments get one. A streak reached or a challenge completed: Yauga works out the streak and sends only the milestone, so the email notices it and offers one small next practice. The ring gone quiet: when Yauga Cult reports it inactive, one email says it has stopped syncing and how to get it going again. A membership cancelled: what changes, what stays, and how to come back, with no offer attached. And two days before an event, if Haus OS sends a reminder_due event; otherwise the ticket campaign carries that moment.",
-        },
-        {
-          kind: "p",
-          text: "A refund gets nothing from OnchainSuite, because Haus OS sends the receipt and a receipt must arrive instantly. Here is the after-the-Haus email, the one every other automation depends on, written to pass the Yauga Test.",
+          text: "Here is the after-the-Haus email, the one every other automation depends on, written to pass the Yauga Test.",
         },
         {
           kind: "messages",
@@ -343,7 +437,7 @@ export const YAUGA: Chapter = {
       blocks: [
         {
           kind: "p",
-          text: "We measure movement round the loop. Opens are a health check; the goal is movement round the loop. Real outcomes, bookings, check-ins, accounts and sessions, are counted from Yauga's own events, because the conversion figures in OnchainSuite's automation reports are estimates. Every always-on Loop keeps a holdout, a small group left out on purpose, so we can show what the emails caused.",
+          text: "Bookings, check-ins, accounts and sessions are counted from Yauga's own events rather than from the estimates in OnchainSuite's automation reports, and every always-on Loop keeps a holdout, a small group left out on purpose, so we can show what the emails caused.",
         },
         {
           kind: "pull",
@@ -351,7 +445,17 @@ export const YAUGA: Chapter = {
         },
         {
           kind: "p",
-          text: "Every Monday, a stage report shows how many members sit at each stage, by city and by focus, and where most of them are stuck. That stage is where the next week's effort goes. Under it, five numbers: the share of a city's waitlist who book its first event, the share of first-time attendees who create an app account, the share of new app members who complete a first session, repeat bookings per member, and unsubscribes and spam complaints, which should stay low and flat. Targets are set once the first month gives us a baseline.",
+          text: "Every Monday a stage report shows how many members sit at each stage, by city and by focus, and the stage where most of them are stuck is where the next week's effort goes. Under it sit five numbers, with targets set once the first month gives us a baseline:",
+        },
+        {
+          kind: "list",
+          items: [
+            "The share of a city's waitlist who book its first event",
+            "The share of first-time attendees who create an app account",
+            "The share of new app members who complete a first session",
+            "Repeat bookings per member",
+            "Unsubscribes and spam complaints, which should stay low and flat",
+          ],
         },
       ],
     },
@@ -361,11 +465,34 @@ export const YAUGA: Chapter = {
       blocks: [
         {
           kind: "p",
-          text: "Every Yauga system sends its events directly to OnchainSuite from Yauga's server, with a secret key. Haus OS reports a waitlist joined, a ticket booked, a check-in, a refund and an order. The app reports an account created, a session completed, a challenge completed, and a membership started or cancelled. Yauga Cult reports the ring paired, a streak reached and the ring inactive. Yauga HQ reports a member gone quiet and a referral made, both worked out from Yauga's own data. The website's opt-ins go through an OnchainSuite form with double opt-in, and unsubscribes and clicks go back to HQ Control by webhook. An event lands in seconds, so a follow-up can go the same day as a check-in, which a nightly file could never do. Each system is wired once; after that, new emails are built in OnchainSuite with no further developer work.",
+          text: "Every Yauga system sends its events straight to OnchainSuite from Yauga's server, with a secret key. An event arrives in seconds, so a follow-up can go the same day as a check-in, and each system is wired once, after which new emails are built in OnchainSuite with no further developer work.",
         },
         {
-          kind: "pull",
-          text: "An event lands in seconds, so a follow-up can go the same day as a check-in, ==which a nightly file could never do==.",
+          kind: "table",
+          head: ["System", "What it reports"],
+          rows: [
+            [
+              "Haus OS",
+              "A waitlist joined, a ticket booked, a check-in, a refund and an order",
+            ],
+            [
+              "Yauga App",
+              "An account created, a session or challenge completed, a membership started or cancelled",
+            ],
+            [
+              "Yauga Cult",
+              "The ring paired, a streak reached and the ring inactive",
+            ],
+            [
+              "Yauga HQ",
+              "A member gone quiet and a referral made, worked out from Yauga's own data",
+            ],
+            [
+              "Website",
+              "Opt-ins, through an OnchainSuite form with double opt-in",
+            ],
+            ["Back to HQ Control", "Unsubscribes and clicks, by webhook"],
+          ],
         },
         {
           kind: "artifact",
@@ -384,15 +511,45 @@ export const YAUGA: Chapter = {
         },
         {
           kind: "p",
-          text: 'Six things the platform does today shaped this plan. A member enters a "joined a segment" flow once, ever, so repeating moments start from fresh events. An automation cannot wait until two days before an event date, so pre-event emails go as a campaign to the event\'s ticket tag, or Haus OS sends a reminder two days out. The segment builder reads tags, plus a score and a wallet, so meaning goes into tags at the source and history uses SQL segments. The built-in engagement and churn scores are designed for wallets, so "quiet" comes from Yauga as member_quiet. Date triggers run on one team time zone, so city sends are scheduled separately. And the conversion figures in automation reports are estimates, so outcomes are counted from Yauga\'s events.',
+          text: 'One record per person is found by email first and Yauga member ID second, and tagged as events arrive with who they are, their city, their focus and pillar, the formats they use and their state. Tags keep a group such as "Vienna, sleep focus" current without anyone rebuilding it, and groups that depend on history are built as SQL segments from the event log.',
+        },
+        {
+          kind: "table",
+          head: ["What the platform does today", "So the plan"],
+          rows: [
+            [
+              'A member enters a "joined a segment" flow once, ever',
+              "Repeating moments start from fresh events",
+            ],
+            [
+              "An automation cannot wait until two days before an event date",
+              "Pre-event emails go as a campaign to the event's ticket tag",
+            ],
+            [
+              "The segment builder reads tags, a score and a wallet",
+              "Meaning goes into tags at the source, and history uses SQL segments",
+            ],
+            [
+              "The engagement and churn scores are designed for wallets",
+              '"Quiet" comes from Yauga as member_quiet',
+            ],
+            [
+              "Date triggers run on one team time zone",
+              "City sends are scheduled separately",
+            ],
+            [
+              "Conversion figures in automation reports are estimates",
+              "Outcomes are counted from Yauga's events",
+            ],
+          ],
         },
         {
           kind: "p",
-          text: "We weighed the alternatives. Every system sending events directly is the choice, because it is live, each system stands on its own, and one going down does not stop the others; Haus OS collecting the app's and the ring's events and forwarding them is possible, if Yauga's developers prefer one pipe, at the cost of the app and ring depending on Haus OS. Nightly file exports arrive late, cannot start a flow at the right moment, and events older than seven days are refused, so a one-off import is for existing history only. A workspace per city would turn one person in two cities into two records; one newsletter for everyone would lose the pillar and the city that the tags give; moving receipts into OnchainSuite adds risk for no gain to the member; and in-app messages and push through OnchainSuite are not available to members without a wallet, which we revisit if the member data economy brings wallets.",
+          text: "We chose direct events because they are live and each system stands on its own. Haus OS could forward the app's and the ring's events if Yauga's developers prefer one pipe, at the cost of both depending on Haus OS, while nightly files arrive too late to start a flow and events older than seven days are refused, so an import is for existing history only.",
         },
         {
           kind: "p",
-          text: "The plan is sized to contacts: Launch covers 2,500 and Growth covers 25,000. OnchainSuite brings the event list and the tag scheme, the segments and automations built and tested, Yauga Letters structured by focus and city, reporting on the loop rather than on opens, and a team running it alongside Yauga's.",
+          text: "The plan is sized to contacts, Launch at 2,500 and Growth at 25,000, and OnchainSuite brings the event list and tag scheme, the segments and automations built and tested, Yauga Letters structured by focus and city, reporting on the loop, and a team running it alongside Yauga's.",
         },
       ],
     },
@@ -402,11 +559,35 @@ export const YAUGA: Chapter = {
       blocks: [
         {
           kind: "p",
-          text: "Six things before anything is wired. One member ID shared by Haus OS and the app, because if they do not share one, email becomes the only way to join a person's record together. A developer to connect each system once. An opt-in tick at checkout and at app sign-up. City and focus values sent the same way from every system. HQ Control listening for unsubscribes. And the city leads' local news sent to HQ, never out from the city.",
+          text: "Six things before anything is wired:",
+        },
+        {
+          kind: "list",
+          items: [
+            "One member ID shared by Haus OS and the app, because otherwise email is the only way to join a person's record together",
+            "A developer to connect each system once",
+            "An opt-in tick at checkout and at app sign-up",
+            "City and focus values sent the same way from every system",
+            "HQ Control listening for unsubscribes",
+            "The city leads' local news sent to HQ, never out from the city",
+          ],
         },
         {
           kind: "p",
-          text: 'Then, before anything goes out: the event names above confirmed by Asif, since they are a working draft; the spelling of "Yauga Cult" confirmed with Kris; the domain the email sends from and who manages its DNS, because SPF, DKIM and DMARC decide between inbox and spam; and who approves each email, and whose voice it goes out in. This page is the strategy. Copy and timing come after Yauga agrees the approach.',
+          text: "Then, before anything goes out:",
+        },
+        {
+          kind: "list",
+          items: [
+            "The event names confirmed by Asif, since they are a working draft",
+            'The spelling of "Yauga Cult" confirmed with Kris',
+            "The sending domain and who manages its DNS, because SPF, DKIM and DMARC decide between inbox and spam",
+            "Who approves each email, and whose voice it goes out in",
+          ],
+        },
+        {
+          kind: "p",
+          text: "This is the strategy, and copy and timing come after Yauga agrees the approach.",
         },
       ],
     },

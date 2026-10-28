@@ -227,6 +227,16 @@ html[data-rp-view="page"] .ns .rp-has-book .rp-book {
   width: 30px;
   height: 45px;
 }
+.ns .rp-bk-mark-client {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+.ns .rp-bk-mark-client img {
+  width: 64px;
+  height: 64px;
+}
 .ns .rp-bk-x {
   font-size: 22px;
   color: var(--grey);
@@ -454,9 +464,13 @@ html[data-rp-view="page"] .ns .rp-has-book .rp-book {
 }
 /* A table split into pieces reads as one table when the pieces share a page:
    the second piece drops its header and joins the first. Fixed layout keeps
-   the columns lined up across pieces. */
+   the columns lined up across pieces, and the first column head takes the
+   row header's width, so a piece is as wide with its header as without. */
 .ns .rp-book .rp-table {
   table-layout: fixed;
+}
+.ns .rp-book .rp-table thead th:first-child {
+  width: 28%;
 }
 .ns .rp-book .rp-bk-flow > .rp-block:has(.rp-table) + .rp-block:has(.rp-table) {
   margin-top: -18px;
@@ -506,6 +520,14 @@ html[data-rp-view="page"] .ns .rp-has-book .rp-book {
 /* A list split between bullets still reads as one list. */
 .ns .rp-book .rp-list + .rp-list {
   margin-top: 6px;
+}
+/* An ordered list is a sequence of steps, so it keeps its numbers. */
+.ns .rp-book ol.rp-list {
+  list-style: decimal;
+}
+.ns .rp-book ol.rp-list li::marker {
+  color: var(--ink);
+  font-weight: 600;
 }
 /* A section that starts partway down a page gets room above its heading. */
 .ns .rp-bk-flow > * + .rp-bk-h {

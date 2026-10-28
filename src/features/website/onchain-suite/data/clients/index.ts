@@ -30,7 +30,7 @@ export const CLIENT_STRATEGIES: ClientStrategy[] = [
     slug: "yauga",
     chapter: YAUGA,
     preparedFor: "the Yauga team",
-    client: { name: "Yauga", logo: "/site/logos/yauga.jpg" },
+    client: { name: "Yauga", logo: "/site/logos/yauga-mark-ink.svg" },
     pricing: {
       // The two sizes the strategy itself names in "Running it on OnchainSuite".
       options: [

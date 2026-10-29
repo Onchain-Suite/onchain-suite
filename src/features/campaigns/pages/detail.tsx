@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { type CampaignAnalytics, campaignsService } from "../campaigns.service";
+import { ConversionFunnel } from "../components/campaign-detail/conversion-funnel";
 import type { Campaign, CampaignStatus } from "../types/campaign";
 import {
   campaignRates,
@@ -455,6 +456,8 @@ export function CampaignDetailPage({ id }: { id: string }) {
         </div>
       ) : (
         <>
+          <ConversionFunnel campaignId={id} />
+
           <div
             className={cn(
               "grid gap-6",

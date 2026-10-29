@@ -26,7 +26,7 @@ export const OVERVIEW: ChapterSection = {
     },
     {
       kind: "p",
-      text: "We are coming to Yauga as a partner for growth and retention, so this is a strategy for the whole ecosystem rather than an email plan. Our idea is to turn Yauga into a culture people belong to: we learn who a person is at the front door and add to it at every step, give them something to keep up every day and a city to belong to, and only ever talk to them about what they did. Email is one of the ways we do that, and OnchainSuite is the tool we would run it on.",
+      text: "In line with our ongoing partnership, we are proposing a strategy for the whole ecosystem rather than an email plan. Our idea is to turn Yauga into a culture people belong to: we learn who a person is at the front door and add to it at every step, give them something to keep up every day and a city to belong to, and only ever talk to them about what they did. Email is one of the ways we do that, and OnchainSuite is the tool we would run it on.",
     },
     {
       kind: "artifact",

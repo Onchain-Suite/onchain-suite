@@ -120,7 +120,7 @@ export const PLATFORM: ChapterSection = {
     },
     {
       kind: "p",
-      text: "Events are live, while nightly files arrive too late to start a flow and events older than seven days are refused, so an import is for Yauga's existing history only. The plan is sized to contacts, Launch at 2,500 and Growth at 25,000, and OnchainSuite brings the event list and tag scheme, the segments and automations built and tested, Yauga Letters structured by focus and city, reporting on the loop, and a team working on the whole strategy alongside Yauga's.",
+      text: "Events are live, while nightly files arrive too late to start a flow and events older than seven days are refused, so an import is for Yauga's existing history only. Yauga is on pay as you go today, and the monthly plan that follows is sized to contacts, Launch at 2,500 and Growth at 25,000. OnchainSuite brings the event list and tag scheme, the segments and automations built and tested, Yauga Letters structured by focus and city, and reporting on the loop, and as partners we give our Onramp free, so Yauga has our team working with its own to run the growth and retention side.",
     },
   ],
 };
@@ -146,16 +146,7 @@ export const NEED: ChapterSection = {
     },
     {
       kind: "p",
-      text: "Then, before anything goes out:",
-    },
-    {
-      kind: "list",
-      items: [
-        "The event names confirmed by Asif, since they are a working draft",
-        'The spelling of "Yauga Cult" confirmed with Kris',
-        "The sending domain and who manages its DNS, because SPF, DKIM and DMARC decide between inbox and spam",
-        "Who approves each email, and whose voice it goes out in",
-      ],
+      text: "Then, before anything goes out, Asif confirms the event names, since they are a working draft.",
     },
     {
       kind: "callout",

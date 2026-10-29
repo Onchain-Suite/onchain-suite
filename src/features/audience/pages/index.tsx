@@ -82,6 +82,7 @@ import {
 } from "../components/icon-cluster";
 import { ImportContractsDialog } from "../components/import-contracts-dialog";
 import { SuppressedTab } from "../components/suppressed-tab";
+import { TablePager } from "../components/table-pager";
 import {
   deriveDisplayName,
   extractChain,
@@ -331,7 +332,11 @@ export function AudiencePages() {
     queryFn: async () => {
       const res = await audienceService.listTags();
       const items = Array.isArray(res) ? res : (res.items ?? res.data ?? []);
-      return items.map((t) => String(t.name)).filter(Boolean);
+      // Keep the id too: a list is a tag-backed segment, and we exclude those
+      // backing tags from the Tags tab by id (see `availableTags`).
+      return items
+        .map((t) => ({ id: String(t.id ?? ""), name: String(t.name ?? "") }))
+        .filter((t) => t.name.length > 0);
     },
     retry: false,
     refetchOnWindowFocus: false,
@@ -511,16 +516,52 @@ export function AudiencePages() {
   // The suppression list is materialized server-side as a system segment + a
   // `suppressed-email` tag. It lives in the Suppressed tab only - keep it out of
   // the Lists and Tags tabs.
-  const availableTags = useMemo(
-    () =>
-      (tagsQuery.data ?? []).filter(
-        (t) => t.toLowerCase() !== "suppressed-email"
-      ),
-    [tagsQuery.data]
-  );
   const segments = useMemo(
     () => (segmentsQuery.data ?? []).filter((s) => !isSuppressionSegment(s)),
     [segmentsQuery.data]
+  );
+
+  // Tag ids that back a list. A list is a tag-backed segment
+  // (criteria.tagIds -> a backing tag); that tag is an implementation detail,
+  // not a user tag, so it must not appear in the Tags tab. Keyed by id, not
+  // name, so renaming a list (which doesn't rename its backing tag) can't leak
+  // it back in.
+  const listBackingTagIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const seg of segments) {
+      const crit = isJsonObject(seg.criteria) ? seg.criteria : null;
+      const tagIds = crit && Array.isArray(crit.tagIds) ? crit.tagIds : [];
+      for (const id of tagIds) {
+        if (typeof id === "string" && id.length > 0) ids.add(id);
+      }
+    }
+    return ids;
+  }, [segments]);
+
+  // Tags shown in the picker + Tags tab: real user tags only - drop the
+  // suppression tag and every list-backing tag.
+  const availableTags = useMemo(
+    () =>
+      (tagsQuery.data ?? [])
+        .filter((t) => t.name.toLowerCase() !== "suppressed-email")
+        .filter((t) => !listBackingTagIds.has(t.id))
+        .map((t) => t.name),
+    [tagsQuery.data, listBackingTagIds]
+  );
+
+  // Paginate the Lists table client-side so only one page is ever in the DOM.
+  const [listsPage, setListsPage] = useState(1);
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(segments.length / ITEMS_PER_PAGE));
+    if (listsPage > maxPage) setListsPage(maxPage);
+  }, [segments.length, listsPage]);
+  const pagedSegments = useMemo(
+    () =>
+      segments.slice(
+        (listsPage - 1) * ITEMS_PER_PAGE,
+        listsPage * ITEMS_PER_PAGE
+      ),
+    [segments, listsPage]
   );
 
   const emailRecipients: EmailRecipient[] = useMemo(
@@ -1466,140 +1507,150 @@ export function AudiencePages() {
                   across campaigns.
                 </div>
               ) : segments.length > 0 ? (
-                <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-                  <table className="w-full min-w-[720px] text-sm">
-                    <thead>
-                      <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                        <th className="px-5 py-3 font-medium">List</th>
-                        <th className="px-4 py-3 font-medium">Source</th>
-                        <th className="px-4 py-3 font-medium">Reachable via</th>
-                        <th className="px-4 py-3 text-right font-medium">
-                          Contacts
-                        </th>
-                        <th className="px-4 py-3 font-medium">Updated</th>
-                        <th className="w-8 py-3" aria-hidden="true" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {segments.map((seg) => {
-                        const meta = listMeta(seg);
-                        return (
-                          <tr
-                            key={seg.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setSelectedList(seg)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") setSelectedList(seg);
-                            }}
-                            className="cursor-pointer border-b border-border outline-none last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40"
-                          >
-                            <td className="px-5 py-4 font-medium text-foreground">
-                              {seg.name}
-                            </td>
-                            <td className="px-4 py-4 text-muted-foreground">
-                              {meta.source}
-                            </td>
-                            <td className="px-4 py-4">
-                              <span className="flex items-center gap-1.5 text-muted-foreground">
-                                {meta.reachable.includes("email") ? (
-                                  <EnvelopeIcon
-                                    className="size-4"
-                                    aria-hidden="true"
-                                  />
-                                ) : null}
-                                {meta.reachable.includes("push") ? (
-                                  <DevicePhoneMobileIcon
-                                    className="size-4"
-                                    aria-hidden="true"
-                                  />
-                                ) : null}
-                                {meta.reachable.length === 0 ? "-" : null}
-                              </span>
-                            </td>
-                            <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                              {typeof seg.count === "number"
-                                ? seg.count.toLocaleString()
-                                : "-"}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
-                              {seg.updatedAt
-                                ? formatRelativeTime(seg.updatedAt)
-                                : "-"}
-                            </td>
-                            <td className="py-4 pr-3 text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button
-                                    type="button"
+                <>
+                  <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+                    <table className="w-full min-w-[720px] text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                          <th className="px-5 py-3 font-medium">List</th>
+                          <th className="px-4 py-3 font-medium">Source</th>
+                          <th className="px-4 py-3 font-medium">
+                            Reachable via
+                          </th>
+                          <th className="px-4 py-3 text-right font-medium">
+                            Contacts
+                          </th>
+                          <th className="px-4 py-3 font-medium">Updated</th>
+                          <th className="w-8 py-3" aria-hidden="true" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pagedSegments.map((seg) => {
+                          const meta = listMeta(seg);
+                          return (
+                            <tr
+                              key={seg.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => setSelectedList(seg)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") setSelectedList(seg);
+                              }}
+                              className="cursor-pointer border-b border-border outline-none last:border-0 hover:bg-muted/40 focus-visible:bg-muted/40"
+                            >
+                              <td className="px-5 py-4 font-medium text-foreground">
+                                {seg.name}
+                              </td>
+                              <td className="px-4 py-4 text-muted-foreground">
+                                {meta.source}
+                              </td>
+                              <td className="px-4 py-4">
+                                <span className="flex items-center gap-1.5 text-muted-foreground">
+                                  {meta.reachable.includes("email") ? (
+                                    <EnvelopeIcon
+                                      className="size-4"
+                                      aria-hidden="true"
+                                    />
+                                  ) : null}
+                                  {meta.reachable.includes("push") ? (
+                                    <DevicePhoneMobileIcon
+                                      className="size-4"
+                                      aria-hidden="true"
+                                    />
+                                  ) : null}
+                                  {meta.reachable.length === 0 ? "-" : null}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 text-right tabular-nums text-foreground">
+                                {typeof seg.count === "number"
+                                  ? seg.count.toLocaleString()
+                                  : "-"}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-muted-foreground">
+                                {seg.updatedAt
+                                  ? formatRelativeTime(seg.updatedAt)
+                                  : "-"}
+                              </td>
+                              <td className="py-4 pr-3 text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => e.stopPropagation()}
+                                      aria-label={`Actions for ${seg.name}`}
+                                      className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
+                                    >
+                                      <EllipsisHorizontalIcon
+                                        className="size-4"
+                                        aria-hidden="true"
+                                      />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="end"
                                     onClick={(e) => e.stopPropagation()}
-                                    aria-label={`Actions for ${seg.name}`}
-                                    className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
                                   >
-                                    <EllipsisHorizontalIcon
-                                      className="size-4"
-                                      aria-hidden="true"
-                                    />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <DropdownMenuItem
-                                    onSelect={(e) => {
-                                      e.preventDefault();
-                                      copyListId(seg.id);
-                                    }}
-                                  >
-                                    {copiedId === seg.id ? (
-                                      <CheckIcon
+                                    <DropdownMenuItem
+                                      onSelect={(e) => {
+                                        e.preventDefault();
+                                        copyListId(seg.id);
+                                      }}
+                                    >
+                                      {copiedId === seg.id ? (
+                                        <CheckIcon
+                                          className="size-4"
+                                          aria-hidden="true"
+                                        />
+                                      ) : (
+                                        <ClipboardDocumentIcon
+                                          className="size-4"
+                                          aria-hidden="true"
+                                        />
+                                      )}
+                                      Copy list ID
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={(e) => {
+                                        e.preventDefault();
+                                        setRenameListTarget(seg);
+                                        setRenameListValue(seg.name);
+                                      }}
+                                    >
+                                      <PencilSquareIcon
                                         className="size-4"
                                         aria-hidden="true"
                                       />
-                                    ) : (
-                                      <ClipboardDocumentIcon
+                                      Rename
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      onSelect={(e) => {
+                                        e.preventDefault();
+                                        setDeleteListTarget(seg);
+                                      }}
+                                    >
+                                      <TrashIcon
                                         className="size-4"
                                         aria-hidden="true"
                                       />
-                                    )}
-                                    Copy list ID
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onSelect={(e) => {
-                                      e.preventDefault();
-                                      setRenameListTarget(seg);
-                                      setRenameListValue(seg.name);
-                                    }}
-                                  >
-                                    <PencilSquareIcon
-                                      className="size-4"
-                                      aria-hidden="true"
-                                    />
-                                    Rename
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    variant="destructive"
-                                    onSelect={(e) => {
-                                      e.preventDefault();
-                                      setDeleteListTarget(seg);
-                                    }}
-                                  >
-                                    <TrashIcon
-                                      className="size-4"
-                                      aria-hidden="true"
-                                    />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <TablePager
+                    page={listsPage}
+                    pageSize={ITEMS_PER_PAGE}
+                    totalItems={segments.length}
+                    onPageChange={setListsPage}
+                  />
+                </>
               ) : null}
             </div>
           ) : activeTab === "tags" ? (

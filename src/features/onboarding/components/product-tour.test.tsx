@@ -16,6 +16,11 @@ vi.mock("../hooks/use-workspace-mode", () => ({
   useWorkspaceMode: () => mockMode(),
 }));
 
+// No session in the test, so the first stop keeps its plain title (not the by-name welcome).
+vi.mock("@/lib/auth-client", () => ({
+  useSession: () => ({ data: undefined }),
+}));
+
 beforeEach(() => {
   localStorage.clear();
   resetTour();
@@ -45,13 +50,17 @@ describe("ProductTour", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("advances through stops and navigates to each route", () => {
+  it("advances through stops and navigates on a route change", () => {
     startTour();
     render(<ProductTour />);
     expect(screen.getByText(TOUR[0].title)).toBeInTheDocument();
+    // Stop 2 is the getting-started checklist on the same /dashboard route - no navigation.
     fireEvent.click(screen.getByRole("button", { name: /next/i }));
     expect(screen.getByText(TOUR[1].title)).toBeInTheDocument();
-    expect(push).toHaveBeenCalledWith(TOUR[1].to);
+    // Stop 3 (Campaigns) is a different route, so it navigates.
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    expect(screen.getByText(TOUR[2].title)).toBeInTheDocument();
+    expect(push).toHaveBeenCalledWith(TOUR[2].to);
   });
 
   it("ends when Skip is clicked and stays done", () => {

@@ -89,7 +89,7 @@ function LinkRow({
         isActive={isRowActive(item, activeUrl)}
         className={cn(ROW, item.wip && WIP)}
       >
-        <Link href={item.url}>
+        <Link href={item.url} data-tour={item.url}>
           {item.icon ? <item.icon aria-hidden="true" /> : null}
           <span className="group-data-[collapsible=icon]:hidden">
             {item.title}

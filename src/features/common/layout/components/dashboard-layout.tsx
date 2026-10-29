@@ -36,6 +36,7 @@ import {
 } from "./org-switcher-context";
 import { OrganizationStatusBanner } from "./organization-status-banner";
 import { PendingCheckoutBanner } from "@/features/billing/components/pending-checkout-banner";
+import { ProductTour } from "@/features/onboarding/components/product-tour";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 import {
   getWipSection,
@@ -191,6 +192,9 @@ function DashboardLayoutInner({
             </ShellContent>
           </div>
         </SidebarInset>
+
+        {/* The guided tour overlays the whole shell so it survives navigation between sections. */}
+        <ProductTour />
       </SidebarProvider>
     </OrgSwitcherProvider>
   );

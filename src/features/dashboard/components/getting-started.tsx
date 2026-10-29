@@ -96,6 +96,7 @@ export function GettingStarted() {
   return (
     <section
       aria-label="Getting started"
+      data-tour="getting-started"
       className="border-border bg-card flex flex-col gap-[9px] rounded-lg border p-3 pb-2.5 shadow-sm group-data-[collapsible=icon]:hidden"
     >
       <div className="flex items-start gap-2">

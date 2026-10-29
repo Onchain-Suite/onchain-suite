@@ -3,8 +3,10 @@
 import { CommandBar } from "../components/command-bar";
 import { OnboardingResumeBanner } from "../components/get-started";
 import { MetricsDashboard } from "../components/metrics-dashboard";
+import { TakeTheTourButton } from "../components/take-the-tour-button";
 import { StartHereBanner } from "@/features/onboarding/components/start-here-banner";
 import { useTimeToValue } from "@/features/onboarding/hooks/use-time-to-value";
+import { useWorkspaceMode } from "@/features/onboarding/hooks/use-workspace-mode";
 
 interface UserData {
   projectName: string;
@@ -53,6 +55,12 @@ export function MainDashboard({ userData }: MainDashboardProps) {
   const greeting = getGreeting(userData.timezone);
   const name = userData.fullName ?? "there";
 
+  // Gate the home on whether the workspace has any data yet. `mode` reads
+  // "live" while the reads are in flight, so a slow load never flashes the
+  // empty-state teaching UI at a populated account.
+  const { mode } = useWorkspaceMode();
+  const empty = mode === "empty";
+
   // Close the time-to-value clock once this workspace first reads as live
   // (reports once, only when the wizard set a first-mile start stamp).
   useTimeToValue();
@@ -64,8 +72,13 @@ export function MainDashboard({ userData }: MainDashboardProps) {
           {`Good ${greeting}, ${name}.`}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Here is what moved across your workspace today.
+          {empty
+            ? "Your workspace is set up. Nothing is indexed yet. Getting started, in the sidebar, is the way in."
+            : "Here is what moved across your workspace today."}
         </p>
+        {/* Empty workspaces get the way back into Cerebra's tour, under the
+            greeting (matches 2.7's `.home__tour` placement). */}
+        {empty ? <TakeTheTourButton /> : null}
       </div>
 
       <StartHereBanner />
@@ -74,12 +87,15 @@ export function MainDashboard({ userData }: MainDashboardProps) {
           The setup checklist now lives in the sidebar (GettingStarted). */}
       <OnboardingResumeBanner />
 
-      <CommandBar />
-
-      {/* Metrics own their own loading + honest empty states, so a brand-new
-          empty workspace sees the real dashboard (guided by the sidebar
-          checklist and the Start-here banner) rather than a separate gate. */}
-      <MetricsDashboard />
+      {/* Empty workspaces have nothing to ask about and nothing to chart, so
+          the assistant bar and metrics only appear once the workspace is live.
+          Both own their own loading + honest empty states for the live case. */}
+      {empty ? null : (
+        <>
+          <CommandBar />
+          <MetricsDashboard />
+        </>
+      )}
     </div>
   );
 }

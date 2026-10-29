@@ -4,6 +4,7 @@ import {
   chainVisual,
   deriveDisplayName,
   extractChain,
+  extractSocialHandles,
   extractWalletFields,
   hashHue,
   normalizeTags,
@@ -73,6 +74,36 @@ describe("audience utils", () => {
     expect(a).toBe(b);
     expect(a).toBeGreaterThanOrEqual(0);
     expect(a).toBeLessThan(360);
+  });
+});
+
+describe("extractSocialHandles", () => {
+  it("reads X from `x`/`twitter`, plus telegram/discord/farcaster/ens (callers pass the attributes object)", () => {
+    expect(
+      extractSocialHandles({
+        x: "ruthybuilds",
+        telegram: "tg_handle",
+        discord: "user#1234",
+        farcaster: "ada.fc",
+        ens: "ada.eth",
+      })
+    ).toEqual({
+      twitter: "ruthybuilds",
+      telegram: "tg_handle",
+      discord: "user#1234",
+      farcaster: "ada.fc",
+      ens: "ada.eth",
+    });
+  });
+
+  it("accepts `warpcast` as a farcaster alias and reads handles off the root", () => {
+    expect(extractSocialHandles({ warpcast: "ada.fc" })).toEqual({
+      farcaster: "ada.fc",
+    });
+  });
+
+  it("returns an empty object when there are no handles", () => {
+    expect(extractSocialHandles({ email: "a@b.com" })).toEqual({});
   });
 });
 

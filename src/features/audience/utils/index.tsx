@@ -18,6 +18,7 @@ export type SocialHandles = {
   twitter?: string;
   discord?: string;
   telegram?: string;
+  farcaster?: string;
 };
 
 export type ChainMeta = {
@@ -820,11 +821,20 @@ export function extractSocialHandles(input: unknown): SocialHandles {
     readString(nestedIdentities, "telegram");
   const telegram = sanitizeHandle(telegramRaw);
 
+  const farcasterRaw =
+    readString(root, "farcaster") ||
+    readString(root, "warpcast") ||
+    readString(root, "farcasterHandle") ||
+    readString(nestedSocials, "farcaster") ||
+    readString(nestedIdentities, "farcaster");
+  const farcaster = sanitizeHandle(farcasterRaw);
+
   const next: SocialHandles = {};
   if (ens) next.ens = ens;
   if (twitter) next.twitter = twitter;
   if (discord) next.discord = discord;
   if (telegram) next.telegram = telegram;
+  if (farcaster) next.farcaster = farcaster;
   return next;
 }
 

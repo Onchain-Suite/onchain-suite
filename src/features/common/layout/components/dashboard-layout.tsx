@@ -59,14 +59,17 @@ const withWipFlags = (items: NavItem[]): NavItem[] =>
   }));
 
 // Resolved once at module scope - the routes and the WIP flag are both static.
-// Matches the reference shell: Analytics is a top-level entry, and Settings is
-// reached from the profile menu at the foot of the sidebar, not the list.
+// Labels and order match the 2.7 reference shell: Home · Campaigns · Loops ·
+// Forms · Audience · Intelligence · Analytics · Integrations. The routes are
+// unchanged (Home still /dashboard, Loops still /automations - only the labels
+// differ); Analytics is a top-level entry and Settings is reached from the
+// profile menu at the foot of the sidebar, not the list.
 const NAV_MAIN: NavItem[] = withWipFlags([
-  { title: "Dashboard", url: PRIVATE_ROUTES.DASHBOARD, icon: Squares2X2Icon },
+  { title: "Home", url: PRIVATE_ROUTES.DASHBOARD, icon: Squares2X2Icon },
   { title: "Campaigns", url: PRIVATE_ROUTES.CAMPAIGNS, icon: MegaphoneIcon },
-  { title: "Audience", url: PRIVATE_ROUTES.AUDIENCE, icon: UserGroupIcon },
+  { title: "Loops", url: PRIVATE_ROUTES.AUTOMATIONS, icon: BoltIcon },
   { title: "Forms", url: PRIVATE_ROUTES.FORMS, icon: DocumentTextIcon },
-  { title: "Automations", url: PRIVATE_ROUTES.AUTOMATIONS, icon: BoltIcon },
+  { title: "Audience", url: PRIVATE_ROUTES.AUDIENCE, icon: UserGroupIcon },
   {
     title: "Intelligence",
     url: PRIVATE_ROUTES.INTELLIGENCE,

@@ -64,12 +64,13 @@ const MATCHERS: Array<{
     match: (p) => p.startsWith("/automations/"),
     crumbs: [
       HOME,
-      { href: PRIVATE_ROUTES.NEW_AUTOMATION, label: "Create New Automation" },
+      { href: PRIVATE_ROUTES.NEW_AUTOMATION, label: "Create New Loop" },
     ],
   },
   {
+    // Labelled "Loops" to match the sidebar; the route stays /automations.
     match: (p) => p.startsWith("/automations"),
-    crumbs: [HOME, { href: PRIVATE_ROUTES.AUTOMATIONS, label: "Automations" }],
+    crumbs: [HOME, { href: PRIVATE_ROUTES.AUTOMATIONS, label: "Loops" }],
   },
   {
     match: (p) => p.startsWith("/audience"),

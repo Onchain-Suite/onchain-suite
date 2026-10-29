@@ -43,5 +43,14 @@ export default defineConfig({
     pool: 'threads',
     fileParallelism: false,
     maxWorkers: 1,
+    // 15s, not vitest's 5s default. The suite runs sequentially (one worker,
+    // no file parallelism) and mounts large real page trees in jsdom, so on a
+    // loaded machine an individual test can drift past 5s - and because the
+    // husky pre-push runs the whole suite, a different handful timed out on
+    // each run and blocked the push. A single generous budget stabilises the
+    // gate without hiding real hangs; the dashboard smoke suite already used
+    // 15s per test for the same reason.
+    testTimeout: 15000,
+    hookTimeout: 15000,
   },
 });

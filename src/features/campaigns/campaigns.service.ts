@@ -3,6 +3,7 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import type { CampaignFunnel } from "./contracts/funnel";
 import type {
   CampaignGoal,
   CreateGoalPayload,
@@ -813,6 +814,14 @@ export const campaignsService = {
         method: "GET",
         url: `/campaigns/${campaignId}/goals/${goalId}/measure`,
       },
+      orgId
+    );
+  },
+
+  /** The campaign's cross-channel conversion funnel. */
+  getCampaignFunnel(campaignId: string, orgId?: string) {
+    return request<CampaignFunnel>(
+      { method: "GET", url: `/campaigns/${campaignId}/funnel` },
       orgId
     );
   },

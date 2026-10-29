@@ -3,6 +3,11 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import type {
+  CampaignGoal,
+  CreateGoalPayload,
+  GoalMeasurement,
+} from "./contracts/goals";
 import { withApiErrorFields } from "./lib/launch-errors";
 import type { Campaign } from "./types/campaign";
 
@@ -729,6 +734,87 @@ export const campaignsService = {
       { method: "GET", url: `/campaigns/${id}` },
       orgId
     ).then(toCampaign);
+  },
+
+  /** A campaign's conversion goals ([] for a new/empty campaign). */
+  getGoals(campaignId: string, orgId?: string) {
+    return request<CampaignGoal[]>(
+      { method: "GET", url: `/campaigns/${campaignId}/goals` },
+      orgId
+    )
+      .then((goals) => (Array.isArray(goals) ? goals : []))
+      .catch((e) => {
+        if (isNoDataError(e)) return [] as CampaignGoal[];
+        throw e;
+      });
+  },
+
+  createGoal(campaignId: string, body: CreateGoalPayload, orgId?: string) {
+    return request<CampaignGoal>(
+      { method: "POST", url: `/campaigns/${campaignId}/goals`, data: body },
+      orgId
+    );
+  },
+
+  updateGoal(
+    campaignId: string,
+    goalId: string,
+    body: Partial<CreateGoalPayload>,
+    orgId?: string
+  ) {
+    return request<CampaignGoal>(
+      {
+        method: "PUT",
+        url: `/campaigns/${campaignId}/goals/${goalId}`,
+        data: body,
+      },
+      orgId
+    );
+  },
+
+  deleteGoal(campaignId: string, goalId: string, orgId?: string) {
+    return request<{ deleted: boolean }>(
+      { method: "DELETE", url: `/campaigns/${campaignId}/goals/${goalId}` },
+      orgId
+    );
+  },
+
+  /**
+   * Set the campaign's single conversion goal: update the existing one in place
+   * if there is one, otherwise create it. A `null` payload clears the goal (the
+   * "No goal" choice). Keeps one goal per campaign, which is what the wizard
+   * picker expresses.
+   */
+  async setGoal(
+    campaignId: string,
+    body: CreateGoalPayload | null,
+    orgId?: string
+  ) {
+    const existing = await this.getGoals(campaignId, orgId);
+    if (!body) {
+      await Promise.all(
+        existing.map((g) => this.deleteGoal(campaignId, g.id, orgId))
+      );
+      return null;
+    }
+    const [first, ...rest] = existing;
+    // Collapse any accidental extras to a single goal.
+    await Promise.all(
+      rest.map((g) => this.deleteGoal(campaignId, g.id, orgId))
+    );
+    return first
+      ? this.updateGoal(campaignId, first.id, body, orgId)
+      : this.createGoal(campaignId, body, orgId);
+  },
+
+  measureGoal(campaignId: string, goalId: string, orgId?: string) {
+    return request<GoalMeasurement>(
+      {
+        method: "GET",
+        url: `/campaigns/${campaignId}/goals/${goalId}/measure`,
+      },
+      orgId
+    );
   },
 
   updateCampaign(id: string, body: Record<string, unknown>, orgId?: string) {

@@ -8,8 +8,7 @@
    Source: the Yauga email marketing plan, October 2026, and Kris's
    confirmation on 28 October 2026 of Yauga's product lines and loop, with the
    Yauga App and Haus OS as one platform with different permissions. Event
-   names are a working draft for Yauga's developers to confirm, and "Yauga
-   Cult" is used throughout pending confirmation of the spelling. The parkrun
+   names are a working draft for Yauga's developers to confirm. The parkrun
    case study is from public sources (parkrun's own history and press
    coverage of its twentieth anniversary, October 2024).
    This page is reached by its link only: it is not on the landing page. */

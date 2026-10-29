@@ -61,6 +61,13 @@ const fieldOptions = [
   { value: "status", label: "Status" },
   { value: "chain", label: "Chain" },
   { value: "notes", label: "Notes" },
+  // Channel handles. Optional - the backend also auto-detects these headers, but
+  // offering them lets a column with an odd name be mapped by hand. Each resolves
+  // to attributes.<channel>, the key the audience table + slide-over read.
+  { value: "x", label: "X / Twitter" },
+  { value: "telegram", label: "Telegram" },
+  { value: "discord", label: "Discord" },
+  { value: "farcaster", label: "Farcaster" },
   { value: "custom", label: "Custom Field" },
 ];
 
@@ -780,6 +787,15 @@ export default function ImportExportPage() {
       else if (headerLower.includes("tag")) autoMap = "tags";
       else if (headerLower.includes("status")) autoMap = "status";
       else if (headerLower.includes("chain")) autoMap = "chain";
+      else if (headerLower === "x" || headerLower.includes("twitter"))
+        autoMap = "x";
+      else if (headerLower.includes("telegram")) autoMap = "telegram";
+      else if (headerLower.includes("discord")) autoMap = "discord";
+      else if (
+        headerLower.includes("farcaster") ||
+        headerLower.includes("warpcast")
+      )
+        autoMap = "farcaster";
 
       return { header, sample: samples, mappedTo: autoMap };
     });

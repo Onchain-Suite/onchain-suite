@@ -2,13 +2,7 @@
 
 import {
   ArrowPathIcon,
-  AtSymbolIcon,
-  ChatBubbleLeftRightIcon,
-  ChatBubbleOvalLeftIcon,
-  DevicePhoneMobileIcon,
   EnvelopeIcon,
-  MegaphoneIcon,
-  PaperAirplaneIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
@@ -32,7 +26,6 @@ import {
 import { cn } from "@/lib/utils";
 
 import { campaignsService } from "../../campaigns.service";
-import { useChannelConnections } from "../../hooks/use-channel-connections";
 import type { CampaignChannel, CampaignFormData } from "../../validations";
 
 type CampaignTypeId = Extract<
@@ -85,14 +78,12 @@ export function CreateCampaignSheet({
   const [name, setName] = useState("");
   const [type, setType] = useState<CampaignTypeId>("email-blast");
   const [isCreating, setIsCreating] = useState(false);
-  // Smart campaigns pick their delivery channel; other types send email.
-  const [smartChannel, setSmartChannel] =
-    useState<CampaignChannel>("in-app-push");
-  // Which social channels are connected, to gate the channel cards.
-  const channelConnections = useChannelConnections();
 
+  // The wizard's "Send as" row picks the exact channel (and gates it on a
+  // verified connection); the sheet only seeds a sensible default from the
+  // type. Email blast -> email; a smart campaign defaults to in-app push.
   const channel: CampaignChannel =
-    type === "smart-sending" ? smartChannel : "email";
+    type === "smart-sending" ? "in-app-push" : "email";
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -219,94 +210,10 @@ export function CreateCampaignSheet({
           </div>
 
           {type === "smart-sending" ? (
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">Channel</Label>
-              <div className="grid grid-cols-2 gap-3">
-                {(
-                  [
-                    {
-                      id: "in-app-push" as const,
-                      icon: DevicePhoneMobileIcon,
-                      title: "In-app Push",
-                      desc: "A push notification in your app",
-                    },
-                    {
-                      id: "telegram" as const,
-                      icon: PaperAirplaneIcon,
-                      title: "Telegram",
-                      desc: "A message via your Telegram bot",
-                    },
-                    {
-                      id: "discord" as const,
-                      icon: ChatBubbleOvalLeftIcon,
-                      title: "Discord",
-                      desc: "Broadcast to a channel via your Discord bot",
-                    },
-                    {
-                      id: "whatsapp" as const,
-                      icon: ChatBubbleLeftRightIcon,
-                      title: "WhatsApp",
-                      desc: "An approved template to linked numbers",
-                    },
-                    {
-                      id: "x" as const,
-                      icon: AtSymbolIcon,
-                      title: "X",
-                      desc: "A broadcast post to your X account",
-                    },
-                    {
-                      id: "farcaster" as const,
-                      icon: MegaphoneIcon,
-                      title: "Farcaster",
-                      desc: "A public cast from your account",
-                    },
-                  ] satisfies {
-                    id: CampaignChannel;
-                    icon: typeof DevicePhoneMobileIcon;
-                    title: string;
-                    desc: string;
-                  }[]
-                ).map((opt) => {
-                  const active = smartChannel === opt.id;
-                  const Icon = opt.icon;
-                  // In-app push has its own readiness check in its step; the
-                  // social channels are gated on a verified connection here.
-                  const gated = opt.id !== "in-app-push";
-                  const connected = channelConnections.isConnected(opt.id);
-                  const disabled =
-                    gated && !channelConnections.loading && !connected;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      disabled={disabled}
-                      aria-pressed={active}
-                      onClick={() => setSmartChannel(opt.id)}
-                      className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-colors ${
-                        active
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/40"
-                      } ${disabled ? "cursor-not-allowed opacity-50 hover:border-border" : ""}`}
-                    >
-                      <Icon
-                        aria-hidden="true"
-                        className={`h-5 w-5 shrink-0 ${
-                          active ? "text-primary" : "text-muted-foreground"
-                        }`}
-                      />
-                      <div>
-                        <div className="text-sm font-medium text-foreground">
-                          {opt.title}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {disabled ? "Connect in Settings first" : opt.desc}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              You will pick the exact channel - in-app push, Telegram, Discord,
+              WhatsApp, X or Farcaster - on the next step.
+            </p>
           ) : null}
         </div>
 

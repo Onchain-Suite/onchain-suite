@@ -69,6 +69,7 @@ import { audienceService } from "../audience.service";
 import { ApplyTagsPopover } from "../components/apply-tags-popover";
 import { AudienceListDetail } from "../components/audience-list-detail";
 import { AudienceTagsTab } from "../components/audience-tags-tab";
+import { ChannelIcons } from "../components/channel-icons";
 import {
   ComposeEmailDialog,
   type EmailRecipient,
@@ -97,6 +98,7 @@ import {
   normalizeTags,
   profileReach,
   readChannels,
+  type SocialHandles,
 } from "../utils";
 import { type LifecycleStage, stageForProfile } from "../utils/lifecycle";
 import { EnrichmentControl } from "@/features/intelligence/components/enrichment-control";
@@ -133,6 +135,8 @@ interface Row {
   lastActive?: string;
   lifetimeUsd?: number;
   reach: { email: boolean; push: boolean; x: boolean };
+  /** Captured social handles (X/Telegram/Discord/Farcaster), for row glyphs. */
+  socials: SocialHandles;
   /** Derived lifecycle stage (FE-first; see utils/lifecycle). */
   stage: LifecycleStage;
 }
@@ -185,6 +189,7 @@ const toRow = (p: AudienceProfile): Row => {
       ...profileReach(p),
       x: channels ? Boolean(channels.x) : Boolean(socials.twitter),
     },
+    socials,
     stage: stageForProfile(p),
   };
 };
@@ -1296,6 +1301,7 @@ export function AudiencePages() {
                                     </span>
                                   )}
                                 </span>
+                                <ChannelIcons socials={row.socials} />
                                 {row.walletFull ? (
                                   <button
                                     type="button"

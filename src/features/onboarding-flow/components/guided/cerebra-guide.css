@@ -1,0 +1,50 @@
+/* Cerebra in the corner of onboarding - entrance, float and bubble-pop only; colours and
+   layout are Tailwind utilities on the elements (app tokens). Shown on lg+ beside the flow. */
+.cg__av {
+  filter: drop-shadow(0 10px 18px rgba(23, 39, 224, 0.22));
+  animation: cg-in 0.6s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+/* At rest the mark drifts a little, so it reads as alive rather than as a logo stuck on. */
+.cg__av .cm:not(.cm--face) {
+  animation: cg-bob 3.6s ease-in-out infinite;
+}
+.cg__bubble {
+  animation: cg-pop 0.35s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+  transform-origin: bottom right;
+}
+@keyframes cg-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes cg-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes cg-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cg__av,
+  .cg__bubble,
+  .cg__av .cm:not(.cm--face) {
+    animation: none !important;
+  }
+}

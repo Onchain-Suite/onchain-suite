@@ -41,6 +41,8 @@ export const ROLES: Array<{
  * is optional - most people setting up the account are not the ones holding it.
  */
 export interface ProjectProfile {
+  /** The person's first name. Cerebra greets them by it through setup and into the tour. */
+  firstName: string;
   name: string;
   website: string;
   sector: string;
@@ -52,6 +54,7 @@ export interface ProjectProfile {
 }
 
 export const EMPTY_PROFILE: ProjectProfile = {
+  firstName: "",
   name: "",
   website: "",
   sector: "",
@@ -86,8 +89,9 @@ export interface ManualContractDraft {
 // (`constants/index.ts` organizationOptions + web2Options), not a flat list, so
 // the "web2 clients skip contract indexing" logic keeps working.
 
-/** Enough to qualify the account: a name, a website that looks like a domain, and a sector. */
+/** Enough to qualify the account: a first name, a project name, a website that looks like a domain, and a sector. */
 export const profileReady = (p: ProjectProfile): boolean =>
+  p.firstName.trim().length > 0 &&
   p.name.trim().length > 0 &&
   /\S+\.\S+/.test(p.website.trim()) &&
   p.sector !== "";

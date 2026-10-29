@@ -1,0 +1,140 @@
+/* Cerebra's mark: the logo with eyes, and the face it becomes when it speaks.
+   Ported verbatim from the 2.7 handoff (web/src/components/cerebra-mark.css). */
+.cm {
+  display: block;
+  overflow: visible;
+}
+.cm__logo,
+.cm__face,
+.cm__eyes,
+.cm__smile,
+.cm__mouth,
+.cm__grin {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    opacity 0.32s ease,
+    transform 0.5s cubic-bezier(0.3, 1.45, 0.5, 1);
+}
+.cm__face {
+  opacity: 0;
+  transform: scale(0.72);
+}
+.cm--face .cm__face {
+  opacity: 1;
+  transform: none;
+}
+.cm--face .cm__logo {
+  opacity: 0;
+  transform: scale(0.62) rotate(-28deg);
+}
+/* In the ring the eyes sit a little lower and smaller than on the face. */
+.cm__eyes {
+  transform: translateY(3px) scale(0.9);
+}
+.cm--face .cm__eyes {
+  transform: none;
+}
+.cm__smile,
+.cm__mouth,
+.cm__grin {
+  opacity: 0;
+}
+.cm__folds {
+  fill: none;
+  stroke: #0e1fa8;
+  stroke-opacity: 0.42;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cm--face:not(.cm--talking):not(.cm--cheer) .cm__smile {
+  opacity: 1;
+}
+/* About to move on: a grin, and the eyes lift with it. */
+.cm--cheer .cm__grin {
+  opacity: 1;
+  transform: none;
+}
+.cm__grin {
+  transform: scaleY(0.4);
+}
+.cm--cheer .cm__eyes {
+  transform: translateY(-1.5px) scaleY(0.86);
+}
+.cm--cheer .cm__face {
+  animation: cm-hop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.cm--talking .cm__mouth {
+  opacity: 1;
+  animation: cm-talk 0.26s ease-in-out infinite alternate;
+}
+.cm__pupils {
+  transform: translate(var(--px, 0px), var(--py, 0px));
+  transition: transform 0.14s ease-out;
+}
+.cm__blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cm-blink 5.4s infinite;
+}
+.cm--wander .cm__pupils {
+  animation: cm-wander 7s ease-in-out infinite;
+}
+@keyframes cm-blink {
+  0%,
+  93%,
+  100% {
+    transform: scaleY(1);
+  }
+  95.5% {
+    transform: scaleY(0.08);
+  }
+}
+@keyframes cm-hop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.07) translateY(-2px);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes cm-talk {
+  from {
+    transform: scaleY(0.3);
+  }
+  to {
+    transform: scaleY(1.1);
+  }
+}
+@keyframes cm-wander {
+  0%,
+  18% {
+    transform: translate(0, 0);
+  }
+  26%,
+  40% {
+    transform: translate(-3px, -1px);
+  }
+  50%,
+  62% {
+    transform: translate(3px, 1px);
+  }
+  72%,
+  84% {
+    transform: translate(1px, -2.5px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm,
+  .cm * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

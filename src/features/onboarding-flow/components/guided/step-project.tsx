@@ -78,11 +78,24 @@ export function StepProject({
         Tell us about your project
       </h1>
       <p className="text-muted-foreground mt-3">
-        Name, website and sector are all we need. The rest is optional.
+        Your first name, then the project&rsquo;s name, website and sector. The
+        rest is optional.
       </p>
 
       <form className="mt-8 space-y-6" onSubmit={(e) => e.preventDefault()}>
         <div className="grid gap-5 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="ob-first">Your first name</Label>
+            <Input
+              id="ob-first"
+              required
+              autoComplete="given-name"
+              value={value.firstName}
+              onChange={set("firstName")}
+              placeholder="Mike"
+              onKeyDown={onKeyDown}
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="ob-name">Project name</Label>
             <Input
@@ -95,19 +108,20 @@ export function StepProject({
               onKeyDown={onKeyDown}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="ob-web">Website</Label>
-            <Input
-              id="ob-web"
-              required
-              inputMode="url"
-              autoComplete="url"
-              value={value.website}
-              onChange={set("website")}
-              placeholder="yourproject.xyz"
-              onKeyDown={onKeyDown}
-            />
-          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ob-web">Website</Label>
+          <Input
+            id="ob-web"
+            required
+            inputMode="url"
+            autoComplete="url"
+            value={value.website}
+            onChange={set("website")}
+            placeholder="yourproject.xyz"
+            onKeyDown={onKeyDown}
+          />
         </div>
 
         <div className="space-y-3">

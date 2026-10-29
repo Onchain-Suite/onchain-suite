@@ -17,7 +17,9 @@ import {
   StepProject,
   StepTechnical,
 } from "./components/guided";
+import { CerebraGuide } from "./components/guided/cerebra-guide";
 import { HandoffFlow } from "./components/handoff-flow";
+import { cerebraLine } from "./constants/cerebra-lines";
 import {
   EMPTY_PROFILE,
   flowFor,
@@ -38,6 +40,7 @@ import {
 } from "./hooks";
 import { onboardingService } from "./onboarding.service";
 import { type OnboardingData } from "./types";
+import { classify } from "./utils/contract-input";
 import { sectorGroupOf } from "./utils/sector";
 import { useOnboardingAbandonment } from "@/features/onboarding/hooks/use-onboarding-abandonment";
 import {
@@ -212,6 +215,7 @@ export function OnboardingFlow() {
       seededRef.current = true;
       setProfile((p) => ({
         ...p,
+        firstName: formData.firstName ?? p.firstName,
         name: formData.organizationName ?? p.name,
         website: formData.websiteUrl ?? p.website,
         sector: formData.sector ?? p.sector,
@@ -223,6 +227,7 @@ export function OnboardingFlow() {
   const persistProfile = React.useCallback(
     (p: ProjectProfile) => {
       setData({
+        firstName: p.firstName,
         organizationName: p.name,
         websiteUrl: p.website,
         sector: p.sector,
@@ -460,78 +465,107 @@ export function OnboardingFlow() {
     at === "dns" || (at === "contract" && allContracts.length === 0);
   const continueDisabled = busy || (at === "project" && !profileReady(profile));
 
+  // Cerebra's scripted line for the current step + the answers so far. The contract label comes
+  // from the same local classifier the project step shows; the DNS verify-state and the chosen
+  // plan live inside their own steps, so those lines fall back to the role-aware default.
+  const contractGuess = classify(profile.contract);
+  const cerebraSays = cerebraLine({
+    step: at,
+    profile,
+    contractLabel:
+      contractGuess.form === "empty" || contractGuess.form === "unknown"
+        ? null
+        : contractGuess.label,
+    role,
+    handoffTo: handoffSentTo,
+    picked: allContracts[0]?.name ?? null,
+  });
+
   // An invited developer runs the scoped handoff flow instead of the owner journey above.
   if (handoffMode) return <HandoffFlow />;
 
   return (
-    <GuidedShell
-      stepIndex={stepIndex}
-      flow={flow}
-      // The plan step owns its own Back / Skip / Continue, so the shell footer is omitted for it.
-      footer={
-        at === "plan" ? undefined : (
-          <>
-            {stepIndex > 0 ? (
-              <Button variant="secondary" onClick={handleBack} disabled={busy}>
-                Back
+    <>
+      <GuidedShell
+        stepIndex={stepIndex}
+        flow={flow}
+        // The plan step owns its own Back / Skip / Continue, so the shell footer is omitted for it.
+        footer={
+          at === "plan" ? undefined : (
+            <>
+              {stepIndex > 0 ? (
+                <Button
+                  variant="secondary"
+                  onClick={handleBack}
+                  disabled={busy}
+                >
+                  Back
+                </Button>
+              ) : (
+                <span />
+              )}
+              <Button
+                variant={skipping ? "secondary" : "default"}
+                onClick={handleContinue}
+                disabled={continueDisabled}
+              >
+                {busy ? "Saving…" : skipping ? "Skip for now" : "Continue"}
+                {!busy && !skipping ? (
+                  <ArrowRightIcon
+                    aria-hidden="true"
+                    className="ml-1.5 h-4 w-4"
+                  />
+                ) : null}
               </Button>
-            ) : (
-              <span />
-            )}
-            <Button
-              variant={skipping ? "secondary" : "default"}
-              onClick={handleContinue}
-              disabled={continueDisabled}
-            >
-              {busy ? "Saving…" : skipping ? "Skip for now" : "Continue"}
-              {!busy && !skipping ? (
-                <ArrowRightIcon aria-hidden="true" className="ml-1.5 h-4 w-4" />
-              ) : null}
-            </Button>
-          </>
-        )
-      }
-    >
-      {at === "project" && (
-        <StepProject
-          value={profile}
-          onChange={setProfile}
-          onEnter={handleContinue}
-        />
-      )}
-      {at === "technical" && (
-        <StepTechnical
-          role={role}
-          onRole={chooseRole}
-          onHandoffSent={setHandoffSentTo}
-        />
-      )}
-      {at === "dns" && (
-        <StepDns
-          handingOver={role === "operator"}
-          handoffSent={Boolean(handoffSentTo)}
-          website={profile.website}
-        />
-      )}
-      {at === "contract" && (
-        <StepContract
-          value={profile.contract}
-          onChange={(v) => setProfile((p) => ({ ...p, contract: v }))}
-          chain={resolvedChain ?? profile.chains[0] ?? DEFAULT_CHAIN}
-          onChain={setResolvedChain}
-          manual={manual}
-          onManual={setManual}
-          chains={profile.chains}
-        />
-      )}
-      {at === "plan" && (
-        <StepPlan
-          onBack={handleBack}
-          onCompleted={(plan) =>
-            handleOnboardingComplete({ selectedPlan: plan })
-          }
-        />
-      )}
-    </GuidedShell>
+            </>
+          )
+        }
+      >
+        {at === "project" && (
+          <StepProject
+            value={profile}
+            onChange={setProfile}
+            onEnter={handleContinue}
+          />
+        )}
+        {at === "technical" && (
+          <StepTechnical
+            role={role}
+            onRole={chooseRole}
+            onHandoffSent={setHandoffSentTo}
+          />
+        )}
+        {at === "dns" && (
+          <StepDns
+            handingOver={role === "operator"}
+            handoffSent={Boolean(handoffSentTo)}
+            website={profile.website}
+          />
+        )}
+        {at === "contract" && (
+          <StepContract
+            value={profile.contract}
+            onChange={(v) => setProfile((p) => ({ ...p, contract: v }))}
+            chain={resolvedChain ?? profile.chains[0] ?? DEFAULT_CHAIN}
+            onChain={setResolvedChain}
+            manual={manual}
+            onManual={setManual}
+            chains={profile.chains}
+          />
+        )}
+        {at === "plan" && (
+          <StepPlan
+            onBack={handleBack}
+            onCompleted={(plan) =>
+              handleOnboardingComplete({ selectedPlan: plan })
+            }
+          />
+        )}
+      </GuidedShell>
+      <CerebraGuide
+        line={cerebraSays}
+        cheer={at === "project" && profileReady(profile)}
+      />
+    </>
   );
 }

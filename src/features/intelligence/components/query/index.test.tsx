@@ -344,7 +344,10 @@ describe("QueryTab", () => {
     expect(openEmailComposer).toHaveBeenCalledWith({
       email: "holder@example.com",
     });
-  });
+    // 15s, not vitest's 5s default: this mounts the real (large) QueryTab and
+    // drives an async run + render, which can exceed 5s under full parallel
+    // suite load (CI/pre-push), where it flaked on timeout.
+  }, 15000);
 
   it("saves a report from query results through the backend service", async () => {
     const { setActiveTab } = renderQueryTab();
@@ -370,7 +373,10 @@ describe("QueryTab", () => {
 
     expect(mocks.toast.success).toHaveBeenCalledWith("Report saved");
     expect(setActiveTab).toHaveBeenCalledWith("reports");
-  });
+    // 15s, not vitest's 5s default: mounts the real QueryTab and drives an
+    // async run + save flow, which can exceed 5s under full parallel suite
+    // load (CI/pre-push), where it flaked on timeout.
+  }, 15000);
 
   it("does not render the report view inline - reports live in the Reports tab", async () => {
     renderQueryTab();

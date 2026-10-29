@@ -84,7 +84,10 @@ describe("SignInForm", () => {
       expect(push).toHaveBeenCalledWith(PRIVATE_ROUTES.DASHBOARD);
     });
     expect(toast.success).toHaveBeenCalledWith("Successfully signed in!");
-  });
+    // 15s, not vitest's 5s default: this mounts the real form and waits on an
+    // async sign-in + redirect, which can exceed 5s under full parallel suite
+    // load (CI/pre-push), where it flaked on timeout.
+  }, 15000);
 
   it("switches to the code-entry view on a twoFactorRedirect response", async () => {
     await reachTwoFactorChallenge();

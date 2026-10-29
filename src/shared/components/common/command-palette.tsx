@@ -141,9 +141,9 @@ const NAVIGATE_OPTIONS: PaletteOption[] = [
   },
   {
     id: "nav-automations",
-    label: "Automations",
+    label: "Loops",
     group: "navigate",
-    keywords: ["workflow", "triggers", "plays"],
+    keywords: ["workflow", "triggers", "plays", "automations", "loops"],
     icon: <BoltIcon className="h-4 w-4" aria-hidden="true" />,
     data: { kind: "navigate", href: PRIVATE_ROUTES.AUTOMATIONS },
   },

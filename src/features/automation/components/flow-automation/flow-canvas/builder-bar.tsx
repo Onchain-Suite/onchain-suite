@@ -57,14 +57,14 @@ export function BuilderBar(p: BuilderBarProps) {
     <div className="ab-bar">
       <Link href="/automations" className="ab-back">
         <ArrowLeftIcon aria-hidden="true" className="h-4 w-4" />
-        Automations
+        Loops
       </Link>
       <span className="ab-sep" />
       <input
         className="ab-name"
         value={p.name}
-        aria-label="Automation name"
-        placeholder="Untitled automation"
+        aria-label="Loop name"
+        placeholder="Untitled Loop"
         title={p.name}
         style={{ width: `${Math.min(34, Math.max(12, p.name.length + 2))}ch` }}
         onChange={(e) => p.onName(e.target.value)}

@@ -22,10 +22,18 @@ const INCLUDED = [
   "Intelligence MCP, SDK, REST API and webhooks",
 ];
 
-function Option({ contacts, label }: { contacts: number; label?: string }) {
+function Option({
+  contacts,
+  label,
+  onrampFree,
+}: {
+  contacts: number;
+  label?: string;
+  onrampFree?: boolean;
+}) {
   const level = levelFor(contacts);
   const a = allowances(contacts);
-  const onramp = onrampFor(level);
+  const onramp = onrampFree ? "free" : onrampFor(level);
   return (
     <div className="rp-bk-plan">
       {label && <p className="rp-bk-plan-k">{label}</p>}
@@ -61,6 +69,7 @@ function Option({ contacts, label }: { contacts: number; label?: string }) {
         {onramp === "optional" &&
           `Onramp with our team: ${usd(ONRAMP.usdPerMonth)} a month for ${ONRAMP.months} months.`}
         {onramp === "included" && "Onramp and migration included."}
+        {onramp === "free" && "Onramp with our team, free as partners."}
       </p>
     </div>
   );
@@ -72,7 +81,12 @@ export function PricingSheet({ pricing }: { pricing: StrategyPricing }) {
     <div className="rp-bk-pricing">
       <div className="rp-bk-plans">
         {pricing.options.map((o) => (
-          <Option key={o.contacts} contacts={o.contacts} label={o.label} />
+          <Option
+            key={o.contacts}
+            contacts={o.contacts}
+            label={o.label}
+            onrampFree={pricing.onrampFree}
+          />
         ))}
       </div>
       {pricing.note && <p className="rp-bk-note">{pricing.note}</p>}

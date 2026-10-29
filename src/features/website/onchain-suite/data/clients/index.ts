@@ -23,6 +23,8 @@ export interface StrategyPricing {
   options: { contacts: number; label?: string }[];
   /** One line under the cards, e.g. what the contact counts are based on. */
   note?: string;
+  /** Our Onramp is given free, as partners: each card says so in place of its usual Onramp line. */
+  onrampFree?: boolean;
 }
 
 export const CLIENT_STRATEGIES: ClientStrategy[] = [
@@ -30,14 +32,15 @@ export const CLIENT_STRATEGIES: ClientStrategy[] = [
     slug: "yauga",
     chapter: YAUGA,
     preparedFor: "the Yauga team",
-    client: { name: "Yauga", logo: "/site/logos/yauga.jpg" },
+    client: { name: "Yauga", logo: "/site/logos/yauga-mark-ink.svg" },
     pricing: {
       // The two sizes the strategy itself names in "Running it on OnchainSuite".
       options: [
         { contacts: 2_500, label: "To start" },
         { contacts: 25_000, label: "As cities grow" },
       ],
-      note: "The plan follows the contacts Yauga imports, so the level moves up as cities launch.",
+      note: "Yauga is on pay as you go today, and these are the plans it moves to as cities launch. As partners, our Onramp is free, so Yauga has our team to work with.",
+      onrampFree: true,
     },
   },
 ];

@@ -59,6 +59,7 @@ import {
 import { AudienceStep } from "@/features/campaigns/components/campaign-form/audience-step";
 import { ConfirmationPage } from "@/features/campaigns/components/campaign-form/campaign-confirmation";
 import { DiscordMessageStep } from "@/features/campaigns/components/campaign-form/discord-message-step";
+import { GoalPicker } from "@/features/campaigns/components/campaign-form/goal-picker";
 import {
   InAppMessageStep,
   InAppPreview,
@@ -68,6 +69,7 @@ import { TelegramMessageStep } from "@/features/campaigns/components/campaign-fo
 import { TemplateStep } from "@/features/campaigns/components/campaign-form/template-step";
 import { WizardStepRail } from "@/features/campaigns/components/campaign-form/wizard-step-rail";
 import { WizardSummary } from "@/features/campaigns/components/campaign-form/wizard-summary";
+import { useCampaignGoal } from "@/features/campaigns/hooks/use-campaign-goal";
 import { useInAppReadiness } from "@/features/campaigns/hooks/use-inapp-readiness";
 import {
   ALL_CONTACTS_SELECTION_ID,
@@ -621,6 +623,11 @@ function CampaignPreviewStep({
     return campaignId && campaignId.trim().length > 0 ? campaignId.trim() : "";
   }, [campaignId]);
 
+  // The campaign's conversion goal (saved to its own endpoint, not the form).
+  const { goalId, setGoal } = useCampaignGoal(
+    normalizedCampaignId || undefined
+  );
+
   const getRenderRequest = () => {
     const values = form.getValues();
     const subject = values.emailSubject?.trim();
@@ -846,6 +853,20 @@ function CampaignPreviewStep({
                 launch campaigns for this organization - ask an admin to send,
                 or check your sender verification in Settings.
               </p>
+            </div>
+          ) : null}
+
+          {/* Conversion goal: what counts as success after the open, measured
+              on-chain within the goal's window. Saved to the campaign's goals
+              endpoint, independent of the form draft. */}
+          {normalizedCampaignId ? (
+            <div>
+              <div className="text-sm font-medium text-foreground">
+                Conversion goal
+              </div>
+              <div className="mt-3">
+                <GoalPicker value={goalId} onChange={setGoal} />
+              </div>
             </div>
           ) : null}
 

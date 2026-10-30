@@ -10,7 +10,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** A published analytics dashboard: read-only, outside the app shell. */
+/**
+ * A published analytics dashboard: read-only, outside the app shell. Branded
+ * from the token's workspace (resolved in the public read), so it works on the
+ * single `share.onchainsuite.com` host with no per-org subdomain.
+ */
 export default async function Page({
   params,
 }: {

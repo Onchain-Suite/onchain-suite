@@ -12,7 +12,7 @@ import type {
   UpdateDashboardBody,
 } from "./contracts/dashboards";
 import type { AnalyticsPeriod } from "./contracts/org-analytics";
-import { composeCharts, type SnapshotChart } from "./utils/dashboard-snapshot";
+import { composeCharts } from "./utils/compose-charts";
 import {
   createDashboard,
   type DashboardsState,
@@ -27,10 +27,11 @@ import {
   withBuiltIns,
 } from "./utils/dashboards";
 
-/** Period plus the frozen per-chart data sent when publishing a link. */
-export interface PublishSnapshot {
+/** What a link publishes: the period and the chart specs. The backend computes
+ *  each chart's data live at read time; no numbers are sent or stored. */
+export interface PublishPayload {
   period: AnalyticsPeriod;
-  charts: SnapshotChart[];
+  charts: ChartSpec[];
 }
 
 export type * from "./contracts/dashboards";
@@ -55,11 +56,11 @@ export interface DashboardsApi {
   links(id: string): Promise<PublishedLink[]>;
   /** Every live link in the workspace (the Getting started checklist). */
   allLinks(): Promise<PublishedLink[]>;
-  /** `snapshot` freezes the current numbers into the link (server mode only). */
+  /** `payload` carries the specs + period to publish (server mode only). */
   publish(
     id: string,
     title: string,
-    snapshot?: PublishSnapshot
+    payload?: PublishPayload
   ): Promise<PublishedLink>;
   revoke(token: string): Promise<void>;
   /** A published dashboard's name, branding and charts, as its link shows them. */
@@ -236,10 +237,10 @@ export const httpDashboardsApi: DashboardsApi = {
     const r = await apiClient.get("/analytics/links", { headers: headers() });
     return unwrap<PublishedLink[]>(r.data);
   },
-  async publish(id, title, snapshot) {
+  async publish(id, title, payload) {
     const r = await apiClient.post(
       `/analytics/dashboards/${encodeURIComponent(id)}/links`,
-      { title, period: snapshot?.period, charts: snapshot?.charts ?? [] },
+      { title, period: payload?.period, charts: payload?.charts ?? [] },
       { headers: headers() }
     );
     return unwrap<PublishedLink>(r.data);

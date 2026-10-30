@@ -10,7 +10,7 @@ import type {
   UpdateDashboardBody,
 } from "../contracts/dashboards";
 import { dashboardsApi } from "../dashboards.service";
-import { buildDashboardSnapshot } from "../utils/dashboard-snapshot";
+import { composeCharts } from "../utils/compose-charts";
 
 const root = () =>
   ["analytics", "dashboards", getSelectedOrganizationId() ?? ""] as const;
@@ -76,23 +76,23 @@ export function useDashboardActions() {
     onSuccess: refresh,
   });
   const publish = useMutation({
-    // In server mode, freeze the dashboard's current numbers into the link so
-    // an anonymous viewer sees them without any org access; local links draw live.
-    mutationFn: async ({
+    // In server mode, publish the specs + period; the backend computes each
+    // chart live for anyone who opens the link (no org access needed). Local
+    // links just draw live in this browser.
+    mutationFn: ({
       dashboard,
       title,
     }: {
       dashboard: Dashboard;
       title: string;
-    }) => {
-      const snapshot = dashboardsApi.local
-        ? undefined
-        : {
-            period: dashboard.period,
-            charts: await buildDashboardSnapshot(qc, dashboard),
-          };
-      return dashboardsApi.publish(dashboard.id, title, snapshot);
-    },
+    }) =>
+      dashboardsApi.publish(
+        dashboard.id,
+        title,
+        dashboardsApi.local
+          ? undefined
+          : { period: dashboard.period, charts: composeCharts(dashboard) }
+      ),
     onSuccess: refresh,
   });
   const revoke = useMutation({

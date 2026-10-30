@@ -56,7 +56,7 @@ export function PublishDialog({
         <DialogHeader>
           <DialogTitle>Publish this dashboard</DialogTitle>
           <DialogDescription>
-            {what}, as a snapshot of the numbers as they are now.
+            {what}, recomputed live every time the link opens.
           </DialogDescription>
         </DialogHeader>
         <input
@@ -69,7 +69,7 @@ export function PublishDialog({
           <ExclamationTriangleIcon aria-hidden="true" />
           {local
             ? "Sharing needs the backend, which isn't live yet. Links you make now open only in this browser, for people signed in to this workspace."
-            : "Anyone with the link can read it without signing in. It shows a snapshot of totals, never individual contacts. Republish to refresh the numbers."}
+            : "Anyone with the link can read it without signing in. It shows live totals, never individual contacts."}
         </p>
         {links.data && links.data.length > 0 ? (
           <ul className="an-pub__links" aria-label="Live links">

@@ -40,6 +40,8 @@ import {
 } from "../utils";
 import { stageForProfile } from "../utils/lifecycle";
 import { ApplyTagsPopover } from "./apply-tags-popover";
+import { ContactActivityPanel } from "./contact-activity-panel";
+import { ContactHealthPanel } from "./contact-health-panel";
 import {
   AppIconCluster,
   ChainIconCluster,
@@ -271,6 +273,10 @@ export function ContactSlideOver({
                   </p>
                 </div>
               </div>
+
+              <ContactHealthPanel profileId={profile.id} open={open} />
+
+              <ContactActivityPanel profileId={profile.id} open={open} />
 
               {derived.walletFull ? (
                 <div>

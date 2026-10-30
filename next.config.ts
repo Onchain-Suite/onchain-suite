@@ -117,6 +117,15 @@ const appSecurityHeaders = [
   },
 ];
 
+/**
+ * The dedicated public hosts for published forms and dashboards (Option 2: one
+ * fixed host each, not a per-org wildcard). A bare `/<token>` on these hosts is
+ * rewritten to the `/f` or `/d` route; every other host (the app) is untouched.
+ */
+const FORMS_HOST = process.env.NEXT_PUBLIC_FORMS_HOST ?? "forms.onchainsuite.com";
+const DASHBOARD_HOST =
+  process.env.NEXT_PUBLIC_DASHBOARD_HOST ?? "dashboard.onchainsuite.com";
+
 const hostedFormSecurityHeaders = [
   {
     key: "Content-Security-Policy-Report-Only",
@@ -168,11 +177,23 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
-      // App-wide baseline. The negative lookahead excludes /f/ so the hosted
-      // form keeps its own stricter policy below and no header is set twice.
-      { source: "/((?!f/).*)", headers: appSecurityHeaders },
-      // The public hosted-form pages keep their tighter, form-specific policy.
+      // App-wide baseline. The negative lookahead excludes /f/; `missing` host
+      // excludes the dedicated forms host (which gets the form policy on every
+      // path below) so no header is ever set twice.
+      {
+        source: "/((?!f/).*)",
+        missing: [{ type: "host", value: FORMS_HOST }],
+        headers: appSecurityHeaders,
+      },
+      // The public hosted-form pages keep their tighter, form-specific policy -
+      // at /f/* on any host, and on every path of the dedicated forms host
+      // (where a bare /<token> renders a form).
       { source: "/f/:path*", headers: hostedFormSecurityHeaders },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: FORMS_HOST }],
+        headers: hostedFormSecurityHeaders,
+      },
     ];
   },
   async redirects() {
@@ -205,6 +226,19 @@ const nextConfig: NextConfig = {
         {
           source: "/ws/inbox/:path*",
           destination: "/api/ws/inbox",
+        },
+        // Dedicated public subdomains: a bare /<token> maps to the /f or /d
+        // route. Scoped by Host, so the app host is never touched. /f/* and
+        // /d/* keep working directly (two segments don't match /:token).
+        {
+          source: "/:token",
+          has: [{ type: "host", value: FORMS_HOST }],
+          destination: "/f/:token",
+        },
+        {
+          source: "/:token",
+          has: [{ type: "host", value: DASHBOARD_HOST }],
+          destination: "/d/:token",
         },
       ],
       fallback: [

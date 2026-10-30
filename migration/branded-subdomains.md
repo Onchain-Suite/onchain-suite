@@ -1,74 +1,48 @@
-# Per-org subdomains for published Forms & Analytics (Dune / TypeForm style)
+# Branded publishing on `share.onchainsuite.com` (Option 2)
 
-Goal: a workspace's published **forms** (`/f/[token]`) and **analytics
-dashboards** (`/d/[token]`) are served on that workspace's own OnchainSuite
-subdomain - `acme.onchainsuite.com/d/<token>` - branded OnchainSuite, the way
-Dune hosts `dune.com/<workspace>` and TypeForm hosts `form.typeform.com`.
+How OnchainSuite serves published **dashboards** (`/d/<token>`) and hosted
+**forms** (`/f/<token>`) to the public: one fixed, branded host, like Dune's
+`dune.com/embeds/...` or a Typeform `form.typeform.com/to/<id>`.
 
-Decision (confirmed): **per-org subdomains** (`<workspace>.onchainsuite.com`),
-not a single shared host and not custom per-org domains (that can be a later Pro
-add-on).
+This is **Option 2**: a single subdomain, workspace read from the TOKEN (not the
+host). We rejected Option 1 (per-org `acme.onchainsuite.com` wildcard) because a
+wildcard certificate needs DNS-01, which forces delegating the whole
+`onchainsuite.com` zone to Vercel's nameservers - moving every record
+(`api` -> the DigitalOcean droplet, mail MX/SPF/DKIM, etc.) off GoDaddy. Option 2
+needs one CNAME and touches nothing else.
 
-## Done in this PR (frontend)
+## How it works
 
-1. **Branded chrome.** `PublishedFooter` (`src/features/common/branding/`) - a
-   "Published with OnchainSuite" badge (icon + link to the marketing site) on
-   both `/f/[token]` and `/d/[token]`. Replaces the plain-text footers.
-2. **Subdomain middleware.** `src/middleware.ts`, matched to `/d` and `/f`
-   **only** (never the app or its API). It extracts the workspace slug from the
-   `Host` header and forwards it as the `x-ocs-workspace` request header.
-   - **Inert until configured:** does nothing unless `NEXT_PUBLIC_PUBLISHING_DOMAIN`
-     is set, so local dev and Vercel previews are unaffected.
-   - Apex and reserved subdomains (`www`, `app`, `api`, `admin`, …) are never
-     treated as workspaces. Pure `resolveWorkspaceFromHost(host, domain)` is
-     unit-tested.
+- A published link is `https://share.onchainsuite.com/d/<token>` (dashboard) or
+  `/f/<token>` (form). The token is globally unique and maps to its org on the
+  backend, so **no workspace is needed in the host or the path** - the page is
+  branded from the token's org.
+- **Dashboards**: `GET /public/dashboards/<token>` returns `{ title,
+  workspaceName, period, computedAt, charts: [{ spec, data }] }`. `data` was
+  frozen when the author published (they have org access; the public read does
+  not and needs none). The page shows `"<workspaceName> · dashboard"` and
+  renders the snapshot. There is no server-side metric compute and no wildcard.
+- **Forms**: `GET /public/forms/<token>` already returns the form config; the
+  page renders it in the branded shell with the "Published with OnchainSuite"
+  footer.
+- No Next.js middleware is involved. Everything is served by the same Vercel
+  deployment under one host.
 
-## Still needed to switch it on
+## Finishing setup (owner)
 
-### 1. DNS + Vercel (you)
-- Wildcard DNS: `*.onchainsuite.com` -> the Vercel app (CNAME/ALIAS), alongside
-  the existing `app`/apex records.
-- Add the wildcard domain to the Vercel project (Vercel issues the wildcard TLS
-  cert). The app already builds on `main`/the deploy branch; no separate deploy.
-- Set env on the frontend: `NEXT_PUBLIC_PUBLISHING_DOMAIN=onchainsuite.com`.
-  This alone turns the middleware on; nothing else routes until the backend
-  pieces below land, so it is safe to set early.
+1. **GoDaddy** - add ONE record to `onchainsuite.com`:
+   `CNAME  share  ->  cname.vercel-dns.com`  (TTL 600). Nothing else changes;
+   `api`, `www`, mail and the rest stay exactly as they are.
+2. **Vercel** - Project -> Settings -> Domains -> add `share.onchainsuite.com`.
+   Vercel issues the certificate over the CNAME (DNS-01 is not required for a
+   single host). Wait for "Valid Configuration".
+3. **Vercel env** (Production): set `NEXT_PUBLIC_ANALYTICS_DASHBOARDS_API=1` so
+   publishing/reading links goes through the backend rather than this browser's
+   localStorage.
+4. **Backend** (DigitalOcean droplet, `ocs-server`): set
+   `ANALYTICS_PUBLIC_URL=https://share.onchainsuite.com` so the link URLs the API
+   returns use the share host. Deploy the publish-persistence change (manual
+   deploy - merged is not live).
 
-### 2. Backend
-- **Publish persistence** (replaces the current browser `localStorage` store in
-  `analytics/dashboards.service.ts`, per `migration/analytics-api-draft.md`):
-  - `POST /analytics/dashboards/:id/publish` -> `{ token }` (128-bit random);
-    store `{ token, orgId, title, specs, lanes, createdAt }`, owner holds a
-    `manageKey` (server keeps only its hash).
-  - `GET /analytics/published/:token` -> the dashboard's title + chart specs,
-    **aggregate only** (no wallet addresses, no contacts). Live-recomputed, not
-    a snapshot. 404 for revoked/never-existed (identical, on purpose).
-  - `DELETE /analytics/published/:token` (with the manage key) -> revoke.
-  - Forms already have a public read at `/f/[token]`; add the same
-    workspace-scoping below.
-- **Workspace resolution** (new, what the subdomain needs):
-  - Each org gets a unique **`workspaceSlug`** (set at onboarding or in
-    Settings; validate against the reserved list). This is the subdomain label.
-  - `GET /organization/by-workspace/:slug` -> `{ orgId, name, branding }` (public,
-    cacheable) so a page can resolve `acme` -> the org and brand the page as
-    "Acme".
-  - When a published token is read with a workspace in context, assert the
-    token belongs to that workspace (so `acme.onchainsuite.com/d/<token>` can
-    only open Acme's dashboards).
-
-### 3. Frontend wiring (once the above exist)
-- `/d/[token]` and `/f/[token]` read the `x-ocs-workspace` header (set by the
-  middleware), call `GET /organization/by-workspace/:slug`, and:
-  - scope the token read to that workspace (reject cross-workspace tokens);
-  - pass the workspace name/branding to `PublishedFooter` / the page header so
-    the page reads as that workspace's, still "Published with OnchainSuite".
-- Optional: `acme.onchainsuite.com/` (bare) -> a small public index of that
-  workspace's published dashboards (Dune-style), behind the same resolution.
-
-## Security notes
-- Published content is public, read-only, aggregate numbers only - the token is
-  the credential; the subdomain only scopes + brands.
-- The middleware never runs on the app/API (matcher is `/d`,`/f` only), so the
-  authenticated app is unaffected whether or not publishing is enabled.
-- Reserved subdomains are rejected as workspaces; `workspaceSlug` validation must
-  reject them too at assignment time.
+Until step 1-2 land, links still work at the app host (`/d/<token>`,
+`/f/<token>`); the share subdomain is only a nicer public face.

@@ -2,17 +2,22 @@ import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import type {
+  ChartData,
   ChartSpec,
   CreateDashboardBody,
   Dashboard,
   DashboardSummary,
+  PublicDashboardView,
   PublishedLink,
   UpdateDashboardBody,
 } from "./contracts/dashboards";
+import type { AnalyticsPeriod } from "./contracts/org-analytics";
+import { composeCharts, type SnapshotChart } from "./utils/dashboard-snapshot";
 import {
   createDashboard,
   type DashboardsState,
   deleteDashboard,
+  describeChart,
   duplicateDashboard,
   parseState,
   publish,
@@ -21,6 +26,12 @@ import {
   updateDashboard,
   withBuiltIns,
 } from "./utils/dashboards";
+
+/** Period plus the frozen per-chart data sent when publishing a link. */
+export interface PublishSnapshot {
+  period: AnalyticsPeriod;
+  charts: SnapshotChart[];
+}
 
 export type * from "./contracts/dashboards";
 
@@ -44,12 +55,15 @@ export interface DashboardsApi {
   links(id: string): Promise<PublishedLink[]>;
   /** Every live link in the workspace (the Getting started checklist). */
   allLinks(): Promise<PublishedLink[]>;
-  publish(id: string, title: string): Promise<PublishedLink>;
+  /** `snapshot` freezes the current numbers into the link (server mode only). */
+  publish(
+    id: string,
+    title: string,
+    snapshot?: PublishSnapshot
+  ): Promise<PublishedLink>;
   revoke(token: string): Promise<void>;
-  /** A published dashboard's name and charts, as its link shows them. */
-  published(
-    token: string
-  ): Promise<{ title: string; dashboard: Dashboard } | null>;
+  /** A published dashboard's name, branding and charts, as its link shows them. */
+  published(token: string): Promise<PublicDashboardView | null>;
 }
 
 /* ---------------- in this browser ---------------- */
@@ -123,6 +137,7 @@ export const localDashboardsApi: DashboardsApi = {
     return read().links;
   },
   async publish(id, title) {
+    // Local links carry no snapshot: they draw live, in this browser only.
     const r = publish(read(), id, title, window.location.origin);
     write(r.state);
     return r.link;
@@ -141,7 +156,18 @@ export const localDashboardsApi: DashboardsApi = {
       const link = state.links.find((l) => l.token === token);
       const dashboard =
         link && withBuiltIns(state).find((d) => d.id === link.dashboardId);
-      return link && dashboard ? { title: link.title, dashboard } : null;
+      if (!link || !dashboard) return null;
+      return {
+        title: link.title,
+        workspaceName: null,
+        period: dashboard.period,
+        computedAt: null,
+        charts: composeCharts(dashboard).map((spec) => ({
+          spec,
+          data: null,
+          meta: describeChart(spec),
+        })),
+      };
     } catch {
       return null;
     }
@@ -210,10 +236,10 @@ export const httpDashboardsApi: DashboardsApi = {
     const r = await apiClient.get("/analytics/links", { headers: headers() });
     return unwrap<PublishedLink[]>(r.data);
   },
-  async publish(id, title) {
+  async publish(id, title, snapshot) {
     const r = await apiClient.post(
       `/analytics/dashboards/${encodeURIComponent(id)}/links`,
-      { title },
+      { title, period: snapshot?.period, charts: snapshot?.charts ?? [] },
       { headers: headers() }
     );
     return unwrap<PublishedLink>(r.data);
@@ -224,31 +250,47 @@ export const httpDashboardsApi: DashboardsApi = {
     });
   },
   async published(token) {
+    // Public, unauthenticated read: the token is the only credential.
     const r = await apiClient.get(
       `/public/dashboards/${encodeURIComponent(token)}`
     );
     const body = unwrap<{
       title: string;
-      period: Dashboard["period"];
-      charts: Array<{ spec: ChartSpec }>;
+      workspaceName?: string;
+      period: AnalyticsPeriod;
+      computedAt?: string;
+      charts: Array<{ spec: ChartSpec; data: ChartData }>;
     }>(r.data);
     return {
       title: body.title,
-      dashboard: {
-        id: token,
-        name: body.title,
-        builtIn: false,
-        chartCount: body.charts.length,
-        createdAt: null,
-        updatedAt: null,
-        period: body.period,
-        charts: body.charts.map((c) => c.spec),
-      },
+      workspaceName: body.workspaceName ?? null,
+      period: body.period,
+      computedAt: body.computedAt ?? null,
+      charts: body.charts.map((c) => ({
+        spec: c.spec,
+        data: c.data,
+        meta: describeChart(c.spec),
+      })),
     };
   },
 };
 
+/**
+ * Dashboards are the author's own working set, so they stay in this browser;
+ * only PUBLISHING (and reading a published link) needs the backend. When the
+ * endpoints are live (`NEXT_PUBLIC_ANALYTICS_DASHBOARDS_API=1`) the publish,
+ * revoke, links and public-read methods go server-side while create/edit/delete
+ * stay local - so a share link works for anyone, not just this browser.
+ */
 export const dashboardsApi: DashboardsApi =
   process.env.NEXT_PUBLIC_ANALYTICS_DASHBOARDS_API === "1"
-    ? httpDashboardsApi
+    ? {
+        ...localDashboardsApi,
+        local: false,
+        links: httpDashboardsApi.links,
+        allLinks: httpDashboardsApi.allLinks,
+        publish: httpDashboardsApi.publish,
+        revoke: httpDashboardsApi.revoke,
+        published: httpDashboardsApi.published,
+      }
     : localDashboardsApi;

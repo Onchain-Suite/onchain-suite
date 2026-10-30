@@ -105,9 +105,10 @@ export interface PublishedLink {
 }
 
 /**
- * `GET /public/dashboards/:token`: what an anonymous viewer gets. The server
- * computes every chart's data so the page needs no org access; it holds no
- * contact-level rows, only the aggregates the charts draw.
+ * `GET /public/dashboards/:token`: what an anonymous viewer gets. Each chart's
+ * data was snapshotted (frozen) when the link was published, so the page needs
+ * no org access; it holds no contact-level rows, only the aggregates the charts
+ * draw. `computedAt` is when the snapshot was taken.
  */
 export interface PublicDashboard {
   title: string;
@@ -115,6 +116,22 @@ export interface PublicDashboard {
   period: AnalyticsPeriod;
   computedAt: string;
   charts: Array<{ spec: ChartSpec; data: ChartData }>;
+}
+
+/**
+ * What `dashboards.service.published()` hands the public page. It mirrors the
+ * backend `PublicDashboard` read, but `data` is nullable: in local (no-backend)
+ * mode the charts carry no snapshot and the page draws them live instead, so
+ * `workspaceName` and `computedAt` are null too.
+ */
+export interface PublicDashboardView {
+  title: string;
+  /** The publishing workspace's name, for branding; null in local mode. */
+  workspaceName: string | null;
+  period: AnalyticsPeriod;
+  /** When the snapshot was taken (server mode), or null when drawn live. */
+  computedAt: string | null;
+  charts: Array<{ spec: ChartSpec; data: ChartData | null; meta?: string }>;
 }
 
 /** Chart-ready data: rows keyed by a category plus one key per series. */

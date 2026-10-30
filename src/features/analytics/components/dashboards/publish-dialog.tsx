@@ -56,7 +56,7 @@ export function PublishDialog({
         <DialogHeader>
           <DialogTitle>Publish this dashboard</DialogTitle>
           <DialogDescription>
-            {what}, recomputed every time the link opens.
+            {what}, as a snapshot of the numbers as they are now.
           </DialogDescription>
         </DialogHeader>
         <input
@@ -69,7 +69,7 @@ export function PublishDialog({
           <ExclamationTriangleIcon aria-hidden="true" />
           {local
             ? "Sharing needs the backend, which isn't live yet. Links you make now open only in this browser, for people signed in to this workspace."
-            : "Anyone with the link can read it without signing in. It shows totals only, never individual contacts."}
+            : "Anyone with the link can read it without signing in. It shows a snapshot of totals, never individual contacts. Republish to refresh the numbers."}
         </p>
         {links.data && links.data.length > 0 ? (
           <ul className="an-pub__links" aria-label="Live links">
@@ -105,7 +105,7 @@ export function PublishDialog({
             title={nothing ? "Add a chart first" : undefined}
             onClick={() =>
               publish.mutate(
-                { id: dashboard.id, title },
+                { dashboard, title },
                 {
                   onSuccess: (link) => {
                     copy(link.url);

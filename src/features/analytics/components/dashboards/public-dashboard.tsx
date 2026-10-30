@@ -4,14 +4,24 @@ import { useQuery } from "@tanstack/react-query";
 
 import "../analytics.css";
 import { dashboardsApi } from "../../dashboards.service";
-import { BUILT_IN_LAYOUTS } from "../../data/builtin-layouts";
-import { describeChart, isBuiltIn } from "../../utils/dashboards";
 import { MetricCard } from "../metric-card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
+const asOf = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? null
+    : d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+};
+
 /**
- * A published dashboard, read-only and without the app shell. Built-in tabs
- * show their charts; custom dashboards show their own.
+ * A published dashboard, read-only and without the app shell. Each chart draws
+ * the data frozen into the link when it was published (server mode), or live
+ * (local mode). Branded with the publishing workspace's name.
  */
 export function PublicDashboard({ token }: { token: string }) {
   const q = useQuery({
@@ -42,35 +52,23 @@ export function PublicDashboard({ token }: { token: string }) {
     );
   }
 
-  const { title, dashboard } = q.data;
-  const builtInCharts = isBuiltIn(dashboard.id)
-    ? BUILT_IN_LAYOUTS[dashboard.id].flatMap((c) =>
-        c.kind === "metric"
-          ? [
-              {
-                id: c.title,
-                title: c.title,
-                metric: c.metric,
-                chart: c.chart,
-                meta: c.meta,
-              },
-            ]
-          : []
-      )
-    : [];
-  const charts = [
-    ...builtInCharts,
-    ...dashboard.charts.map((c) => ({ ...c, meta: describeChart(c) })),
-  ];
+  const { title, workspaceName, computedAt, period, charts } = q.data;
+  const snapshotAt = computedAt ? asOf(computedAt) : null;
 
   return (
     <div className="an-public">
       <header>
-        <div className="an-public__eyebrow">OnchainSuite dashboard</div>
+        <div className="an-public__eyebrow">
+          {workspaceName
+            ? `${workspaceName} · dashboard`
+            : "OnchainSuite dashboard"}
+        </div>
         <h1>{title}</h1>
         <p className="an-head__sub">
           <span className="an-public__live">
-            Live · recomputed when you open it
+            {snapshotAt
+              ? `Snapshot · as of ${snapshotAt}`
+              : "Live · recomputed when you open it"}
           </span>
         </p>
       </header>
@@ -82,12 +80,13 @@ export function PublicDashboard({ token }: { token: string }) {
         <div className="an-bento">
           {charts.map((c) => (
             <MetricCard
-              key={c.id}
-              title={c.title}
+              key={c.spec.id}
+              title={c.spec.title}
               meta={c.meta}
-              metric={c.metric}
-              chart={c.chart}
-              period={dashboard.period}
+              metric={c.spec.metric}
+              chart={c.spec.chart}
+              period={period}
+              data={c.data}
             />
           ))}
         </div>

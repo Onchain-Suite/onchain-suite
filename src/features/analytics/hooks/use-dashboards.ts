@@ -10,6 +10,7 @@ import type {
   UpdateDashboardBody,
 } from "../contracts/dashboards";
 import { dashboardsApi } from "../dashboards.service";
+import { buildDashboardSnapshot } from "../utils/dashboard-snapshot";
 
 const root = () =>
   ["analytics", "dashboards", getSelectedOrganizationId() ?? ""] as const;
@@ -75,8 +76,23 @@ export function useDashboardActions() {
     onSuccess: refresh,
   });
   const publish = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) =>
-      dashboardsApi.publish(id, title),
+    // In server mode, freeze the dashboard's current numbers into the link so
+    // an anonymous viewer sees them without any org access; local links draw live.
+    mutationFn: async ({
+      dashboard,
+      title,
+    }: {
+      dashboard: Dashboard;
+      title: string;
+    }) => {
+      const snapshot = dashboardsApi.local
+        ? undefined
+        : {
+            period: dashboard.period,
+            charts: await buildDashboardSnapshot(qc, dashboard),
+          };
+      return dashboardsApi.publish(dashboard.id, title, snapshot);
+    },
     onSuccess: refresh,
   });
   const revoke = useMutation({

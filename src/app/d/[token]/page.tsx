@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { PublicDashboard } from "@/features/analytics/components/dashboards/public-dashboard";
+import { PublishedFooter } from "@/features/common/branding/published-footer";
 
 export const dynamic = "force-dynamic";
 
@@ -16,5 +17,10 @@ export default async function Page({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  return <PublicDashboard token={token} />;
+  return (
+    <>
+      <PublicDashboard token={token} />
+      <PublishedFooter />
+    </>
+  );
 }

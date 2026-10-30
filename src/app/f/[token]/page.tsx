@@ -6,6 +6,7 @@ import {
   unwrap,
 } from "@/lib/public-forms-backend";
 
+import { PublishedFooter } from "@/features/common/branding/published-footer";
 import {
   HostedForm,
   type HostedFormConfig,
@@ -116,9 +117,7 @@ export default async function HostedFormPage({
     <Shell>
       <div className="w-full">
         <HostedForm config={config} />
-        <p className="mt-4 text-center text-xs text-white/30">
-          Powered by OnchainSuite
-        </p>
+        <PublishedFooter tone="dark" className="mt-2" />
       </div>
     </Shell>
   );

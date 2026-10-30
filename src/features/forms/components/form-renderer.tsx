@@ -7,7 +7,7 @@ import {
   TrashIcon,
   WalletIcon,
 } from "@heroicons/react/24/outline";
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useMemo, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -20,6 +20,7 @@ import {
   readDisplaySettings,
   readFormMeta,
 } from "../forms.service";
+import { fieldsForStep, fieldStep } from "../utils/steps";
 
 /** X (Twitter) glyph - brand mark, kept inline so we ship no icon font. */
 function XGlyph({ className }: { className?: string }) {
@@ -168,15 +169,82 @@ export function FormRenderer({
   const brand = display.brandName || name || "Your brand";
   const outline = look.button === "outline";
 
-  const specs =
-    fields.length > 0
-      ? fields
-      : [
-          { key: "wallet", type: "wallet" as const, required: true },
-          { key: "email", type: "email" as const, required: true },
-        ];
+  const specs = useMemo(
+    () =>
+      fields.length > 0
+        ? fields
+        : [
+            { key: "wallet", type: "wallet" as const, required: true },
+            { key: "email", type: "email" as const, required: true },
+          ],
+    [fields]
+  );
 
   const submitText = submitLabel ?? display.submitLabel;
+
+  // Live multi-step pagination: group the body fields by their `step`, show one
+  // step at a time with Next/Back, and keep consent + submit on the last step.
+  // Editing (builder) mode never paginates - the builder feeds it one step.
+  const consentField = specs.find((f) => (f.type ?? "text") === "consent");
+  const stepNums = useMemo(() => {
+    const s = new Set<number>();
+    for (const f of specs) if (f !== consentField) s.add(fieldStep(f));
+    return s.size ? [...s].sort((a, b) => a - b) : [1];
+  }, [specs, consentField]);
+  const paginated = !!live && !editing && stepNums.length > 1;
+  const [stepIdx, setStepIdx] = useState(0);
+  const [stepError, setStepError] = useState<string | null>(null);
+  const safeIdx = Math.min(stepIdx, stepNums.length - 1);
+  const isLast = !paginated || safeIdx === stepNums.length - 1;
+  const bodySpecs = paginated
+    ? fieldsForStep(
+        specs.filter((f) => f !== consentField),
+        stepNums[safeIdx]
+      )
+    : specs;
+
+  const requiredMet = (field: CaptureFieldSpec): boolean => {
+    if (!field.required) return true;
+    const type = field.type ?? "text";
+    if (type === "wallet") return Boolean(live?.walletAddress);
+    if (type === "x" || type === "farcaster")
+      return Boolean(live?.linkedChannels?.[type]);
+    if (type === "consent") return Boolean(live?.consent);
+    return Boolean(live?.values[field.key]?.trim());
+  };
+  const goNext = () => {
+    if (!bodySpecs.every(requiredMet)) {
+      setStepError("Please fill in the required fields to continue.");
+      return;
+    }
+    setStepError(null);
+    setStepIdx((i) => Math.min(i + 1, stepNums.length - 1));
+  };
+  const goBack = () => {
+    setStepError(null);
+    setStepIdx((i) => Math.max(0, i - 1));
+  };
+
+  const submitButton = (
+    <button
+      type="button"
+      onClick={live?.onSubmit}
+      disabled={!live || live?.submitting}
+      style={{
+        backgroundColor: outline ? "transparent" : accent,
+        color: outline ? accent : "#fff",
+        border: outline ? `1.5px solid ${accent}` : "none",
+        borderRadius: radius,
+      }}
+      className={cn(
+        "flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition-opacity",
+        !live && "cursor-default",
+        live && "hover:opacity-90 disabled:opacity-60"
+      )}
+    >
+      {live?.submitting ? "Verifying…" : submitText}
+    </button>
+  );
 
   const renderField = (field: CaptureFieldSpec) => {
     const { key } = field;
@@ -330,7 +398,16 @@ export function FormRenderer({
         </p>
 
         <div className="mt-5 space-y-3">
-          {specs.map((field) => {
+          {paginated ? (
+            <p
+              className="text-xs font-medium uppercase tracking-wide"
+              style={{ color: t.sub }}
+            >
+              Step {safeIdx + 1} of {stepNums.length}
+            </p>
+          ) : null}
+
+          {bodySpecs.map((field) => {
             const type = field.type ?? "text";
             if (!editing) {
               return <div key={field.key}>{renderField(field)}</div>;
@@ -353,35 +430,61 @@ export function FormRenderer({
             );
           })}
 
+          {/* Consent + submit live only on the last step. */}
+          {paginated && isLast && consentField ? (
+            <div>{renderField(consentField)}</div>
+          ) : null}
+
+          {stepError ? (
+            <p className="text-xs text-red-400">{stepError}</p>
+          ) : null}
           {live?.error ? (
             <p className="text-xs text-red-400">{live.error}</p>
           ) : null}
 
-          {live?.captcha ? (
+          {isLast && live?.captcha ? (
             <div className="flex justify-center">{live.captcha}</div>
           ) : null}
 
-          {/* Submit */}
-          <button
-            type="button"
-            onClick={live?.onSubmit}
-            disabled={!live || live?.submitting}
-            style={{
-              backgroundColor: outline ? "transparent" : accent,
-              color: outline ? accent : "#fff",
-              border: outline ? `1.5px solid ${accent}` : "none",
-              borderRadius: radius,
-            }}
-            className={cn(
-              "flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition-opacity",
-              !live && "cursor-default",
-              live && "hover:opacity-90 disabled:opacity-60"
-            )}
-          >
-            {live?.submitting ? "Verifying…" : submitText}
-          </button>
+          {paginated ? (
+            <div className="flex gap-2">
+              {safeIdx > 0 ? (
+                <button
+                  type="button"
+                  onClick={goBack}
+                  style={{
+                    borderColor: t.inputBorder,
+                    color: t.text,
+                    borderRadius: radius,
+                  }}
+                  className="flex-1 border px-4 py-3 text-sm font-semibold hover:opacity-90"
+                >
+                  Back
+                </button>
+              ) : null}
+              {isLast ? (
+                <div className="flex-1">{submitButton}</div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={goNext}
+                  style={{
+                    backgroundColor: outline ? "transparent" : accent,
+                    color: outline ? accent : "#fff",
+                    border: outline ? `1.5px solid ${accent}` : "none",
+                    borderRadius: radius,
+                  }}
+                  className="flex-1 px-4 py-3 text-sm font-semibold hover:opacity-90"
+                >
+                  Next
+                </button>
+              )}
+            </div>
+          ) : (
+            submitButton
+          )}
 
-          {zkEnabled || display.showZkNote ? (
+          {isLast && (zkEnabled || display.showZkNote) ? (
             <p
               className="flex items-center justify-center gap-1.5 pt-1 text-center text-xs"
               style={{ color: t.sub }}

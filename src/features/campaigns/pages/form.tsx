@@ -59,6 +59,7 @@ import {
 import { AudienceStep } from "@/features/campaigns/components/campaign-form/audience-step";
 import { ConfirmationPage } from "@/features/campaigns/components/campaign-form/campaign-confirmation";
 import { DiscordMessageStep } from "@/features/campaigns/components/campaign-form/discord-message-step";
+import { FarcasterMessageStep } from "@/features/campaigns/components/campaign-form/farcaster-message-step";
 import { GoalPicker } from "@/features/campaigns/components/campaign-form/goal-picker";
 import {
   InAppMessageStep,
@@ -67,8 +68,10 @@ import {
 import { InlineSchedule } from "@/features/campaigns/components/campaign-form/inline-schedule";
 import { TelegramMessageStep } from "@/features/campaigns/components/campaign-form/telegram-message-step";
 import { TemplateStep } from "@/features/campaigns/components/campaign-form/template-step";
+import { WhatsAppMessageStep } from "@/features/campaigns/components/campaign-form/whatsapp-message-step";
 import { WizardStepRail } from "@/features/campaigns/components/campaign-form/wizard-step-rail";
 import { WizardSummary } from "@/features/campaigns/components/campaign-form/wizard-summary";
+import { XMessageStep } from "@/features/campaigns/components/campaign-form/x-message-step";
 import { useCampaignGoal } from "@/features/campaigns/hooks/use-campaign-goal";
 import { useInAppReadiness } from "@/features/campaigns/hooks/use-inapp-readiness";
 import {
@@ -276,6 +279,36 @@ const persistCampaignContent = async (
       text: (data.discordText ?? "").trim(),
       channelId: (data.discordChannelId ?? "").trim(),
     });
+    return;
+  }
+  if (data.channel === "whatsapp") {
+    // WhatsApp → an approved template name + language (not free text).
+    await campaignsService
+      .ensureChannels(campaignId, ["whatsapp"])
+      .catch(() => undefined);
+    await campaignsService.setWhatsappContent(campaignId, {
+      templateName: (data.whatsappTemplateName ?? "").trim(),
+      languageCode: (data.whatsappLanguageCode ?? "en_US").trim() || "en_US",
+    });
+    return;
+  }
+  if (data.channel === "x") {
+    // X broadcast → channelsContent.x.text (one post).
+    await campaignsService
+      .ensureChannels(campaignId, ["x"])
+      .catch(() => undefined);
+    await campaignsService.setXContent(campaignId, (data.xText ?? "").trim());
+    return;
+  }
+  if (data.channel === "farcaster") {
+    // Farcaster broadcast → channelsContent.farcaster.text (one cast).
+    await campaignsService
+      .ensureChannels(campaignId, ["farcaster"])
+      .catch(() => undefined);
+    await campaignsService.setFarcasterContent(
+      campaignId,
+      (data.farcasterText ?? "").trim()
+    );
     return;
   }
   await campaignsService.updateContent(campaignId, {
@@ -709,12 +742,16 @@ function CampaignPreviewStep({
   const isPush = form.watch("channel") === "in-app-push";
   const isTelegram = form.watch("channel") === "telegram";
   const isDiscord = form.watch("channel") === "discord";
-  // Telegram/Discord, like in-app, send immediately with no email
-  // sender/subject/inbox preview — so they share the non-email UI path.
-  // `isWalletChannel` equals `isPush` for email/in-app, so reusing it in "not
-  // email" branches leaves those unchanged. (Discord broadcast isn't literally
-  // per-wallet, but it takes the same no-sender/no-inbox path.)
-  const isWalletChannel = isPush || isTelegram || isDiscord;
+  const isWhatsapp = form.watch("channel") === "whatsapp";
+  const isX = form.watch("channel") === "x";
+  const isFarcaster = form.watch("channel") === "farcaster";
+  // The non-email channels, like in-app, send with no email sender/subject/inbox
+  // preview, so they share the non-email UI path. `isWalletChannel` equals
+  // `isPush` for email/in-app, so reusing it in "not email" branches leaves
+  // those unchanged. (Discord/X/Farcaster broadcasts aren't literally per-wallet,
+  // but they take the same no-sender/no-inbox path.)
+  const isWalletChannel =
+    isPush || isTelegram || isDiscord || isWhatsapp || isX || isFarcaster;
 
   // Auto-load the rendered email as soon as the step opens - no manual
   // "Generate preview" click required. The selected template is part of the
@@ -2207,6 +2244,72 @@ export function CreateCampaignPage() {
         return;
       }
 
+      if (data.channel === "whatsapp") {
+        await campaignsService
+          .ensureChannels(campaignId, ["whatsapp"])
+          .catch(() => undefined);
+        const result = await campaignsService.sendWhatsApp(campaignId);
+        const sent = result.sent ?? 0;
+        await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+        if (result.ok === false && sent === 0) {
+          toast.error(
+            result.message ??
+              result.reason ??
+              "WhatsApp send failed. Check the template is approved and WhatsApp is connected."
+          );
+          return;
+        }
+        if (sent === 0) {
+          toast.warning(
+            "Nobody was reached. WhatsApp only reaches wallets with a linked WhatsApp number - this audience has none yet."
+          );
+          return;
+        }
+        toast.success(
+          `WhatsApp template sent to ${sent} wallet${sent === 1 ? "" : "s"}.`
+        );
+        setShowConfirmation(true);
+        return;
+      }
+
+      if (data.channel === "x") {
+        await campaignsService
+          .ensureChannels(campaignId, ["x"])
+          .catch(() => undefined);
+        const result = await campaignsService.sendX(campaignId);
+        await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+        if (result.ok === false) {
+          toast.error(
+            result.message ??
+              result.reason ??
+              "X post failed. Check your X account is connected."
+          );
+          return;
+        }
+        toast.success("Posted to X.");
+        setShowConfirmation(true);
+        return;
+      }
+
+      if (data.channel === "farcaster") {
+        await campaignsService
+          .ensureChannels(campaignId, ["farcaster"])
+          .catch(() => undefined);
+        const result = await campaignsService.sendFarcaster(campaignId);
+        await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+        if (result.ok === false) {
+          toast.error(
+            result.message ??
+              result.reason ??
+              "Farcaster cast failed. Check your account is connected."
+          );
+          return;
+        }
+        toast.success("Cast published to Farcaster.");
+        setShowConfirmation(true);
+        return;
+      }
+
       const scheduleDateIso = computeScheduleUtcIso(data);
       await campaignsService.updateSchedule(campaignId, {
         sendOption: data.sendOption,
@@ -2325,10 +2428,19 @@ export function CreateCampaignPage() {
   const wizIsPush = form.watch("channel") === "in-app-push";
   const wizIsTelegram = form.watch("channel") === "telegram";
   const wizIsDiscord = form.watch("channel") === "discord";
-  // Telegram/Discord, like in-app, send immediately (no email
-  // sender/subject/schedule). `wizIsWallet` equals `wizIsPush` for email/in-app,
-  // so reusing it in "not email" branches preserves those flows unchanged.
-  const wizIsWallet = wizIsPush || wizIsTelegram || wizIsDiscord;
+  const wizIsWhatsapp = form.watch("channel") === "whatsapp";
+  const wizIsX = form.watch("channel") === "x";
+  const wizIsFarcaster = form.watch("channel") === "farcaster";
+  // The non-email channels, like in-app, send with no email sender/subject/
+  // schedule. `wizIsWallet` equals `wizIsPush` for email/in-app, so reusing it
+  // in "not email" branches preserves those flows unchanged.
+  const wizIsWallet =
+    wizIsPush ||
+    wizIsTelegram ||
+    wizIsDiscord ||
+    wizIsWhatsapp ||
+    wizIsX ||
+    wizIsFarcaster;
 
   // In-app delivery readiness (web SDK keys/origins + mobile APNs/FCM). Drives
   // the setup notice in the composer and the launch guard below. Only fetched
@@ -2680,6 +2792,12 @@ export function CreateCampaignPage() {
                         <TelegramMessageStep form={form} />
                       ) : wizIsDiscord ? (
                         <DiscordMessageStep form={form} />
+                      ) : wizIsWhatsapp ? (
+                        <WhatsAppMessageStep form={form} />
+                      ) : wizIsX ? (
+                        <XMessageStep form={form} />
+                      ) : wizIsFarcaster ? (
+                        <FarcasterMessageStep form={form} />
                       ) : wizIsPush ? (
                         <InAppMessageStep
                           form={form}

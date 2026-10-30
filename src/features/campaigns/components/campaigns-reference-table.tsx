@@ -1,9 +1,7 @@
 "use client";
 
 import {
-  DevicePhoneMobileIcon,
   EllipsisVerticalIcon,
-  EnvelopeIcon,
   NoSymbolIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
@@ -19,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { campaignsService } from "../campaigns.service";
+import { CHANNEL_DISPLAY, channelKeysFor } from "../data/channels";
 import type { Campaign, CampaignStatus } from "../types/campaign";
 
 const STATUS_META: Record<
@@ -72,21 +71,6 @@ const CANCELLABLE_STATUSES = new Set<CampaignStatus>(["scheduled", "sending"]);
  * delivered a batch; drafts/scheduled never have sends so we never fetch them.
  */
 const HAS_SENDS_STATUSES = new Set<CampaignStatus>(["sent", "paused"]);
-
-const isPushChannel = (channel: string) =>
-  channel === "inapp" || channel === "in-app-push" || channel === "push";
-
-/** Which channel glyphs to show - defaults to email when the API sends none. */
-const channelsFor = (campaign: Campaign) => {
-  const used =
-    campaign.channelsUsed && campaign.channelsUsed.length > 0
-      ? campaign.channelsUsed
-      : ["email"];
-  return {
-    email: used.some((c) => c === "email"),
-    push: used.some(isPushChannel),
-  };
-};
 
 const formatCount = (value?: number) =>
   typeof value === "number" && Number.isFinite(value)
@@ -186,7 +170,7 @@ function RateLoadingCell() {
  */
 function RateCells({ campaign }: { campaign: Campaign }) {
   const isSent = HAS_SENDS_STATUSES.has(campaign.status);
-  const usedEmail = channelsFor(campaign).email;
+  const usedEmail = channelKeysFor(campaign.channelsUsed).includes("email");
 
   const openDelivered = campaign.openRateOfDelivered;
   const clickDelivered = campaign.clickRateOfDelivered;
@@ -314,7 +298,7 @@ export function CampaignsReferenceTable({
         <tbody>
           {data.map((campaign) => {
             const status = STATUS_META[campaign.status] ?? STATUS_META.draft;
-            const channels = channelsFor(campaign);
+            const channelKeys = channelKeysFor(campaign.channelsUsed);
             return (
               <tr
                 key={campaign.id}
@@ -327,16 +311,14 @@ export function CampaignsReferenceTable({
                       {campaign.name}
                     </span>
                     <span className="flex items-center gap-1">
-                      {channels.email ? (
-                        <ChannelIcon>
-                          <EnvelopeIcon className="size-3.5" />
-                        </ChannelIcon>
-                      ) : null}
-                      {channels.push ? (
-                        <ChannelIcon>
-                          <DevicePhoneMobileIcon className="size-3.5" />
-                        </ChannelIcon>
-                      ) : null}
+                      {channelKeys.map((key) => {
+                        const { Icon, label } = CHANNEL_DISPLAY[key];
+                        return (
+                          <ChannelIcon key={key}>
+                            <Icon className="size-3.5" aria-label={label} />
+                          </ChannelIcon>
+                        );
+                      })}
                     </span>
                   </div>
                 </td>

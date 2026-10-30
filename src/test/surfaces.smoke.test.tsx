@@ -209,12 +209,10 @@ describe("dashboard surfaces smoke", () => {
 
   it("AutomationsPage mounts", async () => {
     renderWithClient(<AutomationsPage />);
+    // The automations surface is labelled "Loops" in the 2.7 UI (route stays
+    // /automations).
     expect(
-      await screen.findByRole(
-        "heading",
-        { name: /automations/i },
-        HEADING_TIMEOUT
-      )
+      await screen.findByRole("heading", { name: /loops/i }, HEADING_TIMEOUT)
     ).toBeInTheDocument();
   });
 

@@ -3,6 +3,7 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import type { ConnectionSummary } from "./contracts/connections";
 import type {
   CampaignGoal,
   CreateGoalPayload,
@@ -175,6 +176,26 @@ export interface CampaignSendTelegramResult {
   failed?: number;
   /** Recipients with no verified Telegram handle. */
   skipped?: number;
+  status?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Generic per-channel send result (WhatsApp / X / Farcaster). The dispatch
+ * returns `ok:false` + a `message`/`reason` rather than throwing for a missing
+ * connection or content, so callers gate the "sent" UI on `ok`/`sent`, not a
+ * bare 200.
+ */
+export interface CampaignChannelSendResult {
+  ok?: boolean;
+  sent?: number;
+  failed?: number;
+  reachable?: number;
+  skipped?: number;
+  recipients?: number;
+  messageId?: string | null;
+  reason?: string;
+  message?: string;
   status?: string;
   [key: string]: unknown;
 }
@@ -1185,6 +1206,85 @@ export const campaignsService = {
       { method: "POST", url: `/campaigns/${id}/send-discord`, data: {} },
       orgId
     );
+  },
+
+  // WhatsApp: a pre-approved template (+ language), persisted via the generic
+  // per-channel content route; sent per-contact to wallets with a bound number.
+  setWhatsappContent(
+    id: string,
+    content: { templateName: string; languageCode: string },
+    orgId?: string
+  ) {
+    return request<unknown>(
+      {
+        method: "PUT",
+        url: `/campaigns/${id}/channels/whatsapp/content`,
+        data: content,
+      },
+      orgId
+    );
+  },
+  sendWhatsApp(id: string, orgId?: string) {
+    return request<CampaignChannelSendResult>(
+      { method: "POST", url: `/campaigns/${id}/send-whatsapp`, data: {} },
+      orgId
+    );
+  },
+
+  // X: one broadcast tweet via the org's connected account.
+  setXContent(id: string, text: string, orgId?: string) {
+    return request<unknown>(
+      {
+        method: "PUT",
+        url: `/campaigns/${id}/channels/x/content`,
+        data: { text },
+      },
+      orgId
+    );
+  },
+  sendX(id: string, orgId?: string) {
+    return request<CampaignChannelSendResult>(
+      { method: "POST", url: `/campaigns/${id}/send-x`, data: {} },
+      orgId
+    );
+  },
+
+  // Farcaster: one broadcast public cast via the org's connected account.
+  setFarcasterContent(id: string, text: string, orgId?: string) {
+    return request<unknown>(
+      {
+        method: "PUT",
+        url: `/campaigns/${id}/channels/farcaster/content`,
+        data: { text },
+      },
+      orgId
+    );
+  },
+  sendFarcaster(id: string, orgId?: string) {
+    return request<CampaignChannelSendResult>(
+      { method: "POST", url: `/campaigns/${id}/send-farcaster`, data: {} },
+      orgId
+    );
+  },
+
+  /**
+   * The org's connected channels/sources (GET /organization/connections), used
+   * to gate which channels the wizard offers. 404 -> none connected yet.
+   */
+  getChannelConnections(orgId?: string) {
+    return request<ConnectionSummary[]>(
+      {
+        method: "GET",
+        url: `/organization/connections`,
+        params: { kind: "channel" },
+      },
+      orgId
+    )
+      .then((rows) => (Array.isArray(rows) ? rows : []))
+      .catch((e) => {
+        if (isNoDataError(e)) return [] as ConnectionSummary[];
+        throw e;
+      });
   },
 
   /** Per-campaign engagement funnel (GET /campaigns/{id}/analytics). */

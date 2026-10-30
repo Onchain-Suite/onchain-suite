@@ -3,11 +3,8 @@
 import {
   CheckIcon,
   ChevronDownIcon,
-  DevicePhoneMobileIcon,
-  EnvelopeIcon,
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
-  PaperAirplaneIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
@@ -21,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 import { type CampaignAudienceEstimate } from "../../campaigns.service";
+import { useChannelConnections } from "../../hooks/use-channel-connections";
 import {
   ALL_CONTACTS_SELECTION_ID,
   getEstimatedRecipientsFromSelection,
@@ -36,9 +34,10 @@ import {
   syncAudienceSettings,
 } from "../../lib/audience-sync";
 import type { List, Segment } from "../../types";
-import type { CampaignFormData } from "../../validations";
+import type { CampaignChannel, CampaignFormData } from "../../validations";
 import { type ContactOption } from "./audience-selector";
 import { HoldoutNote } from "./holdout-note";
+import { SendAsSelector } from "./send-as-selector";
 import {
   type AudienceProfile,
   audienceService,
@@ -98,15 +97,18 @@ export function AudienceStep({
 }: AudienceStepProps) {
   const segmentsHref = PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS;
   const accountSettingsHref = `${PRIVATE_ROUTES.SETTINGS}?tab=account`;
-  const channel = form.watch("channel");
+  // Schema defaults this to "email"; coerce so the typed SendAsSelector and the
+  // channel branches never see undefined.
+  const channel: CampaignChannel = form.watch("channel") ?? "email";
   const isPush = channel === "in-app-push";
   const isTelegram = channel === "telegram";
-  const isDiscord = channel === "discord";
-  // Telegram/Discord, like in-app push, are not email — so they use the
-  // non-email (wallet-reachable) audience path. A Discord BROADCAST ignores the
-  // audience on send (it posts to a channel), but the step still takes this
-  // path so no email sender/inbox assumptions apply.
-  const isWalletChannel = isPush || isTelegram || isDiscord;
+  // Every channel except email is the non-email (wallet-reachable) audience
+  // path: in-app push, Telegram, Discord, WhatsApp, X and Farcaster. Broadcast
+  // channels (Discord/X/Farcaster) ignore the audience on send (they post once),
+  // but the step still takes this path so no email sender/inbox assumptions
+  // apply.
+  const isWalletChannel = channel !== "email";
+  const channelConnections = useChannelConnections();
   const selectedAudiences = form.watch("selectedAudiences");
   const smartSending = form.watch("smartSending");
   const windowOverrideDraft = form.watch("smartSendingWindowHours");
@@ -678,8 +680,17 @@ export function AudienceStep({
     onEstimateChange?.(displayedEstimatedRecipients);
   }, [displayedEstimatedRecipients, onEstimateChange]);
 
-  const setChannel = (next: "email" | "in-app-push" | "telegram") =>
+  // Picking a channel also keeps campaignType in step: email is the email-blast
+  // type, every other channel is a smart-sending campaign. Downstream wizard
+  // steps read `channel`, so the message editor and launch switch follow.
+  const setChannel = (next: CampaignChannel) => {
     form.setValue("channel", next, { shouldDirty: true });
+    form.setValue(
+      "campaignType",
+      next === "email" ? "email-blast" : "smart-sending",
+      { shouldDirty: true }
+    );
+  };
 
   const toggleSelection = (id: string) => {
     // Picking a specific audience clears the mutually-exclusive "Everyone".
@@ -855,91 +866,18 @@ export function AudienceStep({
           Who gets this?
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pick the campaign type, then choose segments, lists, tags, contacts,
-          or everyone.
+          Pick a channel, then choose segments, lists, tags, contacts, or
+          everyone.
         </p>
       </div>
 
-      {/* Campaign type */}
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">Campaign type</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {[
-            {
-              key: "email" as const,
-              icon: EnvelopeIcon,
-              title: "Direct campaign",
-              sub: "Sent to contacts with an email",
-            },
-            {
-              key: "in-app-push" as const,
-              icon: DevicePhoneMobileIcon,
-              title: "In-app push",
-              sub: "Sent to connected wallets",
-            },
-            {
-              key: "telegram" as const,
-              icon: PaperAirplaneIcon,
-              title: "Telegram",
-              sub: "Sent to opted-in wallets",
-            },
-          ].map((opt) => {
-            const active =
-              opt.key === "email" ? !isWalletChannel : channel === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setChannel(opt.key)}
-                className={cn(
-                  "flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors",
-                  active
-                    ? "border-primary bg-primary/[0.06]"
-                    : "border-border bg-card hover:border-primary/40"
-                )}
-              >
-                <span className="flex items-center gap-3">
-                  <span
-                    className={cn(
-                      "flex size-9 items-center justify-center rounded-lg",
-                      active
-                        ? "bg-primary/15 text-primary"
-                        : "bg-muted text-muted-foreground"
-                    )}
-                  >
-                    <opt.icon className="size-5" aria-hidden="true" />
-                  </span>
-                  <span>
-                    <span className="block text-sm font-semibold text-foreground">
-                      {opt.title}
-                    </span>
-                    <span className="block text-xs text-muted-foreground">
-                      {opt.sub}
-                    </span>
-                  </span>
-                </span>
-                <span
-                  className={cn(
-                    "flex size-4 items-center justify-center rounded-full border",
-                    active ? "border-primary" : "border-border"
-                  )}
-                >
-                  {active ? (
-                    <span className="size-2 rounded-full bg-primary" />
-                  ) : null}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {isTelegram
-            ? "Delivered on Telegram to wallets that opted in via your bot."
-            : isPush
-              ? "Delivered in-app to connected wallets."
-              : "Delivered by email - contacts need an email address."}
-        </p>
-      </div>
+      {/* Send as - inline channel picker with per-channel connection gating */}
+      <SendAsSelector
+        channel={channel}
+        onChange={setChannel}
+        isConnected={channelConnections.isConnected}
+        loading={channelConnections.loading}
+      />
 
       {/* Send to */}
       <div className="space-y-3">

@@ -13,7 +13,15 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
  * A published dashboard, read-only and without the app shell. Built-in tabs
  * show their charts; custom dashboards show their own.
  */
-export function PublicDashboard({ token }: { token: string }) {
+export function PublicDashboard({
+  token,
+  workspace = null,
+}: {
+  token: string;
+  /** The owning workspace's name, when opened on its subdomain (brands the
+   *  eyebrow as "<workspace>"); null on the shared `/d` host. */
+  workspace?: string | null;
+}) {
   const q = useQuery({
     queryKey: ["analytics", "published", token],
     queryFn: () => dashboardsApi.published(token),
@@ -66,7 +74,9 @@ export function PublicDashboard({ token }: { token: string }) {
   return (
     <div className="an-public">
       <header>
-        <div className="an-public__eyebrow">OnchainSuite dashboard</div>
+        <div className="an-public__eyebrow">
+          {workspace ? `${workspace} · dashboard` : "OnchainSuite dashboard"}
+        </div>
         <h1>{title}</h1>
         <p className="an-head__sub">
           <span className="an-public__live">

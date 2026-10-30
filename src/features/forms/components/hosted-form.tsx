@@ -14,6 +14,7 @@ import {
   type FormDisplaySettings,
   readFormMeta,
 } from "../forms.service";
+import { useFormFunnel } from "../hooks/use-form-funnel";
 import { FormRenderer } from "./form-renderer";
 
 /** A URL is safe to redirect to only if it's http(s) or a same-origin path. */
@@ -129,6 +130,9 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, []);
+
+  // Funnel beacon: a `view` on mount, a `start` on the first interaction.
+  const markStarted = useFormFunnel(config.token);
 
   // The fields the page actually renders. When the form carries a form-level
   // consent requirement but no explicit `consent` field, synthesize the
@@ -361,33 +365,39 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
   }
 
   return (
-    <FormRenderer
-      name={config.name}
-      fields={effectiveFields}
-      settings={config.settings}
-      zkEnabled={config.zkEnabled}
-      live={{
-        values,
-        onChange: (key, value) => setValues((p) => ({ ...p, [key]: value })),
-        walletAddress: wallet?.address ?? null,
-        onConnectWallet: connectWallet,
-        connectingWallet: connecting,
-        linkedChannels: linked,
-        onLinkChannel: linkChannel,
-        consent,
-        onConsent: setConsent,
-        onSubmit: submit,
-        submitting,
-        error,
-        // Dark theme to match the hosted page; sits above the submit button.
-        captcha: (
-          <TurnstileWidget
-            ref={turnstileRef}
-            onVerify={setCaptchaToken}
-            theme="dark"
-          />
-        ),
-      }}
-    />
+    <div
+      style={{ display: "contents" }}
+      onFocusCapture={markStarted}
+      onChangeCapture={markStarted}
+    >
+      <FormRenderer
+        name={config.name}
+        fields={effectiveFields}
+        settings={config.settings}
+        zkEnabled={config.zkEnabled}
+        live={{
+          values,
+          onChange: (key, value) => setValues((p) => ({ ...p, [key]: value })),
+          walletAddress: wallet?.address ?? null,
+          onConnectWallet: connectWallet,
+          connectingWallet: connecting,
+          linkedChannels: linked,
+          onLinkChannel: linkChannel,
+          consent,
+          onConsent: setConsent,
+          onSubmit: submit,
+          submitting,
+          error,
+          // Dark theme to match the hosted page; sits above the submit button.
+          captcha: (
+            <TurnstileWidget
+              ref={turnstileRef}
+              onVerify={setCaptchaToken}
+              theme="dark"
+            />
+          ),
+        }}
+      />
+    </div>
   );
 }

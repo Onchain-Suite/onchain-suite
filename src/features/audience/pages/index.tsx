@@ -67,6 +67,11 @@ import type {
 import { audienceService } from "../audience.service";
 import { ApplyTagsPopover } from "../components/apply-tags-popover";
 import { AudienceListDetail } from "../components/audience-list-detail";
+import {
+  AUDIENCE_SEGMENTS_QUERY_KEY,
+  AudienceSegmentsTab,
+  segmentItems,
+} from "../components/audience-segments-tab";
 import { AudienceTagsTab } from "../components/audience-tags-tab";
 import {
   ComposeEmailDialog,
@@ -96,6 +101,7 @@ import {
 } from "../utils";
 import { type LifecycleStage, stageForProfile } from "../utils/lifecycle";
 import { EnrichmentControl } from "@/features/intelligence/components/enrichment-control";
+import { intelligenceService } from "@/features/intelligence/intelligence.service";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
@@ -252,7 +258,7 @@ export function AudiencePages() {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<
-    "contacts" | "lists" | "tags" | "suppressed"
+    "contacts" | "lists" | "tags" | "segments" | "suppressed"
   >("contacts");
   // Deep-link support: `/audience?tab=suppressed` opens that tab (read after
   // mount to avoid a hydration mismatch / Suspense requirement).
@@ -267,7 +273,8 @@ export function AudiencePages() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const t = params.get("tab");
-    if (t === "lists" || t === "tags" || t === "suppressed") setActiveTab(t);
+    if (t === "lists" || t === "tags" || t === "segments" || t === "suppressed")
+      setActiveTab(t);
     const imp = params.get("import");
     if (imp) setImportJobId(imp);
     const exp = params.get("export");
@@ -380,6 +387,20 @@ export function AudiencePages() {
     retry: false,
     refetchOnWindowFocus: false,
   });
+
+  // Dynamic (rule-based) segments live in Intelligence; the Segments tab lists
+  // them. Fetched here too so the tab bar can show a count (React Query dedupes
+  // the shared key with the tab body).
+  const intelSegmentsQuery = useQuery({
+    queryKey: AUDIENCE_SEGMENTS_QUERY_KEY,
+    queryFn: () => intelligenceService.listSegments(),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
+  });
+  const dynamicSegmentCount = intelSegmentsQuery.data
+    ? segmentItems(intelSegmentsQuery.data).length
+    : undefined;
 
   const rows = useMemo(
     () => (profilesQuery.data?.items ?? []).map(toRow),
@@ -870,13 +891,18 @@ export function AudiencePages() {
   ];
 
   const tabs: Array<{
-    key: "contacts" | "lists" | "tags" | "suppressed";
+    key: "contacts" | "lists" | "tags" | "segments" | "suppressed";
     label: string;
     count: number | string;
   }> = [
     { key: "contacts", label: "Contacts", count: total },
     { key: "lists", label: "Lists", count: segments.length },
     { key: "tags", label: "Tags", count: availableTags.length },
+    {
+      key: "segments",
+      label: "Segments",
+      count: dynamicSegmentCount ?? "-",
+    },
     { key: "suppressed", label: "Suppressed", count: suppressed ?? "-" },
   ];
 
@@ -1564,6 +1590,8 @@ export function AudiencePages() {
               creating={creatingTag}
               onCancelCreate={() => setCreatingTag(false)}
             />
+          ) : activeTab === "segments" ? (
+            <AudienceSegmentsTab />
           ) : (
             <SuppressedTab />
           )}

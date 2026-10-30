@@ -60,6 +60,26 @@ frontend consumes and must not contradict them.
 
 ---
 
+## 0.6 Deploy & infrastructure
+
+Where things run (so links, env and DNS land in the right place):
+
+- **Frontend: Vercel.** Builds the `main` branch only (dev branches and PRs do
+  not deploy). Config in `vercel.json` (bun). Env vars (incl. any
+  `NEXT_PUBLIC_*`) are set in the Vercel project, not in a committed `.env`.
+- **Backend: a DigitalOcean droplet** (not Render). `api.onchainsuite.com`
+  serves the API from the `ocs-server` process (there is also `ocs-worker`).
+  Deploy is **manual** - merging to `staging`/`main` does not go live until the
+  droplet is redeployed/restarted, so "merged" never means "deployed".
+- **DNS / domain: GoDaddy** manages `onchainsuite.com`. DNS changes (e.g. the
+  wildcard `*.onchainsuite.com` for per-org published subdomains) are made in
+  GoDaddy; `api` stays an A record to the droplet IP. Note: a Vercel **wildcard**
+  domain needs Vercel to manage DNS (nameservers), so enabling per-org
+  subdomains means delegating DNS to Vercel - recreate the `api` + email records
+  in Vercel DNS first.
+
+---
+
 ## 1. Golden rules (read first)
 
 1. **Server Components by default.** Add `"use client"` only when a file needs

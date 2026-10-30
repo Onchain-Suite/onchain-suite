@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { type CampaignAnalytics, campaignsService } from "../campaigns.service";
+import { CHANNEL_DISPLAY, channelKeysFor } from "../data/channels";
 import type { Campaign, CampaignStatus } from "../types/campaign";
 import {
   campaignRates,
@@ -326,9 +327,6 @@ export function CampaignDetailPage({ id }: { id: string }) {
   }
 
   const meta = STATUS_META[status] ?? STATUS_META.draft;
-  const isPush =
-    (campaign.channelsUsed ?? []).some((c) => c !== "email") &&
-    !(campaign.channelsUsed ?? []).includes("email");
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
@@ -389,11 +387,10 @@ export function CampaignDetailPage({ id }: { id: string }) {
             {meta.label}
           </span>
           <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-            {isPush ? (
-              <DevicePhoneMobileIcon className="size-4" aria-hidden="true" />
-            ) : (
-              <EnvelopeIcon className="size-4" aria-hidden="true" />
-            )}
+            {channelKeysFor(campaign.channelsUsed).map((key) => {
+              const { Icon, label } = CHANNEL_DISPLAY[key];
+              return <Icon key={key} className="size-4" aria-label={label} />;
+            })}
             {TYPE_LABEL[campaign.type] ?? "Email"}
           </span>
         </div>
@@ -794,13 +791,6 @@ function ComparedWithPrevious({
     return [current, ...others];
   }, [all, current]);
 
-  const channelIcons = (c: Campaign) => {
-    const chans = c.channelsUsed ?? [];
-    const hasEmail = chans.length === 0 || chans.includes("email");
-    const hasPush = chans.some((x) => x !== "email");
-    return { hasEmail, hasPush };
-  };
-
   return (
     <section className="rounded-2xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
@@ -826,7 +816,7 @@ function ComparedWithPrevious({
               const isCurrent = c.id === current.id;
               const r = isCurrent ? currentRates : rowRates(c);
               const sameMix = channelMixKey(c) === mix;
-              const { hasEmail, hasPush } = channelIcons(c);
+              const channelKeys = channelKeysFor(c.channelsUsed);
               const openD =
                 !isCurrent &&
                 sameMix &&
@@ -870,18 +860,16 @@ function ComparedWithPrevious({
                         </>
                       ) : null}
                       <span className="flex items-center gap-1 text-muted-foreground">
-                        {hasEmail ? (
-                          <EnvelopeIcon
-                            className="size-3.5"
-                            aria-hidden="true"
-                          />
-                        ) : null}
-                        {hasPush ? (
-                          <DevicePhoneMobileIcon
-                            className="size-3.5"
-                            aria-hidden="true"
-                          />
-                        ) : null}
+                        {channelKeys.map((key) => {
+                          const { Icon, label } = CHANNEL_DISPLAY[key];
+                          return (
+                            <Icon
+                              key={key}
+                              className="size-3.5"
+                              aria-label={label}
+                            />
+                          );
+                        })}
                       </span>
                     </span>
                   </td>

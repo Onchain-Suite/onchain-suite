@@ -1,14 +1,18 @@
 import z from "zod";
 
 /**
- * Delivery channel for a campaign. Smart campaigns support in-app push and
- * Telegram; the other social channels (Discord, X) will be added later.
+ * Delivery channel for a campaign. Smart campaigns can send on in-app push,
+ * Telegram, Discord, WhatsApp, X and Farcaster - each over the org's connected
+ * channel. Email is the default for every non-smart type.
  */
 export const campaignChannels = [
   "email",
   "in-app-push",
   "telegram",
   "discord",
+  "whatsapp",
+  "x",
+  "farcaster",
 ] as const;
 
 export const campaignFormSchema = z
@@ -104,6 +108,19 @@ export const campaignFormSchema = z
     discordText: z.string().optional(),
     discordChannelId: z.string().optional(),
 
+    // WhatsApp: a pre-approved template name + language (NOT free text), a
+    // per-contact fan-out to wallets with a bound WhatsApp number. Persisted to
+    // channelsContent.whatsapp.{templateName,languageCode}.
+    whatsappTemplateName: z.string().optional(),
+    whatsappLanguageCode: z.string().default("en_US"),
+
+    // X BROADCAST: one tweet via the org's connected X account. Persisted to
+    // channelsContent.x.text.
+    xText: z.string().optional(),
+
+    // Farcaster BROADCAST: one public cast. Persisted to channelsContent.farcaster.text.
+    farcasterText: z.string().optional(),
+
     // Send timing (chosen on the template step: send now or schedule)
     sendOption: z.enum(["now", "schedule"]),
     scheduleDate: z.date().optional(),
@@ -176,6 +193,42 @@ export const campaignFormSchema = z
           code: z.ZodIssueCode.custom,
           path: ["discordChannelId"],
           message: "Enter the Discord channel ID to post to",
+        });
+      }
+    }
+
+    if (data.channel === "whatsapp") {
+      if (
+        typeof data.whatsappTemplateName !== "string" ||
+        data.whatsappTemplateName.trim().length === 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["whatsappTemplateName"],
+          message: "Enter the approved WhatsApp template name",
+        });
+      }
+    }
+
+    if (data.channel === "x") {
+      if (typeof data.xText !== "string" || data.xText.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["xText"],
+          message: "Enter the post to send",
+        });
+      }
+    }
+
+    if (data.channel === "farcaster") {
+      if (
+        typeof data.farcasterText !== "string" ||
+        data.farcasterText.trim().length === 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["farcasterText"],
+          message: "Enter the cast to send",
         });
       }
     }

@@ -2,9 +2,7 @@
 
 import {
   ArrowPathIcon,
-  DevicePhoneMobileIcon,
   EnvelopeIcon,
-  PaperAirplaneIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
@@ -80,12 +78,12 @@ export function CreateCampaignSheet({
   const [name, setName] = useState("");
   const [type, setType] = useState<CampaignTypeId>("email-blast");
   const [isCreating, setIsCreating] = useState(false);
-  // Smart campaigns pick their delivery channel; other types send email.
-  const [smartChannel, setSmartChannel] =
-    useState<CampaignChannel>("in-app-push");
 
+  // The wizard's "Send as" row picks the exact channel (and gates it on a
+  // verified connection); the sheet only seeds a sensible default from the
+  // type. Email blast -> email; a smart campaign defaults to in-app push.
   const channel: CampaignChannel =
-    type === "smart-sending" ? smartChannel : "email";
+    type === "smart-sending" ? "in-app-push" : "email";
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -212,71 +210,10 @@ export function CreateCampaignSheet({
           </div>
 
           {type === "smart-sending" ? (
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">Channel</Label>
-              <div className="grid grid-cols-2 gap-3">
-                {(
-                  [
-                    {
-                      id: "in-app-push" as const,
-                      icon: DevicePhoneMobileIcon,
-                      title: "In-app Push",
-                      desc: "A push notification in your app",
-                    },
-                    {
-                      id: "telegram" as const,
-                      icon: PaperAirplaneIcon,
-                      title: "Telegram",
-                      desc: "A message via your Telegram bot",
-                    },
-                    {
-                      id: "discord" as const,
-                      icon: PaperAirplaneIcon,
-                      title: "Discord",
-                      desc: "Broadcast to a channel via your Discord bot",
-                    },
-                  ] satisfies {
-                    id: CampaignChannel;
-                    icon: typeof DevicePhoneMobileIcon;
-                    title: string;
-                    desc: string;
-                  }[]
-                ).map((opt) => {
-                  const active = smartChannel === opt.id;
-                  const Icon = opt.icon;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setSmartChannel(opt.id)}
-                      className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-colors ${
-                        active
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/40"
-                      }`}
-                    >
-                      <Icon
-                        aria-hidden="true"
-                        className={`h-5 w-5 shrink-0 ${
-                          active ? "text-primary" : "text-muted-foreground"
-                        }`}
-                      />
-                      <div>
-                        <div className="text-sm font-medium text-foreground">
-                          {opt.title}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {opt.desc}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                The X channel is coming soon.
-              </p>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              You will pick the exact channel - in-app push, Telegram, Discord,
+              WhatsApp, X or Farcaster - on the next step.
+            </p>
           ) : null}
         </div>
 

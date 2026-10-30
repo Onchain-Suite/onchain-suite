@@ -5,6 +5,7 @@ import { useEffect } from "react";
 
 import { BrandingCard } from "../components/account/branding-card";
 import { ContractsCard } from "../components/account/contracts-card";
+import { HoldoutCard } from "../components/account/holdout-card";
 import { NftEnrichmentCard } from "../components/account/nft-enrichment-card";
 import { ProfileCompletenessCard } from "../components/account/profile-completeness-card";
 import { ProjectCard } from "../components/account/project-card";
@@ -50,6 +51,7 @@ export default function CompanySettingsView() {
       </div>
       <SenderIdentitiesCard />
       <SmartSendingCard />
+      <HoldoutCard />
       <TeamCard />
     </div>
   );

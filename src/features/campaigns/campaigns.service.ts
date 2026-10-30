@@ -9,6 +9,7 @@ import type {
   CreateGoalPayload,
   GoalMeasurement,
 } from "./contracts/goals";
+import type { CampaignLiftResult } from "./contracts/lift";
 import { withApiErrorFields } from "./lib/launch-errors";
 import type { Campaign } from "./types/campaign";
 
@@ -834,6 +835,18 @@ export const campaignsService = {
         method: "GET",
         url: `/campaigns/${campaignId}/goals/${goalId}/measure`,
       },
+      orgId
+    );
+  },
+
+  /**
+   * `GET /campaigns/{id}/lift` - the treated-vs-held conversion lift. Returns an
+   * explicit no-goal / no-holdout state so the LiftRow can say why lift is
+   * unavailable rather than rendering an empty result.
+   */
+  getCampaignLift(campaignId: string, orgId?: string) {
+    return request<CampaignLiftResult>(
+      { method: "GET", url: `/campaigns/${campaignId}/lift` },
       orgId
     );
   },

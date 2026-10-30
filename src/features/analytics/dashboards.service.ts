@@ -26,6 +26,7 @@ import {
   updateDashboard,
   withBuiltIns,
 } from "./utils/dashboards";
+import { viewSessionId } from "./utils/view-session";
 
 /** What a link publishes: the period and the chart specs. The backend computes
  *  each chart's data live at read time; no numbers are sent or stored. */
@@ -65,6 +66,8 @@ export interface DashboardsApi {
   revoke(token: string): Promise<void>;
   /** A published dashboard's name, branding and charts, as its link shows them. */
   published(token: string): Promise<PublicDashboardView | null>;
+  /** Record an anonymous view of a published link (server mode only; else no-op). */
+  recordView(token: string): Promise<void>;
 }
 
 /* ---------------- in this browser ---------------- */
@@ -173,6 +176,9 @@ export const localDashboardsApi: DashboardsApi = {
       return null;
     }
   },
+  async recordView() {
+    // Local links are not shared beyond this browser; nothing to count.
+  },
 };
 
 /* ---------------- the draft API ---------------- */
@@ -274,6 +280,17 @@ export const httpDashboardsApi: DashboardsApi = {
       })),
     };
   },
+  async recordView(token) {
+    // Fire-and-forget: a failed beacon never breaks the public page.
+    try {
+      await apiClient.post(
+        `/public/dashboards/${encodeURIComponent(token)}/view`,
+        { sessionId: viewSessionId() }
+      );
+    } catch {
+      /* ignore */
+    }
+  },
 };
 
 /**
@@ -293,5 +310,6 @@ export const dashboardsApi: DashboardsApi =
         publish: httpDashboardsApi.publish,
         revoke: httpDashboardsApi.revoke,
         published: httpDashboardsApi.published,
+        recordView: httpDashboardsApi.recordView,
       }
     : localDashboardsApi;

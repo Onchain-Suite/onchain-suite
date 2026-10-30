@@ -76,6 +76,12 @@ export function PublishDialog({
             {links.data.map((l) => (
               <li key={l.token}>
                 <code>{l.url}</code>
+                {typeof l.views === "number" ? (
+                  <span className="text-xs text-muted-foreground">
+                    {l.views.toLocaleString()}{" "}
+                    {l.views === 1 ? "view" : "views"}
+                  </span>
+                ) : null}
                 <button type="button" onClick={() => copy(l.url)}>
                   Copy
                 </button>

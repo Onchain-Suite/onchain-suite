@@ -99,9 +99,11 @@ export interface PublishedLink {
   token: string;
   dashboardId: string;
   title: string;
-  /** Absolute URL of the public page, e.g. `https://app…/d/<token>`. */
+  /** Absolute URL of the public page, e.g. `https://dashboard…/d/<token>`. */
   url: string;
   createdAt: string;
+  /** Distinct-session views of this link (server mode); omitted locally. */
+  views?: number;
 }
 
 /**

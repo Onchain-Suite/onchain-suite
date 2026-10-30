@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import "../analytics.css";
 import { dashboardsApi } from "../../dashboards.service";
@@ -18,6 +19,11 @@ export function PublicDashboard({ token }: { token: string }) {
     queryFn: () => dashboardsApi.published(token),
     retry: false,
   });
+
+  // Count this open (anonymous, deduped per visit); never blocks the render.
+  useEffect(() => {
+    dashboardsApi.recordView(token).catch(() => {});
+  }, [token]);
 
   if (q.isLoading) {
     return (

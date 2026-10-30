@@ -329,6 +329,16 @@ export const formsService = {
           views: num(root.views),
           starts: num(root.starts),
           completions: num(root.completions),
+          bySource: Array.isArray(root.bySource)
+            ? root.bySource
+                .filter(
+                  (s): s is { source: string; views: number } =>
+                    isJsonObject(s) &&
+                    typeof s.source === "string" &&
+                    typeof s.views === "number"
+                )
+                .map((s) => ({ source: s.source, views: s.views }))
+            : undefined,
           biggestDropOff:
             typeof root.biggestDropOff === "string"
               ? root.biggestDropOff

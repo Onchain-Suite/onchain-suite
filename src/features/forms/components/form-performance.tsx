@@ -181,6 +181,27 @@ export function FormPerformance({
         </p>
       ) : null}
 
+      {data?.bySource && data.bySource.length > 0 ? (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-foreground">Top sources</h3>
+          <ul className="space-y-1.5">
+            {data.bySource.map((s) => (
+              <li
+                key={s.source}
+                className="flex items-center justify-between text-sm"
+              >
+                <span className="truncate text-muted-foreground">
+                  {s.source}
+                </span>
+                <span className="ml-3 shrink-0 font-medium text-foreground">
+                  {fmt(s.views)} views
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {data?.doubleOptIn ? (
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-foreground">Double opt-in</h3>

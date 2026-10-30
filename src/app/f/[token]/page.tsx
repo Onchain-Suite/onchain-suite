@@ -5,7 +5,6 @@ import {
   publicBackendHeaders,
   unwrap,
 } from "@/lib/public-forms-backend";
-import { currentPublishedWorkspace } from "@/lib/published-workspace";
 
 import { PublishedFooter } from "@/features/common/branding/published-footer";
 import {
@@ -114,16 +113,9 @@ export default async function HostedFormPage({
     consentText: form.consentText ?? null,
   };
 
-  const workspace = await currentPublishedWorkspace();
-
   return (
     <Shell>
       <div className="w-full">
-        {workspace ? (
-          <p className="mb-3 text-center text-xs font-medium uppercase tracking-wide text-white/40">
-            {workspace.name}
-          </p>
-        ) : null}
         <HostedForm config={config} />
         <PublishedFooter tone="dark" className="mt-2" />
       </div>

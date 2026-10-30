@@ -72,6 +72,7 @@ import {
   writeFormMeta,
 } from "../forms.service";
 import { useForm, useUpdateForm } from "../hooks/use-forms";
+import { publicFormUrl } from "../utils/public-url";
 import { CustomFormApi } from "./custom-form-api";
 import { EmbedSnippet } from "./embed-snippet";
 import { FormPreviewStage } from "./form-preview-stage";
@@ -341,11 +342,10 @@ export function FormBuilder({ id }: { id: string }) {
     setBuildTab("fields");
   };
 
-  const publicUrl = useMemo(() => {
-    if (!form) return "";
-    if (typeof window === "undefined") return `/f/${form.publicToken}`;
-    return `${window.location.origin}/f/${form.publicToken}`;
-  }, [form]);
+  const publicUrl = useMemo(
+    () => (form ? publicFormUrl(form.publicToken) : ""),
+    [form]
+  );
 
   if (isLoading) {
     return (

@@ -56,7 +56,7 @@ export function PublishDialog({
         <DialogHeader>
           <DialogTitle>Publish this dashboard</DialogTitle>
           <DialogDescription>
-            {what}, recomputed every time the link opens.
+            {what}, recomputed live every time the link opens.
           </DialogDescription>
         </DialogHeader>
         <input
@@ -69,13 +69,19 @@ export function PublishDialog({
           <ExclamationTriangleIcon aria-hidden="true" />
           {local
             ? "Sharing needs the backend, which isn't live yet. Links you make now open only in this browser, for people signed in to this workspace."
-            : "Anyone with the link can read it without signing in. It shows totals only, never individual contacts."}
+            : "Anyone with the link can read it without signing in. It shows live totals, never individual contacts."}
         </p>
         {links.data && links.data.length > 0 ? (
           <ul className="an-pub__links" aria-label="Live links">
             {links.data.map((l) => (
               <li key={l.token}>
                 <code>{l.url}</code>
+                {typeof l.views === "number" ? (
+                  <span className="text-xs text-muted-foreground">
+                    {l.views.toLocaleString()}{" "}
+                    {l.views === 1 ? "view" : "views"}
+                  </span>
+                ) : null}
                 <button type="button" onClick={() => copy(l.url)}>
                   Copy
                 </button>
@@ -105,7 +111,7 @@ export function PublishDialog({
             title={nothing ? "Add a chart first" : undefined}
             onClick={() =>
               publish.mutate(
-                { id: dashboard.id, title },
+                { dashboard, title },
                 {
                   onSuccess: (link) => {
                     copy(link.url);

@@ -1,32 +1,29 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import "../analytics.css";
 import { dashboardsApi } from "../../dashboards.service";
-import { BUILT_IN_LAYOUTS } from "../../data/builtin-layouts";
-import { describeChart, isBuiltIn } from "../../utils/dashboards";
 import { MetricCard } from "../metric-card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 /**
- * A published dashboard, read-only and without the app shell. Built-in tabs
- * show their charts; custom dashboards show their own.
+ * A published dashboard, read-only and without the app shell. Each chart is
+ * recomputed live for the workspace every time the link is opened (the server
+ * computes it for an anonymous viewer). Branded with the workspace's name.
  */
-export function PublicDashboard({
-  token,
-  workspace = null,
-}: {
-  token: string;
-  /** The owning workspace's name, when opened on its subdomain (brands the
-   *  eyebrow as "<workspace>"); null on the shared `/d` host. */
-  workspace?: string | null;
-}) {
+export function PublicDashboard({ token }: { token: string }) {
   const q = useQuery({
     queryKey: ["analytics", "published", token],
     queryFn: () => dashboardsApi.published(token),
     retry: false,
   });
+
+  // Count this open (anonymous, deduped per visit); never blocks the render.
+  useEffect(() => {
+    dashboardsApi.recordView(token).catch(() => {});
+  }, [token]);
 
   if (q.isLoading) {
     return (
@@ -50,32 +47,15 @@ export function PublicDashboard({
     );
   }
 
-  const { title, dashboard } = q.data;
-  const builtInCharts = isBuiltIn(dashboard.id)
-    ? BUILT_IN_LAYOUTS[dashboard.id].flatMap((c) =>
-        c.kind === "metric"
-          ? [
-              {
-                id: c.title,
-                title: c.title,
-                metric: c.metric,
-                chart: c.chart,
-                meta: c.meta,
-              },
-            ]
-          : []
-      )
-    : [];
-  const charts = [
-    ...builtInCharts,
-    ...dashboard.charts.map((c) => ({ ...c, meta: describeChart(c) })),
-  ];
+  const { title, workspaceName, period, charts } = q.data;
 
   return (
     <div className="an-public">
       <header>
         <div className="an-public__eyebrow">
-          {workspace ? `${workspace} · dashboard` : "OnchainSuite dashboard"}
+          {workspaceName
+            ? `${workspaceName} · dashboard`
+            : "OnchainSuite dashboard"}
         </div>
         <h1>{title}</h1>
         <p className="an-head__sub">
@@ -92,12 +72,13 @@ export function PublicDashboard({
         <div className="an-bento">
           {charts.map((c) => (
             <MetricCard
-              key={c.id}
-              title={c.title}
+              key={c.spec.id}
+              title={c.spec.title}
               meta={c.meta}
-              metric={c.metric}
-              chart={c.chart}
-              period={dashboard.period}
+              metric={c.spec.metric}
+              chart={c.spec.chart}
+              period={period}
+              data={c.data}
             />
           ))}
         </div>

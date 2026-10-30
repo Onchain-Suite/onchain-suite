@@ -110,7 +110,7 @@ const toRow = (input: unknown): Row | null => {
         : "draft";
   return {
     id,
-    name: asString(input.name) || "Untitled automation",
+    name: asString(input.name) || "Untitled Loop",
     triggerLabel,
     status,
     entries: asNumber(input.entries ?? input.entryCount),
@@ -156,7 +156,7 @@ const statusPill: Record<Status, string> = {
 const PER_PAGE = 10;
 
 const VIEW_TABS: PageTabItem[] = [
-  { id: "automations", label: "Automations", icon: RectangleStackIcon },
+  { id: "automations", label: "Loops", icon: RectangleStackIcon },
   { id: "stats", label: "Stats", icon: ChartBarSquareIcon },
 ];
 
@@ -299,12 +299,13 @@ export function AutomationsListView() {
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeader
-        title="Automations"
+        title="Loops"
+        description="Lifecycle flows that run without you."
         actions={
           <Button asChild>
             <Link href="/automations/new">
               <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-              New automation
+              New Loop
             </Link>
           </Button>
         }
@@ -382,7 +383,7 @@ export function AutomationsListView() {
               <table className="w-full min-w-[820px] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    <th className="px-5 py-3">Automation</th>
+                    <th className="px-5 py-3">Loop</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3 text-right">Entries</th>
                     <th className="px-4 py-3 text-right">Completed</th>
@@ -517,13 +518,13 @@ export function AutomationsListView() {
               <div className="rounded-xl border border-border px-5 py-16 text-center">
                 <p className="text-sm font-semibold text-foreground">
                   {search || filter !== "all"
-                    ? "No matching automations"
-                    : "No automations yet"}
+                    ? "No matching Loops"
+                    : "No Loops yet"}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {search || filter !== "all"
                     ? "Try a different search or filter."
-                    : "Create your first automation to trigger personalized flows."}
+                    : "Create your first Loop to trigger personalized flows."}
                 </p>
               </div>
             ) : null}
@@ -539,7 +540,7 @@ export function AutomationsListView() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete automation?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Loop?</AlertDialogTitle>
             <AlertDialogDescription>
               This permanently deletes{" "}
               <span className="font-medium text-foreground">
@@ -550,7 +551,7 @@ export function AutomationsListView() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteAutomation.isPending}>
-              Keep automation
+              Keep Loop
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -560,7 +561,7 @@ export function AutomationsListView() {
                 if (pendingDelete) deleteAutomation.mutate(pendingDelete.id);
               }}
             >
-              {deleteAutomation.isPending ? "Deleting…" : "Delete automation"}
+              {deleteAutomation.isPending ? "Deleting…" : "Delete Loop"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

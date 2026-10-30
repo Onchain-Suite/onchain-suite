@@ -11,11 +11,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+import { cn } from "@/lib/utils";
+
 import { connectorFor } from "../../data/connectors";
-import { MIGRATIONS } from "../../data/migrations";
+import { MIGRATION_CATEGORIES, MIGRATIONS } from "../../data/migrations";
 import { useConnections } from "../../hooks/use-connections";
 import { requestSource } from "../../hooks/use-requested-sources";
-import type { Migration } from "../../types/sources";
+import type { Migration, MigrationCategory } from "../../types/sources";
 import { findConnection } from "../../utils/connections";
 import { searchMigrations } from "../../utils/sources";
 import { MigrateDialog } from "./migrate-dialog";
@@ -37,7 +39,11 @@ export function MigrateList({ reopen = null }: { reopen?: string | null }) {
     if (m) setPicked(m);
   }, [reopen]);
   const { connections } = useConnections();
-  const rows = searchMigrations(q);
+  const [cat, setCat] = useState<MigrationCategory | "all">("all");
+  const found = searchMigrations(q);
+  const rows = cat === "all" ? found : found.filter((m) => m.category === cat);
+  const countFor = (id: MigrationCategory | "all") =>
+    id === "all" ? found.length : found.filter((m) => m.category === id).length;
 
   return (
     <div className="space-y-5">
@@ -76,6 +82,35 @@ export function MigrateList({ reopen = null }: { reopen?: string | null }) {
           placeholder="Search the tool you are moving from"
           className="pl-9"
         />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [{ id: "all" as const, label: "All" }, ...MIGRATION_CATEGORIES] as {
+            id: MigrationCategory | "all";
+            label: string;
+          }[]
+        ).map((c) => {
+          const active = cat === c.id;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setCat(c.id)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-sm transition-colors",
+                active
+                  ? "border-primary bg-primary/[0.06] text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {c.label}
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {countFor(c.id)}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {rows.length === 0 ? (

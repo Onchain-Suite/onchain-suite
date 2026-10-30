@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { type CampaignAnalytics, campaignsService } from "../campaigns.service";
+import { LiftRow } from "../components/campaign-detail/lift-row";
 import type { Campaign, CampaignStatus } from "../types/campaign";
 import {
   campaignRates,
@@ -455,6 +456,7 @@ export function CampaignDetailPage({ id }: { id: string }) {
         </div>
       ) : (
         <>
+          <LiftRow campaignId={id} />
           <div
             className={cn(
               "grid gap-6",

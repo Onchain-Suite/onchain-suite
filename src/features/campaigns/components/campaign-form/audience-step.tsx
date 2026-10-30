@@ -38,6 +38,7 @@ import {
 import type { List, Segment } from "../../types";
 import type { CampaignFormData } from "../../validations";
 import { type ContactOption } from "./audience-selector";
+import { HoldoutNote } from "./holdout-note";
 import {
   type AudienceProfile,
   audienceService,
@@ -1179,6 +1180,8 @@ export function AudienceStep({
           </p>
         ) : null}
       </div>
+
+      <HoldoutNote eligible={displayedEstimatedRecipients} />
 
       {/* Don't send to */}
       <div className="space-y-2">

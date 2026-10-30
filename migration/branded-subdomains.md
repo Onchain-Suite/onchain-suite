@@ -23,47 +23,65 @@ add-on).
      treated as workspaces. Pure `resolveWorkspaceFromHost(host, domain)` is
      unit-tested.
 
+## Done since
+
+### Workspace resolution (done - frontend + backend)
+The subdomain label is the org's existing **`subdomain`** field (unique; the
+Settings subdomain claim already validates it via `POST
+/organization/subdomain/validate`). No new slug concept.
+- **Backend:** `GET /organization/by-workspace/:subdomain` (public, `@Public()`),
+  returns `{ id, name, subdomain }` only - no settings, no PII. 404 for unknown.
+  (In the `feat/subdomain-workspace-resolution` backend branch; push + merge to
+  staging, then deploy the droplet.)
+- **Frontend:** `src/lib/published-workspace.ts` reads the `x-ocs-workspace`
+  header the middleware sets, calls that endpoint, and brands the page as the
+  workspace's - the dashboard eyebrow shows "<workspace> - dashboard", the form
+  shows the workspace name, and the metadata title uses it. Degrades to the
+  unscoped OnchainSuite page on any failure, so it is safe to ship before DNS is
+  live. The "Published with OnchainSuite" footer stays on both.
+
 ## Still needed to switch it on
 
-### 1. DNS + Vercel (you)
-- Wildcard DNS: `*.onchainsuite.com` -> the Vercel app (CNAME/ALIAS), alongside
-  the existing `app`/apex records.
-- Add the wildcard domain to the Vercel project (Vercel issues the wildcard TLS
-  cert). The app already builds on `main`/the deploy branch; no separate deploy.
-- Set env on the frontend: `NEXT_PUBLIC_PUBLISHING_DOMAIN=onchainsuite.com`.
-  This alone turns the middleware on; nothing else routes until the backend
-  pieces below land, so it is safe to set early.
+### 1. DNS + TLS (you)
+The published pages are the **frontend** (Vercel). Point a wildcard there:
+- **Vercel (frontend host):**
+  1. Vercel project -> Settings -> Domains -> add `*.onchainsuite.com`.
+  2. At the DNS provider for `onchainsuite.com`, add the record Vercel shows for
+     the wildcard - a `CNAME` for `*` -> `cname.vercel-dns.com` (Vercel verifies
+     it and issues the wildcard TLS cert automatically). Keep the existing apex
+     / `app` / `api` records as they are.
+  3. If DNS is on **DigitalOcean** (same place as the droplet): DO Networking ->
+     Domains -> `onchainsuite.com` -> add a `CNAME` with hostname `*` and value
+     `cname.vercel-dns.com.` (trailing dot). `api` stays an `A` record to the
+     droplet IP; the wildcard is for the published FE only.
+- **If the frontend is self-hosted on the droplet** (not Vercel): add an `A`
+  record `*.onchainsuite.com` -> the droplet IP, add a wildcard `server_name
+  *.onchainsuite.com;` block in nginx pointing at the Next server, and issue a
+  wildcard cert with `certbot --nginx -d onchainsuite.com -d '*.onchainsuite.com'`
+  (DNS-01 challenge).
+- Then set the frontend env **`NEXT_PUBLIC_PUBLISHING_DOMAIN=onchainsuite.com`**.
+  That one env flips the middleware on; nothing routes until the backend publish
+  store below lands, so it is safe to set early.
 
-### 2. Backend
-- **Publish persistence** (replaces the current browser `localStorage` store in
-  `analytics/dashboards.service.ts`, per `migration/analytics-api-draft.md`):
-  - `POST /analytics/dashboards/:id/publish` -> `{ token }` (128-bit random);
-    store `{ token, orgId, title, specs, lanes, createdAt }`, owner holds a
-    `manageKey` (server keeps only its hash).
-  - `GET /analytics/published/:token` -> the dashboard's title + chart specs,
-    **aggregate only** (no wallet addresses, no contacts). Live-recomputed, not
-    a snapshot. 404 for revoked/never-existed (identical, on purpose).
-  - `DELETE /analytics/published/:token` (with the manage key) -> revoke.
-  - Forms already have a public read at `/f/[token]`; add the same
-    workspace-scoping below.
-- **Workspace resolution** (new, what the subdomain needs):
-  - Each org gets a unique **`workspaceSlug`** (set at onboarding or in
-    Settings; validate against the reserved list). This is the subdomain label.
-  - `GET /organization/by-workspace/:slug` -> `{ orgId, name, branding }` (public,
-    cacheable) so a page can resolve `acme` -> the org and brand the page as
-    "Acme".
-  - When a published token is read with a workspace in context, assert the
-    token belongs to that workspace (so `acme.onchainsuite.com/d/<token>` can
-    only open Acme's dashboards).
+### 2. Backend - publish persistence (still to do)
+Replaces the current browser `localStorage` store in
+`analytics/dashboards.service.ts` (per `migration/analytics-api-draft.md`):
+- `POST /analytics/dashboards/:id/publish` -> `{ token }` (128-bit random);
+  store `{ token, orgId, title, specs, lanes, createdAt }`, owner holds a
+  `manageKey` (server keeps only its hash).
+- `GET /analytics/published/:token` -> the dashboard's title + chart specs,
+  **aggregate only** (no wallet addresses, no contacts). Live-recomputed, not a
+  snapshot. 404 for revoked/never-existed (identical, on purpose).
+- `DELETE /analytics/published/:token` (with the manage key) -> revoke.
+- When a published token is read with `x-ocs-workspace` set, assert the token's
+  `orgId` matches that subdomain's org (so `acme.onchainsuite.com/d/<token>`
+  can only open Acme's dashboards). Forms already have a public read at
+  `/f/[token]`; add the same check there.
 
-### 3. Frontend wiring (once the above exist)
-- `/d/[token]` and `/f/[token]` read the `x-ocs-workspace` header (set by the
-  middleware), call `GET /organization/by-workspace/:slug`, and:
-  - scope the token read to that workspace (reject cross-workspace tokens);
-  - pass the workspace name/branding to `PublishedFooter` / the page header so
-    the page reads as that workspace's, still "Published with OnchainSuite".
-- Optional: `acme.onchainsuite.com/` (bare) -> a small public index of that
-  workspace's published dashboards (Dune-style), behind the same resolution.
+### 3. Optional later
+- `acme.onchainsuite.com/` (bare) -> a small public index of that workspace's
+  published dashboards (Dune-style), behind the same resolution.
+- Per-org **custom domains** (TypeForm Pro style) as a paid add-on.
 
 ## Security notes
 - Published content is public, read-only, aggregate numbers only - the token is

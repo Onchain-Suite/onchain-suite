@@ -53,11 +53,22 @@ describe("buildFlowTree", () => {
       [n("t", "trigger"), n("a"), n("b")],
       [e("t", "a"), e("a", "b")]
     );
-    expect(t.root).toBe("t");
+    expect(t.roots).toEqual(["t"]);
     expect(pathNodeIds(t.path)).toEqual(["a", "b"]);
     expect(t.path.tails).toEqual([
       { source: "b", handle: null, target: null, edgeId: null },
     ]);
+    expect(t.detached).toEqual([]);
+  });
+
+  it("OR-joins multiple triggers into one flow", () => {
+    const t = tree(
+      [n("t1", "trigger"), n("t2", "trigger"), n("a"), n("b")],
+      [e("t1", "a"), e("t2", "a"), e("a", "b")]
+    );
+    expect([...t.roots].sort()).toEqual(["t1", "t2"]);
+    // Both triggers feed the same first step; the body is laid out once.
+    expect(pathNodeIds(t.path)).toEqual(["a", "b"]);
     expect(t.detached).toEqual([]);
   });
 

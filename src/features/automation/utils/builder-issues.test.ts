@@ -144,7 +144,7 @@ describe("buildLocalIssues", () => {
     });
   });
 
-  it("flags every trigger after the first", () => {
+  it("allows multiple triggers (ways in) without flagging the extras", () => {
     const issues = buildLocalIssues({
       nodes: [
         node({ id: "t1", isTrigger: true, label: "Trigger A" }),
@@ -153,9 +153,7 @@ describe("buildLocalIssues", () => {
       edges: [],
     });
 
-    expect(issues.filter((i) => i.code === "MULTIPLE_TRIGGERS")).toMatchObject([
-      { nodeId: "t2", message: "Trigger B is a second trigger" },
-    ]);
+    expect(issues.filter((i) => i.code === "MULTIPLE_TRIGGERS")).toEqual([]);
   });
 
   it("warns about a step the trigger cannot reach, and stays quiet about connected ones", () => {

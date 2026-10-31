@@ -133,6 +133,7 @@ import {
 } from "@/features/automation/utils/flow-edit";
 import {
   buildFlowTree,
+  MAX_TRIGGERS,
   type Slot,
 } from "@/features/automation/utils/flow-tree";
 import { canRunLendingHealthFactorNow } from "@/features/automation/utils/run-now";
@@ -2351,20 +2352,19 @@ const CreateAutomationContent = () => {
     );
   };
 
-  /** The trigger, wired to whatever the flow already starts with. */
+  /** A trigger (way in), wired into the step the flow already starts with, so
+   *  every trigger is OR-joined: a wallet enters when any one of them fires. */
   const addTrigger = (type: string) => {
-    if (flowTree.root) {
-      toast.error(
-        "An automation has one trigger. Remove the current one first."
-      );
+    if (flowTree.roots.length >= MAX_TRIGGERS) {
+      toast.error(`A flow can start from up to ${MAX_TRIGGERS} triggers.`);
       return;
     }
     const node = createNode(type);
-    // A flow loaded without its trigger keeps its first step: the new trigger
-    // leads into the step nothing else leads into.
-    const first = flowTree.detached.find(
-      (id) => !edges.some((e) => e.target === id)
-    );
+    // The step the flow starts with: the first step on the path, or (a flow
+    // loaded without its trigger) the first step nothing else leads into.
+    const first =
+      flowTree.path.steps[0]?.item.id ??
+      flowTree.detached.find((id) => !edges.some((e) => e.target === id));
     setNodes((nds) => nds.concat(node));
     if (first) setEdges((eds) => eds.concat(makeEdge(node.id, first, null)));
     setSelectedNode(node.id);
@@ -2649,7 +2649,7 @@ const CreateAutomationContent = () => {
   // half-configured, and a verified sender when it sends email — i.e. no
   // blocking issue left in the list above.
   const canActivate =
-    builderNodeCount > 0 && triggerCount === 1 && errorIssues.length === 0;
+    builderNodeCount > 0 && triggerCount >= 1 && errorIssues.length === 0;
 
   // While an existing automation's graph hydrates, show the layout-matching
   // skeleton instead of the empty chrome + spinner - same shape the route-level

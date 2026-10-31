@@ -9,7 +9,12 @@ import {
 import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 
 import "./flow-canvas.css";
-import type { FlowPath, FlowTree, Slot } from "../../../utils/flow-tree";
+import {
+  type FlowPath,
+  type FlowTree,
+  MAX_TRIGGERS,
+  type Slot,
+} from "../../../utils/flow-tree";
 import { FlowCard, type FlowCardNode } from "./flow-card";
 import { StepMenu, type StepMenuGroup } from "./step-menu";
 import {
@@ -325,19 +330,38 @@ export function FlowCanvas(props: FlowCanvasProps) {
         }}
       >
         <div className="ab-stage" ref={stage} style={{ zoom }}>
-          {!tree.root ? (
+          {tree.roots.length === 0 ? (
             <div className="ab-start">
-              <b>What starts this automation?</b>
+              <b>How do people enter this automation?</b>
               <span>
-                Pick a trigger: an on-chain event, a form, a list or a tag. Then
-                add what happens next with the +.
+                Pick a way in: an on-chain event, a form, a list or a tag. You
+                can add more than one - a wallet enters when any of them fires.
+                Then add what happens next with the +.
               </span>
               {triggerMenu(true)}
             </div>
           ) : (
             <>
-              <span className="ab-caption">People start when</span>
-              <Card id={tree.root} ctx={ctx} trigger />
+              <span className="ab-caption">
+                {tree.roots.length > 1
+                  ? "People start when any of these fire"
+                  : "People start when"}
+              </span>
+              <div className="ab-triggers">
+                {tree.roots.map((id, i) => (
+                  <Fragment key={id}>
+                    {i > 0 && (
+                      <span className="ab-or" aria-hidden="true">
+                        OR
+                      </span>
+                    )}
+                    <Card id={id} ctx={ctx} trigger />
+                  </Fragment>
+                ))}
+                {tree.roots.length < MAX_TRIGGERS && (
+                  <div className="ab-trigmore">{triggerMenu(false)}</div>
+                )}
+              </div>
               <Path path={tree.path} ctx={ctx} />
             </>
           )}

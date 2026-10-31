@@ -588,13 +588,8 @@ export const buildLocalIssues = (input: {
   if (triggers.length === 0) {
     issues.push(local("MISSING_TRIGGER", "This flow has no trigger"));
   }
-  for (const extra of triggers.slice(1)) {
-    issues.push(
-      local("MULTIPLE_TRIGGERS", `${extra.label} is a second trigger`, {
-        nodeId: extra.id,
-      })
-    );
-  }
+  // Multiple triggers are allowed: a flow can start from any of several ways in
+  // (OR-joined), so a second trigger is no longer flagged.
   if (triggers.length > 0 && nodes.length === triggers.length) {
     issues.push(local("NO_ACTIONS", "The trigger has no steps after it"));
   }

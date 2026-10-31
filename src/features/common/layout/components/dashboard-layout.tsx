@@ -36,6 +36,7 @@ import {
 } from "./org-switcher-context";
 import { OrganizationStatusBanner } from "./organization-status-banner";
 import { PendingCheckoutBanner } from "@/features/billing/components/pending-checkout-banner";
+import { CerebraLauncher } from "@/features/intelligence/components/cerebra/cerebra-launcher";
 import { ProductTour } from "@/features/onboarding/components/product-tour";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 import {
@@ -198,6 +199,9 @@ function DashboardLayoutInner({
 
         {/* The guided tour overlays the whole shell so it survives navigation between sections. */}
         <ProductTour />
+
+        {/* Cerebra: the floating Intelligence assistant, available on every page. */}
+        {hasActiveOrganization ? <CerebraLauncher /> : null}
       </SidebarProvider>
     </OrgSwitcherProvider>
   );

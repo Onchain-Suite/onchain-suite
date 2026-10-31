@@ -13,6 +13,9 @@ import { useEffect, useRef, useState } from "react";
 import { cn, getSelectedOrganizationId } from "@/lib/utils";
 
 import { intelligenceService } from "../../intelligence.service";
+import { CerebraBugReport } from "./cerebra-bug-report";
+
+type Tab = "ask" | "bug";
 
 interface Turn {
   role: "user" | "assistant";
@@ -35,6 +38,7 @@ const FALLBACK_STARTERS = [
  */
 export function CerebraLauncher() {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>("ask");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -136,86 +140,123 @@ export function CerebraLauncher() {
             </button>
           </header>
 
-          <div className="scrollbar-sleek flex-1 space-y-3 overflow-y-auto px-4 py-3">
-            {turns.length === 0 ? (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Ask about anything on this page, or anything in your
-                  workspace.
-                </p>
-                <div className="space-y-1.5">
-                  {suggestions.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => ask(s)}
-                      className="flex w-full items-start gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-left text-sm text-foreground transition-colors hover:border-border hover:bg-muted/60"
-                    >
-                      <span className="mt-0.5 text-muted-foreground">↳</span>
-                      <span className="min-w-0">{s}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              turns.map((t, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex",
-                    t.role === "user" ? "justify-end" : "justify-start"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm",
-                      t.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : t.error
-                          ? "bg-destructive/10 text-destructive"
-                          : "bg-muted text-foreground"
-                    )}
-                  >
-                    {t.text}
-                  </div>
-                </div>
-              ))
-            )}
-            {busy ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <ArrowPathIcon
-                  className="size-4 animate-spin"
-                  aria-hidden="true"
-                />
-                Thinking…
-              </div>
-            ) : null}
-            <div ref={scrollEnd} />
+          <div
+            className="flex shrink-0 gap-1 border-b border-border px-2 pt-2"
+            role="tablist"
+            aria-label="Intelligence panel"
+          >
+            {(
+              [
+                ["ask", "Ask"],
+                ["bug", "Report a bug"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tab === id}
+                onClick={() => setTab(id)}
+                className={cn(
+                  "rounded-t-md border-b-2 px-3 py-1.5 text-sm font-medium transition-colors",
+                  tab === id
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              ask(input);
-            }}
-            className="flex items-center gap-2 border-t border-border p-3"
-          >
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Intelligence…"
-              aria-label="Ask Intelligence"
-              className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <button
-              type="submit"
-              disabled={busy || !input.trim()}
-              className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-              aria-label="Send"
-            >
-              <PaperAirplaneIcon className="size-4" aria-hidden="true" />
-            </button>
-          </form>
+          {tab === "bug" ? (
+            <CerebraBugReport />
+          ) : (
+            <>
+              <div className="scrollbar-sleek flex-1 space-y-3 overflow-y-auto px-4 py-3">
+                {turns.length === 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Ask about anything on this page, or anything in your
+                      workspace.
+                    </p>
+                    <div className="space-y-1.5">
+                      {suggestions.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => ask(s)}
+                          className="flex w-full items-start gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-left text-sm text-foreground transition-colors hover:border-border hover:bg-muted/60"
+                        >
+                          <span className="mt-0.5 text-muted-foreground">
+                            ↳
+                          </span>
+                          <span className="min-w-0">{s}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  turns.map((t, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex",
+                        t.role === "user" ? "justify-end" : "justify-start"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm",
+                          t.role === "user"
+                            ? "bg-primary text-primary-foreground"
+                            : t.error
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-muted text-foreground"
+                        )}
+                      >
+                        {t.text}
+                      </div>
+                    </div>
+                  ))
+                )}
+                {busy ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <ArrowPathIcon
+                      className="size-4 animate-spin"
+                      aria-hidden="true"
+                    />
+                    Thinking…
+                  </div>
+                ) : null}
+                <div ref={scrollEnd} />
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  ask(input);
+                }}
+                className="flex items-center gap-2 border-t border-border p-3"
+              >
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask Intelligence…"
+                  aria-label="Ask Intelligence"
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <button
+                  type="submit"
+                  disabled={busy || !input.trim()}
+                  className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                  aria-label="Send"
+                >
+                  <PaperAirplaneIcon className="size-4" aria-hidden="true" />
+                </button>
+              </form>
+            </>
+          )}
         </div>
       ) : (
         <button

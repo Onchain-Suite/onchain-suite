@@ -894,6 +894,21 @@ export const intelligenceService = {
     );
   },
 
+  /**
+   * Report a bug from the assistant panel. Files are uploaded first (reuse
+   * `uploadAttachment`) and only their ids are sent; the backend emails the team
+   * the note plus download links.
+   */
+  reportBug(
+    body: { message: string; attachmentFileIds?: string[] },
+    orgId?: string
+  ) {
+    return request<{ ok: boolean }>(
+      { method: "POST", url: "/support/bug-report", data: body },
+      orgId
+    );
+  },
+
   getQueryStarters(orgId?: string) {
     return request<IntelligenceQueryStartersResponse>(
       { method: "GET", url: "/intelligence/query/starters" },

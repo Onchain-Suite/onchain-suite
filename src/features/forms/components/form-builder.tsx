@@ -73,9 +73,11 @@ import {
 } from "../forms.service";
 import { useForm, useUpdateForm } from "../hooks/use-forms";
 import { publicFormUrl } from "../utils/public-url";
+import { fieldsForStep, removeStep, stepCount } from "../utils/steps";
 import { CustomFormApi } from "./custom-form-api";
 import { EmbedSnippet } from "./embed-snippet";
 import { FormPreviewStage } from "./form-preview-stage";
+import { FormStepTabs } from "./form-step-tabs";
 import { SubmissionsTab } from "./submissions-tab";
 import { audienceService } from "@/features/audience/audience.service";
 import { automationService } from "@/features/automation/automation.service";
@@ -204,6 +206,35 @@ export function FormBuilder({ id }: { id: string }) {
     readDisplaySettings(undefined)
   );
   const [meta, setMeta] = useState<FormMeta>(readFormMeta(undefined));
+  const [currentStep, setCurrentStep] = useState(1);
+
+  const totalSteps = stepCount(fields, meta.steps);
+  const curStep = Math.min(currentStep, totalSteps);
+  // The fields shown for the step being edited: that step's body fields, plus
+  // the consent field on the last step (it always lives on the last step, like
+  // the live renderer). Edits/moves still address the full `fields` by key.
+  const stepFields = useMemo(() => {
+    const consent = fields.find((f) => (f.type ?? "text") === "consent");
+    const body = fieldsForStep(
+      fields.filter((f) => f !== consent),
+      curStep
+    );
+    return curStep === totalSteps && consent ? [...body, consent] : body;
+  }, [fields, curStep, totalSteps]);
+
+  const MAX_STEPS = 6;
+  const addStep = () => {
+    const next = Math.min(MAX_STEPS, totalSteps + 1);
+    setMeta((m) => ({ ...m, steps: next }));
+    setCurrentStep(next);
+  };
+  const deleteStep = (s: number) => {
+    if (totalSteps <= 1) return;
+    setFields((prev) => removeStep(prev, s));
+    const next = totalSteps - 1;
+    setMeta((m) => ({ ...m, steps: next }));
+    setCurrentStep((c) => Math.max(1, Math.min(c > s ? c - 1 : c, next)));
+  };
 
   useEffect(() => {
     if (!form) return;
@@ -253,10 +284,10 @@ export function FormBuilder({ id }: { id: string }) {
       .split(",")
       .map((o) => o.trim())
       .filter(Boolean),
-    settings: writeFormMeta(
-      writeDisplaySettings(form?.settings, display),
-      meta
-    ),
+    settings: writeFormMeta(writeDisplaySettings(form?.settings, display), {
+      ...meta,
+      steps: totalSteps,
+    }),
   });
 
   const save = () => {
@@ -314,6 +345,8 @@ export function FormBuilder({ id }: { id: string }) {
         label: defaultLabel,
         type,
         required: type === "wallet" || type === "consent" || type === "email",
+        // Consent always renders on the last step, so it carries no step.
+        ...(type === "consent" ? {} : { step: curStep }),
       },
     ]);
     setSelectedKey(key);
@@ -330,8 +363,19 @@ export function FormBuilder({ id }: { id: string }) {
   const moveField = (key: string, dir: -1 | 1) =>
     setFields((prev) => {
       const i = prev.findIndex((f) => f.key === key);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= prev.length) return prev;
+      if (i < 0) return prev;
+      // Reorder within the field's own step only: find the nearest neighbour in
+      // that direction that shares its step, so a move never jumps steps.
+      const stepOf = (f: CaptureFieldSpec) =>
+        (f.type ?? "text") === "consent"
+          ? Number.MAX_SAFE_INTEGER
+          : typeof f.step === "number" && f.step >= 1
+            ? Math.round(f.step)
+            : 1;
+      const mine = stepOf(prev[i]);
+      let j = i + dir;
+      while (j >= 0 && j < prev.length && stepOf(prev[j]) !== mine) j += dir;
+      if (j < 0 || j >= prev.length) return prev;
       const next = [...prev];
       [next[i], next[j]] = [next[j], next[i]];
       return next;
@@ -608,9 +652,19 @@ export function FormBuilder({ id }: { id: string }) {
                 mobilePane === "preview" ? "block" : "hidden"
               )}
             >
+              <div className="mb-4 flex justify-center">
+                <FormStepTabs
+                  count={totalSteps}
+                  current={curStep}
+                  onSelect={setCurrentStep}
+                  onAdd={addStep}
+                  onRemove={deleteStep}
+                  max={MAX_STEPS}
+                />
+              </div>
               <FormPreviewStage
                 name={name}
-                fields={fields}
+                fields={stepFields}
                 display={display}
                 appearance={meta.appearance}
                 submitLabel={submitLabelForType(meta.type)}

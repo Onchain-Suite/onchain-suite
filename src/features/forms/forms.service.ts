@@ -68,6 +68,13 @@ export interface CaptureFieldSpec {
   label?: string;
   type?: CaptureFieldType;
   required?: boolean;
+  /**
+   * 1-based step this field belongs to on a multi-step form. Absent = step 1,
+   * so single-step forms and every pre-existing form stay valid unchanged. The
+   * field list stays flat (one array); `step` just groups it for the builder
+   * tabs and the renderer's Next/Back pagination.
+   */
+  step?: number;
 }
 
 /** One captured submission (list view / Submissions tab). */
@@ -459,6 +466,9 @@ export interface FormMeta {
   afterSubmit: FormAfterSubmit;
   /** Lead forms only: send a confirmation email before subscribing. */
   doubleOptIn: boolean;
+  /** How many steps the form has (>=1). Fields carry a 1-based `step`; this is
+   *  persisted so a just-added, still-empty trailing step survives a save. */
+  steps: number;
 }
 
 export const DEFAULT_TIMING: FormTiming = {
@@ -498,6 +508,7 @@ export const DEFAULT_META: FormMeta = {
   // pre-send proof a mailbox is real on accept-all providers, so it protects
   // sender reputation. Users can still turn it off in the builder.
   doubleOptIn: true,
+  steps: 1,
 };
 
 const STYLE_IDS = new Set<FormStyleId>([
@@ -595,6 +606,7 @@ export function readFormMeta(
           : null,
     },
     doubleOptIn: pickBool(meta.doubleOptIn, DEFAULT_META.doubleOptIn),
+    steps: Math.max(1, Math.round(pickNum(meta.steps, DEFAULT_META.steps))),
   };
 }
 

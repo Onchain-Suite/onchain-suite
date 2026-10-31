@@ -44,8 +44,6 @@ export interface FlowCanvasProps {
 interface Ctx extends FlowCanvasProps {
   menuAt: string | null;
   setMenuAt: (key: string | null) => void;
-  dragging: boolean;
-  setDragging: (v: boolean) => void;
 }
 
 const slotKey = (slots: Slot[]) =>
@@ -63,23 +61,8 @@ function SlotLine({
 }) {
   const key = slotKey(slots);
   const open = ctx.menuAt === key;
-  const [over, setOver] = useState(false);
   return (
-    <div
-      className={`ab-slot${over ? " is-over" : ""}${ctx.dragging ? " is-drag" : ""}`}
-      onDragOver={(e) => {
-        if (!ctx.dragging) return;
-        e.preventDefault();
-        setOver(true);
-      }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setOver(false);
-        const id = e.dataTransfer.getData("text/automation-node");
-        if (id) ctx.onMove(id, slots);
-      }}
-    >
+    <div className="ab-slot">
       <span className="ab-line" aria-hidden="true" />
       <Popover open={open} onOpenChange={(o) => ctx.setMenuAt(o ? key : null)}>
         <PopoverTrigger asChild>
@@ -129,9 +112,7 @@ function Card({
       selected={ctx.selected === id}
       severity={ctx.severity.get(id)}
       showStats={ctx.showStats}
-      draggable={!trigger && node.type !== "branch"}
       onSelect={ctx.onSelect}
-      onDragState={ctx.setDragging}
     />
   );
 }
@@ -199,7 +180,6 @@ const clampZoom = (z: number) => Math.min(1.25, Math.max(0.4, +z.toFixed(2)));
 export function FlowCanvas(props: FlowCanvasProps) {
   const { tree, triggerGroups, onAddTrigger, onSelect } = props;
   const [menuAt, setMenuAt] = useState<string | null>(null);
-  const [dragging, setDragging] = useState(false);
   const [zoom, setZoom] = useState(1);
   const scroller = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -209,7 +189,7 @@ export function FlowCanvas(props: FlowCanvasProps) {
     left: number;
     top: number;
   } | null>(null);
-  const ctx: Ctx = { ...props, menuAt, setMenuAt, dragging, setDragging };
+  const ctx: Ctx = { ...props, menuAt, setMenuAt };
 
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
@@ -364,8 +344,8 @@ export function FlowCanvas(props: FlowCanvasProps) {
           {tree.detached.length > 0 && (
             <div className="ab-detached">
               <span>
-                Not connected to the flow. Drag one onto a + to put it back, or
-                remove it from its settings.
+                Not connected to the flow. Open its settings to remove it, or
+                add it back with a + on the line where it belongs.
               </span>
               {tree.detached.map((id) => {
                 const node = ctx.nodes.get(id);

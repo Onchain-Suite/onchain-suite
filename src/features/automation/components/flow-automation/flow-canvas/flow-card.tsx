@@ -25,7 +25,7 @@ const fmt = (n: number) => n.toLocaleString("en-US");
 /**
  * One step on the canvas: what kind it is, what it does, and what it still
  * needs. A real button, so the flow works from the keyboard and reads top to
- * bottom to a screen reader. Plain steps can be dragged onto any "+".
+ * bottom to a screen reader, and is clicked (never dragged) to select it.
  */
 export const FlowCard = memo(function FlowCard({
   node,
@@ -33,18 +33,14 @@ export const FlowCard = memo(function FlowCard({
   selected,
   severity,
   showStats,
-  draggable,
   onSelect,
-  onDragState,
 }: {
   node: FlowCardNode;
   trigger?: boolean;
   selected: boolean;
   severity?: "error" | "warning";
   showStats: boolean;
-  draggable: boolean;
   onSelect: (id: string | null) => void;
-  onDragState: (dragging: boolean) => void;
 }) {
   const data = isJsonObject(node.data) ? node.data : {};
   const type = stepType(node.type, data);
@@ -86,13 +82,6 @@ export const FlowCard = memo(function FlowCard({
         .join(" ")}
       aria-pressed={selected}
       aria-label={`${kind}: ${title}${todo ? `. To finish: ${todo}` : ""}`}
-      draggable={draggable}
-      onDragStart={(e) => {
-        e.dataTransfer.setData("text/automation-node", node.id);
-        e.dataTransfer.effectAllowed = "move";
-        onDragState(true);
-      }}
-      onDragEnd={() => onDragState(false)}
       onClick={(e) => {
         e.stopPropagation();
         onSelect(selected ? null : node.id);

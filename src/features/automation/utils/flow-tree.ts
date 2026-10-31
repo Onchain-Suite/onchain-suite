@@ -56,14 +56,18 @@ export interface FlowPath {
 }
 
 export interface FlowTree {
-  /** The trigger, when there is one. */
-  root: string | null;
+  /** The triggers (ways in), OR-joined: a wallet enters when any one fires.
+   *  Empty when the flow has none yet. */
+  roots: string[];
   path: FlowPath;
   /** Steps no path reaches, so a hand-wired graph never loses one. */
   detached: string[];
 }
 
 export const BRANCH_HANDLES: BranchHandle[] = ["yes", "no"];
+
+/** How many OR-joined triggers one automation may have (mirrors the 2.7 cap). */
+export const MAX_TRIGGERS = 3;
 
 const isBranch = (n: FlowNodeLike | undefined) => n?.type === "branch";
 
@@ -188,27 +192,28 @@ export function buildFlowTree(
     }
   };
 
-  const root = nodes.find(isTrigger)?.id ?? null;
-  let path: FlowPath = { steps: [], tails: [] };
-  if (root) {
-    placed.add(root);
-    const e = edgeFrom(root, null);
-    path = walk(
-      [
-        {
-          source: root,
-          handle: null,
-          target: e?.target ?? null,
-          edgeId: e?.id ?? null,
-        },
-      ],
-      new Set()
-    );
-  }
+  const roots = nodes.filter(isTrigger).map((n) => n.id);
+  for (const r of roots) placed.add(r);
+  // One entry slot per trigger edge, all pointing at the shared first step. So
+  // inserting on the first line rewires EVERY trigger into the new step - the
+  // triggers stay OR-joined - and the first step a trigger with no edge yet
+  // gets connected too (its slot has no edgeId, so pointSlotsAt adds the edge).
+  const entry: Slot[] = roots.map((r) => {
+    const e = edgeFrom(r, null);
+    return {
+      source: r,
+      handle: null,
+      target: e?.target ?? null,
+      edgeId: e?.id ?? null,
+    };
+  });
+  const path: FlowPath = entry.length
+    ? walk(entry, new Set())
+    : { steps: [], tails: [] };
   const detached = nodes
     .filter((n) => !placed.has(n.id) && n.type !== "placeholder")
     .map((n) => n.id);
-  return { root, path, detached };
+  return { roots, path, detached };
 }
 
 /** Every step id on a path, nested paths included, in reading order. */

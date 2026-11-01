@@ -4,11 +4,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import AuditLog from "../components/audit/audit-log";
 import BillingSettings from "../components/billing/billing";
 import PrivacyIdentitySettings from "../components/privacy/privacy";
 import ProfileSettings from "../components/profile/profile";
 import RewardsSettings from "../components/rewards/rewards";
 import { SettingsNav } from "../components/settings-nav";
+import TeamAccessSettings from "../components/team/team";
 import { tabs } from "../utils";
 import CompanySettingsView from "./company-settings-view";
 import { useMyOrgRole } from "@/shared/hooks/client/use-my-org-role";
@@ -24,9 +26,15 @@ export default function SettingsPage() {
   // not-owner so the tab can't flash for members.
   const { role } = useMyOrgRole();
   const isOwner = role === "OWNER";
+  // Audit log is owner/admin only (the backend 403s otherwise); Billing is
+  // owner-only. Role null (loading) counts as neither, so neither tab flashes.
+  const isAdmin = isOwner || role === "ADMIN";
   const visibleTabs = useMemo(
-    () => (isOwner ? tabs : tabs.filter((t) => t.id !== "billing")),
-    [isOwner]
+    () =>
+      tabs.filter(
+        (t) => (t.id !== "billing" || isOwner) && (t.id !== "audit" || isAdmin)
+      ),
+    [isOwner, isAdmin]
   );
 
   const tabIds = useMemo(
@@ -41,10 +49,11 @@ export default function SettingsPage() {
     setActiveTab(tabFromUrl);
   }, [tabFromUrl, tabIds]);
 
-  // Deep-linked /settings?tab=billing for a non-owner: bounce to profile.
+  // Deep-linked /settings?tab=billing|audit without the role: bounce to profile.
   useEffect(() => {
     if (activeTab === "billing" && !isOwner) setActiveTab("profile");
-  }, [activeTab, isOwner]);
+    if (activeTab === "audit" && !isAdmin) setActiveTab("profile");
+  }, [activeTab, isOwner, isAdmin]);
 
   const selectTab = (id: string) => {
     setActiveTab(id);
@@ -80,6 +89,8 @@ export default function SettingsPage() {
             {activeTab === "profile" && <ProfileSettings />}
             {activeTab === "account" && <CompanySettingsView />}
             {activeTab === "privacy" && <PrivacyIdentitySettings />}
+            {activeTab === "team" && <TeamAccessSettings />}
+            {activeTab === "audit" && isAdmin && <AuditLog />}
             {activeTab === "billing" && isOwner && <BillingSettings />}
             {activeTab === "rewards" && <RewardsSettings />}
           </motion.div>

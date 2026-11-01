@@ -10,6 +10,7 @@ import {
   ChevronUpDownIcon,
   ChevronUpIcon,
   ClipboardDocumentIcon,
+  ClipboardDocumentListIcon,
   DevicePhoneMobileIcon,
   EllipsisHorizontalIcon,
   EnvelopeIcon,
@@ -17,6 +18,7 @@ import {
   PencilSquareIcon,
   PlusIcon,
   TrashIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import {
   keepPreviousData,
@@ -102,6 +104,7 @@ import {
 import { type LifecycleStage, stageForProfile } from "../utils/lifecycle";
 import { EnrichmentControl } from "@/features/intelligence/components/enrichment-control";
 import { intelligenceService } from "@/features/intelligence/intelligence.service";
+import { SectionEmpty } from "@/shared/components/common/section-empty";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
@@ -1166,10 +1169,32 @@ export function AudiencePages() {
                   Failed to load contacts.
                 </div>
               ) : rows.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-                  No contacts yet - import a CSV or sync a contract to get
-                  started.
-                </div>
+                <SectionEmpty
+                  icon={UserGroupIcon}
+                  title="No one here yet"
+                  body="Your audience is everyone you can reach: contacts you import, people who sign up through a form, and wallets that connect to your app. Start with a CSV or a form."
+                  waits={false}
+                  action={{
+                    label: "Import contacts",
+                    href: IMPORT_EXPORT_HREF,
+                    icon: ArrowUpTrayIcon,
+                  }}
+                  secondary={{
+                    label: "Build a sign-up form",
+                    href: PRIVATE_ROUTES.FORMS,
+                    icon: ClipboardDocumentListIcon,
+                  }}
+                  onChain="Your holders can join them too, once a contract is indexed."
+                  preview={{
+                    kind: "table",
+                    columns: [
+                      "Contact",
+                      "Reachable on",
+                      "Stage",
+                      "Last active",
+                    ],
+                  }}
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[560px] border-collapse text-sm">

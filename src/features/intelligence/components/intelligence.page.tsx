@@ -2,10 +2,13 @@
 
 import {
   ArrowPathIcon,
+  ArrowUpTrayIcon,
   ChatBubbleLeftRightIcon,
   CheckIcon,
+  ClipboardDocumentListIcon,
   ClockIcon,
   // CodeBracketIcon, // re-add when the hidden SQL tab is restored
+  SparklesIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,7 +24,10 @@ import { intelligenceService } from "../intelligence.service";
 import { toQueryHistoryItems } from "../utils/query-history";
 import { QueryTab } from "./query";
 import { SegmentsView } from "./segments/segments-view";
+import { useWorkspaceMode } from "@/features/onboarding/hooks/use-workspace-mode";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
+import { SectionEmpty } from "@/shared/components/common/section-empty";
+import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 /** Tab ids that `/intelligence?tab=` accepts, so deep links can't land nowhere. */
 const TAB_IDS = new Set(["chat", "segments", "sql"]);
@@ -118,6 +124,7 @@ export default function IntelligencePage() {
   const searchParamsString = searchParams?.toString() ?? "";
 
   const [activeTab, setActiveTab] = useState("chat");
+  const { mode: workspaceMode } = useWorkspaceMode();
 
   useEffect(() => {
     if (typeof tabFromUrl !== "string") return;
@@ -177,6 +184,43 @@ export default function IntelligencePage() {
   // only the bottom border on the active tab.
   const TAB_TRIGGER_CLASS =
     "relative h-auto flex-none gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-1 pb-2.5 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-b-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:border-b-primary dark:data-[state=active]:bg-transparent";
+
+  // Nothing to ask about until there are people in the workspace: the teaching
+  // empty state (v2.7 reference) stands in for the chat until then.
+  if (workspaceMode === "empty") {
+    return (
+      <div className="mx-auto w-full max-w-7xl space-y-6">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          Intelligence
+        </h1>
+        <SectionEmpty
+          icon={SparklesIcon}
+          title="Nothing to ask about yet"
+          body="Intelligence answers questions about the people in your workspace: who signed up this week, who opened but never clicked, who has not heard from you in a month. Add contacts, a form or the SDK and you can start asking."
+          waits={false}
+          action={{
+            label: "Add contacts",
+            href: PRIVATE_ROUTES.AUDIENCE,
+            icon: ArrowUpTrayIcon,
+          }}
+          secondary={{
+            label: "Build a sign-up form",
+            href: PRIVATE_ROUTES.FORMS,
+            icon: ClipboardDocumentListIcon,
+          }}
+          onChain="Questions about holders, whales and mints open up once a contract is indexed."
+          preview={{
+            kind: "ask",
+            questions: [
+              "Who signed up this week?",
+              "Who opened but never clicked?",
+              "Who went dormant this month?",
+            ],
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col gap-6">

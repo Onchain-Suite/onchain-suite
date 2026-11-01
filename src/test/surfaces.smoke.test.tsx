@@ -19,7 +19,13 @@
  * The Settings owner-role hook is mocked so every tab is reachable.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -173,13 +179,17 @@ describe("dashboard surfaces smoke", () => {
         <MainDashboard userData={dashboardUser} />
       </CommandPaletteProvider>
     );
-    expect(
-      await screen.findByText(
-        /good (morning|afternoon|evening)/i,
-        undefined,
-        HEADING_TIMEOUT
-      )
-    ).toBeInTheDocument();
+    // The home greeting lives inside the mode branch (live stats vs the empty
+    // first-run), so the workspace-mode read flipping from live to empty
+    // remounts the heading. waitFor tolerates that transition where a single
+    // findByText can race the one-frame gap between the two trees.
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(/good (morning|afternoon|evening)/i)
+        ).toBeInTheDocument(),
+      HEADING_TIMEOUT
+    );
   });
 
   it("CampaignsListsView mounts", async () => {

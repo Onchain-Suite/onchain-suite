@@ -2,8 +2,8 @@
 
 import {
   ArrowPathIcon,
+  ArrowTopRightOnSquareIcon,
   PaperAirplaneIcon,
-  SparklesIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
@@ -14,6 +14,7 @@ import { cn, getSelectedOrganizationId } from "@/lib/utils";
 
 import { intelligenceService } from "../../intelligence.service";
 import { CerebraBugReport } from "./cerebra-bug-report";
+import { CerebraMark } from "@/features/onboarding-flow/components/guided/cerebra-mark";
 
 type Tab = "ask" | "bug";
 
@@ -111,8 +112,8 @@ export function CerebraLauncher() {
       {open ? (
         <div className="fixed bottom-4 right-4 z-50 flex h-[min(560px,calc(100vh-2rem))] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
           <header className="flex items-start gap-3 border-b border-border px-4 py-3">
-            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <SparklesIcon className="size-4" aria-hidden="true" />
+            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <CerebraMark face size={20} track={false} />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground">
@@ -128,7 +129,10 @@ export function CerebraLauncher() {
               aria-label="Open the full Intelligence workspace"
               title="Open full view"
             >
-              <SparklesIcon className="size-4" aria-hidden="true" />
+              <ArrowTopRightOnSquareIcon
+                className="size-4"
+                aria-hidden="true"
+              />
             </Link>
             <button
               type="button"
@@ -262,11 +266,11 @@ export function CerebraLauncher() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-4 right-4 z-50 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
+          className="fixed bottom-4 right-4 z-50 flex size-12 items-center justify-center rounded-full border border-border bg-card shadow-lg transition-transform hover:scale-105"
           aria-label="Ask Intelligence"
           title="Ask Intelligence"
         >
-          <SparklesIcon className="size-5" aria-hidden="true" />
+          <CerebraMark face size={30} />
         </button>
       )}
     </>

@@ -2,6 +2,7 @@
 
 import {
   ArrowDownTrayIcon,
+  ChartBarIcon,
   ComputerDesktopIcon,
   GlobeAltIcon,
   PlusIcon,
@@ -32,8 +33,11 @@ import {
   useDashboardList,
 } from "./hooks/use-dashboards";
 import { describeChart, isBuiltIn, newChartSpec } from "./utils/dashboards";
+import { useWorkspaceMode } from "@/features/onboarding/hooks/use-workspace-mode";
+import { SectionEmpty } from "@/shared/components/common/section-empty";
 import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const PERIODS: AnalyticsPeriod[] = ["7d", "30d", "90d"];
 
@@ -45,6 +49,7 @@ const PERIODS: AnalyticsPeriod[] = ["7d", "30d", "90d"];
 export function AnalyticsDashboard({ dash }: { dash: string }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { mode: workspaceMode } = useWorkspaceMode();
   const params = useSearchParams();
   const isIndex = dash === "all";
   const one = useDashboard(isIndex ? "overview" : dash);
@@ -134,6 +139,36 @@ export function AnalyticsDashboard({ dash }: { dash: string }) {
       : one.isLoading
         ? "Analytics"
         : "Dashboard not found";
+
+  // Nothing to chart until a source is connected: show the teaching empty
+  // state (v2.7 reference) rather than empty bento skeletons.
+  if (workspaceMode === "empty") {
+    return (
+      <div className="an">
+        <header className="an-head">
+          <div>
+            <h1>Analytics</h1>
+          </div>
+        </header>
+        <SectionEmpty
+          icon={ChartBarIcon}
+          title="No numbers yet"
+          body="Dashboards chart what your audience and campaigns do: sign-ups, sends, opens, clicks and events from your app. Connect any one source and the default Dashboard starts filling in."
+          waits={false}
+          action={{
+            label: "Connect a source",
+            href: PRIVATE_ROUTES.INTEGRATIONS,
+            icon: PlusIcon,
+          }}
+          onChain="Holders, mints and on-chain conversions join in once a contract is indexed."
+          preview={{
+            kind: "chart",
+            tiles: ["Contacts reached", "Opens and clicks", "Sign-ups"],
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="an">

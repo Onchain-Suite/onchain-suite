@@ -2,6 +2,7 @@
 
 import {
   ArrowPathIcon,
+  ArrowRightIcon,
   ChevronDownIcon,
   ExclamationCircleIcon,
   ExclamationTriangleIcon,
@@ -160,8 +161,12 @@ export const BuilderIssuesPanel = memo(function BuilderIssuesPanel({
                   ) : null}
                 </span>
                 {issue.nodeId ? (
-                  <span className="shrink-0 self-center text-xs font-medium text-primary">
+                  <span className="flex shrink-0 self-center items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                     Fix
+                    <ArrowRightIcon
+                      className="h-3.5 w-3.5"
+                      aria-hidden="true"
+                    />
                   </span>
                 ) : null}
               </>

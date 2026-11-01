@@ -55,10 +55,25 @@ export interface FlowPath {
   tails: Slot[];
 }
 
+/** One trigger's own run of first steps, before the shared flow. */
+export interface FlowLane {
+  root: string;
+  path: FlowPath;
+}
+
 export interface FlowTree {
   /** The triggers (ways in), OR-joined: a wallet enters when any one fires.
    *  Empty when the flow has none yet. */
   roots: string[];
+  /** True when each trigger has its own first steps (the lanes below) before
+   *  everyone converges onto `path`. False means one shared flow from the
+   *  triggers. Only ever true with more than one trigger. */
+  split: boolean;
+  /** One lane per trigger when `split`; empty otherwise. A lane runs from its
+   *  trigger to the step every trigger reaches (the start of `path`). */
+  lanes: FlowLane[];
+  /** The shared flow: the whole flow when not split, or what everyone does
+   *  once the lanes converge when split. */
   path: FlowPath;
   /** Steps no path reaches, so a hand-wired graph never loses one. */
   detached: string[];
@@ -95,7 +110,10 @@ function branchEdges(
 export function buildFlowTree(
   nodes: FlowNodeLike[],
   edges: FlowEdgeLike[],
-  isTrigger: (n: FlowNodeLike) => boolean
+  isTrigger: (n: FlowNodeLike) => boolean,
+  /** Draw each trigger's own first steps before the shared flow. Ignored with
+   *  one trigger, where there is nothing to lay side by side. */
+  split = false
 ): FlowTree {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const out = new Map<string, FlowEdgeLike[]>();
@@ -194,11 +212,9 @@ export function buildFlowTree(
 
   const roots = nodes.filter(isTrigger).map((n) => n.id);
   for (const r of roots) placed.add(r);
-  // One entry slot per trigger edge, all pointing at the shared first step. So
-  // inserting on the first line rewires EVERY trigger into the new step - the
-  // triggers stay OR-joined - and the first step a trigger with no edge yet
-  // gets connected too (its slot has no edgeId, so pointSlotsAt adds the edge).
-  const entry: Slot[] = roots.map((r) => {
+  // A trigger's own entry slot: just that trigger's edge (or none yet). An
+  // empty edgeId means the slot has no edge, so pointSlotsAt adds one.
+  const entrySlot = (r: string): Slot => {
     const e = edgeFrom(r, null);
     return {
       source: r,
@@ -206,14 +222,58 @@ export function buildFlowTree(
       target: e?.target ?? null,
       edgeId: e?.id ?? null,
     };
-  });
+  };
+
+  // Split only makes sense with more than one way in.
+  const laned = split && roots.length > 1;
+
+  if (laned) {
+    // Each trigger keeps its own lane up to the first step every trigger
+    // reaches; from there the flow is shared ("Then everyone"). The triggers
+    // behave like a branch's paths that join back up.
+    const rootGuard = new Set(roots);
+    const laneSpines = roots.map((r) => {
+      const e = edgeFrom(r, null);
+      return e ? spine(e.target, rootGuard) : [];
+    });
+    // The join is the first step present on every trigger's main line.
+    const others = laneSpines.slice(1).map((l) => new Set(l));
+    const join =
+      laneSpines[0]?.find((id) => others.every((s) => s.has(id))) ?? null;
+    const stop = join ? new Set([join]) : new Set<string>();
+    const lanes: FlowLane[] = roots.map((r) => ({
+      root: r,
+      path: walk([entrySlot(r)], stop),
+    }));
+    // Everyone's flow starts where the lanes meet: it sits on every lane's open
+    // end, so a step added there rewires all of them into it.
+    const tails = lanes.flatMap((l) => l.path.tails);
+    const path: FlowPath = join
+      ? walk(tails, new Set())
+      : { steps: [], tails: [] };
+    const detached = nodes
+      .filter((n) => !placed.has(n.id) && n.type !== "placeholder")
+      .map((n) => n.id);
+    return { roots, split: true, lanes, path, detached };
+  }
+
+  // Not split: one entry slot per trigger, all pointing at the shared first
+  // step, so inserting on the first line rewires EVERY trigger into the new
+  // step and the triggers stay OR-joined.
+  const entry: Slot[] = roots.map(entrySlot);
   const path: FlowPath = entry.length
     ? walk(entry, new Set())
     : { steps: [], tails: [] };
   const detached = nodes
     .filter((n) => !placed.has(n.id) && n.type !== "placeholder")
     .map((n) => n.id);
-  return { roots, path, detached };
+  return { roots, split: false, lanes: [], path, detached };
+}
+
+/** True when the lanes are all empty, so the flow can go back to one shared
+ *  line without stranding any step. */
+export function canUnsplit(tree: FlowTree): boolean {
+  return tree.lanes.every((l) => l.path.steps.length === 0);
 }
 
 /** Every step id on a path, nested paths included, in reading order. */

@@ -133,6 +133,7 @@ import {
 } from "@/features/automation/utils/flow-edit";
 import {
   buildFlowTree,
+  canUnsplit,
   MAX_TRIGGERS,
   type Slot,
 } from "@/features/automation/utils/flow-tree";
@@ -2286,16 +2287,24 @@ const CreateAutomationContent = () => {
     [nodes, showAnalytics, nodeStatsById]
   );
 
+  /* Whether each trigger has its own first steps (persisted with the graph's
+     settings, so it survives a reload). */
+  const splitEntries = flowSettings.splitEntries === true;
+
   /* The flow as the canvas draws it, read off the nodes and edges. */
   const flowTree = useMemo(
     () =>
-      buildFlowTree(nodes, edges, (n) =>
-        nodeIsTrigger(
-          n.type,
-          isJsonObject(n.data) ? asString(n.data.triggerType) : ""
-        )
+      buildFlowTree(
+        nodes,
+        edges,
+        (n) =>
+          nodeIsTrigger(
+            n.type,
+            isJsonObject(n.data) ? asString(n.data.triggerType) : ""
+          ),
+        splitEntries
       ),
-    [nodes, edges]
+    [nodes, edges, splitEntries]
   );
 
   /** A new step's node, with its backend schema fetched once it exists. */
@@ -2368,6 +2377,19 @@ const CreateAutomationContent = () => {
     setNodes((nds) => nds.concat(node));
     if (first) setEdges((eds) => eds.concat(makeEdge(node.id, first, null)));
     setSelectedNode(node.id);
+  };
+
+  /* Same vs different first steps for each trigger. Only the flag changes: the
+     graph already wires every trigger into the shared first step, so turning
+     split on gives each one an empty lane that merges straight back, and
+     turning it off (allowed only when the lanes are empty) restores the single
+     shared line. Persisted in the graph's settings. */
+  const setSplitEntries = (split: boolean) => {
+    if (!split && !canUnsplit(flowTree)) {
+      toast.error("Empty the per-trigger steps first.");
+      return;
+    }
+    setFlowSettings((s) => ({ ...s, splitEntries: split }));
   };
 
   const insertAt = (slots: Slot[], type: string) => {
@@ -2813,6 +2835,7 @@ const CreateAutomationContent = () => {
             onInsert={insertAt}
             onMove={moveTo}
             onAddTrigger={addTrigger}
+            onSetSplit={setSplitEntries}
           />
 
           {/* The selected step's settings, or the flow's own when nothing is. */}

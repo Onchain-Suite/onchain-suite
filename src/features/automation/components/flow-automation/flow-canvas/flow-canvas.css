@@ -49,17 +49,31 @@
 .ab-canvas:focus-visible { box-shadow:inset 0 0 0 2px var(--border-focus); }
 .ab-stage { display:flex; flex-direction:column; align-items:center; padding:24px 40px 48px; width:max-content; min-width:100%; box-sizing:border-box; }
 .ab-caption { margin-bottom:10px; font-size:12px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; color:var(--text-tertiary); }
+/* Entry tools: the caption, the add-a-trigger button and the same/different
+   first-steps toggle, stacked above the triggers so nothing interrupts the
+   line down to what everyone does. */
+.ab-entrytools { display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:12px; }
+.ab-entrytools .ab-caption { margin-bottom:0; }
+.ab-entryadd .ab-addentry { padding:6px 14px; font-size:13px; }
+/* Same vs different first steps for each way in. */
+.ab-splitseg { display:inline-flex; padding:2px; border-radius:999px; background:var(--surface-subtle); border:1px solid var(--border-subtle); }
+.ab-splitseg button { padding:4px 12px; border:0; background:none; border-radius:999px; font:inherit; font-size:12px; font-weight:500; color:var(--text-secondary); cursor:pointer; }
+.ab-splitseg button[aria-checked="true"] { background:var(--bg-surface); color:var(--text-primary); box-shadow:var(--elevation-1); }
+.ab-splitseg button:disabled { opacity:.5; cursor:not-allowed; }
 /* Multiple triggers (ways in), OR-joined. Side by side, wrapping on narrow
    canvases; they converge into the shared flow below. */
 .ab-triggers { display:flex; flex-direction:row; flex-wrap:wrap; align-items:stretch;
   justify-content:center; gap:10px; }
-.ab-triggers > .ab-or, .ab-triggers > .ab-trigmore { align-self:center; }
+.ab-triggers > .ab-or { align-self:center; }
 .ab-or { font-size:11px; font-weight:700; letter-spacing:.04em; color:var(--text-tertiary);
   background:var(--surface-subtle); border:1px solid var(--border-subtle); border-radius:999px; padding:1px 9px; }
-.ab-trigmore { margin-top:0; }
-.ab-trigmore .ab-addentry { padding:6px 14px; font-size:13px; }
 /* A trigger card in the row stretches to match its tallest sibling. */
 .ab-triggers > .ab-card { align-self:stretch; }
+/* Different first steps: one lane per trigger, converging into "Then everyone".
+   The triggers are the start, so there is no connector above them. */
+.ab-fork--entries > .ab-col { padding-top:0; }
+.ab-fork--entries > .ab-col::before { display:none; }
+.ab-join { margin:2px 0 10px; font-size:12px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; color:var(--text-tertiary); }
 
 .ab-start { display:flex; flex-direction:column; align-items:center; gap:8px; max-width:380px; margin-top:80px; padding:28px; text-align:center;
   border-radius:var(--radius-lg); background:var(--bg-surface); border:1px solid var(--border-subtle); box-shadow:var(--elevation-1); }

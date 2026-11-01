@@ -1,17 +1,20 @@
 "use client";
 
-import { DocumentTextIcon, PlusIcon } from "@heroicons/react/24/outline";
+import {
+  ClipboardDocumentListIcon,
+  PlusIcon,
+} from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/ui/button";
-import { Card, CardContent } from "@/ui/card";
 
 import { FormStats } from "../components/form-stats";
 import { FormsTable } from "../components/forms-table";
 import { FormWizard } from "../components/wizard/form-wizard";
 import type { CaptureForm } from "../forms.service";
 import { useFormsList } from "../hooks/use-forms";
+import { SectionEmpty } from "@/shared/components/common/section-empty";
 import { PageHeader } from "@/shared/components/page/page-header";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 
@@ -49,36 +52,22 @@ export function FormsPage() {
       {formsQuery.isLoading ? (
         <TableSkeleton rows={5} />
       ) : forms.length === 0 ? (
-        <EmptyState onCreate={() => setCreateOpen(true)} />
+        <SectionEmpty
+          icon={ClipboardDocumentListIcon}
+          title="No forms yet"
+          body="A form turns a visitor into a verified contact. It does not need any indexed data, so you can build one now."
+          waits={false}
+          action={{
+            label: "New form",
+            onClick: () => setCreateOpen(true),
+            icon: PlusIcon,
+          }}
+        />
       ) : (
         <FormsTable forms={forms} onOpen={openForm} />
       )}
 
       {createOpen ? <FormWizard onClose={() => setCreateOpen(false)} /> : null}
     </div>
-  );
-}
-
-function EmptyState({ onCreate }: { onCreate: () => void }) {
-  return (
-    <Card>
-      <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-        <div className="rounded-full border border-border bg-muted/40 p-3">
-          <DocumentTextIcon
-            className="h-6 w-6 text-muted-foreground"
-            aria-hidden="true"
-          />
-        </div>
-        <p className="text-sm font-medium text-foreground">No forms yet</p>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Create one to get an embeddable widget or a hosted page and start
-          capturing wallets.
-        </p>
-        <Button onClick={onCreate} size="sm">
-          <PlusIcon className="mr-1 h-4 w-4" aria-hidden="true" />
-          Create your first form
-        </Button>
-      </CardContent>
-    </Card>
   );
 }

@@ -1,6 +1,11 @@
 "use client";
 
-import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowUpTrayIcon,
+  ChevronRightIcon,
+  MegaphoneIcon,
+  PlusIcon,
+} from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -23,6 +28,7 @@ import { campaignsService } from "../campaigns.service";
 import { CampaignsAnalyticsOverview } from "../components/analytics-overview";
 import { CampaignsReferenceTable } from "../components/campaigns-reference-table";
 import type { Campaign, CampaignStatus } from "../types/campaign";
+import { SectionEmpty } from "@/shared/components/common/section-empty";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
@@ -315,26 +321,21 @@ export function CampaignsListsView() {
         <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
           No campaigns match this filter.
         </div>
-      ) : (
-        // No campaigns to show - genuinely empty, or the request failed (data is
-        // empty either way). Show the actionable empty state, plus a Retry when
-        // it actually errored so a transient failure isn't a dead end.
+      ) : campaignsQuery.isError ? (
+        // The request failed. Keep a Retry so a transient failure isn't a dead end.
         <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
           <p className="text-sm text-muted-foreground">
-            {campaignsQuery.isError
-              ? "We couldn't load your campaigns just now - retry, or create a new one."
-              : "No campaigns yet - create your first to start reaching wallets by email and in-app push."}
+            We couldn&apos;t load your campaigns just now - retry, or create a
+            new one.
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {campaignsQuery.isError ? (
-              <Button
-                variant="outline"
-                className="rounded-xl"
-                onClick={() => campaignsQuery.refetch()}
-              >
-                Retry
-              </Button>
-            ) : null}
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => campaignsQuery.refetch()}
+            >
+              Retry
+            </Button>
             <Button asChild className="rounded-xl">
               <Link href={PRIVATE_ROUTES.NEW_CAMPAIGN} prefetch>
                 <PlusIcon className="mr-2 size-4" aria-hidden="true" />
@@ -343,6 +344,28 @@ export function CampaignsListsView() {
             </Button>
           </div>
         </div>
+      ) : (
+        <SectionEmpty
+          icon={MegaphoneIcon}
+          title="No campaigns yet"
+          body="A campaign sends one message to an audience, by email, in-app push or X. Import contacts or collect them with a form, connect a channel, and you can send today."
+          waits={false}
+          action={{
+            label: "Create campaign",
+            href: PRIVATE_ROUTES.NEW_CAMPAIGN,
+            icon: PlusIcon,
+          }}
+          secondary={{
+            label: "Import contacts",
+            href: PRIVATE_ROUTES.AUDIENCE,
+            icon: ArrowUpTrayIcon,
+          }}
+          onChain="Want to message your holders too? They become an audience once a contract is indexed."
+          preview={{
+            kind: "table",
+            columns: ["Campaign", "Channel", "Sent", "Opened", "Converted"],
+          }}
+        />
       )}
 
       <Dialog

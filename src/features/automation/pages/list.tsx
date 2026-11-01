@@ -1,8 +1,12 @@
 "use client";
 
 import {
+  BoltIcon,
   ChartBarSquareIcon,
   ChevronRightIcon,
+  ClipboardDocumentListIcon,
+  ClockIcon,
+  EnvelopeIcon,
   PlusIcon,
   RectangleStackIcon,
   TrashIcon,
@@ -20,6 +24,7 @@ import {
 import { AutomationStatsView } from "../components/automation-stats-view";
 import { useDeleteAutomation } from "../hooks/use-automations";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
+import { SectionEmpty } from "@/shared/components/common/section-empty";
 import { PageHeader } from "@/shared/components/page/page-header";
 import { type PageTabItem, PageTabs } from "@/shared/components/page/page-tabs";
 import {
@@ -515,18 +520,41 @@ export function AutomationsListView() {
             ) : null}
 
             {!listQuery.isLoading && rows.length === 0 ? (
-              <div className="rounded-xl border border-border px-5 py-16 text-center">
-                <p className="text-sm font-semibold text-foreground">
-                  {search || filter !== "all"
-                    ? "No matching Loops"
-                    : "No Loops yet"}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {search || filter !== "all"
-                    ? "Try a different search or filter."
-                    : "Create your first Loop to trigger personalized flows."}
-                </p>
-              </div>
+              search || filter !== "all" ? (
+                <div className="rounded-xl border border-border px-5 py-16 text-center">
+                  <p className="text-sm font-semibold text-foreground">
+                    No matching Loops
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Try a different search or filter.
+                  </p>
+                </div>
+              ) : (
+                <SectionEmpty
+                  className="border-0 bg-transparent shadow-none"
+                  icon={BoltIcon}
+                  title="No Loops yet"
+                  body="A Loop moves each person through steps you set when something happens: a form submitted, someone added to a list, a call booked. Build one now and it starts the moment the first person comes in."
+                  waits={false}
+                  action={{
+                    label: "New Loop",
+                    href: "/automations/new",
+                    icon: PlusIcon,
+                  }}
+                  onChain="Mints, swaps and wallets going quiet can start a Loop too, once a contract is indexed."
+                  preview={{
+                    kind: "flow",
+                    steps: [
+                      {
+                        icon: ClipboardDocumentListIcon,
+                        label: "Submits the signup form",
+                      },
+                      { icon: EnvelopeIcon, label: "Send “Welcome”" },
+                      { icon: ClockIcon, label: "Wait 2 days" },
+                    ],
+                  }}
+                />
+              )
             ) : null}
           </div>
         </>

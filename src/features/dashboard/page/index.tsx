@@ -2,9 +2,8 @@
 
 import { CommandBar } from "../components/command-bar";
 import { OnboardingResumeBanner } from "../components/get-started";
+import { HomeFirstRun } from "../components/home-first-run";
 import { MetricsDashboard } from "../components/metrics-dashboard";
-import { TakeTheTourButton } from "../components/take-the-tour-button";
-import { StartHereBanner } from "@/features/onboarding/components/start-here-banner";
 import { useTimeToValue } from "@/features/onboarding/hooks/use-time-to-value";
 import { useWorkspaceMode } from "@/features/onboarding/hooks/use-workspace-mode";
 
@@ -65,6 +64,19 @@ export function MainDashboard({ userData }: MainDashboardProps) {
   // (reports once, only when the wizard set a first-mile start stamp).
   useTimeToValue();
 
+  // Empty workspaces get the whole way in: greeting, the setup checklist with
+  // a next-step hero, and the things that work before any data arrives. Home
+  // carries it rather than pointing at the sidebar (v2.7 `HomeFirstRun`).
+  if (empty) {
+    return (
+      <HomeFirstRun
+        greeting={greeting}
+        name={name}
+        workspaceName={userData.projectName}
+      />
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <div className="rounded-2xl border border-border bg-card px-6 py-7">
@@ -72,30 +84,15 @@ export function MainDashboard({ userData }: MainDashboardProps) {
           {`Good ${greeting}, ${name}.`}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {empty
-            ? "Your workspace is set up. Nothing is indexed yet. Getting started, in the sidebar, is the way in."
-            : "Here is what moved across your workspace today."}
+          Here is what moved across your workspace today.
         </p>
-        {/* Empty workspaces get the way back into Cerebra's tour, under the
-            greeting (matches 2.7's `.home__tour` placement). */}
-        {empty ? <TakeTheTourButton /> : null}
       </div>
 
-      <StartHereBanner />
-
-      {/* Owner-only "finish onboarding" resume affordance; self-hides otherwise.
-          The setup checklist now lives in the sidebar (GettingStarted). */}
+      {/* Owner-only "finish onboarding" resume affordance; self-hides otherwise. */}
       <OnboardingResumeBanner />
 
-      {/* Empty workspaces have nothing to ask about and nothing to chart, so
-          the assistant bar and metrics only appear once the workspace is live.
-          Both own their own loading + honest empty states for the live case. */}
-      {empty ? null : (
-        <>
-          <CommandBar />
-          <MetricsDashboard />
-        </>
-      )}
+      <CommandBar />
+      <MetricsDashboard />
     </div>
   );
 }

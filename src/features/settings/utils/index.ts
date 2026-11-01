@@ -1,9 +1,11 @@
 import {
   BuildingOffice2Icon,
   CreditCardIcon,
+  DocumentTextIcon,
   GiftIcon,
   ShieldCheckIcon,
   UserIcon,
+  UsersIcon,
 } from "@heroicons/react/24/outline";
 
 export const fadeInUp = {
@@ -35,6 +37,8 @@ export const tabs = [
   { id: "profile", label: "Profile", icon: UserIcon },
   { id: "account", label: "Account", icon: BuildingOffice2Icon },
   { id: "privacy", label: "Privacy & Identity", icon: ShieldCheckIcon },
+  { id: "team", label: "Team & access", icon: UsersIcon },
+  { id: "audit", label: "Audit log", icon: DocumentTextIcon },
   { id: "billing", label: "Billing", icon: CreditCardIcon },
   { id: "rewards", label: "Rewards", icon: GiftIcon },
 ];

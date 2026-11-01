@@ -3,8 +3,10 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
+import { AiSettingsCard } from "../components/account/ai-settings-card";
 import { BrandingCard } from "../components/account/branding-card";
 import { ContractsCard } from "../components/account/contracts-card";
+import { FrequencyBudgetCard } from "../components/account/frequency-budget-card";
 import { HoldoutCard } from "../components/account/holdout-card";
 import { NftEnrichmentCard } from "../components/account/nft-enrichment-card";
 import { ProfileCompletenessCard } from "../components/account/profile-completeness-card";
@@ -12,7 +14,6 @@ import { ProjectCard } from "../components/account/project-card";
 import { SenderIdentitiesCard } from "../components/account/sender-identities-card";
 import { SenderVerificationCard } from "../components/account/sender-verification-card";
 import { SmartSendingCard } from "../components/account/smart-sending-card";
-import { TeamCard } from "../components/account/team-card";
 
 /** Deep-link section ids scrolled to via ?section=<id> (e.g. from CTAs). */
 const SENDER_VERIFICATION_SECTION_ID = "sender-verification";
@@ -52,7 +53,8 @@ export default function CompanySettingsView() {
       <SenderIdentitiesCard />
       <SmartSendingCard />
       <HoldoutCard />
-      <TeamCard />
+      <AiSettingsCard />
+      <FrequencyBudgetCard />
     </div>
   );
 }

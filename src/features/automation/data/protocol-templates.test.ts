@@ -32,6 +32,8 @@ describe("protocol template payloads", () => {
       "onchain_event",
       "large_transfer",
       "holder_acquired",
+      "swap_completed",
+      "capital_withdrawn",
       "bridged",
       "segment_entered",
       "form_submitted",

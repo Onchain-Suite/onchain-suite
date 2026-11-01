@@ -10,6 +10,7 @@ import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 
 import "./flow-canvas.css";
 import {
+  canUnsplit,
   type FlowPath,
   type FlowTree,
   MAX_TRIGGERS,
@@ -44,6 +45,9 @@ export interface FlowCanvasProps {
   onInsert: (slots: Slot[], type: string) => void;
   onMove: (id: string, slots: Slot[]) => void;
   onAddTrigger: (type: string) => void;
+  /** Toggle whether each trigger has its own first steps before the shared
+   *  flow. Only shown with more than one trigger. */
+  onSetSplit: (split: boolean) => void;
 }
 
 interface Ctx extends FlowCanvasProps {
@@ -183,7 +187,7 @@ function Path({ path, ctx }: { path: FlowPath; ctx: Ctx }) {
 const clampZoom = (z: number) => Math.min(1.25, Math.max(0.4, +z.toFixed(2)));
 
 export function FlowCanvas(props: FlowCanvasProps) {
-  const { tree, triggerGroups, onAddTrigger, onSelect } = props;
+  const { tree, triggerGroups, onAddTrigger, onSelect, onSetSplit } = props;
   const [menuAt, setMenuAt] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const scroller = useRef<HTMLDivElement>(null);
@@ -217,7 +221,9 @@ export function FlowCanvas(props: FlowCanvasProps) {
      at 70% or more, otherwise 70% with the rest a drag away. Once; after that
      the zoom is the person's. */
   const fitted = useRef(false);
-  const hasSteps = tree.path.steps.length > 0;
+  const hasSteps =
+    tree.path.steps.length > 0 ||
+    tree.lanes.some((l) => l.path.steps.length > 0);
   useEffect(() => {
     if (fitted.current || !hasSteps) return;
     fitted.current = true;
@@ -343,27 +349,83 @@ export function FlowCanvas(props: FlowCanvasProps) {
             </div>
           ) : (
             <>
-              <span className="ab-caption">
-                {tree.roots.length > 1
-                  ? "People start when any of these happen"
-                  : "People start when"}
-              </span>
-              <div className="ab-triggers">
-                {tree.roots.map((id, i) => (
-                  <Fragment key={id}>
-                    {i > 0 && (
-                      <span className="ab-or" aria-hidden="true">
-                        OR
-                      </span>
-                    )}
-                    <Card id={id} ctx={ctx} trigger />
-                  </Fragment>
-                ))}
+              {/* What starts the automation, how to add to it, and whether
+                  each trigger has its own first steps sit above the triggers,
+                  so nothing interrupts the line down to what everyone does. */}
+              <div className="ab-entrytools">
+                <span className="ab-caption">
+                  {tree.roots.length > 1
+                    ? "People start when any of these happen"
+                    : "People start when"}
+                </span>
                 {tree.roots.length < MAX_TRIGGERS && (
-                  <div className="ab-trigmore">{triggerMenu(false)}</div>
+                  <div className="ab-entryadd">{triggerMenu(false)}</div>
+                )}
+                {tree.roots.length > 1 && (
+                  <div
+                    className="ab-splitseg"
+                    role="radiogroup"
+                    aria-label="First steps"
+                  >
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={!tree.split}
+                      disabled={tree.split && !canUnsplit(tree)}
+                      title={
+                        tree.split && !canUnsplit(tree)
+                          ? "Empty the per-trigger steps first"
+                          : undefined
+                      }
+                      onClick={() => onSetSplit(false)}
+                    >
+                      Same steps for everyone
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={tree.split}
+                      onClick={() => onSetSplit(true)}
+                    >
+                      Different first steps for each
+                    </button>
+                  </div>
                 )}
               </div>
-              <Path path={tree.path} ctx={ctx} />
+              {tree.split ? (
+                <div className="ab-fork ab-fork--entries">
+                  {tree.lanes.map((lane) => (
+                    <div className="ab-col" key={lane.root}>
+                      <Card id={lane.root} ctx={ctx} trigger />
+                      <Path path={lane.path} ctx={ctx} />
+                      <span className="ab-grow" aria-hidden="true" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="ab-triggers">
+                  {tree.roots.map((id, i) => (
+                    <Fragment key={id}>
+                      {i > 0 && (
+                        <span className="ab-or" aria-hidden="true">
+                          OR
+                        </span>
+                      )}
+                      <Card id={id} ctx={ctx} trigger />
+                    </Fragment>
+                  ))}
+                </div>
+              )}
+              {/* A join exists exactly when the shared flow has a first step. */}
+              {tree.split && tree.path.steps.length > 0 ? (
+                <>
+                  <span className="ab-line" aria-hidden="true" />
+                  <span className="ab-join">Then everyone</span>
+                  <Path path={tree.path} ctx={ctx} />
+                </>
+              ) : tree.split ? null : (
+                <Path path={tree.path} ctx={ctx} />
+              )}
             </>
           )}
           {tree.detached.length > 0 && (

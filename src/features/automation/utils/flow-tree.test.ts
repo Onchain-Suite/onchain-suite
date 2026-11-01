@@ -9,6 +9,7 @@ import {
 } from "./flow-edit";
 import {
   buildFlowTree,
+  canUnsplit,
   type FlowEdgeLike,
   type FlowNodeLike,
   pathNodeIds,
@@ -28,6 +29,12 @@ const e = (
 const isTrigger = (x: FlowNodeLike) => x.type === "trigger";
 const tree = (nodes: FlowNodeLike[], edges: FlowEdgeLike[]) =>
   buildFlowTree(nodes, edges, isTrigger);
+const treeSplit = (nodes: FlowNodeLike[], edges: FlowEdgeLike[]) =>
+  buildFlowTree(nodes, edges, isTrigger, true);
+const laneOf = (t: ReturnType<typeof treeSplit>, root: string): string[] =>
+  pathNodeIds(
+    t.lanes.find((l) => l.root === root)?.path ?? { steps: [], tails: [] }
+  );
 const mk = (
   source: string,
   target: string,
@@ -111,6 +118,66 @@ describe("buildFlowTree", () => {
       [e("t", "a"), e("a", "b"), e("b", "a")]
     );
     expect(pathNodeIds(t.path)).toEqual(["a", "b"]);
+  });
+
+  it("is never split by default", () => {
+    const t = tree(
+      [n("t1", "trigger"), n("t2", "trigger"), n("a")],
+      [e("t1", "a"), e("t2", "a")]
+    );
+    expect(t.split).toBe(false);
+    expect(t.lanes).toEqual([]);
+  });
+});
+
+describe("split lanes", () => {
+  it("gives each trigger an empty lane when they share the first step", () => {
+    const t = treeSplit(
+      [n("t1", "trigger"), n("t2", "trigger"), n("a"), n("b")],
+      [e("t1", "a"), e("t2", "a"), e("a", "b")]
+    );
+    expect(t.split).toBe(true);
+    expect(laneOf(t, "t1")).toEqual([]);
+    expect(laneOf(t, "t2")).toEqual([]);
+    // Everyone's flow is the shared line, and the lanes can be collapsed back.
+    expect(pathNodeIds(t.path)).toEqual(["a", "b"]);
+    expect(canUnsplit(t)).toBe(true);
+  });
+
+  it("lays out per-trigger first steps that converge on the join", () => {
+    const t = treeSplit(
+      [n("t1", "trigger"), n("t2", "trigger"), n("x1"), n("x2"), n("j")],
+      [e("t1", "x1"), e("t2", "x2"), e("x1", "j"), e("x2", "j")]
+    );
+    expect(t.split).toBe(true);
+    expect(laneOf(t, "t1")).toEqual(["x1"]);
+    expect(laneOf(t, "t2")).toEqual(["x2"]);
+    expect(pathNodeIds(t.path)).toEqual(["j"]);
+    // Lanes carry steps, so it cannot go back to one line without stranding them.
+    expect(canUnsplit(t)).toBe(false);
+    expect(t.detached).toEqual([]);
+  });
+
+  it("inserts into one lane without touching the others", () => {
+    const g0 = {
+      nodes: [n("t1", "trigger"), n("t2", "trigger"), n("x1"), n("x2"), n("j")],
+      edges: [e("t1", "x1"), e("t2", "x2"), e("x1", "j"), e("x2", "j")],
+    };
+    const t = treeSplit(g0.nodes, g0.edges);
+    const laneT1Tails = t.lanes.find((l) => l.root === "t1")?.path.tails ?? [];
+    const g = insertStep(g0, n("ins"), laneT1Tails, mk);
+    // t1's lane now runs x1 -> ins -> j; t2's lane is untouched.
+    const after = treeSplit(g.nodes, g.edges);
+    expect(laneOf(after, "t1")).toEqual(["x1", "ins"]);
+    expect(laneOf(after, "t2")).toEqual(["x2"]);
+    expect(pathNodeIds(after.path)).toEqual(["j"]);
+  });
+
+  it("ignores split with a single trigger", () => {
+    const t = treeSplit([n("t", "trigger"), n("a")], [e("t", "a")]);
+    expect(t.split).toBe(false);
+    expect(t.lanes).toEqual([]);
+    expect(pathNodeIds(t.path)).toEqual(["a"]);
   });
 });
 

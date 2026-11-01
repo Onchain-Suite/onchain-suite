@@ -1,0 +1,66 @@
+/* The passcode form a gated strategy shows at its own address. It reuses the
+   cover's logo pair (book.css) and the site's tokens and button. */
+.ns .rp-gate {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 72px 16px 96px;
+  text-align: center;
+}
+.ns .rp-gate .rp-bk-endpaper-in {
+  margin-bottom: 8px;
+}
+.ns .rp-gate-title {
+  margin: 0;
+  font-size: clamp(26px, 4vw, 34px);
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.ns .rp-gate-lede {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--soft);
+}
+.ns .rp-gate-form {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  margin-top: 8px;
+  text-align: left;
+}
+.ns .rp-gate-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ns .rp-gate-input {
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+}
+.ns .rp-gate-input:focus {
+  outline: 2px solid var(--btn);
+  outline-offset: 1px;
+  border-color: var(--btn);
+}
+.ns .rp-gate-input[aria-invalid="true"] {
+  border-color: #c2410c;
+}
+.ns .rp-gate-error {
+  margin: 0;
+  font-size: 14px;
+  color: #c2410c;
+}
+.ns .rp-gate-form .btn {
+  justify-content: center;
+  margin-top: 6px;
+}

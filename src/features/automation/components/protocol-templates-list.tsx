@@ -26,25 +26,20 @@ const ACCENT: Record<
   ProtocolTemplateFamily,
   { dot: string; chip: string; ring: string }
 > = {
-  "whale-ltv": {
+  "welcome-onboard": {
+    dot: "bg-emerald-500",
+    chip: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    ring: "hover:border-emerald-500/50",
+  },
+  "engage-grow": {
     dot: "bg-sky-500",
     chip: "border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400",
     ring: "hover:border-sky-500/50",
   },
-  "nft-airdrop": {
-    dot: "bg-violet-500",
-    chip: "border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400",
-    ring: "hover:border-violet-500/50",
-  },
-  "churn-winback": {
+  "keep-winback": {
     dot: "bg-amber-500",
     chip: "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
     ring: "hover:border-amber-500/50",
-  },
-  "bridge-onboarding": {
-    dot: "bg-emerald-500",
-    chip: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-    ring: "hover:border-emerald-500/50",
   },
 };
 

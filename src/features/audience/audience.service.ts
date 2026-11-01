@@ -224,6 +224,32 @@ export interface AudienceImportPreset {
 export type AudienceJobState =
   "queued" | "processing" | "completed" | "failed" | "cancelled";
 
+/** One labelled outcome in the per-import report (see GET .../imports/:id/report). */
+export interface AudienceImportReportBucket {
+  key: string;
+  label: string;
+  count: number;
+  description: string;
+  tone: "positive" | "neutral" | "warning" | "negative";
+  /** A CSV of the affected rows, when one was produced. */
+  fileUrl?: string | null;
+  /** True when the count is a derived floor, not an exact persisted counter. */
+  approximate?: boolean;
+}
+
+export interface AudienceImportReport {
+  jobId: string;
+  status: string;
+  dryRun: boolean;
+  format: string;
+  createdAt: string | null;
+  finishedAt: string | null;
+  totalRows: number | null;
+  imported: number;
+  buckets: AudienceImportReportBucket[];
+  summary: string;
+}
+
 export interface AudienceImportJobStatus {
   jobId: string;
   state: AudienceJobState | string;
@@ -1205,6 +1231,33 @@ export const audienceService = {
     const res = await apiClient.request<Blob>({
       method: "GET",
       url: `/audience/imports/${encodeURIComponent(jobId)}/errors`,
+      responseType: "blob",
+      headers,
+    });
+    return res.data;
+  },
+
+  /** `GET /audience/imports/:jobId/report` — the per-import outcome breakdown. */
+  getImportReport(jobId: string, orgId?: string) {
+    return request<AudienceImportReport>(
+      {
+        method: "GET",
+        url: `/audience/imports/${encodeURIComponent(jobId)}/report`,
+      },
+      orgId
+    );
+  },
+
+  /** `GET /audience/imports/:jobId/report.pdf` — the same report as a PDF blob. */
+  async downloadImportReportPdf(jobId: string, orgId?: string) {
+    const resolvedOrgId = pickOrgId(orgId);
+    const headers = {
+      ...(resolvedOrgId ? { "x-org-id": resolvedOrgId } : {}),
+      "x-onchain-silent-error": "1",
+    };
+    const res = await apiClient.request<Blob>({
+      method: "GET",
+      url: `/audience/imports/${encodeURIComponent(jobId)}/report.pdf`,
       responseType: "blob",
       headers,
     });

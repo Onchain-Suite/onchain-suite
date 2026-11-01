@@ -591,7 +591,13 @@ export const buildLocalIssues = (input: {
   // Multiple triggers are allowed: a flow can start from any of several ways in
   // (OR-joined), so a second trigger is no longer flagged.
   if (triggers.length > 0 && nodes.length === triggers.length) {
-    issues.push(local("NO_ACTIONS", "The trigger has no steps after it"));
+    // Point the fix at the trigger: selecting it opens its panel and brings the
+    // "+" that adds the first step into view, so the issue is clickable.
+    issues.push(
+      local("NO_ACTIONS", "The trigger has no steps after it", {
+        nodeId: triggers[0].id,
+      })
+    );
   }
 
   const outgoingCount = new Map<string, number>();

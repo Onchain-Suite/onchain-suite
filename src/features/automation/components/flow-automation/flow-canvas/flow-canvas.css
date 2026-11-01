@@ -49,12 +49,17 @@
 .ab-canvas:focus-visible { box-shadow:inset 0 0 0 2px var(--border-focus); }
 .ab-stage { display:flex; flex-direction:column; align-items:center; padding:24px 40px 48px; width:max-content; min-width:100%; box-sizing:border-box; }
 .ab-caption { margin-bottom:10px; font-size:12px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; color:var(--text-tertiary); }
-/* Multiple triggers (ways in), OR-joined. */
-.ab-triggers { display:flex; flex-direction:column; align-items:center; gap:8px; }
+/* Multiple triggers (ways in), OR-joined. Side by side, wrapping on narrow
+   canvases; they converge into the shared flow below. */
+.ab-triggers { display:flex; flex-direction:row; flex-wrap:wrap; align-items:stretch;
+  justify-content:center; gap:10px; }
+.ab-triggers > .ab-or, .ab-triggers > .ab-trigmore { align-self:center; }
 .ab-or { font-size:11px; font-weight:700; letter-spacing:.04em; color:var(--text-tertiary);
   background:var(--surface-subtle); border:1px solid var(--border-subtle); border-radius:999px; padding:1px 9px; }
-.ab-trigmore { margin-top:2px; }
+.ab-trigmore { margin-top:0; }
 .ab-trigmore .ab-addentry { padding:6px 14px; font-size:13px; }
+/* A trigger card in the row stretches to match its tallest sibling. */
+.ab-triggers > .ab-card { align-self:stretch; }
 
 .ab-start { display:flex; flex-direction:column; align-items:center; gap:8px; max-width:380px; margin-top:80px; padding:28px; text-align:center;
   border-radius:var(--radius-lg); background:var(--bg-surface); border:1px solid var(--border-subtle); box-shadow:var(--elevation-1); }
@@ -150,6 +155,16 @@
 .ab-menu__ic svg { width:16px; height:16px; }
 .ab-menu__list button.is-on .ab-menu__ic { background:var(--bg-surface); color:var(--action-primary); }
 .ab-menu__none { grid-column:1 / -1; margin:0; padding:14px 10px; font-size:13px; color:var(--text-tertiary); }
+/* Pager: pages the catalogue instead of one long scroll (trigger picker). */
+.ab-menu__pager { display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:8px 12px; border-top:1px solid var(--border-subtle); }
+.ab-menu__pagecount { font-size:12px; color:var(--text-tertiary); }
+.ab-menu__pagebtn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px;
+  padding:0; border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--bg-surface);
+  color:var(--text-secondary); cursor:pointer; }
+.ab-menu__pagebtn:hover:not(:disabled) { background:var(--bg-selected); color:var(--text-primary); }
+.ab-menu__pagebtn:disabled { opacity:.4; cursor:not-allowed; }
+.ab-menu__pagebtn svg { width:15px; height:15px; }
 @media (max-width: 640px) { .ab-menu__list--cols { grid-template-columns:1fr; } }
 
 .ab-zoom { position:absolute; left:12px; bottom:12px; display:flex; gap:2px; padding:3px; border-radius:var(--radius-md);

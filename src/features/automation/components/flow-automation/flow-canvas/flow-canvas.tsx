@@ -253,6 +253,7 @@ export function FlowCanvas(props: FlowCanvasProps) {
           title="Add a trigger"
           placeholder="Search triggers"
           groups={triggerGroups}
+          paginate
           onPick={(type) => {
             setMenuAt(null);
             onAddTrigger(type);
@@ -344,7 +345,7 @@ export function FlowCanvas(props: FlowCanvasProps) {
             <>
               <span className="ab-caption">
                 {tree.roots.length > 1
-                  ? "People start when any of these fire"
+                  ? "People start when any of these happen"
                   : "People start when"}
               </span>
               <div className="ab-triggers">

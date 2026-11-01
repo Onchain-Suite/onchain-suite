@@ -6,6 +6,18 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 export type IntelligenceQueryStatus =
   "running" | "completed" | "failed" | string;
 
+/** `POST /intelligence/query/agent/query` - the Cerebra assistant's reply. */
+export interface AssistantReply {
+  /** "answered" on success; other states surface as a plain message. */
+  status?: string;
+  /** The natural-language answer to show. */
+  answer?: string;
+  /** Threads follow-up questions in the same conversation. */
+  conversationId?: string;
+  /** Actions the agent proposes (not rendered by the lightweight panel yet). */
+  proposedActions?: unknown[];
+}
+
 export interface IntelligenceQueryRunResponse {
   queryId: string;
   status: IntelligenceQueryStatus;
@@ -850,6 +862,49 @@ export const intelligenceService = {
   runQuery(body: { query: string }, orgId?: string) {
     return request<IntelligenceQueryRunResponse>(
       { method: "POST", url: "/intelligence/query/run", data: body },
+      orgId
+    );
+  },
+
+  /**
+   * The Cerebra assistant: a prompt in, a natural-language answer out. Runs the
+   * backend conversation agent (`POST /intelligence/query/agent/query`), which
+   * routes the question through the live tool catalog over up to `maxSteps`
+   * calls. The agent is slow by nature, so this call carries its own long
+   * timeout + abort signal rather than the default; a conversationId threads
+   * follow-ups within one session.
+   */
+  askAssistant(
+    body: {
+      prompt: string;
+      conversationId?: string;
+      attachmentFileId?: string;
+    },
+    opts?: { orgId?: string; signal?: AbortSignal }
+  ) {
+    return request<AssistantReply>(
+      {
+        method: "POST",
+        url: "/intelligence/query/agent/query",
+        data: { ...body, maxSteps: 6 },
+        timeout: 90_000,
+        signal: opts?.signal,
+      },
+      opts?.orgId
+    );
+  },
+
+  /**
+   * Report a bug from the assistant panel. Files are uploaded first (reuse
+   * `uploadAttachment`) and only their ids are sent; the backend emails the team
+   * the note plus download links.
+   */
+  reportBug(
+    body: { message: string; attachmentFileIds?: string[] },
+    orgId?: string
+  ) {
+    return request<{ ok: boolean }>(
+      { method: "POST", url: "/support/bug-report", data: body },
       orgId
     );
   },

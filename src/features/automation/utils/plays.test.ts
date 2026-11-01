@@ -7,7 +7,9 @@ import {
 import { groupPlaysByFamily, templateReadiness } from "./plays";
 
 const trigger = (
-  requires?: Array<"contract" | "chain" | "segment" | "amount">
+  requires?: Array<
+    "contract" | "chain" | "segment" | "amount" | "form" | "campaign"
+  >
 ): TemplateStep => ({
   kind: "trigger",
   label: "On-chain event",
@@ -35,7 +37,7 @@ const play = (
 
 describe("templateReadiness", () => {
   it("is ready when no trigger leaves required fields", () => {
-    expect(templateReadiness(play("a", "whale-ltv", [trigger()]))).toBe(
+    expect(templateReadiness(play("a", "welcome-onboard", [trigger()]))).toBe(
       "ready"
     );
   });
@@ -43,13 +45,13 @@ describe("templateReadiness", () => {
   it("needs setup when a trigger has required fields", () => {
     expect(
       templateReadiness(
-        play("b", "whale-ltv", [trigger(["contract", "chain"])])
+        play("b", "welcome-onboard", [trigger(["contract", "chain"])])
       )
     ).toBe("needs-setup");
   });
 
   it("is ready when requires is present but empty", () => {
-    expect(templateReadiness(play("c", "whale-ltv", [trigger([])]))).toBe(
+    expect(templateReadiness(play("c", "welcome-onboard", [trigger([])]))).toBe(
       "ready"
     );
   });
@@ -58,14 +60,14 @@ describe("templateReadiness", () => {
 describe("groupPlaysByFamily", () => {
   it("groups by family in declared order and drops empty families", () => {
     const groups = groupPlaysByFamily([
-      play("one", "churn-winback", [trigger()]),
-      play("two", "whale-ltv", [trigger()]),
-      play("three", "whale-ltv", [trigger()]),
+      play("one", "keep-winback", [trigger()]),
+      play("two", "welcome-onboard", [trigger()]),
+      play("three", "welcome-onboard", [trigger()]),
     ]);
-    // whale-ltv is declared before churn-winback, and nft-airdrop/bridge drop out.
+    // welcome-onboard is declared before keep-winback, and engage-grow drops out.
     expect(groups.map((g) => g.family.id)).toEqual([
-      "whale-ltv",
-      "churn-winback",
+      "welcome-onboard",
+      "keep-winback",
     ]);
     expect(groups[0].plays.map((p) => p.id)).toEqual(["two", "three"]);
   });

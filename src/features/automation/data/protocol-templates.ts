@@ -10,7 +10,7 @@ import type { AutomationsCreateBody } from "../automation.service";
  */
 
 export type ProtocolTemplateFamily =
-  "whale-ltv" | "nft-airdrop" | "churn-winback" | "bridge-onboarding";
+  "welcome-onboard" | "engage-grow" | "keep-winback";
 
 export interface ProtocolTemplateFamilyMeta {
   id: ProtocolTemplateFamily;
@@ -22,32 +22,25 @@ export interface ProtocolTemplateFamilyMeta {
 
 export const protocolTemplateFamilies: ProtocolTemplateFamilyMeta[] = [
   {
-    id: "whale-ltv",
-    label: "Whale & LTV nurture",
-    description: "Reward high-value wallets and crossings of value thresholds.",
-    icon: "🐳",
+    id: "welcome-onboard",
+    label: "Welcome and onboard",
+    description: "Greet new wallets and subscribers the moment they arrive.",
+    icon: "👋",
+    accent: "from-emerald-500/20 to-teal-600/10",
+  },
+  {
+    id: "engage-grow",
+    label: "Engage and grow",
+    description: "Turn on-chain activity and interest into deeper engagement.",
+    icon: "📈",
     accent: "from-sky-500/20 to-blue-600/10",
   },
   {
-    id: "nft-airdrop",
-    label: "NFT mint & airdrop",
-    description: "Alert holders on mint windows and airdrop eligibility.",
-    icon: "🎁",
-    accent: "from-violet-500/20 to-fuchsia-600/10",
-  },
-  {
-    id: "churn-winback",
-    label: "Churn & win-back",
-    description: "Re-engage wallets going quiet before they leave for good.",
-    icon: "🔄",
+    id: "keep-winback",
+    label: "Keep and win back",
+    description: "Hold on to wallets going quiet, and bring them back.",
+    icon: "💛",
     accent: "from-amber-500/20 to-orange-600/10",
-  },
-  {
-    id: "bridge-onboarding",
-    label: "Bridge & onboarding",
-    description: "Welcome wallets that bridge in or first touch your contract.",
-    icon: "🌉",
-    accent: "from-emerald-500/20 to-teal-600/10",
   },
 ];
 
@@ -71,7 +64,9 @@ export type TemplateStep =
        */
       triggerPreset: string;
       /** Shown on the card and left blank in the draft, for the user to pick. */
-      requires?: Array<"contract" | "chain" | "segment" | "amount">;
+      requires?: Array<
+        "contract" | "chain" | "segment" | "amount" | "form" | "campaign"
+      >;
       event: string;
       contract?: string;
       chain?: string;
@@ -316,276 +311,49 @@ export const buildProtocolAutomation = (
   };
 };
 
+/**
+ * The Protocol Play catalog, grouped into three lifecycle families (Welcome and
+ * onboard, Engage and grow, Keep and win back). Each Play's trigger carries a
+ * REAL `triggerPreset` the runtime enrols on; contract/chain/segment/amount are
+ * left blank for the user to fill (see the `triggerPreset` note above). Email
+ * `body` is real sendable HTML, not a template name.
+ */
 export const protocolTemplates: ProtocolTemplate[] = [
-  // ── Whale & LTV nurture ────────────────────────────────────────────────
+  // ── Welcome and onboard ────────────────────────────────────────────────
   {
-    id: "whale-vip-nurture",
-    family: "whale-ltv",
-    name: "Whale Wallet VIP Nurture",
+    id: "welcome-series",
+    family: "welcome-onboard",
+    name: "Welcome series",
     description:
-      "When a high-value wallet makes a large transfer, roll out the red carpet with VIP onboarding and exclusive access.",
-    icon: "🐳",
-    estimatedReach: 312,
-    uses: 1840,
-    tags: ["High-value", "VIP", "Retention"],
+      "Greet new subscribers over their first week with a warm welcome, a getting-started nudge, and a few tips.",
+    icon: "👋",
+    estimatedReach: 1840,
+    uses: 4120,
+    tags: ["Welcome", "Onboarding", "Series"],
     steps: [
       {
         kind: "trigger",
-        label: "Large transfer detected",
-        triggerType: "onchain",
-        // Real threshold since backend #460; the amount is the user's to set.
-        triggerPreset: "large_transfer",
-        requires: ["contract", "chain", "amount"],
-        event: "Transfer ≥ $25k",
-        contract: "Your Token",
-        chain: "All Chains",
-        preview: "Wallets moving 25k+ in a single tx",
-      },
-      { kind: "wait", duration: "1 hour" },
-      {
-        kind: "email",
-        label: "VIP welcome",
-        template: "VIP Announcement",
-        subject: "You're now a VIP, {{ greeting_name }}",
-        body: "<p>That transfer puts you among our largest holders. We wanted to say so directly.</p><p>Your VIP access is being set up now — the next email has the details.</p>",
-        dynamicFields: ["greeting_name", "portfolio_value", "ltv"],
-      },
-      { kind: "wait", duration: "2 days" },
-      {
-        kind: "email",
-        label: "Exclusive access",
-        template: "VIP Announcement",
-        subject: "Your private access is ready",
-        body: "<p>Your VIP access is live. It covers early drops, the private channel, and direct support.</p><p>Reply to this email if anything is missing.</p>",
-        dynamicFields: ["greeting_name", "engagement_score"],
-      },
-    ],
-  },
-  {
-    id: "ltv-milestone-reward",
-    family: "whale-ltv",
-    name: "LTV Milestone Reward",
-    description:
-      "Celebrate wallets the moment their lifetime value crosses $5,000 with a personalized reward.",
-    icon: "💎",
-    estimatedReach: 156,
-    uses: 642,
-    tags: ["LTV", "Loyalty"],
-    steps: [
-      {
-        kind: "trigger",
-        label: "LTV crosses $5,000",
+        label: "Joins your list",
         triggerType: "behavior",
-        // There is no LTV trigger. Entering an LTV-based segment is the honest
-        // equivalent, and it is a trigger that exists.
-        triggerPreset: "segment_entered",
+        // A list is its backing segment; the runtime enrols on list_joined.
+        triggerPreset: "list_joined",
         requires: ["segment"],
-        event: "LTV ≥ $5,000",
-        preview: "Wallets passing the $5k lifetime value mark",
+        event: "List joined",
+        preview: "Fires when a contact joins the list you pick",
       },
       {
         kind: "email",
-        label: "Milestone reward",
-        template: "VIP Announcement",
-        subject: "A reward for reaching the top, {{ greeting_name }}",
-        body: "<p>You have crossed a milestone that very few holders reach.</p><p>There is a reward waiting for you. Here is how to claim it.</p>",
-        dynamicFields: ["greeting_name", "ltv"],
-      },
-    ],
-  },
-
-  // ── NFT mint & airdrop ─────────────────────────────────────────────────
-  {
-    id: "nft-mint-live-alert",
-    family: "nft-airdrop",
-    name: "NFT Mint Live Alert",
-    description:
-      "The instant your mint opens, notify eligible holders so they don't miss the window.",
-    icon: "🎨",
-    estimatedReach: 2156,
-    uses: 2980,
-    tags: ["NFT", "Mint", "Time-sensitive"],
-    steps: [
-      {
-        kind: "trigger",
-        label: "Mint window opens",
-        triggerType: "onchain",
-        triggerPreset: "holder_acquired",
-        requires: ["contract", "chain"],
-        event: "Mint Open",
-        contract: "Your Collection",
-        chain: "Ethereum",
-        preview: "Fires when the mint contract goes live",
-      },
-      {
-        kind: "email",
-        label: "Mint is live",
-        template: "Airdrop Alert",
-        subject: "Mint is LIVE, {{ greeting_name }} - claim your spot",
-        body: "<p>The mint window is open.</p><p>Spots are limited and go in order. Claim yours while it is live.</p>",
-        dynamicFields: ["greeting_name", "last_activity"],
-      },
-    ],
-  },
-  {
-    id: "airdrop-eligibility-notice",
-    family: "nft-airdrop",
-    name: "Airdrop Eligibility Notice",
-    description:
-      "After a snapshot, split eligible vs ineligible wallets - claim instructions for one, a path to qualify for the other.",
-    icon: "🪂",
-    estimatedReach: 4120,
-    uses: 1510,
-    tags: ["Airdrop", "Snapshot", "Branching"],
-    steps: [
-      {
-        kind: "trigger",
-        label: "Snapshot taken",
-        triggerType: "onchain",
-        // A snapshot is an audience, not a chain event.
-        triggerPreset: "segment_entered",
-        requires: ["segment"],
-        event: "Snapshot",
-        contract: "Token Contract",
-        chain: "All Chains",
-        preview: "Runs after an airdrop snapshot block",
-      },
-      {
-        kind: "branch",
-        label: "Eligible?",
-        condition: "airdrop_eligible == true",
-        yes: [
-          {
-            kind: "email",
-            label: "Claim your airdrop",
-            template: "Airdrop Alert",
-            subject: "You're eligible, {{ greeting_name }} - claim now",
-            body: "<p>The snapshot is in, and your wallet qualifies.</p><p>Claim before the window closes — unclaimed allocations do not roll over.</p>",
-            dynamicFields: ["greeting_name"],
-          },
-        ],
-        no: [
-          {
-            kind: "email",
-            label: "How to qualify",
-            template: "Product Update",
-            subject: "Almost there - here's how to qualify next time",
-            body: "<p>Your wallet did not qualify for this snapshot. It was close.</p><p>Here is exactly what counts toward the next one, so you are in.</p>",
-            dynamicFields: ["greeting_name"],
-          },
-        ],
-      },
-    ],
-  },
-
-  // ── Churn & win-back ───────────────────────────────────────────────────
-  {
-    id: "dormant-holder-winback",
-    family: "churn-winback",
-    name: "Dormant Holder Win-back",
-    description:
-      "Re-engage wallets that have held but gone quiet for 30+ days, escalating to an incentive if they stay cold.",
-    icon: "💤",
-    estimatedReach: 847,
-    uses: 2210,
-    tags: ["Win-back", "Re-engagement"],
-    steps: [
-      {
-        kind: "trigger",
-        label: "Inactive 30 days",
-        triggerType: "behavior",
-        // No inactivity trigger exists; a dormant SEGMENT is how this is built.
-        triggerPreset: "segment_entered",
-        requires: ["segment"],
-        event: "Inactive ≥ 30 days",
-        preview: "Holders with no onchain activity for a month",
-      },
-      {
-        kind: "email",
-        label: "We miss you",
-        template: "Win-back Campaign",
-        subject: "We miss you, {{ greeting_name }}",
-        body: "<p>It has been a while since your last on-chain activity with us.</p><p>Here is what has changed since you were last around.</p>",
-        dynamicFields: ["greeting_name", "last_activity"],
-      },
-      { kind: "wait", duration: "5 days" },
-      {
-        kind: "email",
-        label: "Incentive to return",
-        template: "Win-back Campaign",
-        subject: "A little something to bring you back",
-        body: "<p>We saved something for you.</p><p>It is yours whenever you are ready — no deadline attached.</p>",
-        dynamicFields: ["greeting_name"],
-      },
-    ],
-  },
-  {
-    id: "pre-churn-intervention",
-    family: "churn-winback",
-    name: "Pre-Churn Intervention",
-    description:
-      "Step in the moment a wallet's churn score spikes above 70 with a targeted retention offer.",
-    icon: "🚨",
-    estimatedReach: 156,
-    uses: 980,
-    tags: ["Churn", "Retention"],
-    steps: [
-      {
-        kind: "trigger",
-        label: "Churn score > 70",
-        triggerType: "behavior",
-        triggerPreset: "health_threshold",
-        event: "Churn score > 70",
-        preview: "Wallets showing strong churn signals",
-      },
-      {
-        kind: "email",
-        label: "Retention offer",
-        template: "VIP Announcement",
-        subject: "Don't go yet, {{ greeting_name }}",
-        body: "<p>We noticed things have gone quiet, and we would rather ask than assume.</p><p>Tell us what is not working. If we can fix it, we will.</p>",
-        dynamicFields: ["greeting_name", "engagement_score"],
-      },
-    ],
-  },
-
-  // ── Bridge & onboarding ────────────────────────────────────────────────
-  {
-    id: "bridge-welcome-series",
-    family: "bridge-onboarding",
-    name: "Bridge Welcome Series",
-    description:
-      "Onboard wallets that bridge to your chain with a 3-touch welcome series spaced over a week.",
-    icon: "🌉",
-    estimatedReach: 1243,
-    uses: 2640,
-    tags: ["Onboarding", "Bridge", "Series"],
-    steps: [
-      {
-        kind: "trigger",
-        label: "Bridge complete",
-        triggerType: "onchain",
-        // Real since backend #463 — Wormhole core + token bridge.
-        triggerPreset: "bridged",
-        requires: ["contract", "chain"],
-        event: "Bridge Complete",
-        contract: "Base Bridge",
-        chain: "Base",
-        preview: "Wallets that just bridged assets in",
-      },
-      {
-        kind: "email",
-        label: "Welcome aboard",
-        template: "Welcome Series #1",
-        subject: "Welcome to the chain, {{ greeting_name }}",
-        body: "<p>Your bridge went through. Your assets are here.</p><p>Here is what to do first, so nothing sits idle.</p>",
+        label: "Welcome",
+        template: "Welcome",
+        subject: "Welcome aboard, {{ greeting_name }}",
+        body: "<p>Thanks for joining. We are glad you are here.</p><p>Over the next few days we will show you the few things worth doing first.</p>",
         dynamicFields: ["greeting_name"],
       },
       { kind: "wait", duration: "2 days" },
       {
         kind: "email",
         label: "Getting started",
-        template: "Product Update",
+        template: "Getting started",
         subject: "Your first steps, {{ greeting_name }}",
         body: "<p>Three things worth doing in your first week, in order.</p><p>Each takes a few minutes and makes the next one easier.</p>",
         dynamicFields: ["greeting_name"],
@@ -593,42 +361,305 @@ export const protocolTemplates: ProtocolTemplate[] = [
       { kind: "wait", duration: "3 days" },
       {
         kind: "email",
-        label: "Power features",
-        template: "Product Update",
-        subject: "Ready for the advanced stuff?",
-        body: "<p>You have the basics down. This is where it gets more interesting.</p><p>Here is what experienced holders do next.</p>",
-        dynamicFields: ["greeting_name", "engagement_score"],
+        label: "Tips and next steps",
+        template: "Tips",
+        subject: "A few tips to get more out of this",
+        body: "<p>You have the basics down. Here is what regular users do next.</p><p>Reply any time if you get stuck, a real person reads these.</p>",
+        dynamicFields: ["greeting_name"],
       },
     ],
   },
   {
-    id: "first-contract-interaction",
-    family: "bridge-onboarding",
-    name: "First Contract Interaction",
+    id: "new-holder-onboarding",
+    family: "welcome-onboard",
+    name: "New holder onboarding",
     description:
-      "Greet wallets the first time they interact with your protocol contract.",
-    icon: "👋",
-    estimatedReach: 1247,
-    uses: 1320,
-    tags: ["Onboarding", "Activation"],
+      "Welcome wallets the moment they acquire your token and point them to what to do first.",
+    icon: "🪙",
+    estimatedReach: 1243,
+    uses: 2640,
+    tags: ["Holders", "Onboarding", "On-chain"],
     steps: [
       {
         kind: "trigger",
-        label: "First interaction",
+        label: "Becomes a holder",
         triggerType: "onchain",
-        triggerPreset: "onchain_event",
+        triggerPreset: "holder_acquired",
         requires: ["contract", "chain"],
-        event: "First Interaction",
-        contract: "Your Contract",
-        chain: "All Chains",
-        preview: "A wallet's very first call to your contract",
+        event: "Holder acquired",
+        preview: "A wallet receives your token for the first time",
       },
       {
         kind: "email",
-        label: "Onboarding hello",
-        template: "Welcome Series #1",
-        subject: "Thanks for trying us, {{ greeting_name }}",
-        body: "<p>Thanks for your first interaction with our contract.</p><p>Here is what to do next, and where to ask if you get stuck.</p>",
+        label: "Welcome, holder",
+        template: "Holder welcome",
+        subject: "Welcome, {{ greeting_name }}",
+        body: "<p>You are now a holder. Here is what that unlocks and where to start.</p><p>We will check back in a couple of days with the next step.</p>",
+        dynamicFields: ["greeting_name"],
+      },
+      { kind: "wait", duration: "2 days" },
+      {
+        kind: "email",
+        label: "Make the most of it",
+        template: "Holder next steps",
+        subject: "Getting the most out of holding, {{ greeting_name }}",
+        body: "<p>A quick guide to the perks and tools available to holders.</p><p>Each one takes a minute to set up.</p>",
+        dynamicFields: ["greeting_name"],
+      },
+    ],
+  },
+  {
+    id: "lead-nurture",
+    family: "welcome-onboard",
+    name: "Lead nurture",
+    description:
+      "After someone submits a form, warm them up with a short, helpful follow-up sequence.",
+    icon: "🌱",
+    estimatedReach: 980,
+    uses: 1510,
+    tags: ["Leads", "Nurture", "Forms"],
+    steps: [
+      {
+        kind: "trigger",
+        label: "Submits a form",
+        triggerType: "behavior",
+        triggerPreset: "form_submitted",
+        requires: ["form"],
+        event: "Form submitted",
+        preview: "Fires when a contact submits the form you pick",
+      },
+      {
+        kind: "email",
+        label: "Thanks for reaching out",
+        template: "Lead intro",
+        subject: "Thanks, {{ greeting_name }} - here is what is next",
+        body: "<p>Thanks for getting in touch. Here is a quick overview to get you oriented.</p><p>We will follow up in a few days with more.</p>",
+        dynamicFields: ["greeting_name"],
+      },
+      { kind: "wait", duration: "3 days" },
+      {
+        kind: "email",
+        label: "A deeper look",
+        template: "Lead follow-up",
+        subject: "A closer look, {{ greeting_name }}",
+        body: "<p>Now that you have had a look around, here is the part most people find most useful.</p><p>Happy to answer anything, just reply.</p>",
+        dynamicFields: ["greeting_name"],
+      },
+    ],
+  },
+
+  // ── Engage and grow ────────────────────────────────────────────────────
+  {
+    id: "after-a-purchase",
+    family: "engage-grow",
+    name: "After a purchase",
+    description:
+      "Thank wallets after a buy or swap, then follow up a few days later with what to do next.",
+    icon: "🛒",
+    estimatedReach: 1247,
+    uses: 2210,
+    tags: ["Purchase", "On-chain", "Post-sale"],
+    steps: [
+      {
+        kind: "trigger",
+        label: "Completes a purchase",
+        triggerType: "onchain",
+        // swap_completed is the closest on-chain proxy for a buy/purchase.
+        triggerPreset: "swap_completed",
+        requires: ["contract", "chain"],
+        event: "Swap completed",
+        preview: "A wallet buys or swaps into your token",
+      },
+      { kind: "wait", duration: "1 hour" },
+      {
+        kind: "email",
+        label: "Thank you",
+        template: "Purchase thanks",
+        subject: "Thanks for your purchase, {{ greeting_name }}",
+        body: "<p>Your transaction went through. Thank you.</p><p>Here is what you can do with it right away.</p>",
+        dynamicFields: ["greeting_name"],
+      },
+      { kind: "wait", duration: "3 days" },
+      {
+        kind: "email",
+        label: "What is next",
+        template: "Purchase follow-up",
+        subject: "Getting more from it, {{ greeting_name }}",
+        body: "<p>A few days in, here is how to get more out of what you bought.</p><p>Short and practical, no fluff.</p>",
+        dynamicFields: ["greeting_name"],
+      },
+    ],
+  },
+  {
+    id: "follow-up-on-interest",
+    family: "engage-grow",
+    name: "Follow up on interest",
+    description:
+      "When a contact clicks a link in a campaign, strike while interest is warm with a timely follow-up.",
+    icon: "👀",
+    estimatedReach: 2156,
+    uses: 1980,
+    tags: ["Engagement", "Email", "Timely"],
+    steps: [
+      {
+        kind: "trigger",
+        label: "Clicks a link",
+        triggerType: "behavior",
+        triggerPreset: "email_clicked",
+        requires: ["campaign"],
+        event: "Email clicked",
+        preview: "A contact clicks a link in the campaign you pick",
+      },
+      { kind: "wait", duration: "1 hour" },
+      {
+        kind: "email",
+        label: "Following up",
+        template: "Interest follow-up",
+        subject: "Saw you were interested, {{ greeting_name }}",
+        body: "<p>You clicked through earlier, so here is a bit more on it.</p><p>If it is useful, the next step is right here.</p>",
+        dynamicFields: ["greeting_name"],
+      },
+    ],
+  },
+  {
+    id: "vip-holders",
+    family: "engage-grow",
+    name: "VIP holders",
+    description:
+      "When a high-value wallet makes a large transfer, roll out the red carpet with VIP access.",
+    icon: "👑",
+    estimatedReach: 312,
+    uses: 1840,
+    tags: ["VIP", "High-value", "On-chain"],
+    steps: [
+      {
+        kind: "trigger",
+        label: "Large transfer",
+        triggerType: "onchain",
+        // Real threshold since backend #460; the amount is the user's to set.
+        triggerPreset: "large_transfer",
+        requires: ["contract", "chain", "amount"],
+        event: "Large transfer",
+        preview: "Wallets moving above the amount you set, in one tx",
+      },
+      { kind: "wait", duration: "1 hour" },
+      {
+        kind: "email",
+        label: "VIP welcome",
+        template: "VIP welcome",
+        subject: "You're now a VIP, {{ greeting_name }}",
+        body: "<p>That transfer puts you among our largest holders. We wanted to say so directly.</p><p>Your VIP access is being set up now, the next email has the details.</p>",
+        dynamicFields: ["greeting_name", "portfolio_value"],
+      },
+      { kind: "wait", duration: "2 days" },
+      {
+        kind: "email",
+        label: "Exclusive access",
+        template: "VIP access",
+        subject: "Your private access is ready",
+        body: "<p>Your VIP access is live. It covers early drops, the private channel, and direct support.</p><p>Reply to this email if anything is missing.</p>",
+        dynamicFields: ["greeting_name"],
+      },
+    ],
+  },
+
+  // ── Keep and win back ──────────────────────────────────────────────────
+  {
+    id: "win-back-quiet-wallets",
+    family: "keep-winback",
+    name: "Win back quiet wallets",
+    description:
+      "Re-engage wallets that have gone quiet, escalating to an incentive if they stay cold.",
+    icon: "💤",
+    estimatedReach: 847,
+    uses: 2210,
+    tags: ["Win-back", "Re-engagement"],
+    steps: [
+      {
+        kind: "trigger",
+        label: "Enters a dormant segment",
+        triggerType: "behavior",
+        // No inactivity trigger exists; a dormant SEGMENT is how this is built.
+        triggerPreset: "segment_entered",
+        requires: ["segment"],
+        event: "Segment entered",
+        preview: "Wallets you have grouped as dormant",
+      },
+      {
+        kind: "email",
+        label: "We miss you",
+        template: "Win-back intro",
+        subject: "We miss you, {{ greeting_name }}",
+        body: "<p>It has been a while since your last activity with us.</p><p>Here is what has changed since you were last around.</p>",
+        dynamicFields: ["greeting_name", "last_activity"],
+      },
+      { kind: "wait", duration: "5 days" },
+      {
+        kind: "email",
+        label: "Incentive to return",
+        template: "Win-back incentive",
+        subject: "A little something to bring you back",
+        body: "<p>We saved something for you.</p><p>It is yours whenever you are ready, no deadline attached.</p>",
+        dynamicFields: ["greeting_name"],
+      },
+    ],
+  },
+  {
+    id: "save-a-withdrawal",
+    family: "keep-winback",
+    name: "Save a withdrawal",
+    description:
+      "Step in the moment a wallet pulls capital out, with a reason to stay before they are gone.",
+    icon: "🛟",
+    estimatedReach: 423,
+    uses: 760,
+    tags: ["Retention", "On-chain", "Save"],
+    steps: [
+      {
+        kind: "trigger",
+        label: "Withdraws capital",
+        triggerType: "onchain",
+        triggerPreset: "capital_withdrawn",
+        requires: ["contract", "chain"],
+        event: "Capital withdrawn",
+        preview: "A wallet withdraws or removes liquidity",
+      },
+      {
+        kind: "email",
+        label: "Before you go",
+        template: "Save intro",
+        subject: "Before you go, {{ greeting_name }}",
+        body: "<p>We noticed you pulled funds out, and we would rather ask than assume.</p><p>If something is not working, tell us. If we can fix it, we will.</p>",
+        dynamicFields: ["greeting_name"],
+      },
+    ],
+  },
+  {
+    id: "sunset-unengaged",
+    family: "keep-winback",
+    name: "Sunset unengaged",
+    description:
+      "Give unengaged contacts one last, honest check-in before you stop emailing them.",
+    icon: "🌇",
+    estimatedReach: 1120,
+    uses: 540,
+    tags: ["Sunset", "List hygiene"],
+    steps: [
+      {
+        kind: "trigger",
+        label: "Enters an unengaged segment",
+        triggerType: "behavior",
+        triggerPreset: "segment_entered",
+        requires: ["segment"],
+        event: "Segment entered",
+        preview: "Contacts you have grouped as unengaged",
+      },
+      {
+        kind: "email",
+        label: "Last check-in",
+        template: "Sunset check-in",
+        subject: "Still want to hear from us, {{ greeting_name }}?",
+        body: "<p>We have not seen you open anything in a while, so we want to check.</p><p>Click below to stay subscribed. If not, no hard feelings, we will stop here.</p>",
         dynamicFields: ["greeting_name"],
       },
     ],

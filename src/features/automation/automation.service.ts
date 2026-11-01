@@ -3,6 +3,7 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import type { TemplateStep } from "./data/protocol-templates";
 import { withApiErrorFields } from "./utils/builder-issues";
 
 const pickOrgId = (orgId?: string) =>
@@ -126,6 +127,21 @@ export type AutomationsCreateBody = {
 export type AutomationsCreateResponse = {
   automationId: string;
   status: "draft" | string;
+};
+
+/**
+ * The AI "Describe it" response: a plain-language Loop turned into the SAME
+ * step DSL a Protocol Play uses, so the client runs it through the identical,
+ * proven `buildProtocolAutomation` graph builder (no graph-shape drift between
+ * AI output and hand-authored templates). Every `steps[].triggerPreset` is
+ * validated server-side against the real runtime trigger catalog.
+ */
+export type DescribeAutomationResponse = {
+  name: string;
+  description: string;
+  steps: TemplateStep[];
+  /** Non-fatal notes, e.g. a field left blank for the user to fill. */
+  warnings?: string[];
 };
 
 /** One trigger that published but registered no watch, so it will never fire.
@@ -418,6 +434,23 @@ export const automationService = {
   createAutomation(body: AutomationsCreateBody, orgId?: string) {
     return request<AutomationsCreateResponse>(
       { method: "POST", url: "/automations", data: body },
+      orgId
+    );
+  },
+
+  /**
+   * Turn a natural-language description into a draft Loop (the step DSL). The
+   * call is AI-backed and credit-gated, so it carries a longer timeout. The
+   * caller feeds the returned `steps` into `buildProtocolAutomation`.
+   */
+  describeAutomation(prompt: string, orgId?: string) {
+    return request<DescribeAutomationResponse>(
+      {
+        method: "POST",
+        url: "/automations/describe",
+        data: { prompt },
+        timeout: 60_000,
+      },
       orgId
     );
   },

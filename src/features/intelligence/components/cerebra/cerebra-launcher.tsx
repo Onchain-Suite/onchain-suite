@@ -54,8 +54,10 @@ export function CerebraLauncher() {
     staleTime: 5 * 60_000,
     retry: false,
   });
+  // Show the plain-language title, never the raw SQL: a starter is a question
+  // the user asks the assistant, and it is sent to the agent as the prompt.
   const suggestions = (
-    starters.data?.items?.map((s) => s.query || s.title).filter(Boolean) ??
+    starters.data?.items?.map((s) => s.title || s.query).filter(Boolean) ??
     FALLBACK_STARTERS
   ).slice(0, 3);
 

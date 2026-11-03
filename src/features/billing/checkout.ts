@@ -244,7 +244,10 @@ export async function startPlanCheckout(
   if (options?.paymentMethod === "card") {
     let url: string | undefined;
     try {
-      ({ url } = await billingService.subscribe({ plan: slug, organizationId: orgId }));
+      ({ url } = await billingService.subscribe({
+        plan: slug,
+        organizationId: orgId,
+      }));
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Couldn't start checkout.";

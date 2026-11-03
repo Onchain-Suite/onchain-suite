@@ -47,7 +47,9 @@ export function FormsPage() {
         }
       />
 
-      <FormStats forms={forms} />
+      {/* Stats would read all zeros before the first form exists, so they wait
+          for the empty state to hand off to a real list. */}
+      {forms.length > 0 ? <FormStats forms={forms} /> : null}
 
       {formsQuery.isLoading ? (
         <TableSkeleton rows={5} />
@@ -55,12 +57,22 @@ export function FormsPage() {
         <SectionEmpty
           icon={ClipboardDocumentListIcon}
           title="No forms yet"
-          body="A form turns a visitor into a verified contact. It does not need any indexed data, so you can build one now."
+          body="A form turns a visitor into a verified contact. It does not need any indexed data, so you can build one now, then enrol every signup into a Loop."
           waits={false}
           action={{
             label: "New form",
             onClick: () => setCreateOpen(true),
             icon: PlusIcon,
+          }}
+          preview={{
+            kind: "table",
+            columns: [
+              "Form",
+              "Surface",
+              "Submissions",
+              "Conversion",
+              "Enrols into",
+            ],
           }}
         />
       ) : (

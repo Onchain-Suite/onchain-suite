@@ -595,6 +595,22 @@ export interface PlanCheckoutResponse {
   [key: string]: unknown;
 }
 
+/** Request for POST /billing/subscribe (recurring Stripe subscription Checkout). */
+export interface SubscribeRequest {
+  /** "send" or a Suite key; the backend re-derives the Suite tier from list size. */
+  plan: PlanCheckoutSlug | "send" | (string & {});
+  /** Defaults to the active org on the backend. */
+  organizationId?: string;
+  /** Normally omitted — the backend uses the request Origin for return URLs. */
+  returnUrl?: string;
+}
+
+/** Response of POST /billing/subscribe — the hosted Stripe Checkout URL. */
+export interface SubscribeResponse {
+  url?: string;
+  [key: string]: unknown;
+}
+
 /** GET /billing/payg/wallet/{orgId} - prepaid usage wallet (micro-USD ledger). */
 export interface PaygWallet {
   balanceUsd: number;
@@ -1072,6 +1088,21 @@ export const billingService = {
   checkoutPlan(body: PlanCheckoutRequest, options?: BillingServiceOptions) {
     return billingRequest<PlanCheckoutResponse>(
       { method: "POST", url: "/billing/checkout/plan", data: body },
+      options
+    );
+  },
+
+  /**
+   * Start a recurring Stripe subscription (Option-A contact pricing):
+   * `POST /billing/subscribe → { url }`. The backend derives the Suite tier from
+   * the org's contact count and sets quantity = that count, so the price can't be
+   * wrong from the client (`send` stays Send). Redirect the browser to `url`.
+   * Return pages come from the request Origin, so each environment lands back on
+   * its own billing page. Dormant (400) until the operator sets STRIPE_PLAN_PRICES.
+   */
+  subscribe(body: SubscribeRequest, options?: BillingServiceOptions) {
+    return billingRequest<SubscribeResponse>(
+      { method: "POST", url: "/billing/subscribe", data: body },
       options
     );
   },

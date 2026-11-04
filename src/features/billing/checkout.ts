@@ -250,7 +250,9 @@ export async function startPlanCheckout(
       }));
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Couldn't start the subscription.";
+        error instanceof Error
+          ? error.message
+          : "Couldn't start the subscription.";
       // Surface the real reason. A card SUBSCRIPTION that can't be created must
       // NOT silently degrade to a one-time crypto charge (that's not a
       // subscription) — so this message deliberately avoids the "card payments

@@ -1469,22 +1469,19 @@ export default function ImportExportPage() {
           file: uploadedFile,
           format,
         });
-        // Wallet shortfall always blocks (top up). A cap overflow only needs a
-        // dialog when the upgrade is actually chargeable; when it prorates below
-        // Stripe's card minimum the plan already covers these contacts, so skip
-        // the dialog and import silently - the backend raises the capacity and
-        // the higher contact pricing is collected at the next renewal.
+        // The PAYG wallet shortfall still blocks (top up) - that's a real
+        // per-address verification cost. A plan-cap overflow does NOT: under
+        // import-first billing we import every contact and the grown size is
+        // billed at the next renewal, so there's no upgrade gate - just a
+        // non-blocking heads-up so the customer knows their plan will grow.
         if (estimate.willExceedBalance) {
           setGateEstimate(estimate);
           return;
         }
-        if (estimate.willExceedCap) {
-          if (estimate.requiresPaidUpgrade === false) {
-            upgradeImportMutation.mutate();
-            return;
-          }
-          setGateEstimate(estimate);
-          return;
+        if (estimate.overCapBy > 0) {
+          toast(
+            `Importing all ${estimate.contacts.toLocaleString()} contacts. The ${estimate.overCapBy.toLocaleString()} above your current plan size will be added to your plan and billed at your next renewal.`
+          );
         }
       } catch {
         // Advisory only: fall through and let the import run + backend gate.

@@ -2750,8 +2750,11 @@ function HomeBody() {
             rel="noreferrer"
             aria-label="The Sweat Equity Club"
           >
-            <img src="/site/logos/sweat-equity-club.png" alt="" />
-            The Sweat Equity Club
+            <img
+              src="/site/logos/sweat-equity-club.png"
+              alt="The Sweat Equity Club"
+              style={{ width: "auto", height: "1.4em", maxWidth: 150 }}
+            />
           </a>
           <a
             className="rv"
@@ -6590,6 +6593,8 @@ var CUSTOMERS = [
     name: "The Sweat Equity Club",
     logo: "/site/logos/sweat-equity-club.png",
     href: "https://www.thesweatequity.club/",
+    // Wide wordmark logo: render it alone (no separate name label), like the demo.
+    wordmark: true,
   },
   {
     name: "Vault777",
@@ -6612,8 +6617,14 @@ function LogoRow({ label }) {
             aria-label={c.name}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={c.logo} alt="" width={48} height={48} />
-            {c.name}
+            <img
+              src={c.logo}
+              alt={c.wordmark ? c.name : ""}
+              {...(c.wordmark
+                ? { style: { width: "auto", height: "1.4em", maxWidth: 150 } }
+                : { width: 48, height: 48 })}
+            />
+            {!c.wordmark && c.name}
           </a>
         ))}
       </div>

@@ -250,13 +250,14 @@ export async function startPlanCheckout(
       }));
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Couldn't start checkout.";
-      // Dormant-until-configured: with no STRIPE_PLAN_PRICES the backend 400s.
-      // Surface it as the same "card unavailable" message the UI already falls
-      // back to crypto on, rather than a raw server error.
+        error instanceof Error ? error.message : "Couldn't start the subscription.";
+      // Surface the real reason. A card SUBSCRIPTION that can't be created must
+      // NOT silently degrade to a one-time crypto charge (that's not a
+      // subscription) — so this message deliberately avoids the "card payments
+      // aren't available" text that makes the plan picker switch to crypto.
       throw new Error(
         message.includes("No Stripe Price")
-          ? "Card payments aren't available yet - switch to crypto checkout."
+          ? "Subscriptions aren't enabled for this plan yet (no price configured)."
           : message,
         { cause: error }
       );

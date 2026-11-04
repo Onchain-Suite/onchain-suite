@@ -1,7 +1,13 @@
 "use client";
 
-import { ArrowUpRightIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowUpRightIcon,
+  CreditCardIcon,
+  ShieldCheckIcon,
+} from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
 
 import { isJsonObject } from "@/lib/utils";
 
@@ -247,20 +253,59 @@ const PlanUsage = () => {
 
   const usageLoading = overviewQuery.isLoading || usageQuery.isLoading;
 
+  const [portalLoading, setPortalLoading] = useState(false);
+  // Opens the Stripe Customer Portal, where the customer cancels, swaps card, or
+  // views invoices. The backend derives the return URL from the request Origin,
+  // so it comes back to this billing page.
+  const openBillingPortal = async () => {
+    if (portalLoading) return;
+    setPortalLoading(true);
+    try {
+      const { url } = await billingService.billingPortal();
+      if (url) {
+        window.location.assign(url);
+        return;
+      }
+      toast.error("Couldn't open billing management. Please try again.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Couldn't open billing management."
+      );
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
   return (
     <SettingsCard
       title="Plan & usage"
       description="Current plan, what's left this cycle, and what happens beyond it"
       action={
-        <ChangePlanDialog
-          currentPlan={planName}
-          trigger={
-            <Button variant="outline" size="sm">
-              <ArrowUpRightIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-              Change plan
-            </Button>
-          }
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openBillingPortal}
+            disabled={portalLoading}
+          >
+            <CreditCardIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
+            {portalLoading ? "Opening…" : "Manage billing"}
+          </Button>
+          <ChangePlanDialog
+            currentPlan={planName}
+            trigger={
+              <Button variant="outline" size="sm">
+                <ArrowUpRightIcon
+                  aria-hidden="true"
+                  className="mr-1.5 h-4 w-4"
+                />
+                Change plan
+              </Button>
+            }
+          />
+        </div>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

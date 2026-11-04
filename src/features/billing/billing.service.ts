@@ -1108,6 +1108,18 @@ export const billingService = {
   },
 
   /**
+   * Stripe Customer Portal session (`GET /billing/portal → { url }`) — the
+   * hosted page where a customer cancels, swaps card, and views invoices.
+   * Redirect the browser to `url`.
+   */
+  billingPortal(options?: BillingServiceOptions) {
+    return billingRequest<{ url?: string }>(
+      { method: "GET", url: "/billing/portal" },
+      options
+    );
+  },
+
+  /**
    * Switch the org onto Pay-As-You-Go (`POST /billing/payg/start`) - flips
    * `organization.plan` to `payg` and grants the one-time $5 trial credit.
    */

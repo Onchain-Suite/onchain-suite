@@ -7,7 +7,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "//build": "Pinned to --webpack: Vercel's Next 16 builder runs the build with Turbopack, which fails to resolve next/font/google (@vercel/turbopack-next/internal/font/google/font). Webpack is what GitHub CI + local + prod already build with. Revisit once the font setup is Turbopack-compatible.",
+    "build": "next build --webpack",
     "start": "next start",
     "payload": "payload",
     "generate:types": "payload generate:types",

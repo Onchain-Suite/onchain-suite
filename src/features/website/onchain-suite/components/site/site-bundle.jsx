@@ -2753,7 +2753,7 @@ function HomeBody() {
             <img
               src="/site/logos/sweat-equity-club.png"
               alt="The Sweat Equity Club"
-              style={{ width: "auto", height: "1.4em", maxWidth: 150 }}
+              style={{ width: "auto", height: "1.9em", maxWidth: 200 }}
             />
           </a>
           <a
@@ -6621,7 +6621,7 @@ function LogoRow({ label }) {
               src={c.logo}
               alt={c.wordmark ? c.name : ""}
               {...(c.wordmark
-                ? { style: { width: "auto", height: "1.4em", maxWidth: 150 } }
+                ? { style: { width: "auto", height: "1.9em", maxWidth: 200 } }
                 : { width: 48, height: 48 })}
             />
             {!c.wordmark && c.name}

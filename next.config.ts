@@ -149,6 +149,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Inline each page's CSS into its HTML instead of linking stylesheets from <head>.
+  // The four linked chunks were the "render-blocking requests, 820 ms" PageSpeed
+  // flagged on the homepage (SEO doc, hosting item 5, 5 November 2026). Production
+  // builds only; dev is unchanged.
+  experimental: {
+    inlineCss: true,
+  },
   async headers() {
     return [
       // App-wide baseline. The negative lookahead excludes /f/ so the hosted
@@ -156,6 +163,18 @@ const nextConfig: NextConfig = {
       { source: "/((?!f/).*)", headers: appSecurityHeaders },
       // The public hosted-form pages keep their tighter, form-specific policy.
       { source: "/f/:path*", headers: hostedFormSecurityHeaders },
+      // App and account routes render at the root of this domain. robots.txt used
+      // to block them, which left the URLs in Search Console (/automations 27
+      // impressions, /auth/signin 3 clicks) because Google could not crawl them to
+      // see they should go. A noindex header is the tool that removes them, so
+      // robots.txt now lets these be crawled (SEO doc, hosting item 2). Each
+      // prefix is matched as a whole path segment: a bare "/f" prefix would also
+      // catch the /for/* marketing pages.
+      {
+        source:
+          "/:section(dashboard|audience|automations|campaigns|forms|inbox|intelligence|settings|new-dashboard|onboarding|verify-email|billing|payment|invite|invites|thank-you|auth|f)/:rest*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
     ];
   },
   async redirects() {

@@ -81,6 +81,22 @@ export interface PlanUsageResponse {
   [key: string]: unknown;
 }
 
+/**
+ * Response of `GET /billing/subscription/:organizationId` - the org's Stripe
+ * subscription lifecycle, used for the billing panel's STATUS card and the
+ * "cancels on <date>" indicator. `hasSubscription` is false for an org billed
+ * another way (crypto/admin), in which case the UI shows the plan alone.
+ */
+export interface OrgSubscriptionResponse {
+  hasSubscription: boolean;
+  status: string | null;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+  priceId: string | null;
+  plan: string | null;
+  planExpiresAt: string | null;
+}
+
 /** One priced line from `GET /billing/plan-usage/:org/cost`. */
 export interface PricedUsageLine {
   meter: string;
@@ -942,6 +958,25 @@ export const billingService = {
     }
     return billingRequest<PlanUsageResponse>(
       { method: "GET", url: `/billing/plan-usage/${orgId}` },
+      { ...options, orgId }
+    );
+  },
+
+  /**
+   * The org's Stripe subscription lifecycle (`GET /billing/subscription/:org`):
+   * status, cancelAtPeriodEnd, currentPeriodEnd. Powers the STATUS card and the
+   * "cancels on <date>" indicator. Returns `hasSubscription: false` for an org
+   * billed another way.
+   */
+  getSubscription(organizationId?: string, options?: BillingServiceOptions) {
+    const orgId = organizationId ?? pickOrgId(options);
+    if (!orgId) {
+      return Promise.reject(
+        new Error("No organization selected for subscription.")
+      );
+    }
+    return billingRequest<OrgSubscriptionResponse>(
+      { method: "GET", url: `/billing/subscription/${orgId}` },
       { ...options, orgId }
     );
   },

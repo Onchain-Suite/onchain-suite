@@ -212,7 +212,13 @@ const PlanUsage = () => {
   const canonicalPlanLabel =
     pickString(planUsagePlan?.label) ||
     (canonicalPlanKey ? displayPlanName(canonicalPlanKey) : "");
-  const canonicalMonthlyPrice = pickNumber(planUsagePlan?.monthlyPrice);
+  // null (not 0) when the field is absent — a canonical plan with a $0 base
+  // (e.g. PAYG) must still show "$0 / mo", never the stale user-level price.
+  const canonicalMonthlyPrice =
+    typeof planUsagePlan?.monthlyPrice === "number" &&
+    Number.isFinite(planUsagePlan.monthlyPrice)
+      ? planUsagePlan.monthlyPrice
+      : null;
 
   const orgSub = subscriptionQuery.data;
 
@@ -277,7 +283,7 @@ const PlanUsage = () => {
       ? "yr"
       : "mo";
   const priceLabel =
-    canonicalMonthlyPrice > 0
+    canonicalMonthlyPrice !== null
       ? `$${canonicalMonthlyPrice} / mo`
       : rawPrice
         ? rawPrice.startsWith("$")

@@ -34,6 +34,12 @@ import {
 type PaymentMethod = "card" | "crypto";
 type Selection = "suite" | "send" | "payg";
 
+// Stripe-only (2026-11): crypto (Blockradar) checkout is hidden. This mirrors
+// the backend `BILLING_CRYPTO_ENABLED` flag - flip both back to true to restore
+// the crypto rail. With it off, the "Pay with" toggle is hidden and checkout
+// always runs on card.
+const CRYPTO_CHECKOUT_ENABLED: boolean = false;
+
 const usd = (n: number): string => `$${Math.round(n).toLocaleString("en-US")}`;
 const clamp = (n: number, lo: number, hi: number): number =>
   Math.min(hi, Math.max(lo, n));
@@ -288,7 +294,10 @@ export function PlanPicker({
     } catch (e) {
       const message =
         e instanceof Error ? e.message : "Couldn't start checkout.";
-      if (message.toLowerCase().includes("card payments aren't available")) {
+      if (
+        CRYPTO_CHECKOUT_ENABLED &&
+        message.toLowerCase().includes("card payments aren't available")
+      ) {
         setPaymentMethod("crypto");
         toast.error("Card checkout isn't available yet - switched to crypto.");
       } else {
@@ -340,49 +349,52 @@ export function PlanPicker({
         </Button>
       ) : null}
 
-      {/* Payment method: Stripe (card) by default, crypto (USDC) fallback. */}
-      <div className="mb-5 flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">Pay with</span>
-        <div
-          role="group"
-          aria-label="Payment method"
-          className="inline-flex rounded-lg border border-border bg-card p-1"
-        >
-          {(
-            [
-              { key: "card" as const, label: "Card", icon: CreditCardIcon },
-              {
-                key: "crypto" as const,
-                label: "Crypto (USDC)",
-                icon: WalletIcon,
-              },
-            ] satisfies {
-              key: PaymentMethod;
-              label: string;
-              icon: typeof CreditCardIcon;
-            }[]
-          ).map((m) => {
-            const active = paymentMethod === m.key;
-            return (
-              <button
-                key={m.key}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setPaymentMethod(m.key)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <m.icon aria-hidden="true" className="h-4 w-4" />
-                {m.label}
-              </button>
-            );
-          })}
+      {/* Payment method: Stripe (card) only. Crypto (USDC) is hidden while
+          CRYPTO_CHECKOUT_ENABLED is false; restore the toggle by flipping it. */}
+      {CRYPTO_CHECKOUT_ENABLED && (
+        <div className="mb-5 flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Pay with</span>
+          <div
+            role="group"
+            aria-label="Payment method"
+            className="inline-flex rounded-lg border border-border bg-card p-1"
+          >
+            {(
+              [
+                { key: "card" as const, label: "Card", icon: CreditCardIcon },
+                {
+                  key: "crypto" as const,
+                  label: "Crypto (USDC)",
+                  icon: WalletIcon,
+                },
+              ] satisfies {
+                key: PaymentMethod;
+                label: string;
+                icon: typeof CreditCardIcon;
+              }[]
+            ).map((m) => {
+              const active = paymentMethod === m.key;
+              return (
+                <button
+                  key={m.key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setPaymentMethod(m.key)}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <m.icon aria-hidden="true" className="h-4 w-4" />
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Line chooser: Suite / Send / PAYG. */}
       <div

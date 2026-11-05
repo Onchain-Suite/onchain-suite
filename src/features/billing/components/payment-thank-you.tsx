@@ -64,6 +64,26 @@ export function PaymentThankYou() {
     (searchParams?.get("status") ?? "").trim().toLowerCase()
   );
 
+  // A Stripe subscription Checkout redirects back here with
+  // ?ref=<org>:<plan>:<epoch> (and ?provider=stripe once the backend sets it).
+  // That reference is NOT a Blockradar deposit reference, so the status poll
+  // below must be skipped and the provider named "Stripe" - otherwise a card
+  // subscriber sees the crypto "confirming with Blockradar" copy. The card path
+  // in startPlanCheckout returns without writing a pending checkout, so we can't
+  // rely on `pending` alone: detect the provider from the URL too.
+  const isStripeSubscription = useMemo(() => {
+    const provider = (searchParams?.get("provider") ?? "").trim().toLowerCase();
+    if (provider === "stripe") return true;
+    if (
+      pending?.paymentMethod === "card" ||
+      pending?.mode?.toLowerCase().includes("stripe") === true
+    ) {
+      return true;
+    }
+    // Fallback: the subscription reference shape, "<id>:<plan>:<epoch>".
+    return /:(launch|growth|send|pro|enterprise):\d+$/i.test(reference);
+  }, [searchParams, pending?.paymentMethod, pending?.mode, reference]);
+
   // The pending checkout stores the plan as a backend id/slug (e.g.
   // "cmrgnlkg500003oiszhyn1fvi"), never a display name - resolve it against the
   // plans catalog so we never show a raw id on the receipt.
@@ -91,16 +111,15 @@ export function PaymentThankYou() {
     return looksLikeId ? "" : rawPlan;
   }, [plansQuery.data, rawPlan]);
 
-  const providerLabel =
-    pending?.paymentMethod === "card" ||
-    pending?.mode?.toLowerCase().includes("stripe") === true
-      ? "Stripe"
-      : "Blockradar";
+  const providerLabel = isStripeSubscription ? "Stripe" : "Blockradar";
 
   const statusQuery = useQuery({
     queryKey: ["billing", "checkout-status", reference],
     queryFn: () => billingService.getBlockradarUpgradeStatus(reference),
-    enabled: reference.length > 0 && !confirmed,
+    // Only Blockradar deposits are pollable here; a Stripe subscription confirms
+    // via its own webhook, so polling its ref against the Blockradar status
+    // endpoint would just error on a loop.
+    enabled: reference.length > 0 && !confirmed && !isStripeSubscription,
     refetchInterval: 7_000,
     refetchIntervalInBackground: true,
     retry: false,

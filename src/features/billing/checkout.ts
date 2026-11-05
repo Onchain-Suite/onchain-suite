@@ -234,6 +234,44 @@ export async function startPlanCheckout(
   const orgId = organizationId ?? getSelectedOrganizationId() ?? undefined;
   if (!orgId) throw new Error("No active organization selected.");
 
+  // Card = a recurring Stripe subscription (POST /billing/subscribe), not the
+  // legacy one-time charge. The backend derives the tier + quantity from the
+  // org's contact count and builds the return URLs from the request Origin, so
+  // there's nothing to poll — the subscription confirms via webhook and the
+  // success page. The slider `contacts` is informational here: Option-A bills
+  // the actual list size, which auto-scales, so it is not sent. Crypto keeps the
+  // Blockradar flow below unchanged.
+  if (options?.paymentMethod === "card") {
+    let url: string | undefined;
+    try {
+      ({ url } = await billingService.subscribe({
+        plan: slug,
+        organizationId: orgId,
+      }));
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Couldn't start the subscription.";
+      // Surface the real reason. A card SUBSCRIPTION that can't be created must
+      // NOT silently degrade to a one-time crypto charge (that's not a
+      // subscription) — so this message deliberately avoids the "card payments
+      // aren't available" text that makes the plan picker switch to crypto.
+      throw new Error(
+        message.includes("No Stripe Price")
+          ? "Subscriptions aren't enabled for this plan yet (no price configured)."
+          : message,
+        { cause: error }
+      );
+    }
+    if (!url) {
+      throw new Error(
+        "Checkout did not return a payment link. Please try again."
+      );
+    }
+    return { paymentUrl: url, reference: "", mode: "stripe_subscription" };
+  }
+
   // A slider-sized purchase sends `contacts` so the backend prices by the same
   // curve as GET /billing/contact-pricing (the charge equals the quote). Below
   // the tier's own limit it is ignored, so a plain tier buy is unaffected.
@@ -250,15 +288,13 @@ export async function startPlanCheckout(
 
   let res;
   try {
+    // Card is handled above via /billing/subscribe; only crypto reaches here.
     res = await billingService.checkoutPlan({
       plan: slug,
       organizationId: orgId,
       billingCycle: "monthly",
       ...(contacts ? { contacts } : {}),
       ...(extraSeats > 0 ? { extraSeats } : {}),
-      ...(options?.paymentMethod === "card"
-        ? { paymentMethod: "card" as const }
-        : {}),
     });
   } catch (error) {
     const message =

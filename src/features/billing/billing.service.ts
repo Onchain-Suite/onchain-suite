@@ -81,6 +81,22 @@ export interface PlanUsageResponse {
   [key: string]: unknown;
 }
 
+/**
+ * Response of `GET /billing/subscription/:organizationId` - the org's Stripe
+ * subscription lifecycle, used for the billing panel's STATUS card and the
+ * "cancels on <date>" indicator. `hasSubscription` is false for an org billed
+ * another way (crypto/admin), in which case the UI shows the plan alone.
+ */
+export interface OrgSubscriptionResponse {
+  hasSubscription: boolean;
+  status: string | null;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+  priceId: string | null;
+  plan: string | null;
+  planExpiresAt: string | null;
+}
+
 /** One priced line from `GET /billing/plan-usage/:org/cost`. */
 export interface PricedUsageLine {
   meter: string;
@@ -595,6 +611,22 @@ export interface PlanCheckoutResponse {
   [key: string]: unknown;
 }
 
+/** Request for POST /billing/subscribe (recurring Stripe subscription Checkout). */
+export interface SubscribeRequest {
+  /** "send" or a Suite key; the backend re-derives the Suite tier from list size. */
+  plan: PlanCheckoutSlug | "send" | (string & {});
+  /** Defaults to the active org on the backend. */
+  organizationId?: string;
+  /** Normally omitted — the backend uses the request Origin for return URLs. */
+  returnUrl?: string;
+}
+
+/** Response of POST /billing/subscribe — the hosted Stripe Checkout URL. */
+export interface SubscribeResponse {
+  url?: string;
+  [key: string]: unknown;
+}
+
 /** GET /billing/payg/wallet/{orgId} - prepaid usage wallet (micro-USD ledger). */
 export interface PaygWallet {
   balanceUsd: number;
@@ -931,6 +963,25 @@ export const billingService = {
   },
 
   /**
+   * The org's Stripe subscription lifecycle (`GET /billing/subscription/:org`):
+   * status, cancelAtPeriodEnd, currentPeriodEnd. Powers the STATUS card and the
+   * "cancels on <date>" indicator. Returns `hasSubscription: false` for an org
+   * billed another way.
+   */
+  getSubscription(organizationId?: string, options?: BillingServiceOptions) {
+    const orgId = organizationId ?? pickOrgId(options);
+    if (!orgId) {
+      return Promise.reject(
+        new Error("No organization selected for subscription.")
+      );
+    }
+    return billingRequest<OrgSubscriptionResponse>(
+      { method: "GET", url: `/billing/subscription/${orgId}` },
+      { ...options, orgId }
+    );
+  },
+
+  /**
    * Itemised usage→cost breakdown (`GET /billing/plan-usage/:org/cost`): each
    * meter's usage priced at the rate card, a wallet-enrichment line, and the
    * period total (plan base + metered usage).
@@ -1072,6 +1123,33 @@ export const billingService = {
   checkoutPlan(body: PlanCheckoutRequest, options?: BillingServiceOptions) {
     return billingRequest<PlanCheckoutResponse>(
       { method: "POST", url: "/billing/checkout/plan", data: body },
+      options
+    );
+  },
+
+  /**
+   * Start a recurring Stripe subscription (Option-A contact pricing):
+   * `POST /billing/subscribe → { url }`. The backend derives the Suite tier from
+   * the org's contact count and sets quantity = that count, so the price can't be
+   * wrong from the client (`send` stays Send). Redirect the browser to `url`.
+   * Return pages come from the request Origin, so each environment lands back on
+   * its own billing page. Dormant (400) until the operator sets STRIPE_PLAN_PRICES.
+   */
+  subscribe(body: SubscribeRequest, options?: BillingServiceOptions) {
+    return billingRequest<SubscribeResponse>(
+      { method: "POST", url: "/billing/subscribe", data: body },
+      options
+    );
+  },
+
+  /**
+   * Stripe Customer Portal session (`GET /billing/portal → { url }`) — the
+   * hosted page where a customer cancels, swaps card, and views invoices.
+   * Redirect the browser to `url`.
+   */
+  billingPortal(options?: BillingServiceOptions) {
+    return billingRequest<{ url?: string }>(
+      { method: "GET", url: "/billing/portal" },
       options
     );
   },

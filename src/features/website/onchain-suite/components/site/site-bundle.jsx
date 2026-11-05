@@ -249,6 +249,10 @@ function CalBooking() {
 // components/ns/Sprite.jsx
 var MARK =
   "M1047.3 2518.32c483.09,-45.16 860.34,-436.64 860.34,-912.94 0,-478.08 -380.11,-870.73 -866.11,-913.4 -49.69,-7.76 -87.72,-50.73 -87.72,-102.61l0 -136.1c0,-60.31 48.9,-109.22 109.22,-109.22l181.92 0c29.12,0 52.92,-23.8 52.92,-52.92l0 -238.22c0,-29.12 -23.81,-52.92 -52.92,-52.92l-238.22 0c-29.12,0 -52.92,23.8 -52.92,52.92l0 187.39c0,54.97 -40.64,100.47 -93.48,108.09 -483.09,45.16 -860.33,436.64 -860.33,912.94 0,478.09 380.1,870.7 866.1,913.4 49.69,7.76 87.72,50.74 87.72,102.61l0 136.1c0,60.32 -48.9,109.22 -109.22,109.22l-181.92 0c-29.12,0 -52.92,23.81 -52.92,52.92l0 238.22c0,29.12 23.8,52.93 52.92,52.93l238.22 0c29.12,0 52.92,-23.81 52.92,-52.93l0 -187.39c0,-54.96 40.64,-100.46 93.48,-108.09zm1.24 -346.95c-50.78,4.64 -94.72,-34.55 -94.72,-85.85l0 -192.27c0,-37.58 -29.35,-58.33 -66.22,-62.21 -298.33,-31.36 -530.02,-274.63 -530.02,-569.7 0,-285.58 217.23,-522.31 501.69,-565.99 2.73,-0.25 5.48,-0.39 8.27,-0.39 47.66,0 86.28,38.61 86.28,86.26l0 192.27c0,37.57 29.36,58.33 66.23,62.2 298.32,31.36 530.02,274.63 530.02,569.7 0,285.59 -217.28,522.37 -501.52,565.98z";
+// The "OnchainSuite" lettering from the brand lockup, without the mark; WORDMARK_BOX
+// is its tight viewBox so the footer can set it edge to edge.
+var WORDMARK = ["M2691.71 2035.72c-60.54,0 -116.41,-10.49 -167.62,-31.43 -51.21,-20.95 -95.63,-50.83 -133.27,-89.61 -37.65,-38.81 -66.75,-84.77 -87.31,-137.94 -20.52,-53.15 -30.83,-111.55 -30.83,-175.17 0,-84.58 17.85,-158.87 53.54,-222.87 35.71,-64.06 85.16,-114.07 148.41,-150.16 63.25,-36.09 135.2,-54.13 215.92,-54.13 82.23,0 154.99,18.04 218.23,54.13 63.25,36.09 112.72,86.31 148.39,150.73 35.73,64.4 53.55,138.89 53.55,223.48 0,63.61 -10.27,121.83 -30.82,174.59 -20.58,52.77 -49.69,98.54 -87.3,137.35 -37.64,38.79 -82.06,68.66 -133.27,89.61 -51.22,20.94 -107.1,31.43 -167.61,31.43zm-1.16 -123.4c52.76,0 99.1,-13.19 139.08,-39.55 39.97,-26.4 71.2,-63.05 93.71,-110 22.5,-46.96 33.76,-101.07 33.76,-162.36 0,-60.54 -11.08,-113.49 -33.2,-158.92 -22.1,-45.37 -53.15,-80.68 -93.1,-105.91 -39.96,-25.21 -86.7,-37.8 -140.24,-37.8 -52.77,0 -99.15,12.59 -139.1,37.8 -39.98,25.23 -70.81,60.34 -92.53,105.37 -21.73,45.01 -32.59,98.14 -32.59,159.46 0,62.06 11.04,116.38 33.16,162.93 22.12,46.58 53.16,83.03 93.12,109.43 39.97,26.37 85.95,39.55 137.94,39.55zm495.93 111.76l0 -593.62 143.17 0 0 109.18c3.25,0 17.25,0 19.06,0 47.01,-76.59 107.27,-120.81 197.45,-120.81 124.55,0 204.84,74.12 204.84,200.19l0 405.06 -147.81 0 0 -374.79c0,-72 -37,-110.59 -109.44,-110.59 -97.24,0 -159.96,69.77 -160.62,163.77l0 321.61 -146.65 0zm930.93 11.64c-180.63,0 -296.69,-130.83 -296.69,-309.62 0,-178.13 117.44,-307.27 296.69,-307.27 89.3,0 174.63,32.27 230.47,104.16 25.59,32.98 41.87,71.2 48.87,114.66l-140.84 0c-17.54,-65.37 -69.41,-101.27 -136.18,-101.27 -108.93,0 -153.65,92.48 -153.65,189.72 0,97.83 45.47,192.07 153.65,192.07 66.77,0 118.64,-35.92 136.18,-101.28l140.84 0c-7,43.47 -23.48,81.69 -49.47,114.66 -56.5,71.64 -140.09,104.18 -229.87,104.18zm347.01 -11.64l0 -838.03 146.66 0 0 347.78 19.06 0c47.47,-76.87 104.13,-115 193.95,-115 124.57,0 204.86,74.12 204.86,200.19l0 405.06 -147.81 0 0 -374.79c0,-72 -37.02,-110.59 -109.42,-110.59 -96.28,0 -159.98,68.89 -160.63,163.77l0 321.61 -146.66 0zm834.37 11.64c-104.02,0 -195.54,-51.34 -195.54,-165.28 0,-129.55 116.65,-176.62 226.98,-193.24l158.29 -23.87 0 -29.65c0,-31.05 -8.74,-54.51 -26.18,-70.44 -36.53,-33.24 -122.77,-29.71 -162.98,-4.64 -20.57,12.8 -33.17,31.22 -37.84,55.27l-140.81 0c15.31,-135.87 145.53,-185.06 266.53,-185.06 146.13,0 247.92,60.63 247.92,217.65l0 268.87c0,13.53 -0.3,117.81 0,119.09l-141.39 -0.02 0 -93.66c-15.55,30.37 -37.27,54.3 -65.2,71.79 -35.31,22.13 -78.56,33.17 -129.79,33.17zm189.73 -289.25l-133.87 20.38c-42.79,6.5 -101.48,22.94 -112.36,71.47 -6.04,26.84 2.08,57.87 24.94,74.73 44.39,32.79 137.45,10.95 179.38,-20.5 27.91,-20.93 41.91,-46.56 41.91,-76.84l0 -69.24zm273.32 277.6l0 -309.49 0 -199.16c-2.08,-47.26 -41.02,-84.95 -88.77,-84.95l-21.32 0c-20.13,0 -36.57,-16.45 -36.57,-36.57l0 -73.53c0,-20.12 16.45,-36.56 36.57,-36.56l73.53 0c20.12,0 36.56,16.45 36.56,36.56l0 21.31c0,49.05 39.74,88.79 88.79,88.79l57.86 0 0 593.6 -146.65 0zm254.72 0l0 -593.62 143.17 0 0 109.18 19.06 0c46.72,-80.31 105.1,-120.81 197.45,-120.81 124.54,0 204.85,74.12 204.85,200.19l0 256.92 -59.03 0c-49.05,0 -88.79,39.74 -88.79,88.79l0 21.31c0,20.12 -16.45,36.56 -36.56,36.56l-73.54 0c-20.12,0 -36.56,-16.45 -36.56,-36.56l0 -73.54c0,-20.12 16.45,-36.56 36.56,-36.56l21.33 0c47.75,0 86.69,-37.69 88.77,-84.95l0 -141.7 0 -13.51 -0.47 0c-4.46,-63.29 -41.2,-97.08 -108.95,-97.08 -95.37,0 -159.98,67.89 -160.63,163.77l0 321.61 -146.65 0z", "M7247.42 2037.58c-105.52,0 -189.54,-24.24 -252.01,-72.73 -62.46,-48.5 -99.11,-116.99 -109.98,-205.44l145.49 0c6.99,51.21 29.87,90.97 68.68,119.28 38.8,28.32 89.63,42.51 152.49,42.51 51.99,0 91.75,-9.52 119.3,-28.51 27.54,-19.03 41.31,-45.6 41.31,-79.75 0,-30.27 -8.53,-54.7 -25.61,-73.31 -17.07,-18.64 -45.78,-33.76 -86.12,-45.4l-151.33 -45.41c-76.82,-23.28 -133.25,-53.92 -169.34,-91.92 -36.09,-38.04 -54.13,-85.77 -54.13,-143.18 0,-48.12 12.43,-90.01 37.25,-125.71 24.83,-35.7 59.93,-63.26 105.33,-82.64 45.39,-19.39 98.34,-29.09 158.89,-29.09 93.1,0 167.4,22.69 222.89,68.08 55.46,45.39 87.1,106.89 94.87,184.48l-145.52 0c-8.53,-46.56 -27.93,-80.91 -58.2,-103.02 -30.24,-22.11 -71,-33.16 -122.21,-33.16 -45,0 -80.7,8.92 -107.08,26.76 -26.38,17.87 -39.58,42.29 -39.58,73.34 0,25.59 7.96,47.34 23.87,65.17 15.9,17.85 45.59,33.36 89.04,46.57l153.65 46.56c76.81,22.49 132.68,53.15 167.6,91.95 34.91,38.8 52.38,88.07 52.38,147.82 0,79.15 -27.34,140.05 -82.05,182.74 -54.71,42.67 -131.33,64.01 -229.88,64.01zm1822.72 -365.48l301.26 0c-7.51,-86.12 -54.61,-139.67 -144.35,-139.67 -88.63,0 -142.02,56.02 -156.91,139.67zm-2.37 102.43c5.29,42.97 19.02,77.35 41.15,103 29.07,33.78 70.44,50.65 123.97,50.65 54.65,0 108.73,-17.99 132.68,-71.01l138.52 0c-42.77,123.12 -145.36,181.59 -272.35,181.59 -183.02,0 -306,-121.63 -306,-309.61 0,-186.66 121.95,-307.29 303.64,-307.29 203.02,0 291.75,152.49 286.34,352.67l-447.95 0zm-180.66 259.22c-71.42,17.54 -183.8,-1.3 -229.29,-46.79 -34.53,-34.52 -51.8,-86.33 -51.8,-155.39l0 -282.84 -99.8 0 0 -115.23 99.8 0 0 -146.67 147.82 0 0 146.67 119 0 0 115.23 -119 0 0 286.32c0,79.56 67.28,90.5 133.28,78.28 0,56.07 0,93.89 0,120.42zm-1061.56 5.01c-119.77,0 -199.03,-80.97 -199.03,-200.2l0 -405.06 146.66 0 0 374.78c0,68.74 33.89,110.57 104.74,110.57 93.84,0 154.16,-73.09 154.81,-163.79l0 -218.3 147.83 0 0 490.34 -143.16 0 0 -110.55 -19.06 0c-44.22,79.48 -102.15,122.19 -192.78,122.19zm472.54 -11.64l0 -309.48 0 -199.17c-2.09,-47.26 -41.03,-84.95 -88.78,-84.95l-21.32 0c-20.12,0 -36.57,-16.45 -36.57,-36.56l0 -73.54c0,-20.12 16.45,-36.56 36.57,-36.56l73.53 0c20.12,0 36.57,16.45 36.57,36.56l0 21.31c0,49.05 39.74,88.79 88.79,88.79l57.86 0 0 593.6 -146.65 0z"];
+var WORDMARK_BOX = "2272.7 1174.4 7243.3 865.8";
 function Sprite() {
   return (
     <svg
@@ -269,6 +273,11 @@ function Sprite() {
         </linearGradient>
         <symbol id="ocs-mark" viewBox="0 0 1908 2867">
           <path d={MARK} />
+        </symbol>
+        <symbol id="ocs-word" viewBox={WORDMARK_BOX}>
+          {WORDMARK.map((d) => (
+            <path key={d.slice(0, 12)} d={d} />
+          ))}
         </symbol>
         <symbol id="i-down" viewBox="0 0 10 10">
           <path
@@ -1667,107 +1676,56 @@ var NAV_LINKS = [
   { href: "/pricing", label: "Pricing" },
 ];
 var DOC = "https://docs.onchainsuite.com";
-// Reference-site footer: grouped columns (Attio-style), a "New" tag, an arrow on
-// links that leave the site, and a source tag on every link. Integrations are the
-// ones the docs describe; "Switching from" goes to each comparison page.
+// Footer: four short link columns, one bottom line with the copyright, legal links
+// and trust badges, then the wordmark set edge to edge and cropped by the page
+// bottom. Company registration details live on the Terms and Privacy pages, the
+// comparison pages on /compare and the integration guides in the docs.
 var FOOT = [
-  [
-    {
-      title: "Platform",
-      items: [
-        { label: "Audience", href: "/platform/audience" },
-        { label: "Segments", href: "/platform/segments" },
-        { label: "Loops", href: "/platform/loops" },
-        {
-          label: "Intelligence MCP",
-          href: "/platform/intelligence-mcp",
-          tag: "New",
-        },
-        { label: "How we use data", href: "/platform/data" },
-        { label: "Pricing", href: "/pricing" },
-      ],
-    },
-    {
-      title: "Company",
-      items: [
-        { label: "Team", href: "/team" },
-        { label: "Our hypothesis", href: "/hypothesis" },
-        { label: "Refer a team", href: "/refer", tag: "New" },
-      ],
-    },
-  ],
-  [
-    {
-      title: "OnchainSuite for",
-      items: [
-        { label: "Blockchain companies", href: "/for/blockchain-companies" },
-        { label: "Mainstream companies", href: "/for/mainstream-companies" },
-      ],
-    },
-    {
-      title: "Switching from",
-      items: [
-        { label: "Klaviyo", href: "/compare/klaviyo" },
-        { label: "Customer.io", href: "/compare/customer-io" },
-        { label: "Braze", href: "/compare/braze" },
-        { label: "Brevo", href: "/compare/brevo" },
-        { label: "SendGrid", href: "/compare/sendgrid" },
-        { label: "Dotdigital", href: "/compare/dotdigital" },
-        { label: "EmailOctopus", href: "/compare/emailoctopus" },
-      ],
-    },
-  ],
-  [
-    {
-      title: "Integrations",
-      items: [
-        {
-          label: "In-app SDK",
-          href: `${DOC}/integrations/in-app-notifications`,
-        },
-        {
-          label: "Mobile push",
-          href: `${DOC}/integrations/in-app-notifications`,
-        },
-        { label: "Server API", href: `${DOC}/integrations/server-api` },
-        { label: "Webhooks", href: `${DOC}/api/webhooks` },
-        { label: "Custom events", href: `${DOC}/integrations/custom-events` },
-        { label: "Forms", href: `${DOC}/integrations/forms` },
-        {
-          label: "Wallet and contract data",
-          href: `${DOC}/integrations/wallet-and-contract-data`,
-        },
-        {
-          label: "CSV and JSON import",
-          href: `${DOC}/audience/imports-and-exports`,
-        },
-      ],
-    },
-  ],
-  [
-    {
-      title: "Resources",
-      items: [
-        { label: "Compare", href: "/compare" },
-        { label: "Free tools", href: "/tools" },
-        { label: "Docs", href: DOC },
-        { label: "Help centre", href: `${DOC}/help/faq` },
-        { label: "Troubleshooting", href: `${DOC}/help/troubleshooting` },
-        { label: "Hire an expert", href: "/pricing#cmp-h" },
-        { label: "Trust centre", href: "/platform/data" },
-      ],
-    },
-    {
-      title: "Legal",
-      items: [
-        { label: "Terms", href: "/terms" },
-        { label: "Privacy", href: "/privacy" },
-        { label: "Data processing agreement", href: "/dpa" },
-        { label: "Sub-processors", href: "/subprocessors" },
-        { label: "Cookies", href: "/cookies" },
-      ],
-    },
-  ],
+  {
+    title: "Platform",
+    items: [
+      { label: "Audience", href: "/platform/audience" },
+      { label: "Segments", href: "/platform/segments" },
+      { label: "Loops", href: "/platform/loops" },
+      {
+        label: "Intelligence MCP",
+        href: "/platform/intelligence-mcp",
+        tag: "New",
+      },
+      { label: "Pricing", href: "/pricing" },
+    ],
+  },
+  {
+    title: "OnchainSuite for",
+    items: [
+      { label: "Blockchain companies", href: "/for/blockchain-companies" },
+      { label: "Mainstream companies", href: "/for/mainstream-companies" },
+      { label: "Compare", href: "/compare" },
+    ],
+  },
+  {
+    title: "Company",
+    items: [
+      { label: "Team", href: "/team" },
+      { label: "Our hypothesis", href: "/hypothesis" },
+      { label: "Refer a team", href: "/refer", tag: "New" },
+      { label: "Trust centre", href: "/platform/data" },
+    ],
+  },
+  {
+    title: "Resources",
+    items: [
+      { label: "Docs", href: DOC },
+      { label: "Help centre", href: `${DOC}/help/faq` },
+      { label: "Free tools", href: "/tools" },
+    ],
+  },
+];
+var LEGAL = [
+  { label: "Terms", href: "/terms" },
+  { label: "Privacy", href: "/privacy" },
+  { label: "DPA", href: "/dpa" },
+  { label: "Cookies", href: "/cookies" },
 ];
 var slug = (s) =>
   s
@@ -1805,96 +1763,96 @@ function SiteChrome({ children }) {
         </div>
       </header>
       <main>{children}</main>
-      <footer className="dark" data-dark>
-        <div className="wrap" style={{ border: 0 }}>
-          <div className="foot">
-            <div>
-              <Logo dark />
-            </div>
-            {FOOT.map((col, ci) => (
-              <div key={ci} className="foot-col">
-                {col.map((g) => (
-                  <div key={g.title} className="foot-g">
-                    <h6>{g.title}</h6>
-                    {g.items.map((l) => {
-                      const inner = (
-                        <>
-                          {l.label}
-                          {l.tag && <em className="foot-tag">{l.tag}</em>}
-                        </>
-                      );
-                      return l.href.startsWith("http") ? (
-                        <a
-                          key={l.label}
-                          href={tagged(l.href, l.label)}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {inner}
-                          <span className="foot-ext" aria-hidden="true">
-                            ↗
-                          </span>
-                        </a>
-                      ) : (
-                        <Link key={l.label} href={tagged(l.href, l.label)}>
-                          {inner}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                ))}
+      <footer className="ft">
+        <div className="wrap ft-in">
+          <nav className="ft-cols" aria-label="Footer">
+            {FOOT.map((g) => (
+              <div key={g.title}>
+                <p className="ft-h">{g.title}</p>
+                {g.items.map((l) => {
+                  const inner = (
+                    <>
+                      {l.label}
+                      {l.tag && <em className="foot-tag">{l.tag}</em>}
+                    </>
+                  );
+                  return l.href.startsWith("http") ? (
+                    <a
+                      key={l.label}
+                      href={tagged(l.href, l.label)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {inner}
+                      <span className="foot-ext" aria-hidden="true">
+                        ↗
+                      </span>
+                    </a>
+                  ) : (
+                    <Link key={l.label} href={tagged(l.href, l.label)}>
+                      {inner}
+                    </Link>
+                  );
+                })}
               </div>
             ))}
+          </nav>
+          <div className="ft-bar">
+            <div className="ft-legal">
+              <span>
+                &copy; {new Date().getFullYear()} {COMPANY.legalName}
+              </span>
+              {LEGAL.map((l) => (
+                <Link key={l.label} href={tagged(l.href, l.label)}>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+            <div className="ft-badges">
+              <span className="trust-b">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    d="M8 1.5l5.5 2v4c0 3.4-2.3 6-5.5 7-3.2-1-5.5-3.6-5.5-7v-4z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                  />
+                  <path
+                    d="M5.5 8.2l1.7 1.7 3.3-3.6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                  />
+                </svg>
+                UK GDPR compliant
+              </span>
+              <span className="trust-b">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <rect
+                    x="2.5"
+                    y="3"
+                    width="11"
+                    height="10"
+                    rx="1.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                  />
+                  <path
+                    d="M5 6.5h6M5 9.5h4"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                  />
+                </svg>
+                Registered with the ICO
+              </span>
+            </div>
           </div>
-          <div className="trust-row">
-            <span className="trust-b">
-              <svg viewBox="0 0 16 16" aria-hidden="true">
-                <path
-                  d="M8 1.5l5.5 2v4c0 3.4-2.3 6-5.5 7-3.2-1-5.5-3.6-5.5-7v-4z"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.3"
-                />
-                <path
-                  d="M5.5 8.2l1.7 1.7 3.3-3.6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                />
-              </svg>
-              UK GDPR compliant
-            </span>
-            <span className="trust-b">
-              <svg viewBox="0 0 16 16" aria-hidden="true">
-                <rect
-                  x="2.5"
-                  y="3"
-                  width="11"
-                  height="10"
-                  rx="1.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.3"
-                />
-                <path
-                  d="M5 6.5h6M5 9.5h4"
-                  stroke="currentColor"
-                  strokeWidth="1.3"
-                />
-              </svg>
-              Registered with the ICO
-            </span>
-          </div>
-          <div className="legal">
-            <span>
-              {COMPANY.legalName}, company number 17370357, registered in{" "}
-              {COMPANY.jurisdiction}.
-            </span>
-            <span>
-              We read public blockchain data and never hold funds or private
-              keys.
-            </span>
-          </div>
+        </div>
+        <div className="ft-word" aria-hidden="true">
+          <svg viewBox={`0 0 ${WORDMARK_BOX.split(" ").slice(2).join(" ")}`}>
+            <use href="#ocs-word" />
+          </svg>
         </div>
       </footer>
       <SiteMotion />
@@ -2214,9 +2172,9 @@ function HomeBody() {
               Retention built on what your users do.
             </h1>
             <p className="sub load" style={{ animationDelay: ".22s" }}>
-              On-chain for blockchain companies.
-              <br />
-              In your product for everyone else.
+              Retention and CRM software for blockchain companies. See which
+              wallets are about to leave, and win them back by email and in-app
+              message.
             </p>
             <div className="ctas load" style={{ animationDelay: ".32s" }}>
               <a className="btn lg" href="/pricing">
@@ -2682,104 +2640,24 @@ function HomeBody() {
           </div>
         </section>
 
-        <div className="logos" aria-label="Paying customers">
-          <a
-            className="rv"
-            href="https://adipredictstreet.com/"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Predict Street"
-          >
-            <img src="/site/logos/predict-street.png" alt="" />
-            Predict Street
-          </a>
-          <a
-            className="rv"
-            href="https://www.yauga.com/"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Yauga"
-          >
-            <img src="/site/logos/yauga.jpg" alt="" />
-            Yauga
-          </a>
-          <a
-            className="rv"
-            href="https://rehitagestays.co.uk/"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Rehitage"
-          >
-            <img src="/site/logos/rehitage.svg" alt="" />
-            Rehitage
-          </a>
-          <a
-            className="rv"
-            href="https://surgence.io/"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Surgence Labs"
-          >
-            <img src="/site/logos/surgence.jpg" alt="" />
-            Surgence Labs
-          </a>
-          <a
-            className="rv"
-            href="https://www.sovrentech.io/"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Sovren"
-          >
-            <img src="/site/logos/sovren.png" alt="" />
-            Sovren
-          </a>
-          <a
-            className="rv"
-            href="https://tradercomps.com/"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="TraderComps"
-          >
-            <img src="/site/logos/tradercomps.svg" alt="" />
-            TraderComps
-          </a>
-          <a
-            className="rv"
-            href="https://www.thesweatequity.club/"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="The Sweat Equity Club"
-          >
-            <img
-              src="/site/logos/sweat-equity-club.png"
-              alt="The Sweat Equity Club"
-              style={{ width: "auto", height: "1.9em", maxWidth: 200 }}
-            />
-          </a>
-          <a
-            className="rv"
-            href="https://app.vault777.com/"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Vault777"
-          >
-            <img
-              src="https://res.cloudinary.com/dwnkqkx8q/image/upload/v1787572311/vault777_c3ceoc.jpg"
-              alt=""
-            />
-            Vault777
-          </a>
-        </div>
+        <LogoRow label="Trusted and supported by" />
 
         <section className="state" id="platform" aria-labelledby="platform-h">
           <h2 className="h2 rv" id="platform-h">
-            The customer record your email tool never had.{" "}
-            <span>
-              OnchainSuite reads your app and your contracts, places every
-              customer in a lifecycle stage, and shows you who needs a message
-              before they leave.
-            </span>
+            Win back the customers who stopped using your protocol.
           </h2>
+          <p className="state-p rv">
+            Most of the wallets that deposit once never come back. OnchainSuite
+            reads your contracts and your app, spots the moment a customer goes
+            quiet, places every customer in a lifecycle stage, and shows you who
+            needs a message that brings them back. No data team, no new pipeline.
+          </p>
+          <p className="bridge rv">
+            <a href="#c1">
+              Here is how OnchainSuite finds them.
+              <span aria-hidden="true">↓</span>
+            </a>
+          </p>
         </section>
         <div className="plat">
           <div className="rail">
@@ -2796,13 +2674,12 @@ function HomeBody() {
           <div>
             <article className="chap" id="c1">
               <div className="chap-h">
-                <h3 className="h3 rv">
-                  Every customer sits on one record, with wallets, emails and
-                  app accounts side by side,{" "}
-                  <span>
-                    so you can see who each person is and how to reach them.
-                  </span>
-                </h3>
+                <div className="h3 rv">
+                  <h2 className="ht">Know every customer.</h2>{" "}
+                  <p className="ht">
+                    <span>Every customer sits on one record, with wallets, emails and app accounts side by side, so you can see who each person is and how to reach them.</span>
+                  </p>
+                </div>
                 <a className="chap-more" href="/platform/audience">
                   More on Audience →
                 </a>
@@ -3076,7 +2953,7 @@ function HomeBody() {
                           <b>Ethereum</b>
                         </div>
                       </div>
-                      <h6>Health</h6>
+                      <p className="u-h">Health</p>
                       <div className="u-card u-health">
                         <div className="sc">
                           <b data-health>61</b>
@@ -3098,7 +2975,7 @@ function HomeBody() {
                           </li>
                         </ul>
                       </div>
-                      <h6>Linked channels</h6>
+                      <p className="u-h">Linked channels</p>
                       <div className="u-link">
                         <span className="ic">
                           <svg>
@@ -3144,7 +3021,7 @@ function HomeBody() {
                   </p>
                   <div className="lanes" data-scene="lanes">
                     <div className="lane">
-                      <h5>In your app</h5>
+                      <p className="lane-h">In your app</p>
                       <div data-ev>
                         <span>Completed setup</span>
                         <em>3 July</em>
@@ -3156,7 +3033,7 @@ function HomeBody() {
                     </div>
                     <div className="join">same customer</div>
                     <div className="lane">
-                      <h5>On the chain</h5>
+                      <p className="lane-h">On the chain</p>
                       <div data-ev>
                         <span>Deposited 12,400 USDC</span>
                         <em>66 days ago</em>
@@ -3227,10 +3104,12 @@ function HomeBody() {
 
             <article className="chap" id="c2">
               <div className="chap-h">
-                <h3 className="h3 rv">
-                  Describe an audience in a sentence and OnchainSuite writes the
-                  rules, <span>then shows a live count while you edit.</span>
-                </h3>
+                <div className="h3 rv">
+                  <h2 className="ht">Build audiences in a sentence.</h2>{" "}
+                  <p className="ht">
+                    <span>Describe an audience in a sentence and OnchainSuite writes the rules, then shows a live count while you edit.</span>
+                  </p>
+                </div>
                 <a className="chap-more" href="/platform/segments">
                   More on Segments →
                 </a>
@@ -3452,14 +3331,12 @@ function HomeBody() {
 
             <article className="chap" id="c3">
               <div className="chap-h">
-                <h3 className="h3 rv">
-                  Loops start from something on the chain and stop the moment
-                  the customer acts.{" "}
-                  <span>
-                    A Loop is an automated customer journey that waits, sends by
-                    email or in-app, and ends when the action is recorded.
-                  </span>
-                </h3>
+                <div className="h3 rv">
+                  <h2 className="ht">Run Loops from on-chain events.</h2>{" "}
+                  <p className="ht">
+                    <span>Loops start from something on the chain and stop the moment the customer acts. A Loop is an automated customer journey that waits, sends by email or in-app, and ends when the action is recorded.</span>
+                  </p>
+                </div>
                 <a className="chap-more" href="/platform/loops">
                   More on Loops →
                 </a>
@@ -3487,7 +3364,7 @@ function HomeBody() {
                     >
                       <div className="u-flow">
                         <div className="u-card u-pal">
-                          <h6>On-chain triggers · 6</h6>
+                          <p className="u-h">On-chain triggers · 6</p>
                           <div className="u-trig">
                             <i>⚡</i>
                             <div>
@@ -3716,13 +3593,12 @@ function HomeBody() {
 
             <article className="chap" id="c4">
               <div className="chap-h">
-                <h3 className="h3 rv">
-                  Ask your data a question in plain English,{" "}
-                  <span>
-                    and the Intelligence MCP turns it into a query across your
-                    app and your contracts, so nobody has to write SQL.
-                  </span>
-                </h3>
+                <div className="h3 rv">
+                  <h2 className="ht">Ask your data in plain English.</h2>{" "}
+                  <p className="ht">
+                    <span>Ask your data a question in plain English, and the Intelligence MCP turns it into a query across your app and your contracts, so nobody has to write SQL.</span>
+                  </p>
+                </div>
                 <a className="chap-more" href="/platform/intelligence-mcp">
                   More on the Intelligence MCP →
                 </a>
@@ -3997,13 +3873,12 @@ function HomeBody() {
 
             <article className="chap" id="c5">
               <div className="chap-h">
-                <h3 className="h3 rv">
-                  See who is slipping before they leave,{" "}
-                  <span>
-                    because every customer sits in a lifecycle stage worked out
-                    from what they actually did.
-                  </span>
-                </h3>
+                <div className="h3 rv">
+                  <h2 className="ht">See who is slipping.</h2>{" "}
+                  <p className="ht">
+                    <span>See who is slipping before they leave, because every customer sits in a lifecycle stage worked out from what they actually did.</span>
+                  </p>
+                </div>
               </div>
               <div className="vis live short" data-scene="life">
                 <div className="stagebox" style={{ height: "auto" }}>
@@ -4156,13 +4031,14 @@ function HomeBody() {
 
         <section className="onb" aria-labelledby="onb-h">
           <div>
-            <h2 className="h2 rv" id="onb-h">
-              You can be up and running without a data team,{" "}
-              <span>
-                because OnchainSuite finds your contracts and holders from your
-                project&rsquo;s address.
-              </span>
-            </h2>
+            <div className="h2 rv">
+              <h2 className="ht" id="onb-h">
+                Set up in an afternoon from your contract address.
+              </h2>{" "}
+              <p className="ht">
+                <span>You can be up and running without a data team, because OnchainSuite finds your contracts and holders from your project&rsquo;s address.</span>
+              </p>
+            </div>
             <ol className="steps onb-steps">
               <li className="rv">
                 <button
@@ -4404,9 +4280,10 @@ function HomeBody() {
                       <span className="ic">
                         <img
                           src="/site/integrations/googlesheets.svg"
-                          alt=""
+                          alt="Google Sheets"
                           width={16}
                           height={16}
+                          loading="lazy"
                         />
                       </span>
                       Season 2 waitlist<em>Google Sheets</em>
@@ -4418,9 +4295,10 @@ function HomeBody() {
                       <span className="ic">
                         <img
                           src="/site/integrations/segment.svg"
-                          alt=""
+                          alt="Segment"
                           width={16}
                           height={16}
+                          loading="lazy"
                         />
                       </span>
                       Product events<em>Segment</em>
@@ -4432,9 +4310,10 @@ function HomeBody() {
                       <span className="ic">
                         <img
                           src="/site/integrations/privy.png"
-                          alt=""
+                          alt="Privy"
                           width={16}
                           height={16}
+                          loading="lazy"
                         />
                       </span>
                       Wallet logins<em>Privy</em>
@@ -4753,10 +4632,14 @@ function HomeBody() {
           <section className="nomail dk-sec" aria-labelledby="nomail-h">
             <div className="nomail-bg" aria-hidden="true" />
             <div>
-              <h2 className="h2 rv" id="nomail-h">
-                A wallet with no email address is still a customer you can
-                reach.
-              </h2>
+              <div className="h2 rv">
+                <h2 className="ht" id="nomail-h">
+                  Reach wallets that never gave you an email.
+                </h2>{" "}
+                <p className="ht">
+                  <span>A wallet with no email address is still a customer you can reach.</span>
+                </p>
+              </div>
               <div className="duo" data-scene="nomail">
                 <div className="side esp">
                   <h3>An email platform</h3>
@@ -4815,10 +4698,14 @@ function HomeBody() {
           </section>
 
           <section className="stack dk-sec" aria-labelledby="stack-h">
-            <h2 className="h2 rv" id="stack-h">
-              Your chains, your lists and your sending all connect to
-              OnchainSuite.
-            </h2>
+            <div className="h2 rv">
+              <h2 className="ht" id="stack-h">
+                Works with the chains and tools you already use.
+              </h2>{" "}
+              <p className="ht">
+                <span>Your chains, your lists and your sending all connect to OnchainSuite.</span>
+              </p>
+            </div>
             <p className="rv">
               Bring the records you already hold, read the chains your product
               runs on, and send through infrastructure you can trust. Segment
@@ -4832,108 +4719,120 @@ function HomeBody() {
                 <span className="lg">
                   <img
                     src="/site/integrations/ethereum.svg"
-                    alt=""
+                    alt="Ethereum"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Ethereum
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/base.svg"
-                    alt=""
+                    alt="Base"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Base
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/arbitrum.svg"
-                    alt=""
+                    alt="Arbitrum"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Arbitrum
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/optimism.svg"
-                    alt=""
+                    alt="Optimism"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Optimism
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/polygon.svg"
-                    alt=""
+                    alt="Polygon"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Polygon
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/walletconnect.svg"
-                    alt=""
+                    alt="WalletConnect"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   WalletConnect
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/privy.png"
-                    alt=""
+                    alt="Privy"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Privy
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/dynamic.jpg"
-                    alt=""
+                    alt="Dynamic"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Dynamic
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/web3auth.png"
-                    alt=""
+                    alt="Web3Auth"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Web3Auth
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/segment.svg"
-                    alt=""
+                    alt="Segment"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Segment
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/zapier.svg"
-                    alt=""
+                    alt="Zapier"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Zapier
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/googlesheets.svg"
-                    alt=""
+                    alt="Google Sheets"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Google Sheets
                 </span>
@@ -4987,126 +4886,140 @@ function HomeBody() {
                 <span className="lg">
                   <img
                     src="/site/integrations/aws-ses.svg"
-                    alt=""
+                    alt="AWS SES"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   AWS SES
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/azure.svg"
-                    alt=""
+                    alt="Azure Communication Services"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Azure Communication Services
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/ethereum.svg"
-                    alt=""
+                    alt="Ethereum"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Ethereum
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/base.svg"
-                    alt=""
+                    alt="Base"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Base
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/arbitrum.svg"
-                    alt=""
+                    alt="Arbitrum"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Arbitrum
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/optimism.svg"
-                    alt=""
+                    alt="Optimism"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Optimism
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/polygon.svg"
-                    alt=""
+                    alt="Polygon"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Polygon
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/walletconnect.svg"
-                    alt=""
+                    alt="WalletConnect"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   WalletConnect
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/privy.png"
-                    alt=""
+                    alt="Privy"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Privy
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/dynamic.jpg"
-                    alt=""
+                    alt="Dynamic"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Dynamic
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/web3auth.png"
-                    alt=""
+                    alt="Web3Auth"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Web3Auth
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/segment.svg"
-                    alt=""
+                    alt="Segment"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Segment
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/zapier.svg"
-                    alt=""
+                    alt="Zapier"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Zapier
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/googlesheets.svg"
-                    alt=""
+                    alt="Google Sheets"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Google Sheets
                 </span>
@@ -5160,18 +5073,20 @@ function HomeBody() {
                 <span className="lg">
                   <img
                     src="/site/integrations/aws-ses.svg"
-                    alt=""
+                    alt="AWS SES"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   AWS SES
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/azure.svg"
-                    alt=""
+                    alt="Azure Communication Services"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Azure Communication Services
                 </span>
@@ -5180,234 +5095,260 @@ function HomeBody() {
                 <span className="lg">
                   <img
                     src="/site/integrations/amplitude.svg"
-                    alt=""
+                    alt="Amplitude"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Amplitude
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/mixpanel.svg"
-                    alt=""
+                    alt="Mixpanel"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Mixpanel
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/firebase.svg"
-                    alt=""
+                    alt="Firebase"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Firebase
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/attio.svg"
-                    alt=""
+                    alt="Attio"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Attio
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/hubspot.svg"
-                    alt=""
+                    alt="HubSpot"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   HubSpot
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/salesforce.svg"
-                    alt=""
+                    alt="Salesforce"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Salesforce
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/posthog.svg"
-                    alt=""
+                    alt="PostHog"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   PostHog
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/intercom.svg"
-                    alt=""
+                    alt="Intercom"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Intercom
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/slack.svg"
-                    alt=""
+                    alt="Slack"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Slack
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/notion.svg"
-                    alt=""
+                    alt="Notion"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Notion
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/airtable.svg"
-                    alt=""
+                    alt="Airtable"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Airtable
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/stripe.svg"
-                    alt=""
+                    alt="Stripe"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Stripe
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/shopify.svg"
-                    alt=""
+                    alt="Shopify"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Shopify
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/amplitude.svg"
-                    alt=""
+                    alt="Amplitude"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Amplitude
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/mixpanel.svg"
-                    alt=""
+                    alt="Mixpanel"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Mixpanel
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/firebase.svg"
-                    alt=""
+                    alt="Firebase"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Firebase
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/attio.svg"
-                    alt=""
+                    alt="Attio"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Attio
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/hubspot.svg"
-                    alt=""
+                    alt="HubSpot"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   HubSpot
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/salesforce.svg"
-                    alt=""
+                    alt="Salesforce"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Salesforce
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/posthog.svg"
-                    alt=""
+                    alt="PostHog"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   PostHog
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/intercom.svg"
-                    alt=""
+                    alt="Intercom"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Intercom
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/slack.svg"
-                    alt=""
+                    alt="Slack"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Slack
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/notion.svg"
-                    alt=""
+                    alt="Notion"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Notion
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/airtable.svg"
-                    alt=""
+                    alt="Airtable"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Airtable
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/stripe.svg"
-                    alt=""
+                    alt="Stripe"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Stripe
                 </span>
                 <span className="lg">
                   <img
                     src="/site/integrations/shopify.svg"
-                    alt=""
+                    alt="Shopify"
                     width={22}
                     height={22}
+                    loading="lazy"
                   />
                   Shopify
                 </span>
@@ -5597,10 +5538,14 @@ function HomeBody() {
         <section className="close" id="cta" aria-labelledby="cta-h">
           <div className="close-grid">
             <div>
-              <h2 className="h2 rv" id="cta-h">
-                Find out which of your customers are about to leave.{" "}
-                <span>Book a fifteen-minute call with our team.</span>
-              </h2>
+              <div className="h2 rv">
+            <h2 className="ht" id="cta-h">
+              See which of your customers are about to leave.
+            </h2>{" "}
+            <p className="ht">
+              <span>Book a fifteen-minute call with our team.</span>
+            </p>
+          </div>
               <div className="ctas rv">
                 <a className="btn solid lg" href="/early-access">
                   Book a walkthrough
@@ -6566,8 +6511,10 @@ var CUSTOMERS = [
   },
   {
     name: "Yauga",
-    logo: "/site/logos/yauga.jpg",
+    logo: "/site/logos/yauga.svg",
     href: "https://www.yauga.com/",
+    // New mark-plus-name lockup: render it alone, like the Sweat Equity Club.
+    wordmark: true,
   },
   {
     name: "Rehitage",
@@ -6602,6 +6549,10 @@ var CUSTOMERS = [
     href: "https://app.vault777.com/",
   },
 ];
+// Blank cells close the last row: enough for five columns on desktop; the mobile
+// CSS hides any beyond what two columns need.
+var LOGO_FILL = (5 - (CUSTOMERS.length % 5)) % 5;
+var LOGO_FILL_MOBILE = CUSTOMERS.length % 2;
 function LogoRow({ label }) {
   return (
     <div className="logorow">
@@ -6619,13 +6570,21 @@ function LogoRow({ label }) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={c.logo}
-              alt={c.wordmark ? c.name : ""}
+              alt={`${c.name} logo`}
+              loading="lazy"
               {...(c.wordmark
                 ? { style: { width: "auto", height: "1.9em", maxWidth: 200 } }
                 : { width: 48, height: 48 })}
             />
             {!c.wordmark && c.name}
           </a>
+        ))}
+        {Array.from({ length: LOGO_FILL }, (_, i) => (
+          <div
+            key={i}
+            className={"fill" + (i < LOGO_FILL_MOBILE ? "" : " desk")}
+            aria-hidden="true"
+          />
         ))}
       </div>
     </div>
@@ -6643,7 +6602,7 @@ function Faq({ items, title = "Questions we get asked" }) {
         {items.map((f3) => (
           <details key={f3.q} className="rv">
             <summary>
-              {f3.q}
+              <h3 className="faq-q">{f3.q}</h3>
               <span aria-hidden="true">+</span>
             </summary>
             <p>{f3.a}</p>
@@ -6658,10 +6617,14 @@ function CloseCta({ mainstream = false } = {}) {
     <section className="close" id="cta" aria-labelledby="cta-h">
       <div className="close-grid">
         <div>
-          <h2 className="h2 rv" id="cta-h">
-            Find out which of your customers are about to leave.{" "}
-            <span>Book a fifteen-minute call with our team.</span>
-          </h2>
+          <div className="h2 rv">
+            <h2 className="ht" id="cta-h">
+              See which of your customers are about to leave.
+            </h2>{" "}
+            <p className="ht">
+              <span>Book a fifteen-minute call with our team.</span>
+            </p>
+          </div>
           <div className="ctas rv">
             <Link className="btn solid lg" href="/early-access">
               Book a walkthrough
@@ -6905,7 +6868,7 @@ function PricingBody() {
           </p>
         </section>
 
-        <LogoRow label="Trusted by blockchain companies including" />
+        <LogoRow label="Trusted and supported by" />
 
         <section className="cmp" aria-labelledby="cmp-h">
           <CompareTable />
@@ -8906,6 +8869,7 @@ var PRODUCTS = [
 function ProductPage({
   href,
   title,
+  lead,
   sub,
   scene,
   points,
@@ -8920,6 +8884,11 @@ function ProductPage({
       <div className="wrap">
         <section className="prod-hero">
           <h1 className="h1 load">{title}</h1>
+          {lead && (
+            <p className="sub lead load" style={{ animationDelay: ".06s" }}>
+              {lead}
+            </p>
+          )}
           <p className="sub load" style={{ animationDelay: ".1s" }}>
             {sub}
           </p>
@@ -9244,7 +9213,7 @@ function AudienceScene() {
                 <b>Ethereum</b>
               </div>
             </div>
-            <h6>Health</h6>
+            <p className="u-h">Health</p>
             <div className="u-card u-health">
               <div className="sc">
                 <b data-health>61</b>
@@ -9266,7 +9235,7 @@ function AudienceScene() {
                 </li>
               </ul>
             </div>
-            <h6>Linked channels</h6>
+            <p className="u-h">Linked channels</p>
             <div className="u-link">
               <span className="ic">
                 <svg>
@@ -9458,7 +9427,7 @@ function LoopScene() {
           >
             <div className="u-flow">
               <div className="u-card u-pal">
-                <h6>On-chain triggers · 6</h6>
+                <p className="u-h">On-chain triggers · 6</p>
                 <div className="u-trig">
                   <i>⚡</i>
                   <div>
@@ -9760,6 +9729,7 @@ var metadata2 = {
 function AudiencePage() {
   return (
     <ProductPage
+      lead={"A CRM for blockchain companies where a contact can be a wallet, an email, an app account, or all three on one record. See every deposit, withdrawal and login for each customer in one place, and which channels can reach them."}
       toPoints="Here is what one record changes for your growth team."
       toNext="Once everyone is on one record, the next step is choosing who to talk to."
       href="/platform/audience"
@@ -9831,6 +9801,7 @@ var metadata3 = {
 function SegmentsPage() {
   return (
     <ProductPage
+      lead={"Find the customers you need to talk to. Describe them in a sentence (\"holds more than 10 ETH and has not staked in 30 days\") and get a live list of matching wallets. This is how you find inactive wallets before they are gone."}
       toPoints="Here is what you can build with it."
       toNext="A segment on its own sends nothing. Loops and campaigns are what put it to work."
       href="/platform/segments"
@@ -9898,6 +9869,7 @@ var metadata4 = {
 function LoopsPage() {
   return (
     <ProductPage
+      lead={"Automated win-back and lifecycle journeys for blockchain companies. A Loop starts when something happens on the chain (a withdrawal, a wallet going dormant, a first deposit), sends by email or in-app, and stops the moment the customer acts."}
       toPoints="Here is what a Loop does once it is running."
       toNext="When you are not sure who needs a Loop, you can ask the Intelligence MCP."
       href="/platform/loops"
@@ -9965,6 +9937,7 @@ var metadata5 = {
 function McpPage() {
   return (
     <ProductPage
+      lead={"Ask questions about your customers in plain English and get a table, a chart and the SQL behind it. \"Which wallets opened our last email but never clicked?\" becomes a segment or a campaign in one click."}
       toPoints="Here is what you can do with an answer."
       toNext="Every answer comes from the same record, the same segments and the same Loops."
       href="/platform/intelligence-mcp"
@@ -10115,6 +10088,12 @@ function DataPage() {
       <div className="wrap">
         <section className="prod-hero">
           <h1 className="h1 load">How OnchainSuite uses your data.</h1>
+          <p className="sub lead load" style={{ animationDelay: ".06s" }}>
+            What OnchainSuite reads, what it never holds, and how
+            wallet-to-email linking stays consent-based. Read-only access to
+            public chain data; no keys, no funds. UK GDPR compliant, registered
+            with the ICO.
+          </p>
           <p className="sub load" style={{ animationDelay: ".1s" }}>
             We read the two lanes your customers leave a record in, join them
             into one record per person, and never hold funds or keys.
@@ -10313,12 +10292,15 @@ function DataPage() {
 // components/ns/ForPage.jsx
 function ForPage({
   title,
+  lead,
   sub,
   lanesTitle,
   lanes,
   toPoints,
   pointsTitle,
   points,
+  toSegments,
+  segments,
   toPlan,
   plan,
   faqs,
@@ -10329,6 +10311,11 @@ function ForPage({
       <div className="wrap">
         <section className="prod-hero">
           <h1 className="h1 load">{title}</h1>
+          {lead && (
+            <p className="sub lead load" style={{ animationDelay: ".06s" }}>
+              {lead}
+            </p>
+          )}
           <p className="sub load" style={{ animationDelay: ".1s" }}>
             {sub}
           </p>
@@ -10385,13 +10372,44 @@ function ForPage({
               </div>
             ))}
           </div>
-          <p className="bridge rv">
-            <a href="#plan-h">
-              {toPlan}
-              <span aria-hidden="true">↓</span>
-            </a>
-          </p>
+          {segments ? (
+            <p className="bridge rv">
+              <a href="#seg-0">
+                {toSegments}
+                <span aria-hidden="true">↓</span>
+              </a>
+            </p>
+          ) : (
+            <p className="bridge rv">
+              <a href="#plan-h">
+                {toPlan}
+                <span aria-hidden="true">↓</span>
+              </a>
+            </p>
+          )}
         </section>
+
+        {/* One short H2 section per kind of company the sales list targets. */}
+        {segments && (
+          <div className="dl-sec seg3">
+            <div className="seg3-grid">
+              {segments.map((g, i) => (
+                <section key={g.title} className="rv" aria-labelledby={`seg-${i}`}>
+                  <h2 className="h3" id={`seg-${i}`}>
+                    {g.title}
+                  </h2>
+                  <p>{g.body}</p>
+                </section>
+              ))}
+            </div>
+            <p className="bridge rv">
+              <a href="#plan-h">
+                {toPlan}
+                <span aria-hidden="true">↓</span>
+              </a>
+            </p>
+          </div>
+        )}
 
         <section className="dl-sec" aria-labelledby="plan-h">
           <div className="sendcard rv">
@@ -10445,6 +10463,7 @@ function BlockchainCompanies() {
   return (
     <ForPage
       title="OnchainSuite for blockchain companies."
+      lead="Retention and CRM software built for protocols, prediction markets, perp DEXes and real-world-asset platforms. Read what wallets do, see who is slipping, and bring them back by email and in-app message."
       sub="Our software reads what your customers do in your app and what their wallets do on-chain, adds how they respond to what you send, and puts it on one record your growth team can act on."
       lanesTitle={
         <>
@@ -10507,6 +10526,21 @@ function BlockchainCompanies() {
           title: "Ask both lanes a question in plain English.",
           body: "The Intelligence MCP answers from your app and contract data together, and turns the answer into a segment you can message.",
           art: "bothLanesQ",
+        },
+      ]}
+      toSegments="The same record works whichever kind of blockchain product you run."
+      segments={[
+        {
+          title: "For prediction markets",
+          body: "Traders arrive for one market and drift away once it resolves. OnchainSuite sees who stopped placing positions and brings them back for the next market by email and in-app message.",
+        },
+        {
+          title: "For perp DEXes",
+          body: "A trader whose open positions fall to zero and who has not traded for two weeks is on the way out. OnchainSuite spots that on the chain and starts a Loop that stops the moment they trade again.",
+        },
+        {
+          title: "For RWA platforms",
+          body: "Investors deposit into tokenised funds and then go quiet for months between subscriptions and redemptions. OnchainSuite tracks deposits, redemptions and dormant wallets, so your team can reach investors before they move their money elsewhere.",
         },
       ]}
       toPlan="All of this comes with the Suite plan, priced by the contacts you bring in."
@@ -11107,7 +11141,7 @@ function TeamPage() {
             </article>
           ))}
         </section>
-        <LogoRow label="Trusted by blockchain companies including" />
+        <LogoRow label="Trusted and supported by" />
         <section className="facts">
           {FACTS.map(([k, v]) => (
             <div key={k} className="rv">
@@ -11191,7 +11225,7 @@ function EarlyAccessPage() {
             <CloseArt />
           </div>
         </section>
-        <LogoRow label="Trusted by blockchain companies including" />
+        <LogoRow label="Trusted and supported by" />
       </div>
     </SiteChrome>
   );
@@ -11201,16 +11235,16 @@ function EarlyAccessPage() {
 
 // components/ns/VsLockup.jsx
 var LOGOS = {
-  "customer-io": "/site/compare/customer-io.svg",
-  braze: "/site/compare/braze.svg",
-  sendgrid: "/site/compare/sendgrid.svg",
-  brevo: "/site/compare/brevo.svg",
-  galxe: "/site/compare/galxe.svg",
-  klaviyo: "/site/compare/klaviyo.png",
-  dotdigital: "/site/compare/dotdigital.png",
-  emailoctopus: "/site/compare/emailoctopus.svg",
-  formo: "/site/compare/formo.png",
-  addressable: "/site/compare/addressable.png",
+  "customer-io": { src: "/site/compare/customer-io.svg", w: 256, h: 180 },
+  braze: { src: "/site/compare/braze.svg", w: 256, h: 256 },
+  sendgrid: { src: "/site/compare/sendgrid.svg", w: 256, h: 256 },
+  brevo: { src: "/site/compare/brevo.svg", w: 24, h: 24 },
+  galxe: { src: "/site/compare/galxe.svg", w: 24, h: 24 },
+  klaviyo: { src: "/site/compare/klaviyo.png", w: 128, h: 128 },
+  dotdigital: { src: "/site/compare/dotdigital.png", w: 128, h: 128 },
+  emailoctopus: { src: "/site/compare/emailoctopus.svg", w: 467, h: 467 },
+  formo: { src: "/site/compare/formo.png", w: 128, h: 128 },
+  addressable: { src: "/site/compare/addressable.png", w: 128, h: 128 },
 };
 function VsLockup({ slug: slug2, name, size = "sm" }) {
   const logo = LOGOS[slug2];
@@ -11228,7 +11262,13 @@ function VsLockup({ slug: slug2, name, size = "sm" }) {
       </span>
       <span className="vsl-t them">
         {logo ? (
-          <img src={logo} alt="" />
+          <img
+            src={logo.src}
+            alt={`${name} logo`}
+            width={logo.w}
+            height={logo.h}
+            loading={size === "lg" ? "eager" : "lazy"}
+          />
         ) : (
           <b>{name.replace(/^Customer\.io$/, "C").charAt(0)}</b>
         )}
@@ -11398,6 +11438,29 @@ var COMPETITORS = [
         a: "Yes, through in-app push, which needs only the address. Email is for wallets that opt in.",
       },
     ],
+    description: "Klaviyo vs OnchainSuite, compared for blockchain companies. Which reads wallet activity, what switching takes, who should pick which.",
+    deep: {
+      pickThem: "If you run an online store and your customers are email addresses, Klaviyo is the stronger choice. Its flows start from orders, price drops, low inventory and birthdays, it connects to Shopify, WooCommerce and hundreds of other apps, and it is free up to 250 profiles and 500 emails a month.",
+      switching: [
+        "Export your lists and segments from Klaviyo as CSV files, with the profile properties you rely on.",
+        "Import them into Audience. Emails link to wallets where you already hold the link, and the rest stay as email contacts.",
+        "Rebuild the flows that matter as Loops, swapping store metrics such as placed order for on-chain triggers such as first deposit."
+      ],
+      switchingTime: "Most teams move their main flows in a day.",
+      cannot: "Klaviyo flows start from a list, a segment, a metric, a date property, a price drop or low inventory, and metrics arrive from your store integrations or from events your code sends through its API. Nothing in Klaviyo reads a deposit, a withdrawal or a token transfer from the chain, so a wallet's activity only reaches it if your engineers send it there.",
+      example: {
+        scenario: "A lending protocol wants to email depositors whose collateral ratio has dropped close to liquidation.",
+        them: [
+          "An engineer watches the lending contract and calculates each depositor's collateral ratio.",
+          "A service sends a custom metric to Klaviyo for every depositor who crosses the threshold, matched to an email address.",
+          "A metric-triggered flow sends the email, and the service keeps running for as long as the flow does."
+        ],
+        ocs: [
+          "One segment rule: collateral ratio within 10% of the liquidation level.",
+          "One Loop that emails depositors who have an address, shows an in-app message to wallets that do not, and stops when they add collateral."
+        ]
+      }
+    },
   },
   {
     slug: "customer-io",
@@ -11451,6 +11514,29 @@ var COMPETITORS = [
         a: "Point OnchainSuite at your contracts and bring in the records you already hold. We read the chain into actions for you, so there is no pipeline for your engineers to build.",
       },
     ],
+    description: "Customer.io vs OnchainSuite, compared for blockchain companies. Which reads wallet activity, what switching takes, who should pick which.",
+    deep: {
+      pickThem: "If your product has no wallets, no contracts and a working event pipeline, Customer.io is the better-known choice with a bigger integration list. It is built for teams whose customers live entirely inside the app, and for them it does the job well.",
+      switching: [
+        "Export your people from Customer.io as a CSV file.",
+        "Import the file into Audience. Emails link to wallets where you already hold the link, so nobody is matched by guesswork.",
+        "Rebuild the two or three campaigns that matter as Loops, starting from on-chain triggers instead of custom events."
+      ],
+      switchingTime: "One afternoon for most teams.",
+      cannot: "Customer.io triggers on events your app sends it. It has no way to read a deposit, withdrawal or token transfer from the chain unless your engineers build and maintain that feed.",
+      example: {
+        scenario: "A perp DEX wants to message traders whose open positions dropped to zero and who have not traded in 14 days.",
+        them: [
+          "An engineering ticket to watch position changes on the chain for every trader.",
+          "A service that turns those changes into custom events and sends them to Customer.io by webhook.",
+          "A segment on the custom event and a campaign on top of it, with the service kept running for as long as the campaign does."
+        ],
+        ocs: [
+          "One segment rule: no open positions, and no trade in the last 14 days.",
+          "One Loop that sends an email, then an in-app message to traders who did not respond, and stops the moment someone opens a position."
+        ]
+      }
+    },
   },
   {
     slug: "braze",
@@ -11504,6 +11590,29 @@ var COMPETITORS = [
         a: "We read cross-chain activity into clean events and segments, so you skip the data engineering.",
       },
     ],
+    description: "Braze vs OnchainSuite, compared for blockchain companies. Which reads wallet activity, what switching takes, who should pick which.",
+    deep: {
+      pickThem: "If you run a large consumer app with an engineering team that already sends clean events, Braze is the better-proven platform. It reaches people by email, push, SMS, WhatsApp, in-app messages and content cards, and it is priced by monthly active users on a contract, with no free plan.",
+      switching: [
+        "Export your users from Braze, either from a segment's CSV export or through its user export endpoints.",
+        "Import them into Audience. External IDs and emails link to wallets where you already hold the link.",
+        "Rebuild your Canvases as Loops. Custom events your app sends today can keep coming in, and on-chain events become triggers without any SDK work."
+      ],
+      switchingTime: "A week for most teams, mostly spent deciding which Canvases are still worth keeping.",
+      cannot: "A Braze Canvas starts on a schedule, from an action such as a custom event or a purchase, or from an API call, and every one of those events has to come from your app's SDK or your server. Braze has no way to read a deposit, a withdrawal or a staking change from the chain itself, so a wallet's on-chain activity reaches it only through a pipeline your engineers build and maintain.",
+      example: {
+        scenario: "A staking app wants to reach holders whose rewards are ready to claim but who have not opened the app in 21 days.",
+        them: [
+          "An engineer indexes the staking contract and works out each holder's unclaimed rewards.",
+          "A service sends a custom event and attribute to Braze through /users/track for every holder past the threshold.",
+          "An action-based Canvas sends a push and an email, with the indexer and the service kept running behind it."
+        ],
+        ocs: [
+          "One segment rule: unclaimed rewards above zero, and no app session in the last 21 days.",
+          "One Loop that sends an in-app message and an email, and stops the moment the rewards are claimed."
+        ]
+      }
+    },
   },
   {
     slug: "dotdigital",
@@ -11523,7 +11632,7 @@ var COMPETITORS = [
     together:
       "Run Dotdigital for existing Web2 email and OnchainSuite for wallet-native, on-chain retention.",
     them: [
-      "From ~£150/mo",
+      "Contact sales",
       "No",
       "No",
       "Limited",
@@ -11556,13 +11665,36 @@ var COMPETITORS = [
         a: "No. You add an SDK and we read your chains. There is no pipeline to build.",
       },
     ],
+    description: "Dotdigital vs OnchainSuite, compared for blockchain companies. Which reads wallet activity, what switching takes, who should pick which.",
+    deep: {
+      pickThem: "If your customers shop with you online and you want one no-code suite for email, SMS, WhatsApp, push and chat, Dotdigital is the better fit. It has more than 200 integrations, including Shopify, Salesforce and Adobe Commerce, and it is sold through its sales team rather than a public price list.",
+      switching: [
+        "Export your contacts from Dotdigital (Audience, then Contacts, then Export all) as a CSV file, or export each list you use.",
+        "Import the file into Audience. Emails link to wallets where you already hold the link.",
+        "Rebuild your programs as Loops, replacing date and list-join start conditions with on-chain triggers where they fit."
+      ],
+      switchingTime: "Most teams move their programs in a day or two.",
+      cannot: "A Dotdigital program starts on a schedule, from a date field or a segment, or from an external trigger such as an API call, an integration, a list join or a form. Product events can be imported through its API, but nothing in Dotdigital reads a deposit, a withdrawal or a token transfer from the chain, so on-chain activity only arrives if your engineers send it.",
+      example: {
+        scenario: "A tokenised fund wants to email investors whose holdings have sat untouched for 90 days before the next subscription window.",
+        them: [
+          "An engineer reads the fund contract and lists the holders who have not moved in 90 days.",
+          "A script imports those holders into Dotdigital as events or insight data, matched to email addresses.",
+          "A segment-triggered program sends the email, and the script runs again before every window."
+        ],
+        ocs: [
+          "One segment rule: holds the fund token, and no transfer in the last 90 days.",
+          "One Loop that emails investors before the window opens and stops for anyone who subscribes."
+        ]
+      }
+    },
   },
   {
     slug: "emailoctopus",
     name: "EmailOctopus",
     kind: "Simple email",
     intro:
-      "EmailOctopus is a cheap, simple email tool built on Amazon SES. OnchainSuite sits in a different category, a retention platform for blockchain companies, but teams often weigh a basic email tool against doing retention properly.",
+      "EmailOctopus is a cheap, simple email tool, with a separate version called EmailOctopus Connect that sends through your own Amazon SES account. OnchainSuite sits in a different category, a retention platform for blockchain companies, but teams often weigh a basic email tool against doing retention properly.",
     whyChoose:
       "EmailOctopus sends broadcasts and light automations. There is no event pipeline, no wallet identity, and no sense of what happens on-chain. If retention past the newsletter matters, OnchainSuite is the better fit.",
     theyLike: [
@@ -11604,6 +11736,29 @@ var COMPETITORS = [
         a: "The Suite plan starts at $39 a month, more than a newsletter tool because we read your contracts as well as your list. Without blockchain data, the Send plan is $6 a month plus $3.95 per 1,000 subscribers.",
       },
     ],
+    description: "EmailOctopus vs OnchainSuite, compared for blockchain companies. Which reads wallet activity, what switching takes, who should pick which.",
+    deep: {
+      pickThem: "If all you need is a newsletter to a list, EmailOctopus is one of the cheapest ways to send it, and it is free up to 2,500 subscribers and 10,000 emails a month. It describes itself as email marketing and nothing else, and for a team with no wallets to watch, that focus is a strength.",
+      switching: [
+        "Export each list from EmailOctopus (Actions, then Export) and choose All so every field comes with it. The file downloads as a ZIP.",
+        "Import the contacts into Audience. Tags and custom fields come across, and emails link to wallets where you already hold the link.",
+        "Rebuild your automations as Loops. Tag and date triggers become segment rules, and on-chain events become triggers you could not use before."
+      ],
+      switchingTime: "Most teams finish in an afternoon, because there are no app events to rewire.",
+      cannot: "EmailOctopus automations start when a contact joins a list, a field or tag changes, a date comes round, or your code enrols the contact through its API. It has no way to receive a product event or read a deposit, withdrawal or wallet balance, and it sends email only, with no in-app, SMS or push.",
+      example: {
+        scenario: "A staking protocol wants to email holders who unstaked more than half their position this week.",
+        them: [
+          "A developer watches the staking contract and works out which holders unstaked.",
+          "A script matches those wallets to email addresses in EmailOctopus and adds a tag to each contact through the API.",
+          "A tag-added automation sends the email, and the script has to run every week for the campaign to keep working."
+        ],
+        ocs: [
+          "One segment rule: unstaked more than half their position in the last 7 days.",
+          "One Loop that emails holders who have an address, shows an in-app message to wallets that do not, and stops when they stake again."
+        ]
+      }
+    },
   },
   {
     slug: "sendgrid",
@@ -11624,7 +11779,7 @@ var COMPETITORS = [
     together:
       "A good pairing. OnchainSuite owns the on-chain triggers, segments, and in-app push; SendGrid handles delivery.",
     them: [
-      "Free / usage-based",
+      "From $15/mo",
       "No",
       "No",
       "No",
@@ -11653,6 +11808,30 @@ var COMPETITORS = [
         a: "We send to opted-in wallets. Teams with strict deliverability needs can pair us with their provider.",
       },
     ],
+    description: "SendGrid vs OnchainSuite, compared for blockchain companies. Which reads wallet activity, what each one is for, who should pick which.",
+    deep: {
+      pickThem: "If you want raw email delivery and your engineers will build the targeting themselves, SendGrid is the better tool. Its Email API sends transactional and marketing mail at scale, and Marketing Campaigns adds lists, segments and simple automations from $15 a month.",
+      switchingTitle: "What adding OnchainSuite looks like",
+      switching: [
+        "Export your contacts from Marketing Campaigns (Contacts, then the list's Action menu, then Export). The CSV is ready to download for 12 hours.",
+        "Import the file into Audience. Emails link to wallets where you already hold the link.",
+        "Keep SendGrid for receipts and password resets if you like, and move the messages that depend on what customers do on-chain into Loops."
+      ],
+      switchingTime: "There is nothing to rewire on the sending side, so most teams start the same day.",
+      cannot: "SendGrid automations send when a contact is added to a linked list or segment, and they need the Advanced Marketing Campaigns plan. They do not start from your product's own events, and SendGrid sends email only. To react to something a wallet did on the chain, your engineers would have to watch the chain and add contacts to a list themselves.",
+      example: {
+        scenario: "A DEX wants to email traders whose first swap was more than 14 days ago and who have not swapped since.",
+        them: [
+          "An engineer watches the DEX contracts and finds the traders who match.",
+          "A script adds those traders to a SendGrid list through the Contacts API, matched to email addresses.",
+          "An automation on that list sends the email, and the script runs every day to keep the list current."
+        ],
+        ocs: [
+          "One segment rule: one swap, first seen more than 14 days ago, and no swap since.",
+          "One Loop that sends an email and an in-app message, and stops when a trader makes a second swap."
+        ]
+      }
+    },
   },
   {
     slug: "brevo",
@@ -11702,6 +11881,29 @@ var COMPETITORS = [
         a: "For retention at a blockchain company, yes. If you also need generic SMS marketing, keep a tool like Brevo alongside.",
       },
     ],
+    description: "Brevo vs OnchainSuite, compared for blockchain companies. Which reads wallet activity, what switching takes, who should pick which.",
+    deep: {
+      pickThem: "If you are a small business that wants email, SMS, WhatsApp, live chat and a light CRM in one inexpensive tool, Brevo is the better fit. Its API also accepts custom events, so a developer can trigger automations from things your product does.",
+      switching: [
+        "Export your contacts from Brevo as a CSV file, filtered by list or segment.",
+        "Import the file into Audience. Emails link to wallets where you already hold the link.",
+        "Rebuild your automations as Loops. Custom events your product sends today can keep coming in, and on-chain events become triggers you do not have to build."
+      ],
+      switchingTime: "Most teams finish in an afternoon.",
+      cannot: "Every event sent to Brevo has to name a contact by email, phone, WhatsApp number, Brevo contact ID or your own external ID. There is no wallet identifier and no reading of the chain, so a wallet that never gave you an email cannot be messaged, and a deposit only reaches Brevo if your code sends it as an event.",
+      example: {
+        scenario: "A prediction market wants to message traders who deposited but never placed a position.",
+        them: [
+          "An engineer watches the deposit contract and finds wallets with a deposit and no position.",
+          "A service sends a custom event to Brevo for each one, which only works for wallets already matched to an email.",
+          "An automation on that event sends the email, and wallets without an email are left out."
+        ],
+        ocs: [
+          "One segment rule: deposited, and no position placed since.",
+          "One Loop that emails traders who have an address, shows an in-app message to wallets that do not, and stops when they place a position."
+        ]
+      }
+    },
   },
   {
     slug: "formo",
@@ -11722,7 +11924,7 @@ var COMPETITORS = [
     together:
       "A natural pair. Use Formo to understand behaviour and OnchainSuite to act on it. Plenty of teams run both.",
     them: [
-      "Free / $199 / $499",
+      "From $199/mo",
       "Analytics",
       "Yes",
       "No",
@@ -11755,6 +11957,30 @@ var COMPETITORS = [
         a: "Basic dashboards for retention and campaigns. Deep product analytics is Formo's strength.",
       },
     ],
+    description: "Formo vs OnchainSuite, compared for blockchain companies. Which one measures wallet activity, which one acts on it, and how teams run both.",
+    deep: {
+      pickThem: "If the question your team asks most is what wallets are doing, Formo is the better tool: funnels, retention cohorts, attribution and wallet profiles built for DeFi apps, with SQL and AI queries on top. It starts at $199 a month for up to 5,000 monthly active users.",
+      switchingTitle: "What adding OnchainSuite looks like",
+      switching: [
+        "Keep the Formo SDK where it is. OnchainSuite reads your contracts directly, so nothing in your app changes.",
+        "Export the wallets you care about from a Formo query as a CSV file and import them into Audience, so the people you have been studying are the people you can reach.",
+        "Build a Loop for the moment Formo was alerting you about, so nobody has to chase it by hand."
+      ],
+      switchingTime: "Nothing is removed, so there is no cut-over day.",
+      cannot: "Formo does not send messages to your users. Its alerts go to your own team by webhook or Slack, and its docs point to Zapier for anything further. It can tell you that a high-value wallet just went quiet, but reaching that wallet is left to another tool.",
+      example: {
+        scenario: "A DEX can see in Formo that wallets which bridge in and make one swap rarely make a second.",
+        them: [
+          "Formo shows the drop-off in a funnel and can alert the team in Slack when a high-value wallet goes quiet.",
+          "Someone exports those wallets from a query and hands the list to a messaging tool.",
+          "The export is repeated every week, and wallets that swapped again in between still get the message."
+        ],
+        ocs: [
+          "One segment rule: one swap, first seen in the last 30 days, and no swap in the last 14.",
+          "One Loop that sends an in-app message and an email, and stops as soon as a wallet makes its second swap."
+        ]
+      }
+    },
   },
   {
     slug: "addressable",
@@ -11804,6 +12030,30 @@ var COMPETITORS = [
         a: "Yes. Acquire with Addressable, retain with OnchainSuite.",
       },
     ],
+    description: "Addressable vs OnchainSuite, compared for blockchain companies. Which one finds new wallets, which one keeps them, and how the two fit together.",
+    deep: {
+      pickThem: "If your priority is finding new users through paid ads, Addressable is built for that: it matches wallets to the people visiting your site, targets ads on X, Reddit and display networks, and ties deposits back to campaigns. It suits exchanges, trading platforms, prediction markets and iGaming operators with a paid acquisition budget.",
+      switchingTitle: "What adding OnchainSuite looks like",
+      switching: [
+        "Keep the Addressable tag and your ad campaigns running. Nothing in your acquisition setup changes.",
+        "Point OnchainSuite at your contracts and import the users you already hold, so every new depositor lands on one record.",
+        "Build Loops for the first weeks after a deposit, when users from paid campaigns are most likely to drift."
+      ],
+      switchingTime: "The two tools sit at different ends of the funnel, so there is nothing to migrate.",
+      cannot: "Addressable does not message your existing users. Its retention product adds wallet tags to the CRM you already run, and its own page says it does not replace your existing systems, so the email or in-app message still has to come from another tool.",
+      example: {
+        scenario: "A prediction market runs an X campaign through Addressable and wants the traders it brings in to place a second position.",
+        them: [
+          "Addressable ties the first deposit to the campaign and can tag the high-value traders in your CRM.",
+          "Your team builds the follow-up in whatever CRM or email tool you already use, keyed to the tags it receives.",
+          "Nothing in that chain sees the trader's next market or second position unless the CRM is fed that data too."
+        ],
+        ocs: [
+          "One segment rule: deposited in the last 14 days, one position, and no trade in the last 7 days.",
+          "One Loop that sends an email and an in-app message about the next market, and stops when a second position is placed."
+        ]
+      }
+    },
   },
   {
     slug: "galxe",
@@ -11852,6 +12102,30 @@ var COMPETITORS = [
         a: "No. It focuses on behaviour-triggered messaging. Pair it with a quest platform like Galxe.",
       },
     ],
+    description: "Galxe vs OnchainSuite, compared for blockchain companies. Which one runs quests, which one runs retention, and how the two fit together.",
+    deep: {
+      pickThem: "If you want to grow a community through quests, loyalty points and on-chain credentials, Galxe is built for that. Projects such as Optimism, Arbitrum and Base use it to reward people for completing tasks, and its contract-query credentials check what a wallet has done on the chain when it joins a quest.",
+      switchingTitle: "What adding OnchainSuite looks like",
+      switching: [
+        "Keep running quests and loyalty campaigns on Galxe. Nothing in your campaign setup changes.",
+        "Point OnchainSuite at your contracts and import the wallets you already know, including the ones your quests brought in.",
+        "Build Loops for the weeks between campaigns, when wallets that joined for a reward are most likely to go quiet."
+      ],
+      switchingTime: "The two tools do different jobs, so there is nothing to migrate.",
+      cannot: "Galxe reaches people through quests and campaigns they choose to visit. We found no way in its docs for a project to email or message a wallet, or to start a journey when a wallet's on-chain activity changes. Its contract checks run when someone completes a quest, not continuously in the background.",
+      example: {
+        scenario: "A new chain ran a Galxe quest that brought in thousands of wallets, and it wants them to make a second transaction after the campaign ends.",
+        them: [
+          "Galxe records who completed the quest and can show them on a points leaderboard.",
+          "Reaching those wallets afterwards means launching another quest and waiting for them to come back to it.",
+          "Nothing reacts on its own when a wallet goes quiet between campaigns."
+        ],
+        ocs: [
+          "One segment rule: completed the quest, and no transaction in the 14 days since.",
+          "One Loop that sends an in-app message and an email, and stops as soon as a wallet transacts again."
+        ]
+      }
+    },
   },
 ];
 function competitorBySlug(slug2) {
@@ -12117,6 +12391,57 @@ function ComparePage({ params }) {
             </div>
           </div>
         </section>
+
+        {c.deep && (
+          <section className="vs-deep" aria-labelledby="deep-h">
+            <h2 className="h2 rv" id="deep-h">
+              {c.name} or OnchainSuite: how to decide.
+            </h2>
+            <div className="vs-deep-grid">
+              <div className="rv">
+                <h3 className="h4">Who should pick {c.name}</h3>
+                <p>{c.deep.pickThem}</p>
+              </div>
+              <div className="rv">
+                <h3 className="h4">The one thing {c.name} cannot do</h3>
+                <p>{c.deep.cannot}</p>
+              </div>
+              <div className="rv">
+                <h3 className="h4">
+                  {c.deep.switchingTitle ?? "What switching looks like"}
+                </h3>
+                <ol>
+                  {c.deep.switching.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                </ol>
+                <p>{c.deep.switchingTime}</p>
+              </div>
+              <div className="rv">
+                <h3 className="h4">A worked example</h3>
+                <p>{c.deep.example.scenario}</p>
+                <div className="vs-ex">
+                  <div>
+                    <b>With {c.name}</b>
+                    <ol>
+                      {c.deep.example.them.map((x) => (
+                        <li key={x}>{x}</li>
+                      ))}
+                    </ol>
+                  </div>
+                  <div>
+                    <b>With OnchainSuite</b>
+                    <ol>
+                      {c.deep.example.ocs.map((x) => (
+                        <li key={x}>{x}</li>
+                      ))}
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="vs-steps">
           <div className="cmp-intro" style={{ paddingBottom: 0 }}>
@@ -17799,10 +18124,12 @@ function DpaPage() {
         content, within the platform&rsquo;s capabilities.
       </p>
       <p>
-        The platform does not require or ingest the Customer&rsquo;s internal
-        customer records, CRM data, or contact databases. It processes public
-        on-chain activity, contact identifiers that end users have opted in to
-        provide, and engagement events generated by the service itself.
+        We manage the customer records, CRM data and contact lists that the
+        Customer chooses to import into the platform, alongside public on-chain
+        activity, contact identifiers that end users have opted in to provide,
+        and engagement events generated by the service itself. We process
+        imported records only to provide the service to the Customer and only
+        on the Customer&rsquo;s documented instructions.
       </p>
 
       <h2>4. Details of processing (Annex 1)</h2>

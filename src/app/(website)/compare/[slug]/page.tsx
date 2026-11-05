@@ -21,10 +21,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const c = COMPARE_BY_SLUG[slug];
-  if (!c) return { title: "Comparison · OnchainSuite" };
+  if (!c) return { title: "Comparison" };
+  // The other tool's name first, because that is what the searcher typed.
+  // "absolute" stops the layout's " · OnchainSuite" template being added on top
+  // (the live title read "OnchainSuite vs Customer.io · OnchainSuite · OnchainSuite").
   return {
-    title: `OnchainSuite vs ${c.name} · OnchainSuite`,
-    description: c.intro,
+    title: { absolute: `${c.name} vs OnchainSuite for blockchain companies` },
+    description: c.description,
   };
 }
 

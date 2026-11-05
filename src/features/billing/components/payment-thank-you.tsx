@@ -93,7 +93,24 @@ export function PaymentThankYou() {
     staleTime: 5 * 60_000,
   });
 
-  const rawPlan = (pending?.plan ?? "").trim();
+  // Resolve the plan the user is subscribing to. The card (Stripe) path never
+  // writes a pending checkout, so `pending` is null there - read the plan from
+  // the URL (`?plan=`, set by the subscription success URL) first, then fall
+  // back to the locally stored crypto pending, then to the plan embedded in the
+  // subscription reference "<org>:<plan>:<epoch>".
+  const rawPlan = useMemo(() => {
+    const fromUrl = (searchParams?.get("plan") ?? "").trim();
+    if (fromUrl) return fromUrl;
+    const fromPending = (pending?.plan ?? "").trim();
+    if (fromPending) return fromPending;
+    const parts = reference.split(":");
+    if (parts.length >= 3) {
+      const candidate = (parts[parts.length - 2] ?? "").trim();
+      if (candidate) return candidate;
+    }
+    return "";
+  }, [searchParams, pending?.plan, reference]);
+
   const planName = useMemo(() => {
     if (!rawPlan) return "";
     const key = rawPlan.toLowerCase();
@@ -108,7 +125,12 @@ export function PaymentThankYou() {
     // (no spaces) collapses to empty so the copy falls back to "new plan".
     const looksLikeId =
       !rawPlan.includes(" ") && /^[a-z0-9]{16,}$/i.test(rawPlan);
-    return looksLikeId ? "" : rawPlan;
+    if (looksLikeId) return "";
+    // A short plan key like "launch" (no catalog yet) renders title-cased so
+    // the receipt reads "Launch", never "launch".
+    return rawPlan.includes(" ")
+      ? rawPlan
+      : rawPlan.charAt(0).toUpperCase() + rawPlan.slice(1).toLowerCase();
   }, [plansQuery.data, rawPlan]);
 
   const providerLabel = isStripeSubscription ? "Stripe" : "Blockradar";
@@ -166,7 +188,9 @@ export function PaymentThankYou() {
             ? `Your ${planName || "new"} plan is active and every feature is unlocked. Welcome aboard.`
             : state === "failed"
               ? "The checkout was cancelled or didn't go through. No worries - you can restart the upgrade anytime from Settings → Billing."
-              : `We're confirming your payment with ${providerLabel}. Your plan activates automatically - this usually takes a couple of minutes.`}
+              : planName
+                ? `Your ${planName} plan is activating. We're confirming your payment with ${providerLabel} - this usually takes a couple of minutes.`
+                : `We're confirming your payment with ${providerLabel}. Your plan activates automatically - this usually takes a couple of minutes.`}
         </p>
 
         <div className="mt-6 rounded-2xl border border-border bg-card px-5 py-4 text-left">

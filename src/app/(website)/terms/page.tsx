@@ -4,7 +4,7 @@ import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standal
 import { TermsPage } from "@/onchain-suite-website/components/site/site-bundle";
 
 export const metadata: Metadata = {
-  title: "Terms of Service · OnchainSuite",
+  title: "Terms of Service",
   description:
     "The agreement for access to and use of the OnchainSuite platform.",
 };

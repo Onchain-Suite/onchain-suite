@@ -68,9 +68,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const tool = TOOLS[slug];
-  if (!tool) return { title: "Free tools · OnchainSuite" };
+  if (!tool) return { title: "Free tools" };
   return {
-    title: `${tool.name} · OnchainSuite`,
+    title: `${tool.name}`,
     description: tool.description,
   };
 }

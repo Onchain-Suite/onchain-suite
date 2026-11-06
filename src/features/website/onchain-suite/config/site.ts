@@ -1,5 +1,8 @@
+// Head tags follow the "Dummy Site SEO Fixes" doc (Fix 1, 5 November 2026): the
+// description names the category in the buyer's words and only the channels that
+// ship today (email and in-app; Telegram is not a channel until June 2027).
 const DESCRIPTION =
-  "OnchainSuite is the communication infrastructure layer for Web3. It is a retention automation platform that turns on-chain behavior into automated, multi-channel messaging. Detect wallet activity, resolve identity with zero-knowledge privacy, segment audiences, and re-engage across in-app push, email, Telegram, and Discord. Native to Ethereum, Solana, Base, and Polygon.";
+  "OnchainSuite is retention software for blockchain companies. It reads what your customers do in your app and on the chain, puts every wallet and email on one record, and sends email and in-app messages when someone deposits, withdraws or goes quiet. Works on Ethereum, Base, Arbitrum, Optimism, Polygon and Solana.";
 
 export const SITE_CONFIG = {
   name: "OnchainSuite",
@@ -30,7 +33,7 @@ export const SITE_CONFIG_META = {
     "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761105693/Banner_Option_-_2_ppdgtf.png",
   twitterImage:
     "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761105693/Banner_Option_-_2_ppdgtf.png",
-  twitterHandle: "@onchainsuite",
+  twitterHandle: "@0nchainSuite",
 };
 
 export const KEYWORDS = [

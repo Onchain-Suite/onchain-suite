@@ -4,7 +4,7 @@ import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standal
 import { CookiesPage } from "@/onchain-suite-website/components/site/site-bundle";
 
 export const metadata: Metadata = {
-  title: "Cookie Policy · OnchainSuite",
+  title: "Cookie Policy",
   description:
     "How OnchainSuite uses cookies and similar technologies under PECR and UK GDPR.",
 };

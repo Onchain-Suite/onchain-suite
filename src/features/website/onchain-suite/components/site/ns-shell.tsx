@@ -1,21 +1,11 @@
-import { Geist_Mono, Instrument_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 
 import "./ns.css";
 import { SiteChrome } from "./site-bundle";
+import { geistMono, instrumentSans } from "@/shared/fonts/fonts";
 
 // Brand + app typography (brand.md / design.md §4): Instrument Sans for prose,
 // Geist Mono for data/code. Wired to the ns.css --font-* variables below.
-const instrumentSans = Instrument_Sans({
-  subsets: ["latin"],
-  variable: "--font-instrument-sans",
-  display: "swap",
-});
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-geist-mono",
-  display: "swap",
-});
 
 /**
  * Renders a redesigned ("ns") page body inside the bundle's own chrome

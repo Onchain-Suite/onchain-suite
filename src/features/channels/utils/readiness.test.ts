@@ -101,6 +101,7 @@ describe("deriveChannelReadiness - all channels", () => {
       "push",
       "x",
       "whatsapp",
+      "sms",
       "telegram",
       "discord",
       "farcaster",

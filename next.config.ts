@@ -175,13 +175,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Inline each page's CSS into its HTML instead of linking stylesheets from <head>.
-  // The four linked chunks were the "render-blocking requests, 820 ms" PageSpeed
-  // flagged on the homepage (SEO doc, hosting item 5, 5 November 2026). Production
-  // builds only; dev is unchanged.
-  experimental: {
-    inlineCss: true,
-  },
+  // Not using experimental.inlineCss (SEO doc, hosting item 5): it removes the
+  // render-blocking stylesheets PageSpeed flagged, but inlines the CSS into every
+  // HTML response twice (the markup and the RSC payload), app pages included.
+  // Measured 6 November 2026: homepage ~170 KB gzipped per visit vs 28 KB HTML +
+  // 61 KB cacheable CSS; sign-in ~114 KB vs 13 KB + 41 KB. Revisit with a
+  // marketing-only approach (critical CSS) if the PageSpeed item still matters.
   async headers() {
     return [
       // App-wide baseline. The negative lookahead excludes /f/; `missing` host

@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { hasSessionCookie } from "@/lib/auth-cookie";
+
 export const dynamic = "force-dynamic";
 
 const pickNonEmpty = (...values: Array<string | undefined | null>) => {
@@ -74,9 +76,7 @@ const extractMirroredUserFromCookie = (
 };
 
 const hasBetterAuthSession = (cookieHeader: string) =>
-  /(^|;\s*)(?:__Secure-|__Host-)?better-auth\.(?:session_token|sessionToken)=/.test(
-    cookieHeader
-  );
+  hasSessionCookie(cookieHeader);
 
 const buildUpstreamHeaders = (req: NextRequest) => {
   const headers = new Headers(req.headers);

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { hasSessionCookie } from "@/lib/auth-cookie";
 import { getSession } from "@/lib/auth-session";
 
 export const dynamic = "force-dynamic";
@@ -58,9 +59,7 @@ const extractTokenFromCookie = (cookieHeader: string): string | null => {
 };
 
 const hasBetterAuthSessionCookie = (cookieHeader: string) =>
-  /(^|;\s*)(?:__Secure-|__Host-)?better-auth\.(?:session_token|sessionToken)=/.test(
-    cookieHeader
-  );
+  hasSessionCookie(cookieHeader);
 
 const extractBearer = (authorizationHeader: string | null): string | null => {
   if (!authorizationHeader) return null;

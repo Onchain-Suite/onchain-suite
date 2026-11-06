@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 
+import { readSessionCookie } from "@/lib/auth-cookie";
 import type { InboxFolder } from "@/server/inbox-state";
 
 import { extractBearer, extractTokenFromCookie } from "../auth";
@@ -12,11 +13,8 @@ export const pickUserKey = (req: NextRequest): string => {
   const cookie = req.headers.get("cookie") ?? "";
   const token = extractTokenFromCookie(cookie);
   if (token) return `cookie:${token.slice(0, 16)}`;
-  const sessionMatch =
-    /(^|;\s*)(__Secure-)?better-auth\.session_token=([^;]+)/.exec(cookie) ??
-    /(^|;\s*)(__Host-)?better-auth\.session_token=([^;]+)/.exec(cookie);
-  const session = sessionMatch?.[3] ?? "";
-  if (session) return `session:${decodeURIComponent(session).slice(0, 16)}`;
+  const session = readSessionCookie(cookie);
+  if (session) return `session:${session.slice(0, 16)}`;
   return "session";
 };
 

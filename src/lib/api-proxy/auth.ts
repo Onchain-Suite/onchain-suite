@@ -1,5 +1,11 @@
 import type { NextRequest } from "next/server";
 
+import {
+  hasSessionCookie,
+  SESSION_COOKIE_NAME,
+  SESSION_COOKIE_RE,
+} from "@/lib/auth-cookie";
+
 /** Session, bearer and org-id handling for proxied requests. */
 
 export const extractTokenFromCookie = (cookieHeader: string): string | null => {
@@ -23,10 +29,7 @@ export const extractTokenFromCookie = (cookieHeader: string): string | null => {
   }
 };
 
-export const hasBetterAuthSessionCookie = (cookieHeader: string) =>
-  /(^|;\s*)(?:__Secure-|__Host-)?better-auth\.(?:session_token|sessionToken)=/.test(
-    cookieHeader
-  );
+export const hasBetterAuthSessionCookie = hasSessionCookie;
 
 export const extractBearer = (
   authorizationHeader: string | null
@@ -52,8 +55,7 @@ export const requireOrgId = (req: NextRequest): string | null => {
  * secure/host prefixes and the snake/camel spelling vary by deployment, and
  * matching a narrower set here would 401 a perfectly valid session.
  */
-export const SESSION_COOKIE_RE =
-  /(^|;\s*)(__Secure-|__Host-)?better-auth\.(session_token|sessionToken)=/;
+export { SESSION_COOKIE_RE };
 
 export const hasAnyAuth = (req: NextRequest): boolean => {
   const auth = req.headers.get("authorization");
@@ -88,13 +90,9 @@ export const ensureBackendAuthHeaders = (
   if (!headers.has("x-editor-token")) headers.set("x-editor-token", token);
 
   const existingCookie = headers.get("cookie") ?? "";
-  const hasSessionCookie =
-    /(^|;\s*)(__Secure-)?better-auth\.session_token=/.test(existingCookie) ||
-    /(^|;\s*)(__Host-)?better-auth\.session_token=/.test(existingCookie) ||
-    /(^|;\s*)(__Secure-)?better-auth\.sessionToken=/.test(existingCookie) ||
-    /(^|;\s*)(__Host-)?better-auth\.sessionToken=/.test(existingCookie);
-  if (!hasSessionCookie) {
-    const nextCookie = `${existingCookie}${existingCookie ? "; " : ""}better-auth.session_token=${encodeURIComponent(token)}`;
+  const hasSession = hasSessionCookie(existingCookie);
+  if (!hasSession) {
+    const nextCookie = `${existingCookie}${existingCookie ? "; " : ""}${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`;
     headers.set("cookie", nextCookie);
   }
 };

@@ -1,5 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import {
+  hasSessionCookie,
+  SESSION_COOKIE_NAME,
+  SESSION_COOKIE_NAMES,
+} from "@/lib/auth-cookie";
 import { isJsonObject } from "@/lib/utils";
 
 export const maxDuration = 300; // 5 minutes
@@ -25,12 +30,7 @@ const extractTokenFromCookie = (cookieHeader: string): string | null => {
   const cookieMap = new Map(pairs);
   const raw =
     cookieMap.get("onchain.token") ??
-    cookieMap.get("better-auth.session_token") ??
-    cookieMap.get("__Secure-better-auth.session_token") ??
-    cookieMap.get("__Host-better-auth.session_token") ??
-    cookieMap.get("better-auth.sessionToken") ??
-    cookieMap.get("__Secure-better-auth.sessionToken") ??
-    cookieMap.get("__Host-better-auth.sessionToken") ??
+    SESSION_COOKIE_NAMES.map((n) => cookieMap.get(n)).find(Boolean) ??
     null;
   if (!raw) return null;
   try {
@@ -71,16 +71,12 @@ const ensureBackendAuthHeaders = (req: NextRequest, headers: Headers) => {
   if (!headers.has("x-editor-token")) headers.set("x-editor-token", token);
 
   const existingCookie = headers.get("cookie") ?? "";
-  const hasSessionCookie =
-    /(^|;\s*)(__Secure-)?better-auth\.session_token=/.test(existingCookie) ||
-    /(^|;\s*)(__Host-)?better-auth\.session_token=/.test(existingCookie) ||
-    /(^|;\s*)(__Secure-)?better-auth\.sessionToken=/.test(existingCookie) ||
-    /(^|;\s*)(__Host-)?better-auth\.sessionToken=/.test(existingCookie);
+  const hasSession = hasSessionCookie(existingCookie);
   const hasOnchainTokenCookie = /(^|;\s*)onchain\.token=/.test(existingCookie);
 
   let nextCookie = existingCookie;
-  if (!hasSessionCookie) {
-    nextCookie = `${nextCookie}${nextCookie ? "; " : ""}better-auth.session_token=${encodeURIComponent(token)}`;
+  if (!hasSession) {
+    nextCookie = `${nextCookie}${nextCookie ? "; " : ""}${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`;
   }
   if (!hasOnchainTokenCookie) {
     nextCookie = `${nextCookie}${nextCookie ? "; " : ""}onchain.token=${encodeURIComponent(token)}`;

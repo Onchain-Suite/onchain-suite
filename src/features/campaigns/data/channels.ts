@@ -1,5 +1,6 @@
 import {
   AtSymbolIcon,
+  ChatBubbleLeftEllipsisIcon,
   ChatBubbleLeftRightIcon,
   ChatBubbleOvalLeftIcon,
   DevicePhoneMobileIcon,
@@ -11,7 +12,14 @@ import type { ComponentType, SVGProps } from "react";
 
 /** Canonical campaign channel keys (as stored in `channelsUsed`). */
 export type ChannelKey =
-  "email" | "inapp" | "telegram" | "discord" | "whatsapp" | "x" | "farcaster";
+  | "email"
+  | "inapp"
+  | "telegram"
+  | "discord"
+  | "whatsapp"
+  | "sms"
+  | "x"
+  | "farcaster";
 
 /** Normalise a raw `channelsUsed` entry to a canonical key, or null if unknown. */
 export function normalizeChannelKey(channel: string): ChannelKey | null {
@@ -21,6 +29,7 @@ export function normalizeChannelKey(channel: string): ChannelKey | null {
   if (v === "telegram") return "telegram";
   if (v === "discord") return "discord";
   if (v === "whatsapp") return "whatsapp";
+  if (v === "sms") return "sms";
   if (v === "x") return "x";
   if (v === "farcaster") return "farcaster";
   return null;
@@ -36,6 +45,7 @@ export const CHANNEL_DISPLAY: Record<
   telegram: { label: "Telegram", Icon: PaperAirplaneIcon },
   discord: { label: "Discord", Icon: ChatBubbleOvalLeftIcon },
   whatsapp: { label: "WhatsApp", Icon: ChatBubbleLeftRightIcon },
+  sms: { label: "SMS", Icon: ChatBubbleLeftEllipsisIcon },
   x: { label: "X", Icon: AtSymbolIcon },
   farcaster: { label: "Farcaster", Icon: MegaphoneIcon },
 };
@@ -46,6 +56,7 @@ const ORDER: ChannelKey[] = [
   "telegram",
   "discord",
   "whatsapp",
+  "sms",
   "x",
   "farcaster",
 ];

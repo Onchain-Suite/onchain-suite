@@ -60,6 +60,29 @@ const DEFS: ConnectorDef[] = [
     where: "Meta Business → WhatsApp → API setup.",
   },
   {
+    id: "sms",
+    label: "SMS",
+    connect: "paste",
+    fields: [
+      text("accountSid", "Account SID", { placeholder: "AC…" }),
+      secret("authToken", "Auth token"),
+      optional(
+        text("fromNumber", "From number", {
+          placeholder: "+14155550100",
+          hint: "E.164. Set this or a Messaging Service SID.",
+        })
+      ),
+      optional(
+        text("messagingServiceSid", "Messaging Service SID", {
+          placeholder: "MG…",
+          hint: "For A2P 10DLC / a sender pool.",
+        })
+      ),
+    ],
+    action: "none",
+    where: "Twilio Console → Account → API keys & tokens.",
+  },
+  {
     id: "x",
     label: "X",
     connect: "paste",

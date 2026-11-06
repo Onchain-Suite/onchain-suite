@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { CHANNEL_META } from "../../data/channels";
 import type { SocialChannelId } from "../../types/channel";
 import { DiscordImport } from "./discord-import";
+import { SmsWebhook } from "./sms-webhook";
 import { TelegramActivate } from "./telegram-activate";
 import { WhatsAppWebhook } from "./whatsapp-webhook";
 import { ConnectorPanel } from "@/features/integrations/components/connect/connector-panel";
@@ -20,6 +21,7 @@ const NEXT_STEP: Partial<Record<SocialChannelId, ReactNode>> = {
   telegram: <TelegramActivate />,
   discord: <DiscordImport />,
   whatsapp: <WhatsAppWebhook />,
+  sms: <SmsWebhook />,
 };
 
 /**

@@ -118,6 +118,7 @@ export function deriveChannelReadiness(
     ),
     x: socialEntry("x", inputs.social?.x),
     whatsapp: socialEntry("whatsapp", inputs.social?.whatsapp),
+    sms: socialEntry("sms", inputs.social?.sms),
     telegram: socialEntry("telegram", inputs.social?.telegram),
     discord: socialEntry("discord", inputs.social?.discord),
     farcaster: socialEntry("farcaster", inputs.social?.farcaster),

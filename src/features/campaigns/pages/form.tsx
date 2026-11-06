@@ -66,6 +66,7 @@ import {
   InAppPreview,
 } from "@/features/campaigns/components/campaign-form/in-app-message-step";
 import { InlineSchedule } from "@/features/campaigns/components/campaign-form/inline-schedule";
+import { SmsMessageStep } from "@/features/campaigns/components/campaign-form/sms-message-step";
 import { TelegramMessageStep } from "@/features/campaigns/components/campaign-form/telegram-message-step";
 import { TemplateStep } from "@/features/campaigns/components/campaign-form/template-step";
 import { WhatsAppMessageStep } from "@/features/campaigns/components/campaign-form/whatsapp-message-step";
@@ -290,6 +291,17 @@ const persistCampaignContent = async (
       templateName: (data.whatsappTemplateName ?? "").trim(),
       languageCode: (data.whatsappLanguageCode ?? "en_US").trim() || "en_US",
     });
+    return;
+  }
+  if (data.channel === "sms") {
+    // SMS → channelsContent.sms.body (free text, per-contact).
+    await campaignsService
+      .ensureChannels(campaignId, ["sms"])
+      .catch(() => undefined);
+    await campaignsService.setSmsContent(
+      campaignId,
+      (data.smsBody ?? "").trim()
+    );
     return;
   }
   if (data.channel === "x") {
@@ -743,6 +755,7 @@ function CampaignPreviewStep({
   const isTelegram = form.watch("channel") === "telegram";
   const isDiscord = form.watch("channel") === "discord";
   const isWhatsapp = form.watch("channel") === "whatsapp";
+  const isSms = form.watch("channel") === "sms";
   const isX = form.watch("channel") === "x";
   const isFarcaster = form.watch("channel") === "farcaster";
   // The non-email channels, like in-app, send with no email sender/subject/inbox
@@ -751,7 +764,13 @@ function CampaignPreviewStep({
   // those unchanged. (Discord/X/Farcaster broadcasts aren't literally per-wallet,
   // but they take the same no-sender/no-inbox path.)
   const isWalletChannel =
-    isPush || isTelegram || isDiscord || isWhatsapp || isX || isFarcaster;
+    isPush ||
+    isTelegram ||
+    isDiscord ||
+    isWhatsapp ||
+    isSms ||
+    isX ||
+    isFarcaster;
 
   // Auto-load the rendered email as soon as the step opens - no manual
   // "Generate preview" click required. The selected template is part of the
@@ -2272,6 +2291,32 @@ export function CreateCampaignPage() {
         return;
       }
 
+      if (data.channel === "sms") {
+        await campaignsService
+          .ensureChannels(campaignId, ["sms"])
+          .catch(() => undefined);
+        const result = await campaignsService.sendSms(campaignId);
+        const sent = result.sent ?? 0;
+        await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+        if (result.ok === false && sent === 0) {
+          toast.error(
+            result.message ??
+              result.reason ??
+              "SMS send failed. Check your SMS sender is connected and verified."
+          );
+          return;
+        }
+        if (sent === 0) {
+          toast.warning(
+            "Nobody was reached. SMS only reaches wallets with an opted-in number - this audience has none yet."
+          );
+          return;
+        }
+        toast.success(`SMS sent to ${sent} wallet${sent === 1 ? "" : "s"}.`);
+        setShowConfirmation(true);
+        return;
+      }
+
       if (data.channel === "x") {
         await campaignsService
           .ensureChannels(campaignId, ["x"])
@@ -2429,6 +2474,7 @@ export function CreateCampaignPage() {
   const wizIsTelegram = form.watch("channel") === "telegram";
   const wizIsDiscord = form.watch("channel") === "discord";
   const wizIsWhatsapp = form.watch("channel") === "whatsapp";
+  const wizIsSms = form.watch("channel") === "sms";
   const wizIsX = form.watch("channel") === "x";
   const wizIsFarcaster = form.watch("channel") === "farcaster";
   // The non-email channels, like in-app, send with no email sender/subject/
@@ -2439,6 +2485,7 @@ export function CreateCampaignPage() {
     wizIsTelegram ||
     wizIsDiscord ||
     wizIsWhatsapp ||
+    wizIsSms ||
     wizIsX ||
     wizIsFarcaster;
 
@@ -2794,6 +2841,8 @@ export function CreateCampaignPage() {
                         <DiscordMessageStep form={form} />
                       ) : wizIsWhatsapp ? (
                         <WhatsAppMessageStep form={form} />
+                      ) : wizIsSms ? (
+                        <SmsMessageStep form={form} />
                       ) : wizIsX ? (
                         <XMessageStep form={form} />
                       ) : wizIsFarcaster ? (

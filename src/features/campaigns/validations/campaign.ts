@@ -11,6 +11,7 @@ export const campaignChannels = [
   "telegram",
   "discord",
   "whatsapp",
+  "sms",
   "x",
   "farcaster",
 ] as const;
@@ -114,6 +115,11 @@ export const campaignFormSchema = z
     whatsappTemplateName: z.string().optional(),
     whatsappLanguageCode: z.string().default("en_US"),
 
+    // SMS: a single plain-text body (free text, no template approval), a
+    // per-contact fan-out to wallets with an opted-in SMS number. Persisted to
+    // channelsContent.sms.body.
+    smsBody: z.string().optional(),
+
     // X BROADCAST: one tweet via the org's connected X account. Persisted to
     // channelsContent.x.text.
     xText: z.string().optional(),
@@ -206,6 +212,19 @@ export const campaignFormSchema = z
           code: z.ZodIssueCode.custom,
           path: ["whatsappTemplateName"],
           message: "Enter the approved WhatsApp template name",
+        });
+      }
+    }
+
+    if (data.channel === "sms") {
+      if (
+        typeof data.smsBody !== "string" ||
+        data.smsBody.trim().length === 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["smsBody"],
+          message: "Enter a message to send",
         });
       }
     }

@@ -1292,6 +1292,25 @@ export const campaignsService = {
     );
   },
 
+  // SMS: a single free-text body, persisted via the generic per-channel content
+  // route; sent per-contact to wallets with an opted-in number.
+  setSmsContent(id: string, body: string, orgId?: string) {
+    return request<unknown>(
+      {
+        method: "PUT",
+        url: `/campaigns/${id}/channels/sms/content`,
+        data: { body },
+      },
+      orgId
+    );
+  },
+  sendSms(id: string, orgId?: string) {
+    return request<CampaignChannelSendResult>(
+      { method: "POST", url: `/campaigns/${id}/send-sms`, data: {} },
+      orgId
+    );
+  },
+
   // X: one broadcast tweet via the org's connected account.
   setXContent(id: string, text: string, orgId?: string) {
     return request<unknown>(

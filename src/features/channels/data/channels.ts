@@ -44,6 +44,13 @@ export const CHANNEL_META: Record<ChannelId, ChannelMeta> = {
     setup:
       "Connect a WhatsApp Business account and get message templates approved. WhatsApp is a per-recipient DM with its own opt-in and template rules.",
   },
+  sms: {
+    label: "SMS",
+    kind: "dm",
+    reaches: "Contacts who gave a phone number and opted in",
+    setup:
+      "Connect an SMS account (Twilio) and point its inbound webhook at us. SMS is a per-recipient text with its own opt-in and mandatory STOP handling.",
+  },
   telegram: {
     label: "Telegram",
     kind: "post",
@@ -73,6 +80,7 @@ export const CHANNEL_ORDER: ChannelId[] = [
   "push",
   "x",
   "whatsapp",
+  "sms",
   "telegram",
   "discord",
   "farcaster",

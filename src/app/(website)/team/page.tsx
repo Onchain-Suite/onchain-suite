@@ -4,7 +4,7 @@ import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standal
 import { TeamPage } from "@/onchain-suite-website/components/site/site-bundle";
 
 export const metadata: Metadata = {
-  title: "Team · OnchainSuite",
+  title: "Team",
   description:
     "The team building OnchainSuite - the lifecycle intelligence and retention layer for Web3.",
 };

@@ -4,7 +4,7 @@ import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standal
 import { SubprocessorsPage } from "@/onchain-suite-website/components/site/site-bundle";
 
 export const metadata: Metadata = {
-  title: "Sub-processors · OnchainSuite",
+  title: "Sub-processors",
   description: "The third parties OnchainSuite engages to provide the service.",
 };
 

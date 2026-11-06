@@ -4,7 +4,7 @@ import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standal
 import { DataTransfersPage } from "@/onchain-suite-website/components/site/site-bundle";
 
 export const metadata: Metadata = {
-  title: "International Data Transfers · OnchainSuite",
+  title: "International Data Transfers",
   description:
     "Safeguards for data leaving the UK, including the UK Extension to the EU-US Data Privacy Framework and the UK IDTA.",
 };

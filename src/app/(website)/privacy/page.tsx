@@ -4,7 +4,7 @@ import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standal
 import { PrivacyPage } from "@/onchain-suite-website/components/site/site-bundle";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy · OnchainSuite",
+  title: "Privacy Policy",
   description:
     "How OnchainSuite collects, uses and protects personal data under UK GDPR and the Data Protection Act 2018.",
 };

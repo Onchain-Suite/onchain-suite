@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 
-import { KEYWORDS, SITE_CONFIG_META } from "./site";
+import { SITE_CONFIG_META } from "./site";
+
+const TITLE = `${SITE_CONFIG_META.name}: retention and CRM for blockchain companies`;
 
 export function generateMetadata(): Metadata {
   return {
     title: {
-      default: `${SITE_CONFIG_META.name} - Web3 Retention Automation & Communication Layer`,
+      default: TITLE,
       template: `%s · ${SITE_CONFIG_META.name}`,
     },
     description: SITE_CONFIG_META.description,
-    keywords: KEYWORDS,
     applicationName: SITE_CONFIG_META.name,
     category: "technology",
     authors: [{ name: SITE_CONFIG_META.name }],
@@ -25,9 +26,9 @@ export function generateMetadata(): Metadata {
       canonical: "/",
     },
     openGraph: {
-      title: `${SITE_CONFIG_META.name} - Web3 Retention Automation & Communication Layer`,
+      title: TITLE,
       description:
-        "Turn on-chain behavior into automated, multi-channel messaging. Detect wallet activity, resolve identity with zero-knowledge privacy, and re-engage across in-app push, email, Telegram, and Discord. All native to Ethereum, Solana, Base, and Polygon.",
+        "Win back the customers who stopped using your protocol. OnchainSuite reads wallet activity and sends email and in-app messages when someone goes quiet.",
       url: SITE_CONFIG_META.url,
       siteName: SITE_CONFIG_META.name,
       images: [
@@ -35,7 +36,7 @@ export function generateMetadata(): Metadata {
           url: SITE_CONFIG_META.ogImage,
           width: 1200,
           height: 630,
-          alt: `${SITE_CONFIG_META.name} - Web3 Marketing Platform`,
+          alt: TITLE,
         },
       ],
       locale: "en_US",
@@ -43,9 +44,9 @@ export function generateMetadata(): Metadata {
     },
     twitter: {
       card: "summary_large_image",
-      title: `${SITE_CONFIG_META.name} - Web3 Retention Automation`,
+      title: `${SITE_CONFIG_META.name}: retention for blockchain companies`,
       description:
-        "The communication infrastructure layer for Web3. When a wallet acts, your campaign fires, automatically, across every channel.",
+        "When a wallet goes quiet, your win-back message sends. Email and in-app, triggered by what happens on the chain.",
       images: [SITE_CONFIG_META.twitterImage],
       creator: SITE_CONFIG_META.twitterHandle,
     },
@@ -59,10 +60,6 @@ export function generateMetadata(): Metadata {
         "max-image-preview": "large",
         "max-snippet": -1,
       },
-    },
-    verification: {
-      google: "your-google-verification-code",
-      yandex: "your-yandex-verification-code",
     },
   };
 }

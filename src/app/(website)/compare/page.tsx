@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { NsCompareHub } from "@/onchain-suite-website/components/site/ns-compare-hub";
 
 export const metadata: Metadata = {
-  title: "Comparisons · OnchainSuite",
+  title: "Comparisons",
   description:
     "How OnchainSuite compares to Customer.io, Braze, SendGrid, Formo, Galxe and other messaging, analytics and growth tools for on-chain retention.",
 };

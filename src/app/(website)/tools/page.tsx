@@ -4,7 +4,7 @@ import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standal
 import { ToolsHub } from "@/onchain-suite-website/components/site/site-bundle";
 
 export const metadata: Metadata = {
-  title: "Free tools · OnchainSuite",
+  title: "Free tools",
   description:
     "Free calculators for churn, wallet reachability, lifetime value and acquisition cost. No signup, no email gate - every tool runs in your browser.",
 };

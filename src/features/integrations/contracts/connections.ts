@@ -120,6 +120,15 @@ export interface SmsWebhookSetup {
   webhookUrl: string;
 }
 
+/** `POST /organization/connections/sms/opt-in-link` - an sms: deep link a wallet
+ *  texts back to opt in. `body` is the pre-filled message carrying the token. */
+export interface SmsOptInLink {
+  url: string;
+  smsNumber: string;
+  body: string;
+  expiresInSeconds: number;
+}
+
 /** `POST /organization/integrations/discord/import-members`. */
 export interface DiscordImportResult {
   guildId: string;

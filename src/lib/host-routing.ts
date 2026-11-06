@@ -28,7 +28,9 @@ export const APP_HOSTS = [
 ] as const;
 
 export const PROD_APP_ORIGIN = "https://app.onchainsuite.com";
-export const PROD_MARKETING_ORIGIN = "https://onchainsuite.com";
+// www, not the apex: the apex itself redirects to www (Vercel domain setting),
+// so sending marketing paths to the apex cost an extra hop.
+export const PROD_MARKETING_ORIGIN = "https://www.onchainsuite.com";
 
 // Authenticated app + auth/onboarding + Payload admin. Matched as a whole
 // segment (exact, or followed by "/"), so "/for" (a marketing page) never

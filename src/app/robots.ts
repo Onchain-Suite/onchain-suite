@@ -6,38 +6,13 @@ import { SITE_CONFIG } from "@/features/website/onchain-suite/config/site";
 const baseUrl = SITE_CONFIG.url;
 
 /**
- * The authenticated app and account flows render at the ROOT of this same domain
- * (the (dashboard) route group adds no path segment), so Googlebot was crawling
- * them and getting 401s ("Blocked due to unauthorized request") and "Crawled —
- * currently not indexed". Disallow them explicitly — robots is the right tool
- * because a 401 means Google can't even see a noindex tag. None of these prefixes
- * collide with a marketing route (/platform, /pricing, /blog, /compare, /for, …).
+ * Only the API and admin are blocked. The authenticated app and account flows
+ * (/dashboard, /automations, /auth/…, /f/…) are deliberately NOT disallowed: they
+ * send an `X-Robots-Tag: noindex, nofollow` header (next.config.ts headers()), and
+ * Google can only read that header on a page it is allowed to crawl. Blocking them
+ * here as well kept them listed in Search Console instead of dropping them.
  */
-const DISALLOW = [
-  "/api/",
-  "/admin/",
-  // authenticated app
-  "/dashboard",
-  "/audience",
-  "/automations",
-  "/campaigns",
-  "/forms",
-  "/inbox",
-  "/intelligence",
-  "/settings",
-  "/new-dashboard",
-  // account / auth / billing flows
-  "/auth/",
-  "/onboarding",
-  "/verify-email",
-  "/billing",
-  "/payment",
-  "/invite",
-  "/invites",
-  "/thank-you",
-  // per-token hosted capture forms — thin, not for search
-  "/f/",
-];
+const DISALLOW = ["/api/", "/admin/"];
 
 export default function robots(): MetadataRoute.Robots {
   return {

@@ -149,6 +149,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Not using experimental.inlineCss (SEO doc, hosting item 5): it removes the
+  // render-blocking stylesheets PageSpeed flagged, but inlines the CSS into every
+  // HTML response twice (the markup and the RSC payload), app pages included.
+  // Measured 6 November 2026: homepage ~170 KB gzipped per visit vs 28 KB HTML +
+  // 61 KB cacheable CSS; sign-in ~114 KB vs 13 KB + 41 KB. Revisit with a
+  // marketing-only approach (critical CSS) if the PageSpeed item still matters.
   async headers() {
     return [
       // App-wide baseline. The negative lookahead excludes /f/ so the hosted
@@ -156,6 +162,18 @@ const nextConfig: NextConfig = {
       { source: "/((?!f/).*)", headers: appSecurityHeaders },
       // The public hosted-form pages keep their tighter, form-specific policy.
       { source: "/f/:path*", headers: hostedFormSecurityHeaders },
+      // App and account routes render at the root of this domain. robots.txt used
+      // to block them, which left the URLs in Search Console (/automations 27
+      // impressions, /auth/signin 3 clicks) because Google could not crawl them to
+      // see they should go. A noindex header is the tool that removes them, so
+      // robots.txt now lets these be crawled (SEO doc, hosting item 2). Each
+      // prefix is matched as a whole path segment: a bare "/f" prefix would also
+      // catch the /for/* marketing pages.
+      {
+        source:
+          "/:section(dashboard|audience|automations|campaigns|forms|inbox|intelligence|analytics|integrations|community|settings|new-dashboard|onboarding|verify-email|billing|payment|invite|invites|thank-you|auth|f)/:rest*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
     ];
   },
   async redirects() {

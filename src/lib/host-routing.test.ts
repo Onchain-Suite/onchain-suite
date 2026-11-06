@@ -62,7 +62,7 @@ describe("resolveHostRouting", () => {
     it("redirects a marketing path back to the apex (permanent)", () => {
       expect(resolveHostRouting(APP, "/pricing", "")).toEqual({
         kind: "redirect",
-        location: "https://onchainsuite.com/pricing",
+        location: "https://www.onchainsuite.com/pricing",
         permanent: true,
       });
     });

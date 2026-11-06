@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { SESSION_COOKIE_NAMES } from "@/lib/auth-cookie";
 import { isJsonObject } from "@/lib/utils";
 
 export const maxDuration = 300; // 5 minutes
@@ -25,9 +26,7 @@ const extractTokenFromCookie = (cookieHeader: string): string | null => {
   );
   const raw =
     cookieMap.get("onchain.token") ??
-    cookieMap.get("better-auth.session_token") ??
-    cookieMap.get("__Secure-better-auth.session_token") ??
-    cookieMap.get("__Host-better-auth.session_token") ??
+    SESSION_COOKIE_NAMES.map((n) => cookieMap.get(n)).find(Boolean) ??
     null;
   if (!raw) return null;
   try {

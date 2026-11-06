@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 
+import { isAuthCookieName, SESSION_COOKIE_NAMES } from "@/lib/auth-cookie";
 import { fetchWithTimeout } from "@/lib/server-fetch";
 import { isJsonObject } from "@/lib/utils";
 
@@ -40,21 +41,13 @@ export async function getSession() {
     const cookieNames = cookiePairs.map(([name]) => name);
     const cookieMap = new Map(cookiePairs);
     const sessionCookieRaw =
-      cookieMap.get("better-auth.session_token") ??
-      cookieMap.get("__Secure-better-auth.session_token") ??
-      cookieMap.get("__Host-better-auth.session_token") ??
-      cookieMap.get("better-auth.sessionToken") ??
-      cookieMap.get("__Secure-better-auth.sessionToken") ??
-      cookieMap.get("__Host-better-auth.sessionToken") ??
-      null;
+      SESSION_COOKIE_NAMES.map((n) => cookieMap.get(n)).find(Boolean) ?? null;
     const sessionCookie = sessionCookieRaw
       ? decodeURIComponent(sessionCookieRaw)
       : null;
     const apiTokenRaw = cookieMap.get("onchain.token") ?? null;
     const apiToken = apiTokenRaw ? decodeURIComponent(apiTokenRaw) : null;
-    const hasBetterAuthCookie = cookieNames.some((n) =>
-      n.toLowerCase().includes("better-auth")
-    );
+    const hasBetterAuthCookie = cookieNames.some(isAuthCookieName);
     const shouldSendApiBearer = Boolean(apiToken) && !hasBetterAuthCookie;
 
     const forwardedProto = headersList.get("x-forwarded-proto") ?? "http";

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { SESSION_COOKIE_NAME, SESSION_COOKIE_RE } from "@/lib/auth-cookie";
 import { extractEmailContent, isJsonObject } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -124,9 +125,6 @@ const resolveToken = (req: NextRequest) => {
  * `getSession()` in @/lib/auth-session, which accepts the same set - the
  * secure/host prefixes vary by deployment.
  */
-const SESSION_COOKIE_RE =
-  /(^|;\s*)(__Secure-|__Host-)?better-auth\.(session_token|sessionToken)=/;
-
 const hasSessionCookie = (req: NextRequest): boolean =>
   SESSION_COOKIE_RE.test(req.headers.get("cookie") ?? "");
 
@@ -169,7 +167,7 @@ const buildUpstreamHeaders = (req: NextRequest) => {
 
     let nextCookie = existingCookie;
     if (!SESSION_COOKIE_RE.test(existingCookie)) {
-      nextCookie = `${nextCookie}${nextCookie ? "; " : ""}better-auth.session_token=${encodeURIComponent(token)}`;
+      nextCookie = `${nextCookie}${nextCookie ? "; " : ""}${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`;
     }
     if (!hasOnchainTokenCookie) {
       nextCookie = `${nextCookie}${nextCookie ? "; " : ""}onchain.token=${encodeURIComponent(token)}`;

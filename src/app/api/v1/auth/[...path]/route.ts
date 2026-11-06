@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { isAuthCookieName, readSessionCookie } from "@/lib/auth-cookie";
 import { isJsonObject } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -84,17 +85,7 @@ const extractOnchainUser = (cookieHeader: string): unknown | null => {
 };
 
 const extractBetterAuthSession = (cookieHeader: string): string | null => {
-  const match =
-    /(^|;\s*)(__Secure-)?better-auth\.session_token=([^;]+)/.exec(
-      cookieHeader
-    ) ??
-    /(^|;\s*)(__Host-)?better-auth\.session_token=([^;]+)/.exec(cookieHeader) ??
-    /(^|;\s*)(__Secure-)?better-auth\.sessionToken=([^;]+)/.exec(
-      cookieHeader
-    ) ??
-    /(^|;\s*)(__Host-)?better-auth\.sessionToken=([^;]+)/.exec(cookieHeader);
-  const value = match?.[3] ?? "";
-  return value ? decodeURIComponent(value) : null;
+  return readSessionCookie(cookieHeader);
 };
 
 const getSessionCacheKey = (cookieHeader: string, token: string | null) => {
@@ -208,9 +199,7 @@ const rewriteSetCookieForLocalDev = (cookie: string, reqUrl: URL): string => {
 
   if (isOnchainSuiteDomain) {
     const name = updated.split("=", 1)[0]?.trim() ?? "";
-    const isBetterAuthCookie =
-      /^(?:__Secure-|__Host-)?better-auth\./.test(name) ||
-      /^better-auth\./.test(name);
+    const isBetterAuthCookie = isAuthCookieName(name);
     const isHostPrefixed = name.startsWith("__Host-");
     if (isBetterAuthCookie && !isHostPrefixed) {
       updated = updated.replace(/;\s*Domain=[^;]+/i, "");

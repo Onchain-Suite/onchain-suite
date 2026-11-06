@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { readSessionCookie } from "@/lib/auth-cookie";
+
 export const dynamic = "force-dynamic";
 
 const pickNonEmpty = (...values: Array<string | undefined | null>) => {
@@ -55,17 +57,7 @@ const extractBearer = (authorizationHeader: string | null): string | null => {
 };
 
 const extractBetterAuthSession = (cookieHeader: string): string | null => {
-  const match =
-    /(^|;\s*)(__Secure-)?better-auth\.session_token=([^;]+)/.exec(
-      cookieHeader
-    ) ??
-    /(^|;\s*)(__Host-)?better-auth\.session_token=([^;]+)/.exec(cookieHeader) ??
-    /(^|;\s*)(__Secure-)?better-auth\.sessionToken=([^;]+)/.exec(
-      cookieHeader
-    ) ??
-    /(^|;\s*)(__Host-)?better-auth\.sessionToken=([^;]+)/.exec(cookieHeader);
-  const value = match?.[3] ?? "";
-  return value ? decodeURIComponent(value) : null;
+  return readSessionCookie(cookieHeader);
 };
 
 const resolveToken = (req: NextRequest) => {

@@ -239,14 +239,18 @@ export async function startPlanCheckout(
   // org's contact count and builds the return URLs from the request Origin, so
   // there's nothing to poll — the subscription confirms via webhook and the
   // success page. The slider `contacts` is informational here: Option-A bills
-  // the actual list size, which auto-scales, so it is not sent. Crypto keeps the
-  // Blockradar flow below unchanged.
+  // the actual list size, which auto-scales, so it is not sent. Extra SEATS,
+  // though, are a fixed charge the subscription must carry — forwarded so the
+  // card path bills them as a second line item instead of silently dropping
+  // them (the gap this fixes). Crypto keeps the Blockradar flow below unchanged.
   if (options?.paymentMethod === "card") {
+    const seats = clampExtraSeats(options?.extraSeats);
     let url: string | undefined;
     try {
       ({ url } = await billingService.subscribe({
         plan: slug,
         organizationId: orgId,
+        ...(seats > 0 ? { extraSeats: seats } : {}),
       }));
     } catch (error) {
       const message =

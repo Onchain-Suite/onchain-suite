@@ -619,6 +619,13 @@ export interface SubscribeRequest {
   organizationId?: string;
   /** Normally omitted — the backend uses the request Origin for return URLs. */
   returnUrl?: string;
+  /**
+   * Seats to buy ABOVE the tier's included count (a DELTA, 0-50, not a total).
+   * Billed as a second recurring line item at $10/seat/mo. The backend clamps
+   * and prices them by the same function the quote uses, so shown == charged.
+   * Omit (or 0) for a plan-only subscription.
+   */
+  extraSeats?: number;
 }
 
 /** Response of POST /billing/subscribe — the hosted Stripe Checkout URL. */

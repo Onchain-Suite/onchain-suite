@@ -16,6 +16,7 @@ import type {
   SmsA2pStatus,
   SmsManagedSetup,
   SmsManagedStatus,
+  SmsManagedUsage,
   SmsOptInLink,
   SmsWebhookSetup,
   WhatsAppEmbeddedResult,
@@ -268,6 +269,35 @@ export function toWhatsAppEmbeddedResult(raw: unknown): WhatsAppEmbeddedResult {
     label: str(o.label) || null,
     registered: o.registered === true,
     warning: str(o.warning) || null,
+  };
+}
+
+export function toSmsManagedUsage(raw: unknown): SmsManagedUsage {
+  const o = obj(raw);
+  if (o.managed !== true)
+    return { managed: false, currentPeriod: null, history: [] };
+  const cur = obj(o.currentPeriod);
+  const est = cur.estimatedUsd;
+  return {
+    managed: true,
+    currentPeriod: {
+      period: str(cur.period),
+      estimatedUsd:
+        typeof est === "number" && Number.isFinite(est) ? est : null,
+      items: arr(cur.items).map((i) => {
+        const x = obj(i);
+        return { description: str(x.description), count: str(x.count) };
+      }),
+    },
+    history: arr(o.history).map((h) => {
+      const x = obj(h);
+      return {
+        period: str(x.period),
+        amountUsd: n(x.amountUsd),
+        status: str(x.status),
+        dueInvoiceId: str(x.dueInvoiceId) || null,
+      };
+    }),
   };
 }
 

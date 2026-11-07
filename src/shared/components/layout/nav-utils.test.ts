@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  flattenSections,
   isBranchRowActive,
   isRowActive,
   type NavItem,
@@ -15,7 +16,7 @@ const items: NavItem[] = [
 ];
 
 describe("resolveActiveNavUrl", () => {
-  it("picks the most specific match — Analytics wins over Intelligence on its route", () => {
+  it("picks the most specific match - Analytics wins over Intelligence on its route", () => {
     expect(resolveActiveNavUrl("/intelligence/analytics", items)).toBe(
       "/intelligence/analytics"
     );
@@ -61,5 +62,48 @@ describe("resolveActiveNavUrl", () => {
     expect(isRowActive(parent, activeUrl)).toBe(false);
     // …but the child is.
     expect(isRowActive(child, activeUrl)).toBe(true);
+  });
+});
+
+describe("query-aware rows (Audience: Contacts vs Segments)", () => {
+  const audience: NavItem[] = [
+    {
+      title: "Audience",
+      url: "/audience",
+      items: [
+        { title: "Contacts", url: "/audience" },
+        { title: "Segments", url: "/audience?tab=segments" },
+      ],
+    },
+  ];
+
+  it("lights Segments only on its tab", () => {
+    expect(resolveActiveNavUrl("/audience", audience, "?tab=segments")).toBe(
+      "/audience?tab=segments"
+    );
+  });
+
+  it("falls back to Contacts on the plain page and on other tabs", () => {
+    expect(resolveActiveNavUrl("/audience", audience, "")).toBe("/audience");
+    expect(resolveActiveNavUrl("/audience", audience, "?tab=lists")).toBe(
+      "/audience"
+    );
+  });
+
+  it("keeps Contacts for a contact's own page", () => {
+    expect(resolveActiveNavUrl("/audience/abc", audience, "")).toBe(
+      "/audience"
+    );
+  });
+});
+
+describe("flattenSections", () => {
+  it("joins every section's rows in order", () => {
+    expect(
+      flattenSections([
+        { items: [{ title: "Home", url: "/dashboard" }] },
+        { label: "Engage", items: [{ title: "Forms", url: "/forms" }] },
+      ]).map((i) => i.title)
+    ).toEqual(["Home", "Forms"]);
   });
 });

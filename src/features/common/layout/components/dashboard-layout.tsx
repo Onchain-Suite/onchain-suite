@@ -1,31 +1,22 @@
 "use client";
 
-import {
-  BoltIcon,
-  ChartBarIcon,
-  CircleStackIcon,
-  CpuChipIcon,
-  DocumentTextIcon,
-  MegaphoneIcon,
-  Squares2X2Icon,
-  UserGroupIcon,
-} from "@heroicons/react/24/outline";
 import { usePathname } from "next/navigation";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 
-import type { NavItem } from "@/components/layout/nav-utils";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { authClient } from "@/lib/auth-client";
 import {
+  cn,
   getFullName,
   getSelectedOrganizationId,
   isJsonObject,
   isOrganizationConfirmed,
 } from "@/lib/utils";
 
+import { NAV_SECTIONS } from "../data/nav-sections";
 import { getBreadcrumbsForPath } from "./breadcrumbs";
 import { ComingSoonSection } from "./coming-soon-section";
 import { DashboardHeader } from "./dashboard-header";
@@ -38,10 +29,8 @@ import { OrganizationStatusBanner } from "./organization-status-banner";
 import { PendingCheckoutBanner } from "@/features/billing/components/pending-checkout-banner";
 import { CerebraLauncher } from "@/features/intelligence/components/cerebra/cerebra-launcher";
 import { ProductTour } from "@/features/onboarding/components/product-tour";
-import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 import {
   getWipSection,
-  isWipHref,
   SHOW_WIP_SECTIONS,
   type WipSection,
 } from "@/shared/config/wip-sections";
@@ -52,37 +41,19 @@ interface DashboardLayoutProps {
   defaultSidebarOpen?: boolean;
 }
 
-/** WIP sections stay in the nav but render faded and route to a coming-soon panel. */
-const withWipFlags = (items: NavItem[]): NavItem[] =>
-  items.map((item) => ({
-    ...item,
-    wip: !SHOW_WIP_SECTIONS && isWipHref(item.url),
-  }));
+/*
+ * The 2.7 frame: the sidebar sits on the shell colour and the work happens on
+ * one raised panel, inset 8px from the window and lifted by a hairline border
+ * and an xs elevation. The rail collapses to 64px (48px of rows + the inset).
+ */
+const SHELL_STYLE = { "--sidebar-width-icon": "3rem" } as React.CSSProperties;
 
-// Resolved once at module scope - the routes and the WIP flag are both static.
-// Labels and order match the 2.7 reference shell: Home · Campaigns · Loops ·
-// Forms · Audience · Intelligence · Analytics · Integrations. The routes are
-// unchanged (Home still /dashboard, Loops still /automations - only the labels
-// differ); Analytics is a top-level entry and Settings is reached from the
-// profile menu at the foot of the sidebar, not the list.
-const NAV_MAIN: NavItem[] = withWipFlags([
-  { title: "Home", url: PRIVATE_ROUTES.DASHBOARD, icon: Squares2X2Icon },
-  { title: "Campaigns", url: PRIVATE_ROUTES.CAMPAIGNS, icon: MegaphoneIcon },
-  { title: "Loops", url: PRIVATE_ROUTES.AUTOMATIONS, icon: BoltIcon },
-  { title: "Forms", url: PRIVATE_ROUTES.FORMS, icon: DocumentTextIcon },
-  { title: "Audience", url: PRIVATE_ROUTES.AUDIENCE, icon: UserGroupIcon },
-  {
-    title: "Intelligence",
-    url: PRIVATE_ROUTES.INTELLIGENCE,
-    icon: CpuChipIcon,
-  },
-  { title: "Analytics", url: PRIVATE_ROUTES.ANALYTICS, icon: ChartBarIcon },
-  {
-    title: "Integrations",
-    url: PRIVATE_ROUTES.INTEGRATIONS,
-    icon: CircleStackIcon,
-  },
-]);
+const WORKSPACE = cn(
+  "min-w-0 overflow-hidden bg-(--bg-main)",
+  "md:peer-data-[variant=inset]:rounded-2xl md:peer-data-[variant=inset]:border md:peer-data-[variant=inset]:border-(--border-subtle) md:peer-data-[variant=inset]:shadow-(--elevation-xs)",
+  // The rail's own width already includes the inset gap.
+  "md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-0"
+);
 
 function DashboardLayoutInner({
   children,
@@ -163,15 +134,16 @@ function DashboardLayoutInner({
       <SidebarProvider
         defaultOpen={defaultSidebarOpen}
         className="h-svh overflow-hidden"
+        style={SHELL_STYLE}
       >
         <DashboardSidebar
-          navMain={NAV_MAIN}
+          sections={NAV_SECTIONS}
           userFullName={fullName}
           userId={userId}
           userImageUrl={imageUrl}
         />
 
-        <SidebarInset className="min-w-0">
+        <SidebarInset className={WORKSPACE}>
           <DashboardHeader
             breadcrumbs={breadcrumbs}
             currentPage={

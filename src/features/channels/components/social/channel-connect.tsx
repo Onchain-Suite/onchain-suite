@@ -9,6 +9,7 @@ import { DiscordImport } from "./discord-import";
 import { SmsManagedSetup } from "./sms-managed-setup";
 import { SmsOptInCard } from "./sms-optin-card";
 import { SmsUsRegistration } from "./sms-us-registration";
+import { SmsUsageCard } from "./sms-usage-card";
 import { SmsWebhook } from "./sms-webhook";
 import { TelegramActivate } from "./telegram-activate";
 import { WhatsAppEmbeddedSignup } from "./whatsapp-embedded-signup";
@@ -36,6 +37,7 @@ const NEXT_STEP: Partial<Record<SocialChannelId, ReactNode>> = {
   sms: (
     <div className="space-y-6">
       <SmsUsRegistration />
+      <SmsUsageCard />
       <SmsWebhook />
       <SmsOptInCard />
       <ConsentImportCard channel="sms" />

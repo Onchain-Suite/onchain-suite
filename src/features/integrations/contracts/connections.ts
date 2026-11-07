@@ -250,6 +250,24 @@ export interface WhatsAppEmbeddedResult {
   warning: string | null;
 }
 
+/** `GET /organization/connections/sms/managed/usage` - texting usage on a
+ *  number OnChain Suite set up, billed monthly. Counts only, no unit prices. */
+export interface SmsManagedUsage {
+  managed: boolean;
+  currentPeriod: {
+    period: string;
+    /** Null when it can't be priced yet (e.g. a non-USD account without a rate). */
+    estimatedUsd: number | null;
+    items: Array<{ description: string; count: string }>;
+  } | null;
+  history: Array<{
+    period: string;
+    amountUsd: number;
+    status: string;
+    dueInvoiceId: string | null;
+  }>;
+}
+
 /** `POST /organization/integrations/discord/import-members`. */
 export interface DiscordImportResult {
   guildId: string;

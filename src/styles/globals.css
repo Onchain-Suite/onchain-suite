@@ -96,6 +96,10 @@
   --bg-surface: var(--neutral-0);
   --bg-raised: var(--neutral-0);
   --bg-sunken: var(--neutral-50);
+  /* App frame (2.7 reference shell): the sidebar sits on the shell colour and
+     the work happens on one raised panel inset from the window edge. */
+  --bg-shell: var(--bg-sunken);
+  --bg-main: var(--neutral-0);
   --bg-brand: var(--blue-600);
   --bg-brand-subtle: var(--blue-25);
   --bg-selected: var(--blue-25);
@@ -183,9 +187,8 @@
   --chart-3: var(--orange-500);
   --chart-4: var(--blue-300);
   --chart-5: var(--blue-200);
-  /* Surface, not page: the sidebar renders as a floating panel, so it lifts off
-     the canvas the same way it already does in dark (§3 "Cards, panels"). */
-  --sidebar: var(--bg-surface);
+  /* The sidebar sits on the shell colour; the workspace panel is what lifts. */
+  --sidebar: var(--bg-shell);
   --sidebar-foreground: var(--text-primary);
   --sidebar-primary: var(--action-primary);
   --sidebar-primary-foreground: var(--text-on-brand);
@@ -268,6 +271,8 @@
 
   /* ── Elevation (navy-tinted, DESIGN.md §5) ───────────────────────────── */
   --elevation-0: none;
+  /* Hairline lift: the workspace panel and the active sidebar row. */
+  --elevation-xs: 0 1px 2px rgba(1, 15, 49, 0.05);
   --elevation-1: 0 1px 2px rgba(1, 15, 49, 0.07);
   --elevation-2: 0 2px 8px rgba(1, 15, 49, 0.1);
   --elevation-3: 0 8px 24px rgba(1, 15, 49, 0.14);
@@ -365,6 +370,8 @@
   --bg-surface: #17191d;
   --bg-raised: #1e2125;
   --bg-sunken: #0b0d0f;
+  --bg-shell: var(--bg-sunken);
+  --bg-main: #111316;
   --bg-brand-subtle: #1b2130;
   --bg-selected: #1c2333;
   --bg-overlay: rgba(0, 0, 0, 0.6);
@@ -430,7 +437,7 @@
   --chart-3: var(--orange-400);
   --chart-4: var(--blue-300);
   --chart-5: var(--blue-200);
-  --sidebar: var(--bg-surface);
+  --sidebar: var(--bg-shell);
   --sidebar-foreground: var(--text-primary);
   --sidebar-primary: var(--action-primary);
   --sidebar-primary-foreground: #ffffff;

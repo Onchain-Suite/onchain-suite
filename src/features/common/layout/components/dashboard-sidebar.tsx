@@ -2,10 +2,9 @@
 
 import { useEffect } from "react";
 
-import { NavMain } from "@/components/layout/nav-main";
-import type { NavItem } from "@/components/layout/nav-utils";
+import { NavSections } from "@/components/layout/nav-main";
+import type { NavSection } from "@/components/layout/nav-utils";
 import { SidebarBrand } from "@/components/layout/sidebar-brand";
-import { SidebarEdgeToggle } from "@/components/layout/sidebar-edge-toggle";
 import {
   Sidebar,
   SidebarContent,
@@ -17,19 +16,20 @@ import { useGetLogo } from "@/hooks/client";
 
 import { BrandLogo } from "./brand-logo";
 import { NavUserMenu } from "./nav-user-menu";
+import { QuickCreate } from "./quick-create";
 import { GettingStarted } from "@/features/dashboard/components/getting-started";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 import { defaultLogos } from "@/shared/hooks/client/use-get-logo";
 
 interface DashboardSidebarProps {
-  navMain: NavItem[];
+  sections: NavSection[];
   userFullName?: string;
   userId?: string;
   userImageUrl?: string;
 }
 
 export function DashboardSidebar({
-  navMain,
+  sections,
   userFullName,
   userId,
   userImageUrl,
@@ -50,13 +50,17 @@ export function DashboardSidebar({
   }, [favicon]);
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader>
+    // Inset: the sidebar sits on the shell colour and the workspace is one
+    // raised panel beside it (2.7 reference frame).
+    <Sidebar collapsible="icon" variant="inset">
+      <SidebarHeader className="gap-0 px-0.5 pt-0 pb-0">
         <SidebarBrand
           name="OnchainSuite"
           href={PRIVATE_ROUTES.DASHBOARD}
-          // Neutral tile: the org's own logo shouldn't sit on a brand fill.
-          markClassName="bg-muted text-foreground"
+          showName={false}
+          // Reference logo row: 56px tall, the 26px mark 20px from the edge.
+          className="min-h-12 pt-0 pl-2.5 group-data-[collapsible=icon]:pl-0 group-data-[collapsible=icon]:pt-2"
+          markClassName="size-auto h-[26px] rounded-none bg-transparent group-data-[collapsible=icon]:size-auto group-data-[collapsible=icon]:h-[26px] group-data-[collapsible=icon]:rounded-none"
           mark={
             <>
               {/* Org logos can live on hosts outside next.config's
@@ -65,33 +69,34 @@ export function DashboardSidebar({
               <BrandLogo
                 src={lightIcon}
                 fallbackSrc={defaultLogos.lightIcon}
-                size={24}
+                size={26}
                 alt=""
-                className="dark:hidden"
+                className="h-[26px] w-auto dark:hidden"
                 unoptimized={isCustom}
               />
               <BrandLogo
                 src={darkIcon}
                 fallbackSrc={defaultLogos.darkIcon}
-                size={24}
+                size={26}
                 alt=""
-                className="hidden dark:block"
+                className="hidden h-[26px] w-auto dark:block"
                 unoptimized={isCustom}
               />
             </>
           }
         />
+        <QuickCreate />
       </SidebarHeader>
 
-      {/* Collapsed stacks the logo + toggle, making that header taller; pad the
-          expanded nav down to match so the rows stay inline across the toggle.
-          (Brand now carries pt-3 in both states, so this is 3 less than before.) */}
-      <SidebarContent className="px-1 pb-2 pt-11 group-data-[collapsible=icon]:pt-2">
-        <NavMain items={navMain} />
+      <SidebarContent className="px-0 pt-3 pb-2 [scrollbar-width:thin]">
+        <NavSections sections={sections} />
       </SidebarContent>
 
-      <SidebarFooter>
-        <GettingStarted />
+      <SidebarFooter className="px-0.5">
+        {/* The checklist runs the full sidebar width, as in the reference. */}
+        <div className="-mx-2.5 group-data-[collapsible=icon]:mx-0">
+          <GettingStarted />
+        </div>
         <NavUserMenu
           fullName={userFullName}
           userId={userId}
@@ -99,8 +104,6 @@ export function DashboardSidebar({
           showName={Boolean(userFullName)}
         />
       </SidebarFooter>
-
-      <SidebarEdgeToggle />
     </Sidebar>
   );
 }

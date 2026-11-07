@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronRightIcon } from "@heroicons/react/24/outline";
+import { CaretDown } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import {
   Collapsible,
@@ -24,39 +24,96 @@ import {
 import { cn } from "@/lib/utils";
 
 import {
+  flattenSections,
   isBranchRowActive,
   isRowActive,
   type NavItem,
+  type NavSection,
   navTooltip,
   resolveActiveNavUrl,
 } from "./nav-utils";
 
-// Dims the glyph on idle rows; the active row inherits the accent color.
-// Roomier than the shadcn default: taller rows, larger glyphs and label text so
-// the rail reads spacious (matches the reference shell).
-const ROW =
-  "h-11 gap-3 rounded-lg px-3 text-[15px] [&>svg]:size-5 [&>svg]:text-muted-foreground data-[active=true]:[&>svg]:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!";
+/*
+ * Row anatomy from the 2.7 reference shell: 32px rows, 18px glyphs, secondary
+ * text at rest. The current page is LIFTED out of the shell like the panel it
+ * opens (raised fill, hairline border, xs elevation) rather than tinted.
+ */
+const ROW = cn(
+  "h-8 gap-2.5 rounded-lg border border-transparent px-2.5 text-sm font-medium text-(--text-secondary) [&>svg]:size-[18px]",
+  "hover:bg-(--tint-hover) hover:text-(--text-primary) data-[state=open]:hover:bg-(--tint-hover) data-[state=open]:hover:text-(--text-primary)",
+  "data-[active=true]:border-(--border-subtle) data-[active=true]:bg-(--bg-main) data-[active=true]:text-(--text-primary) data-[active=true]:shadow-(--elevation-xs) data-[active=true]:hover:bg-(--bg-main)",
+  "group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
+);
+
+const SUB_ROW = cn(
+  "h-auto gap-2 rounded-lg px-2.5 py-1.5 text-[13.5px] text-(--text-secondary)",
+  "hover:bg-(--tint-hover) hover:text-(--text-primary)",
+  "data-[active=true]:bg-(--tint-hover) data-[active=true]:font-medium data-[active=true]:text-(--text-primary)"
+);
 
 /** Sections still in development read as reachable but not ready. */
 const WIP = "opacity-50 hover:opacity-80";
 
+/**
+ * The sidebar's labelled sections. One active row is resolved across ALL of
+ * them (most specific URL wins, query-aware), so "Segments" and "Contacts" -
+ * both on /audience - never light up together.
+ */
+export function NavSections({ sections }: { sections: NavSection[] }) {
+  const pathname = usePathname() ?? "";
+  const search = useSearchParams()?.toString() ?? "";
+  const activeUrl = resolveActiveNavUrl(
+    pathname,
+    flattenSections(sections),
+    search
+  );
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {sections.map((section, index) => (
+        <NavMain
+          key={section.label ?? `section-${index}`}
+          label={section.label}
+          items={section.items}
+          activeUrl={activeUrl}
+          divider={index > 0}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function NavMain({
   label,
   items,
+  activeUrl: resolvedActiveUrl,
+  divider = false,
 }: {
   label?: string;
   items: NavItem[];
+  /** Pre-resolved across sections; computed from these items when omitted. */
+  activeUrl?: string;
+  /** On the collapsed rail a section's label becomes a short rule. */
+  divider?: boolean;
 }) {
   // `usePathname` is null while Next resolves the route on first paint.
   const pathname = usePathname() ?? "";
-  // Resolve ONE active row (the most specific match) so a parent route doesn't
-  // stay highlighted on a child that has its own nav entry.
-  const activeUrl = resolveActiveNavUrl(pathname, items);
+  const activeUrl = resolvedActiveUrl ?? resolveActiveNavUrl(pathname, items);
 
   return (
-    <SidebarGroup>
-      {label ? <SidebarGroupLabel>{label}</SidebarGroupLabel> : null}
-      <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center">
+    <SidebarGroup className="p-0 px-0.5">
+      {divider ? (
+        <div
+          aria-hidden="true"
+          className="mx-auto mb-2 hidden h-px w-6 bg-(--border-default) group-data-[collapsible=icon]:block"
+        />
+      ) : null}
+      {label ? (
+        <SidebarGroupLabel className="h-7 px-2.5 text-xs font-medium text-(--text-tertiary)">
+          {label}
+        </SidebarGroupLabel>
+      ) : null}
+      <SidebarMenu className="gap-0.5 group-data-[collapsible=icon]:items-center">
         {items.map((item) =>
           item.items?.length ? (
             <CollapsibleRow
@@ -103,7 +160,7 @@ function LinkRow({
 
 /**
  * Parent row with children. Opens by default when it owns the current route.
- * On the collapsed rail the sub-menu and chevron are hidden and the row falls
+ * On the collapsed rail the sub-menu and caret are hidden and the row falls
  * back to its tooltip, so the disclosure never fires invisibly.
  */
 function CollapsibleRow({
@@ -125,30 +182,46 @@ function CollapsibleRow({
         <CollapsibleTrigger asChild>
           <SidebarMenuButton
             tooltip={navTooltip(item)}
+            // The parent is only lifted while collapsed over the active child;
+            // open, the child row itself shows where you are.
             isActive={branchActive}
-            className={cn(ROW, item.wip && WIP)}
+            className={cn(
+              ROW,
+              item.wip && WIP,
+              "group-data-[state=open]/collapsible:data-[active=true]:border-transparent group-data-[state=open]/collapsible:data-[active=true]:bg-transparent group-data-[state=open]/collapsible:data-[active=true]:shadow-none"
+            )}
           >
             {item.icon ? <item.icon aria-hidden="true" /> : null}
             <span className="group-data-[collapsible=icon]:hidden">
               {item.title}
             </span>
-            <ChevronRightIcon
+            <CaretDown
               aria-hidden="true"
-              className="ml-auto transition-transform duration-(--duration-base) group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden"
+              className="ml-auto size-3.5! text-(--text-tertiary) transition-transform duration-(--duration-base) group-data-[state=open]/collapsible:rotate-180 group-data-[collapsible=icon]:hidden"
             />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          {/* Hairline dropped: the reference indents children without a tree line. */}
-          <SidebarMenuSub className="border-none">
+          {/* The reference hangs children off a hairline from the parent's glyph. */}
+          <SidebarMenuSub className="mx-0 mt-0.5 mb-0.5 ml-[22px] gap-px border-l border-(--border-subtle) px-0 pl-3">
             {item.items?.map((subItem) => (
               <SidebarMenuSubItem key={subItem.title}>
                 <SidebarMenuSubButton
                   asChild
                   isActive={isRowActive(subItem, activeUrl)}
+                  className={SUB_ROW}
                 >
                   <Link href={subItem.url}>
-                    <span>{subItem.title}</span>
+                    <span
+                      className={cn(subItem.wip && "text-(--text-tertiary)")}
+                    >
+                      {subItem.title}
+                    </span>
+                    {subItem.wip ? (
+                      <span className="ml-auto text-[10.5px] text-(--text-tertiary)">
+                        Soon
+                      </span>
+                    ) : null}
                   </Link>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>

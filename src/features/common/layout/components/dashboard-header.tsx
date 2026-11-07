@@ -18,7 +18,8 @@ export const DashboardHeader = ({
 }) => {
   const palette = useCommandPalette();
   return (
-    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-2 border-b bg-background px-4">
+    // 52px bar inside the raised workspace panel, as in the 2.7 reference.
+    <header className="sticky top-0 z-10 flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-(--border-subtle) bg-(--bg-main) px-4 md:px-5">
       <div className="flex min-w-0 items-center gap-2">
         {/* Below md the sidebar collapses into its own sheet; this opens it. */}
         <SidebarTrigger className="md:hidden" />
@@ -26,7 +27,7 @@ export const DashboardHeader = ({
           orientation="vertical"
           className="mr-1 data-[orientation=vertical]:h-4 md:hidden"
         />
-        <div className="hidden items-center gap-2 text-sm md:flex">
+        <div className="hidden items-center gap-2 text-sm font-medium md:flex">
           {breadcrumbs?.map((crumb, index) => (
             <span key={crumb.href} className="flex items-center gap-2">
               {typeof crumb.href === "string" && crumb.href.length > 0 ? (

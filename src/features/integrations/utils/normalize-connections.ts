@@ -1,6 +1,7 @@
 import { isJsonObject } from "@/lib/utils";
 
 import type {
+  AvailableSmsNumber,
   ConnectionSummary,
   DataSyncResult,
   DiscordImportResult,
@@ -11,6 +12,8 @@ import type {
   IterableJobStatus,
   MigrationHeld,
   MigrationResult,
+  SmsManagedSetup,
+  SmsManagedStatus,
   SmsOptInLink,
   SmsWebhookSetup,
   WhatsAppWebhookSetup,
@@ -173,6 +176,43 @@ export function toSmsOptInLink(raw: unknown): SmsOptInLink {
     smsNumber: str(o.smsNumber),
     body: str(o.body),
     expiresInSeconds: n(o.expiresInSeconds),
+  };
+}
+
+export function toSmsManagedStatus(raw: unknown): SmsManagedStatus {
+  const o = obj(raw);
+  return {
+    enabled: o.enabled === true,
+    managed: o.managed === true,
+    connected: o.connected === true,
+  };
+}
+
+export function toAvailableSmsNumbers(raw: unknown): AvailableSmsNumber[] {
+  const list = obj(raw).numbers;
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => {
+      const o = obj(item);
+      return {
+        phoneNumber: str(o.phoneNumber),
+        friendlyName: str(o.friendlyName) || str(o.phoneNumber),
+        locality: str(o.locality) || null,
+        region: str(o.region) || null,
+        isoCountry: str(o.isoCountry),
+        sms: o.sms === true,
+        mms: o.mms === true,
+      };
+    })
+    .filter((n) => n.phoneNumber !== "");
+}
+
+export function toSmsManagedSetup(raw: unknown): SmsManagedSetup {
+  const o = obj(raw);
+  return {
+    phoneNumber: str(o.phoneNumber),
+    reused: o.reused === true,
+    verified: o.verified === true,
   };
 }
 

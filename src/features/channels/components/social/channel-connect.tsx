@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { CHANNEL_META } from "../../data/channels";
 import type { SocialChannelId } from "../../types/channel";
 import { DiscordImport } from "./discord-import";
+import { SmsManagedSetup } from "./sms-managed-setup";
 import { SmsOptInCard } from "./sms-optin-card";
 import { SmsWebhook } from "./sms-webhook";
 import { TelegramActivate } from "./telegram-activate";
@@ -30,6 +31,11 @@ const NEXT_STEP: Partial<Record<SocialChannelId, ReactNode>> = {
   ),
 };
 
+/** Before connecting: another way to get connected than pasting credentials. */
+const ALTERNATIVE: Partial<Record<SocialChannelId, ReactNode>> = {
+  sms: <SmsManagedSetup />,
+};
+
 /**
  * Connect a social channel with your own account (bot, business number,
  * signer or token). The server verifies it with the platform before saving;
@@ -45,6 +51,7 @@ export function ChannelConnect({ channel }: { channel: SocialChannelId }) {
       <p className="text-xs text-muted-foreground">
         {meta.kind === "dm" ? KIND_NOTE.dm : KIND_NOTE.post}
       </p>
+      {ALTERNATIVE[channel] ?? null}
       {def ? (
         <div className="rounded-xl border border-border bg-card p-4">
           <ConnectorPanel def={def}>

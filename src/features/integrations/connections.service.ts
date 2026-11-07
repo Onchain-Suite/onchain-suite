@@ -6,6 +6,7 @@ import { API_BASE_URL, apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import type {
+  AvailableSmsNumber,
   ConnectionCredentials,
   ConnectionKind,
   ConnectionSummary,
@@ -16,11 +17,15 @@ import type {
   IterableJob,
   IterableJobStatus,
   MigrationResult,
+  SmsManagedSetup,
+  SmsManagedStatus,
+  SmsNumberType,
   SmsOptInLink,
   SmsWebhookSetup,
   WhatsAppWebhookSetup,
 } from "./contracts/connections";
 import {
+  toAvailableSmsNumbers,
   toConnection,
   toConnectionList,
   toDataSync,
@@ -30,6 +35,8 @@ import {
   toIterableJob,
   toIterableStatus,
   toMigrationResult,
+  toSmsManagedSetup,
+  toSmsManagedStatus,
   toSmsOptInLink,
   toSmsSetup,
   toWhatsAppSetup,
@@ -286,6 +293,48 @@ export const connectionsService = {
       orgId
     );
     return toSmsOptInLink(data);
+  },
+
+  async smsManagedStatus(orgId?: string): Promise<SmsManagedStatus> {
+    const data = await request(
+      { method: "GET", url: "/organization/connections/sms/managed" },
+      orgId
+    );
+    return toSmsManagedStatus(data);
+  },
+
+  async smsManagedNumbers(
+    query: { country: string; type: SmsNumberType; areaCode?: string },
+    orgId?: string
+  ): Promise<AvailableSmsNumber[]> {
+    const data = await request(
+      {
+        method: "GET",
+        url: "/organization/connections/sms/managed/numbers",
+        params: {
+          country: query.country,
+          type: query.type,
+          ...(query.areaCode ? { areaCode: query.areaCode } : {}),
+        },
+      },
+      orgId
+    );
+    return toAvailableSmsNumbers(data);
+  },
+
+  async smsManagedSetUp(
+    phoneNumber: string,
+    orgId?: string
+  ): Promise<SmsManagedSetup> {
+    const data = await request(
+      {
+        method: "POST",
+        url: "/organization/connections/sms/managed",
+        data: { phoneNumber },
+      },
+      orgId
+    );
+    return toSmsManagedSetup(data);
   },
 
   async discordImportMembers(

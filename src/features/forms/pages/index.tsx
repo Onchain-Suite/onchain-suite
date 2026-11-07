@@ -4,8 +4,8 @@ import {
   ClipboardDocumentListIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
-import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/ui/button";
 
@@ -25,6 +25,15 @@ import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 export function FormsPage() {
   const router = useRouter();
   const [createOpen, setCreateOpen] = useState(false);
+
+  // `?new=1` (the sidebar's Quick create) opens the wizard on arrival; the
+  // param is dropped so a refresh or Back does not reopen it.
+  const wantsNew = useSearchParams()?.get("new") === "1";
+  useEffect(() => {
+    if (!wantsNew) return;
+    setCreateOpen(true);
+    router.replace("/forms", { scroll: false });
+  }, [wantsNew, router]);
 
   const formsQuery = useFormsList();
   const forms = useMemo(() => formsQuery.data ?? [], [formsQuery.data]);

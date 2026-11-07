@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import { Sidebar, SidebarSimple } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import type * as React from "react";
 
@@ -23,6 +23,8 @@ export function SidebarBrand({
   href = "/",
   mark,
   markClassName,
+  showName = true,
+  className,
 }: {
   name: string;
   href?: string;
@@ -30,9 +32,18 @@ export function SidebarBrand({
   mark?: React.ReactNode;
   /** Overrides the tile behind the mark - e.g. a neutral fill for a real logo. */
   markClassName?: string;
+  /** The 2.7 shell shows the mark alone; the wordmark is for older shells. */
+  showName?: boolean;
+  /** Extra classes for the row (spacing differs per shell). */
+  className?: string;
 }) {
   return (
-    <div className="flex items-center gap-2 pt-3 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-3">
+    <div
+      className={cn(
+        "flex items-center gap-2 pt-3 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-3",
+        className
+      )}
+    >
       <Link
         href={href}
         className="flex min-w-0 items-center gap-2 rounded-md outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring"
@@ -45,9 +56,13 @@ export function SidebarBrand({
         >
           {mark ?? name.charAt(0).toUpperCase()}
         </span>
-        <span className="truncate text-lg font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
-          {name}
-        </span>
+        {showName ? (
+          <span className="truncate text-lg font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
+            {name}
+          </span>
+        ) : (
+          <span className="sr-only">{name}</span>
+        )}
       </Link>
       <SidebarCollapseToggle className="ml-auto group-data-[collapsible=icon]:ml-0" />
     </div>
@@ -68,14 +83,14 @@ function SidebarCollapseToggle({ className }: { className?: string }) {
           aria-label={label}
           aria-expanded={state === "expanded"}
           className={cn(
-            "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-hidden transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+            "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-(--text-tertiary) outline-hidden transition-colors hover:bg-(--tint-hover) hover:text-(--text-primary) focus-visible:ring-2 focus-visible:ring-sidebar-ring",
             className
           )}
         >
           {state === "expanded" ? (
-            <ChevronLeftIcon className="size-4" aria-hidden="true" />
+            <SidebarSimple className="size-[18px]" aria-hidden="true" />
           ) : (
-            <ChevronRightIcon className="size-4" aria-hidden="true" />
+            <Sidebar className="size-[18px]" aria-hidden="true" />
           )}
         </button>
       </TooltipTrigger>

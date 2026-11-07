@@ -167,19 +167,6 @@ export interface CampaignSendInAppResult {
   [key: string]: unknown;
 }
 
-/** Result of POST /campaigns/{id}/send-telegram. */
-export interface CampaignSendTelegramResult {
-  recipients?: number;
-  /** Audience wallets with a verified Telegram chat id. */
-  reachable?: number;
-  sent?: number;
-  failed?: number;
-  /** Recipients with no verified Telegram handle. */
-  skipped?: number;
-  status?: string;
-  [key: string]: unknown;
-}
-
 /**
  * Generic per-channel send result (WhatsApp / X / Farcaster). The dispatch
  * returns `ok:false` + a `message`/`reason` rather than throwing for a missing
@@ -1207,7 +1194,7 @@ export const campaignsService = {
 
   /**
    * Save the campaign's Telegram text. Stored under `channelsContent.telegram`
-   * (PUT /campaigns/{id}/channels/telegram/content); consumed by sendTelegram.
+   * (PUT /campaigns/{id}/channels/telegram/content); sent as DMs via dm-send.
    */
   setTelegramContent(id: string, text: string, orgId?: string) {
     return request<unknown>(
@@ -1221,25 +1208,13 @@ export const campaignsService = {
   },
 
   /**
-   * Send the campaign on Telegram to its wallet-reachable audience - wallets
-   * with a verified Telegram chat id (POST /campaigns/{id}/send-telegram).
-   * Immediate fan-out; gate the "sent" UI on `sent`, not a bare 200.
-   */
-  sendTelegram(id: string, orgId?: string) {
-    return request<CampaignSendTelegramResult>(
-      { method: "POST", url: `/campaigns/${id}/send-telegram`, data: {} },
-      orgId
-    );
-  },
-
-  /**
    * Save the campaign's Discord broadcast (message + target channel id). Stored
    * under `channelsContent.discord` (PUT /campaigns/{id}/channels/discord/content);
    * consumed by sendDiscord.
    */
   setDiscordContent(
     id: string,
-    content: { text: string; channelId: string },
+    content: { text: string; channelId: string; delivery?: "post" | "dm" },
     orgId?: string
   ) {
     return request<unknown>(
@@ -1311,14 +1286,14 @@ export const campaignsService = {
     );
   },
 
-  // X: one broadcast tweet via the org's connected account.
-  setXContent(id: string, text: string, orgId?: string) {
+  // X: a tweet (`text`) or, through the consent dialog, DMs (`dmText`).
+  setXContent(
+    id: string,
+    data: { text: string; dmText?: string; delivery?: "post" | "dm" },
+    orgId?: string
+  ) {
     return request<unknown>(
-      {
-        method: "PUT",
-        url: `/campaigns/${id}/channels/x/content`,
-        data: { text },
-      },
+      { method: "PUT", url: `/campaigns/${id}/channels/x/content`, data },
       orgId
     );
   },

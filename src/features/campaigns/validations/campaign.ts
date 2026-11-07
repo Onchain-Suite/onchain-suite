@@ -108,6 +108,9 @@ export const campaignFormSchema = z
     // to channelsContent.discord.{text,channelId}. Not per-contact — one post.
     discordText: z.string().optional(),
     discordChannelId: z.string().optional(),
+    // "dm" sends discordText as a DM to each member who opted in, behind the
+    // consent dialog, instead of one channel post.
+    discordDelivery: z.enum(["post", "dm"]).default("post"),
 
     // WhatsApp: a pre-approved template name + language (NOT free text), a
     // per-contact fan-out to wallets with a bound WhatsApp number. Persisted to
@@ -123,6 +126,10 @@ export const campaignFormSchema = z
     // X BROADCAST: one tweet via the org's connected X account. Persisted to
     // channelsContent.x.text.
     xText: z.string().optional(),
+    // "dm" sends xDmText as a DM to each person bound to the audience, behind
+    // the consent dialog (X only allows it to people who DMed you first).
+    xDelivery: z.enum(["post", "dm"]).default("post"),
+    xDmText: z.string().optional(),
 
     // Farcaster BROADCAST: one public cast. Persisted to channelsContent.farcaster.text.
     farcasterText: z.string().optional(),
@@ -206,8 +213,9 @@ export const campaignFormSchema = z
         });
       }
       if (
-        typeof data.discordChannelId !== "string" ||
-        data.discordChannelId.trim().length === 0
+        data.discordDelivery !== "dm" &&
+        (typeof data.discordChannelId !== "string" ||
+          data.discordChannelId.trim().length === 0)
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -244,11 +252,13 @@ export const campaignFormSchema = z
     }
 
     if (data.channel === "x") {
-      if (typeof data.xText !== "string" || data.xText.trim().length === 0) {
+      const dm = data.xDelivery === "dm";
+      const value = dm ? data.xDmText : data.xText;
+      if (typeof value !== "string" || value.trim().length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["xText"],
-          message: "Enter the post to send",
+          path: [dm ? "xDmText" : "xText"],
+          message: dm ? "Enter the DM to send" : "Enter the post to send",
         });
       }
     }

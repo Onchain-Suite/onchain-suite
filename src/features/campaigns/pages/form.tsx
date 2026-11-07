@@ -73,6 +73,10 @@ import { WhatsAppMessageStep } from "@/features/campaigns/components/campaign-fo
 import { WizardStepRail } from "@/features/campaigns/components/campaign-form/wizard-step-rail";
 import { WizardSummary } from "@/features/campaigns/components/campaign-form/wizard-summary";
 import { XMessageStep } from "@/features/campaigns/components/campaign-form/x-message-step";
+import {
+  dmChannelFor,
+  useDmSend,
+} from "@/features/campaigns/dm-send/use-dm-send";
 import { useCampaignGoal } from "@/features/campaigns/hooks/use-campaign-goal";
 import { useInAppReadiness } from "@/features/campaigns/hooks/use-inapp-readiness";
 import {
@@ -279,6 +283,7 @@ const persistCampaignContent = async (
     await campaignsService.setDiscordContent(campaignId, {
       text: (data.discordText ?? "").trim(),
       channelId: (data.discordChannelId ?? "").trim(),
+      delivery: data.discordDelivery,
     });
     return;
   }
@@ -309,7 +314,11 @@ const persistCampaignContent = async (
     await campaignsService
       .ensureChannels(campaignId, ["x"])
       .catch(() => undefined);
-    await campaignsService.setXContent(campaignId, (data.xText ?? "").trim());
+    await campaignsService.setXContent(campaignId, {
+      text: (data.xText ?? "").trim(),
+      dmText: (data.xDmText ?? "").trim(),
+      delivery: data.xDelivery,
+    });
     return;
   }
   if (data.channel === "farcaster") {
@@ -1313,6 +1322,7 @@ export function CreateCampaignPage() {
   // Pre-send guard: the submit button opens this; the real launch only fires
   // once the user confirms. `isLaunching` drives the dialog's confirm spinner.
   const [showSendConfirm, setShowSendConfirm] = useState(false);
+  const dmSend = useDmSend(() => setShowConfirmation(true));
   const [isLaunching, setIsLaunching] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   // Lifted from AudienceStep so the summary rail shows the estimate on every step.
@@ -1866,6 +1876,8 @@ export function CreateCampaignPage() {
           if (typeof text === "string") nextValues.discordText = text;
           if (typeof discordSource.channelId === "string")
             nextValues.discordChannelId = discordSource.channelId;
+          if (discordSource.delivery === "dm")
+            nextValues.discordDelivery = "dm";
           nextValues.channel = "discord";
         }
 
@@ -2242,6 +2254,12 @@ export function CreateCampaignPage() {
       toast.error("Your role cannot launch campaigns for this organization.");
       return;
     }
+    // Telegram, and X / Discord DMs: the consent dialog is the confirmation.
+    const dm = dmChannelFor(form.getValues());
+    if (dm)
+      return dmSend.open(campaignId, dm, () =>
+        persistCampaignContent(campaignId, form.getValues())
+      );
     setShowSendConfirm(true);
   };
 
@@ -2300,28 +2318,6 @@ export function CreateCampaignPage() {
         }
         toast.success(
           `Push sent to ${recipients} wallet${recipients === 1 ? "" : "s"} (${deliveredNow} delivered live).`
-        );
-        setShowConfirmation(true);
-        return;
-      }
-
-      // Telegram: like in-app, an immediate fan-out to wallet-reachable
-      // contacts - here, wallets with a verified Telegram chat id. No schedule.
-      if (data.channel === "telegram") {
-        await campaignsService
-          .ensureChannels(campaignId, ["telegram"])
-          .catch(() => undefined);
-        const result = await campaignsService.sendTelegram(campaignId);
-        const sent = result.sent ?? 0;
-        await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-        if (sent === 0) {
-          toast.warning(
-            "Nobody was reached. Telegram only reaches wallets that opted in via your bot - this audience has none yet. Share opt-in links from Settings → Integrations, or pick a reachable audience."
-          );
-          return;
-        }
-        toast.success(
-          `Telegram message sent to ${sent} wallet${sent === 1 ? "" : "s"}.`
         );
         setShowConfirmation(true);
         return;
@@ -2779,17 +2775,15 @@ export function CreateCampaignPage() {
             : "Send this campaign?"
         }
         description={
-          wizIsTelegram
-            ? "This sends a Telegram message to the wallets below."
-            : wizIsWhatsapp
-              ? "This sends your approved WhatsApp template to the opted-in wallets below."
-              : wizIsSms
-                ? "This sends an SMS to the opted-in wallets below."
-                : wizIsPush
-                  ? "This delivers an in-app push to the wallets below."
-                  : sendOption === "schedule"
-                    ? "It will send automatically at the scheduled time."
-                    : "This sends to the recipients below right away."
+          wizIsWhatsapp
+            ? "This sends your approved WhatsApp template to the opted-in wallets below."
+            : wizIsSms
+              ? "This sends an SMS to the opted-in wallets below."
+              : wizIsPush
+                ? "This delivers an in-app push to the wallets below."
+                : sendOption === "schedule"
+                  ? "It will send automatically at the scheduled time."
+                  : "This sends to the recipients below right away."
         }
         details={sendConfirmDetails}
         confirmLabel={
@@ -2801,6 +2795,7 @@ export function CreateCampaignPage() {
         confirming={isLaunching}
         onConfirm={performLaunch}
       />
+      {dmSend.dialog}
       {/* Header - Campaigns link · editable name · saved status + Save & exit */}
       <div className="bg-background">
         <div className="container mx-auto flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8 max-w-[1600px]">

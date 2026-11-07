@@ -172,6 +172,59 @@ export interface ConsentImportResult {
   errors: Array<{ row: number; reason: string }>;
 }
 
+/** `GET /organization/connections/sms/a2p` - US 10DLC registration of a
+ *  managed number. `available` is false for a customer's own Twilio account or
+ *  a server without our Primary profile. `stage` is null before submitting. */
+export interface SmsA2pStatus {
+  available: boolean;
+  stage: string | null;
+  hint: string | null;
+  brandType: string | null;
+  lastError: string | null;
+  updatedAt: string | null;
+  completedAt: string | null;
+}
+
+/** `POST /organization/connections/sms/a2p` body. */
+export interface SmsA2pSubmission {
+  email: string;
+  brandType: "LOW_VOLUME_STANDARD" | "STANDARD";
+  business: {
+    name: string;
+    type: string;
+    industry: string;
+    idType: string;
+    idNumber: string;
+    regions: string[];
+    websiteUrl: string;
+    companyType: string;
+    stockExchange?: string;
+    stockTicker?: string;
+  };
+  representative: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    title: string;
+    jobPosition: string;
+  };
+  address: {
+    street: string;
+    city: string;
+    region: string;
+    postalCode: string;
+    country: string;
+  };
+  campaign: {
+    description: string;
+    messageFlow: string;
+    samples: string[];
+    hasEmbeddedLinks: boolean;
+    hasEmbeddedPhone: boolean;
+  };
+}
+
 /** `POST /organization/integrations/discord/import-members`. */
 export interface DiscordImportResult {
   guildId: string;

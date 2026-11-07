@@ -19,10 +19,11 @@ vi.mock("@/features/integrations/connections.service", () => ({
   },
 }));
 const connection = vi.hoisted(() => ({ current: null as unknown }));
+const org = vi.hoisted(() => ({ current: "org_1" }));
 vi.mock("@/features/integrations/hooks/use-connections", () => ({
   CONNECTIONS_PREFIX: ["organization", "connections"],
   useConnection: () => ({
-    organizationId: "org_1",
+    organizationId: org.current,
     canManage: true,
     connection: connection.current,
   }),
@@ -39,11 +40,12 @@ vi.mock("sonner", () => ({
 const settings = vi.mocked(connectionsService.whatsappEmbeddedSettings);
 const complete = vi.mocked(connectionsService.whatsappEmbeddedComplete);
 
-const renderCard = () =>
+const client = () =>
+  new QueryClient({ defaultOptions: { queries: { retry: 0 } } });
+
+const renderCard = (qc = client()) =>
   render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: 0 } } })}
-    >
+    <QueryClientProvider client={qc}>
       <WhatsAppEmbeddedSignup />
     </QueryClientProvider>
   );
@@ -62,6 +64,7 @@ describe("WhatsAppEmbeddedSignup", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     connection.current = null;
+    org.current = "org_1";
     settings.mockResolvedValue({
       enabled: true,
       appId: "111",
@@ -105,7 +108,8 @@ describe("WhatsAppEmbeddedSignup", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Connect WhatsApp" })
     );
-    await waitFor(() => expect(login).toHaveBeenCalled());
+    // Called inside the click itself, so the popup keeps its user gesture.
+    expect(login).toHaveBeenCalledTimes(1);
     expect(login.mock.calls[0][1]).toMatchObject({
       config_id: "222",
       response_type: "code",
@@ -141,6 +145,38 @@ describe("WhatsAppEmbeddedSignup", () => {
     expect(
       await screen.findByRole("button", { name: "Connect WhatsApp" })
     ).toBeEnabled();
+    expect(complete).not.toHaveBeenCalled();
+  });
+
+  it("switching workspace mid-signup abandons it instead of saving to the new org", async () => {
+    const qc = client();
+    const view = renderCard(qc);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Connect WhatsApp" })
+    );
+    expect(login).toHaveBeenCalledTimes(1);
+    act(() => login.mock.calls[0][0]({ authResponse: { code: "one-time" } }));
+
+    org.current = "org_2";
+    view.rerender(
+      <QueryClientProvider client={qc}>
+        <WhatsAppEmbeddedSignup />
+      </QueryClientProvider>
+    );
+    postFromFacebook("FINISH", {
+      waba_id: "102290129340398",
+      phone_number_id: "106540352242922",
+    });
+    expect(complete).not.toHaveBeenCalled();
+  });
+
+  it("ignores Facebook messages when no signup was started here", async () => {
+    renderCard();
+    await screen.findByRole("button", { name: "Connect WhatsApp" });
+    postFromFacebook("FINISH", {
+      waba_id: "102290129340398",
+      phone_number_id: "106540352242922",
+    });
     expect(complete).not.toHaveBeenCalled();
   });
 });

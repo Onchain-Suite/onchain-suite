@@ -6,7 +6,11 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
-import { loadFacebookSdk, readSignupMessage } from "../../utils/facebook-sdk";
+import {
+  type FacebookSdk,
+  loadFacebookSdk,
+  readSignupMessage,
+} from "../../utils/facebook-sdk";
 import { connectionsService } from "@/features/integrations/connections.service";
 import {
   CONNECTIONS_PREFIX,
@@ -24,12 +28,22 @@ export const whatsappEmbeddedKey = (orgId: string | null) =>
  * message), in either order; once both are here the server finishes the job.
  * Shown only before WhatsApp is connected, and only when the server has a Meta
  * app set up.
+ *
+ * Two invariants:
+ * - The SDK is loaded ahead of time, so `FB.login` runs synchronously inside
+ *   the click. Awaiting the download first can outlast the browser's user
+ *   activation, and the popup is then blocked.
+ * - The workspace is captured when signup starts. Switching workspace mid-way
+ *   abandons the flow, so a connection can never land in the wrong org.
  */
 export function WhatsAppEmbeddedSignup() {
   const { organizationId, canManage, connection } = useConnection("whatsapp");
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
+  const [sdk, setSdk] = useState<FacebookSdk | null>(null);
+  const [sdkError, setSdkError] = useState<string | null>(null);
   const pending = useRef<{
+    orgId?: string | null;
     code?: string;
     wabaId?: string;
     phoneNumberId?: string;
@@ -44,14 +58,49 @@ export function WhatsAppEmbeddedSignup() {
       connectionsService.whatsappEmbeddedSettings(organizationId ?? undefined),
   });
 
+  const s = settings.data;
+  const appId = s?.enabled && s.configId ? s.appId : null;
+  const graphVersion = s?.graphVersion;
+  const [loadAttempt, setLoadAttempt] = useState(0);
+
+  // Load the SDK as soon as signup is available, never on the click itself.
+  useEffect(() => {
+    if (!appId || !graphVersion) return;
+    let live = true;
+    setSdkError(null);
+    loadFacebookSdk(appId, graphVersion)
+      .then((fb) => live && setSdk(fb))
+      .catch(
+        (e) =>
+          live &&
+          setSdkError(
+            e instanceof Error ? e.message : "Couldn't load Facebook."
+          )
+      );
+    return () => {
+      live = false;
+    };
+  }, [appId, graphVersion, loadAttempt]);
+
+  // A workspace switch mid-signup abandons it rather than finishing elsewhere.
+  useEffect(() => {
+    if (
+      pending.current.orgId !== undefined &&
+      pending.current.orgId !== organizationId
+    ) {
+      pending.current = {};
+      setBusy(false);
+    }
+  }, [organizationId]);
+
   const finish = async () => {
-    const { code, wabaId, phoneNumberId } = pending.current;
-    if (!code || !wabaId || !phoneNumberId) return;
+    const { orgId, code, wabaId, phoneNumberId } = pending.current;
+    if (orgId === undefined || !code || !wabaId || !phoneNumberId) return;
     pending.current = {};
     try {
       const r = await connectionsService.whatsappEmbeddedComplete(
         { code, wabaId, phoneNumberId },
-        organizationId ?? undefined
+        orgId ?? undefined
       );
       await qc.invalidateQueries({ queryKey: CONNECTIONS_PREFIX });
       if (r.warning) toast.warning(r.warning);
@@ -70,6 +119,8 @@ export function WhatsAppEmbeddedSignup() {
     const onMessage = (event: MessageEvent) => {
       const msg = readSignupMessage(event.origin, event.data);
       if (!msg) return;
+      // Only a signup this card started (in this workspace) is listened to.
+      if (pending.current.orgId === undefined) return;
       if (msg.kind === "finish") {
         pending.current.wabaId = msg.wabaId;
         pending.current.phoneNumberId = msg.phoneNumberId;
@@ -89,15 +140,19 @@ export function WhatsAppEmbeddedSignup() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationId]);
 
-  const s = settings.data;
   if (!s?.enabled || !s.appId || !s.configId || connection) return null;
 
-  const start = async () => {
+  // Synchronous on purpose: see the invariants above.
+  const start = () => {
+    if (sdkError) {
+      setLoadAttempt((n) => n + 1);
+      return;
+    }
+    if (!sdk) return;
     setBusy(true);
-    pending.current = {};
+    pending.current = { orgId: organizationId };
     try {
-      const FB = await loadFacebookSdk(s.appId!, s.graphVersion);
-      FB.login(
+      sdk.login(
         (response) => {
           const code = response.authResponse?.code;
           if (!code) {
@@ -116,10 +171,19 @@ export function WhatsAppEmbeddedSignup() {
         }
       );
     } catch (e) {
+      pending.current = {};
       setBusy(false);
       toast.error(e instanceof Error ? e.message : "Couldn't open Facebook.");
     }
   };
+
+  const label = busy
+    ? "Waiting for Facebook..."
+    : sdkError
+      ? "Retry Facebook"
+      : sdk
+        ? "Connect WhatsApp"
+        : "Loading Facebook...";
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
@@ -132,9 +196,12 @@ export function WhatsAppEmbeddedSignup() {
           Facebook&apos;s window. No tokens to copy; replies and delivery
           reports are set up for you. Meta bills your account for messages.
         </p>
+        {sdkError ? (
+          <p className="text-xs text-destructive">{sdkError}</p>
+        ) : null}
       </div>
-      <Button size="sm" disabled={busy} onClick={() => start()}>
-        {busy ? "Waiting for Facebook..." : "Connect WhatsApp"}
+      <Button size="sm" disabled={busy || (!sdk && !sdkError)} onClick={start}>
+        {label}
       </Button>
     </div>
   );

@@ -172,8 +172,7 @@ export function toSmsOptInLink(raw: unknown): SmsOptInLink {
     url: str(o.url),
     smsNumber: str(o.smsNumber),
     body: str(o.body),
-    expiresInSeconds:
-      typeof o.expiresInSeconds === "number" ? o.expiresInSeconds : 0,
+    expiresInSeconds: n(o.expiresInSeconds),
   };
 }
 

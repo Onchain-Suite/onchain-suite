@@ -25,6 +25,7 @@ import type {
   SmsNumberType,
   SmsOptInLink,
   SmsWebhookSetup,
+  WhatsAppOptInLink,
   WhatsAppWebhookSetup,
 } from "./contracts/connections";
 import {
@@ -44,6 +45,7 @@ import {
   toSmsManagedStatus,
   toSmsOptInLink,
   toSmsSetup,
+  toWhatsAppOptInLink,
   toWhatsAppSetup,
 } from "./utils/normalize-connections";
 
@@ -272,6 +274,21 @@ export const connectionsService = {
       orgId
     );
     return toWhatsAppSetup(data);
+  },
+
+  async whatsappOptInLink(
+    walletAddress: string,
+    orgId?: string
+  ): Promise<WhatsAppOptInLink> {
+    const data = await request(
+      {
+        method: "POST",
+        url: "/organization/connections/whatsapp/opt-in-link",
+        data: { walletAddress },
+      },
+      orgId
+    );
+    return toWhatsAppOptInLink(data);
   },
 
   async smsWebhookSetup(orgId?: string): Promise<SmsWebhookSetup> {

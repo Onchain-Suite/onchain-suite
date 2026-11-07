@@ -114,6 +114,13 @@ export interface WhatsAppWebhookSetup {
   verifyToken: string;
 }
 
+/** `POST /organization/connections/whatsapp/opt-in-link` - a wa.me link that
+ *  opens WhatsApp with the opt-in token pre-filled for the contact to send. */
+export interface WhatsAppOptInLink {
+  url: string;
+  expiresInSeconds: number;
+}
+
 /** `GET /organization/connections/sms/webhook-setup`. Pasted into Twilio.
  *  No verify token: the provider authenticates with a request signature. */
 export interface SmsWebhookSetup {

@@ -1001,9 +1001,11 @@ function CampaignPreviewStep({
                       ? "Telegram"
                       : isDiscord
                         ? "Discord"
-                        : isSms
-                          ? "SMS"
-                          : "In-app push"}{" "}
+                        : isWhatsapp
+                          ? "WhatsApp"
+                          : isSms
+                            ? "SMS"
+                            : "In-app push"}{" "}
                     always sends immediately.
                   </span>
                 </div>
@@ -1054,11 +1056,13 @@ function CampaignPreviewStep({
                 ? "Telegram preview"
                 : isDiscord
                   ? "Discord preview"
-                  : isSms
-                    ? "SMS preview"
-                    : isPush
-                      ? "Notification preview"
-                      : "Inbox preview"}
+                  : isWhatsapp
+                    ? "WhatsApp preview"
+                    : isSms
+                      ? "SMS preview"
+                      : isPush
+                        ? "Notification preview"
+                        : "Inbox preview"}
             </div>
             {/* Send a test reveals an inline field on click. */}
             {!isWalletChannel ? (
@@ -1179,6 +1183,26 @@ function CampaignPreviewStep({
                   {(values.discordChannelId ?? "").trim().length > 0
                     ? `→ channel ${values.discordChannelId}`
                     : "Set a channel ID in the composer."}
+                </div>
+              </div>
+            ) : isWhatsapp ? (
+              <div className="flex min-h-[320px] flex-col justify-end gap-2 bg-muted/40 p-4">
+                <div className="max-w-[80%] self-start rounded-2xl rounded-bl-md bg-card px-3 py-2 text-sm text-foreground shadow-sm">
+                  {(values.whatsappTemplateName ?? "").trim().length > 0 ? (
+                    <>
+                      <div className="font-medium">
+                        Template: {values.whatsappTemplateName}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Language:{" "}
+                        {(values.whatsappLanguageCode ?? "en_US").trim() ||
+                          "en_US"}
+                        . The message is the template as approved in Meta.
+                      </div>
+                    </>
+                  ) : (
+                    "Choose an approved WhatsApp template in the composer."
+                  )}
                 </div>
               </div>
             ) : isSms ? (
@@ -1845,6 +1869,31 @@ export function CreateCampaignPage() {
           nextValues.channel = "discord";
         }
 
+        // WhatsApp: restore the approved template name + language from
+        // `channelsContent.whatsapp`, so a reopened draft lands on the WhatsApp
+        // composer instead of falling back to the email one.
+        const whatsappSource = (() => {
+          if (
+            campaignRes.status === "fulfilled" &&
+            isJsonObject(campaignRes.value)
+          ) {
+            const cc = campaignRes.value.channelsContent;
+            if (isJsonObject(cc) && isJsonObject(cc.whatsapp))
+              return cc.whatsapp;
+          }
+          return undefined;
+        })();
+        if (whatsappSource) {
+          if (typeof whatsappSource.templateName === "string")
+            nextValues.whatsappTemplateName = whatsappSource.templateName;
+          if (
+            typeof whatsappSource.languageCode === "string" &&
+            whatsappSource.languageCode.trim().length > 0
+          )
+            nextValues.whatsappLanguageCode = whatsappSource.languageCode;
+          nextValues.channel = "whatsapp";
+        }
+
         // SMS: restore the saved body + channel from `channelsContent.sms`, so a
         // reopened SMS draft lands on the SMS composer with its message intact.
         const smsSource = (() => {
@@ -2044,7 +2093,9 @@ export function CreateCampaignPage() {
               ? ["telegramText"]
               : form.getValues("channel") === "sms"
                 ? ["smsBody"]
-                : ["emailSubject", "senderName", "senderEmail"]
+                : form.getValues("channel") === "whatsapp"
+                  ? ["whatsappTemplateName"]
+                  : ["emailSubject", "senderName", "senderEmail"]
           : [];
 
     const isValid = await form.trigger(fieldsToValidate);
@@ -2580,23 +2631,27 @@ export function CreateCampaignPage() {
       ? "Telegram"
       : wizIsDiscord
         ? "Discord"
-        : wizIsSms
-          ? "SMS"
-          : wizIsPush
-            ? "In-app push"
-            : "Email",
+        : wizIsWhatsapp
+          ? "WhatsApp"
+          : wizIsSms
+            ? "SMS"
+            : wizIsPush
+              ? "In-app push"
+              : "Email",
     sender: wizIsTelegram
       ? "Telegram bot"
       : wizIsDiscord
         ? "Discord bot"
-        : wizIsSms
-          ? "Your SMS number"
-          : wizIsPush
-            ? "In-app push"
-            : [form.watch("senderName"), form.watch("senderEmail")]
-                .map((value) => (value ?? "").trim())
-                .filter(Boolean)
-                .join(" · ") || "-",
+        : wizIsWhatsapp
+          ? "Your WhatsApp number"
+          : wizIsSms
+            ? "Your SMS number"
+            : wizIsPush
+              ? "In-app push"
+              : [form.watch("senderName"), form.watch("senderEmail")]
+                  .map((value) => (value ?? "").trim())
+                  .filter(Boolean)
+                  .join(" · ") || "-",
     template: wizTemplateName.length > 0 ? wizTemplateName : "-",
     delivery: sendOption === "schedule" ? "Scheduled" : "Send immediately",
   };
@@ -2706,13 +2761,15 @@ export function CreateCampaignPage() {
         description={
           wizIsTelegram
             ? "This sends a Telegram message to the wallets below."
-            : wizIsSms
-              ? "This sends an SMS to the opted-in wallets below."
-              : wizIsPush
-                ? "This delivers an in-app push to the wallets below."
-                : sendOption === "schedule"
-                  ? "It will send automatically at the scheduled time."
-                  : "This sends to the recipients below right away."
+            : wizIsWhatsapp
+              ? "This sends your approved WhatsApp template to the opted-in wallets below."
+              : wizIsSms
+                ? "This sends an SMS to the opted-in wallets below."
+                : wizIsPush
+                  ? "This delivers an in-app push to the wallets below."
+                  : sendOption === "schedule"
+                    ? "It will send automatically at the scheduled time."
+                    : "This sends to the recipients below right away."
         }
         details={sendConfirmDetails}
         confirmLabel={

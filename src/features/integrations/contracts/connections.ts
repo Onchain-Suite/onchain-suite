@@ -232,6 +232,24 @@ export interface SmsA2pSubmission {
   };
 }
 
+/** `GET /organization/connections/whatsapp/embedded` - what opens Meta's
+ *  Embedded Signup popup. `enabled` is false until the Meta app is set up. */
+export interface WhatsAppEmbeddedSettings {
+  enabled: boolean;
+  appId: string | null;
+  configId: string | null;
+  graphVersion: string;
+}
+
+/** `POST /organization/connections/whatsapp/embedded` result. `warning` is set
+ *  when the number connected but Meta would not register it for sending. */
+export interface WhatsAppEmbeddedResult {
+  verified: boolean;
+  label: string | null;
+  registered: boolean;
+  warning: string | null;
+}
+
 /** `POST /organization/integrations/discord/import-members`. */
 export interface DiscordImportResult {
   guildId: string;

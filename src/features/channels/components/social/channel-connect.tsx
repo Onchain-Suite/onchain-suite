@@ -8,6 +8,7 @@ import { DiscordImport } from "./discord-import";
 import { SmsOptInCard } from "./sms-optin-card";
 import { SmsWebhook } from "./sms-webhook";
 import { TelegramActivate } from "./telegram-activate";
+import { WhatsAppOptInCard } from "./whatsapp-optin-card";
 import { WhatsAppWebhook } from "./whatsapp-webhook";
 import { ConnectorPanel } from "@/features/integrations/components/connect/connector-panel";
 import { CONNECTORS } from "@/features/integrations/data/connectors";
@@ -21,7 +22,12 @@ const KIND_NOTE: Record<"dm" | "post", string> = {
 const NEXT_STEP: Partial<Record<SocialChannelId, ReactNode>> = {
   telegram: <TelegramActivate />,
   discord: <DiscordImport />,
-  whatsapp: <WhatsAppWebhook />,
+  whatsapp: (
+    <div className="space-y-6">
+      <WhatsAppWebhook />
+      <WhatsAppOptInCard />
+    </div>
+  ),
   sms: (
     <div className="space-y-6">
       <SmsWebhook />

@@ -13,6 +13,7 @@ import type {
   MigrationResult,
   SmsOptInLink,
   SmsWebhookSetup,
+  WhatsAppOptInLink,
   WhatsAppWebhookSetup,
 } from "../contracts/connections";
 
@@ -155,6 +156,11 @@ export function toIterableStatus(raw: unknown): IterableJobStatus {
       ? { failedReason: o.failedReason }
       : {}),
   };
+}
+
+export function toWhatsAppOptInLink(raw: unknown): WhatsAppOptInLink {
+  const o = obj(raw);
+  return { url: str(o.url), expiresInSeconds: n(o.expiresInSeconds) };
 }
 
 export function toWhatsAppSetup(raw: unknown): WhatsAppWebhookSetup {

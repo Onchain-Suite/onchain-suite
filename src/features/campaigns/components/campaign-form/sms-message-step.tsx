@@ -6,6 +6,7 @@ import type { UseFormReturn } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+import { countSmsSegments } from "../../utils/sms-segments";
 import type { CampaignFormData } from "../../validations";
 
 /**
@@ -19,8 +20,8 @@ export function SmsMessageStep({
   form: UseFormReturn<CampaignFormData>;
 }) {
   const text = form.watch("smsBody") ?? "";
-  // SMS is billed per segment: 160 GSM-7 chars, then 153 per concatenated part.
-  const segments = text.length === 0 ? 0 : Math.ceil(text.length / 160);
+  // Billed per segment; the encoding the text forces decides segment size.
+  const { encoding, segments } = countSmsSegments(text);
 
   return (
     <div className="space-y-5">
@@ -53,7 +54,7 @@ export function SmsMessageStep({
         <p className="text-xs text-muted-foreground">
           {text.trim().length === 0
             ? "Plain text. Links are sent as-is."
-            : `${text.length} character${text.length === 1 ? "" : "s"} · ${segments} segment${segments === 1 ? "" : "s"}`}
+            : `${text.length} character${text.length === 1 ? "" : "s"} · ${segments} segment${segments === 1 ? "" : "s"}${encoding === "UCS-2" ? " · Unicode: 70 per segment, 67 when split" : ""}`}
         </p>
       </div>
     </div>

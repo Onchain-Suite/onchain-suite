@@ -129,6 +129,37 @@ export interface SmsOptInLink {
   expiresInSeconds: number;
 }
 
+/** `GET /organization/connections/sms/managed` - can we set SMS up for this
+ *  workspace? `enabled` is false on a server without our Twilio account. */
+export interface SmsManagedStatus {
+  enabled: boolean;
+  /** The current SMS connection is one we set up. */
+  managed: boolean;
+  /** Any SMS connection exists (theirs or ours). */
+  connected: boolean;
+}
+
+export type SmsNumberType = "local" | "mobile" | "tollfree";
+
+/** One number for sale, from `GET /organization/connections/sms/managed/numbers`. */
+export interface AvailableSmsNumber {
+  phoneNumber: string;
+  friendlyName: string;
+  locality: string | null;
+  region: string | null;
+  isoCountry: string;
+  sms: boolean;
+  mms: boolean;
+}
+
+/** `POST /organization/connections/sms/managed` - the number now connected.
+ *  `reused` means the workspace already owned one, so nothing new was bought. */
+export interface SmsManagedSetup {
+  phoneNumber: string;
+  reused: boolean;
+  verified: boolean;
+}
+
 /** `POST /organization/integrations/discord/import-members`. */
 export interface DiscordImportResult {
   guildId: string;

@@ -1,7 +1,9 @@
 import { isJsonObject } from "@/lib/utils";
 
 import type {
+  AvailableSmsNumber,
   ConnectionSummary,
+  ConsentImportResult,
   DataSyncResult,
   DiscordImportResult,
   EventsCatalog,
@@ -11,6 +13,9 @@ import type {
   IterableJobStatus,
   MigrationHeld,
   MigrationResult,
+  SmsA2pStatus,
+  SmsManagedSetup,
+  SmsManagedStatus,
   SmsOptInLink,
   SmsWebhookSetup,
   WhatsAppOptInLink,
@@ -179,6 +184,73 @@ export function toSmsOptInLink(raw: unknown): SmsOptInLink {
     smsNumber: str(o.smsNumber),
     body: str(o.body),
     expiresInSeconds: n(o.expiresInSeconds),
+  };
+}
+
+export function toSmsManagedStatus(raw: unknown): SmsManagedStatus {
+  const o = obj(raw);
+  return {
+    enabled: o.enabled === true,
+    managed: o.managed === true,
+    connected: o.connected === true,
+  };
+}
+
+export function toAvailableSmsNumbers(raw: unknown): AvailableSmsNumber[] {
+  const list = obj(raw).numbers;
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => {
+      const o = obj(item);
+      return {
+        phoneNumber: str(o.phoneNumber),
+        friendlyName: str(o.friendlyName) || str(o.phoneNumber),
+        locality: str(o.locality) || null,
+        region: str(o.region) || null,
+        isoCountry: str(o.isoCountry),
+        sms: o.sms === true,
+        mms: o.mms === true,
+      };
+    })
+    .filter((n) => n.phoneNumber !== "");
+}
+
+export function toConsentImport(raw: unknown): ConsentImportResult {
+  const o = obj(raw);
+  return {
+    received: n(o.received),
+    imported: n(o.imported),
+    alreadyConsented: n(o.alreadyConsented),
+    suppressed: n(o.suppressed),
+    duplicate: n(o.duplicate),
+    invalid: n(o.invalid),
+    errors: arr(o.errors).map((e) => {
+      const x = obj(e);
+      return { row: n(x.row), reason: str(x.reason) };
+    }),
+  };
+}
+
+export function toSmsA2pStatus(raw: unknown): SmsA2pStatus {
+  const o = obj(raw);
+  const opt = (v: unknown) => (typeof v === "string" && v ? v : null);
+  return {
+    available: o.available === true,
+    stage: opt(o.stage),
+    hint: opt(o.hint),
+    brandType: opt(o.brandType),
+    lastError: opt(o.lastError),
+    updatedAt: opt(o.updatedAt),
+    completedAt: opt(o.completedAt),
+  };
+}
+
+export function toSmsManagedSetup(raw: unknown): SmsManagedSetup {
+  const o = obj(raw);
+  return {
+    phoneNumber: str(o.phoneNumber),
+    reused: o.reused === true,
+    verified: o.verified === true,
   };
 }
 

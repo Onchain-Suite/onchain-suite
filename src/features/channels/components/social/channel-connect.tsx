@@ -4,8 +4,11 @@ import type { ReactNode } from "react";
 
 import { CHANNEL_META } from "../../data/channels";
 import type { SocialChannelId } from "../../types/channel";
+import { ConsentImportCard } from "./consent-import-card";
 import { DiscordImport } from "./discord-import";
+import { SmsManagedSetup } from "./sms-managed-setup";
 import { SmsOptInCard } from "./sms-optin-card";
+import { SmsUsRegistration } from "./sms-us-registration";
 import { SmsWebhook } from "./sms-webhook";
 import { TelegramActivate } from "./telegram-activate";
 import { WhatsAppOptInCard } from "./whatsapp-optin-card";
@@ -26,14 +29,22 @@ const NEXT_STEP: Partial<Record<SocialChannelId, ReactNode>> = {
     <div className="space-y-6">
       <WhatsAppWebhook />
       <WhatsAppOptInCard />
+      <ConsentImportCard channel="whatsapp" />
     </div>
   ),
   sms: (
     <div className="space-y-6">
+      <SmsUsRegistration />
       <SmsWebhook />
       <SmsOptInCard />
+      <ConsentImportCard channel="sms" />
     </div>
   ),
+};
+
+/** Before connecting: another way to get connected than pasting credentials. */
+const ALTERNATIVE: Partial<Record<SocialChannelId, ReactNode>> = {
+  sms: <SmsManagedSetup />,
 };
 
 /**
@@ -51,6 +62,7 @@ export function ChannelConnect({ channel }: { channel: SocialChannelId }) {
       <p className="text-xs text-muted-foreground">
         {meta.kind === "dm" ? KIND_NOTE.dm : KIND_NOTE.post}
       </p>
+      {ALTERNATIVE[channel] ?? null}
       {def ? (
         <div className="rounded-xl border border-border bg-card p-4">
           <ConnectorPanel def={def}>

@@ -6,9 +6,11 @@ import { API_BASE_URL, apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import type {
+  AvailableSmsNumber,
   ConnectionCredentials,
   ConnectionKind,
   ConnectionSummary,
+  ConsentImportResult,
   DataSyncResult,
   DiscordImportResult,
   EventsCatalog,
@@ -16,14 +18,21 @@ import type {
   IterableJob,
   IterableJobStatus,
   MigrationResult,
+  SmsA2pStatus,
+  SmsA2pSubmission,
+  SmsManagedSetup,
+  SmsManagedStatus,
+  SmsNumberType,
   SmsOptInLink,
   SmsWebhookSetup,
   WhatsAppOptInLink,
   WhatsAppWebhookSetup,
 } from "./contracts/connections";
 import {
+  toAvailableSmsNumbers,
   toConnection,
   toConnectionList,
+  toConsentImport,
   toDataSync,
   toDiscordImport,
   toEventsCatalog,
@@ -31,6 +40,9 @@ import {
   toIterableJob,
   toIterableStatus,
   toMigrationResult,
+  toSmsA2pStatus,
+  toSmsManagedSetup,
+  toSmsManagedStatus,
   toSmsOptInLink,
   toSmsSetup,
   toWhatsAppOptInLink,
@@ -303,6 +315,98 @@ export const connectionsService = {
       orgId
     );
     return toSmsOptInLink(data);
+  },
+
+  async smsA2pStatus(orgId?: string): Promise<SmsA2pStatus> {
+    const data = await request(
+      { method: "GET", url: "/organization/connections/sms/a2p" },
+      orgId
+    );
+    return toSmsA2pStatus(data);
+  },
+
+  async smsA2pSubmit(
+    body: SmsA2pSubmission,
+    orgId?: string
+  ): Promise<SmsA2pStatus> {
+    const data = await request(
+      { method: "POST", url: "/organization/connections/sms/a2p", data: body },
+      orgId
+    );
+    return toSmsA2pStatus(data);
+  },
+
+  async smsA2pRefresh(orgId?: string): Promise<SmsA2pStatus> {
+    const data = await request(
+      { method: "POST", url: "/organization/connections/sms/a2p/refresh" },
+      orgId
+    );
+    return toSmsA2pStatus(data);
+  },
+
+  async smsManagedStatus(orgId?: string): Promise<SmsManagedStatus> {
+    const data = await request(
+      { method: "GET", url: "/organization/connections/sms/managed" },
+      orgId
+    );
+    return toSmsManagedStatus(data);
+  },
+
+  async smsManagedNumbers(
+    query: { country: string; type: SmsNumberType; areaCode?: string },
+    orgId?: string
+  ): Promise<AvailableSmsNumber[]> {
+    const data = await request(
+      {
+        method: "GET",
+        url: "/organization/connections/sms/managed/numbers",
+        params: {
+          country: query.country,
+          type: query.type,
+          ...(query.areaCode ? { areaCode: query.areaCode } : {}),
+        },
+      },
+      orgId
+    );
+    return toAvailableSmsNumbers(data);
+  },
+
+  async smsManagedSetUp(
+    phoneNumber: string,
+    orgId?: string
+  ): Promise<SmsManagedSetup> {
+    const data = await request(
+      {
+        method: "POST",
+        url: "/organization/connections/sms/managed",
+        data: { phoneNumber },
+      },
+      orgId
+    );
+    return toSmsManagedSetup(data);
+  },
+
+  async consentImport(
+    channel: "sms" | "whatsapp",
+    body: {
+      consentText: string;
+      source: string;
+      defaultCountry?: string;
+      rows: Array<Record<string, string>>;
+    },
+    signal?: AbortSignal,
+    orgId?: string
+  ): Promise<ConsentImportResult> {
+    const data = await request(
+      {
+        method: "POST",
+        url: `/organization/consents/${channel}/import`,
+        data: body,
+        signal,
+      },
+      orgId
+    );
+    return toConsentImport(data);
   },
 
   async discordImportMembers(

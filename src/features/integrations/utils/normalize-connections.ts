@@ -13,6 +13,7 @@ import type {
   IterableJobStatus,
   MigrationHeld,
   MigrationResult,
+  SmsA2pStatus,
   SmsManagedSetup,
   SmsManagedStatus,
   SmsOptInLink,
@@ -221,6 +222,20 @@ export function toConsentImport(raw: unknown): ConsentImportResult {
       const x = obj(e);
       return { row: n(x.row), reason: str(x.reason) };
     }),
+  };
+}
+
+export function toSmsA2pStatus(raw: unknown): SmsA2pStatus {
+  const o = obj(raw);
+  const opt = (v: unknown) => (typeof v === "string" && v ? v : null);
+  return {
+    available: o.available === true,
+    stage: opt(o.stage),
+    hint: opt(o.hint),
+    brandType: opt(o.brandType),
+    lastError: opt(o.lastError),
+    updatedAt: opt(o.updatedAt),
+    completedAt: opt(o.completedAt),
   };
 }
 

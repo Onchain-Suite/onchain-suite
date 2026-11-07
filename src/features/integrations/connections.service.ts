@@ -18,6 +18,8 @@ import type {
   IterableJob,
   IterableJobStatus,
   MigrationResult,
+  SmsA2pStatus,
+  SmsA2pSubmission,
   SmsManagedSetup,
   SmsManagedStatus,
   SmsNumberType,
@@ -37,6 +39,7 @@ import {
   toIterableJob,
   toIterableStatus,
   toMigrationResult,
+  toSmsA2pStatus,
   toSmsManagedSetup,
   toSmsManagedStatus,
   toSmsOptInLink,
@@ -295,6 +298,33 @@ export const connectionsService = {
       orgId
     );
     return toSmsOptInLink(data);
+  },
+
+  async smsA2pStatus(orgId?: string): Promise<SmsA2pStatus> {
+    const data = await request(
+      { method: "GET", url: "/organization/connections/sms/a2p" },
+      orgId
+    );
+    return toSmsA2pStatus(data);
+  },
+
+  async smsA2pSubmit(
+    body: SmsA2pSubmission,
+    orgId?: string
+  ): Promise<SmsA2pStatus> {
+    const data = await request(
+      { method: "POST", url: "/organization/connections/sms/a2p", data: body },
+      orgId
+    );
+    return toSmsA2pStatus(data);
+  },
+
+  async smsA2pRefresh(orgId?: string): Promise<SmsA2pStatus> {
+    const data = await request(
+      { method: "POST", url: "/organization/connections/sms/a2p/refresh" },
+      orgId
+    );
+    return toSmsA2pStatus(data);
   },
 
   async smsManagedStatus(orgId?: string): Promise<SmsManagedStatus> {

@@ -8,6 +8,7 @@ import { ConsentImportCard } from "./consent-import-card";
 import { DiscordImport } from "./discord-import";
 import { SmsManagedSetup } from "./sms-managed-setup";
 import { SmsOptInCard } from "./sms-optin-card";
+import { SmsUsRegistration } from "./sms-us-registration";
 import { SmsWebhook } from "./sms-webhook";
 import { TelegramActivate } from "./telegram-activate";
 import { WhatsAppWebhook } from "./whatsapp-webhook";
@@ -31,6 +32,7 @@ const NEXT_STEP: Partial<Record<SocialChannelId, ReactNode>> = {
   ),
   sms: (
     <div className="space-y-6">
+      <SmsUsRegistration />
       <SmsWebhook />
       <SmsOptInCard />
       <ConsentImportCard channel="sms" />

@@ -16,6 +16,7 @@ import type {
   IterableJob,
   IterableJobStatus,
   MigrationResult,
+  SmsOptInLink,
   SmsWebhookSetup,
   WhatsAppWebhookSetup,
 } from "./contracts/connections";
@@ -29,6 +30,7 @@ import {
   toIterableJob,
   toIterableStatus,
   toMigrationResult,
+  toSmsOptInLink,
   toSmsSetup,
   toWhatsAppSetup,
 } from "./utils/normalize-connections";
@@ -269,6 +271,21 @@ export const connectionsService = {
       orgId
     );
     return toSmsSetup(data);
+  },
+
+  async smsOptInLink(
+    walletAddress: string,
+    orgId?: string
+  ): Promise<SmsOptInLink> {
+    const data = await request(
+      {
+        method: "POST",
+        url: "/organization/connections/sms/opt-in-link",
+        data: { walletAddress },
+      },
+      orgId
+    );
+    return toSmsOptInLink(data);
   },
 
   async discordImportMembers(

@@ -11,6 +11,7 @@ import type {
   IterableJobStatus,
   MigrationHeld,
   MigrationResult,
+  SmsOptInLink,
   SmsWebhookSetup,
   WhatsAppWebhookSetup,
 } from "../contracts/connections";
@@ -163,6 +164,16 @@ export function toWhatsAppSetup(raw: unknown): WhatsAppWebhookSetup {
 
 export function toSmsSetup(raw: unknown): SmsWebhookSetup {
   return { webhookUrl: str(obj(raw).webhookUrl) };
+}
+
+export function toSmsOptInLink(raw: unknown): SmsOptInLink {
+  const o = obj(raw);
+  return {
+    url: str(o.url),
+    smsNumber: str(o.smsNumber),
+    body: str(o.body),
+    expiresInSeconds: n(o.expiresInSeconds),
+  };
 }
 
 export function toDiscordImport(raw: unknown): DiscordImportResult {

@@ -22,6 +22,7 @@ import type {
   SmsA2pSubmission,
   SmsManagedSetup,
   SmsManagedStatus,
+  SmsManagedUsage,
   SmsNumberType,
   SmsOptInLink,
   SmsWebhookSetup,
@@ -43,6 +44,7 @@ import {
   toSmsA2pStatus,
   toSmsManagedSetup,
   toSmsManagedStatus,
+  toSmsManagedUsage,
   toSmsOptInLink,
   toSmsSetup,
   toWhatsAppOptInLink,
@@ -342,6 +344,14 @@ export const connectionsService = {
       orgId
     );
     return toSmsA2pStatus(data);
+  },
+
+  async smsManagedUsage(orgId?: string): Promise<SmsManagedUsage> {
+    const data = await request(
+      { method: "GET", url: "/organization/connections/sms/managed/usage" },
+      orgId
+    );
+    return toSmsManagedUsage(data);
   },
 
   async smsManagedStatus(orgId?: string): Promise<SmsManagedStatus> {

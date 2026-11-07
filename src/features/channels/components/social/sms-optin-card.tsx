@@ -22,7 +22,9 @@ import { useAccountOrg } from "@/features/settings/components/account/use-accoun
 export function SmsOptInCard() {
   const { organizationId } = useAccountOrg();
   const [wallet, setWallet] = useState("");
-  const [link, setLink] = useState<SmsOptInLink | null>(null);
+  const [link, setLink] = useState<
+    (SmsOptInLink & { walletAddress: string }) | null
+  >(null);
 
   const mint = useMutation({
     mutationFn: (walletAddress: string) =>
@@ -30,13 +32,20 @@ export function SmsOptInCard() {
         walletAddress,
         organizationId ?? undefined
       ),
-    onSuccess: (result) => setLink(result),
+    // Remember which wallet the link was minted for: its token binds whoever
+    // texts it to THAT wallet.
+    onSuccess: (result, walletAddress) => setLink({ ...result, walletAddress }),
     onError: (e) =>
       toast.error(e instanceof Error ? e.message : "Couldn't create the link."),
   });
 
   const trimmed = wallet.trim();
-  const minutes = link ? Math.round(link.expiresInSeconds / 60) : 0;
+  // Only ever show a link for the wallet currently in the field. The token binds
+  // the texting number to the wallet it was minted for, so an older wallet's
+  // link (left over after an edit, or from a request that resolved late) would
+  // let an operator send a contact a link that binds them to the wrong wallet.
+  const current = link?.walletAddress === trimmed ? link : null;
+  const minutes = current ? Math.round(current.expiresInSeconds / 60) : 0;
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-card p-4">
@@ -55,7 +64,10 @@ export function SmsOptInCard() {
             id="sms-optin-wallet"
             placeholder="0x…"
             value={wallet}
-            onChange={(e) => setWallet(e.target.value)}
+            onChange={(e) => {
+              setWallet(e.target.value);
+              setLink(null);
+            }}
           />
           <Button
             type="button"
@@ -67,11 +79,12 @@ export function SmsOptInCard() {
         </div>
       </div>
 
-      {link ? (
+      {current ? (
         <div className="space-y-2 border-t border-border pt-3">
-          <Row label="Opt-in link" value={link.url} />
-          <Row label="Or text this to" value={link.smsNumber} />
-          <Row label="Message" value={link.body} />
+          <Row label="For wallet" value={current.walletAddress} />
+          <Row label="Opt-in link" value={current.url} />
+          <Row label="Or text this to" value={current.smsNumber} />
+          <Row label="Message" value={current.body} />
           <p className="text-xs text-muted-foreground">
             Expires in {minutes} minute{minutes === 1 ? "" : "s"}. One use.
           </p>

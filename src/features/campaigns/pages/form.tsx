@@ -2353,6 +2353,16 @@ export function CreateCampaignPage() {
         const result = await campaignsService.sendWhatsApp(campaignId);
         const sent = result.sent ?? 0;
         await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+        // The backend now queues the send and answers 202 straight away: it goes
+        // out on the workers, so a large audience never runs inside this request.
+        // (An older backend still answers with the synchronous counts below.)
+        if (result.status === "queued") {
+          toast.success(
+            "WhatsApp send queued. It goes out in the background to every opted-in wallet, so you can leave this page."
+          );
+          setShowConfirmation(true);
+          return;
+        }
         if (result.ok === false && sent === 0) {
           toast.error(
             result.message ??
@@ -2381,6 +2391,16 @@ export function CreateCampaignPage() {
         const result = await campaignsService.sendSms(campaignId);
         const sent = result.sent ?? 0;
         await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+        // The backend now queues the send and answers 202 straight away: it goes
+        // out on the workers, so a large audience never runs inside this request.
+        // (An older backend still answers with the synchronous counts below.)
+        if (result.status === "queued") {
+          toast.success(
+            "SMS send queued. It goes out in the background to every opted-in wallet, so you can leave this page."
+          );
+          setShowConfirmation(true);
+          return;
+        }
         if (result.ok === false && sent === 0) {
           toast.error(
             result.message ??

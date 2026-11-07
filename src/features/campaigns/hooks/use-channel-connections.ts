@@ -14,6 +14,7 @@ const CONNECTOR_FOR: Partial<Record<CampaignChannel, string>> = {
   telegram: "telegram",
   discord: "discord",
   whatsapp: "whatsapp",
+  sms: "sms",
   x: "x",
   farcaster: "farcaster",
 };

@@ -16,6 +16,7 @@ import type {
   IterableJob,
   IterableJobStatus,
   MigrationResult,
+  SmsWebhookSetup,
   WhatsAppWebhookSetup,
 } from "./contracts/connections";
 import {
@@ -28,6 +29,7 @@ import {
   toIterableJob,
   toIterableStatus,
   toMigrationResult,
+  toSmsSetup,
   toWhatsAppSetup,
 } from "./utils/normalize-connections";
 
@@ -256,6 +258,17 @@ export const connectionsService = {
       orgId
     );
     return toWhatsAppSetup(data);
+  },
+
+  async smsWebhookSetup(orgId?: string): Promise<SmsWebhookSetup> {
+    const data = await request(
+      {
+        method: "GET",
+        url: "/organization/connections/sms/webhook-setup",
+      },
+      orgId
+    );
+    return toSmsSetup(data);
   },
 
   async discordImportMembers(

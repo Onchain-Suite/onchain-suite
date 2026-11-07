@@ -66,6 +66,7 @@ import {
   InAppPreview,
 } from "@/features/campaigns/components/campaign-form/in-app-message-step";
 import { InlineSchedule } from "@/features/campaigns/components/campaign-form/inline-schedule";
+import { SmsMessageStep } from "@/features/campaigns/components/campaign-form/sms-message-step";
 import { TelegramMessageStep } from "@/features/campaigns/components/campaign-form/telegram-message-step";
 import { TemplateStep } from "@/features/campaigns/components/campaign-form/template-step";
 import { WhatsAppMessageStep } from "@/features/campaigns/components/campaign-form/whatsapp-message-step";
@@ -290,6 +291,17 @@ const persistCampaignContent = async (
       templateName: (data.whatsappTemplateName ?? "").trim(),
       languageCode: (data.whatsappLanguageCode ?? "en_US").trim() || "en_US",
     });
+    return;
+  }
+  if (data.channel === "sms") {
+    // SMS → channelsContent.sms.body (free text, per-contact).
+    await campaignsService
+      .ensureChannels(campaignId, ["sms"])
+      .catch(() => undefined);
+    await campaignsService.setSmsContent(
+      campaignId,
+      (data.smsBody ?? "").trim()
+    );
     return;
   }
   if (data.channel === "x") {
@@ -743,6 +755,7 @@ function CampaignPreviewStep({
   const isTelegram = form.watch("channel") === "telegram";
   const isDiscord = form.watch("channel") === "discord";
   const isWhatsapp = form.watch("channel") === "whatsapp";
+  const isSms = form.watch("channel") === "sms";
   const isX = form.watch("channel") === "x";
   const isFarcaster = form.watch("channel") === "farcaster";
   // The non-email channels, like in-app, send with no email sender/subject/inbox
@@ -751,7 +764,13 @@ function CampaignPreviewStep({
   // those unchanged. (Discord/X/Farcaster broadcasts aren't literally per-wallet,
   // but they take the same no-sender/no-inbox path.)
   const isWalletChannel =
-    isPush || isTelegram || isDiscord || isWhatsapp || isX || isFarcaster;
+    isPush ||
+    isTelegram ||
+    isDiscord ||
+    isWhatsapp ||
+    isSms ||
+    isX ||
+    isFarcaster;
 
   // Auto-load the rendered email as soon as the step opens - no manual
   // "Generate preview" click required. The selected template is part of the
@@ -982,7 +1001,9 @@ function CampaignPreviewStep({
                       ? "Telegram"
                       : isDiscord
                         ? "Discord"
-                        : "In-app push"}{" "}
+                        : isSms
+                          ? "SMS"
+                          : "In-app push"}{" "}
                     always sends immediately.
                   </span>
                 </div>
@@ -1033,9 +1054,11 @@ function CampaignPreviewStep({
                 ? "Telegram preview"
                 : isDiscord
                   ? "Discord preview"
-                  : isPush
-                    ? "Notification preview"
-                    : "Inbox preview"}
+                  : isSms
+                    ? "SMS preview"
+                    : isPush
+                      ? "Notification preview"
+                      : "Inbox preview"}
             </div>
             {/* Send a test reveals an inline field on click. */}
             {!isWalletChannel ? (
@@ -1156,6 +1179,14 @@ function CampaignPreviewStep({
                   {(values.discordChannelId ?? "").trim().length > 0
                     ? `→ channel ${values.discordChannelId}`
                     : "Set a channel ID in the composer."}
+                </div>
+              </div>
+            ) : isSms ? (
+              <div className="flex min-h-[320px] flex-col justify-end gap-2 bg-muted/40 p-4">
+                <div className="max-w-[80%] self-start whitespace-pre-wrap break-words rounded-2xl rounded-bl-md bg-card px-3 py-2 text-sm text-foreground shadow-sm">
+                  {(values.smsBody ?? "").trim().length > 0
+                    ? values.smsBody
+                    : "Your SMS will appear here."}
                 </div>
               </div>
             ) : isPush ? (
@@ -1814,6 +1845,24 @@ export function CreateCampaignPage() {
           nextValues.channel = "discord";
         }
 
+        // SMS: restore the saved body + channel from `channelsContent.sms`, so a
+        // reopened SMS draft lands on the SMS composer with its message intact.
+        const smsSource = (() => {
+          if (
+            campaignRes.status === "fulfilled" &&
+            isJsonObject(campaignRes.value)
+          ) {
+            const cc = campaignRes.value.channelsContent;
+            if (isJsonObject(cc) && isJsonObject(cc.sms)) return cc.sms;
+          }
+          return undefined;
+        })();
+        if (smsSource) {
+          const body = smsSource.body ?? smsSource.text;
+          if (typeof body === "string") nextValues.smsBody = body;
+          nextValues.channel = "sms";
+        }
+
         if (audienceRes.status === "fulfilled") {
           const aObj: Record<string, unknown> = isJsonObject(audienceRes.value)
             ? audienceRes.value
@@ -1993,7 +2042,9 @@ export function CreateCampaignPage() {
             ? ["emailSubject"]
             : form.getValues("channel") === "telegram"
               ? ["telegramText"]
-              : ["emailSubject", "senderName", "senderEmail"]
+              : form.getValues("channel") === "sms"
+                ? ["smsBody"]
+                : ["emailSubject", "senderName", "senderEmail"]
           : [];
 
     const isValid = await form.trigger(fieldsToValidate);
@@ -2272,6 +2323,32 @@ export function CreateCampaignPage() {
         return;
       }
 
+      if (data.channel === "sms") {
+        await campaignsService
+          .ensureChannels(campaignId, ["sms"])
+          .catch(() => undefined);
+        const result = await campaignsService.sendSms(campaignId);
+        const sent = result.sent ?? 0;
+        await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+        if (result.ok === false && sent === 0) {
+          toast.error(
+            result.message ??
+              result.reason ??
+              "SMS send failed. Check your SMS sender is connected and verified."
+          );
+          return;
+        }
+        if (sent === 0) {
+          toast.warning(
+            "Nobody was reached. SMS only reaches wallets with an opted-in number - this audience has none yet."
+          );
+          return;
+        }
+        toast.success(`SMS sent to ${sent} wallet${sent === 1 ? "" : "s"}.`);
+        setShowConfirmation(true);
+        return;
+      }
+
       if (data.channel === "x") {
         await campaignsService
           .ensureChannels(campaignId, ["x"])
@@ -2429,6 +2506,7 @@ export function CreateCampaignPage() {
   const wizIsTelegram = form.watch("channel") === "telegram";
   const wizIsDiscord = form.watch("channel") === "discord";
   const wizIsWhatsapp = form.watch("channel") === "whatsapp";
+  const wizIsSms = form.watch("channel") === "sms";
   const wizIsX = form.watch("channel") === "x";
   const wizIsFarcaster = form.watch("channel") === "farcaster";
   // The non-email channels, like in-app, send with no email sender/subject/
@@ -2439,6 +2517,7 @@ export function CreateCampaignPage() {
     wizIsTelegram ||
     wizIsDiscord ||
     wizIsWhatsapp ||
+    wizIsSms ||
     wizIsX ||
     wizIsFarcaster;
 
@@ -2501,19 +2580,23 @@ export function CreateCampaignPage() {
       ? "Telegram"
       : wizIsDiscord
         ? "Discord"
-        : wizIsPush
-          ? "In-app push"
-          : "Email",
+        : wizIsSms
+          ? "SMS"
+          : wizIsPush
+            ? "In-app push"
+            : "Email",
     sender: wizIsTelegram
       ? "Telegram bot"
       : wizIsDiscord
         ? "Discord bot"
-        : wizIsPush
-          ? "In-app push"
-          : [form.watch("senderName"), form.watch("senderEmail")]
-              .map((value) => (value ?? "").trim())
-              .filter(Boolean)
-              .join(" · ") || "-",
+        : wizIsSms
+          ? "Your SMS number"
+          : wizIsPush
+            ? "In-app push"
+            : [form.watch("senderName"), form.watch("senderEmail")]
+                .map((value) => (value ?? "").trim())
+                .filter(Boolean)
+                .join(" · ") || "-",
     template: wizTemplateName.length > 0 ? wizTemplateName : "-",
     delivery: sendOption === "schedule" ? "Scheduled" : "Send immediately",
   };
@@ -2623,11 +2706,13 @@ export function CreateCampaignPage() {
         description={
           wizIsTelegram
             ? "This sends a Telegram message to the wallets below."
-            : wizIsPush
-              ? "This delivers an in-app push to the wallets below."
-              : sendOption === "schedule"
-                ? "It will send automatically at the scheduled time."
-                : "This sends to the recipients below right away."
+            : wizIsSms
+              ? "This sends an SMS to the opted-in wallets below."
+              : wizIsPush
+                ? "This delivers an in-app push to the wallets below."
+                : sendOption === "schedule"
+                  ? "It will send automatically at the scheduled time."
+                  : "This sends to the recipients below right away."
         }
         details={sendConfirmDetails}
         confirmLabel={
@@ -2794,6 +2879,8 @@ export function CreateCampaignPage() {
                         <DiscordMessageStep form={form} />
                       ) : wizIsWhatsapp ? (
                         <WhatsAppMessageStep form={form} />
+                      ) : wizIsSms ? (
+                        <SmsMessageStep form={form} />
                       ) : wizIsX ? (
                         <XMessageStep form={form} />
                       ) : wizIsFarcaster ? (

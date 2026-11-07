@@ -74,6 +74,7 @@ export function useChannelReadiness(): {
       social: {
         x: stateOf("x"),
         whatsapp: stateOf("whatsapp"),
+        sms: stateOf("sms"),
         telegram: stateOf("telegram"),
         discord: stateOf("discord"),
         farcaster: stateOf("farcaster"),

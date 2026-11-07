@@ -3,6 +3,7 @@
 import {
   ArrowTopRightOnSquareIcon,
   AtSymbolIcon,
+  ChatBubbleLeftEllipsisIcon,
   ChatBubbleLeftRightIcon,
   ChatBubbleOvalLeftIcon,
   DevicePhoneMobileIcon,
@@ -75,6 +76,14 @@ const CHANNELS: ChannelOption[] = [
     title: "WhatsApp",
     sub: "Approved template",
     icon: ChatBubbleLeftRightIcon,
+    gated: true,
+    broadcast: false,
+  },
+  {
+    key: "sms",
+    title: "SMS",
+    sub: "Opted-in numbers",
+    icon: ChatBubbleLeftEllipsisIcon,
     gated: true,
     broadcast: false,
   },
@@ -206,9 +215,11 @@ export function SendAsSelector({
             ? "Delivered on Telegram to wallets that opted in via your bot."
             : channel === "whatsapp"
               ? "Delivered to linked WhatsApp numbers using your approved template."
-              : channel === "in-app-push"
-                ? "Delivered in-app to connected wallets."
-                : "Delivered by email - contacts need an email address."}
+              : channel === "sms"
+                ? "Delivered by SMS to opted-in numbers. Replying STOP unsubscribes."
+                : channel === "in-app-push"
+                  ? "Delivered in-app to connected wallets."
+                  : "Delivered by email - contacts need an email address."}
         </p>
       )}
     </div>

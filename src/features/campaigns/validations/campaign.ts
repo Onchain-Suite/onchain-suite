@@ -11,6 +11,7 @@ export const campaignChannels = [
   "telegram",
   "discord",
   "whatsapp",
+  "sms",
   "x",
   "farcaster",
 ] as const;
@@ -51,10 +52,10 @@ export const campaignFormSchema = z
     utmContent: z.string().optional(),
 
     // Step 2: Template & Message. The subject doubles as the push title for
-    // in-app push campaigns; sender fields only apply to email (validated in
-    // superRefine below).
+    // in-app push campaigns. It and the sender fields are required only for the
+    // channels that have them (validated in superRefine below).
     selectedTemplate: z.string().optional(),
-    emailSubject: z.string().min(1, "Subject line is required"),
+    emailSubject: z.string(),
     previewText: z.string().optional(),
     // Empty means "inherit from the linked identity" — the default. A value
     // is a deliberate per-campaign override.
@@ -114,6 +115,11 @@ export const campaignFormSchema = z
     whatsappTemplateName: z.string().optional(),
     whatsappLanguageCode: z.string().default("en_US"),
 
+    // SMS: a single plain-text body (free text, no template approval), a
+    // per-contact fan-out to wallets with an opted-in SMS number. Persisted to
+    // channelsContent.sms.body.
+    smsBody: z.string().optional(),
+
     // X BROADCAST: one tweet via the org's connected X account. Persisted to
     // channelsContent.x.text.
     xText: z.string().optional(),
@@ -128,6 +134,20 @@ export const campaignFormSchema = z
     timezone: z.string().default("UTC"),
   })
   .superRefine((data, ctx) => {
+    // Only email (subject line) and in-app push (title) have a subject. The
+    // other channels never render the field, so requiring it unconditionally
+    // blocked them on a value the user had no way to enter.
+    if (
+      (data.channel === "email" || data.channel === "in-app-push") &&
+      data.emailSubject.trim().length === 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["emailSubject"],
+        message: "Subject line is required",
+      });
+    }
+
     // Email is the only channel with a sender identity; in-app push and Telegram
     // send through the SDK / the org's bot and need no sender fields.
     if (data.channel === "email") {
@@ -206,6 +226,19 @@ export const campaignFormSchema = z
           code: z.ZodIssueCode.custom,
           path: ["whatsappTemplateName"],
           message: "Enter the approved WhatsApp template name",
+        });
+      }
+    }
+
+    if (data.channel === "sms") {
+      if (
+        typeof data.smsBody !== "string" ||
+        data.smsBody.trim().length === 0
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["smsBody"],
+          message: "Enter a message to send",
         });
       }
     }

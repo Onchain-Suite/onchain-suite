@@ -114,6 +114,12 @@ export interface WhatsAppWebhookSetup {
   verifyToken: string;
 }
 
+/** `GET /organization/connections/sms/webhook-setup`. Pasted into Twilio.
+ *  No verify token: the provider authenticates with a request signature. */
+export interface SmsWebhookSetup {
+  webhookUrl: string;
+}
+
 /** `POST /organization/integrations/discord/import-members`. */
 export interface DiscordImportResult {
   guildId: string;

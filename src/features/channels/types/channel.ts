@@ -10,7 +10,14 @@
  */
 
 export type ChannelId =
-  "email" | "push" | "x" | "whatsapp" | "telegram" | "discord" | "farcaster";
+  | "email"
+  | "push"
+  | "x"
+  | "whatsapp"
+  | "sms"
+  | "telegram"
+  | "discord"
+  | "farcaster";
 
 /** How a channel reaches people, which drives its analytics and compliance. */
 export type ChannelKind = "email" | "inapp" | "dm" | "post";

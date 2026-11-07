@@ -3,6 +3,7 @@
 import {
   ArrowLeftIcon,
   ChatBubbleBottomCenterTextIcon,
+  ChatBubbleLeftEllipsisIcon,
   ChevronRightIcon,
   DevicePhoneMobileIcon,
   EnvelopeIcon,
@@ -45,6 +46,7 @@ const CHANNEL_ICON: Record<ChannelId, IconType> = {
   push: DevicePhoneMobileIcon,
   x: HashtagIcon,
   whatsapp: ChatBubbleBottomCenterTextIcon,
+  sms: ChatBubbleLeftEllipsisIcon,
   telegram: PaperAirplaneIcon,
   discord: UserGroupIcon,
   farcaster: MegaphoneIcon,

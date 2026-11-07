@@ -3,6 +3,7 @@ import { isJsonObject } from "@/lib/utils";
 import type {
   AvailableSmsNumber,
   ConnectionSummary,
+  ConsentImportResult,
   DataSyncResult,
   DiscordImportResult,
   EventsCatalog,
@@ -205,6 +206,22 @@ export function toAvailableSmsNumbers(raw: unknown): AvailableSmsNumber[] {
       };
     })
     .filter((n) => n.phoneNumber !== "");
+}
+
+export function toConsentImport(raw: unknown): ConsentImportResult {
+  const o = obj(raw);
+  return {
+    received: n(o.received),
+    imported: n(o.imported),
+    alreadyConsented: n(o.alreadyConsented),
+    suppressed: n(o.suppressed),
+    duplicate: n(o.duplicate),
+    invalid: n(o.invalid),
+    errors: arr(o.errors).map((e) => {
+      const x = obj(e);
+      return { row: n(x.row), reason: str(x.reason) };
+    }),
+  };
 }
 
 export function toSmsManagedSetup(raw: unknown): SmsManagedSetup {

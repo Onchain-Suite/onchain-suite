@@ -160,6 +160,18 @@ export interface SmsManagedSetup {
   verified: boolean;
 }
 
+/** One chunk's answer from `POST /organization/consents/:channel/import`.
+ *  `errors[].row` is the index within that chunk. */
+export interface ConsentImportResult {
+  received: number;
+  imported: number;
+  alreadyConsented: number;
+  suppressed: number;
+  duplicate: number;
+  invalid: number;
+  errors: Array<{ row: number; reason: string }>;
+}
+
 /** `POST /organization/integrations/discord/import-members`. */
 export interface DiscordImportResult {
   guildId: string;

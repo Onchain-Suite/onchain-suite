@@ -46,6 +46,24 @@ const throughputFields = (): ConnectorField[] => [
       hint: "Optional cap per UTC day, such as a WhatsApp messaging tier. Sends past it wait until the next day.",
     })
   ),
+  optional(
+    text("quietHours", "Send window (recipient's local time)", {
+      placeholder: "08:00-21:00",
+      hint: "Messages outside this window wait until it opens in the recipient's time zone. Blank uses 08:00-21:00.",
+    })
+  ),
+  optional(
+    text("maxPerRecipientPerDay", "Max messages per person per day", {
+      placeholder: "1",
+      hint: "Across all campaigns. People over the limit are skipped. 0 means no limit.",
+    })
+  ),
+  optional(
+    text("maxPerRecipientPerWeek", "Max messages per person per week", {
+      placeholder: "3",
+      hint: "Across all campaigns, over the last 7 days. 0 means no limit.",
+    })
+  ),
 ];
 
 const DEFS: ConnectorDef[] = [

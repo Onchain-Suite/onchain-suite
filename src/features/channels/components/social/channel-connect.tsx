@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { CHANNEL_META } from "../../data/channels";
 import type { SocialChannelId } from "../../types/channel";
+import { ConsentImportCard } from "./consent-import-card";
 import { DiscordImport } from "./discord-import";
 import { SmsManagedSetup } from "./sms-managed-setup";
 import { SmsOptInCard } from "./sms-optin-card";
@@ -22,11 +23,17 @@ const KIND_NOTE: Record<"dm" | "post", string> = {
 const NEXT_STEP: Partial<Record<SocialChannelId, ReactNode>> = {
   telegram: <TelegramActivate />,
   discord: <DiscordImport />,
-  whatsapp: <WhatsAppWebhook />,
+  whatsapp: (
+    <div className="space-y-6">
+      <WhatsAppWebhook />
+      <ConsentImportCard channel="whatsapp" />
+    </div>
+  ),
   sms: (
     <div className="space-y-6">
       <SmsWebhook />
       <SmsOptInCard />
+      <ConsentImportCard channel="sms" />
     </div>
   ),
 };

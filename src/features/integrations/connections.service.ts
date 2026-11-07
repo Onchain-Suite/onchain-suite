@@ -10,6 +10,7 @@ import type {
   ConnectionCredentials,
   ConnectionKind,
   ConnectionSummary,
+  ConsentImportResult,
   DataSyncResult,
   DiscordImportResult,
   EventsCatalog,
@@ -28,6 +29,7 @@ import {
   toAvailableSmsNumbers,
   toConnection,
   toConnectionList,
+  toConsentImport,
   toDataSync,
   toDiscordImport,
   toEventsCatalog,
@@ -335,6 +337,29 @@ export const connectionsService = {
       orgId
     );
     return toSmsManagedSetup(data);
+  },
+
+  async consentImport(
+    channel: "sms" | "whatsapp",
+    body: {
+      consentText: string;
+      source: string;
+      defaultCountry?: string;
+      rows: Array<Record<string, string>>;
+    },
+    signal?: AbortSignal,
+    orgId?: string
+  ): Promise<ConsentImportResult> {
+    const data = await request(
+      {
+        method: "POST",
+        url: `/organization/consents/${channel}/import`,
+        data: body,
+        signal,
+      },
+      orgId
+    );
+    return toConsentImport(data);
   },
 
   async discordImportMembers(

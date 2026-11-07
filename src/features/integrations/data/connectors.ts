@@ -27,6 +27,27 @@ const optional = (f: ConnectorField): ConnectorField => ({
   required: false,
 });
 
+/**
+ * Optional sender throughput for the per-recipient channels (SMS, WhatsApp).
+ * Sends are paced to this rate across every worker, so set it to what the
+ * sender can really deliver: a 10DLC campaign's MPS, a short code, a WhatsApp
+ * number's throughput. Blank uses the platform default.
+ */
+const throughputFields = (): ConnectorField[] => [
+  optional(
+    text("sendRatePerSecond", "Messages per second", {
+      placeholder: "10",
+      hint: "Your sender's real throughput. Leave blank for the default.",
+    })
+  ),
+  optional(
+    text("dailySendLimit", "Daily send limit", {
+      placeholder: "e.g. 1000",
+      hint: "Optional cap per UTC day, such as a WhatsApp messaging tier. Sends past it wait until the next day.",
+    })
+  ),
+];
+
 const DEFS: ConnectorDef[] = [
   // Channels
   {
@@ -55,6 +76,7 @@ const DEFS: ConnectorDef[] = [
       secret("accessToken", "Access token", {
         hint: "A permanent system-user token with whatsapp_business_messaging.",
       }),
+      ...throughputFields(),
     ],
     action: "none",
     where: "Meta Business → WhatsApp → API setup.",
@@ -75,9 +97,10 @@ const DEFS: ConnectorDef[] = [
       optional(
         text("messagingServiceSid", "Messaging Service SID", {
           placeholder: "MG…",
-          hint: "For A2P 10DLC / a sender pool.",
+          hint: "Preferred for sends: picks the right sender per country (10DLC, sender pools).",
         })
       ),
+      ...throughputFields(),
     ],
     action: "none",
     where: "Twilio Console → Account → API keys & tokens.",

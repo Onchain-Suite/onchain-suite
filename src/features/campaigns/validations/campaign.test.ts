@@ -50,6 +50,26 @@ describe("campaignFormSchema subject rule", () => {
     );
   });
 
+  it("requires the DM text, not the post, for an X DM send", () => {
+    expect(
+      issuePaths({ ...base, channel: "x", xDelivery: "dm", xText: "a post" })
+    ).toEqual(["xDmText"]);
+    expect(
+      issuePaths({ ...base, channel: "x", xDelivery: "dm", xDmText: "gm" })
+    ).toEqual([]);
+  });
+
+  it("needs no channel id for a Discord DM send", () => {
+    expect(
+      issuePaths({
+        ...base,
+        channel: "discord",
+        discordDelivery: "dm",
+        discordText: "gm",
+      })
+    ).toEqual([]);
+  });
+
   it("requires an SMS body", () => {
     expect(issuePaths({ ...base, channel: "sms", smsBody: "  " })).toEqual([
       "smsBody",

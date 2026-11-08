@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+import { DeliveryChoice } from "../../dm-send/delivery-choice";
 import type { CampaignFormData } from "../../validations";
 
 /**
- * Discord content step. A Discord broadcast is a single plain-text message
- * posted ONCE to a server channel through the org's own bot - not a per-contact
- * send - so it asks for the message plus the target channel id. Persisted to
- * `channelsContent.discord.{text,channelId}`.
+ * Discord content step. Either one message posted to a server channel through
+ * the org's bot (`channelsContent.discord.{text,channelId}`), or the same text
+ * as a DM to each member who opted in. Discord only allows bot DMs that follow
+ * the person's own action, so a DM send goes through the consent dialog.
  */
 export function DiscordMessageStep({
   form,
@@ -22,6 +23,7 @@ export function DiscordMessageStep({
 }) {
   const text = form.watch("discordText") ?? "";
   const channelId = form.watch("discordChannelId") ?? "";
+  const delivery = form.watch("discordDelivery") ?? "post";
 
   return (
     <div className="space-y-5">
@@ -40,24 +42,42 @@ export function DiscordMessageStep({
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="discord-channel">Channel ID</Label>
-        <Input
-          id="discord-channel"
-          inputMode="numeric"
-          placeholder="e.g. 112233445566778899"
-          value={channelId}
-          onChange={(e) =>
-            form.setValue("discordChannelId", e.target.value, {
-              shouldDirty: true,
-            })
-          }
-        />
-        <p className="text-xs text-muted-foreground">
-          Enable Developer Mode in Discord, then right-click the channel → Copy
-          Channel ID. The bot must be a member of that server.
-        </p>
-      </div>
+      <DeliveryChoice
+        id="discord-delivery"
+        value={delivery}
+        onChange={(v) =>
+          form.setValue("discordDelivery", v, { shouldDirty: true })
+        }
+        post={{
+          label: "Post to a channel",
+          hint: "One message in your server.",
+        }}
+        dm={{
+          label: "DM members",
+          hint: "A DM to each member who opted in through your link. Up to 2,000 a day.",
+        }}
+      />
+
+      {delivery === "post" ? (
+        <div className="space-y-1.5">
+          <Label htmlFor="discord-channel">Channel ID</Label>
+          <Input
+            id="discord-channel"
+            inputMode="numeric"
+            placeholder="e.g. 112233445566778899"
+            value={channelId}
+            onChange={(e) =>
+              form.setValue("discordChannelId", e.target.value, {
+                shouldDirty: true,
+              })
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            Enable Developer Mode in Discord, then right-click the channel →
+            Copy Channel ID. The bot must be a member of that server.
+          </p>
+        </div>
+      ) : null}
 
       <div className="space-y-1.5">
         <Label htmlFor="discord-text">Message</Label>

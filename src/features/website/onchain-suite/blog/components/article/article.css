@@ -1,0 +1,313 @@
+/* =========================================================================
+   Blog article reading layout. Scoped under .ocs2 and built only from the
+   landing-v2 tokens (--acc, --ink, --line...), so it inherits the blog's look.
+
+   Wide screens (>= 1200px):  [ outline 220 ] [ article 736 ] [ rail 132 ]
+   Narrower:                  single column, outline becomes a sticky bar.
+   ========================================================================= */
+
+/* Height of the sticky site navbar (ns.css .nav-in) plus the notch inset. */
+.ocs2 .ba,
+.ocs2 .ba-progress {
+  --ba-nav: calc(60px + env(safe-area-inset-top, 0px));
+}
+
+/* ---------- reading progress ---------- */
+.ocs2 .ba-progress {
+  position: fixed;
+  top: var(--ba-nav);
+  left: 0;
+  right: 0;
+  z-index: 11;
+  height: 3px;
+  pointer-events: none;
+}
+.ocs2 .ba-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--acc);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  will-change: transform;
+}
+
+/* ---------- frame ---------- */
+.ocs2 .ba {
+  position: relative;
+  padding: 64px 0 0;
+}
+.ocs2 .ba-bg {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 560px;
+  overflow: hidden;
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, #000 35%, transparent);
+}
+.ocs2 .ba-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+.ocs2 .ba-side {
+  display: none;
+}
+@media (min-width: 1200px) {
+  .ocs2 .ba {
+    padding-top: 80px;
+  }
+  .ocs2 .ba-grid {
+    grid-template-columns: 220px minmax(0, 46rem) 132px;
+    column-gap: 56px;
+    justify-content: center;
+    max-width: none;
+  }
+  .ocs2 .ba-side {
+    display: block;
+  }
+}
+@media (max-width: 640px) {
+  .ocs2 .ba {
+    padding-top: 40px;
+  }
+  .ocs2 .ba-grid {
+    padding: 0 20px;
+  }
+}
+
+/* Side columns stretch to the article's height, so their content can pin. */
+.ocs2 .ba-sticky {
+  position: sticky;
+  top: calc(var(--ba-nav) + 40px);
+}
+
+/* ---------- header ---------- */
+.ocs2 .ba-title {
+  font-size: clamp(2rem, 4.2vw, 2.85rem);
+  line-height: 1.1;
+}
+.ocs2 .ba-byline {
+  margin-top: 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ocs2 .ba-avatars {
+  display: flex;
+}
+.ocs2 .ba-avatars > * + * {
+  margin-left: -10px;
+}
+.ocs2 .ba-avatar {
+  flex: none;
+  border-radius: 999px;
+  object-fit: cover;
+  background: var(--surface);
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.ocs2 .ba-avatar--initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--acc-soft);
+  color: var(--acc);
+  font-weight: 600;
+}
+
+/* ---------- body ---------- */
+.ocs2 .ba-body {
+  padding-top: 48px;
+}
+.ocs2 .blog-prose :is(h2, h3, h4) {
+  scroll-margin-top: calc(var(--ba-nav) + 32px);
+}
+@media (max-width: 1199px) {
+  /* Leave room for the sticky outline bar too. */
+  .ocs2 .blog-prose :is(h2, h3, h4) {
+    scroll-margin-top: calc(var(--ba-nav) + 72px);
+  }
+}
+.ocs2 .blog-prose .blog-anchor {
+  margin-left: 0.35em;
+  color: var(--muted-2);
+  font-weight: 500;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.ocs2 .blog-prose :is(h2, h3, h4):hover .blog-anchor {
+  opacity: 1;
+}
+.ocs2 .blog-prose .blog-anchor:hover {
+  color: var(--acc);
+}
+.ocs2 .blog-prose .blog-figure__link {
+  display: block;
+  cursor: zoom-in;
+  text-decoration: none;
+}
+.ocs2 .blog-code-wrap {
+  position: relative;
+}
+.ocs2 .blog-code-wrap .blog-code {
+  padding-right: 5.5em;
+}
+.ocs2 .blog-code-copy {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid rgba(230, 235, 245, 0.18);
+  border-radius: var(--r-sm);
+  background: rgba(230, 235, 245, 0.06);
+  color: #c9d1e3;
+  font: 500 12px var(--font-sans);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.ocs2 .blog-code-copy:hover {
+  background: rgba(230, 235, 245, 0.14);
+  color: #fff;
+}
+
+/* ---------- right rail ---------- */
+.ocs2 .ba-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.ocs2 .ba-left b {
+  display: block;
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ocs2 .ba-left span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted-2);
+  font-size: 12.5px;
+}
+.ocs2 .ba-left .ba-left-done {
+  margin-top: 0;
+  color: var(--ok-deep);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+/* ---------- share ---------- */
+.ocs2 .ba-share {
+  display: flex;
+  gap: 8px;
+}
+.ocs2 .ba-share--column {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.ocs2 .ba-share-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.ocs2 .ba-share-btn:hover {
+  border-color: color-mix(in oklab, var(--acc) 40%, var(--line));
+  color: var(--acc);
+}
+.ocs2 .ba-share-icon {
+  width: 17px;
+  height: 17px;
+}
+.ocs2 .ba-share-icon--brand {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+}
+.ocs2 .ba-share-icon--brand svg {
+  width: 100%;
+  height: 100%;
+}
+.ocs2 .ba-share-end {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+@media (min-width: 1200px) {
+  /* The rail already offers sharing beside the article. */
+  .ocs2 .ba-share-end {
+    display: none;
+  }
+}
+
+/* ---------- end of article ---------- */
+.ocs2 .ba-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 48px;
+}
+.ocs2 .ba-author {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 40px;
+  padding: 22px;
+}
+.ocs2 .ba-author + .ba-author {
+  margin-top: 12px;
+}
+.ocs2 .ba-related {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 88px 28px 96px;
+}
+.ocs2 .ba-related-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 24px;
+}
+@media (max-width: 1000px) {
+  .ocs2 .ba-related-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .ocs2 .ba-related {
+    padding: 64px 20px 72px;
+  }
+  .ocs2 .ba-related-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media print {
+  .ocs2 .ba-progress,
+  .ocs2 .ba-side,
+  .ocs2 .ba-mobilebar,
+  .ocs2 .ba-share-end,
+  .ocs2 .ba-related,
+  .ocs2 .blog-code-copy,
+  .ocs2 .blog-prose .blog-anchor {
+    display: none !important;
+  }
+}

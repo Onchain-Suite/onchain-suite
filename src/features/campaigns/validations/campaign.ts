@@ -111,6 +111,11 @@ export const campaignFormSchema = z
     // "dm" sends discordText as a DM to each member who opted in, behind the
     // consent dialog, instead of one channel post.
     discordDelivery: z.enum(["post", "dm"]).default("post"),
+    // Post reach: crosspost to servers following an Announcement channel, and
+    // who it pings (mentions are off unless chosen here).
+    discordCrosspost: z.boolean().default(false),
+    discordMention: z.enum(["none", "role", "everyone"]).default("none"),
+    discordMentionRoleId: z.string().optional(),
 
     // WhatsApp: a pre-approved template name + language (NOT free text), a
     // per-contact fan-out to wallets with a bound WhatsApp number. Persisted to
@@ -228,6 +233,17 @@ export const campaignFormSchema = z
           code: z.ZodIssueCode.custom,
           path: ["discordChannelId"],
           message: "Enter the Discord channel ID to post to",
+        });
+      }
+      if (
+        data.discordDelivery !== "dm" &&
+        data.discordMention === "role" &&
+        !(data.discordMentionRoleId ?? "").trim()
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["discordMentionRoleId"],
+          message: "Pick the role to mention",
         });
       }
     }

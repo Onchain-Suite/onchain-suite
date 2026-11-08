@@ -1214,7 +1214,7 @@ export const campaignsService = {
    */
   setDiscordContent(
     id: string,
-    content: { text: string; channelId: string; delivery?: "post" | "dm" },
+    content: { text: string; channelId: string } & Record<string, unknown>,
     orgId?: string
   ) {
     return request<unknown>(
@@ -1227,17 +1227,15 @@ export const campaignsService = {
     );
   },
 
-  /**
-   * Broadcast the campaign to its configured Discord channel - one post through
-   * the org's bot (POST /campaigns/{id}/send-discord). Gate the "sent" UI on
-   * `ok`, not a bare 200.
-   */
+  // One channel post through the org's bot; see discord/discord-send.
   sendDiscord(id: string, orgId?: string) {
     return request<{
       ok: boolean;
       messageId: string | null;
       channelId: string;
       reason?: string;
+      crossposted?: boolean | null;
+      crosspostReason?: string;
     }>(
       { method: "POST", url: `/campaigns/${id}/send-discord`, data: {} },
       orgId

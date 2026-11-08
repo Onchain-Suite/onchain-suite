@@ -3,31 +3,35 @@
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
+export interface DeliveryOption<T extends string> {
+  value: T;
+  label: string;
+  hint: string;
+}
+
 /**
- * Post once publicly, or DM each person. The DM option says up front what the
- * consent dialog will ask again at send time: only people who messaged you.
+ * How a social campaign goes out: one public post, or a message to each
+ * person (a DM, a Mini App notification). Each option's hint says up front who
+ * it can reach, which the send step will hold the client to.
  */
-export function DeliveryChoice({
+export function DeliveryChoice<T extends string>({
   id,
   value,
   onChange,
-  post,
-  dm,
+  options,
 }: {
   id: string;
-  value: "post" | "dm";
-  onChange: (value: "post" | "dm") => void;
-  post: { label: string; hint: string };
-  dm: { label: string; hint: string };
+  value: T;
+  onChange: (value: T) => void;
+  options: readonly DeliveryOption<T>[];
 }) {
-  const options = [
-    { value: "post" as const, ...post },
-    { value: "dm" as const, ...dm },
-  ];
   return (
     <RadioGroup
       value={value}
-      onValueChange={(v) => onChange(v === "dm" ? "dm" : "post")}
+      onValueChange={(v) => {
+        const picked = options.find((o) => o.value === v);
+        if (picked) onChange(picked.value);
+      }}
       className="grid gap-2 sm:grid-cols-2"
       aria-label="How to send"
     >

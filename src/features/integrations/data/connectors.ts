@@ -153,6 +153,11 @@ const DEFS: ConnectorDef[] = [
           hint: "Optional. Turns on direct casts.",
         })
       ),
+      optional(
+        text("miniAppDomain", "Mini App domain", {
+          hint: "Optional. The domain in your farcaster.json, e.g. app.example.xyz. Turns on notifications; their links must be on it.",
+        })
+      ),
     ],
     action: "none",
     where: "Neynar dashboard → your app → Signers.",

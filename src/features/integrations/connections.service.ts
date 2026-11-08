@@ -26,6 +26,8 @@ import type {
   SmsNumberType,
   SmsOptInLink,
   SmsWebhookSetup,
+  WhatsAppEmbeddedResult,
+  WhatsAppEmbeddedSettings,
   WhatsAppOptInLink,
   WhatsAppWebhookSetup,
 } from "./contracts/connections";
@@ -47,6 +49,8 @@ import {
   toSmsManagedUsage,
   toSmsOptInLink,
   toSmsSetup,
+  toWhatsAppEmbeddedResult,
+  toWhatsAppEmbeddedSettings,
   toWhatsAppOptInLink,
   toWhatsAppSetup,
 } from "./utils/normalize-connections";
@@ -344,6 +348,31 @@ export const connectionsService = {
       orgId
     );
     return toSmsA2pStatus(data);
+  },
+
+  async whatsappEmbeddedSettings(
+    orgId?: string
+  ): Promise<WhatsAppEmbeddedSettings> {
+    const data = await request(
+      { method: "GET", url: "/organization/connections/whatsapp/embedded" },
+      orgId
+    );
+    return toWhatsAppEmbeddedSettings(data);
+  },
+
+  async whatsappEmbeddedComplete(
+    body: { code: string; wabaId: string; phoneNumberId: string },
+    orgId?: string
+  ): Promise<WhatsAppEmbeddedResult> {
+    const data = await request(
+      {
+        method: "POST",
+        url: "/organization/connections/whatsapp/embedded",
+        data: body,
+      },
+      orgId
+    );
+    return toWhatsAppEmbeddedResult(data);
   },
 
   async smsManagedUsage(orgId?: string): Promise<SmsManagedUsage> {

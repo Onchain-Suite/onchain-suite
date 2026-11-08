@@ -19,6 +19,8 @@ import type {
   SmsManagedUsage,
   SmsOptInLink,
   SmsWebhookSetup,
+  WhatsAppEmbeddedResult,
+  WhatsAppEmbeddedSettings,
   WhatsAppOptInLink,
   WhatsAppWebhookSetup,
 } from "../contracts/connections";
@@ -243,6 +245,30 @@ export function toSmsA2pStatus(raw: unknown): SmsA2pStatus {
     lastError: opt(o.lastError),
     updatedAt: opt(o.updatedAt),
     completedAt: opt(o.completedAt),
+  };
+}
+
+export function toWhatsAppEmbeddedSettings(
+  raw: unknown
+): WhatsAppEmbeddedSettings {
+  const o = obj(raw);
+  const appId = str(o.appId);
+  const configId = str(o.configId);
+  return {
+    enabled: o.enabled === true && Boolean(appId && configId),
+    appId: appId || null,
+    configId: configId || null,
+    graphVersion: str(o.graphVersion) || "v23.0",
+  };
+}
+
+export function toWhatsAppEmbeddedResult(raw: unknown): WhatsAppEmbeddedResult {
+  const o = obj(raw);
+  return {
+    verified: o.verified === true,
+    label: str(o.label) || null,
+    registered: o.registered === true,
+    warning: str(o.warning) || null,
   };
 }
 

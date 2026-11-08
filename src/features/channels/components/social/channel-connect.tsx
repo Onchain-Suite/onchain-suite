@@ -12,6 +12,7 @@ import { SmsUsRegistration } from "./sms-us-registration";
 import { SmsUsageCard } from "./sms-usage-card";
 import { SmsWebhook } from "./sms-webhook";
 import { TelegramActivate } from "./telegram-activate";
+import { WhatsAppEmbeddedSignup } from "./whatsapp-embedded-signup";
 import { WhatsAppOptInCard } from "./whatsapp-optin-card";
 import { WhatsAppWebhook } from "./whatsapp-webhook";
 import { ConnectorPanel } from "@/features/integrations/components/connect/connector-panel";
@@ -47,6 +48,7 @@ const NEXT_STEP: Partial<Record<SocialChannelId, ReactNode>> = {
 /** Before connecting: another way to get connected than pasting credentials. */
 const ALTERNATIVE: Partial<Record<SocialChannelId, ReactNode>> = {
   sms: <SmsManagedSetup />,
+  whatsapp: <WhatsAppEmbeddedSignup />,
 };
 
 /**

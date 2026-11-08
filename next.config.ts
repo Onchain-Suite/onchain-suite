@@ -83,7 +83,8 @@ const APP_CSP_REPORT_ONLY = [
   // stream will tell us what can be dropped on the way to a nonce-based policy.
   // cdn.databuddy.cc serves the Databuddy tracker + session-replay recorder
   // (databuddy.js / replay.js), mounted app-wide in the root layout.
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.clarity.ms https://cdn.databuddy.cc${posthogCspSources.script}`,
+  // connect.facebook.net: the Facebook JS SDK for WhatsApp Embedded Signup.
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.clarity.ms https://cdn.databuddy.cc https://connect.facebook.net${posthogCspSources.script}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   // Logo CDNs for the audience on-chain columns: chain/protocol icons from
   // DefiLlama, token icons from Covalent (the latter already loaded via
@@ -92,8 +93,9 @@ const APP_CSP_REPORT_ONLY = [
   "img-src 'self' data: blob: https://res.cloudinary.com https://*.clarity.ms https://icons.llamao.fi https://logos.covalenthq.com https://icons.duckduckgo.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   // basket.databuddy.cc is Databuddy's event + session-replay ingest endpoint.
-  `connect-src 'self' https://*.clarity.ms https://challenges.cloudflare.com https://basket.databuddy.cc${posthogCspSources.connect}`,
-  "frame-src 'self' https://challenges.cloudflare.com",
+  `connect-src 'self' https://*.clarity.ms https://challenges.cloudflare.com https://basket.databuddy.cc https://*.facebook.com${posthogCspSources.connect}`,
+  // *.facebook.com: the SDK's cross-domain frames for the Embedded Signup popup.
+  "frame-src 'self' https://challenges.cloudflare.com https://*.facebook.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "report-uri /api/csp-report",

@@ -232,6 +232,24 @@ export interface SmsA2pSubmission {
   };
 }
 
+/** `GET /organization/connections/whatsapp/embedded` - what opens Meta's
+ *  Embedded Signup popup. `enabled` is false until the Meta app is set up. */
+export interface WhatsAppEmbeddedSettings {
+  enabled: boolean;
+  appId: string | null;
+  configId: string | null;
+  graphVersion: string;
+}
+
+/** `POST /organization/connections/whatsapp/embedded` result. `warning` is set
+ *  when the number connected but Meta would not register it for sending. */
+export interface WhatsAppEmbeddedResult {
+  verified: boolean;
+  label: string | null;
+  registered: boolean;
+  warning: string | null;
+}
+
 /** `GET /organization/connections/sms/managed/usage` - texting usage on a
  *  number OnChain Suite set up, billed monthly. Counts only, no unit prices. */
 export interface SmsManagedUsage {

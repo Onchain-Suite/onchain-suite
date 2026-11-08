@@ -70,6 +70,35 @@ describe("campaignFormSchema subject rule", () => {
     ).toEqual([]);
   });
 
+  it("checks a Farcaster notification's title, message and link, not the cast", () => {
+    const notification = {
+      ...base,
+      channel: "farcaster",
+      farcasterDelivery: "notification",
+    };
+    expect(issuePaths(notification).sort()).toEqual([
+      "farcasterNotificationBody",
+      "farcasterNotificationTitle",
+      "farcasterNotificationUrl",
+    ]);
+    expect(
+      issuePaths({
+        ...notification,
+        farcasterNotificationTitle: "x".repeat(33),
+        farcasterNotificationBody: "gm",
+        farcasterNotificationUrl: "https://app.acme.xyz/claim",
+      })
+    ).toEqual(["farcasterNotificationTitle"]);
+    expect(
+      issuePaths({
+        ...notification,
+        farcasterNotificationTitle: "Season 2",
+        farcasterNotificationBody: "gm",
+        farcasterNotificationUrl: "http://app.acme.xyz",
+      })
+    ).toEqual(["farcasterNotificationUrl"]);
+  });
+
   it("requires an SMS body", () => {
     expect(issuePaths({ ...base, channel: "sms", smsBody: "  " })).toEqual([
       "smsBody",

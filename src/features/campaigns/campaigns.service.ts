@@ -1304,13 +1304,13 @@ export const campaignsService = {
     );
   },
 
-  // Farcaster: one broadcast public cast via the org's connected account.
-  setFarcasterContent(id: string, text: string, orgId?: string) {
+  // Farcaster: a public cast or a Mini App notification (farcaster/farcaster-send).
+  setFarcasterContent(id: string, data: object, orgId?: string) {
     return request<unknown>(
       {
         method: "PUT",
         url: `/campaigns/${id}/channels/farcaster/content`,
-        data: { text },
+        data,
       },
       orgId
     );

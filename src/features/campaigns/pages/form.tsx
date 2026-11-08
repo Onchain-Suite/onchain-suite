@@ -77,6 +77,10 @@ import {
   dmChannelFor,
   useDmSend,
 } from "@/features/campaigns/dm-send/use-dm-send";
+import {
+  farcasterContent,
+  sendFarcasterCampaign,
+} from "@/features/campaigns/farcaster/farcaster-send";
 import { useCampaignGoal } from "@/features/campaigns/hooks/use-campaign-goal";
 import { useInAppReadiness } from "@/features/campaigns/hooks/use-inapp-readiness";
 import {
@@ -322,13 +326,13 @@ const persistCampaignContent = async (
     return;
   }
   if (data.channel === "farcaster") {
-    // Farcaster broadcast → channelsContent.farcaster.text (one cast).
+    // A public cast or a Mini App notification → channelsContent.farcaster.
     await campaignsService
       .ensureChannels(campaignId, ["farcaster"])
       .catch(() => undefined);
     await campaignsService.setFarcasterContent(
       campaignId,
-      (data.farcasterText ?? "").trim()
+      farcasterContent(data)
     );
     return;
   }
@@ -2436,21 +2440,10 @@ export function CreateCampaignPage() {
       }
 
       if (data.channel === "farcaster") {
-        await campaignsService
-          .ensureChannels(campaignId, ["farcaster"])
-          .catch(() => undefined);
-        const result = await campaignsService.sendFarcaster(campaignId);
+        const outcome = await sendFarcasterCampaign(campaignId, data);
         await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-        if (result.ok === false) {
-          toast.error(
-            result.message ??
-              result.reason ??
-              "Farcaster cast failed. Check your account is connected."
-          );
-          return;
-        }
-        toast.success("Cast published to Farcaster.");
-        setShowConfirmation(true);
+        toast[outcome.level](outcome.message);
+        if (outcome.done) setShowConfirmation(true);
         return;
       }
 

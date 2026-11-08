@@ -110,7 +110,12 @@ function toError(e: unknown): DmSendError {
   return new DmSendError(message, code, status);
 }
 
-async function request(config: AxiosRequestConfig, orgId?: string) {
+/**
+ * An API call with the org header, the `{ data }` envelope unwrapped and
+ * errors as {@link DmSendError} (404 = route not deployed). Shared by the
+ * campaign sends that live outside campaigns.service.
+ */
+export async function request(config: AxiosRequestConfig, orgId?: string) {
   const resolved = orgId ?? getSelectedOrganizationId() ?? null;
   try {
     const res = await apiClient.request<unknown>({

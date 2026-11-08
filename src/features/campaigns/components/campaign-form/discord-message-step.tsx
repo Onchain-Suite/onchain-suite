@@ -48,14 +48,18 @@ export function DiscordMessageStep({
         onChange={(v) =>
           form.setValue("discordDelivery", v, { shouldDirty: true })
         }
-        post={{
-          label: "Post to a channel",
-          hint: "One message in your server.",
-        }}
-        dm={{
-          label: "DM members",
-          hint: "A DM to each member who opted in through your link. Up to 2,000 a day.",
-        }}
+        options={[
+          {
+            value: "post",
+            label: "Post to a channel",
+            hint: "One message in your server.",
+          },
+          {
+            value: "dm",
+            label: "DM members",
+            hint: "A DM to each member who opted in through your link. Up to 2,000 a day.",
+          },
+        ]}
       />
 
       {delivery === "post" ? (

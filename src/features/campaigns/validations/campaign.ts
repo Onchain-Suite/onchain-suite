@@ -133,6 +133,13 @@ export const campaignFormSchema = z
 
     // Farcaster BROADCAST: one public cast. Persisted to channelsContent.farcaster.text.
     farcasterText: z.string().optional(),
+    // "notification": a Mini App notification to people who enabled them,
+    // instead of a public cast. Persisted to channelsContent.farcaster.notification.
+    farcasterDelivery: z.enum(["cast", "notification"]).default("cast"),
+    farcasterNotificationTitle: z.string().optional(),
+    farcasterNotificationBody: z.string().optional(),
+    farcasterNotificationUrl: z.string().optional(),
+    farcasterNotificationAudience: z.enum(["all", "campaign"]).default("all"),
 
     // Send timing (chosen on the template step: send now or schedule)
     sendOption: z.enum(["now", "schedule"]),
@@ -263,7 +270,46 @@ export const campaignFormSchema = z
       }
     }
 
-    if (data.channel === "farcaster") {
+    if (
+      data.channel === "farcaster" &&
+      data.farcasterDelivery === "notification"
+    ) {
+      const checks: Array<
+        [keyof typeof data, string | undefined, number, string]
+      > = [
+        [
+          "farcasterNotificationTitle",
+          data.farcasterNotificationTitle,
+          32,
+          "a title",
+        ],
+        [
+          "farcasterNotificationBody",
+          data.farcasterNotificationBody,
+          128,
+          "a message",
+        ],
+      ];
+      for (const [path, value, max, what] of checks) {
+        const v = (value ?? "").trim();
+        if (!v || v.length > max) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [path],
+            message: v ? `Keep it to ${max} characters` : `Enter ${what}`,
+          });
+        }
+      }
+      if (
+        !/^https:\/\/[^\s/]+/.test((data.farcasterNotificationUrl ?? "").trim())
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["farcasterNotificationUrl"],
+          message: "Enter an https:// link on your Mini App's domain",
+        });
+      }
+    } else if (data.channel === "farcaster") {
       if (
         typeof data.farcasterText !== "string" ||
         data.farcasterText.trim().length === 0

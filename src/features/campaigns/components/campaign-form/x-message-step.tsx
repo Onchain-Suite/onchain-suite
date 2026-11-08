@@ -50,11 +50,18 @@ export function XMessageStep({
         id="x-delivery"
         value={delivery}
         onChange={(v) => form.setValue("xDelivery", v, { shouldDirty: true })}
-        post={{ label: "Post", hint: "One public post on your timeline." }}
-        dm={{
-          label: "DM",
-          hint: "A DM to each person, only if they DMed your account first. Up to 1,400 a day.",
-        }}
+        options={[
+          {
+            value: "post",
+            label: "Post",
+            hint: "One public post on your timeline.",
+          },
+          {
+            value: "dm",
+            label: "DM",
+            hint: "A DM to each person, only if they DMed your account first. Up to 1,400 a day.",
+          },
+        ]}
       />
 
       <div className="space-y-1.5">

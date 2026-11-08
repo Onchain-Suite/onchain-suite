@@ -25,6 +25,15 @@ import type { Post } from "@/payload-types";
  * src/payload/hooks/revalidate-post.ts can invalidate all of them at once.
  */
 
+/**
+ * Depth for reads that render a whole article. 2, not 1: the byline and the
+ * "Written by" card show each author's photo, which is a relation on the
+ * author (post -> authors -> avatar). At depth 1 the avatar is still a bare id
+ * and every author falls back to initials. Listings keep depth 1; cards show
+ * no avatars.
+ */
+export const ARTICLE_DEPTH = 2;
+
 /** Posts per page on the index and category archives. */
 export const POSTS_PER_PAGE = 12;
 
@@ -93,7 +102,7 @@ export const getPostBySlug = unstable_cache(
 
     const result = await payload.find({
       collection: "posts",
-      depth: 1,
+      depth: ARTICLE_DEPTH,
       limit: 1,
       where: { and: [publishedOnly, { slug: { equals: slug } }] },
     });
@@ -261,7 +270,7 @@ export async function getPreviewPostDocBySlug(
 
   const result = await payload.find({
     collection: "posts",
-    depth: 1,
+    depth: ARTICLE_DEPTH,
     limit: 1,
     draft: true,
     where: { slug: { equals: slug } },

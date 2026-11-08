@@ -4,7 +4,8 @@ import type { Category, Media, Post, User } from "@/payload-types";
  * View models for the public blog.
  *
  * Payload types relations as `number | Media` because they are IDs until a query
- * populates them. Every read in blog.service.ts uses `depth: 1`, so these narrow
+ * populates them. Listings read at `depth: 1` and full articles at `depth: 2`
+ * (author avatars are a nested relation), so these narrow
  * the unions once at the boundary and components never re-check.
  */
 

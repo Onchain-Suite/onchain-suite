@@ -38,15 +38,6 @@ export function readingProgress(
   return Math.min(1, Math.max(0, scrolled / scrollable));
 }
 
-/** Whole minutes still to read. Never 0 until the reader has finished. */
-export function minutesLeft(totalMinutes: number, progress: number): number {
-  if (progress >= 1) {
-    return 0;
-  }
-
-  return Math.max(1, Math.ceil(totalMinutes * (1 - progress)));
-}
-
 /**
  * The section being read: the last heading whose top has crossed `line`.
  * Before the first heading is reached, nothing is current (null).

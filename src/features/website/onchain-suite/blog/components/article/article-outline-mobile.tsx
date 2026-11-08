@@ -8,22 +8,19 @@ import {
   useActiveHeading,
 } from "../../hooks/use-active-heading";
 import type { OutlineItem } from "../../utils/outline";
-import { MinutesLeft } from "./minutes-left";
 
 /**
  * Below the wide-screen breakpoint the side columns go away and the outline
- * becomes this bar, pinned under the navbar: the current section and the time
- * left, opening to the full list. A native <details> keeps it keyboard and
+ * becomes this bar, pinned under the navbar: the current section, opening to
+ * the full list. A native <details> keeps it keyboard and
  * screen-reader friendly with no open/close state of our own.
  */
 export function ArticleOutlineMobile({
   items,
   bodyId,
-  totalMinutes,
 }: {
   items: OutlineItem[];
   bodyId: string;
-  totalMinutes: number;
 }) {
   const ids = useMemo(() => items.map((item) => item.id), [items]);
   const { active } = useActiveHeading(ids, bodyId);
@@ -36,14 +33,7 @@ export function ArticleOutlineMobile({
         <span className="ba-mobilebar-label">
           {current ? current.text : "On this page"}
         </span>
-        <span className="ba-mobilebar-meta">
-          <MinutesLeft
-            bodyId={bodyId}
-            totalMinutes={totalMinutes}
-            variant="inline"
-          />
-          <ChevronDownIcon aria-hidden="true" className="ba-mobilebar-caret" />
-        </span>
+        <ChevronDownIcon aria-hidden="true" className="ba-mobilebar-caret" />
       </summary>
       <nav aria-label="On this page">
         <ol>

@@ -7,7 +7,6 @@ import { ArticleHeader } from "./article/article-header";
 import { ArticleOutline } from "./article/article-outline";
 import { ArticleOutlineMobile } from "./article/article-outline-mobile";
 import { AuthorCard } from "./article/author-card";
-import { MinutesLeft } from "./article/minutes-left";
 import { ReadingProgress } from "./article/reading-progress";
 import { RelatedPosts } from "./article/related-posts";
 import { ShareActions } from "./article/share-actions";
@@ -20,13 +19,13 @@ const BODY_ID = "article-body";
 /**
  * A single post, laid out for long-form reading:
  *
- *   [ outline ]  [ header / body / author ]  [ time left + share ]
+ *   [ outline ]  [ header / body / author ]  [ share ]
  *
  * The side columns are pinned and only appear on wide screens; below that the
  * outline collapses into a bar under the navbar and sharing moves to the end.
  *
  * Everything here renders on the server except four small islands (progress
- * bar, outline, minutes-left, share), which only measure scroll position. Kept
+ * bar, outline, share and code copy), which only read scroll position. Kept
  * synchronous on purpose: the live-preview route renders this same view on
  * the client, so data such as `related` is fetched by the route and passed in.
  */
@@ -63,11 +62,7 @@ export function BlogPostView({
             <ArticleHeader post={post} />
 
             {showOutline ? (
-              <ArticleOutlineMobile
-                items={outline.items}
-                bodyId={BODY_ID}
-                totalMinutes={post.readingTimeMinutes}
-              />
+              <ArticleOutlineMobile items={outline.items} bodyId={BODY_ID} />
             ) : null}
 
             <div id={BODY_ID} className="ba-body">
@@ -96,13 +91,8 @@ export function BlogPostView({
             ))}
           </div>
 
-          <aside className="ba-side" aria-label="Reading time and sharing">
+          <aside className="ba-side" aria-label="Share this article">
             <div className="ba-sticky ba-rail">
-              <MinutesLeft
-                bodyId={BODY_ID}
-                totalMinutes={post.readingTimeMinutes}
-                variant="stat"
-              />
               <ShareActions url={url} title={post.title} layout="column" />
             </div>
           </aside>

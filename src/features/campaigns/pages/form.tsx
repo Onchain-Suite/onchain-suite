@@ -96,6 +96,10 @@ import {
   syncAudienceSettings,
 } from "@/features/campaigns/lib/audience-sync";
 import { parseSenderNotVerified } from "@/features/campaigns/lib/launch-errors";
+import {
+  smsContent,
+  smsFormValues,
+} from "@/features/campaigns/sms/sms-content";
 import { socialSender } from "@/features/campaigns/social-send";
 import {
   restoreTelegram,
@@ -310,10 +314,7 @@ const persistCampaignContent = async (
     await campaignsService
       .ensureChannels(campaignId, ["sms"])
       .catch(() => undefined);
-    await campaignsService.setSmsContent(
-      campaignId,
-      (data.smsBody ?? "").trim()
-    );
+    await campaignsService.setSmsContent(campaignId, smsContent(data));
     return;
   }
   if (data.channel === "x") {
@@ -1909,8 +1910,7 @@ export function CreateCampaignPage() {
           return undefined;
         })();
         if (smsSource) {
-          const body = smsSource.body ?? smsSource.text;
-          if (typeof body === "string") nextValues.smsBody = body;
+          Object.assign(nextValues, smsFormValues(smsSource));
           nextValues.channel = "sms";
         }
 

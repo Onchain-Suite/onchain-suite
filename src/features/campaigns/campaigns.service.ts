@@ -1267,12 +1267,16 @@ export const campaignsService = {
 
   // SMS: a single free-text body, persisted via the generic per-channel content
   // route; sent per-contact to wallets with an opted-in number.
-  setSmsContent(id: string, body: string, orgId?: string) {
+  setSmsContent(
+    id: string,
+    content: { body: string; trackLinks: boolean },
+    orgId?: string
+  ) {
     return request<unknown>(
       {
         method: "PUT",
         url: `/campaigns/${id}/channels/sms/content`,
-        data: { body },
+        data: content,
       },
       orgId
     );

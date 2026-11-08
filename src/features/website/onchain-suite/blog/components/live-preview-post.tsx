@@ -25,7 +25,10 @@ export function LivePreviewPost({ initialPost }: { initialPost: Post }) {
     // Must match `routes.api` in payload.config.ts - the default /api is taken
     // by this app's own handlers.
     apiRoute: "/cms-api",
-    depth: 1,
+    // Same depth as the published read (blog.service ARTICLE_DEPTH), so author
+    // photos resolve in the preview too. Not imported: the service module pulls
+    // in the database adapter and can't be bundled for the browser.
+    depth: 2,
   });
 
   // Mapping walks the whole Lexical tree to count words, so it must not re-run

@@ -9,6 +9,7 @@ import {
 import {
   getPostBySlug,
   listPublishedPostRefs,
+  listRelatedPosts,
 } from "@/onchain-suite-website/blog/blog.service";
 import { BlogPostView } from "@/onchain-suite-website/blog/components/blog-post-view";
 import { SITE_CONFIG } from "@/onchain-suite-website/config/site";
@@ -85,6 +86,17 @@ export default async function BlogPostPage({ params }: Props) {
     notFound();
   }
 
+  // Suggestions are a nice-to-have: a failed read must not take the article down.
+  const related = await listRelatedPosts(
+    post.id,
+    post.categories.flatMap((category) =>
+      category.slug ? [category.slug] : []
+    )
+  ).catch((error: unknown) => {
+    console.error("blog: could not load related posts", error);
+    return [];
+  });
+
   return (
     <>
       <script
@@ -97,7 +109,7 @@ export default async function BlogPostPage({ params }: Props) {
           __html: JSON.stringify(buildBlogPostingJsonLd(post)),
         }}
       />
-      <BlogPostView post={post} />
+      <BlogPostView post={post} related={related} />
     </>
   );
 }

@@ -99,6 +99,18 @@ describe("campaignFormSchema subject rule", () => {
     ).toEqual(["farcasterNotificationUrl"]);
   });
 
+  it("requires a role when a Discord post pings a role", () => {
+    expect(
+      issuePaths({
+        ...base,
+        channel: "discord",
+        discordText: "gm",
+        discordChannelId: "123",
+        discordMention: "role",
+      })
+    ).toEqual(["discordMentionRoleId"]);
+  });
+
   it("requires an SMS body", () => {
     expect(issuePaths({ ...base, channel: "sms", smsBody: "  " })).toEqual([
       "smsBody",

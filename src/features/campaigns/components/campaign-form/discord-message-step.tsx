@@ -3,10 +3,10 @@
 import { PaperAirplaneIcon } from "@heroicons/react/24/outline";
 import type { UseFormReturn } from "react-hook-form";
 
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+import { DiscordPostTarget } from "../../discord/discord-post-target";
 import { DeliveryChoice } from "../../dm-send/delivery-choice";
 import type { CampaignFormData } from "../../validations";
 
@@ -22,7 +22,6 @@ export function DiscordMessageStep({
   form: UseFormReturn<CampaignFormData>;
 }) {
   const text = form.watch("discordText") ?? "";
-  const channelId = form.watch("discordChannelId") ?? "";
   const delivery = form.watch("discordDelivery") ?? "post";
 
   return (
@@ -33,8 +32,7 @@ export function DiscordMessageStep({
           className="mt-0.5 h-5 w-5 shrink-0 text-violet-600 dark:text-violet-400"
         />
         <div className="text-sm text-muted-foreground">
-          Posted once to a Discord channel through your connected bot. Connect a
-          bot in{" "}
+          Sent through your connected bot. Connect a bot in{" "}
           <span className="font-medium text-foreground">
             Settings → Integrations
           </span>{" "}
@@ -62,26 +60,7 @@ export function DiscordMessageStep({
         ]}
       />
 
-      {delivery === "post" ? (
-        <div className="space-y-1.5">
-          <Label htmlFor="discord-channel">Channel ID</Label>
-          <Input
-            id="discord-channel"
-            inputMode="numeric"
-            placeholder="e.g. 112233445566778899"
-            value={channelId}
-            onChange={(e) =>
-              form.setValue("discordChannelId", e.target.value, {
-                shouldDirty: true,
-              })
-            }
-          />
-          <p className="text-xs text-muted-foreground">
-            Enable Developer Mode in Discord, then right-click the channel →
-            Copy Channel ID. The bot must be a member of that server.
-          </p>
-        </div>
-      ) : null}
+      {delivery === "post" ? <DiscordPostTarget form={form} /> : null}
 
       <div className="space-y-1.5">
         <Label htmlFor="discord-text">Message</Label>

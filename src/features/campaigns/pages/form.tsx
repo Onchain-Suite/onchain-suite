@@ -74,6 +74,11 @@ import { WizardStepRail } from "@/features/campaigns/components/campaign-form/wi
 import { WizardSummary } from "@/features/campaigns/components/campaign-form/wizard-summary";
 import { XMessageStep } from "@/features/campaigns/components/campaign-form/x-message-step";
 import {
+  discordContent,
+  restoreDiscord,
+} from "@/features/campaigns/discord/discord-content";
+import { sendDiscordPost } from "@/features/campaigns/discord/discord-send";
+import {
   dmChannelFor,
   useDmSend,
 } from "@/features/campaigns/dm-send/use-dm-send";
@@ -284,11 +289,7 @@ const persistCampaignContent = async (
     await campaignsService
       .ensureChannels(campaignId, ["discord"])
       .catch(() => undefined);
-    await campaignsService.setDiscordContent(campaignId, {
-      text: (data.discordText ?? "").trim(),
-      channelId: (data.discordChannelId ?? "").trim(),
-      delivery: data.discordDelivery,
-    });
+    await campaignsService.setDiscordContent(campaignId, discordContent(data));
     return;
   }
   if (data.channel === "whatsapp") {
@@ -1865,23 +1866,15 @@ export function CreateCampaignPage() {
         // Discord broadcast: restore text + channel id from
         // `channelsContent.discord`, same as Telegram, so a draft reopens on the
         // Discord composer rather than the email one.
-        const discordSource = (() => {
-          if (
-            campaignRes.status === "fulfilled" &&
-            isJsonObject(campaignRes.value)
-          ) {
-            const cc = campaignRes.value.channelsContent;
-            if (isJsonObject(cc) && isJsonObject(cc.discord)) return cc.discord;
-          }
-          return undefined;
-        })();
+        const discordSource = restoreDiscord(
+          campaignRes.status === "fulfilled" &&
+            isJsonObject(campaignRes.value) &&
+            isJsonObject(campaignRes.value.channelsContent)
+            ? campaignRes.value.channelsContent.discord
+            : undefined
+        );
         if (discordSource) {
-          const text = discordSource.text ?? discordSource.body;
-          if (typeof text === "string") nextValues.discordText = text;
-          if (typeof discordSource.channelId === "string")
-            nextValues.discordChannelId = discordSource.channelId;
-          if (discordSource.delivery === "dm")
-            nextValues.discordDelivery = "dm";
+          Object.assign(nextValues, discordSource);
           nextValues.channel = "discord";
         }
 
@@ -2328,21 +2321,10 @@ export function CreateCampaignPage() {
       }
 
       if (data.channel === "discord") {
-        await campaignsService
-          .ensureChannels(campaignId, ["discord"])
-          .catch(() => undefined);
-        const result = await campaignsService.sendDiscord(campaignId);
+        const outcome = await sendDiscordPost(campaignId);
         await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-        if (!result.ok) {
-          toast.error(
-            result.reason
-              ? `Discord broadcast failed: ${result.reason}`
-              : "Discord broadcast failed. Check the bot is in the server and the channel ID is right."
-          );
-          return;
-        }
-        toast.success("Broadcast posted to Discord.");
-        setShowConfirmation(true);
+        toast[outcome.level](outcome.message);
+        if (outcome.done) setShowConfirmation(true);
         return;
       }
 

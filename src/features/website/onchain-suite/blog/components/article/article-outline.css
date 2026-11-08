@@ -112,15 +112,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ocs2 .ba-mobilebar-meta {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted-2);
-  font-size: 12.5px;
-}
 .ocs2 .ba-mobilebar-caret {
+  flex: none;
+  color: var(--muted-2);
   width: 16px;
   height: 16px;
   transition: transform 0.2s;

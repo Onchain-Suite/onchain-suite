@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { activeHeadingIndex, minutesLeft, readingProgress } from "./reading";
+import { activeHeadingIndex, readingProgress } from "./reading";
 
 describe("readingProgress", () => {
   const viewport = 900;
@@ -22,15 +22,6 @@ describe("readingProgress", () => {
   it("treats a body shorter than the screen as read once fully visible", () => {
     expect(readingProgress({ top: 200, height: 500 }, viewport)).toBe(1);
     expect(readingProgress({ top: 600, height: 500 }, viewport)).toBe(0);
-  });
-});
-
-describe("minutesLeft", () => {
-  it("counts down in whole minutes and only hits 0 when finished", () => {
-    expect(minutesLeft(8, 0)).toBe(8);
-    expect(minutesLeft(8, 0.5)).toBe(4);
-    expect(minutesLeft(8, 0.99)).toBe(1);
-    expect(minutesLeft(8, 1)).toBe(0);
   });
 });
 

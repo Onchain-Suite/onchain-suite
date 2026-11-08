@@ -2,7 +2,7 @@
    Blog article reading layout. Scoped under .ocs2 and built only from the
    landing-v2 tokens (--acc, --ink, --line...), so it inherits the blog's look.
 
-   Wide screens (>= 1200px):  [ outline 220 ] [ article 736 ] [ rail 132 ]
+   Wide screens (>= 1200px):  [ outline 220 ] [ article 736 ] [ share 132 ]
    Narrower:                  single column, outline becomes a sticky bar.
    ========================================================================= */
 
@@ -181,26 +181,6 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-.ocs2 .ba-left b {
-  display: block;
-  color: var(--ink);
-  font-size: 26px;
-  font-weight: 650;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.ocs2 .ba-left span {
-  display: block;
-  margin-top: 4px;
-  color: var(--muted-2);
-  font-size: 12.5px;
-}
-.ocs2 .ba-left .ba-left-done {
-  margin-top: 0;
-  color: var(--ok-deep);
-  font-size: 13.5px;
-  font-weight: 600;
 }
 
 /* ---------- share ---------- */

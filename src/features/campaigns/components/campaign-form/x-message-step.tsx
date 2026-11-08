@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { DeliveryChoice } from "../../dm-send/delivery-choice";
 import type { CampaignFormData } from "../../validations";
+import { XThreadEditor } from "../../x/x-thread-editor";
 
 const X_LIMIT = 280;
 const X_DM_LIMIT = 10_000;
@@ -38,7 +39,7 @@ export function XMessageStep({
           className="mt-0.5 h-5 w-5 shrink-0 text-foreground"
         />
         <div className="text-sm text-muted-foreground">
-          Published once to your connected X account. Connect an account in{" "}
+          Sent from your connected X account. Connect an account in{" "}
           <span className="font-medium text-foreground">
             Settings → Integrations
           </span>{" "}
@@ -54,7 +55,7 @@ export function XMessageStep({
           {
             value: "post",
             label: "Post",
-            hint: "One public post on your timeline.",
+            hint: "A public post, or a thread, on your timeline.",
           },
           {
             value: "dm",
@@ -64,28 +65,32 @@ export function XMessageStep({
         ]}
       />
 
-      <div className="space-y-1.5">
-        <Label htmlFor="x-text">{isDm ? "Direct message" : "Post"}</Label>
-        <Textarea
-          id="x-text"
-          rows={5}
-          placeholder={isDm ? "Write the DM…" : "What's happening?"}
-          value={text}
-          onChange={(e) =>
-            form.setValue(field, e.target.value, { shouldDirty: true })
-          }
-        />
-        <p
-          className={
-            over
-              ? "text-xs text-red-600 dark:text-red-400"
-              : "text-xs text-muted-foreground"
-          }
-        >
-          {text.length.toLocaleString()} / {limit.toLocaleString()} characters
-          {over ? " - over the limit" : ""}
-        </p>
-      </div>
+      {isDm ? (
+        <div className="space-y-1.5">
+          <Label htmlFor="x-text">Direct message</Label>
+          <Textarea
+            id="x-text"
+            rows={5}
+            placeholder="Write the DM…"
+            value={text}
+            onChange={(e) =>
+              form.setValue(field, e.target.value, { shouldDirty: true })
+            }
+          />
+          <p
+            className={
+              over
+                ? "text-xs text-red-600 dark:text-red-400"
+                : "text-xs text-muted-foreground"
+            }
+          >
+            {text.length.toLocaleString()} / {limit.toLocaleString()} characters
+            {over ? " - over the limit" : ""}
+          </p>
+        </div>
+      ) : (
+        <XThreadEditor form={form} />
+      )}
     </div>
   );
 }

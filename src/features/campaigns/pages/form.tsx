@@ -102,6 +102,7 @@ import {
 import { parseSenderNotVerified } from "@/features/campaigns/lib/launch-errors";
 import type { List, Segment } from "@/features/campaigns/types";
 import { placementDeliverable } from "@/features/campaigns/utils/inapp-readiness";
+import { sendXPost, xContent } from "@/features/campaigns/x/x-content";
 import { useOrgSwitcherContext } from "@/features/common/layout/components/org-switcher-context";
 import {
   type IntelligenceSegment,
@@ -319,11 +320,7 @@ const persistCampaignContent = async (
     await campaignsService
       .ensureChannels(campaignId, ["x"])
       .catch(() => undefined);
-    await campaignsService.setXContent(campaignId, {
-      text: (data.xText ?? "").trim(),
-      dmText: (data.xDmText ?? "").trim(),
-      delivery: data.xDelivery,
-    });
+    await campaignsService.setXContent(campaignId, xContent(data));
     return;
   }
   if (data.channel === "farcaster") {
@@ -2402,22 +2399,11 @@ export function CreateCampaignPage() {
         return;
       }
 
-      if (data.channel === "x") {
-        await campaignsService
-          .ensureChannels(campaignId, ["x"])
-          .catch(() => undefined);
-        const result = await campaignsService.sendX(campaignId);
+      if (data.channel === "x" && data.xDelivery !== "dm") {
+        const outcome = await sendXPost(campaignId);
         await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-        if (result.ok === false) {
-          toast.error(
-            result.message ??
-              result.reason ??
-              "X post failed. Check your X account is connected."
-          );
-          return;
-        }
-        toast.success("Posted to X.");
-        setShowConfirmation(true);
+        toast[outcome.level](outcome.message);
+        if (outcome.done) setShowConfirmation(true);
         return;
       }
 

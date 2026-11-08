@@ -131,6 +131,9 @@ export const campaignFormSchema = z
     // per-contact fan-out to wallets with an opted-in SMS number. Persisted to
     // channelsContent.sms.body.
     smsBody: z.string().optional(),
+    // Track clicks on links in the SMS (channelsContent.sms.trackLinks). Off by
+    // default: a tracked link is ~80 characters and SMS bills per segment.
+    smsTrackLinks: z.boolean().optional(),
 
     // X BROADCAST: one tweet via the org's connected X account. Persisted to
     // channelsContent.x.text.

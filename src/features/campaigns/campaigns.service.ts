@@ -1196,12 +1196,12 @@ export const campaignsService = {
    * Save the campaign's Telegram text. Stored under `channelsContent.telegram`
    * (PUT /campaigns/{id}/channels/telegram/content); sent as DMs via dm-send.
    */
-  setTelegramContent(id: string, text: string, orgId?: string) {
+  setTelegramContent(id: string, data: object, orgId?: string) {
     return request<unknown>(
       {
         method: "PUT",
         url: `/campaigns/${id}/channels/telegram/content`,
-        data: { text },
+        data,
       },
       orgId
     );

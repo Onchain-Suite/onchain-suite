@@ -103,6 +103,10 @@ export const campaignFormSchema = z
 
     // Telegram: a single plain-text body, persisted to channelsContent.telegram.text.
     telegramText: z.string().optional(),
+    // "dm": each person who started the bot (consent dialog). "channel": one
+    // post in the client's Telegram channel, to every subscriber.
+    telegramDelivery: z.enum(["dm", "channel"]).default("dm"),
+    telegramChannel: z.string().optional(),
 
     // Discord BROADCAST: a plain-text message + the target channel id, persisted
     // to channelsContent.discord.{text,channelId}. Not per-contact — one post.
@@ -211,6 +215,16 @@ export const campaignFormSchema = z
           code: z.ZodIssueCode.custom,
           path: ["telegramText"],
           message: "Enter a message to send",
+        });
+      }
+      if (
+        data.telegramDelivery === "channel" &&
+        !(data.telegramChannel ?? "").trim()
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["telegramChannel"],
+          message: "Enter the channel to post to, e.g. @your_channel",
         });
       }
     }

@@ -14,9 +14,14 @@ import type { DmChannel } from "./dm-send.service";
  * Telegram is always a DM; X and Discord only when the composer chose "DM".
  */
 export function dmChannelFor(
-  data: Pick<CampaignFormData, "channel" | "xDelivery" | "discordDelivery">
+  data: Pick<
+    CampaignFormData,
+    "channel" | "xDelivery" | "discordDelivery" | "telegramDelivery"
+  >
 ): DmChannel | null {
-  if (data.channel === "telegram") return "telegram";
+  if (data.channel === "telegram") {
+    return data.telegramDelivery === "channel" ? null : "telegram";
+  }
   if (data.channel === "x" && data.xDelivery === "dm") return "x";
   if (data.channel === "discord" && data.discordDelivery === "dm") {
     return "discord";

@@ -77,15 +77,11 @@ import {
   discordContent,
   restoreDiscord,
 } from "@/features/campaigns/discord/discord-content";
-import { sendDiscordPost } from "@/features/campaigns/discord/discord-send";
 import {
   dmChannelFor,
   useDmSend,
 } from "@/features/campaigns/dm-send/use-dm-send";
-import {
-  farcasterContent,
-  sendFarcasterCampaign,
-} from "@/features/campaigns/farcaster/farcaster-send";
+import { farcasterContent } from "@/features/campaigns/farcaster/farcaster-send";
 import { useCampaignGoal } from "@/features/campaigns/hooks/use-campaign-goal";
 import { useInAppReadiness } from "@/features/campaigns/hooks/use-inapp-readiness";
 import {
@@ -100,9 +96,14 @@ import {
   syncAudienceSettings,
 } from "@/features/campaigns/lib/audience-sync";
 import { parseSenderNotVerified } from "@/features/campaigns/lib/launch-errors";
+import { socialSender } from "@/features/campaigns/social-send";
+import {
+  restoreTelegram,
+  telegramContent,
+} from "@/features/campaigns/telegram/telegram-content";
 import type { List, Segment } from "@/features/campaigns/types";
 import { placementDeliverable } from "@/features/campaigns/utils/inapp-readiness";
-import { sendXPost, xContent } from "@/features/campaigns/x/x-content";
+import { xContent } from "@/features/campaigns/x/x-content";
 import { useOrgSwitcherContext } from "@/features/common/layout/components/org-switcher-context";
 import {
   type IntelligenceSegment,
@@ -275,10 +276,10 @@ const persistCampaignContent = async (
     return;
   }
   if (data.channel === "telegram") {
-    // Telegram is a single plain-text body → channelsContent.telegram.text.
+    // DMs, or one post in the client's channel → channelsContent.telegram.
     await campaignsService.setTelegramContent(
       campaignId,
-      (data.telegramText ?? "").trim()
+      telegramContent(data)
     );
     return;
   }
@@ -1843,20 +1844,15 @@ export function CreateCampaignPage() {
         // Telegram composer: restore the saved text + channel the same way, from
         // `channelsContent.telegram.text`, so reopening a Telegram draft doesn't
         // fall back to the email composer.
-        const telegramSource = (() => {
-          if (
-            campaignRes.status === "fulfilled" &&
-            isJsonObject(campaignRes.value)
-          ) {
-            const cc = campaignRes.value.channelsContent;
-            if (isJsonObject(cc) && isJsonObject(cc.telegram))
-              return cc.telegram;
-          }
-          return undefined;
-        })();
+        const telegramSource = restoreTelegram(
+          campaignRes.status === "fulfilled" &&
+            isJsonObject(campaignRes.value) &&
+            isJsonObject(campaignRes.value.channelsContent)
+            ? campaignRes.value.channelsContent.telegram
+            : undefined
+        );
         if (telegramSource) {
-          const text = telegramSource.text ?? telegramSource.body;
-          if (typeof text === "string") nextValues.telegramText = text;
+          Object.assign(nextValues, telegramSource);
           nextValues.channel = "telegram";
         }
 
@@ -2317,8 +2313,10 @@ export function CreateCampaignPage() {
         return;
       }
 
-      if (data.channel === "discord") {
-        const outcome = await sendDiscordPost(campaignId);
+      // A post, cast or notification on a social channel (not a DM).
+      const social = socialSender(data);
+      if (social) {
+        const outcome = await social(campaignId);
         await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
         toast[outcome.level](outcome.message);
         if (outcome.done) setShowConfirmation(true);
@@ -2396,22 +2394,6 @@ export function CreateCampaignPage() {
         }
         toast.success(`SMS sent to ${sent} wallet${sent === 1 ? "" : "s"}.`);
         setShowConfirmation(true);
-        return;
-      }
-
-      if (data.channel === "x" && data.xDelivery !== "dm") {
-        const outcome = await sendXPost(campaignId);
-        await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-        toast[outcome.level](outcome.message);
-        if (outcome.done) setShowConfirmation(true);
-        return;
-      }
-
-      if (data.channel === "farcaster") {
-        const outcome = await sendFarcasterCampaign(campaignId, data);
-        await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-        toast[outcome.level](outcome.message);
-        if (outcome.done) setShowConfirmation(true);
         return;
       }
 

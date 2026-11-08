@@ -1287,7 +1287,7 @@ export const campaignsService = {
   // X: a tweet (`text`) or, through the consent dialog, DMs (`dmText`).
   setXContent(
     id: string,
-    data: { text: string; dmText?: string; delivery?: "post" | "dm" },
+    data: { text: string } & Record<string, unknown>,
     orgId?: string
   ) {
     return request<unknown>(

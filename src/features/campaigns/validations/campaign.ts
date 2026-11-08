@@ -134,6 +134,8 @@ export const campaignFormSchema = z
     // "dm" sends xDmText as a DM to each person bound to the audience, behind
     // the consent dialog (X only allows it to people who DMed you first).
     xDelivery: z.enum(["post", "dm"]).default("post"),
+    // Posts 2..n of a thread; post 1 is xText.
+    xThreadRest: z.array(z.string()).default([]),
     xDmText: z.string().optional(),
 
     // Farcaster BROADCAST: one public cast. Persisted to channelsContent.farcaster.text.
@@ -277,6 +279,13 @@ export const campaignFormSchema = z
     if (data.channel === "x") {
       const dm = data.xDelivery === "dm";
       const value = dm ? data.xDmText : data.xText;
+      if (!dm && (data.xThreadRest ?? []).length + 1 > 25) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["xThreadRest"],
+          message: "A thread can have up to 25 posts",
+        });
+      }
       if (typeof value !== "string" || value.trim().length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

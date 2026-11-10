@@ -3,7 +3,12 @@ import { unstable_cache } from "next/cache";
 import { getPayload } from "payload";
 
 import { toPost, toSummary } from "./blog.mappers";
-import type { BlogCategory, BlogPost, BlogPostPage } from "./blog.types";
+import type {
+  BlogCategory,
+  BlogPost,
+  BlogPostPage,
+  BlogPostSummary,
+} from "./blog.types";
 import { CATEGORIES_CACHE_TAG, POSTS_CACHE_TAG } from "@/payload/cache-tags";
 import type { Post } from "@/payload-types";
 
@@ -19,6 +24,15 @@ import type { Post } from "@/payload-types";
  * Every cached read is tagged so the Payload afterChange hook in
  * src/payload/hooks/revalidate-post.ts can invalidate all of them at once.
  */
+
+/**
+ * Depth for reads that render a whole article. 2, not 1: the byline and the
+ * "Written by" card show each author's photo, which is a relation on the
+ * author (post -> authors -> avatar). At depth 1 the avatar is still a bare id
+ * and every author falls back to initials. Listings keep depth 1; cards show
+ * no avatars.
+ */
+export const ARTICLE_DEPTH = 2;
 
 /** Posts per page on the index and category archives. */
 export const POSTS_PER_PAGE = 12;
@@ -88,7 +102,7 @@ export const getPostBySlug = unstable_cache(
 
     const result = await payload.find({
       collection: "posts",
-      depth: 1,
+      depth: ARTICLE_DEPTH,
       limit: 1,
       where: { and: [publishedOnly, { slug: { equals: slug } }] },
     });
@@ -97,6 +111,65 @@ export const getPostBySlug = unstable_cache(
     return doc ? toPost(doc) : null;
   },
   ["blog", "posts", "detail"],
+  { tags: [POSTS_CACHE_TAG] }
+);
+
+/** How many posts the "Keep reading" row shows under an article. */
+export const RELATED_POSTS_LIMIT = 3;
+
+/**
+ * Posts to suggest after an article: newest in the same categories first,
+ * topped up with the newest posts overall so the row is never half empty.
+ * Two small bounded queries, never a scan; both exclude the article itself.
+ */
+export const listRelatedPosts = unstable_cache(
+  async (
+    postId: number,
+    categorySlugs: string[]
+  ): Promise<BlogPostSummary[]> => {
+    const payload = await getClient();
+    const notThis = { id: { not_equals: postId } };
+
+    const sameCategory =
+      categorySlugs.length > 0
+        ? await payload.find({
+            collection: "posts",
+            depth: 1,
+            limit: RELATED_POSTS_LIMIT,
+            sort: "-publishedAt",
+            where: {
+              and: [
+                publishedOnly,
+                notThis,
+                { "categories.slug": { in: categorySlugs } },
+              ],
+            },
+          })
+        : null;
+
+    const picked = sameCategory?.docs ?? [];
+    if (picked.length >= RELATED_POSTS_LIMIT) {
+      return picked.map(toSummary);
+    }
+
+    const latest = await payload.find({
+      collection: "posts",
+      depth: 1,
+      limit: RELATED_POSTS_LIMIT,
+      sort: "-publishedAt",
+      where: {
+        and: [
+          publishedOnly,
+          { id: { not_in: [postId, ...picked.map((doc) => doc.id)] } },
+        ],
+      },
+    });
+
+    return [...picked, ...latest.docs]
+      .slice(0, RELATED_POSTS_LIMIT)
+      .map(toSummary);
+  },
+  ["blog", "posts", "related"],
   { tags: [POSTS_CACHE_TAG] }
 );
 
@@ -197,7 +270,7 @@ export async function getPreviewPostDocBySlug(
 
   const result = await payload.find({
     collection: "posts",
-    depth: 1,
+    depth: ARTICLE_DEPTH,
     limit: 1,
     draft: true,
     where: { slug: { equals: slug } },

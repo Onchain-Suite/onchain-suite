@@ -1,0 +1,163 @@
+/* =========================================================================
+   Blog article outline: the pinned "On this page" list beside the article
+   on wide screens, and the sticky bar that replaces it on narrower ones.
+   Shares --ba-nav (navbar height) with article.css.
+   ========================================================================= */
+
+/* ---------- outline (wide) ---------- */
+.ocs2 .ba-toc {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--ba-nav) - 80px);
+}
+.ocs2 .ba-toc-title {
+  margin-bottom: 12px;
+  color: var(--muted-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.ocs2 .ba-toc ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-left: 1px solid var(--line);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.ocs2 .ba-toc a {
+  display: block;
+  margin-left: -1px;
+  padding: 6px 0 6px 14px;
+  border-left: 2px solid transparent;
+  color: var(--muted-2);
+  font-size: 13.5px;
+  line-height: 1.4;
+  transition: color 0.15s, border-color 0.15s;
+}
+.ocs2 .ba-toc a.is-sub {
+  padding-left: 26px;
+  font-size: 13px;
+}
+.ocs2 .ba-toc a[data-read] {
+  color: var(--muted);
+}
+.ocs2 .ba-toc a:hover {
+  color: var(--ink);
+}
+.ocs2 .ba-toc a[aria-current="location"] {
+  border-left-color: var(--acc);
+  color: var(--ink);
+  font-weight: 600;
+}
+.ocs2 .ba-totop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted-2);
+  font: 500 12.5px var(--font-sans);
+  cursor: pointer;
+}
+.ocs2 .ba-totop:hover {
+  color: var(--ink);
+}
+
+/* ---------- outline (narrow) ---------- */
+.ocs2 .ba-mobilebar {
+  position: sticky;
+  top: var(--ba-nav);
+  z-index: 5;
+  margin: 32px -28px 0;
+  border-block: 1px solid var(--line);
+  background: color-mix(in oklab, var(--paper) 94%, transparent);
+  backdrop-filter: blur(10px);
+}
+@media (min-width: 1200px) {
+  .ocs2 .ba-mobilebar {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .ocs2 .ba-mobilebar {
+    margin-inline: -20px;
+  }
+}
+.ocs2 .ba-mobilebar summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 46px;
+  padding: 0 28px;
+  list-style: none;
+  cursor: pointer;
+}
+@media (max-width: 640px) {
+  .ocs2 .ba-mobilebar summary {
+    padding: 0 20px;
+  }
+}
+.ocs2 .ba-mobilebar summary::-webkit-details-marker {
+  display: none;
+}
+.ocs2 .ba-mobilebar-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ocs2 .ba-mobilebar-caret {
+  flex: none;
+  color: var(--muted-2);
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s;
+}
+.ocs2 .ba-mobilebar[open] .ba-mobilebar-caret {
+  transform: rotate(180deg);
+}
+.ocs2 .ba-mobilebar nav {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 4px 0 12px;
+  border-top: 1px solid var(--line);
+}
+.ocs2 .ba-mobilebar ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ocs2 .ba-mobilebar a {
+  display: block;
+  padding: 9px 28px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.ocs2 .ba-mobilebar a.is-sub {
+  padding-left: 44px;
+}
+.ocs2 .ba-mobilebar a[aria-current="location"] {
+  color: var(--acc);
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  .ocs2 .ba-mobilebar a {
+    padding-inline: 20px;
+  }
+  .ocs2 .ba-mobilebar a.is-sub {
+    padding-left: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ocs2 .ba-toc a,
+  .ocs2 .ba-mobilebar-caret {
+    transition: none;
+  }
+}

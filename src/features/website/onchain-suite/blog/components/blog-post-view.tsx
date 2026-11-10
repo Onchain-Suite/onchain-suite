@@ -1,119 +1,104 @@
-import Image from "next/image";
-import Link from "next/link";
-
-import { formatPostDate, toIsoDate } from "../blog.format";
-import type { BlogPost } from "../blog.types";
+import "./article/article.css";
+import "./article/article-outline.css";
+import { getPostUrl } from "../blog.seo";
+import type { BlogPost, BlogPostSummary } from "../blog.types";
+import { buildOutline, MIN_OUTLINE_ITEMS } from "../utils/outline";
+import { ArticleHeader } from "./article/article-header";
+import { ArticleOutline } from "./article/article-outline";
+import { ArticleOutlineMobile } from "./article/article-outline-mobile";
+import { AuthorCard } from "./article/author-card";
+import { ReadingProgress } from "./article/reading-progress";
+import { RelatedPosts } from "./article/related-posts";
+import { ShareActions } from "./article/share-actions";
 import { BlogShell } from "./blog-shell";
 import { BlogRichText } from "./rich-text";
 
+/** The element the progress bar, minutes-left and outline measure against. */
+const BODY_ID = "article-body";
+
 /**
- * A single post. Server Component: the entire article, including the rich-text
- * body, is rendered on the server and ships zero JS of its own. `BlogShell`
- * provides the ns chrome (navbar + footer).
+ * A single post, laid out for long-form reading:
+ *
+ *   [ outline ]  [ header / body / author ]  [ share ]
+ *
+ * The side columns are pinned and only appear on wide screens; below that the
+ * outline collapses into a bar under the navbar and sharing moves to the end.
+ *
+ * Everything here renders on the server except four small islands (progress
+ * bar, outline, share and code copy), which only read scroll position. Kept
+ * synchronous on purpose: the live-preview route renders this same view on
+ * the client, so data such as `related` is fetched by the route and passed in.
  */
-export function BlogPostView({ post }: { post: BlogPost }) {
-  const published = formatPostDate(post.publishedAt);
+export function BlogPostView({
+  post,
+  related = [],
+}: {
+  post: BlogPost;
+  related?: BlogPostSummary[];
+}) {
+  const outline = buildOutline(post.content);
+  const showOutline = outline.items.length >= MIN_OUTLINE_ITEMS;
+  const url = getPostUrl(post.slug);
 
   return (
     <BlogShell>
-      <article>
-        <section className="relative overflow-hidden pb-8 pt-16 md:pt-20">
-          <div className="grid-bg" />
-          <div className="blog-read relative">
-            <Link href="/blog" className="text-[13px] t-muted hover:underline">
-              ← All posts
-            </Link>
+      <ReadingProgress bodyId={BODY_ID} />
 
-            {post.categories.length > 0 ? (
-              <div className="mt-5 flex flex-wrap gap-2">
-                {post.categories.map((category) =>
-                  category.slug ? (
-                    <Link
-                      key={category.id}
-                      href={`/blog/category/${category.slug}`}
-                      className="chip"
-                    >
-                      {category.title}
-                    </Link>
-                  ) : (
-                    <span key={category.id} className="chip">
-                      {category.title}
-                    </span>
-                  )
-                )}
+      <article className="ba">
+        <div className="ba-bg" aria-hidden="true">
+          <div className="grid-bg" />
+        </div>
+
+        <div className="ba-grid">
+          <aside className="ba-side" aria-label="Article outline">
+            {showOutline ? (
+              <div className="ba-sticky">
+                <ArticleOutline items={outline.items} bodyId={BODY_ID} />
               </div>
             ) : null}
+          </aside>
 
-            <h1
-              className="mt-5 font-semibold tracking-tight t-ink"
-              style={{
-                fontSize: "clamp(2rem, 4.2vw, 2.85rem)",
-                lineHeight: 1.1,
-              }}
-            >
-              {post.title}
-            </h1>
+          <div className="ba-main">
+            <ArticleHeader post={post} />
 
-            <p className="mt-5 text-[16px] leading-relaxed t-muted">
-              {post.excerpt}
-            </p>
+            {showOutline ? (
+              <ArticleOutlineMobile items={outline.items} bodyId={BODY_ID} />
+            ) : null}
 
-            <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] t-muted2">
-              {post.authors.length > 0 ? (
-                <span className="t-ink2">
-                  {post.authors.map((author) => author.name).join(", ")}
-                </span>
-              ) : null}
-              {published ? (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <time dateTime={toIsoDate(post.publishedAt)}>
-                    {published}
-                  </time>
-                </>
-              ) : null}
-              <span aria-hidden="true">·</span>
-              <span>{post.readingTimeMinutes} min read</span>
+            <div id={BODY_ID} className="ba-body">
+              <BlogRichText content={post.content} outline={outline} />
             </div>
-          </div>
-        </section>
 
-        {post.coverImage?.url ? (
-          <section className="pb-10">
-            <div className="blog-read">
-              <Image
-                src={post.coverImage.url}
-                alt={post.coverImage.alt}
-                width={post.coverImage.width ?? 1600}
-                height={post.coverImage.height ?? 900}
-                sizes="(min-width: 768px) 720px, 100vw"
-                className="w-full rounded-[var(--r-lg)] bd"
-                priority
-              />
-            </div>
-          </section>
-        ) : null}
-
-        <section className="pb-16">
-          <div className="blog-read">
-            <BlogRichText content={post.content} />
-          </div>
-        </section>
-
-        {post.tags.length > 0 ? (
-          <section className="pb-20">
-            <div className="blog-read">
-              <div className="rule mb-6 h-px" />
-              <div className="flex flex-wrap gap-2">
+            {post.tags.length > 0 ? (
+              <div className="ba-tags">
                 {post.tags.map((tag) => (
                   <span key={tag} className="chip">
                     {tag}
                   </span>
                 ))}
               </div>
+            ) : null}
+
+            <div className="ba-share-end">
+              <p className="text-[14px] font-medium t-ink">
+                Share this article
+              </p>
+              <ShareActions url={url} title={post.title} layout="row" />
             </div>
-          </section>
-        ) : null}
+
+            {post.authors.map((author) => (
+              <AuthorCard key={author.id} author={author} />
+            ))}
+          </div>
+
+          <aside className="ba-side" aria-label="Share this article">
+            <div className="ba-sticky ba-rail">
+              <ShareActions url={url} title={post.title} layout="column" />
+            </div>
+          </aside>
+        </div>
+
+        <RelatedPosts posts={related} />
       </article>
     </BlogShell>
   );

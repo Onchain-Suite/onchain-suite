@@ -172,9 +172,20 @@ export function AutomationsListView() {
     [counts]
   );
 
+  // A later page can empty out under you (the last Loop on it deleted): step
+  // back a page rather than reading it as "no Loops at all".
+  const emptyLaterPage = !listQuery.isFetching && rows.length === 0 && page > 1;
+  useEffect(() => {
+    if (emptyLaterPage) setPage((p) => Math.max(1, p - 1));
+  }, [emptyLaterPage]);
+
   const m = metricsQuery.data;
   const nothingYet =
-    !listQuery.isLoading && rows.length === 0 && !search && filter === "all";
+    !listQuery.isLoading &&
+    rows.length === 0 &&
+    page === 1 &&
+    !search &&
+    filter === "all";
 
   const description = m ? (
     <LoopsAnswerLine

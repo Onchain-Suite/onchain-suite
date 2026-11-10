@@ -56,7 +56,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 
 import { cn, isJsonObject } from "@/lib/utils";
 
@@ -68,6 +67,10 @@ import type {
 } from "../audience.service";
 import { audienceService } from "../audience.service";
 import { ApplyTagsPopover } from "../components/apply-tags-popover";
+import {
+  AudienceAnswerLine,
+  type AudienceTab,
+} from "../components/audience-answer-line";
 import { ListsEmpty } from "../components/audience-empty-states";
 import { AudienceListDetail } from "../components/audience-list-detail";
 import {
@@ -75,6 +78,7 @@ import {
   AudienceSegmentsTab,
   segmentItems,
 } from "../components/audience-segments-tab";
+import { AudienceTabBar } from "../components/audience-tab-bar";
 import { AudienceTagsTab } from "../components/audience-tags-tab";
 import {
   ComposeEmailDialog,
@@ -106,6 +110,8 @@ import { type LifecycleStage, stageForProfile } from "../utils/lifecycle";
 import { EnrichmentControl } from "@/features/intelligence/components/enrichment-control";
 import { intelligenceService } from "@/features/intelligence/intelligence.service";
 import { SectionEmpty } from "@/shared/components/common/section-empty";
+import { FilterChips } from "@/shared/components/page/filter-chips";
+import { PageHeader } from "@/shared/components/page/page-header";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
@@ -261,9 +267,9 @@ function listMeta(seg: AudienceSegment): {
 export function AudiencePages() {
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<
-    "contacts" | "lists" | "tags" | "segments" | "suppressed"
-  >("contacts");
+  const [activeTab, setActiveTab] = useState<AudienceTab>("contacts");
+  // Suppressed is a filter on Contacts (2.7), not a tab of its own.
+  const [showSuppressed, setShowSuppressed] = useState(false);
   // Deep-link support: `/audience?tab=suppressed` opens that tab (read after
   // mount to avoid a hydration mismatch / Suspense requirement).
   // An import/export started on the import page redirects here with its job id;
@@ -276,9 +282,11 @@ export function AudiencePages() {
   const [exportBannerDismissed, setExportBannerDismissed] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    // Old links keep working: Tags folded into Lists, Suppressed into Contacts.
     const t = params.get("tab");
-    if (t === "lists" || t === "tags" || t === "segments" || t === "suppressed")
-      setActiveTab(t);
+    if (t === "lists" || t === "tags") setActiveTab("lists");
+    else if (t === "segments") setActiveTab("segments");
+    else if (t === "suppressed") setShowSuppressed(true);
     const imp = params.get("import");
     if (imp) setImportJobId(imp);
     const exp = params.get("export");
@@ -431,10 +439,9 @@ export function AudiencePages() {
 
   const total = num(overview?.total) ?? totalItems;
   const withWallet = num(overview?.withWallet) ?? 0;
-  // Real overview counts. `emailOnly` falls back to the honest arithmetic
-  // (total - withWallet); the reachability/suppressed counts come only from the
-  // overview endpoint - when absent they render "-", never a fabricated value.
-  const emailOnly = num(overview?.emailOnly) ?? Math.max(0, total - withWallet);
+  // Real overview counts: the reachability/suppressed counts come only from
+  // the overview endpoint - when absent the sentence leaves them out, never a
+  // fabricated value.
   // Straight from the overview aggregate. (A client-side 200-row count used to
   // paper over a backend NOT-on-NULL under-count; that's fixed server-side, so
   // the extra fetch + its 60s staleness only slowed the tile down.)
@@ -871,45 +878,6 @@ export function AudiencePages() {
     );
   };
 
-  const statCards: Array<{
-    label: string;
-    value: number | undefined;
-    hint: string;
-  }> = [
-    {
-      label: "Total contacts",
-      value: total,
-      hint: `${withWallet.toLocaleString()} with a wallet · ${emailOnly.toLocaleString()} email-only`,
-    },
-    {
-      label: "Email-reachable",
-      value: emailReachable,
-      hint: "have a linked email",
-    },
-    {
-      label: "Push-reachable",
-      value: pushReachable,
-      hint: "signed-in devices",
-    },
-    { label: "Suppressed", value: suppressed, hint: "unsubscribed or bounced" },
-  ];
-
-  const tabs: Array<{
-    key: "contacts" | "lists" | "tags" | "segments" | "suppressed";
-    label: string;
-    count: number | string;
-  }> = [
-    { key: "contacts", label: "Contacts", count: total },
-    { key: "lists", label: "Lists", count: segments.length },
-    { key: "tags", label: "Tags", count: availableTags.length },
-    {
-      key: "segments",
-      label: "Segments",
-      count: dynamicSegmentCount ?? "-",
-    },
-    { key: "suppressed", label: "Suppressed", count: suppressed ?? "-" },
-  ];
-
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
       {importJobId && importStatus && !importBannerDismissed ? (
@@ -926,16 +894,25 @@ export function AudiencePages() {
           onDismiss={() => setExportBannerDismissed(true)}
         />
       ) : null}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Audience
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Wallet-first identity. Segments are channel-aware - reachable in-app
-            is a different filter from has email.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-start gap-5">
+        <PageHeader
+          className="min-w-0 flex-1 basis-80"
+          title="Audience"
+          description={
+            overviewQuery.isLoading ? undefined : (
+              <AudienceAnswerLine
+                tab={activeTab}
+                total={total}
+                withWallet={withWallet}
+                emailReachable={emailReachable}
+                pushReachable={pushReachable}
+                segments={dynamicSegmentCount}
+                lists={segments.length}
+                tags={availableTags.length}
+              />
+            )
+          }
+        />
         <div className="flex flex-wrap items-center gap-2">
           {/* Contact data (CSV in/out) grouped under one menu; the on-chain
               actions live on the Sync split button beside it. */}
@@ -1026,33 +1003,6 @@ export function AudiencePages() {
         />
       </div>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {statCards.map((card) => (
-          <div
-            key={card.label}
-            className="rounded-xl border border-border bg-card p-5"
-          >
-            <p className="text-sm text-muted-foreground">{card.label}</p>
-            {typeof card.value === "number" ? (
-              <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
-                {card.value.toLocaleString()}
-              </p>
-            ) : overviewQuery.isLoading ? (
-              <Skeleton className="mt-2 h-8 w-24" aria-hidden="true" />
-            ) : (
-              // Overview errored or omitted this count - show an honest "-",
-              // never a fabricated fallback.
-              <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
-                -
-              </p>
-            )}
-            <p className="mt-1 truncate text-xs text-muted-foreground">
-              {card.hint}
-            </p>
-          </div>
-        ))}
-      </section>
-
       {selectedList ? (
         <AudienceListDetail
           segment={selectedList}
@@ -1060,55 +1010,56 @@ export function AudiencePages() {
         />
       ) : (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div
-              role="tablist"
-              aria-label="Audience segments"
-              className="flex flex-wrap items-center gap-2"
-            >
-              {tabs.map((tab) => {
-                const active = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={cn(
-                      "rounded-lg border px-3 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none",
-                      active
-                        ? "border-primary/40 bg-primary/10 text-primary"
-                        : "border-border bg-card text-muted-foreground hover:text-foreground"
-                    )}
+          <AudienceTabBar
+            value={activeTab}
+            onChange={(tab) => {
+              setActiveTab(tab);
+              setShowSuppressed(false);
+            }}
+            counts={{
+              contacts: total,
+              segments: dynamicSegmentCount,
+              lists: segments.length + availableTags.length,
+            }}
+          >
+            {activeTab === "contacts" ? (
+              <FilterChips
+                label="Show contacts"
+                value={showSuppressed ? "suppressed" : "all"}
+                onChange={(key) => setShowSuppressed(key === "suppressed")}
+                chips={[
+                  { key: "all", label: "Everyone", count: total },
+                  {
+                    key: "suppressed",
+                    label: "Suppressed",
+                    count: suppressed ?? 0,
+                  },
+                ]}
+              />
+            ) : activeTab === "lists" ? (
+              <>
+                {!creatingTag ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCreatingTag(true)}
                   >
-                    {tab.label}
-                    <span
-                      className={cn(
-                        "ml-1.5 tabular-nums",
-                        active ? "text-primary" : "text-muted-foreground/70"
-                      )}
-                    >
-                      {tab.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {activeTab === "lists" && !creatingList ? (
-              <Button size="sm" onClick={() => setCreatingList(true)}>
-                <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-                New list
-              </Button>
-            ) : activeTab === "tags" && !creatingTag ? (
-              <Button size="sm" onClick={() => setCreatingTag(true)}>
-                <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
-                New tag
-              </Button>
+                    New tag
+                  </Button>
+                ) : null}
+                {!creatingList ? (
+                  <Button size="sm" onClick={() => setCreatingList(true)}>
+                    <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
+                    New list
+                  </Button>
+                ) : null}
+              </>
             ) : null}
-          </div>
+          </AudienceTabBar>
 
-          {activeTab === "contacts" ? (
+          {activeTab === "contacts" && showSuppressed ? (
+            <SuppressedTab />
+          ) : activeTab === "contacts" ? (
             <div className="space-y-3">
               {selectedIds.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5">
@@ -1607,17 +1558,21 @@ export function AudiencePages() {
                 </>
               ) : null}
             </div>
-          ) : activeTab === "tags" ? (
-            <AudienceTagsTab
-              tags={availableTags}
-              creating={creatingTag}
-              onCancelCreate={() => setCreatingTag(false)}
-            />
-          ) : activeTab === "segments" ? (
-            <AudienceSegmentsTab />
           ) : (
-            <SuppressedTab />
+            <AudienceSegmentsTab />
           )}
+          {activeTab === "lists" ? (
+            <section aria-label="Tags" className="space-y-3 pt-2">
+              <h2 className="text-sm font-semibold text-(--text-primary)">
+                Tags
+              </h2>
+              <AudienceTagsTab
+                tags={availableTags}
+                creating={creatingTag}
+                onCancelCreate={() => setCreatingTag(false)}
+              />
+            </section>
+          ) : null}
         </>
       )}
 

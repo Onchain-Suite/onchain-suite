@@ -1,10 +1,7 @@
 "use client";
 
-import {
-  ChevronRightIcon,
-  PlusIcon,
-  Squares2X2Icon,
-} from "@heroicons/react/24/outline";
+import { ChevronRightIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { FilterIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,6 +15,8 @@ import {
   type IntelligenceSegment,
   intelligenceService,
 } from "@/features/intelligence/intelligence.service";
+import { EmptyState } from "@/shared/components/common/empty-state";
+import { Icon } from "@/shared/components/common/hugeicon";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 /** Shared query key so the tab count (fetched in the parent) and this body
@@ -83,26 +82,20 @@ export function AudienceSegmentsTab() {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-border px-5 py-16 text-center">
-        <Squares2X2Icon
-          aria-hidden="true"
-          className="mx-auto size-8 text-muted-foreground"
-        />
-        <p className="mt-3 text-sm font-semibold text-foreground">
-          No segments yet
-        </p>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-          Segments are dynamic, rule-based audiences - they update themselves as
-          wallets qualify. Build one in Intelligence, then target it from a
-          campaign or Loop.
-        </p>
-        <Button asChild className="mt-4 rounded-xl">
-          <Link href={PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS}>
-            <PlusIcon aria-hidden="true" className="mr-1.5 size-4" />
-            New segment
-          </Link>
-        </Button>
-      </div>
+      <EmptyState
+        className="rounded-xl border border-border"
+        icon={FilterIcon}
+        title="No segments yet"
+        description="A segment holds whoever matches its rules today, and updates itself as people start and stop matching. Target it from a campaign or a Loop."
+        action={
+          <Button asChild size="sm">
+            <Link href={PRIVATE_ROUTES.INTELLIGENCE_SEGMENTS}>
+              <Icon icon={PlusSignIcon} className="mr-1.5 size-4" />
+              New segment
+            </Link>
+          </Button>
+        }
+      />
     );
   }
 

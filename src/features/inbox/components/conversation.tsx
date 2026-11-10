@@ -1,6 +1,6 @@
 "use client";
 
-import { EnvelopeIcon } from "@heroicons/react/24/outline";
+import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -11,6 +11,7 @@ import { type InboxThreadDetail, type InboxThreadListItem } from "../types";
 import ConversationHeader from "./conversation-header";
 import ReplyComposer from "./reply-composer";
 import Thread from "./thread";
+import { EmptyState } from "@/shared/components/common/empty-state";
 
 interface ConversationProps {
   selectedThreadId: string | null;
@@ -61,18 +62,11 @@ const Conversation = ({
   if (!selectedThreadId || !selectedThread) {
     return (
       <div className="flex flex-1 items-center justify-center px-6">
-        <div className="w-full max-w-md rounded-2xl border border-dashed border-border px-6 py-10 text-center">
-          <EnvelopeIcon
-            className="mx-auto h-6 w-6 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <div className="mt-3 text-sm font-medium text-foreground">
-            Select a message
-          </div>
-          <div className="mt-1 text-sm text-muted-foreground">
-            Choose a conversation to view the thread and reply.
-          </div>
-        </div>
+        <EmptyState
+          icon={Mail01Icon}
+          title="No thread open"
+          description="Pick a reply on the left to read the thread and answer it."
+        />
       </div>
     );
   }

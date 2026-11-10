@@ -44,6 +44,7 @@ import { Input } from "@/ui/input";
 
 import type { AudienceProfile, AudienceTag } from "../audience.service";
 import { audienceService, TagBacksListsError } from "../audience.service";
+import { TagsEmpty } from "./audience-empty-states";
 import { MemberTable, toDetailMemberFromProfile } from "./member-table";
 import { TablePager } from "./table-pager";
 
@@ -517,10 +518,7 @@ export function AudienceTagsTab({
       ) : null}
 
       {tags.length === 0 && !creating ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-          No tags yet - create one, or select contacts and apply a tag to group
-          them.
-        </div>
+        <TagsEmpty />
       ) : tags.length > 0 ? (
         <>
           <div className="overflow-x-auto rounded-2xl border border-border bg-card">

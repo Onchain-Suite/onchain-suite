@@ -68,6 +68,7 @@ import type {
 } from "../audience.service";
 import { audienceService } from "../audience.service";
 import { ApplyTagsPopover } from "../components/apply-tags-popover";
+import { ListsEmpty } from "../components/audience-empty-states";
 import { AudienceListDetail } from "../components/audience-list-detail";
 import {
   AUDIENCE_SEGMENTS_QUERY_KEY,
@@ -1458,10 +1459,7 @@ export function AudiencePages() {
               ) : null}
 
               {segments.length === 0 && !creatingList ? (
-                <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-                  No lists yet - create one, or save a segment to reuse it
-                  across campaigns.
-                </div>
+                <ListsEmpty onCreate={() => setCreatingList(true)} />
               ) : segments.length > 0 ? (
                 <>
                   <div className="overflow-x-auto rounded-2xl border border-border bg-card">

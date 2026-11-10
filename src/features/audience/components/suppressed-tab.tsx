@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 
 import type { AudienceSuppression } from "../audience.service";
 import { audienceService } from "../audience.service";
+import { SuppressedEmpty } from "./audience-empty-states";
 
 const PAGE_SIZE = 50;
 
@@ -104,11 +105,7 @@ export function SuppressedTab() {
   }
 
   if (items.length === 0) {
-    return (
-      <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-sm text-muted-foreground">
-        No suppressed contacts - everyone&apos;s reachable.
-      </div>
-    );
+    return <SuppressedEmpty />;
   }
 
   return (

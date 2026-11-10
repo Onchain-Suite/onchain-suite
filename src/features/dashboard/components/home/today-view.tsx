@@ -3,6 +3,8 @@
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { useState } from "react";
 
+import { getSelectedOrganizationId } from "@/lib/utils";
+
 import { useToday } from "../../hooks/use-today";
 import {
   dismissForToday,
@@ -28,7 +30,9 @@ export function TodayView({
   name: string;
 }) {
   const today = useToday();
-  const [hidden, setHidden] = useState<Set<string>>(() => readDismissed());
+  // Dismissals are kept per workspace; switching org remounts the shell.
+  const [orgId] = useState(() => getSelectedOrganizationId());
+  const [hidden, setHidden] = useState<Set<string>>(() => readDismissed(orgId));
   const [showHidden, setShowHidden] = useState(false);
 
   const open = today.items.filter((i) => !hidden.has(i.id));
@@ -93,7 +97,7 @@ export function TodayView({
                   key={item.id}
                   item={item}
                   done={hidden.has(item.id)}
-                  onDone={() => setHidden(dismissForToday(item.id))}
+                  onDone={() => setHidden(dismissForToday(item.id, orgId))}
                 />
               ))}
             </ol>

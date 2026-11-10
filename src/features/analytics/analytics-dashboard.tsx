@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import "./components/analytics.css";
 import { ChartBuilderDialog } from "./components/builder/chart-builder-dialog";
 import { BuiltInCards } from "./components/builtin-tab";
-import { DashboardsIndex } from "./components/dashboards/dashboards-index";
+import { DashboardGallery } from "./components/dashboards/dashboard-gallery";
 import { DeleteDashboardDialog } from "./components/dashboards/delete-dialog";
 import { NameDialog } from "./components/dashboards/name-dialog";
 import { PublishDialog } from "./components/dashboards/publish-dialog";
@@ -33,6 +33,7 @@ import {
   useDashboardList,
 } from "./hooks/use-dashboards";
 import { describeChart, isBuiltIn, newChartSpec } from "./utils/dashboards";
+import { DEFAULT_DASHBOARDS, defaultFor } from "./utils/gallery";
 import { useWorkspaceMode } from "@/features/onboarding/hooks/use-workspace-mode";
 import { SectionEmpty } from "@/shared/components/common/section-empty";
 import { Button } from "@/shared/components/ui/button";
@@ -130,15 +131,22 @@ export function AnalyticsDashboard({ dash }: { dash: string }) {
     toast.success(`Made “${copy.name}”`);
   };
 
+  const group = dashboard?.builtIn ? defaultFor(dashboard.id) : undefined;
   const heading = isIndex
-    ? "Dashboards"
+    ? "Analytics"
     : dashboard
-      ? dashboard.builtIn
-        ? "Analytics"
-        : dashboard.name
+      ? (group?.name ?? dashboard.name)
       : one.isLoading
         ? "Analytics"
         : "Dashboard not found";
+  // The header's one sentence: what this view answers.
+  const sub = isIndex
+    ? `${DEFAULT_DASHBOARDS.length} default dashboards${
+        customCount
+          ? ` and ${customCount} of your own`
+          : ". Make your own for a team, a launch or a weekly review"
+      }.`
+    : group?.desc;
 
   // Nothing to chart until a source is connected: show the teaching empty
   // state (v2.7 reference) rather than empty bento skeletons.
@@ -175,11 +183,7 @@ export function AnalyticsDashboard({ dash }: { dash: string }) {
       <header className="an-head">
         <div>
           <h1>{heading}</h1>
-          {dashboard?.builtIn ? (
-            <p className="an-head__sub">
-              Reach, engagement, conversions and retention across every channel.
-            </p>
-          ) : null}
+          {sub ? <p className="an-head__sub">{sub}</p> : null}
         </div>
         <span className="an-head__grow" />
         {actions.local ? (
@@ -232,8 +236,9 @@ export function AnalyticsDashboard({ dash }: { dash: string }) {
       />
 
       {isIndex ? (
-        <DashboardsIndex
+        <DashboardGallery
           dashboards={list.data ?? []}
+          onNew={() => setNaming({ mode: "new" })}
           onRename={(d) => setNaming({ mode: "rename", target: d })}
           onDuplicate={duplicate}
           onDelete={setDeleting}

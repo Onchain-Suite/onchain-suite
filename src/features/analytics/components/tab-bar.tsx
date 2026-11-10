@@ -10,7 +10,7 @@ import Link from "next/link";
 
 import type { Dashboard } from "../contracts/dashboards";
 import type { AnalyticsPeriod } from "../contracts/org-analytics";
-import { BUILT_IN } from "../utils/dashboards";
+import { defaultFor } from "../utils/gallery";
 
 const PERIODS: Array<{ id: AnalyticsPeriod; label: string }> = [
   { id: "7d", label: "Last 7 days" },
@@ -59,14 +59,15 @@ export function TabBar({
           </button>
         </>
       ) : (
-        BUILT_IN.map((t) => (
+        // A default dashboard shows its own tabs: Growth's three, or Retention.
+        (current ? (defaultFor(current.id)?.tabs ?? []) : []).map((t) => (
           <Link
             key={t.id}
             href={`/analytics/${t.id}`}
             aria-current={current?.id === t.id ? "page" : undefined}
             className={`an-tab${current?.id === t.id ? " is-on" : ""}`}
           >
-            {t.name}
+            {t.label}
           </Link>
         ))
       )}

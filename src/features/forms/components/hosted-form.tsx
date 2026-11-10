@@ -392,6 +392,7 @@ export function HostedForm({ config }: { config: HostedFormConfig }) {
           captcha: (
             <TurnstileWidget
               ref={turnstileRef}
+              action="form_submit"
               onVerify={setCaptchaToken}
               theme="dark"
             />

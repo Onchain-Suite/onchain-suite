@@ -438,6 +438,7 @@ export function SignInForm({
 
             <TurnstileWidget
               ref={turnstileRef}
+              action="login"
               onVerify={setCaptchaToken}
               className="flex justify-center"
             />

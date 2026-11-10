@@ -268,6 +268,7 @@ export function SignUpForm({ onSwitchToSignIn }: SignUpFormProps) {
 
             <TurnstileWidget
               ref={turnstileRef}
+              action="signup"
               onVerify={setCaptchaToken}
               className="flex justify-center"
             />

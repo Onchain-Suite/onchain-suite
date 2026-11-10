@@ -53,6 +53,8 @@ import {
 import { AUTH_ROUTES, PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const FLOW_VERSION = "onboarding-guided-v2";
+/** Past the end of any flow: the clamped position lands on the plan. */
+const LAST_STEP = 99;
 
 export function OnboardingFlow() {
   const { push } = useRouter();
@@ -141,7 +143,12 @@ export function OnboardingFlow() {
   const [profile, setProfile] = React.useState<ProjectProfile>(EMPTY_PROFILE);
   // The persisted step (URL ?step= + localStorage) is the single source of the guided position, so
   // a reload or re-mount restores the exact step instead of snapping back to the project step.
-  const flow = flowFor(role, profile.start);
+  // Before the profile is seeded from storage, fall back to the saved answer,
+  // so the flow (and the step it resumes on) has its real length from the start.
+  const flow = flowFor(
+    role,
+    profile.start || (isStartPath(formData.startPath) ? formData.startPath : "")
+  );
   const stepIndex = Math.max(
     0,
     Math.min((persistedStep ?? 1) - 1, flow.length - 1)
@@ -425,14 +432,17 @@ export function OnboardingFlow() {
         ? resolveResumeFlowStep(resume.step) === 2
         : progress.current_step === "plan_selection";
     if (landsOnPlan) {
-      setStep(flow.length);
+      // The plan is always last. The position clamps to the flow, so this lands
+      // on the plan whatever the flow's length turns out to be once the
+      // profile loads (a contract team's flow is one step longer).
+      setStep(LAST_STEP);
       setStepStartedAtMs(Date.now());
     }
 
     if (progress.step_data && Object.keys(progress.step_data).length > 0) {
       setData(progress.step_data as Partial<OnboardingData>);
     }
-  }, [user?.id, progress, resume, flow.length, setData, setStep]);
+  }, [user?.id, progress, resume, setData, setStep]);
 
   // Each guided step logs a "started" event when it comes on screen. The backend step name stays
   // one of its two known values (so resume + completion stay compatible), while `guidedStep` in

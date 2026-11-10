@@ -20,6 +20,9 @@ export function useOnboardingContracts(
   manual: ManualContractDraft | null
 ): OnboardingContract[] {
   return useMemo((): OnboardingContract[] => {
+    // Only a team that starts from a smart contract gets the contract step,
+    // so nothing entered before switching to another answer is indexed.
+    if (profile.start !== "chain") return [];
     const manualAddr = manual?.address.trim() ?? "";
     const typedAddr = profile.contract.trim();
     const manualChain =
@@ -39,5 +42,5 @@ export function useOnboardingContracts(
       ];
     }
     return [];
-  }, [profile.contract, profile.chains, resolvedChain, manual]);
+  }, [profile.start, profile.contract, profile.chains, resolvedChain, manual]);
 }

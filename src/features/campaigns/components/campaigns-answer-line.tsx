@@ -12,7 +12,13 @@ export function CampaignsAnswerLine({ campaigns }: { campaigns: Campaign[] }) {
           <b>
             {a.sent} {a.sent === 1 ? "campaign" : "campaigns"}
           </b>
-          , <b>{a.messages.toLocaleString("en-US")} messages</b> in all.
+          {a.delivered !== undefined ? (
+            <>
+              , <b>{a.delivered.toLocaleString("en-US")} messages</b> delivered
+              in all
+            </>
+          ) : null}
+          .
         </>
       ) : (
         "Nothing has gone out yet."

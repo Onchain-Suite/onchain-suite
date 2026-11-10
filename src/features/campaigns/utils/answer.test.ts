@@ -15,15 +15,30 @@ const c = (over: Partial<Campaign>): Campaign => ({
 });
 
 describe("campaignsAnswer", () => {
-  it("counts sent campaigns and the messages they sent", () => {
+  it("counts sent campaigns and the messages actually delivered", () => {
     const a = campaignsAnswer([
-      c({ name: "A", recipients: 687, openRateOfDelivered: 51 }),
-      c({ name: "B", recipients: 481, openRateOfDelivered: 45 }),
-      c({ name: "C", status: "draft" }),
+      c({
+        name: "A",
+        recipients: 687,
+        delivered: 650,
+        openRateOfDelivered: 51,
+      }),
+      // Still going out: its audience is 481 but only 120 have landed.
+      c({
+        name: "B",
+        recipients: 481,
+        delivered: 120,
+        openRateOfDelivered: 45,
+      }),
+      c({ name: "C", status: "draft", delivered: 0 }),
     ]);
     expect(a.sent).toBe(2);
-    expect(a.messages).toBe(1168);
+    expect(a.delivered).toBe(770);
     expect(a.best).toEqual({ name: "A", openRate: 51 });
+  });
+
+  it("leaves the count out when no campaign reports deliveries", () => {
+    expect(campaignsAnswer([c({ recipients: 500 })]).delivered).toBeUndefined();
   });
 
   it("falls back to the audience rate and skips campaigns with no rate", () => {

@@ -2,19 +2,20 @@ import {
   ArchiveBoxIcon,
   CheckIcon,
   ClockIcon,
-  EnvelopeIcon,
   MagnifyingGlassIcon,
   PaperAirplaneIcon,
   PaperClipIcon,
   StarIcon,
 } from "@heroicons/react/24/outline";
 import { StarIcon as StarSolidIcon } from "@heroicons/react/24/solid";
+import { InboxIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import React, { type RefObject } from "react";
 
 import { inboxService } from "../inbox.service";
 import { type InboxThreadListItem } from "../types";
+import { EmptyState } from "@/shared/components/common/empty-state";
 
 interface Folder {
   name: string;
@@ -172,30 +173,21 @@ const EmailListPanel = ({
         className="min-h-0 flex-1 divide-y divide-border overflow-y-auto"
       >
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <EnvelopeIcon
-              className="h-6 w-6 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <h3 className="mt-3 text-sm font-medium text-foreground">
-              Loading messages
-            </h3>
-          </div>
+          <ThreadListSkeleton />
         ) : threads.length === 0 ? (
-          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <EnvelopeIcon
-              className="h-6 w-6 text-muted-foreground"
-              aria-hidden="true"
+          searchQuery.length > 0 ? (
+            <EmptyState
+              icon={Search01Icon}
+              title="No replies match that"
+              description="Try a name, an email or a word from the message."
             />
-            <h3 className="mt-3 text-sm font-medium text-foreground">
-              No messages
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {searchQuery.length > 0
-                ? "Try a different search term."
-                : "Replies and notifications will show up here."}
-            </p>
-          </div>
+          ) : (
+            <EmptyState
+              icon={InboxIcon}
+              title="Nothing waiting"
+              description="Every reply has been dealt with. When someone answers a campaign or a Loop, it lands here."
+            />
+          )
         ) : (
           threads.map((thread, index) => (
             <motion.div
@@ -345,3 +337,17 @@ const EmailListPanel = ({
 };
 
 export default EmailListPanel;
+
+/** Rows shaped like the list while threads load, so nothing jumps when they land. */
+function ThreadListSkeleton() {
+  return (
+    <div aria-hidden="true">
+      {Array.from({ length: 6 }, (_, i) => (
+        <div key={i} className="space-y-2 px-4 py-3.5">
+          <div className="h-3.5 w-1/3 animate-pulse rounded bg-muted" />
+          <div className="h-3 w-3/4 animate-pulse rounded bg-muted/70" />
+        </div>
+      ))}
+    </div>
+  );
+}

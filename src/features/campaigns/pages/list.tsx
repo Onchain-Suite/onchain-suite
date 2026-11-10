@@ -6,6 +6,7 @@ import {
   MegaphoneIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
+import { Megaphone01Icon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,6 +29,7 @@ import { campaignsService } from "../campaigns.service";
 import { CampaignsAnalyticsOverview } from "../components/analytics-overview";
 import { CampaignsReferenceTable } from "../components/campaigns-reference-table";
 import type { Campaign, CampaignStatus } from "../types/campaign";
+import { EmptyState } from "@/shared/components/common/empty-state";
 import { SectionEmpty } from "@/shared/components/common/section-empty";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
@@ -318,9 +320,12 @@ export function CampaignsListsView() {
           ) : null}
         </>
       ) : campaigns.length > 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-          No campaigns match this filter.
-        </div>
+        <EmptyState
+          className="rounded-2xl border border-border bg-card"
+          icon={Megaphone01Icon}
+          title="No campaigns match this filter"
+          description="Switch to All to see every campaign, or create one."
+        />
       ) : campaignsQuery.isError ? (
         // The request failed. Keep a Retry so a transient failure isn't a dead end.
         <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">

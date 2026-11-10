@@ -1,178 +1,82 @@
 "use client";
 
 import {
-  BoltIcon,
-  ChartBarSquareIcon,
-  ChevronRightIcon,
-  ClipboardDocumentListIcon,
-  ClockIcon,
-  EnvelopeIcon,
-  PlusIcon,
-  RectangleStackIcon,
-  TrashIcon,
-} from "@heroicons/react/24/outline";
+  ChartLineData01Icon,
+  Clock01Icon,
+  FlashIcon,
+  LayerIcon,
+  Mail01Icon,
+  PlusSignIcon,
+  Search01Icon,
+  TaskDaily01Icon,
+} from "@hugeicons/core-free-icons";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { isJsonObject } from "@/lib/utils";
+import { useLocalStorage } from "@/hooks/client/use-local-storage";
 
 import {
   automationService,
   type AutomationsListParams,
 } from "../automation.service";
 import { AutomationStatsView } from "../components/automation-stats-view";
-import { useDeleteAutomation } from "../hooks/use-automations";
-import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
-import { SectionEmpty } from "@/shared/components/common/section-empty";
-import { PageHeader } from "@/shared/components/page/page-header";
-import { type PageTabItem, PageTabs } from "@/shared/components/page/page-tabs";
+import { DeleteLoopDialog } from "../components/delete-loop-dialog";
+import { LoopsTable } from "../components/loops-table";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/shared/components/ui/alert-dialog";
+  LOOP_STATUS_LABEL,
+  type LoopRow,
+  loopsAnswer,
+  type LoopStatus,
+  pickLoops,
+  readTotal,
+  toLoopRow,
+} from "../utils/loop-rows";
+import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
+import { EmptyState } from "@/shared/components/common/empty-state";
+import { hugeicon, Icon } from "@/shared/components/common/hugeicon";
+import { SectionEmpty } from "@/shared/components/common/section-empty";
+import {
+  type FilterChip,
+  FilterChips,
+  validChip,
+} from "@/shared/components/page/filter-chips";
+import { PageHeader } from "@/shared/components/page/page-header";
+import { TableSkeleton } from "@/shared/components/page/page-skeleton";
+import { type PageTabItem, PageTabs } from "@/shared/components/page/page-tabs";
 import { Button } from "@/shared/components/ui/button";
 
-type Status = "active" | "paused" | "draft";
-
-interface Row {
-  id: string;
-  name: string;
-  triggerLabel: string;
-  status: Status;
-  entries: number;
-  /** Double-opt-in confirmation emails sent for this flow's form(s). */
-  optInEmailsSent: number;
-  /** Enrolments that reached the end of the flow. */
-  completionRate: number;
-  conversions: number;
-  lastTriggered: string;
-}
-
-const asString = (v: unknown) => (typeof v === "string" ? v : "");
-const asNumber = (v: unknown) => {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string" && v.trim()) {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-};
-
-const pick = (res: unknown): unknown[] => {
-  if (Array.isArray(res)) return res;
-  if (isJsonObject(res)) {
-    if (Array.isArray(res.items)) return res.items;
-    if (Array.isArray(res.data)) return res.data;
-  }
-  return [];
-};
-
-/** Read the backend's total-item count from a paginated response's `meta`.
- *  Undefined when the endpoint returns a bare array / omits meta - the UI then
- *  falls back to page-relative controls. */
-const readTotal = (res: unknown): number | undefined => {
-  if (isJsonObject(res) && isJsonObject(res.meta)) {
-    const m = res.meta as Record<string, unknown>;
-    const t = m.totalItems ?? m.total;
-    if (typeof t === "number" && Number.isFinite(t)) return t;
-  }
-  return undefined;
-};
-
-const humanizeTrigger = (type: string) => {
-  if (!type || type === "onchain") return "On-chain event";
-  return type.replace(/[_-]+/g, " ").replace(/^\w/, (c) => c.toUpperCase());
-};
-
-const toRow = (input: unknown): Row | null => {
-  if (!isJsonObject(input)) return null;
-  const id =
-    asString(input.id) ||
-    asString(input.automationId) ||
-    asString(input.automation_id);
-  if (!id) return null;
-  const trigger = isJsonObject(input.trigger) ? input.trigger : {};
-  const type =
-    asString(trigger.type) || asString(input.triggerType) || "onchain";
-  const event = asString(trigger.event) || asString(input.triggerEvent);
-  let triggerLabel = humanizeTrigger(type);
-  if (event && event !== "-" && event.toLowerCase() !== "any event") {
-    triggerLabel += ` · ${event}`;
-  }
-  const rawStatus = asString(input.status);
-  const status: Status =
-    rawStatus === "active"
-      ? "active"
-      : rawStatus === "paused"
-        ? "paused"
-        : "draft";
-  return {
-    id,
-    name: asString(input.name) || "Untitled Loop",
-    triggerLabel,
-    status,
-    entries: asNumber(input.entries ?? input.entryCount),
-    optInEmailsSent: asNumber(input.optInEmailsSent),
-    completionRate: asNumber(input.completionRate),
-    conversions: asNumber(input.conversions ?? input.conversionCount),
-    lastTriggered: asString(
-      input.lastTriggered ?? input.last_triggered ?? input.updatedAt
-    ),
-  };
-};
-
-/** Format an ISO/relative timestamp into a compact "12 min ago" label. */
-const relativeTime = (value: string): string => {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  const diffMs = Date.now() - parsed.getTime();
-  if (diffMs < 0) return "just now";
-  const min = Math.floor(diffMs / 60000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min} min ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 30) return `${day}d ago`;
-  return parsed.toLocaleDateString();
-};
-
-const STATUS_TABS: { id: "all" | Status; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "active", label: "Active" },
-  { id: "paused", label: "Paused" },
-  { id: "draft", label: "Draft" },
-];
-
-const statusPill: Record<Status, string> = {
-  active: "text-emerald-500",
-  paused: "text-amber-500",
-  draft: "text-muted-foreground",
-};
-
+type Filter = "all" | LoopStatus;
+const FILTERS: Filter[] = ["all", "active", "paused", "draft"];
 const PER_PAGE = 10;
 
+const NewGlyph = hugeicon(PlusSignIcon, "NewGlyph");
+const LoopGlyph = hugeicon(FlashIcon, "LoopGlyph");
+
 const VIEW_TABS: PageTabItem[] = [
-  { id: "automations", label: "Loops", icon: RectangleStackIcon },
-  { id: "stats", label: "Stats", icon: ChartBarSquareIcon },
+  { id: "automations", label: "Loops", icon: hugeicon(LayerIcon, "LoopsTab") },
+  {
+    id: "stats",
+    label: "Stats",
+    icon: hugeicon(ChartLineData01Icon, "StatsTab"),
+  },
 ];
 
+/**
+ * Loops, in the 2.7 frame: the title, one sentence on what is live and what
+ * it did (it replaced four stat tiles), New Loop on the right, then search,
+ * the status filters and the list. Stats is a second view of the same page.
+ */
 export function AutomationsListView() {
   const [view, setView] = useState<"automations" | "stats">("automations");
-  const [filter, setFilter] = useState<"all" | Status>("all");
+  // The filter you were on is the one you come back to.
+  const { value: storedFilter, setValue: setStoredFilter } =
+    useLocalStorage<string>("loops-filter", "all");
+  const filter = validChip<Filter>(storedFilter, FILTERS, "all");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
-  const deleteAutomation = useDeleteAutomation(() => setPendingDelete(null));
+  const [pendingDelete, setPendingDelete] = useState<LoopRow | null>(null);
 
   // Debounce the search so we don't fire a request on every keystroke.
   useEffect(() => {
@@ -185,10 +89,8 @@ export function AutomationsListView() {
     setPage(1);
   }, [filter, search]);
 
-  // Server-side page: the backend does the filtering + slicing. Search uses the
-  // dedicated /automations/search endpoint (status tabs don't apply mid-search);
-  // otherwise the status/tab param drives it. keepPreviousData avoids a flash
-  // between pages.
+  // Server-side page: search uses /automations/search (status filters don't
+  // apply mid-search); otherwise the status drives the list endpoint.
   const listQuery = useQuery({
     queryKey: ["automations", "list", { filter, search, page }],
     queryFn: () => {
@@ -205,8 +107,7 @@ export function AutomationsListView() {
       return automationService.listAutomations(params);
     },
     placeholderData: keepPreviousData,
-    // The Stats tab fans out over the same endpoints, so the list's own
-    // requests stand down while it is open.
+    // The Stats view fans out over the same endpoints; the list stands down.
     enabled: view === "automations",
     retry: false,
     refetchOnWindowFocus: false,
@@ -214,22 +115,20 @@ export function AutomationsListView() {
 
   const rows = useMemo(
     () =>
-      pick(listQuery.data)
-        .map(toRow)
-        .filter((r): r is Row => r !== null),
+      pickLoops(listQuery.data)
+        .map(toLoopRow)
+        .filter((r): r is LoopRow => r !== null),
     [listQuery.data]
   );
   const total = useMemo(() => readTotal(listQuery.data), [listQuery.data]);
   const totalPages =
     total !== undefined ? Math.max(1, Math.ceil(total / PER_PAGE)) : undefined;
   const hasPrev = page > 1;
-  // When the backend reports a total we page by it; otherwise a full page is a
-  // signal there may be more.
+  // Without a total, a full page is the signal there may be more.
   const hasNext =
     totalPages !== undefined ? page < totalPages : rows.length >= PER_PAGE;
 
-  // Stat cards from the org-wide metrics aggregate (server-side, not derived
-  // from the current page).
+  // The header sentence reads the org-wide aggregate, not the current page.
   const metricsQuery = useQuery({
     queryKey: ["automations", "metrics"],
     queryFn: () => automationService.getMetrics(),
@@ -238,32 +137,8 @@ export function AutomationsListView() {
     refetchOnWindowFocus: false,
     staleTime: 60_000,
   });
-  const m = metricsQuery.data;
-  const statCards = [
-    { label: "Active flows", value: m ? m.active.toLocaleString() : "-" },
-    {
-      // Entries + double-opt-in confirmation emails sent (incl. re-sends): one
-      // pipeline number. A confirmation sent is a pending contact that becomes
-      // an entry once it confirms, so this keeps forms → audience → entries
-      // reconciled in a single figure without a second tile.
-      label: "Entries · 30d",
-      value: m ? (m.entries + (m.optInEmailsSent ?? 0)).toLocaleString() : "-",
-    },
-    {
-      label: "Avg completion",
-      // Served by the backend from enrolment status; it used to be computed
-      // here from conversions, which is a different measure entirely.
-      value: m ? `${m.completionRate.toFixed(1)}%` : "-",
-    },
-    {
-      label: "On-chain conversions",
-      value: m ? m.conversions.toLocaleString() : "-",
-    },
-  ];
 
-  // Per-status counts for the tab chips - one cheap meta read per status (the
-  // list endpoint's total), cached. Hidden gracefully if the backend omits the
-  // total. Independent of the search term (counts are global).
+  // Per-status counts for the chips: one cheap total read per status.
   const countsQuery = useQuery({
     queryKey: ["automations", "counts"],
     queryFn: async () => {
@@ -286,14 +161,42 @@ export function AutomationsListView() {
     staleTime: 60_000,
   });
   const counts = countsQuery.data;
-  const countFor = (id: "all" | Status): number | undefined =>
-    id === "all"
-      ? counts?.all
-      : id === "active"
-        ? counts?.active
-        : id === "paused"
-          ? counts?.paused
-          : counts?.draft;
+
+  const chips = useMemo(
+    (): FilterChip<Filter>[] =>
+      FILTERS.map((f) => ({
+        key: f,
+        label: f === "all" ? "All" : LOOP_STATUS_LABEL[f],
+        count: counts?.[f] ?? 0,
+      })),
+    [counts]
+  );
+
+  // A later page can empty out under you (the last Loop on it deleted): step
+  // back a page rather than reading it as "no Loops at all".
+  const emptyLaterPage = !listQuery.isFetching && rows.length === 0 && page > 1;
+  useEffect(() => {
+    if (emptyLaterPage) setPage((p) => Math.max(1, p - 1));
+  }, [emptyLaterPage]);
+
+  const m = metricsQuery.data;
+  const nothingYet =
+    !listQuery.isLoading &&
+    rows.length === 0 &&
+    page === 1 &&
+    !search &&
+    filter === "all";
+
+  const description = m ? (
+    <LoopsAnswerLine
+      live={m.active}
+      entries={m.entries + (m.optInEmailsSent ?? 0)}
+      conversions={m.conversions}
+      paused={counts?.paused ?? 0}
+    />
+  ) : (
+    "Messages that send themselves when someone does something: signs up, buys, goes quiet."
+  );
 
   const showingFrom = total === 0 ? 0 : (page - 1) * PER_PAGE + 1;
   const showingTo =
@@ -305,11 +208,11 @@ export function AutomationsListView() {
     <div className="mx-auto w-full max-w-7xl space-y-6">
       <PageHeader
         title="Loops"
-        description="Lifecycle flows that run without you."
+        description={nothingYet ? undefined : description}
         actions={
           <Button asChild>
             <Link href="/automations/new">
-              <PlusIcon aria-hidden="true" className="mr-1.5 h-4 w-4" />
+              <NewGlyph className="mr-1.5 size-4" />
               New Loop
             </Link>
           </Button>
@@ -325,276 +228,128 @@ export function AutomationsListView() {
 
       {view === "stats" ? (
         <AutomationStatsView />
+      ) : nothingYet ? (
+        <SectionEmpty
+          icon={LoopGlyph}
+          title="No Loops yet"
+          body="A Loop moves each person through steps you set when something happens: a form submitted, someone added to a list, a call booked. Build one now and it starts the moment the first person comes in."
+          waits={false}
+          action={{
+            label: "New Loop",
+            href: "/automations/new",
+            icon: NewGlyph,
+          }}
+          onChain="Mints, swaps and wallets going quiet can start a Loop too, once a contract is indexed."
+          preview={{
+            kind: "flow",
+            steps: [
+              {
+                icon: hugeicon(TaskDaily01Icon, "FormStep"),
+                label: "Submits the signup form",
+              },
+              {
+                icon: hugeicon(Mail01Icon, "EmailStep"),
+                label: "Send “Welcome”",
+              },
+              { icon: hugeicon(Clock01Icon, "WaitStep"), label: "Wait 2 days" },
+            ],
+          }}
+        />
       ) : (
         <>
           <ContractAddressNudge context="automation" />
 
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 lg:grid-cols-4">
-            {statCards.map((card) => (
-              <div key={card.label} className="bg-card px-5 py-4">
-                <div className="text-sm text-muted-foreground">
-                  {card.label}
-                </div>
-                <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                  {metricsQuery.isLoading ? "-" : card.value}
-                </div>
-              </div>
-            ))}
-          </div>
-
           <div className="flex flex-wrap items-center gap-3">
-            <input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search automations…"
-              className="h-9 w-64 rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+            <label className="relative">
+              <span className="sr-only">Search Loops</span>
+              <Icon
+                icon={Search01Icon}
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-(--text-tertiary)"
+              />
+              <input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search Loops..."
+                className="h-9 w-64 rounded-lg border border-(--border-subtle) bg-card pr-3 pl-9 text-sm text-(--text-primary) outline-none placeholder:text-(--text-tertiary) focus-visible:ring-2 focus-visible:ring-ring/40"
+              />
+            </label>
+            <FilterChips
+              label="Filter Loops by status"
+              chips={chips}
+              value={filter}
+              onChange={setStoredFilter}
             />
-            <div className="flex flex-wrap gap-1.5">
-              {STATUS_TABS.map((tab) => {
-                const active = filter === tab.id;
-                const c = countFor(tab.id);
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setFilter(tab.id)}
-                    aria-pressed={active}
-                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
-                      active
-                        ? "border-primary/40 bg-primary/10 text-primary"
-                        : "border-border bg-card text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {tab.label}
-                    {typeof c === "number" ? (
-                      <span
-                        className={
-                          active
-                            ? "ml-1.5 text-primary"
-                            : "ml-1.5 text-muted-foreground/70"
-                        }
-                      >
-                        · {c}
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
-          <div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    <th className="px-5 py-3">Loop</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Entries</th>
-                    <th className="px-4 py-3 text-right">Completed</th>
-                    <th className="px-4 py-3 text-right">Conversions</th>
-                    <th className="px-4 py-3 text-right">Last triggered</th>
-                    <th className="w-10 px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => {
-                    // Entries + opt-in emails sent (pending contacts that become
-                    // entries on confirm) — matches the "Entries · 30d" tile.
-                    const rowEntries = row.entries + row.optInEmailsSent;
-                    const hasData = rowEntries > 0;
-                    // COMPLETED is completion, not conversion. This divided
-                    // conversions by entries — a conversion rate under a
-                    // "Completed" heading — so a flow whose every enrolment
-                    // finished still read 0.0% unless it also converted. The two
-                    // measure different things: an enrolment COMPLETES when it
-                    // reaches the end of its flow, and CONVERTS when a delivery
-                    // event says the contact did what the flow was for.
-                    const completion = hasData
-                      ? `${row.completionRate.toFixed(1)}%`
-                      : "-";
-                    return (
-                      <tr
-                        key={row.id}
-                        className="group border-b border-border transition-colors last:border-0 hover:bg-muted/40"
-                      >
-                        <td className="px-5 py-4">
-                          <Link
-                            href={`/automations/${row.id}`}
-                            className="block"
-                          >
-                            <div className="font-medium text-foreground">
-                              {row.name}
-                            </div>
-                            <div className="mt-0.5 text-xs text-muted-foreground">
-                              {row.triggerLabel}
-                            </div>
-                          </Link>
-                        </td>
-                        <td className="px-4 py-4">
-                          <span
-                            className={`inline-flex items-center gap-1.5 text-xs font-medium capitalize ${statusPill[row.status]}`}
-                          >
-                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                            {row.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                          {hasData ? rowEntries.toLocaleString() : "-"}
-                        </td>
-                        <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                          {completion}
-                        </td>
-                        <td className="px-4 py-4 text-right tabular-nums text-foreground">
-                          {hasData ? row.conversions.toLocaleString() : "-"}
-                        </td>
-                        <td className="px-4 py-4 text-right text-muted-foreground">
-                          {hasData ? relativeTime(row.lastTriggered) : "-"}
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setPendingDelete(row)}
-                              aria-label={`Delete ${row.name}`}
-                              title="Delete automation"
-                              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                            >
-                              <TrashIcon
-                                aria-hidden="true"
-                                className="h-4 w-4"
-                              />
-                            </button>
-                            <Link
-                              href={`/automations/${row.id}`}
-                              aria-label={`Open ${row.name}`}
-                              className="inline-flex text-muted-foreground transition-colors group-hover:text-foreground"
-                            >
-                              <ChevronRightIcon
-                                aria-hidden="true"
-                                className="h-4 w-4"
-                              />
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          <div className="overflow-hidden rounded-xl border border-(--border-subtle) bg-card">
+            {listQuery.isLoading ? (
+              <TableSkeleton rows={5} />
+            ) : rows.length > 0 ? (
+              <LoopsTable rows={rows} onDelete={setPendingDelete} />
+            ) : (
+              <EmptyState
+                icon={FlashIcon}
+                title="No Loops match"
+                description="Try a different search, or switch to All."
+              />
+            )}
+          </div>
 
-            {hasPrev || hasNext ? (
-              <div className="flex items-center justify-between pt-4 text-sm text-muted-foreground">
-                <span>
-                  {total !== undefined ? (
-                    <>
-                      Showing {showingFrom.toLocaleString()}–
-                      {showingTo.toLocaleString()} of {total.toLocaleString()}
-                    </>
-                  ) : (
-                    <>Page {page}</>
-                  )}
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-lg"
-                    disabled={!hasPrev}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-lg"
-                    disabled={!hasNext}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Next
-                  </Button>
-                </div>
+          {hasPrev || hasNext ? (
+            <div className="flex items-center justify-between text-sm text-(--text-secondary)">
+              <span>
+                {total !== undefined ? (
+                  <>
+                    Showing {showingFrom.toLocaleString()}–
+                    {showingTo.toLocaleString()} of {total.toLocaleString()}
+                  </>
+                ) : (
+                  <>Page {page}</>
+                )}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!hasPrev}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!hasNext}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
               </div>
-            ) : null}
-
-            {!listQuery.isLoading && rows.length === 0 ? (
-              search || filter !== "all" ? (
-                <div className="rounded-xl border border-border px-5 py-16 text-center">
-                  <p className="text-sm font-semibold text-foreground">
-                    No matching Loops
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Try a different search or filter.
-                  </p>
-                </div>
-              ) : (
-                <SectionEmpty
-                  className="border-0 bg-transparent shadow-none"
-                  icon={BoltIcon}
-                  title="No Loops yet"
-                  body="A Loop moves each person through steps you set when something happens: a form submitted, someone added to a list, a call booked. Build one now and it starts the moment the first person comes in."
-                  waits={false}
-                  action={{
-                    label: "New Loop",
-                    href: "/automations/new",
-                    icon: PlusIcon,
-                  }}
-                  onChain="Mints, swaps and wallets going quiet can start a Loop too, once a contract is indexed."
-                  preview={{
-                    kind: "flow",
-                    steps: [
-                      {
-                        icon: ClipboardDocumentListIcon,
-                        label: "Submits the signup form",
-                      },
-                      { icon: EnvelopeIcon, label: "Send “Welcome”" },
-                      { icon: ClockIcon, label: "Wait 2 days" },
-                    ],
-                  }}
-                />
-              )
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </>
       )}
 
-      <AlertDialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => {
-          if (!open && !deleteAutomation.isPending) setPendingDelete(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Loop?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently deletes{" "}
-              <span className="font-medium text-foreground">
-                {pendingDelete?.name}
-              </span>{" "}
-              and stops all of its active triggers. This can&apos;t be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteAutomation.isPending}>
-              Keep Loop
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteAutomation.isPending}
-              onClick={(e) => {
-                e.preventDefault();
-                if (pendingDelete) deleteAutomation.mutate(pendingDelete.id);
-              }}
-            >
-              {deleteAutomation.isPending ? "Deleting…" : "Delete Loop"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteLoopDialog
+        pendingDelete={pendingDelete}
+        setPendingDelete={setPendingDelete}
+      />
     </div>
+  );
+}
+
+function LoopsAnswerLine(props: {
+  live: number;
+  entries: number;
+  conversions: number;
+  paused: number;
+}) {
+  const a = loopsAnswer(props);
+  return (
+    <>
+      <b>{a.lead}</b>. {a.detail} <b>{a.conversions}</b> of them converted
+      afterwards.{a.stopped ? ` ${a.stopped}` : null}
+    </>
   );
 }
 

@@ -8,8 +8,13 @@ import { isFiniteRate } from "./rates";
  */
 export interface CampaignsAnswer {
   sent: number;
-  /** Recipients summed across sent campaigns: messages, not people, since audiences overlap. */
-  messages: number;
+  /**
+   * Provider-confirmed deliveries summed across sent campaigns: messages, not
+   * people, since audiences overlap. Undefined when no campaign reports
+   * deliveries. Audience size is not used: it overstates a send still going
+   * out and understates one that went out on several channels.
+   */
+  delivered?: number;
   best?: { name: string; openRate: number };
   /** "2 are scheduled, 1 is a draft and 1 is paused", or "" when nothing waits. */
   waiting: string;
@@ -34,7 +39,13 @@ export const joinAnd = (parts: string[]) =>
 
 export function campaignsAnswer(campaigns: Campaign[]): CampaignsAnswer {
   const sent = campaigns.filter((c) => c.status === "sent");
-  const messages = sent.reduce((sum, c) => sum + (c.recipients ?? 0), 0);
+  const reported = sent.filter(
+    (c): c is Campaign & { delivered: number } =>
+      typeof c.delivered === "number" && Number.isFinite(c.delivered)
+  );
+  const delivered = reported.length
+    ? reported.reduce((sum, c) => sum + c.delivered, 0)
+    : undefined;
 
   let best: CampaignsAnswer["best"];
   for (const c of sent) {
@@ -49,7 +60,7 @@ export function campaignsAnswer(campaigns: Campaign[]): CampaignsAnswer {
     PHRASES.filter(([s]) => count(s) > 0).map(([s, say]) => say(count(s)))
   );
 
-  return { sent: sent.length, messages, best, waiting };
+  return { sent: sent.length, delivered, best, waiting };
 }
 
 /** "45%" from a percent value (already a percentage, never multiplied). */

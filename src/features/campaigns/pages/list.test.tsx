@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CampaignsListsView } from "./list";
 
@@ -70,12 +70,7 @@ vi.mock("sonner", () => {
   };
 });
 
-// The analytics header and the detail drawer each fetch on their own; they are
-// not under test here, so stub them out to keep the list the sole focus.
-vi.mock("../components/analytics-overview", () => ({
-  CampaignsAnalyticsOverview: () => null,
-}));
-
+// The detail drawer fetches on its own; it is not under test here.
 vi.mock("../components/campaign-detail-sheet", () => ({
   CampaignDetailSheet: () => null,
 }));
@@ -139,31 +134,34 @@ function renderWithClient(ui: React.ReactElement) {
 }
 
 describe("CampaignsListsView", () => {
+  // The status filter is remembered per browser; start each test on All.
+  beforeEach(() => window.localStorage.clear());
+
   it("filters campaigns by status and keeps the active filter across switches", async () => {
     renderWithClient(<CampaignsListsView />);
 
-    // All three campaigns render unfiltered, and the "All" tab starts active.
+    // All three campaigns render unfiltered, and the "All" chip starts active.
     expect(await screen.findByText("Welcome")).toBeInTheDocument();
     expect(screen.getByText("Launch")).toBeInTheDocument();
     expect(screen.getByText("Draft One")).toBeInTheDocument();
 
-    const allTab = screen.getByRole("tab", { name: /all/i });
-    expect(allTab).toHaveAttribute("aria-selected", "true");
+    const allTab = screen.getByRole("radio", { name: /all/i });
+    expect(allTab).toHaveAttribute("aria-checked", "true");
 
-    // Filtering to "Sent" drops the draft and marks the Sent tab active.
-    const sentTab = screen.getByRole("tab", { name: /sent/i });
+    // Filtering to "Sent" drops the draft and marks the Sent chip active.
+    const sentTab = screen.getByRole("radio", { name: /sent/i });
     fireEvent.click(sentTab);
-    expect(sentTab).toHaveAttribute("aria-selected", "true");
-    expect(allTab).toHaveAttribute("aria-selected", "false");
+    expect(sentTab).toHaveAttribute("aria-checked", "true");
+    expect(allTab).toHaveAttribute("aria-checked", "false");
     expect(screen.getByText("Welcome")).toBeInTheDocument();
     expect(screen.getByText("Launch")).toBeInTheDocument();
     expect(screen.queryByText("Draft One")).not.toBeInTheDocument();
 
-    // Switching to "Draft" flips the filter and the active tab persists.
-    const draftTab = screen.getByRole("tab", { name: /^draft/i });
+    // Switching to "Draft" flips the filter and the active chip persists.
+    const draftTab = screen.getByRole("radio", { name: /^draft/i });
     fireEvent.click(draftTab);
-    expect(draftTab).toHaveAttribute("aria-selected", "true");
-    expect(sentTab).toHaveAttribute("aria-selected", "false");
+    expect(draftTab).toHaveAttribute("aria-checked", "true");
+    expect(sentTab).toHaveAttribute("aria-checked", "false");
     expect(screen.getByText("Draft One")).toBeInTheDocument();
     expect(screen.queryByText("Welcome")).not.toBeInTheDocument();
     expect(screen.queryByText("Launch")).not.toBeInTheDocument();

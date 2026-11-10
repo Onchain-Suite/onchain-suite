@@ -1,67 +1,84 @@
 "use client";
 
 import {
-  ArrowUpTrayIcon,
-  ChevronRightIcon,
-  MegaphoneIcon,
-  PlusIcon,
-} from "@heroicons/react/24/outline";
-import { Megaphone01Icon } from "@hugeicons/core-free-icons";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+  Megaphone01Icon,
+  PlusSignIcon,
+  Upload04Icon,
+} from "@hugeicons/core-free-icons";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/ui/dialog";
 
-import { cn, getSelectedOrganizationId } from "@/lib/utils";
+import { useLocalStorage } from "@/hooks/client/use-local-storage";
 
 import { campaignsService } from "../campaigns.service";
-import { CampaignsAnalyticsOverview } from "../components/analytics-overview";
+import { CampaignRowDialogs } from "../components/campaign-row-dialogs";
+import { CampaignsAnswerLine } from "../components/campaigns-answer-line";
 import { CampaignsReferenceTable } from "../components/campaigns-reference-table";
 import type { Campaign, CampaignStatus } from "../types/campaign";
 import { EmptyState } from "@/shared/components/common/empty-state";
+import { hugeicon } from "@/shared/components/common/hugeicon";
 import { SectionEmpty } from "@/shared/components/common/section-empty";
+import {
+  type FilterChip,
+  FilterChips,
+  validChip,
+} from "@/shared/components/page/filter-chips";
+import { PageHeader } from "@/shared/components/page/page-header";
 import { TableSkeleton } from "@/shared/components/page/page-skeleton";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
-const CAMPAIGN_TYPE_LABEL: Record<string, string> = {
-  "email-blast": "Email blast",
-  newsletter: "Newsletter",
-  "smart-sending": "Smart",
-  automation: "Automation",
-};
-
-const campaignTypeLabel = (type: string) =>
-  CAMPAIGN_TYPE_LABEL[type] ?? "Email";
-
 const PER_PAGE = 10;
 
-/** Split a date into the little day/month badge used by the UPCOMING cards. */
-const dateBadge = (date: Date) => ({
-  day: date.getDate(),
-  month: new Intl.DateTimeFormat("en-US", { month: "short" })
-    .format(date)
-    .toUpperCase(),
-});
+const NewGlyph = hugeicon(PlusSignIcon, "NewGlyph");
+const ImportGlyph = hugeicon(Upload04Icon, "ImportGlyph");
+const CampaignGlyph = hugeicon(Megaphone01Icon, "CampaignGlyph");
 
+type Filter = "all" | CampaignStatus;
+const FILTERS: Filter[] = [
+  "all",
+  "sent",
+  "scheduled",
+  "draft",
+  "paused",
+  "sending",
+  "failed",
+];
+const FILTER_LABEL: Record<Filter, string> = {
+  all: "All",
+  sent: "Sent",
+  scheduled: "Scheduled",
+  draft: "Draft",
+  paused: "Paused",
+  sending: "Sending",
+  failed: "Failed",
+};
+/** Sending and Failed only get a chip while something is in them. */
+const ALWAYS_SHOWN = new Set<Filter>([
+  "all",
+  "sent",
+  "scheduled",
+  "draft",
+  "paused",
+]);
+
+/**
+ * Campaigns, in the 2.7 frame: the title, one sentence on how the sends went,
+ * New campaign on the right, then the status filters and the list. The four
+ * stat cards and the Upcoming strip are gone: the sentence answers the same
+ * question, and Home lists what is scheduled.
+ */
 export function CampaignsListsView() {
-  const [statusFilter, setStatusFilter] = useState<"all" | CampaignStatus>(
-    "all"
-  );
+  // The filter you were on is the one you come back to.
+  const { value: storedFilter, setValue: setStoredFilter } =
+    useLocalStorage<string>("campaigns-filter", "all");
+  const statusFilter = validChip<Filter>(storedFilter, FILTERS, "all");
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Campaign | null>(null);
-  const queryClient = useQueryClient();
   const router = useRouter();
 
   const openDetail = (c: Campaign) =>
@@ -72,36 +89,6 @@ export function CampaignsListsView() {
     queryFn: () => campaignsService.listCampaigns({ page: 1, limit: 200 }),
     retry: false,
     refetchOnWindowFocus: false,
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) =>
-      campaignsService.deleteCampaign(
-        id,
-        getSelectedOrganizationId() ?? undefined
-      ),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["campaigns", "list"] });
-      toast.success("Campaign deleted");
-      setDeleteTarget(null);
-    },
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Couldn't delete campaign"),
-  });
-
-  const cancelMutation = useMutation({
-    mutationFn: (id: string) =>
-      campaignsService.cancelCampaign(
-        id,
-        getSelectedOrganizationId() ?? undefined
-      ),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["campaigns", "list"] });
-      toast.success("Campaign canceled");
-      setCancelTarget(null);
-    },
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Couldn't cancel campaign"),
   });
 
   const campaigns = useMemo(
@@ -117,8 +104,8 @@ export function CampaignsListsView() {
     [campaigns, statusFilter]
   );
 
-  // Paginate the filtered set (10/page, like Audience). Clamp the page so a
-  // filter change that shrinks the list can't strand you on an empty page.
+  // Paginate the filtered set. Clamp the page so a filter change that shrinks
+  // the list can't strand you on an empty page.
   const totalPages = Math.max(
     1,
     Math.ceil(filteredCampaigns.length / PER_PAGE)
@@ -130,154 +117,48 @@ export function CampaignsListsView() {
     [filteredCampaigns, safePage]
   );
 
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
+  const chips = useMemo((): FilterChip<Filter>[] => {
+    const counts: Partial<Record<Filter, number>> = { all: campaigns.length };
     for (const c of campaigns) counts[c.status] = (counts[c.status] ?? 0) + 1;
-    return counts;
+    return FILTERS.filter(
+      (f) => ALWAYS_SHOWN.has(f) || (counts[f] ?? 0) > 0
+    ).map((f) => ({ key: f, label: FILTER_LABEL[f], count: counts[f] ?? 0 }));
   }, [campaigns]);
 
-  // Always show the reference set; surface sending/failed only when they have
-  // rows so the strip stays clean.
-  const statusChips = useMemo(() => {
-    const base: { key: "all" | CampaignStatus; label: string }[] = [
-      { key: "all", label: "All" },
-      { key: "sent", label: "Sent" },
-      { key: "scheduled", label: "Scheduled" },
-      { key: "draft", label: "Draft" },
-      { key: "paused", label: "Paused" },
-    ];
-    if ((statusCounts.sending ?? 0) > 0)
-      base.push({ key: "sending", label: "Sending" });
-    if ((statusCounts.failed ?? 0) > 0)
-      base.push({ key: "failed", label: "Failed" });
-    return base;
-  }, [statusCounts]);
-
-  // Next scheduled sends, soonest first - powers the "UPCOMING" row.
-  const upcomingCampaigns = useMemo(() => {
-    const now = Date.now();
-    return campaigns
-      .filter(
-        (c) =>
-          c.status === "scheduled" &&
-          c.scheduledFor instanceof Date &&
-          c.scheduledFor.getTime() > now
-      )
-      .sort(
-        (a, b) =>
-          (a.scheduledFor?.getTime() ?? 0) - (b.scheduledFor?.getTime() ?? 0)
-      )
-      .slice(0, 2);
-  }, [campaigns]);
+  const hasCampaigns = campaigns.length > 0;
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Campaigns
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Search, filter, and manage all of your campaigns from one place.
-          </p>
-        </div>
-        <Button asChild className="rounded-xl">
-          <Link href={PRIVATE_ROUTES.NEW_CAMPAIGN} prefetch>
-            <PlusIcon className="mr-2 size-4" aria-hidden="true" />
-            Create campaign
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Campaigns"
+        description={
+          hasCampaigns ? (
+            <CampaignsAnswerLine campaigns={campaigns} />
+          ) : (
+            "One message to many people, by email, in-app push, SMS or a post."
+          )
+        }
+        actions={
+          <Button asChild>
+            <Link href={PRIVATE_ROUTES.NEW_CAMPAIGN} prefetch>
+              <NewGlyph className="mr-1.5 size-4" />
+              New campaign
+            </Link>
+          </Button>
+        }
+      />
 
-      <CampaignsAnalyticsOverview />
-
-      {upcomingCampaigns.length > 0 ? (
-        <div className="space-y-3">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Upcoming
-          </p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {upcomingCampaigns.map((c) => {
-              const badge = c.scheduledFor ? dateBadge(c.scheduledFor) : null;
-              const recipients =
-                typeof c.recipients === "number"
-                  ? `${c.recipients.toLocaleString()} recipients`
-                  : "Audience pending";
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => openDetail(c)}
-                  className="flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
-                >
-                  {badge ? (
-                    <span className="flex size-12 shrink-0 flex-col items-center justify-center rounded-lg bg-primary/10 leading-none text-primary">
-                      <span className="text-lg font-semibold">{badge.day}</span>
-                      <span className="text-[10px] font-medium">
-                        {badge.month}
-                      </span>
-                    </span>
-                  ) : null}
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold text-foreground">
-                      {c.name}
-                    </span>
-                    <span className="block truncate text-sm text-muted-foreground">
-                      {campaignTypeLabel(c.type)} · {recipients}
-                    </span>
-                  </span>
-                  <ChevronRightIcon
-                    className="size-5 shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      {hasCampaigns ? (
+        <FilterChips
+          label="Filter campaigns by status"
+          chips={chips}
+          value={statusFilter}
+          onChange={(key) => {
+            setStoredFilter(key);
+            setPage(1);
+          }}
+        />
       ) : null}
-
-      <div
-        role="tablist"
-        aria-label="Filter campaigns by status"
-        className="flex flex-wrap items-center gap-2"
-      >
-        {statusChips.map((chip) => {
-          const count =
-            chip.key === "all"
-              ? campaigns.length
-              : (statusCounts[chip.key] ?? 0);
-          const active = statusFilter === chip.key;
-          return (
-            <button
-              key={chip.key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => {
-                setStatusFilter(chip.key);
-                setPage(1);
-              }}
-              className={cn(
-                "rounded-lg border px-3 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none",
-                active
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {chip.label}
-              <span
-                className={cn(
-                  "ml-1.5 tabular-nums",
-                  active ? "text-primary" : "text-muted-foreground/70"
-                )}
-              >
-                · {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
 
       {campaignsQuery.isLoading ? (
         <TableSkeleton rows={6} />
@@ -343,27 +224,27 @@ export function CampaignsListsView() {
             </Button>
             <Button asChild className="rounded-xl">
               <Link href={PRIVATE_ROUTES.NEW_CAMPAIGN} prefetch>
-                <PlusIcon className="mr-2 size-4" aria-hidden="true" />
-                Create campaign
+                <NewGlyph className="mr-2 size-4" />
+                New campaign
               </Link>
             </Button>
           </div>
         </div>
       ) : (
         <SectionEmpty
-          icon={MegaphoneIcon}
+          icon={CampaignGlyph}
           title="No campaigns yet"
           body="A campaign sends one message to an audience, by email, in-app push or X. Import contacts or collect them with a form, connect a channel, and you can send today."
           waits={false}
           action={{
-            label: "Create campaign",
+            label: "New campaign",
             href: PRIVATE_ROUTES.NEW_CAMPAIGN,
-            icon: PlusIcon,
+            icon: NewGlyph,
           }}
           secondary={{
             label: "Import contacts",
-            href: PRIVATE_ROUTES.AUDIENCE,
-            icon: ArrowUpTrayIcon,
+            href: `${PRIVATE_ROUTES.AUDIENCE}/import-export`,
+            icon: ImportGlyph,
           }}
           onChain="Want to message your holders too? They become an audience once a contract is indexed."
           preview={{
@@ -373,85 +254,12 @@ export function CampaignsListsView() {
         />
       )}
 
-      <Dialog
-        open={Boolean(deleteTarget)}
-        onOpenChange={(o) => {
-          if (!o && !deleteMutation.isPending) setDeleteTarget(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete campaign</DialogTitle>
-            <DialogDescription>
-              Delete{" "}
-              <span className="font-medium text-foreground">
-                {deleteTarget?.name ?? "this campaign"}
-              </span>
-              ? This can&apos;t be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              className="rounded-xl"
-              onClick={() => setDeleteTarget(null)}
-              disabled={deleteMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              className="rounded-xl"
-              disabled={deleteMutation.isPending}
-              onClick={() => {
-                if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
-              }}
-            >
-              {deleteMutation.isPending ? "Deleting…" : "Delete campaign"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={Boolean(cancelTarget)}
-        onOpenChange={(o) => {
-          if (!o && !cancelMutation.isPending) setCancelTarget(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Cancel campaign</DialogTitle>
-            <DialogDescription>
-              Stop sending{" "}
-              <span className="font-medium text-foreground">
-                {cancelTarget?.name ?? "this campaign"}
-              </span>
-              ? Messages already delivered can&apos;t be recalled.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              className="rounded-xl"
-              onClick={() => setCancelTarget(null)}
-              disabled={cancelMutation.isPending}
-            >
-              Keep sending
-            </Button>
-            <Button
-              variant="destructive"
-              className="rounded-xl"
-              disabled={cancelMutation.isPending}
-              onClick={() => {
-                if (cancelTarget) cancelMutation.mutate(cancelTarget.id);
-              }}
-            >
-              {cancelMutation.isPending ? "Canceling…" : "Cancel campaign"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CampaignRowDialogs
+        deleteTarget={deleteTarget}
+        cancelTarget={cancelTarget}
+        setDeleteTarget={setDeleteTarget}
+        setCancelTarget={setCancelTarget}
+      />
     </div>
   );
 }

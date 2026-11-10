@@ -37,6 +37,7 @@ export function cerebraLine(c: LineContext): string {
       ["ob-first", !first],
       ["ob-name", !name],
       ["ob-web", !looksLikeSite(c.profile.website)],
+      ["ob-start", !c.profile.start],
       ["ob-sector", !c.profile.sector],
     ];
     const next = missing.find(([, m]) => m)?.[0];
@@ -51,27 +52,29 @@ export function cerebraLine(c: LineContext): string {
         return name
           ? `${name}, got it. What's the website?`
           : "What's the project's website?";
+      case "ob-start":
+        return "What do you have today? Pick the closest. I'll start you on the quickest win for it.";
       case "ob-sector":
-        return "Which sector are you in? It helps me suggest what to track.";
+        return "What kind of business is it? It helps me suggest what to track.";
       default: {
-        // The required answers are in. Nudge towards the two optional ones still empty.
+        // The required answers are in. A team with a contract can paste it now.
         const hasContract = c.profile.contract.trim().length > 0;
-        const hasDesc = c.profile.description.trim().length > 0;
-        const proj = name || "the project";
         if (c.contractLabel && hasContract) {
           return `That looks like ${c.contractLabel
             .charAt(0)
             .toLowerCase()}${c.contractLabel.slice(1)}. I'll index it first.`;
         }
-        if (!hasContract && !hasDesc)
-          return `That's everything I need${you}. Two optional extras help me more: your contract address, so I can index it first, and a line on what ${proj} does. Or press Continue.`;
-        if (!hasContract)
-          return `Thanks. Got a contract address too? Paste it and I'll index it first. Or press Continue.`;
-        if (!hasDesc)
-          return `Nice. One line on what ${proj} does helps me suggest your first Loops. Or press Continue.`;
+        if (c.profile.start === "chain" && !hasContract)
+          return `That's everything I need${you}. Got the contract address? Paste it and I'll index it first. Or press Continue.`;
         return `That's everything${you}. Press Continue when you're ready.`;
       }
     }
+  }
+
+  if (c.step === "goal") {
+    return c.profile.goal
+      ? "Good. Everything that counts as a win now reads as that. Press Continue."
+      : "What do you want people to do? Pick one. The ones at the top fit what you told me you have.";
   }
 
   if (c.step === "technical") {

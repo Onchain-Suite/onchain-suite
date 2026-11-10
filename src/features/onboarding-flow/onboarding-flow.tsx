@@ -13,6 +13,7 @@ import {
   GuidedShell,
   StepContract,
   StepDns,
+  StepGoal,
   StepPlan,
   StepProject,
   StepTechnical,
@@ -25,12 +26,12 @@ import {
   flowFor,
   HANDOFF_MODE,
   type ManualContractDraft,
-  type OnboardingContract,
   profileReady,
   type ProjectProfile,
   type Role,
   type StepId,
 } from "./constants/guided";
+import { isStartPath } from "./constants/guided";
 import { DEFAULT_CHAIN } from "./data/chains";
 import {
   resolveResumeFlowStep,
@@ -38,6 +39,7 @@ import {
   useOnboardingPersistence,
   useOnboardingTracking,
 } from "./hooks";
+import { useOnboardingContracts } from "./hooks/use-onboarding-contracts";
 import { onboardingService } from "./onboarding.service";
 import { type OnboardingData } from "./types";
 import { classify } from "./utils/contract-input";
@@ -139,7 +141,7 @@ export function OnboardingFlow() {
   const [profile, setProfile] = React.useState<ProjectProfile>(EMPTY_PROFILE);
   // The persisted step (URL ?step= + localStorage) is the single source of the guided position, so
   // a reload or re-mount restores the exact step instead of snapping back to the project step.
-  const flow = flowFor(role);
+  const flow = flowFor(role, profile.start);
   const stepIndex = Math.max(
     0,
     Math.min((persistedStep ?? 1) - 1, flow.length - 1)
@@ -164,29 +166,8 @@ export function OnboardingFlow() {
     if (r === "operator") setManual(null);
   }, []);
 
-  // The one contract the backend indexes: the by-hand one if given, otherwise
-  // the address pasted on the contract step, on the resolver's/chosen chain.
-  const allContracts: OnboardingContract[] = React.useMemo(() => {
-    const manualAddr = manual?.address.trim() ?? "";
-    const typedAddr = profile.contract.trim();
-    const manualChain =
-      [manual?.chain, resolvedChain, profile.chains[0]].find(
-        (c): c is string => typeof c === "string" && c.trim().length > 0
-      ) ?? DEFAULT_CHAIN;
-    const manualName = manual?.name.trim() ? manual.name.trim() : undefined;
-    if (manualAddr) {
-      return [{ address: manualAddr, chain: manualChain, name: manualName }];
-    }
-    if (typedAddr) {
-      return [
-        {
-          address: typedAddr,
-          chain: resolvedChain ?? profile.chains[0] ?? DEFAULT_CHAIN,
-        },
-      ];
-    }
-    return [];
-  }, [profile.contract, profile.chains, resolvedChain, manual]);
+  // The one contract the backend indexes (see use-onboarding-contracts).
+  const allContracts = useOnboardingContracts(profile, resolvedChain, manual);
 
   const at: StepId = flow[Math.min(stepIndex, flow.length - 1)];
 
@@ -220,6 +201,8 @@ export function OnboardingFlow() {
         website: formData.websiteUrl ?? p.website,
         sector: formData.sector ?? p.sector,
         description: formData.description ?? p.description,
+        start: isStartPath(formData.startPath) ? formData.startPath : p.start,
+        goal: formData.businessGoal ?? p.goal,
       }));
     }
   }, [formData]);
@@ -232,6 +215,8 @@ export function OnboardingFlow() {
         websiteUrl: p.website,
         sector: p.sector,
         description: p.description,
+        startPath: p.start || undefined,
+        businessGoal: p.goal || undefined,
       });
     },
     [setData]
@@ -280,6 +265,7 @@ export function OnboardingFlow() {
               sector: profile.sector,
               sectorType: sectorGroupOf(profile.sector),
               hasContractAddress: profile.contract.trim().length > 0,
+              startPath: profile.start,
             },
             flowVersion: FLOW_VERSION,
             // guidedStep + role give the richer funnel its granularity while the
@@ -301,6 +287,7 @@ export function OnboardingFlow() {
     // step name, `guidedStep` for the real granularity) so drop-off per guided
     // step is visible; entering the plan flips to the plan_selection step.
     const next = stepIndex + 1;
+    if (at === "goal") persistProfile(profile);
     if (user?.id) {
       const enteringPlan = flow[next] === "plan";
       trackStep({
@@ -316,6 +303,7 @@ export function OnboardingFlow() {
           ...(at === "contract"
             ? { contractsPicked: allContracts.length }
             : {}),
+          ...(at === "goal" ? { businessGoal: profile.goal } : {}),
           ...(at === "technical"
             ? { handoffInvited: Boolean(handoffSentTo) }
             : {}),
@@ -463,7 +451,10 @@ export function OnboardingFlow() {
 
   const skipping =
     at === "dns" || (at === "contract" && allContracts.length === 0);
-  const continueDisabled = busy || (at === "project" && !profileReady(profile));
+  const continueDisabled =
+    busy ||
+    (at === "project" && !profileReady(profile)) ||
+    (at === "goal" && !profile.goal);
 
   // Cerebra's scripted line for the current step + the answers so far. The contract label comes
   // from the same local classifier the project step shows; the DNS verify-state and the chosen
@@ -526,6 +517,13 @@ export function OnboardingFlow() {
             value={profile}
             onChange={setProfile}
             onEnter={handleContinue}
+          />
+        )}
+        {at === "goal" && (
+          <StepGoal
+            start={profile.start}
+            value={profile.goal}
+            onChange={(goal) => setProfile((p) => ({ ...p, goal }))}
           />
         )}
         {at === "technical" && (

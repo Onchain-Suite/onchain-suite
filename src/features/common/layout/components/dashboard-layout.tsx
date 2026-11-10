@@ -18,6 +18,7 @@ import {
 
 import { NAV_SECTIONS } from "../data/nav-sections";
 import { useAppShortcuts } from "../hooks/use-app-shortcuts";
+import { hasActiveOrg } from "../utils/org-gate";
 import { getBreadcrumbsForPath } from "./breadcrumbs";
 import { ComingSoonSection } from "./coming-soon-section";
 import { DashboardHeader } from "./dashboard-header";
@@ -61,6 +62,8 @@ function DashboardLayoutInner({
 }: DashboardLayoutProps) {
   const pathname = usePathname();
   const { data: session } = authClient.useSession();
+  // The switcher's confirmed org is reactive; the cookie sampled below is not.
+  const { confirmedActiveOrgId } = useOrgSwitcherContext();
   // G then a letter, J/K, / and ? (⌘K is the palette provider's).
   useAppShortcuts();
   const [isMounted, setIsMounted] = useState(false);
@@ -101,8 +104,14 @@ function DashboardLayoutInner({
   const isConfirmedBySession = isMounted
     ? isOrganizationConfirmed(activeOrganizationId)
     : false;
-  const hasActiveOrganization =
-    isConfirmedBySession || (!!selectedOrgId && !isSwitchingOrg);
+  const hasActiveOrganization = hasActiveOrg({
+    confirmedBySession: isConfirmedBySession,
+    selectedOrgId,
+    // Client-only state: held back until mount so server and first client
+    // render agree.
+    confirmedOrgId: isMounted ? confirmedActiveOrgId : null,
+    isSwitchingOrg,
+  });
 
   const breadcrumbs = useMemo(
     () => getBreadcrumbsForPath(pathname ?? "/"),
@@ -129,7 +138,7 @@ function DashboardLayoutInner({
   const wipSection = SHOW_WIP_SECTIONS ? null : getWipSection(pathname ?? "/");
 
   return (
-    <OrgSwitcherProvider>
+    <>
       {/* Bound the shell to the viewport so the content area (not the window)
           is the scroll container - otherwise `position: sticky` inside pages
           never engages (it would anchor to a non-scrolling ancestor). */}
@@ -176,7 +185,7 @@ function DashboardLayoutInner({
         {/* No floating assistant: ⌘K is the one door to Intelligence (2.7, 7 Nov 2026). */}
         <ProductTour />
       </SidebarProvider>
-    </OrgSwitcherProvider>
+    </>
   );
 }
 
@@ -210,32 +219,72 @@ function ShellContent({
   const confirmedNoOrg =
     isMounted && hasResolved && organizations.length === 0 && !isSwitchingOrg;
 
-  return confirmedNoOrg ? <NoOrganizationState /> : <ShellSkeleton />;
+  return confirmedNoOrg ? <NoOrganizationState /> : <ResolvingWorkspace />;
 }
 
-/** Layout-mirroring skeleton shown while the workspace resolves. */
+/** How long the workspace may take to resolve before we say so. */
+const RESOLVE_PATIENCE_MS = 10_000;
+
+/**
+ * The skeleton while the workspace resolves, bounded: nothing may sit on a
+ * loading state forever. Past the deadline it says what is happening and
+ * offers the two ways out, while the skeleton keeps waiting underneath.
+ */
+function ResolvingWorkspace() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setSlow(true), RESOLVE_PATIENCE_MS);
+    return () => clearTimeout(id);
+  }, []);
+
+  return (
+    <>
+      {slow ? (
+        <div
+          role="status"
+          className="mx-auto mb-6 flex max-w-7xl flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3"
+        >
+          <p className="text-sm text-muted-foreground">
+            <b className="font-medium text-foreground">
+              Your workspace is taking longer than usual to load.
+            </b>{" "}
+            Reloading usually fixes it.
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Reload
+            </button>
+            <a
+              href="/auth/signin"
+              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+            >
+              Sign in again
+            </a>
+          </div>
+        </div>
+      ) : null}
+      <ShellSkeleton />
+    </>
+  );
+}
+
+/**
+ * Skeleton shown while the workspace resolves. Every page opens the same way
+ * (title, one sentence, then its list), so this is that shape.
+ */
 function ShellSkeleton() {
   return (
-    <div className="mx-auto max-w-7xl space-y-6" aria-hidden="true">
-      <div className="rounded-2xl border border-border bg-card px-6 py-7">
-        <Skeleton className="h-7 w-64 max-w-full" />
-        <Skeleton className="mt-2 h-4 w-80 max-w-full" />
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="mx-auto w-full max-w-7xl" aria-hidden="true">
+      <Skeleton className="h-8 w-72 max-w-full" />
+      <Skeleton className="mt-2.5 h-4 w-96 max-w-full" />
+      <div className="mt-6 flex flex-col gap-2">
         {Array.from({ length: 4 }, (_, i) => (
-          <div
-            key={i}
-            className="space-y-3 rounded-xl border border-border bg-card p-5"
-          >
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-8 w-28" />
-            <Skeleton className="h-8 w-full" />
-          </div>
+          <Skeleton key={i} className="h-[76px] w-full rounded-xl" />
         ))}
-      </div>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.5fr_1fr]">
-        <Skeleton className="h-64 rounded-xl" />
-        <Skeleton className="h-64 rounded-xl" />
       </div>
     </div>
   );
@@ -275,5 +324,10 @@ export function DashboardLayout(props: DashboardLayoutProps) {
   // Server state lives on the root QueryClient and the command palette on the
   // root CommandPaletteProvider (see RootProviders) - both survive
   // navigations; mounting either here would duplicate them per layout.
-  return <DashboardLayoutInner {...props} />;
+  // The org switcher wraps the shell so the shell itself can follow it.
+  return (
+    <OrgSwitcherProvider>
+      <DashboardLayoutInner {...props} />
+    </OrgSwitcherProvider>
+  );
 }

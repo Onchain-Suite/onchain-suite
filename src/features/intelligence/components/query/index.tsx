@@ -48,10 +48,12 @@ import { ProposedActionCard } from "./proposed-action-card";
 import { SqlBlockchainLoader } from "./sql-blockchain-loader";
 import { SqlResultsTable } from "./sql-results-table";
 import { type ThinkingKind, ThinkingTimeline } from "./thinking-timeline";
+import { useAutoAsk } from "@/features/intelligence/hooks/use-auto-ask";
 import {
   dropFormattedSiblingColumns,
   preferFormattedCell,
 } from "@/features/intelligence/utils";
+import { toExecutableSql } from "@/features/intelligence/utils/executable-sql";
 import { toQueryHistoryItems } from "@/features/intelligence/utils/query-history";
 import { MarkdownLite } from "@/shared/components/common/markdown-lite";
 import { useVoiceInput } from "@/shared/hooks/use-voice-input";
@@ -66,36 +68,6 @@ const DEFAULT_SQL_QUERY = "";
  */
 const SQL_STATUS_POLL_TIMEOUT_MS = 90_000;
 const SQL_STATUS_POLL_INTERVAL_MS = 1_000;
-
-/**
- * Normalize the editor SQL into what the backend accepts:
- *  - strip leading comments/whitespace so it begins with `select`/`with`
- *    (a leading comment trips "Only SELECT queries are allowed"), and
- *  - drop statement-ending semicolons (the backend runs a single read-only
- *    statement and rejects any semicolons).
- * The editor keeps the user's text as-is; this only affects what we send.
- */
-const toExecutableSql = (sql: string): string => {
-  let s = sql;
-  // Peel leading whitespace / line comments / block comments until the next
-  // token is real SQL (bounded loop guards against pathological input).
-  for (let i = 0; i < 1000; i += 1) {
-    const before = s;
-    s = s.replace(/^\s+/, "");
-    if (s.startsWith("--")) {
-      const nl = s.indexOf("\n");
-      s = nl === -1 ? "" : s.slice(nl + 1);
-    } else if (s.startsWith("/*")) {
-      const end = s.indexOf("*/");
-      s = end === -1 ? "" : s.slice(end + 2);
-    }
-    if (s === before) break;
-  }
-  // Remove semicolons at the end of a line or the query (keeps any inside
-  // string literals on a line with more content untouched).
-  s = s.replace(/;[ \t]*(?=\r?\n|$)/g, "");
-  return s.trim();
-};
 
 const asRecord = (row: unknown): Record<string, unknown> =>
   isJsonObject(row) ? (row as Record<string, unknown>) : { value: row };
@@ -1449,6 +1421,8 @@ interface QueryTabProps {
   initialQueryId?: string | null;
   initialSql?: string;
   initialChatPrompt?: string;
+  /** A question to send as soon as the chat opens (⌘K "Ask Intelligence"). */
+  autoAsk?: string;
   /** Root className - the chat surface passes fill/flex classes so the message
    *  list scrolls inside a fixed viewport (ChatGPT-style) instead of growing the
    *  page. */
@@ -1472,6 +1446,7 @@ export function QueryTab({
   initialQueryId,
   initialSql,
   initialChatPrompt,
+  autoAsk,
   className,
 }: QueryTabProps) {
   const queryClient = useQueryClient();
@@ -2093,6 +2068,8 @@ export function QueryTab({
     },
     [agentMutation, attachment]
   );
+
+  useAutoAsk(autoAsk, submitChatPrompt);
 
   useEffect(() => {
     if (activeSurface !== "chat") return;

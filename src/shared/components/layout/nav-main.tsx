@@ -1,6 +1,6 @@
 "use client";
 
-import { CaretDown } from "@phosphor-icons/react/ssr";
+import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
@@ -32,6 +32,7 @@ import {
   navTooltip,
   resolveActiveNavUrl,
 } from "./nav-utils";
+import { Icon } from "@/shared/components/common/hugeicon";
 
 /*
  * Row anatomy from the 2.7 reference shell: 32px rows, 18px glyphs, secondary
@@ -153,7 +154,11 @@ function LinkRow({
           </span>
         </Link>
       </SidebarMenuButton>
-      {item.badge === "dot" ? <StatusDot /> : null}
+      {item.count ? (
+        <CountBadge count={item.count} />
+      ) : item.badge === "dot" ? (
+        <StatusDot />
+      ) : null}
     </SidebarMenuItem>
   );
 }
@@ -195,8 +200,8 @@ function CollapsibleRow({
             <span className="group-data-[collapsible=icon]:hidden">
               {item.title}
             </span>
-            <CaretDown
-              aria-hidden="true"
+            <Icon
+              icon={ArrowDown01Icon}
               className="ml-auto size-3.5! text-(--text-tertiary) transition-transform duration-(--duration-base) group-data-[state=open]/collapsible:rotate-180 group-data-[collapsible=icon]:hidden"
             />
           </SidebarMenuButton>
@@ -230,6 +235,16 @@ function CollapsibleRow({
         </CollapsibleContent>
       </SidebarMenuItem>
     </Collapsible>
+  );
+}
+
+/** Trailing count (unread replies on Inbox). Hidden on the collapsed rail. */
+function CountBadge({ count }: { count: number }) {
+  return (
+    <SidebarMenuBadge className="rounded-full bg-(--tint-hover) px-1.5 text-[11px] font-semibold text-(--text-secondary) tabular-nums">
+      <span aria-hidden="true">{count > 99 ? "99+" : count}</span>
+      <span className="sr-only">{count} unread</span>
+    </SidebarMenuBadge>
   );
 }
 

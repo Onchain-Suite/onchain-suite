@@ -121,10 +121,23 @@ export default function IntelligencePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabFromUrl = searchParams?.get("tab") ?? null;
+  // ⌘K "Ask Intelligence" lands here with the question in ?q=.
+  const qParam = searchParams?.get("q")?.trim();
+  const askedQuestion = qParam && qParam.length > 0 ? qParam : undefined;
   const searchParamsString = searchParams?.toString() ?? "";
 
   const [activeTab, setActiveTab] = useState("chat");
   const { mode: workspaceMode } = useWorkspaceMode();
+
+  // The chat sends ?q= on mount (a child effect, so it runs first); then the
+  // question leaves the address, so a reload or Back does not ask it again.
+  useEffect(() => {
+    if (!askedQuestion) return;
+    const next = new URLSearchParams(searchParamsString);
+    next.delete("q");
+    const rest = next.toString();
+    router.replace(`/intelligence${rest ? `?${rest}` : ""}`, { scroll: false });
+  }, [askedQuestion, router, searchParamsString]);
 
   useEffect(() => {
     if (typeof tabFromUrl !== "string") return;
@@ -296,6 +309,7 @@ export default function IntelligencePage() {
           }
         >
           <QueryTab
+            autoAsk={askedQuestion}
             activeSurface={activeTab === "sql" ? "sql" : "chat"}
             openEmailComposer={openEmailComposer}
             setActiveTab={handleTabChange}

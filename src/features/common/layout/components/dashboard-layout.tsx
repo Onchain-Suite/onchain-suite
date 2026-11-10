@@ -17,6 +17,7 @@ import {
 } from "@/lib/utils";
 
 import { NAV_SECTIONS } from "../data/nav-sections";
+import { useAppShortcuts } from "../hooks/use-app-shortcuts";
 import { getBreadcrumbsForPath } from "./breadcrumbs";
 import { ComingSoonSection } from "./coming-soon-section";
 import { DashboardHeader } from "./dashboard-header";
@@ -27,7 +28,6 @@ import {
 } from "./org-switcher-context";
 import { OrganizationStatusBanner } from "./organization-status-banner";
 import { PendingCheckoutBanner } from "@/features/billing/components/pending-checkout-banner";
-import { CerebraLauncher } from "@/features/intelligence/components/cerebra/cerebra-launcher";
 import { ProductTour } from "@/features/onboarding/components/product-tour";
 import {
   getWipSection,
@@ -61,6 +61,8 @@ function DashboardLayoutInner({
 }: DashboardLayoutProps) {
   const pathname = usePathname();
   const { data: session } = authClient.useSession();
+  // G then a letter, J/K, / and ? (⌘K is the palette provider's).
+  useAppShortcuts();
   const [isMounted, setIsMounted] = useState(false);
   const [isSwitchingOrg, setIsSwitchingOrg] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
@@ -138,6 +140,7 @@ function DashboardLayoutInner({
       >
         <DashboardSidebar
           sections={NAV_SECTIONS}
+          hasActiveOrganization={hasActiveOrganization}
           userFullName={fullName}
           userId={userId}
           userImageUrl={imageUrl}
@@ -170,10 +173,8 @@ function DashboardLayoutInner({
         </SidebarInset>
 
         {/* The guided tour overlays the whole shell so it survives navigation between sections. */}
+        {/* No floating assistant: ⌘K is the one door to Intelligence (2.7, 7 Nov 2026). */}
         <ProductTour />
-
-        {/* Cerebra: the floating Intelligence assistant, available on every page. */}
-        {hasActiveOrganization ? <CerebraLauncher /> : null}
       </SidebarProvider>
     </OrgSwitcherProvider>
   );

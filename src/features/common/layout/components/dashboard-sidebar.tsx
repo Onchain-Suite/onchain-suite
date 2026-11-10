@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo } from "react";
 
 import { NavSections } from "@/components/layout/nav-main";
 import type { NavSection } from "@/components/layout/nav-utils";
@@ -14,15 +15,19 @@ import {
 
 import { useGetLogo } from "@/hooks/client";
 
+import { withCounts } from "../data/nav-sections";
 import { BrandLogo } from "./brand-logo";
 import { NavUserMenu } from "./nav-user-menu";
 import { QuickCreate } from "./quick-create";
 import { GettingStarted } from "@/features/dashboard/components/getting-started";
+import { inboxService } from "@/features/inbox/inbox.service";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 import { defaultLogos } from "@/shared/hooks/client/use-get-logo";
 
 interface DashboardSidebarProps {
   sections: NavSection[];
+  /** Live counts need an org; without one the rows stay bare. */
+  hasActiveOrganization?: boolean;
   userFullName?: string;
   userId?: string;
   userImageUrl?: string;
@@ -30,11 +35,27 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({
   sections,
+  hasActiveOrganization = false,
   userFullName,
   userId,
   userImageUrl,
 }: DashboardSidebarProps) {
   const { lightIcon, darkIcon, favicon, isCustom } = useGetLogo();
+
+  // Same key the Inbox page reads and invalidates, so opening a thread
+  // updates the sidebar count without a second request.
+  const unread = useQuery({
+    queryKey: ["inbox", "unread-count"],
+    queryFn: () => inboxService.getUnreadCount(),
+    enabled: hasActiveOrganization,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const unreadCount = unread.data?.unreadCount ?? 0;
+  const counted = useMemo(
+    () => withCounts(sections, { inbox: unreadCount }),
+    [sections, unreadCount]
+  );
 
   // Org branding owns the tab icon; carried over from the old navbar so
   // white-labelled workspaces keep their favicon.
@@ -89,7 +110,7 @@ export function DashboardSidebar({
       </SidebarHeader>
 
       <SidebarContent className="px-0 pt-3 pb-2 [scrollbar-width:thin]">
-        <NavSections sections={sections} />
+        <NavSections sections={counted} />
       </SidebarContent>
 
       <SidebarFooter className="px-0.5">

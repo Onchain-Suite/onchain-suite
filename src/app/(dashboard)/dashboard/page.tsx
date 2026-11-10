@@ -1,9 +1,8 @@
-import { cookies } from "next/headers";
-
 import { getAuthSession } from "@/lib/guard";
 import { getFullName } from "@/lib/utils";
 
 import { MainDashboard } from "@/features/dashboard/page";
+import { nonEmpty } from "@/features/dashboard/utils/text";
 
 export const dynamic = "force-dynamic";
 
@@ -33,27 +32,13 @@ export default async function DashboardPage() {
     typeof session?.user?.timezone === "string"
       ? session.user.timezone
       : undefined;
-  const isNewUser = Boolean(session?.user?.isNewUser);
-  // Server-read onboarding hint so the initial (pre-query) skeleton matches
-  // loading.tsx and the final view, with no client cookie read / hydration jump.
-  const onboardingComplete =
-    (await cookies()).get("onchain.onboardingComplete")?.value === "1";
-
   const firstLast = getFullName(firstName, lastName);
   const fullName =
     name ??
     (firstLast && firstLast.length > 0 ? firstLast : toTitleName(email));
+  // Home greets by first name; the workspace it names is read on the client
+  // from the active organization, never a placeholder.
+  const greetBy = nonEmpty(firstName) ?? nonEmpty(fullName)?.split(/\s+/)[0];
 
-  const userData = {
-    projectName: "YieldFarm DAO",
-    userType: "DeFi" as const,
-    trialDaysLeft: 7,
-    isNewUser,
-    subscriptionTier: "free_trial" as const,
-    fullName,
-    timezone,
-  };
-  return (
-    <MainDashboard userData={userData} onboardingHint={onboardingComplete} />
-  );
+  return <MainDashboard firstName={greetBy} timezone={timezone} />;
 }

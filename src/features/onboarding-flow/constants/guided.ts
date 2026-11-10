@@ -6,6 +6,8 @@
  * here: the plan step reuses the app's existing billing `PlanPicker`.
  */
 
+import type { StartPath } from "@/features/onboarding/utils/start-path";
+
 /**
  * Who is wiring up the contracts, DNS and SDK. Most account creators are not, so the answer
  * decides whether setup is presented as work to do or as steps to forward.
@@ -100,7 +102,7 @@ export interface ManualContractDraft {
  * or a smart contract. Asked once, on step 1. Only a team that starts from a
  * smart contract is asked for an address or gets the contract step.
  */
-export type StartPath = "people" | "site" | "chain";
+export type { StartPath } from "@/features/onboarding/utils/start-path";
 
 export const START_PATHS: Array<{
   id: StartPath;
@@ -124,8 +126,7 @@ export const START_PATHS: Array<{
   },
 ];
 
-export const isStartPath = (v: unknown): v is StartPath =>
-  v === "people" || v === "site" || v === "chain";
+export { isStartPath } from "@/features/onboarding/utils/start-path";
 
 /** Enough to qualify the account: a first name, a project name, a website that looks like a domain, what they have, and the kind of business. */
 export const profileReady = (p: ProjectProfile): boolean =>

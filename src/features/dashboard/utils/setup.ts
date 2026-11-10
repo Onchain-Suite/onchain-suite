@@ -35,14 +35,3 @@ export const hasVerifiedDomain = (
 /** A wallet sync has finished at least once (a running or failed one has not). */
 export const hasSynced = (status: { state?: unknown } | null | undefined) =>
   status?.state === "completed";
-
-/**
- * The encouragement under the count. Short, and it stops once there is
- * nothing left to do (the panel removes itself then anyway).
- */
-export function setupNudge(done: number, total: number): string {
-  if (done === 0) return "Let’s go!";
-  if (done >= total) return "All done.";
-  if (done >= total - 1) return "Almost there!";
-  return "Keep it up!";
-}

@@ -7,6 +7,12 @@ import { apiClient } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { isJsonObject } from "@/lib/utils";
 
+import { completionService } from "@/features/onboarding/completion.service";
+import {
+  markServerConfirmed,
+  savePendingCompletion,
+} from "@/features/onboarding/utils/completion";
+
 type OnboardingStep =
   | "welcome"
   | "personal_info"
@@ -291,17 +297,23 @@ export function useOnboardingTracking(): UseOnboardingTracking {
         return;
       }
 
-      try {
-        const completeStepData = payload.stepData ?? {};
+      const completeStepData = payload.stepData ?? {};
+      const body = {
+        totalTimeSeconds: payload.totalTimeSeconds,
+        currentStep: payload.currentStep,
+        stepData: completeStepData,
+        flowVersion: payload.flowVersion ?? "frontend-v1",
+      };
+      // Written before the request: if the page navigates away mid-flight (to
+      // checkout) or the request fails, the app sends it again on its next
+      // load, so a finished wizard is never forgotten by the server.
+      savePendingCompletion(user.id, body);
 
-        // Completion is a real state change (unlike track), so we await it -
-        // but ride out a rate-limit window instead of failing outright.
-        await postWithRateLimitRetry("/onboarding/complete", {
-          totalTimeSeconds: payload.totalTimeSeconds,
-          currentStep: payload.currentStep,
-          stepData: completeStepData,
-          flowVersion: payload.flowVersion ?? "frontend-v1",
-        });
+      try {
+        // Completion is a real state change (unlike track), so we await it;
+        // the service rides out a rate-limit window instead of failing.
+        await completionService.complete(body);
+        markServerConfirmed(user.id);
 
         setProgress((prev) => ({
           current_step: (payload.currentStep ??
@@ -316,8 +328,9 @@ export function useOnboardingTracking(): UseOnboardingTracking {
 
         toast.success("Onboarding completed successfully!");
       } catch (error) {
-        console.error("Error completing onboarding:", error);
-        toast.error("Failed to complete onboarding");
+        // Not an error to show: the person did finish. The pending record
+        // above is retried from the dashboard until the server has it.
+        console.warn("Onboarding completion will be retried:", error);
       }
     },
     [user?.id]

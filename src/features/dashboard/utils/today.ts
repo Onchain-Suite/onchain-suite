@@ -200,7 +200,9 @@ export function todaySummary(items: TodayItem[]): {
 /* ---------------- dismissals ----------------
  * "Done for today" hides an item until tomorrow, on this device. It comes
  * back if it is still true tomorrow: a to-do list, not a mute button. */
-const KEY = "ocs-today-dismissed";
+/** Per workspace: finishing an item in one org must not hide it in another. */
+const keyFor = (orgId: string | null) =>
+  `ocs-today-dismissed:${orgId ?? "none"}`;
 const stamp = (d: Date) => d.toISOString().slice(0, 10);
 
 export function parseDismissed(raw: string | null, today: Date): Set<string> {
@@ -216,20 +218,27 @@ export function parseDismissed(raw: string | null, today: Date): Set<string> {
   }
 }
 
-export function readDismissed(today = new Date()): Set<string> {
+export function readDismissed(
+  orgId: string | null,
+  today = new Date()
+): Set<string> {
   try {
-    return parseDismissed(window.localStorage.getItem(KEY), today);
+    return parseDismissed(window.localStorage.getItem(keyFor(orgId)), today);
   } catch {
     return new Set();
   }
 }
 
-export function dismissForToday(id: string, today = new Date()): Set<string> {
-  const ids = readDismissed(today);
+export function dismissForToday(
+  id: string,
+  orgId: string | null,
+  today = new Date()
+): Set<string> {
+  const ids = readDismissed(orgId, today);
   ids.add(id);
   try {
     window.localStorage.setItem(
-      KEY,
+      keyFor(orgId),
       JSON.stringify({ day: stamp(today), ids: [...ids] })
     );
   } catch {

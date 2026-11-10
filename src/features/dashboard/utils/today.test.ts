@@ -122,3 +122,14 @@ describe("parseDismissed", () => {
     expect(parseDismissed("junk", today)).toEqual(new Set());
   });
 });
+
+describe("dismissals per workspace", () => {
+  it("hides an item only in the workspace it was finished in", async () => {
+    const { dismissForToday, readDismissed } = await import("./today");
+    window.localStorage.clear();
+    const day = new Date("2026-11-10T09:00:00Z");
+    dismissForToday("drafts", "org-a", day);
+    expect(readDismissed("org-a", day).has("drafts")).toBe(true);
+    expect(readDismissed("org-b", day).has("drafts")).toBe(false);
+  });
+});

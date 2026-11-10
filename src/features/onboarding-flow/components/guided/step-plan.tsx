@@ -40,6 +40,9 @@ const TIER_LINE: Record<string, string> = {
   pro: "75,000+ contacts",
 };
 
+/** How long checkout waits for the completion to be saved before taking the tab. */
+const COMPLETION_GRACE_MS = 4000;
+
 /**
  * Step 5 - the plan, in the guided layout but wired to real billing. A Suite / Send / Pay-as-you-go
  * line chooser, then a slider that decides the tier (Suite) or the size (Send); prices come from
@@ -52,7 +55,8 @@ export function StepPlan({
   onCompleted,
 }: {
   onBack: () => void;
-  onCompleted: (planSlug: string) => void;
+  /** May return the completion's promise, so checkout can wait for it. */
+  onCompleted: (planSlug: string) => void | Promise<void>;
 }) {
   const [selection, setSelection] = useState<Line>("suite");
   const [contacts, setContacts] = useState(11_000);
@@ -128,8 +132,17 @@ export function StepPlan({
         return;
       }
       toast.success("Opening secure checkout in a new tab…");
-      onCompleted(planRef);
+      const completing = Promise.resolve(onCompleted(planRef));
       if (!openCheckoutInNewTab(checkout.paymentUrl)) {
+        // Checkout takes over this tab. Let the completion reach the server
+        // first (briefly): leaving at once used to abort it, and the person
+        // came back from paying to be told to finish onboarding.
+        await Promise.race([
+          completing.catch(() => undefined),
+          new Promise((resolve) => {
+            window.setTimeout(resolve, COMPLETION_GRACE_MS);
+          }),
+        ]);
         window.location.assign(checkout.paymentUrl);
       }
     } catch (e) {

@@ -1,9 +1,9 @@
 "use client";
 
 import { DashboardTodaySkeleton } from "../components/dashboard-skeletons";
-import { OnboardingResumeBanner } from "../components/get-started";
 import { TodayView } from "../components/home/today-view";
 import { HomeFirstRun } from "../components/home-first-run";
+import { OnboardingResumeBanner } from "../components/onboarding-resume-banner";
 import { SETUP_DEADLINE_MS, useElapsed } from "../hooks/use-setup-steps";
 import { nonEmpty } from "../utils/text";
 import { useTimeToValue } from "@/features/onboarding/hooks/use-time-to-value";
@@ -76,14 +76,15 @@ export function MainDashboard({ firstName, timezone }: MainDashboardProps) {
   }
 
   if (mode === "empty") {
-    return <HomeFirstRun greeting={greeting} name={name} />;
+    return (
+      <div className="space-y-6">
+        {/* Only for an owner who genuinely left the wizard partway; a
+            workspace in use is never told to finish onboarding. */}
+        <OnboardingResumeBanner />
+        <HomeFirstRun greeting={greeting} name={name} />
+      </div>
+    );
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Owner-only "finish onboarding" resume affordance; self-hides otherwise. */}
-      <OnboardingResumeBanner />
-      <TodayView greeting={greeting} name={name} />
-    </div>
-  );
+  return <TodayView greeting={greeting} name={name} />;
 }

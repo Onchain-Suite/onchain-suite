@@ -30,6 +30,7 @@ import {
 import { OrganizationStatusBanner } from "./organization-status-banner";
 import { PendingCheckoutBanner } from "@/features/billing/components/pending-checkout-banner";
 import { ProductTour } from "@/features/onboarding/components/product-tour";
+import { useOnboardingCompletion } from "@/features/onboarding/hooks/use-onboarding-completion";
 import {
   getWipSection,
   SHOW_WIP_SECTIONS,
@@ -66,6 +67,9 @@ function DashboardLayoutInner({
   const { confirmedActiveOrgId } = useOrgSwitcherContext();
   // G then a letter, J/K, / and ? (⌘K is the palette provider's).
   useAppShortcuts();
+  // Keeps the server's "finished onboarding" record true, on whichever page
+  // someone lands (a lost completion is re-sent; a stuck one is repaired).
+  useOnboardingCompletion();
   const [isMounted, setIsMounted] = useState(false);
   const [isSwitchingOrg, setIsSwitchingOrg] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);

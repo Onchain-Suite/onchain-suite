@@ -14,19 +14,20 @@ vi.mock("@tanstack/react-query", () => ({
 vi.mock("@/features/onboarding/hooks/use-tour", () => ({ startTour: vi.fn() }));
 
 let startPath: StartPath | null = null;
+let startPathResolved = true;
+const setStartPath = vi.fn();
 vi.mock("../hooks/use-setup-steps", () => ({
+  SETUP_DEADLINE_MS: 4000,
+  useElapsed: () => false,
   setupContractKey: () => ["k"],
   useSetupSteps: () => ({
     steps: setupStepsFor(startPath).map((s) => ({ ...s, done: false })),
     isLoading: false,
     organizationId: "org_1",
     startPath,
+    startPathResolved,
+    setStartPath,
   }),
-}));
-
-const saveStartPath = vi.fn();
-vi.mock("@/features/onboarding/utils/start-path", () => ({
-  saveStartPath: (...args: unknown[]) => saveStartPath(...args),
 }));
 
 let orgName: string | undefined = "Datum Labs";
@@ -40,6 +41,7 @@ const show = () => render(<HomeFirstRun greeting="morning" name="Joshua" />);
 
 beforeEach(() => {
   startPath = null;
+  startPathResolved = true;
   orgName = "Datum Labs";
   vi.clearAllMocks();
 });
@@ -57,13 +59,22 @@ describe("HomeFirstRun", () => {
     expect(screen.getByText("your workspace")).toBeInTheDocument();
   });
 
-  it("opens on the question and saves the answer for this workspace", () => {
+  it("opens on the question and saves the answer", () => {
     show();
     expect(
       screen.getByRole("heading", { name: "What do you have today?" })
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /a smart contract/i }));
-    expect(saveStartPath).toHaveBeenCalledWith("org_1", "chain");
+    expect(setStartPath).toHaveBeenCalledWith("chain");
+  });
+
+  it("waits for the server's answer rather than flashing the question", () => {
+    startPathResolved = false;
+    show();
+    expect(
+      screen.queryByRole("heading", { name: "What do you have today?" })
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Good morning, Joshua.")).toBeInTheDocument();
   });
 
   it("shows the steps once answered, first win first, and can ask again", () => {
@@ -77,7 +88,10 @@ describe("HomeFirstRun", () => {
       screen.getByRole("button", { name: "Build a sign-up form" })
     );
     expect(push).toHaveBeenCalledWith("/forms?new=1");
+    // Change asks again; the saved answer stands until a new one is picked.
     fireEvent.click(screen.getByRole("button", { name: "Change" }));
-    expect(saveStartPath).toHaveBeenCalledWith("org_1", null);
+    expect(setStartPath).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /a list of people/i }));
+    expect(setStartPath).toHaveBeenCalledWith("people");
   });
 });

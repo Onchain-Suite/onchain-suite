@@ -6,18 +6,18 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import {
+  SETUP_DEADLINE_MS,
   setupContractKey,
   type SetupStep,
+  useElapsed,
   useSetupSteps,
 } from "../hooks/use-setup-steps";
 import { nonEmpty } from "../utils/text";
 import { FirstRunQuestion } from "./home/first-run-question";
 import { FirstRunSetup } from "./home/first-run-setup";
 import { useOrgSwitcherContextOptional } from "@/features/common/layout/components/org-switcher-context";
-import {
-  saveStartPath,
-  type StartPath,
-} from "@/features/onboarding/utils/start-path";
+import type { StartPath } from "@/features/onboarding/utils/start-path";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 
 // Indexing is a dialog, so it opens in place rather than on another screen; it
 // stays out of the home bundle until someone reaches for it.
@@ -35,8 +35,9 @@ const ImportContractsDialog = dynamic(
  *
  * It opens on one question, what do you have today, unless onboarding already
  * asked it. The answer orders the same six setup steps so the first one is
- * that team's quickest win. Once answered, Home carries the whole way in and
- * is the only place the checklist lives.
+ * that team's quickest win, and is saved on the workspace (server-side), so it
+ * is the same for the whole team and can be analysed. Once answered, Home
+ * carries the whole way in and is the only place the checklist lives.
  *
  * Every step's `done` is read from real workspace state (`useSetupSteps`),
  * never a "has seen" flag, and the workspace named is the real active one.
@@ -50,8 +51,12 @@ export function HomeFirstRun({
 }) {
   const router = useRouter();
   const qc = useQueryClient();
-  const { steps, organizationId, startPath } = useSetupSteps();
+  const { steps, organizationId, startPath, startPathResolved, setStartPath } =
+    useSetupSteps();
   const [indexing, setIndexing] = useState(false);
+  // "Change" asks again; the saved answer stands until a new one is picked.
+  const [asking, setAsking] = useState(false);
+  const pastDeadline = useElapsed(SETUP_DEADLINE_MS);
   // The real active workspace; a neutral phrase until its name has loaded.
   const workspaceName =
     nonEmpty(useOrgSwitcherContextOptional()?.activeOrg?.name) ??
@@ -65,23 +70,41 @@ export function HomeFirstRun({
     }
   }, [startPath]);
 
-  const answer = (path: StartPath | null) =>
-    saveStartPath(organizationId, path);
+  const answer = (path: StartPath) => {
+    setStartPath(path);
+    setAsking(false);
+  };
 
   const go = (step: SetupStep) => {
     if (step.id === "contract") setIndexing(true);
     else router.push(step.href);
   };
 
+  // The answer may be on the server (given in the wizard, or on another
+  // device). Wait for it, briefly, rather than flash the question.
+  if (!startPath && !startPathResolved && !pastDeadline) {
+    return (
+      <div className="mx-auto w-full max-w-7xl" aria-busy="true">
+        <header className="mb-[22px]">
+          <h1 className="text-[28px] leading-tight font-semibold tracking-[-0.6px] text-(--text-primary)">
+            {heading}
+          </h1>
+          <Skeleton className="mt-2.5 h-4 w-96 max-w-full" />
+        </header>
+        <Skeleton className="h-64 w-full rounded-2xl" />
+      </div>
+    );
+  }
+
   return (
     <>
-      {startPath ? (
+      {startPath && !asking ? (
         <FirstRunSetup
           heading={heading}
           workspaceName={workspaceName}
           steps={steps}
           startPath={startPath}
-          onChangeStart={() => answer(null)}
+          onChangeStart={() => setAsking(true)}
           onStep={go}
         />
       ) : (

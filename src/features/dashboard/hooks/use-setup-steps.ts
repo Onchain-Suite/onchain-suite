@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
 import { getSelectedOrganizationId } from "@/lib/utils";
@@ -16,11 +16,8 @@ import {
 } from "@/features/channels/utils/readiness";
 import { formsService } from "@/features/forms/forms.service";
 import { FORMS_KEY } from "@/features/forms/hooks/use-forms";
-import {
-  readStartPath,
-  type StartPath,
-  subscribeStartPath,
-} from "@/features/onboarding/utils/start-path";
+import { useStartPath } from "@/features/onboarding/hooks/use-start-path";
+import type { StartPath } from "@/features/onboarding/utils/start-path";
 import { inAppService } from "@/features/settings/inapp.service";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { pushCredentialsService } from "@/features/settings/push-credentials.service";
@@ -209,15 +206,6 @@ export interface SetupStep extends SetupStepDef {
   done: boolean;
 }
 
-/** The workspace's start answer (what the team has today), or null if not asked yet. */
-export function useStartPath(organizationId: string | null): StartPath | null {
-  return useSyncExternalStore(
-    subscribeStartPath,
-    () => readStartPath(organizationId),
-    () => null
-  );
-}
-
 /**
  * The six setup steps with live `done` flags, ordered for the workspace's
  * start answer so the first open step is that team's quickest win.
@@ -226,10 +214,18 @@ export function useSetupSteps(): {
   steps: SetupStep[];
   isLoading: boolean;
   organizationId: string | null;
+  /** What the team has today, or null if it has not been asked yet. */
   startPath: StartPath | null;
+  /** False while the server's answer is still unknown; see `useStartPath`. */
+  startPathResolved: boolean;
+  setStartPath: (path: StartPath) => void;
 } {
   const { organizationId, isSynced } = useOrganizationId();
-  const startPath = useStartPath(organizationId);
+  const {
+    startPath,
+    isResolved: startPathResolved,
+    setStartPath,
+  } = useStartPath(organizationId);
   const { completion, isLoading } = useSetupCompletion(organizationId, {
     withForm: startPath === "site",
   });
@@ -246,5 +242,7 @@ export function useSetupSteps(): {
     isLoading: !isSynced || isLoading,
     organizationId,
     startPath,
+    startPathResolved,
+    setStartPath,
   };
 }

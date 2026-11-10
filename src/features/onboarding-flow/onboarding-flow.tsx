@@ -44,6 +44,10 @@ import { onboardingService } from "./onboarding.service";
 import { type OnboardingData } from "./types";
 import { classify } from "./utils/contract-input";
 import { sectorGroupOf } from "./utils/sector";
+import {
+  answersService,
+  type SetWorkspaceAnswersBody,
+} from "@/features/onboarding/answers.service";
 import { useOnboardingAbandonment } from "@/features/onboarding/hooks/use-onboarding-abandonment";
 import {
   FIRST_MILE_SECTOR_KEY,
@@ -54,6 +58,15 @@ import { stampPendingStartPath } from "@/features/onboarding/utils/start-path";
 import { AUTH_ROUTES, PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const FLOW_VERSION = "onboarding-guided-v2";
+
+/** Best-effort: the wizard never stops because an answer could not be saved. */
+const saveWorkspaceAnswers = (
+  answers: Omit<SetWorkspaceAnswersBody, "source">
+) => {
+  answersService
+    .set({ ...answers, source: "onboarding" })
+    .catch(() => undefined);
+};
 /** Past the end of any flow: the clamped position lands on the plan. */
 const LAST_STEP = 99;
 
@@ -260,6 +273,11 @@ export function OnboardingFlow() {
         setBusy(false);
         if (!ok) return;
         orgCreatedRef.current = true;
+        // The workspace exists now: save what it starts from on it, so Home
+        // has it on any device and a drop-off later still leaves the answer.
+        if (profile.start) {
+          saveWorkspaceAnswers({ startPath: profile.start });
+        }
 
         if (user?.id) {
           trackStep({
@@ -295,7 +313,10 @@ export function OnboardingFlow() {
     // step name, `guidedStep` for the real granularity) so drop-off per guided
     // step is visible; entering the plan flips to the plan_selection step.
     const next = stepIndex + 1;
-    if (at === "goal") persistProfile(profile);
+    if (at === "goal") {
+      persistProfile(profile);
+      if (profile.goal) saveWorkspaceAnswers({ goal: profile.goal });
+    }
     if (user?.id) {
       const enteringPlan = flow[next] === "plan";
       trackStep({
@@ -316,6 +337,11 @@ export function OnboardingFlow() {
             ? { handoffInvited: Boolean(handoffSentTo) }
             : {}),
         },
+        // In step data too, so the backend's goal segment is set at this step
+        // rather than only at completion.
+        ...(at === "goal" && profile.goal
+          ? { stepData: { businessGoal: profile.goal } }
+          : {}),
       }).catch(() => {});
     }
     goToIndex(next);
@@ -345,7 +371,8 @@ export function OnboardingFlow() {
     // Stamp the sector durably so the dashboard first-mile can skip the
     // "index your contract" nudge for web2 clients (indexing is optional; for
     // web2 it does not apply at all).
-    // The start answer orders Home's setup steps; Home adopts it on first open.
+    // The start answer orders Home's setup steps. Stamp it for Home to adopt
+    // (the fallback when the save below cannot reach the server).
     stampPendingStartPath(profile.start);
     try {
       if (finalData.sector?.trim()) {

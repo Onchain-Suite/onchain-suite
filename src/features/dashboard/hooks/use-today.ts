@@ -42,7 +42,9 @@ export function useToday() {
 
   const paused = useQuery({
     ...common,
-    queryKey: ["home", "loops", "paused"],
+    // Under "automations", so every Loop mutation (which invalidates that
+    // prefix) refreshes Home too: a resumed Loop leaves the list at once.
+    queryKey: ["automations", "home", "paused"],
     queryFn: () =>
       automationService.listAutomations({
         status: "paused",
@@ -52,7 +54,7 @@ export function useToday() {
   });
   const live = useQuery({
     ...common,
-    queryKey: ["home", "loops", "active"],
+    queryKey: ["automations", "home", "active"],
     queryFn: () =>
       automationService.listAutomations({
         status: "active",

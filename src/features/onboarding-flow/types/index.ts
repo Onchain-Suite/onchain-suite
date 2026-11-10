@@ -24,7 +24,10 @@ export interface OnboardingData {
   zipCode?: string;
   country?: string;
   organizationTypes?: string[];
+  /** The workspace's goal: a `GoalOption.id` from data/goals.ts. */
   businessGoal?: string;
+  /** What the team had at signup: "people", "site" or "chain". */
+  startPath?: string;
   importantFeatures?: string[];
   contactCount?: string;
   selectedPlan?: string;

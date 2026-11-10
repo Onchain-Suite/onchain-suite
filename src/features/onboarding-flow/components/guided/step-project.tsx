@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 
 import { profileReady, type ProjectProfile } from "../../constants/guided";
 import { DEFAULT_CHAIN } from "../../data/chains";
@@ -18,6 +17,7 @@ import {
   WEB3_SECTOR_OPTIONS,
 } from "../../utils/sector";
 import { ObSelect } from "./ob-select";
+import { StartPathPicker } from "./start-path-picker";
 
 type SectorTab = "web3" | "web2";
 
@@ -78,8 +78,8 @@ export function StepProject({
         Tell us about your project
       </h1>
       <p className="text-muted-foreground mt-3">
-        Your first name, then the project&rsquo;s name, website and sector. The
-        rest is optional.
+        Your first name, the project, what you have today and what kind of
+        business it is.
       </p>
 
       <form className="mt-8 space-y-6" onSubmit={(e) => e.preventDefault()}>
@@ -124,14 +124,26 @@ export function StepProject({
           />
         </div>
 
+        <StartPathPicker
+          value={value.start}
+          onChange={(start) =>
+            // Only a team starting from a contract is asked for one.
+            onChange({
+              ...value,
+              start,
+              contract: start === "chain" ? value.contract : "",
+            })
+          }
+        />
+
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <Label>Sector</Label>
+            <Label>Kind of business</Label>
             {/* Web3 / Web2 as tags, so the options are easy to see and switch between. */}
             <div
               className="bg-muted inline-flex rounded-lg p-0.5"
               role="tablist"
-              aria-label="Sector type"
+              aria-label="Kind of business"
             >
               {(["web3", "web2"] as const).map((g) => (
                 <button
@@ -189,8 +201,8 @@ export function StepProject({
               value={value.sector}
               onChange={set("sector")}
               onKeyDown={onKeyDown}
-              placeholder="Which sector are you in?"
-              aria-label="Your sector"
+              placeholder="What kind of business is it?"
+              aria-label="Your kind of business"
             />
           ) : (
             <p className="text-muted-foreground text-xs">
@@ -201,7 +213,7 @@ export function StepProject({
 
         {/* Contract + its chain, Web3 only (a Web2 project has none). The chain is chosen right on
             the address, and both go to the backend so it indexes and looks onchain for contracts. */}
-        {group !== "web2" ? (
+        {value.start === "chain" && group !== "web2" ? (
           <div className="space-y-2">
             <Label htmlFor="ob-contract">
               Contract address{" "}
@@ -244,20 +256,6 @@ export function StepProject({
             </p>
           </div>
         ) : null}
-
-        <div className="space-y-2">
-          <Label htmlFor="ob-desc">
-            What does it do?{" "}
-            <span className="text-muted-foreground font-normal">Optional</span>
-          </Label>
-          <Textarea
-            id="ob-desc"
-            rows={3}
-            value={value.description}
-            onChange={set("description")}
-            placeholder="A lending market on Base for long-tail assets"
-          />
-        </div>
       </form>
     </>
   );

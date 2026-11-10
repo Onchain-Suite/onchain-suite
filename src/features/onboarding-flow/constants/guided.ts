@@ -47,6 +47,10 @@ export interface ProjectProfile {
   website: string;
   sector: string;
   description: string;
+  /** What they have today: it orders setup and decides whether the contract step shows. */
+  start: StartPath | "";
+  /** What counts as a conversion for this workspace (see data/goals.ts). */
+  goal: string;
   /** Optional: when given, it is what gets indexed first. */
   contract: string;
   /** Chains the project is on (backend chain keys), used to scope onchain contract suggestions. */
@@ -59,6 +63,8 @@ export const EMPTY_PROFILE: ProjectProfile = {
   website: "",
   sector: "",
   description: "",
+  start: "",
+  goal: "",
   contract: "",
   chains: [],
 };
@@ -89,11 +95,44 @@ export interface ManualContractDraft {
 // (`constants/index.ts` organizationOptions + web2Options), not a flat list, so
 // the "web2 clients skip contract indexing" logic keeps working.
 
-/** Enough to qualify the account: a first name, a project name, a website that looks like a domain, and a sector. */
+/**
+ * What a team has today (2.7, 7 Nov 2026): a list of people, a website or app,
+ * or a smart contract. Asked once, on step 1. Only a team that starts from a
+ * smart contract is asked for an address or gets the contract step.
+ */
+export type StartPath = "people" | "site" | "chain";
+
+export const START_PATHS: Array<{
+  id: StartPath;
+  label: string;
+  desc: string;
+}> = [
+  {
+    id: "people",
+    label: "A list of people",
+    desc: "Emails or wallets in a CSV or another tool",
+  },
+  {
+    id: "site",
+    label: "A website or app",
+    desc: "Visitors to turn into contacts",
+  },
+  {
+    id: "chain",
+    label: "A smart contract",
+    desc: "Holders and on-chain activity",
+  },
+];
+
+export const isStartPath = (v: unknown): v is StartPath =>
+  v === "people" || v === "site" || v === "chain";
+
+/** Enough to qualify the account: a first name, a project name, a website that looks like a domain, what they have, and the kind of business. */
 export const profileReady = (p: ProjectProfile): boolean =>
   p.firstName.trim().length > 0 &&
   p.name.trim().length > 0 &&
   /\S+\.\S+/.test(p.website.trim()) &&
+  p.start !== "" &&
   p.sector !== "";
 
 /** What the indexer is pointed at: an address if one was given, otherwise the website. */
@@ -116,20 +155,32 @@ export const contactsLabel = (n: number): string =>
  * (a handful of DNS records the account owner can often forward), and skips the contract (the
  * developer's job, from the steps they were sent). Both end at the plan, which can be skipped.
  */
-export type StepId = "project" | "technical" | "dns" | "contract" | "plan";
+export type StepId =
+  "project" | "goal" | "technical" | "dns" | "contract" | "plan";
 
 export const STEP_LABEL: Record<StepId, string> = {
   project: "Your project",
+  goal: "Your goal",
   technical: "Technical setup",
   dns: "Sending domain",
   contract: "Smart contract",
   plan: "Plan",
 };
 
-export const flowFor = (role: Role): StepId[] =>
-  role === "builder"
-    ? ["project", "technical", "dns", "contract", "plan"]
-    : ["project", "technical", "dns", "plan"];
+/*
+ * The goal is a step of its own, straight after the project (2.7): as a field
+ * at the foot of a long first step people went past it. The contract step is
+ * only for a builder whose team starts from a smart contract: anyone else would
+ * be asked to skip a screen about something they do not have, and can index
+ * one later from Home.
+ */
+export const flowFor = (
+  role: Role,
+  start: StartPath | "" = "chain"
+): StepId[] =>
+  role === "builder" && start === "chain"
+    ? ["project", "goal", "technical", "dns", "contract", "plan"]
+    : ["project", "goal", "technical", "dns", "plan"];
 
 /**
  * The scoped flow an invited technical member runs (the owner handed the setup over). The org

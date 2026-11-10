@@ -31,14 +31,14 @@ export interface TourStop {
 export const TOUR: TourStop[] = [
   {
     to: PRIVATE_ROUTES.DASHBOARD,
-    title: "This is your dashboard",
-    body: "Where you land. Once your data arrives it shows what moved across your workspace today.",
+    title: "This is Home",
+    body: "Where you land. While you set up it carries the steps; once you are live it lists what needs you today, most pressing first.",
   },
   {
     to: PRIVATE_ROUTES.DASHBOARD,
     anchor: "getting-started",
-    title: "Start with this checklist",
-    body: "Six steps from paying to your first send. It stays here in the sidebar until they are done. Open any step to see what it needs.",
+    title: "Setup keeps count here",
+    body: "Six steps from paying to your first send, ordered from what you have today. They live on Home; this line keeps count from any screen and brings you back.",
   },
   {
     to: PRIVATE_ROUTES.CAMPAIGNS,
@@ -47,7 +47,7 @@ export const TOUR: TourStop[] = [
   },
   {
     to: PRIVATE_ROUTES.AUTOMATIONS,
-    title: "Automations",
+    title: "Loops",
     body: "Flows that run without you. A wallet goes quiet, stakes, or finishes onboarding and moves through the steps you set. They trigger on on-chain and product events.",
   },
   {

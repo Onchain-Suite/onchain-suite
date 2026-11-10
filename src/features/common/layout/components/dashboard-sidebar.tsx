@@ -114,10 +114,8 @@ export function DashboardSidebar({
       </SidebarContent>
 
       <SidebarFooter className="px-0.5">
-        {/* The checklist runs the full sidebar width, as in the reference. */}
-        <div className="-mx-2.5 group-data-[collapsible=icon]:mx-0">
-          <GettingStarted />
-        </div>
+        {/* One line while a workspace is being set up; the steps live on Home. */}
+        <GettingStarted />
         <NavUserMenu
           fullName={userFullName}
           userId={userId}

@@ -50,6 +50,7 @@ import {
   FIRST_MILE_STARTED_KEY,
   WIZARD_STARTED_KEY,
 } from "@/features/onboarding/utils/onboarding-timing";
+import { stampPendingStartPath } from "@/features/onboarding/utils/start-path";
 import { AUTH_ROUTES, PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 const FLOW_VERSION = "onboarding-guided-v2";
@@ -344,6 +345,8 @@ export function OnboardingFlow() {
     // Stamp the sector durably so the dashboard first-mile can skip the
     // "index your contract" nudge for web2 clients (indexing is optional; for
     // web2 it does not apply at all).
+    // The start answer orders Home's setup steps; Home adopts it on first open.
+    stampPendingStartPath(profile.start);
     try {
       if (finalData.sector?.trim()) {
         localStorage.setItem(FIRST_MILE_SECTOR_KEY, finalData.sector.trim());

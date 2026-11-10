@@ -1,12 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { authClient } from "@/lib/auth-client";
 import { getSelectedOrganizationId } from "@/lib/utils";
 
-import { SETUP_STEPS, type SetupStepDef } from "../data/setup-steps";
+import { type SetupStepDef, setupStepsFor } from "../data/setup-steps";
 import { hasSynced, hasVerifiedDomain } from "../utils/setup";
 import { dashboardsApi } from "@/features/analytics/dashboards.service";
 import { audienceService } from "@/features/audience/audience.service";
@@ -14,6 +14,13 @@ import {
   mobilePushStatus,
   webPushStatus,
 } from "@/features/channels/utils/readiness";
+import { formsService } from "@/features/forms/forms.service";
+import { FORMS_KEY } from "@/features/forms/hooks/use-forms";
+import {
+  readStartPath,
+  type StartPath,
+  subscribeStartPath,
+} from "@/features/onboarding/utils/start-path";
 import { inAppService } from "@/features/settings/inapp.service";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { pushCredentialsService } from "@/features/settings/push-credentials.service";
@@ -60,7 +67,7 @@ export function useOrganizationId() {
  */
 export const SETUP_DEADLINE_MS = 4000;
 
-function useElapsed(ms: number): boolean {
+export function useElapsed(ms: number): boolean {
   const [elapsed, setElapsed] = useState(false);
   useEffect(() => {
     const id = setTimeout(() => setElapsed(true), ms);
@@ -74,7 +81,10 @@ export const setupContractKey = (orgId: string | null) =>
   ["get-started", "project-settings", orgId] as const;
 
 /** Whether each step is done, from state the product already keeps. */
-export function useSetupCompletion(organizationId: string | null) {
+export function useSetupCompletion(
+  organizationId: string | null,
+  options: { withForm: boolean } = { withForm: false }
+) {
   const orgId = organizationId ?? undefined;
   const enabled = Boolean(organizationId);
 
@@ -149,7 +159,24 @@ export function useSetupCompletion(organizationId: string | null) {
     queryFn: async () => (await dashboardsApi.allLinks()).length > 0,
   });
 
-  const queries = [contacts, domain, push, contract, sync, dashboard];
+  // Only the website path has a form step, so only it pays for this read. The
+  // key is the Forms page's own, so the list is fetched once for both.
+  const form = useQuery({
+    queryKey: FORMS_KEY,
+    enabled: enabled && options.withForm,
+    queryFn: () => formsService.listForms(),
+    select: (forms) => forms.some((f) => f.status === "active"),
+  });
+
+  const queries = [
+    contacts,
+    domain,
+    push,
+    contract,
+    sync,
+    dashboard,
+    ...(options.withForm ? [form] : []),
+  ];
   const pastDeadline = useElapsed(SETUP_DEADLINE_MS);
   const isLoading =
     enabled && !pastDeadline && queries.some((q) => q.isPending);
@@ -157,6 +184,7 @@ export function useSetupCompletion(organizationId: string | null) {
   const completion = useMemo<Record<string, boolean>>(
     () => ({
       contacts: contacts.data === true,
+      form: form.data === true,
       domain: domain.data === true,
       push: push.data === true,
       contract: contract.data === true,
@@ -165,6 +193,7 @@ export function useSetupCompletion(organizationId: string | null) {
     }),
     [
       contacts.data,
+      form.data,
       domain.data,
       push.data,
       contract.data,
@@ -180,17 +209,42 @@ export interface SetupStep extends SetupStepDef {
   done: boolean;
 }
 
-/** The six checklist steps with live `done` flags, for the sidebar panel. */
+/** The workspace's start answer (what the team has today), or null if not asked yet. */
+export function useStartPath(organizationId: string | null): StartPath | null {
+  return useSyncExternalStore(
+    subscribeStartPath,
+    () => readStartPath(organizationId),
+    () => null
+  );
+}
+
+/**
+ * The six setup steps with live `done` flags, ordered for the workspace's
+ * start answer so the first open step is that team's quickest win.
+ */
 export function useSetupSteps(): {
   steps: SetupStep[];
   isLoading: boolean;
   organizationId: string | null;
+  startPath: StartPath | null;
 } {
   const { organizationId, isSynced } = useOrganizationId();
-  const { completion, isLoading } = useSetupCompletion(organizationId);
+  const startPath = useStartPath(organizationId);
+  const { completion, isLoading } = useSetupCompletion(organizationId, {
+    withForm: startPath === "site",
+  });
   const steps = useMemo(
-    () => SETUP_STEPS.map((s) => ({ ...s, done: completion[s.id] === true })),
-    [completion]
+    () =>
+      setupStepsFor(startPath).map((s) => ({
+        ...s,
+        done: completion[s.id] === true,
+      })),
+    [completion, startPath]
   );
-  return { steps, isLoading: !isSynced || isLoading, organizationId };
+  return {
+    steps,
+    isLoading: !isSynced || isLoading,
+    organizationId,
+    startPath,
+  };
 }

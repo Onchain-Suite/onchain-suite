@@ -161,14 +161,6 @@ function renderWithClient(ui: React.ReactElement) {
 // take >5s, which flaked "renders every Settings tab" intermittently.
 const HEADING_TIMEOUT = { timeout: 15000 } as const;
 
-const dashboardUser = {
-  projectName: "Test Project",
-  userType: "DeFi" as const,
-  isNewUser: false,
-  subscriptionTier: "full_paid" as const,
-  fullName: "Test User",
-};
-
 describe("dashboard surfaces smoke", () => {
   it("MainDashboard mounts", async () => {
     // The dashboard's CommandBar reads CommandPaletteContext, which the real
@@ -176,13 +168,11 @@ describe("dashboard surfaces smoke", () => {
     // mounts with its real command bar rather than a stub.
     renderWithClient(
       <CommandPaletteProvider>
-        <MainDashboard userData={dashboardUser} />
+        <MainDashboard firstName="Test" />
       </CommandPaletteProvider>
     );
-    // The home greeting lives inside the mode branch (live stats vs the empty
-    // first-run), so the workspace-mode read flipping from live to empty
-    // remounts the heading. waitFor tolerates that transition where a single
-    // findByText can race the one-frame gap between the two trees.
+    // The greeting is on screen in every state (deciding, first-run, in use),
+    // remounted as Home settles on one, so waitFor tolerates the hand-over.
     await waitFor(
       () =>
         expect(

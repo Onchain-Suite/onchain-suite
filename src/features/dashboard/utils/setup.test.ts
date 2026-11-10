@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { SETUP_STEPS } from "../data/setup-steps";
-import {
-  hasSynced,
-  hasVerifiedDomain,
-  isVerifiedStatus,
-  setupNudge,
-} from "./setup";
+import { SETUP_STEPS, setupStepsFor } from "../data/setup-steps";
+import { hasSynced, hasVerifiedDomain, isVerifiedStatus } from "./setup";
 import type { DomainAuthMap } from "@/features/settings/sender-identities.service";
 
 describe("SETUP_STEPS", () => {
@@ -19,6 +14,22 @@ describe("SETUP_STEPS", () => {
       "sync",
       "dashboard",
     ]);
+  });
+
+  it("starts a website on a sign-up form, in place of the import", () => {
+    const ids = setupStepsFor("site").map((s) => s.id);
+    expect(ids[0]).toBe("form");
+    expect(ids).not.toContain("contacts");
+    expect(ids).toHaveLength(6);
+  });
+
+  it("starts a contract team on indexing, then syncing its holders", () => {
+    expect(
+      setupStepsFor("chain")
+        .map((s) => s.id)
+        .slice(0, 2)
+    ).toEqual(["contract", "sync"]);
+    expect(setupStepsFor("chain")).toHaveLength(6);
   });
 
   it("deep-links the channel steps to their channel", () => {
@@ -59,14 +70,5 @@ describe("hasSynced", () => {
     expect(hasSynced({ state: "processing" })).toBe(false);
     expect(hasSynced({ state: "failed" })).toBe(false);
     expect(hasSynced(null)).toBe(false);
-  });
-});
-
-describe("setupNudge", () => {
-  it("encourages, then stops", () => {
-    expect(setupNudge(0, 6)).toBe("Let’s go!");
-    expect(setupNudge(2, 6)).toBe("Keep it up!");
-    expect(setupNudge(5, 6)).toBe("Almost there!");
-    expect(setupNudge(6, 6)).toBe("All done.");
   });
 });

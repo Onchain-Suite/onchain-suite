@@ -1,6 +1,6 @@
 import type * as React from "react";
 
-/** Any icon component that takes svg props - Heroicons, lucide and Phosphor match. */
+/** Any icon component that takes svg props (Hugeicons via `hugeicon()`, or any svg component). */
 export type NavIcon = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
 export type NavSubItem = {
@@ -19,6 +19,8 @@ export type NavItem = {
   icon?: NavIcon;
   /** Renders a status dot on the trailing edge of the row (hidden when collapsed). */
   badge?: "dot";
+  /** A number worth knowing at a glance, like unread replies. Hidden at 0. */
+  count?: number;
   /** Work-in-progress section: rendered faded, routes to a coming-soon panel. */
   wip?: boolean;
   /** Fallback for prototype links (`#`) that pathname matching can't resolve. */

@@ -153,6 +153,12 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Hugeicons is the icon set: 5k+ icons behind one barrel. Rewrite named
+  // imports to per-icon modules so dev compiles and bundles only load the
+  // icons a file actually uses.
+  experimental: {
+    optimizePackageImports: ["@hugeicons/core-free-icons"],
+  },
   // PayloadCMS loads `sharp` on every getPayload() call (blog reads + admin).
   // `withPayload` marks sharp as a server-external package, so Next traces the
   // sharp JS - but sharp `dlopen`s its native libvips from the SEPARATE

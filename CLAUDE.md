@@ -10,7 +10,7 @@ visuals; change *how* things render, not *how they look*. When a change forces a
 visual choice, keep it minimal and theme-token based, and call it out.
 
 Stack: Next.js 16 (App Router) · React 19 · TypeScript · React Query v5 · SWR ·
-Tailwind v4 · shadcn/ui · Heroicons · framer-motion · Recharts · ReactFlow ·
+Tailwind v4 · shadcn/ui · Hugeicons · framer-motion · Recharts · ReactFlow ·
 axios · react-hook-form + zod.
 
 ---
@@ -172,16 +172,23 @@ Where things run (so links, env and DNS land in the right place):
 
 ## 5. Icons (fast, no bloat)
 
-- **Heroicons, per-icon named imports only** - this is tree-shaken:
-  `import { BoltIcon } from "@heroicons/react/24/outline"`. This is already the
-  convention; keep it.
+- **Hugeicons is the icon set** (since 2026-11-10): `@hugeicons/core-free-icons`
+  for the glyphs, `@hugeicons/react` to render them. Heroicons, Phosphor and
+  lucide are being swept out; new code never imports them.
+- **Per-icon named imports only**, rendered through the shared wrapper:
+  `import { Search01Icon } from "@hugeicons/core-free-icons"` +
+  `<Icon icon={Search01Icon} className="size-4" />` from
+  `@/shared/components/common/hugeicon`. Where a component is needed (sidebar
+  rows, menus), use `hugeicon(Search01Icon, "SearchGlyph")` at module level.
+  The barrel is listed in `experimental.optimizePackageImports`, so named
+  imports stay tree-shaken.
 - **Never build a dynamic "all icons" map/registry** or `import * as Icons` - it
-  defeats tree-shaking and ships the whole set. Map your own string→component
+  defeats tree-shaking and ships the whole set. Map your own string→icon
   lookups explicitly with only the icons you use.
 - **`currentColor` + Tailwind text color** for theming; don't hardcode icon
-  fills. Set explicit `h-/w-` so icons never cause layout shift (CLS).
-- **`aria-hidden="true"`** on decorative icons; label the interactive element,
-  not the glyph.
+  fills. Set explicit `size-*` so icons never cause layout shift (CLS).
+- **Decorative by default**: the wrapper sets `aria-hidden`; label the
+  interactive element, not the glyph.
 - For **very large icon counts** in one view (e.g. a chain/token picker),
   prefer a single SVG **sprite** (`<use href="#id">`) or lazy-load the icon
   module, instead of dozens of React icon components mounting at once.
@@ -284,7 +291,7 @@ Where things run (so links, env and DNS land in the right place):
       defaults, parallel (not waterfall)?
 - [ ] Long/async op - timeout + abort + cancel UI?
 - [ ] Derived data memoized; callbacks stable; keys are entity ids?
-- [ ] Icons: per-import, `currentColor`, fixed size, no dynamic icon registry?
+- [ ] Icons: Hugeicons per-import via the `Icon` wrapper, `currentColor`, fixed size, no dynamic icon registry?
 - [ ] Heavy dep (chart/flow/editor/motion) dynamically imported?
 - [ ] Colors use semantic tokens (light + dark both work)?
 - [ ] Every new file in the right folder (Section 15) - no loose files at a

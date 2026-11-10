@@ -1,6 +1,5 @@
 "use client";
 
-import { CommandBar } from "../components/command-bar";
 import { OnboardingResumeBanner } from "../components/get-started";
 import { HomeFirstRun } from "../components/home-first-run";
 import { MetricsDashboard } from "../components/metrics-dashboard";
@@ -91,7 +90,7 @@ export function MainDashboard({ userData }: MainDashboardProps) {
       {/* Owner-only "finish onboarding" resume affordance; self-hides otherwise. */}
       <OnboardingResumeBanner />
 
-      <CommandBar />
+      {/* No ask bar here: ⌘K is the one door to Intelligence (2.7). */}
       <MetricsDashboard />
     </div>
   );

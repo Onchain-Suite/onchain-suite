@@ -39,28 +39,25 @@ describe("isOnboardingDone", () => {
 });
 
 describe("shouldRepairServer", () => {
-  it("repairs an in-progress record when this device saw them finish", () => {
-    expect(
-      shouldRepairServer("in_progress", { cookie: true, workspaceLive: false })
-    ).toBe(true);
-    expect(
-      shouldRepairServer("in_progress", { cookie: false, workspaceLive: true })
-    ).toBe(true);
+  it("repairs an in-progress record when the workspace is in use", () => {
+    expect(shouldRepairServer("in_progress", { workspaceLive: true })).toBe(
+      true
+    );
   });
 
   it("leaves a genuinely unfinished wizard alone", () => {
-    expect(
-      shouldRepairServer("in_progress", { cookie: false, workspaceLive: false })
-    ).toBe(false);
+    expect(shouldRepairServer("in_progress", { workspaceLive: false })).toBe(
+      false
+    );
   });
 
   it("never completes the wizard for someone who did not start it", () => {
-    expect(
-      shouldRepairServer("not_started", { cookie: true, workspaceLive: true })
-    ).toBe(false);
-    expect(
-      shouldRepairServer("completed", { cookie: true, workspaceLive: true })
-    ).toBe(false);
+    expect(shouldRepairServer("not_started", { workspaceLive: true })).toBe(
+      false
+    );
+    expect(shouldRepairServer("completed", { workspaceLive: true })).toBe(
+      false
+    );
   });
 });
 
@@ -72,30 +69,38 @@ describe("device records", () => {
   });
 
   it("keeps a pending completion until it is cleared", () => {
-    expect(readPendingCompletion()).toBeNull();
-    savePendingCompletion({
+    expect(readPendingCompletion("u1")).toBeNull();
+    savePendingCompletion("u1", {
       totalTimeSeconds: 240,
       currentStep: "plan_selection",
     });
-    expect(readPendingCompletion()).toEqual({
+    expect(readPendingCompletion("u1")).toEqual({
       totalTimeSeconds: 240,
       currentStep: "plan_selection",
     });
-    clearPendingCompletion();
-    expect(readPendingCompletion()).toBeNull();
+    clearPendingCompletion("u1");
+    expect(readPendingCompletion("u1")).toBeNull();
   });
 
   it("confirming sets the cookie and drops the pending copy", () => {
-    savePendingCompletion({ totalTimeSeconds: 1 });
-    expect(isServerConfirmed()).toBe(false);
-    markServerConfirmed();
-    expect(isServerConfirmed()).toBe(true);
-    expect(readPendingCompletion()).toBeNull();
+    savePendingCompletion("u1", { totalTimeSeconds: 1 });
+    expect(isServerConfirmed("u1")).toBe(false);
+    markServerConfirmed("u1");
+    expect(isServerConfirmed("u1")).toBe(true);
+    expect(readPendingCompletion("u1")).toBeNull();
     expect(hasCompleteCookie(document.cookie)).toBe(true);
   });
 
+  it("keeps one account's records away from another on the same browser", () => {
+    savePendingCompletion("u1", { totalTimeSeconds: 240 });
+    markServerConfirmed("u2");
+    expect(readPendingCompletion("u2")).toBeNull();
+    expect(readPendingCompletion("u1")).toEqual({ totalTimeSeconds: 240 });
+    expect(isServerConfirmed("u1")).toBe(false);
+  });
+
   it("ignores a corrupt pending record", () => {
-    window.localStorage.setItem("onchain.onboarding.pendingComplete", "[1]");
-    expect(readPendingCompletion()).toBeNull();
+    window.localStorage.setItem("onchain.onboarding.pendingComplete:u1", "[1]");
+    expect(readPendingCompletion("u1")).toBeNull();
   });
 });

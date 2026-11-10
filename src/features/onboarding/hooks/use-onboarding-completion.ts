@@ -37,8 +37,8 @@ interface DeviceRecord {
  * that is plainly in use. Then it puts the server right, once:
  *
  * - a completion asked for here but never confirmed is sent again;
- * - a record stuck "in progress" for someone this device saw finish (or whose
- *   workspace is in use) is repaired;
+ * - a record stuck "in progress" for someone whose workspace is in use is
+ *   repaired;
  * - a completion the server already holds is remembered on this device, so it
  *   is not asked about again.
  *
@@ -61,15 +61,20 @@ export function useOnboardingCompletion(): {
     (session?.user as { onboardingCompleted?: unknown } | undefined)
       ?.onboardingCompleted === true;
 
-  // Client-only storage: read after mount so server and first render agree.
+  // Client-only storage, read after mount so server and first render agree,
+  // and re-read per account: the records belong to the signed-in user.
   const [device, setDevice] = useState<DeviceRecord | null>(null);
   useEffect(() => {
+    if (!userId) {
+      setDevice(null);
+      return;
+    }
     setDevice({
       cookie: hasCompleteCookie(document.cookie),
-      pending: readPendingCompletion() !== null,
-      confirmed: isServerConfirmed(),
+      pending: readPendingCompletion(userId) !== null,
+      confirmed: isServerConfirmed(userId),
     });
-  }, []);
+  }, [userId]);
 
   const { mode, isLoading: modeLoading } = useWorkspaceMode();
   const workspaceLive = !modeLoading && mode === "live";
@@ -84,49 +89,52 @@ export function useOnboardingCompletion(): {
   });
   const serverStatus = device?.confirmed ? "completed" : state.data?.status;
 
-  const confirm = () => {
-    markServerConfirmed();
-    setDevice({ cookie: true, pending: false, confirmed: true });
-    qc.setQueryData<OnboardingState>(onboardingStateKey(userId), (prev) => ({
+  // Always for the account the request was made as: a reply that arrives
+  // after an account switch must not mark the new account.
+  const confirm = (forUser: string) => {
+    markServerConfirmed(forUser);
+    qc.setQueryData<OnboardingState>(onboardingStateKey(forUser), (prev) => ({
       completionPercentage: prev?.completionPercentage ?? 100,
       status: "completed",
     }));
+    if (forUser === userId) {
+      setDevice({ cookie: true, pending: false, confirmed: true });
+    }
   };
   const confirmRef = useRef(confirm);
   confirmRef.current = confirm;
-  const sent = useRef(false);
+  /** The account a completion has been sent for, so each is sent once. */
+  const sentFor = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!userId || !device || device.confirmed || sent.current) return;
+    if (!userId || !device || device.confirmed) return;
+    if (sentFor.current === userId) return;
+    const release = () => {
+      if (sentFor.current === userId) sentFor.current = null;
+    };
 
     // A completion asked for here that the server never confirmed: send it again.
-    const pending = readPendingCompletion();
+    const pending = readPendingCompletion(userId);
     if (pending) {
-      sent.current = true;
+      sentFor.current = userId;
       completionService
         .complete(pending)
-        .then(() => confirmRef.current())
-        .catch(() => {
-          sent.current = false; // tried again on the next load
-        });
+        .then(() => confirmRef.current(userId))
+        .catch(release); // tried again on the next load
       return;
     }
 
     if (serverStatus === "completed") {
-      confirmRef.current();
+      confirmRef.current(userId);
       return;
     }
 
-    if (
-      shouldRepairServer(serverStatus, { cookie: device.cookie, workspaceLive })
-    ) {
-      sent.current = true;
+    if (shouldRepairServer(serverStatus, { workspaceLive })) {
+      sentFor.current = userId;
       completionService
         .complete({ repaired: true, flowVersion: "repair" })
-        .then(() => confirmRef.current())
-        .catch(() => {
-          sent.current = false;
-        });
+        .then(() => confirmRef.current(userId))
+        .catch(release);
       return;
     }
 
@@ -145,7 +153,10 @@ export function useOnboardingCompletion(): {
     workspaceLive,
   });
   const isChecking =
-    sessionPending || device === null || modeLoading || state.isLoading;
+    sessionPending ||
+    (Boolean(userId) && device === null) ||
+    modeLoading ||
+    state.isLoading;
 
   return {
     isDone,

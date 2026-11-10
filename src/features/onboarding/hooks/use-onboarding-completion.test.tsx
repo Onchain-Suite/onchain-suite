@@ -64,7 +64,7 @@ describe("useOnboardingCompletion", () => {
   });
 
   it("re-sends a completion the server never confirmed", async () => {
-    savePendingCompletion({
+    savePendingCompletion("u1", {
       totalTimeSeconds: 240,
       currentStep: "plan_selection",
     });
@@ -75,24 +75,44 @@ describe("useOnboardingCompletion", () => {
         currentStep: "plan_selection",
       })
     );
-    await waitFor(() => expect(isServerConfirmed()).toBe(true));
-    expect(readPendingCompletion()).toBeNull();
+    await waitFor(() => expect(isServerConfirmed("u1")).toBe(true));
+    expect(readPendingCompletion("u1")).toBeNull();
     expect(result.current.isDone).toBe(true);
     expect(result.current.inProgress).toBe(false);
+  });
+
+  it("never replays one account's completion as another's", async () => {
+    // Someone else finished on this browser and their completion is pending.
+    savePendingCompletion("other", { totalTimeSeconds: 240 });
+    const { result } = mount();
+    await waitFor(() => expect(result.current.inProgress).toBe(true));
+    expect(complete).not.toHaveBeenCalled();
+    expect(readPendingCompletion("other")).not.toBeNull();
   });
 
   it("keeps the pending completion when the re-send fails, and still never reminds", async () => {
-    savePendingCompletion({ totalTimeSeconds: 240 });
+    savePendingCompletion("u1", { totalTimeSeconds: 240 });
     complete.mockRejectedValue(new Error("429"));
     const { result } = mount();
     await waitFor(() => expect(complete).toHaveBeenCalled());
-    expect(readPendingCompletion()).not.toBeNull();
+    expect(readPendingCompletion("u1")).not.toBeNull();
     expect(result.current.isDone).toBe(true);
     expect(result.current.inProgress).toBe(false);
   });
 
-  it("repairs a record stuck in progress for someone this browser saw finish", async () => {
+  it("holds back the reminder on a browser someone finished on, without touching the server", async () => {
+    // The cookie is not tied to an account, so it must not complete anyone.
     markCompleteOnDevice();
+    const { result } = mount();
+    await waitFor(() => expect(getState).toHaveBeenCalled());
+    await waitFor(() => expect(result.current.isChecking).toBe(false));
+    expect(result.current.isDone).toBe(true);
+    expect(result.current.inProgress).toBe(false);
+    expect(complete).not.toHaveBeenCalled();
+  });
+
+  it("never reminds, and repairs the record, when the workspace is in use", async () => {
+    workspace = { mode: "live", isLoading: false };
     const { result } = mount();
     await waitFor(() =>
       expect(complete).toHaveBeenCalledWith({
@@ -100,16 +120,10 @@ describe("useOnboardingCompletion", () => {
         flowVersion: "repair",
       })
     );
-    expect(result.current.inProgress).toBe(false);
-    await waitFor(() => expect(isServerConfirmed()).toBe(true));
-  });
-
-  it("never reminds, and repairs, when the workspace is in use", async () => {
-    workspace = { mode: "live", isLoading: false };
-    const { result } = mount();
-    await waitFor(() => expect(complete).toHaveBeenCalledTimes(1));
+    expect(complete).toHaveBeenCalledTimes(1);
     expect(result.current.isDone).toBe(true);
     expect(result.current.inProgress).toBe(false);
+    await waitFor(() => expect(isServerConfirmed("u1")).toBe(true));
   });
 
   it("does not complete the wizard for someone who never started it", async () => {
@@ -132,7 +146,7 @@ describe("useOnboardingCompletion", () => {
       completionPercentage: 100,
     });
     const { result, unmount } = mount();
-    await waitFor(() => expect(isServerConfirmed()).toBe(true));
+    await waitFor(() => expect(isServerConfirmed("u1")).toBe(true));
     expect(result.current.isDone).toBe(true);
     unmount();
 

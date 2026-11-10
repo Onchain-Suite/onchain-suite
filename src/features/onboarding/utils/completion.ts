@@ -11,10 +11,17 @@ import type { CompleteOnboardingBody } from "../contracts/completion";
  */
 
 export const ONBOARDING_COMPLETE_COOKIE = "onchain.onboardingComplete";
+/*
+ * These two are kept PER USER. A browser is shared between accounts (a second
+ * sign-in, a teammate's laptop), and one account's finished wizard must never
+ * be replayed as, or stand in for, another's.
+ */
 /** A completion that has been asked for but not yet confirmed by the server. */
-const PENDING_KEY = "onchain.onboarding.pendingComplete";
+const pendingKey = (userId: string) =>
+  `onchain.onboarding.pendingComplete:${userId}`;
 /** The server has confirmed completion to this device: no need to ask again. */
-const CONFIRMED_KEY = "onchain.onboarding.serverConfirmed";
+const confirmedKey = (userId: string) =>
+  `onchain.onboarding.serverConfirmed:${userId}`;
 
 export const hasCompleteCookie = (cookieHeader: string): boolean =>
   cookieHeader
@@ -26,9 +33,11 @@ export function markCompleteOnDevice(): void {
   document.cookie = `${ONBOARDING_COMPLETE_COOKIE}=1; Path=/; Max-Age=31536000; SameSite=Lax`;
 }
 
-export function readPendingCompletion(): CompleteOnboardingBody | null {
+export function readPendingCompletion(
+  userId: string
+): CompleteOnboardingBody | null {
   try {
-    const raw = window.localStorage.getItem(PENDING_KEY);
+    const raw = window.localStorage.getItem(pendingKey(userId));
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     return typeof parsed === "object" &&
@@ -42,36 +51,39 @@ export function readPendingCompletion(): CompleteOnboardingBody | null {
 }
 
 /** Written BEFORE the request, so a page unload mid-request still leaves it. */
-export function savePendingCompletion(body: CompleteOnboardingBody): void {
+export function savePendingCompletion(
+  userId: string,
+  body: CompleteOnboardingBody
+): void {
   try {
-    window.localStorage.setItem(PENDING_KEY, JSON.stringify(body));
+    window.localStorage.setItem(pendingKey(userId), JSON.stringify(body));
   } catch {
     // Storage blocked: the cookie still stops the reminder on this device.
   }
 }
 
-export function clearPendingCompletion(): void {
+export function clearPendingCompletion(userId: string): void {
   try {
-    window.localStorage.removeItem(PENDING_KEY);
+    window.localStorage.removeItem(pendingKey(userId));
   } catch {
     // nothing to clear
   }
 }
 
-export function isServerConfirmed(): boolean {
+export function isServerConfirmed(userId: string): boolean {
   try {
-    return window.localStorage.getItem(CONFIRMED_KEY) === "1";
+    return window.localStorage.getItem(confirmedKey(userId)) === "1";
   } catch {
     return false;
   }
 }
 
 /** The server holds the completion: remember it, and drop the pending copy. */
-export function markServerConfirmed(): void {
+export function markServerConfirmed(userId: string): void {
   markCompleteOnDevice();
-  clearPendingCompletion();
+  clearPendingCompletion(userId);
   try {
-    window.localStorage.setItem(CONFIRMED_KEY, "1");
+    window.localStorage.setItem(confirmedKey(userId), "1");
   } catch {
     // Storage blocked: we simply ask the server again next time.
   }
@@ -79,7 +91,10 @@ export function markServerConfirmed(): void {
 
 /** Everything that can say "this person finished onboarding". */
 export interface CompletionEvidence {
-  /** This browser saw them finish. */
+  /**
+   * Someone finished on this browser. Not tied to an account, so it is enough
+   * to hold back a reminder but never grounds for changing a server record.
+   */
   cookie: boolean;
   /** A completion was asked for here and is still to be confirmed. */
   pending: boolean;
@@ -96,12 +111,14 @@ export const isOnboardingDone = (e: CompletionEvidence): boolean =>
   e.cookie || e.pending || e.userFlag || e.serverCompleted || e.workspaceLive;
 
 /**
- * The server says "in progress" but this device knows better, so its record
- * should be fixed. Only for someone who actually started the wizard: an
+ * The server says "in progress" for someone whose workspace is in use, so its
+ * record should be fixed. Only for someone who actually started the wizard: an
  * invited member (`not_started`) never ran it, and completing it for them
- * would count them as onboarded.
+ * would count them as onboarded. The browser cookie is deliberately not
+ * grounds for this: it may belong to another account. (A completion this
+ * account asked for here is re-sent from its own pending record instead.)
  */
 export const shouldRepairServer = (
   serverStatus: "not_started" | "in_progress" | "completed" | undefined,
-  e: Pick<CompletionEvidence, "cookie" | "workspaceLive">
-): boolean => serverStatus === "in_progress" && (e.cookie || e.workspaceLive);
+  e: Pick<CompletionEvidence, "workspaceLive">
+): boolean => serverStatus === "in_progress" && e.workspaceLive;

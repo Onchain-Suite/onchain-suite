@@ -91,3 +91,29 @@ describe("useStartPath", () => {
     );
   });
 });
+
+describe("useStartPath, late reads", () => {
+  it("does not let a read that was already in flight overwrite a new choice", async () => {
+    let finishRead: (value: unknown) => void = () => undefined;
+    get.mockImplementation(
+      (_org: unknown, signal?: AbortSignal) =>
+        new Promise((resolve, reject) => {
+          finishRead = resolve;
+          signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        })
+    );
+    saveStartPath("org_race", "people");
+    const { result } = mount("org_race");
+    expect(result.current.startPath).toBe("people");
+
+    act(() => result.current.setStartPath("chain"));
+    // The old read lands now, carrying the answer from before the change.
+    await act(async () => {
+      finishRead(answer("people"));
+      await Promise.resolve();
+    });
+
+    expect(result.current.startPath).toBe("chain");
+    expect(readStartPath("org_race")).toBe("chain");
+  });
+});

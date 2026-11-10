@@ -73,6 +73,10 @@ export function useStartPath(organizationId: string | null): {
   const setStartPath = useCallback(
     (path: StartPath) => {
       if (!organizationId) return;
+      const key = workspaceAnswersKey(organizationId);
+      // A read still in flight was asked before this choice: stop it, or its
+      // older answer would land afterwards and overwrite the new one.
+      qc.cancelQueries({ queryKey: key }).catch(() => undefined);
       // Instant, in both places Home reads from; the request follows.
       saveStartPath(organizationId, path);
       qc.setQueryData<WorkspaceAnswers>(

@@ -307,13 +307,13 @@ export function useOnboardingTracking(): UseOnboardingTracking {
       // Written before the request: if the page navigates away mid-flight (to
       // checkout) or the request fails, the app sends it again on its next
       // load, so a finished wizard is never forgotten by the server.
-      savePendingCompletion(body);
+      savePendingCompletion(user.id, body);
 
       try {
         // Completion is a real state change (unlike track), so we await it;
         // the service rides out a rate-limit window instead of failing.
         await completionService.complete(body);
-        markServerConfirmed();
+        markServerConfirmed(user.id);
 
         setProgress((prev) => ({
           current_step: (payload.currentStep ??

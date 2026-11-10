@@ -9,26 +9,21 @@ import { Skeleton } from "@/components/ui/skeleton";
  * Pure JSX (no client hooks) so both a server and a client component can use it.
  */
 
-/** Post-onboarding stats view: 4 metric cards + the activity / get-started row. */
-export function DashboardMetricsSkeleton() {
+/** Home for a workspace in use: the to-do list beside the two side panels. */
+export function DashboardTodaySkeleton() {
   return (
-    <div className="space-y-8" aria-hidden="true">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, i) => i).map((i) => (
-          <div
-            key={`stat-${i}`}
-            className="space-y-3 rounded-xl border border-border bg-card p-5"
-          >
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-8 w-28" />
-            <Skeleton className="h-8 w-full" />
-          </div>
+    <div
+      className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]"
+      aria-hidden="true"
+    >
+      <div className="flex flex-col gap-2">
+        {Array.from({ length: 3 }, (_, i) => i).map((i) => (
+          <Skeleton key={`todo-${i}`} className="h-[76px] w-full rounded-xl" />
         ))}
       </div>
-
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.5fr_1fr]">
-        <Skeleton className="h-64 w-full rounded-xl" />
-        <Skeleton className="h-64 w-full rounded-xl" />
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-xl" />
       </div>
     </div>
   );

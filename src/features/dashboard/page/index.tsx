@@ -1,8 +1,8 @@
 "use client";
 
 import { OnboardingResumeBanner } from "../components/get-started";
+import { TodayView } from "../components/home/today-view";
 import { HomeFirstRun } from "../components/home-first-run";
-import { MetricsDashboard } from "../components/metrics-dashboard";
 import { useTimeToValue } from "@/features/onboarding/hooks/use-time-to-value";
 import { useWorkspaceMode } from "@/features/onboarding/hooks/use-workspace-mode";
 
@@ -77,21 +77,10 @@ export function MainDashboard({ userData }: MainDashboardProps) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <div className="rounded-2xl border border-border bg-card px-6 py-7">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          {`Good ${greeting}, ${name}.`}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Here is what moved across your workspace today.
-        </p>
-      </div>
-
+    <div className="space-y-6">
       {/* Owner-only "finish onboarding" resume affordance; self-hides otherwise. */}
       <OnboardingResumeBanner />
-
-      {/* No ask bar here: ⌘K is the one door to Intelligence (2.7). */}
-      <MetricsDashboard />
+      <TodayView greeting={greeting} name={name} />
     </div>
   );
 }

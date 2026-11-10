@@ -30,6 +30,7 @@ interface TurnstileApi {
     el: HTMLElement,
     opts: {
       sitekey: string;
+      action?: string;
       theme?: "auto" | "light" | "dark";
       callback?: (token: string) => void;
       "error-callback"?: () => void;
@@ -92,7 +93,15 @@ export interface TurnstileHandle {
   reset: () => void;
 }
 
+/**
+ * What the token is for. The backend checks the action Cloudflare returns
+ * against the endpoint's own, so a token solved on one surface cannot be
+ * spent on another. Letters, numbers, `_` and `-`, up to 32 characters.
+ */
+export type TurnstileAction = "login" | "signup" | "form_submit";
+
 interface TurnstileWidgetProps {
+  action: TurnstileAction;
   /** Called with the token on success, and with "" when it expires or errors. */
   onVerify: (token: string) => void;
   onExpire?: () => void;
@@ -104,7 +113,7 @@ export const TurnstileWidget = forwardRef<
   TurnstileHandle,
   TurnstileWidgetProps
 >(function TurnstileWidget(
-  { onVerify, onExpire, theme = "auto", className },
+  { action, onVerify, onExpire, theme = "auto", className },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -131,6 +140,7 @@ export const TurnstileWidget = forwardRef<
         if (widgetIdRef.current) return;
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey: SITE_KEY,
+          action,
           theme,
           callback: (token: string) => onVerify(token),
           "error-callback": () => {

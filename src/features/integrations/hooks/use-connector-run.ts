@@ -50,20 +50,34 @@ export function useConnectorRun(connector: string) {
 
   // The server's answer to start or stop IS the new status: write it straight
   // in so the panel changes at once, without waiting for the next poll.
-  const write = useCallback(
-    (run: ConnectorRunStatus) => qc.setQueryData(key, run),
+  //
+  // A status read already in flight was asked BEFORE the server acted, so it
+  // describes the past. Left alone it would land after this write, put the old
+  // state back and (the old state not being live) switch polling off. Drop it
+  // on the way in and again on the way out, for a poll that began in between.
+  const settle = useCallback(
+    () => qc.cancelQueries({ queryKey: key }),
     [qc, key]
+  );
+  const write = useCallback(
+    async (run: ConnectorRunStatus) => {
+      await settle();
+      qc.setQueryData(key, run);
+    },
+    [qc, key, settle]
   );
 
   const start = useMutation({
     mutationFn: (opts: { restart?: boolean } = {}) =>
       connectorRunsService.start(connector, opts, organizationId ?? undefined),
+    onMutate: settle,
     onSuccess: write,
   });
 
   const stop = useMutation({
     mutationFn: () =>
       connectorRunsService.stop(connector, organizationId ?? undefined),
+    onMutate: settle,
     onSuccess: write,
   });
 
@@ -74,6 +88,17 @@ export function useConnectorRun(connector: string) {
     run: query.data ?? null,
     isLoading: query.isLoading,
     unavailable: notDeployed(query.error) || notDeployed(start.error),
+    /**
+     * The status could not be read at all, so nothing is known about a run:
+     * one may well be going. Not the same as idle, and callers must not offer
+     * Start as though it were. A poll that fails mid-run keeps the last answer
+     * and does not set this.
+     */
+    statusError:
+      query.isError && !query.data && !notDeployed(query.error)
+        ? query.error.message
+        : null,
+    retryStatus: query.refetch,
     /** A failure to start or stop; a failed RUN reports through `run.error`. */
     actionError:
       (start.error && !notDeployed(start.error) ? start.error.message : null) ??

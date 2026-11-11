@@ -15,6 +15,7 @@ import {
   runPanelStatus,
   runStartLabel,
 } from "../../utils/runs";
+import { RunStatusError } from "../connect/run-status-error";
 import { MigrationSummary } from "./migration-summary";
 import { Icon } from "@/shared/components/common/hugeicon";
 
@@ -55,6 +56,11 @@ export function BackgroundMigration({
   }, [r.run, qc]);
 
   if (r.unavailable) return <>{fallback}</>;
+  if (r.statusError) {
+    return (
+      <RunStatusError message={r.statusError} onRetry={() => r.retryStatus()} />
+    );
+  }
   if (r.isLoading) {
     return (
       <div

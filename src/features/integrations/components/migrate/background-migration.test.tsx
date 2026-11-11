@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConnectionsError } from "../../connections.service";
 import { connectorRunsService } from "../../connector-runs.service";
 import type { ConnectorRunStatus } from "../../contracts/runs";
+import { connectorRunKey } from "../../hooks/use-connector-run";
 import type { ConnectorDef } from "../../types/connectors";
 import { toRunStatus } from "../../utils/runs";
 import { BackgroundMigration } from "./background-migration";
@@ -42,10 +43,10 @@ const run = (over: Partial<ConnectorRunStatus> = {}): ConnectorRunStatus => ({
   ...over,
 });
 
-function renderRun(agreed = true) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
+const newClient = () =>
+  new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+function renderRun(agreed = true, client = newClient()) {
   render(
     <QueryClientProvider client={client}>
       <BackgroundMigration
@@ -172,5 +173,62 @@ describe("BackgroundMigration", () => {
     );
     renderRun();
     expect(await screen.findByText("In-browser migration")).toBeInTheDocument();
+  });
+
+  it("does not call a run idle when its status could not be read", async () => {
+    status.mockRejectedValueOnce(
+      new ConnectionsError("The server took too long.", "TIMEOUT", null)
+    );
+    renderRun();
+
+    expect(
+      await screen.findByText("Couldn't check whether a run is going.")
+    ).toBeInTheDocument();
+    expect(screen.getByText("The server took too long.")).toBeInTheDocument();
+    // A run may be going: Start would be a guess.
+    expect(
+      screen.queryByRole("button", { name: /Start migration/ })
+    ).toBeNull();
+
+    status.mockResolvedValue(
+      run({ state: "running", totals: { scanned: 9_000 } })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    expect(await screen.findByText("9,000")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Stop/ })).toBeInTheDocument();
+  });
+
+  it("keeps the run it just started when an older status read lands late", async () => {
+    // Reopened: the last answer (idle) shows while a fresh read is in flight.
+    const client = newClient();
+    client.setQueryData(connectorRunKey("org_1", "hubspot"), run());
+    let landLate: (r: ConnectorRunStatus) => void = () => undefined;
+    status.mockReturnValueOnce(
+      new Promise<ConnectorRunStatus>((resolve) => {
+        landLate = resolve;
+      })
+    );
+    status.mockResolvedValue(run({ state: "running" }));
+    start.mockResolvedValue(run({ state: "queued" }));
+    renderRun(true, client);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Start migration/ })
+    );
+    expect(await screen.findByText(/it carries on/)).toBeInTheDocument();
+
+    // The read that was asked before the run existed answers "idle".
+    landLate(run());
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(screen.getByText(/it carries on/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Start migration/ })
+    ).toBeNull();
+    expect(
+      client.getQueryData<ConnectorRunStatus>(
+        connectorRunKey("org_1", "hubspot")
+      )?.state
+    ).toBe("queued");
   });
 });

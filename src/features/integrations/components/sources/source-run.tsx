@@ -16,6 +16,7 @@ import {
   syncTotals,
 } from "../../utils/runs";
 import { RunProgress } from "../connect/run-progress";
+import { RunStatusError } from "../connect/run-status-error";
 import { Icon } from "@/shared/components/common/hugeicon";
 
 const VERBS = { start: "Sync now", again: "Sync again" };
@@ -51,6 +52,11 @@ export function SourceRun({
   }, [r.run, qc]);
 
   if (r.unavailable) return <>{fallback}</>;
+  if (r.statusError) {
+    return (
+      <RunStatusError message={r.statusError} onRetry={() => r.retryStatus()} />
+    );
+  }
 
   const live = isRunLive(r.run);
   const t = syncTotals(r.run?.totals ?? {});

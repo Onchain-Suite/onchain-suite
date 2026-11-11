@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  followCheckout,
   isPendingCheckoutStale,
   openCheckoutInNewTab,
   PENDING_CHECKOUT_TTL_MS,
@@ -114,5 +115,33 @@ describe("pending checkout lifetime", () => {
     expect(readPendingCheckout()).toBeNull();
     // and it is gone from storage, not just filtered on read
     expect(readPendingCheckout()).toBeNull();
+  });
+});
+
+describe("followCheckout", () => {
+  it("opens a payment page in a new tab", () => {
+    const stub = makeWindowStub();
+    vi.spyOn(window, "open").mockReturnValue(stub as unknown as Window);
+    const navigate = vi.fn();
+    followCheckout({ paymentUrl: PAYMENT_URL, reference: "" }, navigate);
+    expect(stub.location.replace).toHaveBeenCalledWith(PAYMENT_URL);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("falls back to this tab when the new one is blocked", () => {
+    vi.spyOn(window, "open").mockReturnValue(null);
+    const navigate = vi.fn();
+    followCheckout({ paymentUrl: PAYMENT_URL, reference: "" }, navigate);
+    expect(navigate).toHaveBeenCalledWith(PAYMENT_URL);
+  });
+
+  it("stays in this tab for a change that was applied on the spot", () => {
+    const openSpy = vi.spyOn(window, "open");
+    const navigate = vi.fn();
+    const url = "https://app.onchainsuite.com/settings?tab=billing";
+    followCheckout({ paymentUrl: url, reference: "", applied: true }, navigate);
+    // Our own billing tab is not a checkout to pop open beside the app.
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(url);
   });
 });

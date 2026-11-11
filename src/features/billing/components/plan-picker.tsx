@@ -23,7 +23,7 @@ import {
   SEND_MIN_SUBSCRIBERS,
   SUITE_TIER_ANCHORS,
 } from "../billing.service";
-import { openCheckoutInNewTab, startPlanCheckout } from "../checkout";
+import { followCheckout, startPlanCheckout } from "../checkout";
 import {
   clampExtraSeats,
   includedSeatsForPlan,
@@ -282,15 +282,14 @@ export function PlanPicker({
         toast.error("Checkout did not return a payment link. Try again.");
         return;
       }
-      toast.success(
-        paymentMethod === "card"
-          ? "Opening secure card checkout in a new tab…"
-          : "Opening crypto checkout in a new tab…"
-      );
-      onCompleted?.(planRef);
-      if (!openCheckoutInNewTab(checkout.paymentUrl)) {
-        window.location.assign(checkout.paymentUrl);
+      // Applied on the spot: no checkout to open, the billing tab says so.
+      if (!checkout.applied) {
+        toast.success(
+          `Opening ${paymentMethod === "card" ? "secure card" : "crypto"} checkout in a new tab…`
+        );
       }
+      onCompleted?.(planRef);
+      followCheckout(checkout);
     } catch (e) {
       const message =
         e instanceof Error ? e.message : "Couldn't start checkout.";

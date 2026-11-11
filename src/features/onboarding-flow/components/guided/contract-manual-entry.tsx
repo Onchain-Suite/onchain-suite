@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +49,20 @@ export function ContractManualEntry({
   const chainOptions = useChainOptions(chains);
   const set = (patch: Partial<ManualContractDraft>) =>
     onChange({ ...draft, ...patch });
+
+  // The picker cannot show "no chain", so a draft without one is given the
+  // chain it is showing. Otherwise the form displayed one chain while the
+  // contract was indexed on another.
+  const [first] = chainOptions;
+  const ethereum = chainOptions.find((o) => o.value === DEFAULT_CHAIN);
+  // The project's own chain leads the list when there is one; otherwise
+  // Ethereum, not whichever chain the catalog happens to list first.
+  const fallback =
+    (chains.length > 0 ? first : (ethereum ?? first))?.value ?? DEFAULT_CHAIN;
+  const shown = draft.chain.length > 0 ? draft.chain : fallback;
+  useEffect(() => {
+    if (!draft.chain) onChange({ ...draft, chain: shown });
+  }, [draft, shown, onChange]);
   const addressValid =
     draft.address.trim() === "" || EVM_ADDRESS_RE.test(draft.address.trim());
 
@@ -96,7 +110,7 @@ export function ContractManualEntry({
             <Label htmlFor="ob-m-chain">Chain</Label>
             <ObSelect
               id="ob-m-chain"
-              value={draft.chain || (chainOptions[0]?.value ?? DEFAULT_CHAIN)}
+              value={shown}
               onChange={(c) => set({ chain: c })}
               options={chainOptions}
             />

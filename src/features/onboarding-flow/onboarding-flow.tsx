@@ -174,9 +174,6 @@ export function OnboardingFlow() {
   // The developer invited from the technical step, so the DNS step can say the
   // records travel with that invite.
   const [handoffSentTo, setHandoffSentTo] = React.useState<string | null>(null);
-  // The chain a pasted address actually resolved on (from the real on-chain
-  // resolver) or the chain the user picked, so indexing uses it.
-  const [resolvedChain, setResolvedChain] = React.useState<string | null>(null);
   // A contract entered by hand on step 4 (the fallback when auto-find misses).
   const [manual, setManual] = React.useState<ManualContractDraft | null>(null);
 
@@ -188,8 +185,16 @@ export function OnboardingFlow() {
   }, []);
 
   // The one contract the backend indexes (see use-onboarding-contracts).
-  const allContracts = useOnboardingContracts(profile, resolvedChain, manual);
+  const allContracts = useOnboardingContracts(profile, manual);
   const startIndexing = useStartIndexing();
+  // The contract's chain lives in one place, the profile, whichever step set
+  // it. A second copy here let an address found nowhere on the contract step
+  // fall back to the chain of the address it replaced.
+  const setContractChain = React.useCallback(
+    (chain: string | null) =>
+      setProfile((p) => ({ ...p, chains: chain ? [chain] : [] })),
+    []
+  );
 
   const at: StepId = flow[Math.min(stepIndex, flow.length - 1)];
 
@@ -578,8 +583,8 @@ export function OnboardingFlow() {
           <StepContract
             value={profile.contract}
             onChange={(v) => setProfile((p) => ({ ...p, contract: v }))}
-            chain={resolvedChain}
-            onChain={setResolvedChain}
+            chain={profile.chains[0] ?? null}
+            onChain={setContractChain}
             manual={manual}
             onManual={setManual}
             chains={profile.chains}

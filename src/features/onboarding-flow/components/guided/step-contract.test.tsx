@@ -49,7 +49,7 @@ const nowhere: ResolvedContract = {
   chainsTried: ["Ethereum", "Base", "Arbitrum"],
 };
 
-function renderStep(onChain = vi.fn()) {
+function renderStep(onChain = vi.fn(), chain: string | null = null) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -58,7 +58,7 @@ function renderStep(onChain = vi.fn()) {
       <StepContract
         value={ADDR}
         onChange={vi.fn()}
-        chain={null}
+        chain={chain}
         onChain={onChain}
         manual={null}
         onManual={vi.fn()}
@@ -175,6 +175,48 @@ describe("StepContract", () => {
         ),
       soon
     );
+  });
+
+  // Coming back to the step used to look everywhere again and could move the
+  // contract to another chain the same address is deployed on.
+  it("reads only the chain already chosen when the step is revisited", async () => {
+    resolve.mockResolvedValue(
+      found({ chain: "arb-mainnet", chainLabel: "Arbitrum" })
+    );
+    const { onChain } = renderStep(vi.fn(), "arb-mainnet");
+
+    expect(
+      await screen.findByText(/Verified on Arbitrum/, {}, soon)
+    ).toBeTruthy();
+    expect(resolve).toHaveBeenCalledWith(
+      { address: ADDR, chain: "arb-mainnet" },
+      expect.anything()
+    );
+    expect(onChain).not.toHaveBeenCalled();
+  });
+
+  // The note says setup carries on without a contract; that has to be true.
+  it("lets go of a deployment we found once they say it is on a chain we do not index", async () => {
+    resolve.mockResolvedValue(
+      found({ alsoOn: [{ chain: "arb-mainnet", chainLabel: "Arbitrum" }] })
+    );
+    requestChain.mockResolvedValue({ recorded: true, chain: "Berachain" });
+    const { onChain } = renderStep();
+    await screen.findByText("Uniswap", {}, soon);
+    await waitFor(() => expect(onChain).toHaveBeenCalledWith("base-mainnet"));
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Chain" }));
+    fireEvent.click(
+      await screen.findByRole("option", { name: "Another chain…" })
+    );
+    fireEvent.change(screen.getByLabelText("Which chain is it on?"), {
+      target: { value: "Berachain" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Tell us" }));
+
+    expect(await screen.findByText(/Noted: Berachain/)).toBeInTheDocument();
+    await waitFor(() => expect(onChain).toHaveBeenLastCalledWith(null));
+    expect(screen.queryByText(/Verified on Base/)).toBeNull();
   });
 
   it("does not call an address wrong when the lookup could not run", async () => {

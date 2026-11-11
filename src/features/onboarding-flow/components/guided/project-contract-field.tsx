@@ -41,6 +41,9 @@ export function ProjectContractField({
   // True once the person picks the chain themselves; cleared by a new address.
   const [pinned, setPinned] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
+  // They told us the contract is on a chain we do not index. A deployment we
+  // found for the same address elsewhere is then not theirs to index.
+  const [elsewhere, setElsewhere] = useState(false);
 
   const guess = classify(contract);
   const isAddress = guess.form === "address";
@@ -54,7 +57,8 @@ export function ProjectContractField({
   // A chain picked by hand is theirs, and anything that is not an address
   // (a website, an ENS name) has no lookup to follow.
   const foundChain = state.kind === "found" ? state.contract.chain : null;
-  const follows = isAddress && !pinned && state.kind !== "looking";
+  const follows =
+    isAddress && !pinned && !elsewhere && state.kind !== "looking";
   useEffect(() => {
     if (follows && foundChain !== (chain ?? null)) onChain(foundChain);
   }, [follows, foundChain, chain, onChain]);
@@ -95,6 +99,8 @@ export function ProjectContractField({
           onChange={(e) => {
             // A new address is looked for everywhere again.
             if (toAddress(e.target.value)) setPinned(false);
+            setElsewhere(false);
+            setOtherOpen(false);
             onContract(e.target.value);
           }}
           onKeyDown={onKeyDown}
@@ -104,10 +110,11 @@ export function ProjectContractField({
         />
         <ObSelect
           aria-label="Chain"
-          value={otherOpen ? OTHER_CHAIN : (chain ?? ANY_CHAIN)}
+          value={otherOpen || elsewhere ? OTHER_CHAIN : (chain ?? ANY_CHAIN)}
           onChange={(v) => {
             setOtherOpen(v === OTHER_CHAIN);
             if (v === OTHER_CHAIN) return;
+            setElsewhere(false);
             if (v === ANY_CHAIN) {
               setPinned(false);
               onChain(null);
@@ -121,7 +128,7 @@ export function ProjectContractField({
       </div>
 
       <div id="ob-contract-hint">
-        {isAddress ? (
+        {elsewhere ? null : isAddress ? (
           <ContractLookupNote
             state={state}
             chainCount={supported.length}
@@ -145,13 +152,18 @@ export function ProjectContractField({
         )}
       </div>
 
-      {otherOpen ? (
+      {otherOpen || elsewhere ? (
         <ChainRequestForm
           address={toAddress(contract)}
           onSupported={(ref) => {
             setOtherOpen(false);
             setPinned(true);
             onChain(ref.chain);
+          }}
+          onRecorded={() => {
+            setElsewhere(true);
+            setPinned(false);
+            onChain(null);
           }}
         />
       ) : null}

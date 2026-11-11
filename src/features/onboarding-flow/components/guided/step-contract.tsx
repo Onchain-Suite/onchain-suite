@@ -80,7 +80,7 @@ export function StepContract({
         onManual({
           ...EMPTY_MANUAL,
           address: toAddress(value) ?? "",
-          chain: chain ?? "",
+          chain: chain ?? chains[0] ?? "",
         });
         setByHand(true);
       }}
@@ -105,9 +105,15 @@ function AddressEntry({
   onEnterByHand: () => void;
 }) {
   const supported = useSupportedChains();
-  // The chain the person picked by hand; null means "look everywhere".
-  const [pinned, setPinned] = useState<string | null>(null);
+  // The chain to read; null means "look everywhere". It starts as the chain
+  // already chosen for this address (found earlier, or picked by hand), so
+  // coming back to this step does not look everywhere again and quietly move
+  // the contract to another chain the same address is deployed on.
+  const [pinned, setPinned] = useState<string | null>(chain);
   const [otherOpen, setOtherOpen] = useState(false);
+  // They told us the contract is on a chain we do not index. A deployment we
+  // found for the same address elsewhere is then not theirs to index.
+  const [elsewhere, setElsewhere] = useState(false);
 
   const { state, retry } = useContractLookup({
     raw: value,
@@ -118,10 +124,10 @@ function AddressEntry({
   // The orchestrator indexes on the chain the address was FOUND on, and on
   // nothing at all while it has not been found.
   const foundChain = state.kind === "found" ? state.contract.chain : null;
-  const settled = state.kind !== "looking";
+  const follows = state.kind !== "looking" && !elsewhere;
   useEffect(() => {
-    if (settled && foundChain !== chain) onChain(foundChain);
-  }, [settled, foundChain, chain, onChain]);
+    if (follows && foundChain !== chain) onChain(foundChain);
+  }, [follows, foundChain, chain, onChain]);
 
   const options = useMemo(() => {
     const list = supported.map((c) => ({
@@ -168,6 +174,8 @@ function AddressEntry({
               onChange={(e) => {
                 // A new address is looked for everywhere again.
                 setPinned(null);
+                setElsewhere(false);
+                setOtherOpen(false);
                 onChange(e.target.value);
               }}
               placeholder="0x…"
@@ -181,11 +189,14 @@ function AddressEntry({
             <ObSelect
               id="ob-chain"
               value={
-                otherOpen ? OTHER_CHAIN : (pinned ?? foundChain ?? ANY_CHAIN)
+                otherOpen || elsewhere
+                  ? OTHER_CHAIN
+                  : (pinned ?? foundChain ?? ANY_CHAIN)
               }
               onChange={(v) => {
                 setOtherOpen(v === OTHER_CHAIN);
                 if (v === OTHER_CHAIN) return;
+                setElsewhere(false);
                 setPinned(v === ANY_CHAIN ? null : v);
               }}
               options={options}
@@ -194,7 +205,7 @@ function AddressEntry({
         </div>
 
         <div id="ob-address-note">
-          {state.kind === "found" ? (
+          {elsewhere ? null : state.kind === "found" ? (
             <ResolvedContractCard
               contract={state.contract}
               onPickChain={(ref) => setPinned(ref.chain)}
@@ -210,12 +221,17 @@ function AddressEntry({
           )}
         </div>
 
-        {otherOpen ? (
+        {otherOpen || elsewhere ? (
           <ChainRequestForm
             address={toAddress(value)}
             onSupported={(ref) => {
               setOtherOpen(false);
               setPinned(ref.chain);
+            }}
+            onRecorded={() => {
+              setElsewhere(true);
+              setPinned(null);
+              onChain(null);
             }}
           />
         ) : null}

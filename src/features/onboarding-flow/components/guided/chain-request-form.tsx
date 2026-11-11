@@ -23,10 +23,17 @@ import { Icon } from "@/shared/components/common/hugeicon";
 export function ChainRequestForm({
   address,
   onSupported,
+  onRecorded,
 }: {
   /** The address they were trying to add, sent along when it is a valid one. */
   address: string | null;
   onSupported: (chain: ChainRef) => void;
+  /**
+   * The chain is one we do not index. They have just said the contract is
+   * there, so whatever chain was selected for it must be let go: the note
+   * below says setup carries on without a contract, and it has to be true.
+   */
+  onRecorded: () => void;
 }) {
   const id = useId();
   const [chain, setChain] = useState("");
@@ -39,7 +46,8 @@ export function ChainRequestForm({
         ...(address ? { address } : {}),
       }),
     onSuccess: (result) => {
-      if (!result.recorded) onSupported(result.supported);
+      if (result.recorded) onRecorded();
+      else onSupported(result.supported);
     },
   });
 

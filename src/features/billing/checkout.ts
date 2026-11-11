@@ -2,6 +2,11 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import { billingService, type PlanCheckoutSlug } from "./billing.service";
 import { clampExtraSeats } from "./seat-pricing";
+import {
+  chosenSize,
+  isOwnPage,
+  subscribeRequestFor,
+} from "./utils/subscribe-request";
 
 /**
  * Blockradar crypto checkout flow (docs/backend.md):
@@ -210,6 +215,25 @@ export interface StartPlanCheckoutResult {
   reference: string;
   amount?: string;
   mode?: string;
+  /**
+   * The change was made on the spot and `paymentUrl` is our own billing tab,
+   * not a payment page: a workspace that already subscribes has its plan
+   * resized instead of being sent to a second checkout.
+   */
+  applied?: boolean;
+}
+
+/**
+ * Take the browser where a started checkout points: a payment page in a new
+ * tab, or, for a change already applied, our billing tab in this one.
+ */
+export function followCheckout(
+  checkout: StartPlanCheckoutResult,
+  navigate: (url: string) => void = (url) => window.location.assign(url)
+): void {
+  if (checkout.applied || !openCheckoutInNewTab(checkout.paymentUrl)) {
+    navigate(checkout.paymentUrl);
+  }
 }
 
 /**
@@ -235,23 +259,15 @@ export async function startPlanCheckout(
   if (!orgId) throw new Error("No active organization selected.");
 
   // Card = a recurring Stripe subscription (POST /billing/subscribe), not the
-  // legacy one-time charge. The backend derives the tier + quantity from the
-  // org's contact count and builds the return URLs from the request Origin, so
-  // there's nothing to poll — the subscription confirms via webhook and the
-  // success page. The slider `contacts` is informational here: Option-A bills
-  // the actual list size, which auto-scales, so it is not sent. Extra SEATS,
-  // though, are a fixed charge the subscription must carry — forwarded so the
-  // card path bills them as a second line item instead of silently dropping
-  // them (the gap this fixes). Crypto keeps the Blockradar flow below unchanged.
+  // legacy one-time charge. The backend builds the return URLs from the request
+  // Origin, so there's nothing to poll: the subscription confirms via webhook
+  // and the success page. Crypto keeps the Blockradar flow below unchanged.
   if (options?.paymentMethod === "card") {
-    const seats = clampExtraSeats(options?.extraSeats);
     let url: string | undefined;
     try {
-      ({ url } = await billingService.subscribe({
-        plan: slug,
-        organizationId: orgId,
-        ...(seats > 0 ? { extraSeats: seats } : {}),
-      }));
+      ({ url } = await billingService.subscribe(
+        subscribeRequestFor(slug, orgId, options)
+      ));
     } catch (error) {
       const message =
         error instanceof Error
@@ -259,7 +275,7 @@ export async function startPlanCheckout(
           : "Couldn't start the subscription.";
       // Surface the real reason. A card SUBSCRIPTION that can't be created must
       // NOT silently degrade to a one-time crypto charge (that's not a
-      // subscription) — so this message deliberately avoids the "card payments
+      // subscription), so this message deliberately avoids the "card payments
       // aren't available" text that makes the plan picker switch to crypto.
       throw new Error(
         message.includes("No Stripe Price")
@@ -273,18 +289,18 @@ export async function startPlanCheckout(
         "Checkout did not return a payment link. Please try again."
       );
     }
-    return { paymentUrl: url, reference: "", mode: "stripe_subscription" };
+    return {
+      paymentUrl: url,
+      reference: "",
+      mode: "stripe_subscription",
+      applied: isOwnPage(url, window.location.origin),
+    };
   }
 
   // A slider-sized purchase sends `contacts` so the backend prices by the same
   // curve as GET /billing/contact-pricing (the charge equals the quote). Below
   // the tier's own limit it is ignored, so a plain tier buy is unaffected.
-  const contacts =
-    typeof options?.contacts === "number" &&
-    Number.isFinite(options.contacts) &&
-    options.contacts > 0
-      ? Math.round(options.contacts)
-      : undefined;
+  const contacts = chosenSize(options?.contacts);
 
   // Extra seats are a delta above the tier's included count; the backend caps
   // and prices them by the same function the quote uses (shown == charged).

@@ -238,6 +238,10 @@ function AddressEntry({
           <ChainRequestForm
             address={toAddress(value)}
             onSupported={(ref) => {
+              // It is a chain we index after all: whatever was said before
+              // about it being elsewhere no longer holds.
+              setElsewhere(false);
+              markElsewhere(null);
               setOtherOpen(false);
               setPinned(ref.chain);
             }}

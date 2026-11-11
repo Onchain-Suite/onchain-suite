@@ -253,6 +253,30 @@ describe("StepContract", () => {
     expect(first.onChain).toHaveBeenLastCalledWith(null);
   });
 
+  // Having said "another chain" once, then naming one we do index, left the
+  // contract suppressed: found, but never selected for indexing.
+  it("selects the contract again when the chain turns out to be one we index", async () => {
+    window.sessionStorage.setItem("onchain.onboarding.contractElsewhere", ADDR);
+    resolve.mockResolvedValue(
+      found({ chain: "arb-mainnet", chainLabel: "Arbitrum" })
+    );
+    requestChain.mockResolvedValue({
+      recorded: false,
+      supported: { chain: "arb-mainnet", chainLabel: "Arbitrum" },
+    });
+    const { onChain } = renderStep();
+
+    fireEvent.change(await screen.findByLabelText("Which chain is it on?"), {
+      target: { value: "arbitrum one" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Tell us" }));
+
+    expect(
+      await screen.findByText(/Verified on Arbitrum/, {}, soon)
+    ).toBeInTheDocument();
+    await waitFor(() => expect(onChain).toHaveBeenCalledWith("arb-mainnet"));
+  });
+
   it("does not call an address wrong when the lookup could not run", async () => {
     resolve.mockRejectedValue(new Error("timeout"));
     renderStep();

@@ -87,6 +87,7 @@ export function NavUserMenu({
     organizations,
     confirmedActiveOrgId,
     switchOrg,
+    refresh,
     isLoading,
     isMounted,
   } = useOrgSwitcherContext();
@@ -114,7 +115,13 @@ export function NavUserMenu({
     <>
       <SidebarMenu className="group-data-[collapsible=icon]:items-center">
         <SidebarMenuItem>
-          <DropdownMenu>
+          {/* The list shown is cached; opening the menu is when it is about to
+              be used, so that is when a deleted workspace is found and dropped. */}
+          <DropdownMenu
+            onOpenChange={(open) => {
+              if (open) refresh().catch(() => undefined);
+            }}
+          >
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size="lg"

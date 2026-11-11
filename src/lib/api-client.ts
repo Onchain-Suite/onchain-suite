@@ -4,6 +4,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 
+import { isOrgAccessLost, reportOrgAccessLost } from "@/lib/org-access";
 import { isJsonObject } from "@/lib/utils";
 
 export const API_BASE_URL = "/api/v1";
@@ -73,6 +74,10 @@ apiClient.interceptors.response.use(
       if (!isSilent && status !== 409) {
         console.error(`API Error [${status}]:`, message);
       }
+
+      // The selected workspace was deleted, or this person was removed from
+      // it: let the switcher re-read its list and move them off it.
+      if (isOrgAccessLost(status, message)) reportOrgAccessLost();
 
       if (status === 401) {
         // Handle unauthorized (e.g., redirect to login if not already there)

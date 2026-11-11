@@ -8,80 +8,41 @@ import useSWR from "swr";
 import { readBrandingData } from "@/hooks/client/use-get-logo";
 import { apiClient } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
+import { ORG_ACCESS_LOST_EVENT } from "@/lib/org-access";
 import {
   getCookieValue,
   isJsonObject,
   ORG_SELECTION_COOKIE,
 } from "@/lib/utils";
 
-export interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  logo?: string;
-  logoUrl?: string; // Handle both cases just in case
-}
+import {
+  getCachedOrganizations,
+  hasNoOrganizationListYet,
+  isOrganizationListRateLimited,
+  loadOrganizations,
+  ORG_LIST_CACHE_TTL_MS,
+  type Organization,
+  organizationListAgeMs,
+} from "../organization-list.service";
+import { goneWorkspaces, reconcileSelection } from "../utils/org-selection";
 
-const ORG_LIST_CACHE_TTL_MS = 5 * 60_000;
+export type { Organization } from "../organization-list.service";
+
 const ORG_VERIFIED_SESSION_KEY = "onchain.verifiedOrgId";
-const ORG_LIST_STORAGE_KEY = "onchain.orgListCache.v1";
-let organizationListCache: Organization[] | null = null;
-let organizationListCacheExpiresAt = 0;
-let organizationListInflight: Promise<Organization[]> | null = null;
-let organizationListRateLimitedUntil = 0;
 
 /**
- * The dashboard layout remounts on every route, so the switcher must render
- * from cache instantly instead of re-entering a loading state per page. The
- * module cache covers client-side navigations; sessionStorage covers full
- * reloads within the TTL.
+ * A refresh on a click (opening the switcher) is cheap to ask for and the list
+ * endpoint is rate limited, so two asks closer than this share one read.
  */
-const getCachedOrganizations = (): Organization[] | null => {
-  const now = Date.now();
-  // Never serve a cached EMPTY list - an empty result is far more likely stale
-  // (e.g. the user just created their first org via onboarding) than a real
-  // "belongs to nothing" state, so treat it as a miss and refetch.
-  if (
-    organizationListCache &&
-    organizationListCache.length > 0 &&
-    organizationListCacheExpiresAt > now
-  ) {
-    return organizationListCache;
-  }
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.sessionStorage.getItem(ORG_LIST_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as {
-      orgs?: Organization[];
-      expiresAt?: number;
-    };
-    if (
-      !Array.isArray(parsed.orgs) ||
-      parsed.orgs.length === 0 ||
-      typeof parsed.expiresAt !== "number" ||
-      parsed.expiresAt <= now
-    ) {
-      return null;
-    }
-    organizationListCache = parsed.orgs;
-    organizationListCacheExpiresAt = parsed.expiresAt;
-    return parsed.orgs;
-  } catch {
-    return null;
-  }
-};
+const REFRESH_MIN_GAP_MS = 15_000;
 
-const persistOrganizations = (orgs: Organization[], expiresAt: number) => {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(
-      ORG_LIST_STORAGE_KEY,
-      JSON.stringify({ orgs, expiresAt })
-    );
-  } catch {
-    // Best effort - quota/private-mode failures just skip persistence.
-  }
+/** A workspace's name for a sentence, or a stand-in when it has none. */
+const nameOr = (org: Organization | undefined, fallback: string): string =>
+  org && org.name.trim().length > 0 ? org.name : fallback;
+
+/** `refresh` settles on its own; this only marks the promise as handled. */
+const settled = (p: Promise<void>) => {
+  p.catch(() => undefined);
 };
 
 export interface UseOrgSwitcher {
@@ -96,6 +57,12 @@ export interface UseOrgSwitcher {
   hasResolved: boolean;
   session: ReturnType<typeof authClient.useSession>["data"];
   switchOrg: (orgId: string, silent?: boolean) => Promise<void>;
+  /**
+   * Re-read the workspace list from the server and move off a workspace that
+   * is gone. Called when the switcher opens and when the tab comes back after
+   * a while; `now` skips the gap between reads (a switch was just refused).
+   */
+  refresh: (now?: boolean) => Promise<void>;
 }
 
 /**
@@ -122,6 +89,11 @@ export function useOrgSwitcher(): UseOrgSwitcher {
   >(() => getCookieValue(ORG_SELECTION_COOKIE));
   const lastAutoSyncOrgIdRef = React.useRef<string | null>(null);
   const hasLoadedOrganizationsRef = React.useRef(false);
+  // The list on screen, for telling which workspace a fresh read dropped.
+  const organizationsRef = React.useRef(organizations);
+  React.useEffect(() => {
+    organizationsRef.current = organizations;
+  }, [organizations]);
   const router = useRouter();
 
   const pickNonEmptyString = React.useCallback((...values: unknown[]) => {
@@ -173,83 +145,61 @@ export function useOrgSwitcher(): UseOrgSwitcher {
     setVerifiedOrgId(null);
   }, [setVerifiedOrgId]);
 
-  const toOrganization = React.useCallback(
-    (raw: unknown): Organization | null => {
-      if (!isJsonObject(raw)) return null;
-      const id =
-        typeof raw.id === "string"
-          ? raw.id
-          : typeof raw.organizationId === "string"
-            ? raw.organizationId
-            : undefined;
-      if (!id) return null;
-      return {
-        id,
-        name: typeof raw.name === "string" ? raw.name : "",
-        slug: typeof raw.slug === "string" ? raw.slug : "",
-        logo: typeof raw.logo === "string" ? raw.logo : undefined,
-        logoUrl: typeof raw.logoUrl === "string" ? raw.logoUrl : undefined,
-      };
-    },
-    []
-  );
+  /**
+   * Check the stored selection against a list the server just returned, and
+   * move off a workspace that is no longer theirs. Shared by the first load
+   * and every refresh, so a deleted workspace is handled one way.
+   */
+  const applySelection = React.useCallback(
+    (orgs: Organization[], previous: Organization[]) => {
+      const cookieOrgId = getCookieValue(ORG_SELECTION_COOKIE);
+      const fix = reconcileSelection({
+        orgIds: orgs.map((o) => o.id),
+        cookieOrgId,
+        sessionOrgId: session?.session?.activeOrganizationId,
+      });
+      if (fix.kind === "keep") return;
 
-  const extractOrganizations = React.useCallback(
-    (payload: unknown): Organization[] => {
-      const root = Array.isArray(payload)
-        ? payload
-        : isJsonObject(payload) && Array.isArray(payload.data)
-          ? payload.data
-          : [];
-      if (!Array.isArray(root)) return [];
-      const mapped = root.map(toOrganization).filter(Boolean);
-      return mapped as Organization[];
-    },
-    [toOrganization]
-  );
-
-  const loadOrganizations = React.useCallback(
-    async (force = false) => {
-      const now = Date.now();
-      const cached = force ? null : getCachedOrganizations();
-      if (cached) {
-        return cached;
+      // Say so when the workspace they were in is the one that went: being
+      // moved without a word reads as a bug.
+      const left = goneWorkspaces(previous, orgs).find(
+        (o) => o.id === cookieOrgId?.trim()
+      );
+      const nextOrgId = fix.kind === "switch" ? fix.orgId : null;
+      if (nextOrgId) {
+        setSelectedOrgCookieValue(nextOrgId);
+        setActiveOrgId(nextOrgId);
+        if (left) {
+          const next = orgs.find((o) => o.id === nextOrgId);
+          toast.info(
+            `${nameOr(left, "That workspace")} is no longer available. You are now in ${nameOr(next, "another workspace")}.`
+          );
+        }
+      } else {
+        // The stored org isn't one we belong to and there's nothing to fall
+        // back to - clear it so the shell drops to the no-org/onboarding
+        // state instead of firing "not a member" requests for it.
+        clearSelectedOrg();
+        setActiveOrgId(null);
+        if (left) {
+          toast.info(
+            `${left.name || "That workspace"} is no longer available.`
+          );
+        }
       }
-      if (!force && organizationListInflight) return organizationListInflight;
-      if (!force && organizationListRateLimitedUntil > now) {
-        return organizationListCache ?? [];
-      }
-
-      const request = apiClient
-        .get("/organization/list", {
-          headers: { "x-onchain-silent-error": "1" },
+      window.dispatchEvent(
+        new CustomEvent("onchain:org-changed", {
+          detail: { orgId: nextOrgId, previousOrgId: cookieOrgId },
         })
-        .then((response) => {
-          const payload: unknown = response.data;
-          const orgs = extractOrganizations(payload);
-          organizationListCache = orgs;
-          organizationListCacheExpiresAt = Date.now() + ORG_LIST_CACHE_TTL_MS;
-          organizationListRateLimitedUntil = 0;
-          persistOrganizations(orgs, organizationListCacheExpiresAt);
-          return orgs;
-        })
-        .catch((error: unknown) => {
-          const err = error as { response?: { status?: number } };
-          if (err.response?.status === 429) {
-            organizationListRateLimitedUntil =
-              Date.now() + ORG_LIST_CACHE_TTL_MS;
-            return organizationListCache ?? [];
-          }
-          throw error;
-        })
-        .finally(() => {
-          organizationListInflight = null;
-        });
-
-      organizationListInflight = request;
-      return request;
+      );
+      router.refresh();
     },
-    [extractOrganizations]
+    [
+      clearSelectedOrg,
+      router,
+      session?.session?.activeOrganizationId,
+      setSelectedOrgCookieValue,
+    ]
   );
 
   React.useEffect(() => {
@@ -285,58 +235,20 @@ export function useOrgSwitcher(): UseOrgSwitcher {
       setIsLoading(getCachedOrganizations() === null);
       try {
         const orgs = await loadOrganizations();
-        const isRateLimitedFallback =
+        // A 429 with nothing cached returns an empty list that says nothing
+        // about which workspaces exist: wait for a real read.
+        if (
           orgs.length === 0 &&
-          organizationListCache === null &&
-          organizationListRateLimitedUntil > Date.now();
-
-        if (isRateLimitedFallback) {
+          hasNoOrganizationListYet() &&
+          isOrganizationListRateLimited()
+        ) {
           return;
         }
 
         setOrganizations(orgs);
         hasLoadedOrganizationsRef.current = true;
         if (orgs.length === 0) console.warn("Organization list is empty.");
-
-        const cookieOrgId = getCookieValue(ORG_SELECTION_COOKIE);
-        const sessionOrgId =
-          typeof session?.session?.activeOrganizationId === "string"
-            ? session.session.activeOrganizationId.trim()
-            : "";
-        const cookieIsValid =
-          typeof cookieOrgId === "string" &&
-          cookieOrgId.trim().length > 0 &&
-          orgs.some((o) => o.id === cookieOrgId.trim());
-
-        if (!cookieIsValid) {
-          const nextOrgId =
-            (sessionOrgId.length > 0 && orgs.some((o) => o.id === sessionOrgId)
-              ? sessionOrgId
-              : orgs[0]?.id) ?? null;
-
-          if (nextOrgId) {
-            setSelectedOrgCookieValue(nextOrgId);
-            setActiveOrgId(nextOrgId);
-            window.dispatchEvent(
-              new CustomEvent("onchain:org-changed", {
-                detail: { orgId: nextOrgId, previousOrgId: activeOrgId },
-              })
-            );
-            router.refresh();
-          } else if (cookieOrgId && cookieOrgId.trim().length > 0) {
-            // The stored org isn't one we belong to and there's nothing to fall
-            // back to - clear it so the shell drops to the no-org/onboarding
-            // state instead of firing "not a member" requests for it.
-            clearSelectedOrg();
-            setActiveOrgId(null);
-            window.dispatchEvent(
-              new CustomEvent("onchain:org-changed", {
-                detail: { orgId: null, previousOrgId: activeOrgId },
-              })
-            );
-            router.refresh();
-          }
-        }
+        applySelection(orgs, organizationsRef.current);
       } catch (error) {
         const err = error as { response?: { status?: number } };
         const status = err.response?.status;
@@ -361,15 +273,49 @@ export function useOrgSwitcher(): UseOrgSwitcher {
     if (session?.user?.id) {
       fetchOrganizations();
     }
-  }, [
-    activeOrgId,
-    clearSelectedOrg,
-    loadOrganizations,
-    router,
-    session?.session?.activeOrganizationId,
-    session?.user?.id,
-    setSelectedOrgCookieValue,
-  ]);
+  }, [applySelection, session?.user?.id]);
+
+  const refresh = React.useCallback(
+    async (now = false) => {
+      if (!session?.user?.id) return;
+      if (!now && organizationListAgeMs() < REFRESH_MIN_GAP_MS) return;
+      try {
+        const orgs = await loadOrganizations(true);
+        // Backed off: this is the list we already had, not the server's.
+        if (isOrganizationListRateLimited()) return;
+        const previous = organizationsRef.current;
+        setOrganizations(orgs);
+        hasLoadedOrganizationsRef.current = true;
+        setHasResolved(true);
+        applySelection(orgs, previous);
+      } catch {
+        // A refresh that fails changes nothing: the list on screen stays.
+      }
+    },
+    [applySelection, session?.user?.id]
+  );
+
+  // Membership changes on the server while a tab sits open: a workspace is
+  // deleted, or this person is removed from one. Coming back to the tab after
+  // the cache has gone stale is when to find out, at most once per TTL. (Not a
+  // focus refetch: it is bounded by the same five minutes as the cache.)
+  React.useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (organizationListAgeMs() < ORG_LIST_CACHE_TTL_MS) return;
+      settled(refresh());
+    };
+    // A request was refused because the workspace is gone or this person was
+    // removed from it (see `reportOrgAccessLost`). A page fires many requests
+    // at once, so the gap between reads turns the burst into one.
+    const onAccessLost = () => settled(refresh());
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener(ORG_ACCESS_LOST_EVENT, onAccessLost);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener(ORG_ACCESS_LOST_EVENT, onAccessLost);
+    };
+  }, [refresh]);
 
   React.useEffect(() => {
     const handler = (event: Event) => {
@@ -534,6 +480,9 @@ export function useOrgSwitcher(): UseOrgSwitcher {
         if (status !== 409) {
           console.error("Failed to switch organization", err);
         }
+        // Refused because the workspace is gone or they were removed from it:
+        // re-read the list so it leaves the switcher instead of failing again.
+        if (status === 403 || status === 404) settled(refresh(true));
         window.dispatchEvent(
           new CustomEvent("onchain:org-switch-failed", {
             detail: {
@@ -551,6 +500,7 @@ export function useOrgSwitcher(): UseOrgSwitcher {
     [
       activeOrgId,
       pickNonEmptyString,
+      refresh,
       router,
       session?.session?.activeOrganizationId,
       setSelectedOrgCookieValue,
@@ -610,5 +560,6 @@ export function useOrgSwitcher(): UseOrgSwitcher {
     hasResolved,
     session,
     switchOrg: handleSwitchOrg,
+    refresh,
   };
 }

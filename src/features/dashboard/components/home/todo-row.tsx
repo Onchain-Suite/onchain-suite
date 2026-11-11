@@ -2,10 +2,10 @@
 
 import {
   Clock01Icon,
-  FlashIcon,
   InboxIcon,
   Mail01Icon,
   PencilEdit02Icon,
+  RepeatIcon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
@@ -19,7 +19,7 @@ import { Icon, type IconSvgElement } from "@/shared/components/common/hugeicon";
 
 const GLYPH: Record<TodayIcon, IconSvgElement> = {
   inbox: InboxIcon,
-  loop: FlashIcon,
+  loop: RepeatIcon,
   clock: Clock01Icon,
   draft: PencilEdit02Icon,
   mail: Mail01Icon,

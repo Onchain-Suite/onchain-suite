@@ -43,9 +43,13 @@ describe("MigrateList", () => {
     // Mailchimp has an importer and leaves campaign history behind.
     expect(card("Mailchimp")).toHaveTextContent("Some data stays behind");
     expect(within(card("Mailchimp")).getByLabelText("Connected")).toBeTruthy();
-    // No importer yet: it comes in as a file, so nothing is promised.
-    expect(card("Klaviyo")).toHaveTextContent("Comes in as a CSV export");
-    expect(card("Klaviyo")).not.toHaveTextContent("Everything comes across");
+    // No importer: it comes in as a file, so nothing is promised.
+    expect(card("Substack")).toHaveTextContent("Comes in as a CSV export");
+    expect(card("Substack")).not.toHaveTextContent("Everything comes across");
+    // Klaviyo, Customer.io, Braze and Paragraph have importers on the server.
+    for (const name of ["Klaviyo", "Customer.io", "Braze", "Paragraph"]) {
+      expect(card(name)).not.toHaveTextContent("Comes in as a CSV export");
+    }
   });
 
   it("searches across categories and hides the rail while it does", () => {

@@ -1,4 +1,6 @@
-import type { ConnectorDef, ConnectorField } from "../types/connectors";
+import type { ConnectorDef } from "../types/connectors";
+import { optional, secret, text, throughputFields } from "./connector-fields";
+import { MIGRATION_CONNECTORS } from "./migration-connectors";
 
 /**
  * Every connector the backend can verify today, with the exact credential
@@ -9,62 +11,6 @@ import type { ConnectorDef, ConnectorField } from "../types/connectors";
  * A catalog entry with no connector here has no backend, and the UI says so
  * instead of pretending to connect it.
  */
-
-const secret = (
-  key: string,
-  label: string,
-  extra: Partial<ConnectorField> = {}
-): ConnectorField => ({ key, label, type: "secret", required: true, ...extra });
-
-const text = (
-  key: string,
-  label: string,
-  extra: Partial<ConnectorField> = {}
-): ConnectorField => ({ key, label, type: "text", required: true, ...extra });
-
-const optional = (f: ConnectorField): ConnectorField => ({
-  ...f,
-  required: false,
-});
-
-/**
- * Optional sender throughput for the per-recipient channels (SMS, WhatsApp).
- * Sends are paced to this rate across every worker, so set it to what the
- * sender can really deliver: a 10DLC campaign's MPS, a short code, a WhatsApp
- * number's throughput. Blank uses the platform default.
- */
-const throughputFields = (): ConnectorField[] => [
-  optional(
-    text("sendRatePerSecond", "Messages per second", {
-      placeholder: "10",
-      hint: "Your sender's real throughput. Leave blank for the default.",
-    })
-  ),
-  optional(
-    text("dailySendLimit", "Daily send limit", {
-      placeholder: "e.g. 1000",
-      hint: "Optional cap per UTC day, such as a WhatsApp messaging tier. Sends past it wait until the next day.",
-    })
-  ),
-  optional(
-    text("quietHours", "Send window (recipient's local time)", {
-      placeholder: "08:00-21:00",
-      hint: "Messages outside this window wait until it opens in the recipient's time zone. Blank uses 08:00-21:00.",
-    })
-  ),
-  optional(
-    text("maxPerRecipientPerDay", "Max messages per person per day", {
-      placeholder: "1",
-      hint: "Across all campaigns. People over the limit are skipped. 0 means no limit.",
-    })
-  ),
-  optional(
-    text("maxPerRecipientPerWeek", "Max messages per person per week", {
-      placeholder: "3",
-      hint: "Across all campaigns, over the last 7 days. 0 means no limit.",
-    })
-  ),
-];
 
 const DEFS: ConnectorDef[] = [
   // Channels
@@ -170,6 +116,7 @@ const DEFS: ConnectorDef[] = [
     connect: "paste",
     fields: [text("appId", "App ID"), secret("appSecret", "App secret")],
     action: "identity-sync",
+    scheduled: true,
     where: "Privy dashboard → App settings → API keys.",
   },
   {
@@ -181,6 +128,7 @@ const DEFS: ConnectorDef[] = [
       secret("apiToken", "API token"),
     ],
     action: "identity-sync",
+    scheduled: true,
     where: "Dynamic dashboard → Developers → API.",
   },
   {
@@ -189,6 +137,7 @@ const DEFS: ConnectorDef[] = [
     connect: "paste",
     fields: [secret("secretKey", "Secret key", { placeholder: "sk_live_…" })],
     action: "identity-sync",
+    scheduled: true,
     where: "Clerk dashboard → API keys.",
   },
   {
@@ -276,97 +225,58 @@ const DEFS: ConnectorDef[] = [
     action: "data-sync",
     route: "google-sheets",
   },
-
-  // Migrations
   {
-    id: "mailchimp",
-    label: "Mailchimp",
+    id: "formo",
+    label: "Formo",
     connect: "paste",
     fields: [
-      secret("apiKey", "API key", {
-        hint: "Ends in the datacentre, like -us21.",
+      secret("apiKey", "Workspace API key", {
+        hint: "It needs the profiles:read scope.",
       }),
     ],
-    action: "migrate",
-    paging: "rerun",
-    where: "Mailchimp → Profile → Extras → API keys.",
+    action: "identity-sync",
+    where: "Formo → Team settings → API.",
   },
+
+  // Onchain
   {
-    id: "beehiiv",
-    label: "beehiiv",
+    id: "subgraph",
+    label: "Subgraph",
     connect: "paste",
     fields: [
-      secret("apiKey", "API key"),
-      text("publicationId", "Publication ID", { placeholder: "pub_…" }),
+      text("subgraphUrl", "Subgraph URL", {
+        placeholder: "https://…",
+        hint: "Your GraphQL subgraph endpoint.",
+      }),
+      text("entity", "Entity", {
+        placeholder: "swaps",
+        hint: "The collection to read.",
+      }),
+      text("walletField", "Wallet field", {
+        placeholder: "sender",
+        hint: "The address field on that entity.",
+      }),
     ],
-    action: "migrate",
-    paging: "page",
-    where: "beehiiv → Settings → API.",
+    action: "identity-sync",
+    where: "Each distinct address in that field becomes a contact.",
   },
   {
-    id: "emailoctopus",
-    label: "EmailOctopus",
-    connect: "paste",
-    fields: [secret("apiKey", "API key", { hint: "A v2 API key." })],
-    action: "migrate",
-    paging: "rerun",
-    where: "EmailOctopus → Integrations & API.",
-  },
-  {
-    id: "kit",
-    label: "Kit",
-    connect: "paste",
-    fields: [secret("apiKey", "API key", { hint: "A v4 API key." })],
-    action: "migrate",
-    paging: "cursor",
-    where: "Kit → Settings → Developer.",
-  },
-  {
-    id: "attio",
-    label: "Attio",
-    connect: "paste",
-    fields: [secret("accessToken", "Access token")],
-    action: "migrate",
-    paging: "cursor",
-    where: "Attio → Workspace settings → Developers.",
-  },
-  {
-    id: "iterable",
-    label: "Iterable",
+    id: "rpc",
+    label: "Your RPC endpoint",
     connect: "paste",
     fields: [
-      secret("apiKey", "API key"),
-      optional(
-        text("region", "Region", { hint: "us or eu.", placeholder: "us" })
-      ),
+      text("rpcUrl", "RPC URL", {
+        placeholder: "https://…",
+        hint: "Your EVM JSON-RPC endpoint, on any chain.",
+      }),
+      text("contractAddress", "Contract address", { placeholder: "0x…" }),
     ],
-    action: "migrate-async",
-    where: "Iterable → Integrations → API keys (server-side key).",
+    action: "data-sync",
+    where:
+      "Reads the contract's recent logs and adds the wallets in them. It covers about the last 2,000 blocks, so use Contracts for a full history.",
   },
-  {
-    id: "hubspot",
-    label: "HubSpot",
-    connect: "oauth",
-    fields: [],
-    action: "migrate",
-    paging: "cursor",
-  },
-  {
-    id: "salesforce",
-    label: "Salesforce",
-    connect: "oauth",
-    fields: [],
-    action: "migrate",
-    paging: "cursor",
-  },
-  {
-    id: "intercom",
-    label: "Intercom",
-    connect: "oauth",
-    fields: [],
-    action: "migrate",
-    paging: "cursor",
-  },
+
+  ...MIGRATION_CONNECTORS,
 ];
 
 export const CONNECTORS: ReadonlyMap<string, ConnectorDef> = new Map(

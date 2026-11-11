@@ -17,13 +17,13 @@ export interface ConnectorField {
 
 /** What a connected connector can be asked to do. */
 export type ConnectorAction =
-  /** Cursor-paged identity pull (Privy, Clerk, Dynamic). */
+  /** A pull of people or wallets (Privy, Clerk, Dynamic, Formo, a subgraph). */
   | "identity-sync"
-  /** One-call pull of a query or sheet (Dune, Google Sheets). */
+  /** A pull of rows (a Dune query, a Google Sheet, an RPC log read). */
   | "data-sync"
-  /** Paged migration of subscribers into a list. */
+  /** A migration of subscribers into a list, run in the background. */
   | "migrate"
-  /** Iterable: a background export job, polled. */
+  /** Braze, Customer.io, Iterable: one background export, polled. */
   | "migrate-async"
   /** Nothing to run: data arrives through the SDK or a webhook. */
   | "none";
@@ -42,6 +42,8 @@ export interface ConnectorDef {
    *  `id` (Google Sheets is `googlesheets` but syncs at `google-sheets`). */
   route?: string;
   paging?: MigrationPaging;
+  /** The server also runs this sync on its own every six hours. */
+  scheduled?: boolean;
   /** Where to get the credential, shown under the form. */
   where?: string;
 }

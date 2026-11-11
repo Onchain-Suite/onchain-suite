@@ -211,7 +211,13 @@ export function StepProject({
           <ProjectContractField
             contract={value.contract}
             chain={value.chains[0]}
-            onContract={(contract) => onChange({ ...value, contract })}
+            onContract={(contract, { clearChain }) =>
+              onChange({
+                ...value,
+                contract,
+                chains: clearChain ? [] : value.chains,
+              })
+            }
             onChain={(chain) =>
               onChange({ ...value, chains: chain ? [chain] : [] })
             }

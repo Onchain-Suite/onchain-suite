@@ -52,6 +52,16 @@ describe("useStartIndexing", () => {
     expect(completeTask).toHaveBeenCalledTimes(1);
   });
 
+  it("starts again for the same contract in another workspace", async () => {
+    const { result } = renderHook(() => useStartIndexing());
+
+    await result.current([contract], "org_1");
+    await result.current([contract], "org_2");
+    await result.current([contract], "org_2");
+
+    expect(completeTask).toHaveBeenCalledTimes(2);
+  });
+
   it("starts again for a different contract", async () => {
     const { result } = renderHook(() => useStartIndexing());
 

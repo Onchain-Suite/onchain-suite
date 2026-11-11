@@ -88,3 +88,30 @@ export function chainList(labels: string[], show = 3): string {
   }
   return `${labels.slice(0, show - 1).join(", ")} and ${labels.length - (show - 1)} more`;
 }
+
+const ELSEWHERE_KEY = "onchain.onboarding.contractElsewhere";
+
+/**
+ * Remember that the person said this address is on a chain we do not index.
+ * The steps unmount as the wizard moves, and without this, coming back to one
+ * looked the address up again and re-selected a deployment they had just
+ * turned down. Kept for the browser session, for that one address.
+ */
+export function markElsewhere(address: string | null): void {
+  try {
+    if (address) window.sessionStorage.setItem(ELSEWHERE_KEY, address);
+    else window.sessionStorage.removeItem(ELSEWHERE_KEY);
+  } catch {
+    // Storage blocked: the choice simply lasts until the step unmounts.
+  }
+}
+
+export function isElsewhere(raw: string): boolean {
+  const address = toAddress(raw);
+  if (!address) return false;
+  try {
+    return window.sessionStorage.getItem(ELSEWHERE_KEY) === address;
+  } catch {
+    return false;
+  }
+}

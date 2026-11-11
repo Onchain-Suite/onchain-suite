@@ -30,6 +30,21 @@ describe("contractsKey", () => {
   });
 });
 
+describe("contractsKey and the workspace", () => {
+  // The same contract set up in a second workspace was silently skipped.
+  it("differs between workspaces for the same contract", () => {
+    expect(contractsKey([onBase], "org_a")).not.toBe(
+      contractsKey([onBase], "org_b")
+    );
+    expect(
+      shouldStartIndexing([onBase], contractsKey([onBase], "org_a"), "org_b")
+    ).toBe(true);
+    expect(
+      shouldStartIndexing([onBase], contractsKey([onBase], "org_a"), "org_a")
+    ).toBe(false);
+  });
+});
+
 describe("shouldStartIndexing", () => {
   it("starts for a contract that has not been started", () => {
     expect(shouldStartIndexing([onBase], null)).toBe(true);

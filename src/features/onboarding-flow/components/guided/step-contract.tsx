@@ -9,7 +9,13 @@ import { Label } from "@/components/ui/label";
 import { type ManualContractDraft } from "../../constants/guided";
 import { useContractLookup } from "../../hooks/use-contract-lookup";
 import { useSupportedChains } from "../../hooks/use-supported-chains";
-import { ANY_CHAIN, OTHER_CHAIN, toAddress } from "../../utils/contract-lookup";
+import {
+  ANY_CHAIN,
+  isElsewhere,
+  markElsewhere,
+  OTHER_CHAIN,
+  toAddress,
+} from "../../utils/contract-lookup";
 import { ChainRequestForm } from "./chain-request-form";
 import { ContractLookupNote } from "./contract-lookup-note";
 import { ContractManualEntry } from "./contract-manual-entry";
@@ -113,7 +119,7 @@ function AddressEntry({
   const [otherOpen, setOtherOpen] = useState(false);
   // They told us the contract is on a chain we do not index. A deployment we
   // found for the same address elsewhere is then not theirs to index.
-  const [elsewhere, setElsewhere] = useState(false);
+  const [elsewhere, setElsewhere] = useState(() => isElsewhere(value));
 
   const { state, retry } = useContractLookup({
     raw: value,
@@ -172,11 +178,17 @@ function AddressEntry({
               spellCheck={false}
               value={value}
               onChange={(e) => {
-                // A new address is looked for everywhere again.
-                setPinned(null);
+                const next = e.target.value;
+                // A different address is looked for everywhere again, and has
+                // no chain until it is found: the old one's is dropped now.
+                if (toAddress(next) !== toAddress(value)) {
+                  setPinned(null);
+                  onChain(null);
+                }
                 setElsewhere(false);
+                markElsewhere(null);
                 setOtherOpen(false);
-                onChange(e.target.value);
+                onChange(next);
               }}
               placeholder="0x…"
               className="font-mono"
@@ -197,6 +209,7 @@ function AddressEntry({
                 setOtherOpen(v === OTHER_CHAIN);
                 if (v === OTHER_CHAIN) return;
                 setElsewhere(false);
+                markElsewhere(null);
                 setPinned(v === ANY_CHAIN ? null : v);
               }}
               options={options}
@@ -230,6 +243,7 @@ function AddressEntry({
             }}
             onRecorded={() => {
               setElsewhere(true);
+              markElsewhere(toAddress(value));
               setPinned(null);
               onChain(null);
             }}

@@ -4,7 +4,9 @@ import type { ResolvedContractFound } from "../contracts/resolve-contract";
 import {
   chainList,
   describeContract,
+  isElsewhere,
   lookupState,
+  markElsewhere,
   toAddress,
 } from "./contract-lookup";
 
@@ -146,5 +148,23 @@ describe("chainList", () => {
     expect(chainList(["Ethereum", "Base", "Arbitrum", "Optimism"])).toBe(
       "Ethereum, Base and 2 more"
     );
+  });
+});
+
+describe("the 'it is on another chain' memory", () => {
+  it("holds for the address it was said about, in any case, and no other", () => {
+    window.sessionStorage.clear();
+    expect(isElsewhere(ADDR)).toBe(false);
+
+    markElsewhere(ADDR.toLowerCase());
+    expect(isElsewhere(ADDR)).toBe(true);
+    expect(isElsewhere(`  ${ADDR.toLowerCase()} `)).toBe(true);
+    expect(isElsewhere("0x000000000000000000000000000000000000dead")).toBe(
+      false
+    );
+    expect(isElsewhere("acme.xyz")).toBe(false);
+
+    markElsewhere(null);
+    expect(isElsewhere(ADDR)).toBe(false);
   });
 });

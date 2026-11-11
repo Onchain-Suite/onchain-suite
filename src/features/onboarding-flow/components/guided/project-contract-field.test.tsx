@@ -55,7 +55,10 @@ function Harness({ initial = "" }: { initial?: string }) {
       <ProjectContractField
         contract={contract}
         chain={chain}
-        onContract={setContract}
+        onContract={(value, { clearChain }) => {
+          setContract(value);
+          if (clearChain) setChain(undefined);
+        }}
         onChain={(c) => setChain(c ?? undefined)}
         onKeyDown={() => undefined}
       />
@@ -78,6 +81,7 @@ const soon = { timeout: 3000 };
 
 describe("ProjectContractField", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     resolve.mockReset();
     resolve.mockImplementation(async ({ address }) => answers[address]);
   });
@@ -116,6 +120,23 @@ describe("ProjectContractField", () => {
     await waitFor(() =>
       expect(screen.getByTestId("chain")).toHaveTextContent("none")
     );
+  });
+
+  // Until the new lookup landed, the old address's chain was still set, and
+  // continuing in that moment indexed the new address there.
+  it("drops the chain the moment the address changes, before the lookup lands", async () => {
+    renderField(ON_BASE);
+    await waitFor(
+      () =>
+        expect(screen.getByTestId("chain")).toHaveTextContent("base-mainnet"),
+      soon
+    );
+
+    fireEvent.change(screen.getByLabelText(/Contract address/), {
+      target: { value: NOWHERE },
+    });
+
+    expect(screen.getByTestId("chain")).toHaveTextContent("none");
   });
 
   it("does not look anything up for a website or a name", async () => {

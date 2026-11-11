@@ -8,7 +8,13 @@ import { Label } from "@/components/ui/label";
 import { useContractLookup } from "../../hooks/use-contract-lookup";
 import { useSupportedChains } from "../../hooks/use-supported-chains";
 import { classify } from "../../utils/contract-input";
-import { ANY_CHAIN, OTHER_CHAIN, toAddress } from "../../utils/contract-lookup";
+import {
+  ANY_CHAIN,
+  isElsewhere,
+  markElsewhere,
+  OTHER_CHAIN,
+  toAddress,
+} from "../../utils/contract-lookup";
 import { ChainRequestForm } from "./chain-request-form";
 import { ContractLookupNote } from "./contract-lookup-note";
 import { ObSelect } from "./ob-select";
@@ -32,18 +38,25 @@ export function ProjectContractField({
   contract: string;
   /** The chosen chain's backend key, if any. */
   chain: string | undefined;
-  onContract: (value: string) => void;
+  /**
+   * The address changed. `clearChain` is set when it is a different address:
+   * the chain goes with it in the same update.
+   */
+  onContract: (value: string, opts: { clearChain: boolean }) => void;
   /** Null clears it: the address turned out to be on no chain we index. */
   onChain: (chain: string | null) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
 }) {
   const supported = useSupportedChains();
-  // True once the person picks the chain themselves; cleared by a new address.
-  const [pinned, setPinned] = useState(false);
+  // True once the chain is settled for this address (picked by hand, or found
+  // earlier); cleared by a new address. It starts true when a chain is already
+  // set, so coming back to this step does not look everywhere again and
+  // quietly move the contract to another chain it is deployed on.
+  const [pinned, setPinned] = useState(Boolean(chain));
   const [otherOpen, setOtherOpen] = useState(false);
   // They told us the contract is on a chain we do not index. A deployment we
   // found for the same address elsewhere is then not theirs to index.
-  const [elsewhere, setElsewhere] = useState(false);
+  const [elsewhere, setElsewhere] = useState(() => isElsewhere(contract));
 
   const guess = classify(contract);
   const isAddress = guess.form === "address";
@@ -98,10 +111,18 @@ export function ProjectContractField({
           value={contract}
           onChange={(e) => {
             // A new address is looked for everywhere again.
-            if (toAddress(e.target.value)) setPinned(false);
+            const next = e.target.value;
+            // A different address has no chain until it has been looked up:
+            // the old one's chain is dropped now, not when the lookup lands,
+            // so it cannot be indexed there in between.
+            const moved = toAddress(next) !== toAddress(contract);
+            if (moved) setPinned(false);
             setElsewhere(false);
+            markElsewhere(null);
             setOtherOpen(false);
-            onContract(e.target.value);
+            // One update, so the cleared chain and the new address land
+            // together and neither overwrites the other.
+            onContract(next, { clearChain: moved });
           }}
           onKeyDown={onKeyDown}
           placeholder="0x…"
@@ -115,6 +136,7 @@ export function ProjectContractField({
             setOtherOpen(v === OTHER_CHAIN);
             if (v === OTHER_CHAIN) return;
             setElsewhere(false);
+            markElsewhere(null);
             if (v === ANY_CHAIN) {
               setPinned(false);
               onChain(null);
@@ -162,6 +184,7 @@ export function ProjectContractField({
           }}
           onRecorded={() => {
             setElsewhere(true);
+            markElsewhere(toAddress(contract));
             setPinned(false);
             onChain(null);
           }}

@@ -2,6 +2,8 @@
 
 import { useCallback } from "react";
 
+import { getSelectedOrganizationId } from "@/lib/utils";
+
 import type { OnboardingContract } from "../constants/guided";
 import { onboardingService } from "../onboarding.service";
 import {
@@ -26,8 +28,10 @@ export function useStartIndexing(): (
   orgId?: string
 ) => Promise<void> {
   return useCallback(async (contracts, orgId) => {
-    if (!shouldStartIndexing(contracts, readStartedKey())) return;
-    const key = contractsKey(contracts);
+    // The workspace the job is for: named by the caller, else the selected one.
+    const workspace = orgId ?? getSelectedOrganizationId() ?? null;
+    if (!shouldStartIndexing(contracts, readStartedKey(), workspace)) return;
+    const key = contractsKey(contracts, workspace);
     // Marked before the request, so a second call while it is in flight
     // (two steps left in quick succession) does not start a second job.
     writeStartedKey(key);

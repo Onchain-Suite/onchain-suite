@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ResolvedContract } from "../../contracts/resolve-contract";
@@ -74,6 +80,8 @@ const soon = { timeout: 3000 };
 
 describe("StepContract", () => {
   beforeEach(() => {
+    // "It is on another chain" is remembered for the session.
+    window.sessionStorage.clear();
     resolve.mockReset();
     requestChain.mockReset();
   });
@@ -217,6 +225,32 @@ describe("StepContract", () => {
     expect(await screen.findByText(/Noted: Berachain/)).toBeInTheDocument();
     await waitFor(() => expect(onChain).toHaveBeenLastCalledWith(null));
     expect(screen.queryByText(/Verified on Base/)).toBeNull();
+  });
+
+  // The step unmounts as the wizard moves; coming back used to look the
+  // address up again and re-select the deployment they had turned down.
+  it("still has no contract selected when the step is revisited after that", async () => {
+    resolve.mockResolvedValue(found());
+    requestChain.mockResolvedValue({ recorded: true, chain: "Berachain" });
+    const first = renderStep();
+    await screen.findByText("Uniswap", {}, soon);
+    fireEvent.click(screen.getByRole("combobox", { name: "Chain" }));
+    fireEvent.click(
+      await screen.findByRole("option", { name: "Another chain…" })
+    );
+    fireEvent.change(screen.getByLabelText("Which chain is it on?"), {
+      target: { value: "Berachain" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Tell us" }));
+    await screen.findByText(/Noted: Berachain/);
+    cleanup();
+
+    const again = renderStep();
+    await new Promise((r) => setTimeout(r, 700));
+
+    expect(screen.queryByText(/Verified on Base/)).toBeNull();
+    expect(again.onChain).not.toHaveBeenCalledWith("base-mainnet");
+    expect(first.onChain).toHaveBeenLastCalledWith(null);
   });
 
   it("does not call an address wrong when the lookup could not run", async () => {

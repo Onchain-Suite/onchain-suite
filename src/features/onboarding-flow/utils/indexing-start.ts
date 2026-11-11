@@ -10,14 +10,22 @@ import type { OnboardingContract } from "../constants/guided";
 
 const STORAGE_KEY = "onchain.onboarding.indexingStarted";
 
-/** One identity for a set of contracts, whatever order or case they came in. */
-export function contractsKey(contracts: OnboardingContract[]): string {
-  return contracts
+/**
+ * One identity for a set of contracts in a workspace, whatever order or case
+ * they came in. The workspace is part of it: the same contract set up in a
+ * second workspace from the same tab is a different job.
+ */
+export function contractsKey(
+  contracts: OnboardingContract[],
+  orgId: string | null = null
+): string {
+  const list = contracts
     .map(
       (c) => `${c.chain.trim().toLowerCase()}:${c.address.trim().toLowerCase()}`
     )
     .sort()
     .join("|");
+  return `${orgId ?? ""}#${list}`;
 }
 
 /**
@@ -27,9 +35,10 @@ export function contractsKey(contracts: OnboardingContract[]): string {
  */
 export function shouldStartIndexing(
   contracts: OnboardingContract[],
-  startedKey: string | null
+  startedKey: string | null,
+  orgId: string | null = null
 ): boolean {
-  return contracts.length > 0 && contractsKey(contracts) !== startedKey;
+  return contracts.length > 0 && contractsKey(contracts, orgId) !== startedKey;
 }
 
 /** The contracts indexing was last started for in this browser session. */

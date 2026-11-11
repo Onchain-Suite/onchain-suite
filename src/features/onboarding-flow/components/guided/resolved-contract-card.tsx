@@ -66,7 +66,7 @@ export function ResolvedContractCard({
             </span>
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
-            We will index this contract and its events once your plan is active.
+            We start indexing this contract and its events when you continue.
           </p>
           {contract.alsoOn.length > 0 ? (
             <p className="text-muted-foreground mt-2 text-xs">

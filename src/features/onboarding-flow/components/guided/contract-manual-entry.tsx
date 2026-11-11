@@ -58,8 +58,8 @@ export function ContractManualEntry({
         Add your smart contract
       </h1>
       <p className="text-muted-foreground mt-3">
-        Enter the contract details yourself. We index holders and activity from
-        this address once your plan is active.
+        Enter the contract details yourself. We start indexing holders and
+        activity from this address when you continue.
       </p>
 
       <div className="mt-8 space-y-5">

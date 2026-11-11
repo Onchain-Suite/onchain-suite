@@ -15,7 +15,8 @@ import {
   type OnboardingContract,
 } from "../constants/guided";
 import { DEFAULT_CHAIN } from "../data/chains";
-import { onboardingService } from "../onboarding.service";
+import { useStartIndexing } from "../hooks/use-start-indexing";
+import { INDEXING_START_WAIT_MS, settleWithin } from "../utils/indexing-start";
 import { GuidedShell, StepContract, StepDns } from "./guided";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
@@ -46,6 +47,8 @@ export function HandoffFlow() {
   const [manual, setManual] = useState<ManualContractDraft | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const startIndexing = useStartIndexing();
+
   const at = HANDOFF_FLOW[Math.min(idx, HANDOFF_FLOW.length - 1)];
 
   // What the indexer is pointed at: the by-hand contract if given, else the pasted address.
@@ -71,27 +74,15 @@ export function HandoffFlow() {
   const finish = useCallback(async () => {
     if (busy) return;
     setBusy(true);
-    // Index-after-handoff: the owner has (or will have) chosen the plan, so kick off the initial
-    // historical indexing for whatever the developer supplied. Best-effort: it must never block
-    // the hop to the workspace.
-    if (allContracts.length > 0) {
-      await onboardingService
-        .completeTask(
-          "connect-chain",
-          {
-            contracts: allContracts.map((c) => ({
-              address: c.address,
-              chain: c.chain,
-              name: c.name,
-            })),
-            lookbackDays: 90,
-          },
-          orgId
-        )
-        .catch(() => undefined);
-    }
+    // Start indexing whatever the developer supplied (skipped if it was
+    // already started). Waited for briefly so the request is on its way
+    // before the hop; it never blocks reaching the workspace.
+    await settleWithin(
+      startIndexing(allContracts, orgId),
+      INDEXING_START_WAIT_MS
+    );
     push(PRIVATE_ROUTES.DASHBOARD);
-  }, [allContracts, busy, orgId, push]);
+  }, [allContracts, busy, orgId, push, startIndexing]);
 
   const back = () => setIdx((i) => Math.max(0, i - 1));
   const next = () => {

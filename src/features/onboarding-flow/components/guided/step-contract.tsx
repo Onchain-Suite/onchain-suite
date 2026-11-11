@@ -30,8 +30,8 @@ const EMPTY_MANUAL: ManualContractDraft = {
  * chain can be picked by hand (then only that chain is read), and a chain that
  * is not in the list can be named so we know to add it. When an address is not
  * enough, the "enter the details by hand" form takes a name and type too.
- * Nothing is indexed here; indexing starts once the plan is active, so Continue
- * is a skip.
+ * Indexing starts when this step is left with a contract found (see
+ * use-start-indexing); with none, Continue is a skip.
  */
 export function StepContract({
   value,
@@ -151,7 +151,8 @@ function AddressEntry({
       </h1>
       <p className="text-muted-foreground mt-3">
         Paste your contract address. We find which chain it is on, read what it
-        is, and index its events once your plan is active.
+        is, and start indexing it straight away, so holders and activity are
+        there when you finish.
       </p>
 
       <div className="mt-8 space-y-4">

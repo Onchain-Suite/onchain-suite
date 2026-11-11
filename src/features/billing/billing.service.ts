@@ -626,6 +626,14 @@ export interface SubscribeRequest {
    * Omit (or 0) for a plan-only subscription.
    */
   extraSeats?: number;
+  /**
+   * The size on the plan slider: contacts for Suite, subscribers for Send. The
+   * backend bills the larger of this and the workspace's real count, which is
+   * the size the picker's quote priced. Without it the card path billed the
+   * real count alone (a 20-contact workspace choosing 5,000 was quoted $65 and
+   * charged $12.85), so it is always sent when the picker has one.
+   */
+  contacts?: number;
 }
 
 /** Response of POST /billing/subscribe — the hosted Stripe Checkout URL. */

@@ -135,6 +135,14 @@ function AddressEntry({
     if (follows && foundChain !== chain) onChain(foundChain);
   }, [follows, foundChain, chain, onChain]);
 
+  // Reading another chain: the deployment we held is not the one to index
+  // until that read lands, so leaving the step before then indexes nothing.
+  const pin = (next: string | null) => {
+    if (next === pinned) return;
+    setPinned(next);
+    if (next !== chain) onChain(null);
+  };
+
   const options = useMemo(() => {
     const list = supported.map((c) => ({
       value: c.key,
@@ -210,7 +218,7 @@ function AddressEntry({
                 if (v === OTHER_CHAIN) return;
                 setElsewhere(false);
                 markElsewhere(null);
-                setPinned(v === ANY_CHAIN ? null : v);
+                pin(v === ANY_CHAIN ? null : v);
               }}
               options={options}
             />
@@ -221,13 +229,13 @@ function AddressEntry({
           {elsewhere ? null : state.kind === "found" ? (
             <ResolvedContractCard
               contract={state.contract}
-              onPickChain={(ref) => setPinned(ref.chain)}
+              onPickChain={(ref) => pin(ref.chain)}
             />
           ) : (
             <ContractLookupNote
               state={state}
               chainCount={supported.length}
-              onPickChain={(ref) => setPinned(ref.chain)}
+              onPickChain={(ref) => pin(ref.chain)}
               onOtherChain={() => setOtherOpen(true)}
               onRetry={retry}
             />
@@ -243,7 +251,7 @@ function AddressEntry({
               setElsewhere(false);
               markElsewhere(null);
               setOtherOpen(false);
-              setPinned(ref.chain);
+              pin(ref.chain);
             }}
             onRecorded={() => {
               setElsewhere(true);

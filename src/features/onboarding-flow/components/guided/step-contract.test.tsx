@@ -59,12 +59,12 @@ function renderStep(onChain = vi.fn(), chain: string | null = null) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  render(
+  const tree = (c: string | null) => (
     <QueryClientProvider client={client}>
       <StepContract
         value={ADDR}
         onChange={vi.fn()}
-        chain={chain}
+        chain={c}
         onChain={onChain}
         manual={null}
         onManual={vi.fn()}
@@ -72,7 +72,9 @@ function renderStep(onChain = vi.fn(), chain: string | null = null) {
       />
     </QueryClientProvider>
   );
-  return { onChain };
+  const view = render(tree(chain));
+  // The orchestrator owns the chain; a test plays its part by passing it back.
+  return { onChain, rerender: (c: string | null) => view.rerender(tree(c)) };
 }
 
 // The lookup is debounced, so answers land a beat after render.
@@ -187,6 +189,31 @@ describe("StepContract", () => {
 
   // Coming back to the step used to look everywhere again and could move the
   // contract to another chain the same address is deployed on.
+  // Continue can be pressed before the new read lands; the old deployment
+  // must not be what gets indexed then.
+  it("lets go of the old deployment while another chain is being read", async () => {
+    resolve.mockImplementation((body) =>
+      "chain" in body && body.chain === "arb-mainnet"
+        ? new Promise<ResolvedContract>(() => undefined)
+        : Promise.resolve(
+            found({
+              alsoOn: [{ chain: "arb-mainnet", chainLabel: "Arbitrum" }],
+            })
+          )
+    );
+    const onChain = vi.fn();
+    const { rerender } = renderStep(onChain);
+    await waitFor(
+      () => expect(onChain).toHaveBeenLastCalledWith("base-mainnet"),
+      soon
+    );
+    rerender("base-mainnet");
+
+    fireEvent.click(screen.getByRole("button", { name: "Arbitrum" }));
+
+    expect(onChain).toHaveBeenLastCalledWith(null);
+  });
+
   it("reads only the chain already chosen when the step is revisited", async () => {
     resolve.mockResolvedValue(
       found({ chain: "arb-mainnet", chainLabel: "Arbitrum" })

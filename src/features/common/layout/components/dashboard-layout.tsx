@@ -18,8 +18,8 @@ import {
 
 import { NAV_SECTIONS } from "../data/nav-sections";
 import { useAppShortcuts } from "../hooks/use-app-shortcuts";
+import { breadcrumbsFor } from "../utils/breadcrumbs";
 import { hasActiveOrg } from "../utils/org-gate";
-import { getBreadcrumbsForPath } from "./breadcrumbs";
 import { ComingSoonSection } from "./coming-soon-section";
 import { DashboardHeader } from "./dashboard-header";
 import { DashboardSidebar } from "./dashboard-sidebar";
@@ -118,7 +118,7 @@ function DashboardLayoutInner({
   });
 
   const breadcrumbs = useMemo(
-    () => getBreadcrumbsForPath(pathname ?? "/"),
+    () => breadcrumbsFor(pathname ?? "/"),
     [pathname]
   );
 
@@ -162,11 +162,6 @@ function DashboardLayoutInner({
         <SidebarInset className={WORKSPACE}>
           <DashboardHeader
             breadcrumbs={breadcrumbs}
-            currentPage={
-              breadcrumbs && breadcrumbs.length > 0
-                ? breadcrumbs[breadcrumbs.length - 1].label
-                : undefined
-            }
             hasActiveOrganization={hasActiveOrganization}
           />
 

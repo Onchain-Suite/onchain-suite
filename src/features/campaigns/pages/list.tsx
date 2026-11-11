@@ -18,6 +18,7 @@ import { campaignsService } from "../campaigns.service";
 import { CampaignRowDialogs } from "../components/campaign-row-dialogs";
 import { CampaignsAnswerLine } from "../components/campaigns-answer-line";
 import { CampaignsReferenceTable } from "../components/campaigns-reference-table";
+import { useDuplicateCampaign } from "../hooks/use-duplicate-campaign";
 import type { Campaign, CampaignStatus } from "../types/campaign";
 import { EmptyState } from "@/shared/components/common/empty-state";
 import { hugeicon } from "@/shared/components/common/hugeicon";
@@ -80,6 +81,7 @@ export function CampaignsListsView() {
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Campaign | null>(null);
   const router = useRouter();
+  const duplicate = useDuplicateCampaign();
 
   const openDetail = (c: Campaign) =>
     router.push(`${PRIVATE_ROUTES.CAMPAIGNS}/${c.id}`);
@@ -167,6 +169,11 @@ export function CampaignsListsView() {
           <CampaignsReferenceTable
             data={pagedCampaigns}
             onSelect={openDetail}
+            onDuplicate={(c) => {
+              // One at a time: a second click while the first is in flight
+              // would make two copies.
+              if (!duplicate.isPending) duplicate.mutate(c);
+            }}
             onDelete={setDeleteTarget}
             onCancel={setCancelTarget}
           />

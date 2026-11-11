@@ -31,6 +31,7 @@ import {
   MAX_EXTRA_SEATS,
   SEAT_PRICE_USD,
 } from "../seat-pricing";
+import { type CurrentPlanSize, planSubmit } from "../utils/plan-change";
 
 type PaymentMethod = "card" | "crypto";
 type Selection = "suite" | "send" | "payg";
@@ -175,6 +176,7 @@ export function PlanPicker({
   initialPlan,
   currentPlan,
   submitLabel,
+  current,
   onCompleted,
   onBack,
 }: {
@@ -183,6 +185,8 @@ export function PlanPicker({
   /** The org's current plan name (marks it and disables re-buying it). */
   currentPlan?: string;
   submitLabel?: string;
+  /** The size paid for now, so a different size in the same tier can be bought. */
+  current?: CurrentPlanSize;
   /** Fired after PAYG start / checkout launch. */
   onCompleted?: (planSlug: string) => void;
   onBack?: () => void;
@@ -194,8 +198,8 @@ export function PlanPicker({
     if (p === "send") return "send";
     return "suite";
   });
-  const [contacts, setContacts] = useState(11_000);
-  const [subscribers, setSubscribers] = useState(10_000);
+  const [contacts, setContacts] = useState(current?.units ?? 11_000);
+  const [subscribers, setSubscribers] = useState(current?.units ?? 10_000);
   const [extraSeats, setExtraSeats] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -244,8 +248,16 @@ export function PlanPicker({
         ? "send"
         : (quote?.plan ?? "launch");
 
-  const currentName = (currentPlan ?? "").trim().toLowerCase();
-  const isCurrent = resolvedPlan === currentName;
+  const submit = planSubmit({
+    resolvedPlan,
+    currentPlan,
+    units,
+    current,
+    selection,
+    submitLabel,
+    planLabel: quote?.planLabel,
+    paymentMethod,
+  });
 
   // Warn as the handle nears a tier boundary (the price is a real cliff there).
   const nearCliff = useMemo(() => {
@@ -258,7 +270,7 @@ export function PlanPicker({
   }, [selection, quote?.nextTier, contacts]);
 
   const handleContinue = async () => {
-    if (isSubmitting || isCurrent) return;
+    if (isSubmitting || submit.disabled) return;
     setIsSubmitting(true);
     try {
       const orgId = getSelectedOrganizationId();
@@ -645,7 +657,7 @@ export function PlanPicker({
           type="button"
           size="lg"
           onClick={handleContinue}
-          disabled={isSubmitting || isCurrent}
+          disabled={isSubmitting || submit.disabled}
           className="w-full rounded-xl px-8 sm:w-auto"
         >
           {isSubmitting ? (
@@ -656,24 +668,12 @@ export function PlanPicker({
               />
               Setting things up…
             </>
-          ) : isCurrent ? (
-            "Current plan"
-          ) : selection === "payg" || isEmptySuite ? (
-            submitLabel ? (
-              `${submitLabel} pay-as-you-go`
-            ) : (
-              "Start free"
-            )
           ) : (
-            `${submitLabel ?? "Continue with"} ${quote?.planLabel ?? (selection === "send" ? "Send" : "Suite")}`
+            submit.label
           )}
         </Button>
         <p className="text-center text-xs text-muted-foreground">
-          {selection === "payg" || isEmptySuite
-            ? "No credit card required. Upgrade anytime."
-            : paymentMethod === "card"
-              ? "You'll complete payment on a secure Stripe checkout page. The price shown is what you're billed."
-              : "You'll pay in USDC on a hosted crypto checkout page. The price shown is what you're billed."}
+          {submit.hint}
         </p>
       </div>
     </div>

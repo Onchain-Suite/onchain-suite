@@ -15,8 +15,6 @@ import type {
   DiscordImportResult,
   EventsCatalog,
   IdentitySyncResult,
-  IterableJob,
-  IterableJobStatus,
   MigrationResult,
   SmsA2pStatus,
   SmsA2pSubmission,
@@ -40,8 +38,6 @@ import {
   toDiscordImport,
   toEventsCatalog,
   toIdentitySync,
-  toIterableJob,
-  toIterableStatus,
   toMigrationResult,
   toSmsA2pStatus,
   toSmsManagedSetup,
@@ -115,7 +111,9 @@ function toError(e: unknown): ConnectionsError {
   return new ConnectionsError(message, code, status);
 }
 
-async function request(
+/** Shared with the other integration services so the envelope, the org
+ *  header and the error mapping are written once. */
+export async function request(
   config: AxiosRequestConfig,
   orgId?: string
 ): Promise<unknown> {
@@ -135,7 +133,8 @@ async function request(
   }
 }
 
-const integration = (path: string) => `/organization/integrations/${path}`;
+export const integration = (path: string) =>
+  `/organization/integrations/${path}`;
 
 export const connectionsService = {
   async list(kind?: ConnectionKind, orgId?: string) {
@@ -234,30 +233,6 @@ export const connectionsService = {
       orgId
     );
     return toMigrationResult(data);
-  },
-
-  async startIterable(orgId?: string): Promise<IterableJob> {
-    const data = await request(
-      { method: "POST", url: integration("iterable/migrate") },
-      orgId
-    );
-    return toIterableJob(data);
-  },
-
-  async iterableStatus(
-    jobId: string,
-    signal?: AbortSignal,
-    orgId?: string
-  ): Promise<IterableJobStatus> {
-    const data = await request(
-      {
-        method: "GET",
-        url: integration(`iterable/migrate/${encodeURIComponent(jobId)}`),
-        signal,
-      },
-      orgId
-    );
-    return toIterableStatus(data);
   },
 
   /**

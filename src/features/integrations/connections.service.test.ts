@@ -135,16 +135,6 @@ describe("runs", () => {
       "/organization/integrations/google-sheets/sync"
     );
   });
-
-  it("URL-encodes the Iterable job id", async () => {
-    requestSpy.mockResolvedValueOnce({
-      data: { data: { jobId: "iterable:o1", state: "active" } },
-    } as never);
-    await connectionsService.iterableStatus("iterable:o1");
-    expect(requestSpy.mock.calls[0]?.[0].url).toBe(
-      "/organization/integrations/iterable/migrate/iterable%3Ao1"
-    );
-  });
 });
 
 describe("oauthAuthorizeUrl", () => {

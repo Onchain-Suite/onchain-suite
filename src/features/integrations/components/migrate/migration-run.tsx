@@ -19,7 +19,8 @@ import {
   mergeMigration,
   nextMigrationBody,
 } from "../../utils/connections";
-import { IterableRun } from "./iterable-run";
+import { BackgroundMigration } from "./background-migration";
+import { ExportRun } from "./export-run";
 import { MigrationSummary } from "./migration-summary";
 
 /**
@@ -47,13 +48,24 @@ export function MigrationRun({ def }: { def: ConnectorDef }) {
     </div>
   );
 
-  return def.action === "migrate-async" ? (
-    <IterableRun consent={consent} agreed={agreed} />
-  ) : (
-    <PagedMigration def={def} consent={consent} agreed={agreed} />
+  if (def.action === "migrate-async") {
+    return <ExportRun def={def} consent={consent} agreed={agreed} />;
+  }
+  return (
+    <BackgroundMigration
+      def={def}
+      consent={consent}
+      agreed={agreed}
+      fallback={<PagedMigration def={def} consent={consent} agreed={agreed} />}
+    />
   );
 }
 
+/**
+ * The migration looped from this tab, one slice per request. Only for a
+ * server that has no background runs yet: it stops when the tab closes, and a
+ * slice has to finish inside one request. Remove once every backend has runs.
+ */
 function PagedMigration({
   def,
   consent,

@@ -126,7 +126,9 @@ export function toIterableJob(raw: unknown): IterableJob {
   return {
     jobId: str(o.jobId),
     status: "queued",
-    listName: str(o.listName) || "Imported from Iterable",
+    // Braze, Customer.io and Iterable all answer this shape; each names its
+    // own list, so there is no default to assume.
+    listName: str(o.listName),
   };
 }
 

@@ -16,6 +16,7 @@ import {
   nextSyncBody,
 } from "../../utils/connections";
 import { RunProgress } from "../connect/run-progress";
+import { SourceRun } from "./source-run";
 
 /** What a connected source does next, for the ones with nothing to run. */
 const AFTER_CONNECT: Record<string, string> = {
@@ -31,14 +32,38 @@ const AFTER_CONNECT: Record<string, string> = {
     "Verified and saved. Reading events from PostHog isn't switched on by the server yet; until then send them with the SDK.",
 };
 
+/** What each sync does, said before it starts. */
+function syncIntro(def: ConnectorDef): string {
+  if (def.action === "data-sync") {
+    return "Pull the rows in as contacts. Rows already here are matched, not duplicated.";
+  }
+  return def.scheduled
+    ? `New ${def.label} users sync every 6 hours. Sync now to pull everyone in straight away.`
+    : `Pull everyone ${def.label} holds in as contacts. People already here are matched, not duplicated.`;
+}
+
 /**
- * The run controls for a connected source: a paged identity sync (Privy,
- * Clerk, Dynamic, which also re-sync every 6 hours on their own), a one-call
- * pull for a Dune query or a sheet, or a note on how data arrives.
+ * The run controls for a connected source: a sync that runs on the server
+ * (identities, a Dune query, a sheet, a subgraph), or a note on how data
+ * arrives when there is nothing to run. The in-browser loops below are only
+ * for a server that has no background runs yet.
  */
 export function SourceActions({ def }: { def: ConnectorDef }) {
-  if (def.action === "identity-sync") return <IdentitySync def={def} />;
-  if (def.action === "data-sync") return <DataSync def={def} />;
+  if (def.action === "identity-sync" || def.action === "data-sync") {
+    return (
+      <SourceRun
+        def={def}
+        intro={syncIntro(def)}
+        fallback={
+          def.action === "identity-sync" ? (
+            <IdentitySync def={def} />
+          ) : (
+            <DataSync def={def} />
+          )
+        }
+      />
+    );
+  }
   const note = AFTER_CONNECT[def.id];
   return note ? <p className="text-sm text-muted-foreground">{note}</p> : null;
 }
@@ -62,10 +87,7 @@ function IdentitySync({ def }: { def: ConnectorDef }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        New {def.label} users sync every 6 hours. Sync now to pull everyone in
-        straight away.
-      </p>
+      <p className="text-sm text-muted-foreground">{syncIntro(def)}</p>
       {run.status !== "running" ? (
         <Button size="sm" onClick={start}>
           <ArrowPathIcon aria-hidden="true" className="mr-1.5 size-4" />

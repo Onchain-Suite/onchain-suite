@@ -31,4 +31,47 @@ describe("useOnboardingContracts", () => {
     );
     expect(result.current).toEqual([]);
   });
+
+  it("indexes a pasted address on the chain it was found on", () => {
+    const { result } = renderHook(() =>
+      useOnboardingContracts(
+        { ...EMPTY_PROFILE, start: "chain", contract: "0xdef" },
+        "base-mainnet",
+        null
+      )
+    );
+    expect(result.current).toEqual([
+      { address: "0xdef", chain: "base-mainnet" },
+    ]);
+  });
+
+  it("falls back to the chain set beside the address on the project step", () => {
+    const { result } = renderHook(() =>
+      useOnboardingContracts(
+        {
+          ...EMPTY_PROFILE,
+          start: "chain",
+          contract: "0xdef",
+          chains: ["arb-mainnet"],
+        },
+        null,
+        null
+      )
+    );
+    expect(result.current).toEqual([
+      { address: "0xdef", chain: "arb-mainnet" },
+    ]);
+  });
+
+  // It used to be handed to the indexer on Ethereum regardless.
+  it("indexes nothing for an address that was found on no chain", () => {
+    const { result } = renderHook(() =>
+      useOnboardingContracts(
+        { ...EMPTY_PROFILE, start: "chain", contract: "0xdef" },
+        null,
+        null
+      )
+    );
+    expect(result.current).toEqual([]);
+  });
 });

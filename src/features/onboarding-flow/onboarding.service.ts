@@ -3,6 +3,30 @@ import type { AxiosError, AxiosRequestConfig } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import type {
+  ChainRef,
+  ChainRequestBody,
+  ChainRequestResult,
+  ResolveContractBody,
+  ResolvedContract,
+  ResolvedContractKind,
+  ResolvedContractStandard,
+  ResolveMissReason,
+} from "./contracts/resolve-contract";
+
+export type {
+  ChainRef,
+  ChainRequestBody,
+  ChainRequestResult,
+  ResolveContractBody,
+  ResolvedContract,
+  ResolvedContractFound,
+  ResolvedContractKind,
+  ResolvedContractMiss,
+  ResolvedContractStandard,
+  ResolveMissReason,
+} from "./contracts/resolve-contract";
+
 /**
  * Typed service for the onboarding API family (docs/backend.md 2026-07-16 -
  * `POST /onboarding/suggest-contracts`). Owns URLs, the optional `x-org-id`
@@ -50,45 +74,22 @@ export interface SuggestContractsBody {
   chains?: string[];
 }
 
-/** Standard reported by `POST /onboarding/resolve-contract` (real chain read). */
-export type ResolvedContractStandard =
-  "erc20" | "erc721" | "erc1155" | "unknown";
-export type ResolvedContractKind = "token" | "nft" | "other";
-export type ResolveMissReason = "not-evm" | "no-chain" | "no-code" | "error";
+const toStrings = (raw: unknown): string[] | undefined =>
+  Array.isArray(raw)
+    ? raw.filter((c): c is string => typeof c === "string")
+    : undefined;
 
-/** A real contract read off-chain: what the pasted address actually is. */
-export interface ResolvedContractFound {
-  found: true;
-  address: string;
-  /** Canonical chain slug the code was found on. */
-  chain: string;
-  /** Human label for that chain (e.g. "Base"). */
-  chainLabel: string;
-  standard: ResolvedContractStandard;
-  kind: ResolvedContractKind;
-  name: string | null;
-  symbol: string | null;
-  decimals: number | null;
-  logo: string | null;
-  verifiedOnChain: true;
-}
-
-/** No contract resolved: the UI asks the user to check the address. */
-export interface ResolvedContractMiss {
-  found: false;
-  address: string;
-  reason: ResolveMissReason;
-  /** Chains that were checked for code, for the "not found on X" message. */
-  chainsTried?: string[];
-}
-
-export type ResolvedContract = ResolvedContractFound | ResolvedContractMiss;
-
-export interface ResolveContractBody {
-  address: string;
-  chain?: string;
-  chains?: string[];
-}
+const toChainRefs = (raw: unknown): ChainRef[] =>
+  (Array.isArray(raw) ? raw : []).flatMap((entry): ChainRef[] => {
+    if (!isJsonObject(entry)) return [];
+    const chain = typeof entry.chain === "string" ? entry.chain : "";
+    if (!chain) return [];
+    const label =
+      typeof entry.chainLabel === "string" && entry.chainLabel
+        ? entry.chainLabel
+        : chain;
+    return [{ chain, chainLabel: label }];
+  });
 
 const RESOLVED_STANDARDS = new Set<ResolvedContractStandard>([
   "erc20",
@@ -238,6 +239,7 @@ export const normalizeResolvedContract = (
       decimals: typeof o.decimals === "number" ? o.decimals : null,
       logo: pickString(o.logo) ?? null,
       verifiedOnChain: true,
+      alsoOn: toChainRefs(o.alsoOn),
     };
   }
 
@@ -246,10 +248,26 @@ export const normalizeResolvedContract = (
     found: false,
     address,
     reason: reason && RESOLVE_MISS_REASONS.has(reason) ? reason : "error",
-    chainsTried: Array.isArray(o.chainsTried)
-      ? o.chainsTried.filter((c): c is string => typeof c === "string")
-      : undefined,
+    chainsTried: toStrings(o.chainsTried),
+    chainsUnreachable: toStrings(o.chainsUnreachable),
   };
+};
+
+/**
+ * Normalize `POST /onboarding/chain-request`. Anything that is not a
+ * well-formed "we already index it" answer reads as recorded, which is the
+ * only other thing a 200 can mean.
+ */
+export const normalizeChainRequest = (
+  payload: unknown,
+  asked: string
+): ChainRequestResult => {
+  const root = extractData<unknown>(payload);
+  const o = isJsonObject(root) ? root : {};
+  const [supported] = toChainRefs([o.supported]);
+  if (o.recorded === false && supported) return { recorded: false, supported };
+  const request = isJsonObject(o.request) ? o.request : {};
+  return { recorded: true, chain: pickString(request.chain) ?? asked };
 };
 
 /** One contract handed to the indexer when the connect-chain task completes. */
@@ -295,8 +313,9 @@ export const onboardingService = {
    * `POST /onboarding/resolve-contract` - reads a pasted address off-chain
    * (Alchemy) and returns what it actually is: the chain holding its code, the
    * token standard, and its name/symbol. Unlike `suggestContracts` this is real
-   * chain data, not an LLM guess. Bounded (15s + abort) and silent on failure:
-   * a resolve that errors is treated as "not found", never a blocker.
+   * chain data, not an LLM guess. With no `chain` the backend looks on every
+   * chain it indexes, so this is bounded at 30s (and abortable); callers show
+   * a failure as "could not check", never as "not found".
    */
   async resolveContract(
     body: ResolveContractBody,
@@ -308,12 +327,34 @@ export const onboardingService = {
         method: "POST",
         url: "/onboarding/resolve-contract",
         data: body,
-        timeout: 15_000,
+        timeout: 30_000,
         signal: opts?.signal,
       },
       orgId
     );
     return normalizeResolvedContract(payload, body.address);
+  },
+
+  /**
+   * `POST /onboarding/chain-request` - the contract is on a chain we do not
+   * index, and the person says which. Recorded on the workspace as the demand
+   * signal for what to add next. When the name is a chain we do index, nothing
+   * is recorded and that chain comes back instead.
+   */
+  async requestChain(
+    body: ChainRequestBody,
+    orgId?: string
+  ): Promise<ChainRequestResult> {
+    const payload = await request<unknown>(
+      {
+        method: "POST",
+        url: "/onboarding/chain-request",
+        data: body,
+        timeout: 15_000,
+      },
+      orgId
+    );
+    return normalizeChainRequest(payload, body.chain);
   },
 
   /**

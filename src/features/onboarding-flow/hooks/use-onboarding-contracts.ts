@@ -11,8 +11,9 @@ import { DEFAULT_CHAIN } from "../data/chains";
 
 /**
  * The one contract onboarding hands the indexer: the by-hand one if given,
- * otherwise the address pasted on the contract step, on the resolver's or the
- * chosen chain. Empty when there is none.
+ * otherwise the pasted address on the chain it was found on (the contract
+ * step) or the chain set beside it (the project step). Empty when there is
+ * none, or when the address was found on no chain.
  */
 export function useOnboardingContracts(
   profile: ProjectProfile,
@@ -33,13 +34,12 @@ export function useOnboardingContracts(
     if (manualAddr) {
       return [{ address: manualAddr, chain: manualChain, name: manualName }];
     }
-    if (typedAddr) {
-      return [
-        {
-          address: typedAddr,
-          chain: resolvedChain ?? profile.chains[0] ?? DEFAULT_CHAIN,
-        },
-      ];
+    // A pasted address is indexed on the chain it was found on. One that was
+    // found nowhere is not indexed at all: guessing a chain for it would start
+    // a job against a contract that is not there.
+    const typedChain = resolvedChain ?? profile.chains[0];
+    if (typedAddr && typedChain) {
+      return [{ address: typedAddr, chain: typedChain }];
     }
     return [];
   }, [profile.start, profile.contract, profile.chains, resolvedChain, manual]);

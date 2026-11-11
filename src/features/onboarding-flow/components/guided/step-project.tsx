@@ -6,9 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { profileReady, type ProjectProfile } from "../../constants/guided";
-import { DEFAULT_CHAIN } from "../../data/chains";
-import { useSupportedChains } from "../../hooks/use-supported-chains";
-import { classify } from "../../utils/contract-input";
 import {
   KNOWN_SECTOR_LABELS,
   sectorGroupOf,
@@ -16,7 +13,7 @@ import {
   WEB2_SECTOR_OPTIONS,
   WEB3_SECTOR_OPTIONS,
 } from "../../utils/sector";
-import { ObSelect } from "./ob-select";
+import { ProjectContractField } from "./project-contract-field";
 import { StartPathPicker } from "./start-path-picker";
 
 type SectorTab = "web3" | "web2";
@@ -31,8 +28,8 @@ const chipClass = (on: boolean) =>
 /**
  * Step 1 - the project. Name, website and sector qualify the account; the website is what the
  * indexer looks the project up by when no address is given. Sector is a Web3 / Web2 tag picker so
- * the options are visible at a glance. The contract is optional, and the classifier runs locally
- * to say what we recognised without fetching anything.
+ * the options are visible at a glance. The contract is optional: see ProjectContractField for how
+ * its chain is found.
  */
 export function StepProject({
   value,
@@ -50,12 +47,9 @@ export function StepProject({
   const [group, setGroup] = useState<SectorTab>(
     sectorGroupOf(value.sector) === "web2" ? "web2" : "web3"
   );
-  const supportedChains = useSupportedChains();
-
   const set = (k: keyof ProjectProfile) => (e: { target: { value: string } }) =>
     onChange({ ...value, [k]: e.target.value });
 
-  const guess = classify(value.contract);
   const options = group === "web3" ? WEB3_SECTOR_OPTIONS : WEB2_SECTOR_OPTIONS;
 
   // Enter moves on from any single-line field once the required three are filled: a form with
@@ -211,50 +205,18 @@ export function StepProject({
           )}
         </div>
 
-        {/* Contract + its chain, Web3 only (a Web2 project has none). The chain is chosen right on
-            the address, and both go to the backend so it indexes and looks onchain for contracts. */}
+        {/* Contract + its chain, Web3 only (a Web2 project has none). We find the chain from the
+            address; both go to the backend so it indexes and looks onchain for contracts. */}
         {value.start === "chain" && group !== "web2" ? (
-          <div className="space-y-2">
-            <Label htmlFor="ob-contract">
-              Contract address{" "}
-              <span className="text-muted-foreground font-normal">
-                Optional
-              </span>
-            </Label>
-            <div className="flex items-start gap-2">
-              <ObSelect
-                aria-label="Chain"
-                value={value.chains[0] ?? DEFAULT_CHAIN}
-                onChange={(v) => onChange({ ...value, chains: [v] })}
-                options={supportedChains.map((chain) => ({
-                  value: chain.key,
-                  label: chain.label,
-                  logo: chain.logo,
-                }))}
-              />
-              <Input
-                id="ob-contract"
-                autoComplete="off"
-                spellCheck={false}
-                value={value.contract}
-                onChange={set("contract")}
-                onKeyDown={onKeyDown}
-                placeholder="0x…"
-                className="flex-1 font-mono"
-                aria-describedby="ob-contract-hint"
-              />
-            </div>
-            <p className="text-muted-foreground text-xs" id="ob-contract-hint">
-              {guess.form === "empty" || guess.form === "unknown" ? (
-                "If not, we find it from the website on the chain you pick."
-              ) : (
-                <>
-                  <b className="text-foreground">{guess.label}.</b> Indexed
-                  first.
-                </>
-              )}
-            </p>
-          </div>
+          <ProjectContractField
+            contract={value.contract}
+            chain={value.chains[0]}
+            onContract={(contract) => onChange({ ...value, contract })}
+            onChain={(chain) =>
+              onChange({ ...value, chains: chain ? [chain] : [] })
+            }
+            onKeyDown={onKeyDown}
+          />
         ) : null}
       </form>
     </>

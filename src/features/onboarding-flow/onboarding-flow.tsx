@@ -32,7 +32,6 @@ import {
   type StepId,
 } from "./constants/guided";
 import { isStartPath } from "./constants/guided";
-import { DEFAULT_CHAIN } from "./data/chains";
 import {
   resolveResumeFlowStep,
   useCreateOrganization,
@@ -584,7 +583,7 @@ export function OnboardingFlow() {
           <StepContract
             value={profile.contract}
             onChange={(v) => setProfile((p) => ({ ...p, contract: v }))}
-            chain={resolvedChain ?? profile.chains[0] ?? DEFAULT_CHAIN}
+            chain={resolvedChain}
             onChain={setResolvedChain}
             manual={manual}
             onManual={setManual}

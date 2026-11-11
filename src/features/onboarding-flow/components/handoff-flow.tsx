@@ -60,8 +60,10 @@ export function HandoffFlow() {
     if (manualAddr) {
       return [{ address: manualAddr, chain: manualChain, name: manualName }];
     }
-    if (typed) {
-      return [{ address: typed, chain: resolvedChain ?? DEFAULT_CHAIN }];
+    // Indexed on the chain it was found on; an address found on no chain is
+    // not handed to the indexer under a guessed one.
+    if (typed && resolvedChain) {
+      return [{ address: typed, chain: resolvedChain }];
     }
     return [];
   }, [contract, resolvedChain, manual]);
@@ -146,7 +148,7 @@ export function HandoffFlow() {
         <StepContract
           value={contract}
           onChange={setContract}
-          chain={resolvedChain ?? DEFAULT_CHAIN}
+          chain={resolvedChain}
           onChain={setResolvedChain}
           manual={manual}
           onManual={setManual}

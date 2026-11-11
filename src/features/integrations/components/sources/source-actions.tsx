@@ -15,6 +15,7 @@ import {
   mergeSync,
   nextSyncBody,
 } from "../../utils/connections";
+import { syncIntro } from "../../utils/sync-intro";
 import { RunProgress } from "../connect/run-progress";
 import { SourceRun } from "./source-run";
 
@@ -31,16 +32,6 @@ const AFTER_CONNECT: Record<string, string> = {
   posthog:
     "Verified and saved. Reading events from PostHog isn't switched on by the server yet; until then send them with the SDK.",
 };
-
-/** What each sync does, said before it starts. */
-function syncIntro(def: ConnectorDef): string {
-  if (def.action === "data-sync") {
-    return "Pull the rows in as contacts. Rows already here are matched, not duplicated.";
-  }
-  return def.scheduled
-    ? `New ${def.label} users sync every 6 hours. Sync now to pull everyone in straight away.`
-    : `Pull everyone ${def.label} holds in as contacts. People already here are matched, not duplicated.`;
-}
 
 /**
  * The run controls for a connected source: a sync that runs on the server

@@ -44,7 +44,7 @@ describe("connectors", () => {
     expect(keys("braze")).toEqual(["baseUrl", "apiKey", "segmentId"]);
     expect(keys("formo")).toEqual(["apiKey"]);
     expect(keys("subgraph")).toEqual(["subgraphUrl", "entity", "walletField"]);
-    expect(keys("rpc")).toEqual(["rpcUrl", "contractAddress"]);
+    expect(keys("rpc")).toEqual(["rpcUrl", "contractAddress", "startBlock"]);
   });
 
   it("marks only the syncs the server also runs on a schedule", () => {
@@ -52,7 +52,7 @@ describe("connectors", () => {
       .filter((c) => c.scheduled)
       .map((c) => c.id)
       .sort();
-    expect(scheduled).toEqual(["clerk", "dynamic", "privy"]);
+    expect(scheduled).toEqual(["clerk", "dynamic", "privy", "rpc"]);
   });
 
   it("still resolves the catalog ids that differ from the backend's", () => {

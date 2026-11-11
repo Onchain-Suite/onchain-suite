@@ -7,6 +7,7 @@ import { WebhooksPanel } from "./webhooks-panel";
 
 const state = vi.hoisted(() => ({
   query: {} as Record<string, unknown>,
+  toggling: false,
   setStatus: vi.fn(),
   test: vi.fn(),
   remove: vi.fn(),
@@ -17,7 +18,7 @@ vi.mock("../../hooks/use-webhooks", () => ({
   useWebhookTopics: () => ({ data: [], isPending: false }),
   useWebhookActions: () => ({
     test: { mutate: state.test, isPending: false },
-    setStatus: { mutate: state.setStatus, isPending: false },
+    setStatus: { mutate: state.setStatus, isPending: state.toggling },
     remove: { mutate: state.remove, isPending: false },
   }),
 }));
@@ -52,6 +53,7 @@ describe("WebhooksPanel", () => {
     state.setStatus.mockReset();
     state.test.mockReset();
     state.remove.mockReset();
+    state.toggling = false;
   });
 
   it("opens the first endpoint until another is picked", () => {
@@ -79,6 +81,15 @@ describe("WebhooksPanel", () => {
       id: "wh_1",
       status: "paused",
     });
+  });
+
+  // Two saves in flight can land out of order.
+  it("holds the switch while a pause or resume is being saved", () => {
+    state.query = loaded([hook({})]);
+    state.toggling = true;
+    render(<WebhooksPanel />);
+
+    expect(screen.getByRole("switch", { name: "Active" })).toBeDisabled();
   });
 
   it("offers to resume an endpoint the backend marked failing", () => {

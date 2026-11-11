@@ -67,6 +67,7 @@ function lastDelivery(hook: WebhookEndpoint): React.ReactNode {
 export function WebhookDetail({
   hook,
   busy,
+  toggling,
   onToggle,
   onResume,
   onTest,
@@ -76,6 +77,12 @@ export function WebhookDetail({
   hook: WebhookEndpoint;
   /** A test or a removal is in flight for this endpoint. */
   busy: boolean;
+  /**
+   * A pause or resume is being saved. The switch waits for it: two saves in
+   * flight can land out of order and leave deliveries the opposite of what
+   * was last chosen.
+   */
+  toggling: boolean;
   onToggle: (active: boolean) => void;
   onResume: () => void;
   onTest: () => void;
@@ -101,6 +108,7 @@ export function WebhookDetail({
           <label className="mr-1 inline-flex items-center gap-2 text-[13px] text-(--text-secondary)">
             <Switch
               checked={hook.status !== "paused"}
+              disabled={toggling}
               onCheckedChange={onToggle}
               aria-label="Active"
             />
@@ -153,6 +161,7 @@ export function WebhookDetail({
               size="sm"
               variant="outline"
               type="button"
+              disabled={toggling}
               onClick={onResume}
             >
               Resume deliveries

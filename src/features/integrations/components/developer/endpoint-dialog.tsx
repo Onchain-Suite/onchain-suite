@@ -2,7 +2,7 @@
 
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -33,10 +33,13 @@ function EndpointForm({
   webhook,
   onClose,
   onCreated,
+  onSavingChange,
 }: {
   webhook: WebhookEndpoint | null;
   onClose: () => void;
   onCreated?: (id: string) => void;
+  /** Tells the dialog a save is in flight, so it does not close under it. */
+  onSavingChange: (saving: boolean) => void;
 }) {
   const { organizationId } = useAccountOrg();
   const orgId = organizationId ?? undefined;
@@ -86,6 +89,12 @@ function EndpointForm({
           : "Couldn't save the endpoint."
       ),
   });
+
+  const saving = save.isPending;
+  useEffect(() => {
+    onSavingChange(saving);
+    return () => onSavingChange(false);
+  }, [saving, onSavingChange]);
 
   if (secret) {
     return (
@@ -235,11 +244,16 @@ export function EndpointDialog({
   onClose: () => void;
   onCreated?: (id: string) => void;
 }) {
+  // Creating an endpoint returns its signing secret exactly once, to this
+  // form. Closing while that request is in flight would unmount the form and
+  // throw the secret away with no way to read it again, so Escape and a click
+  // outside wait for the save to finish.
+  const [saving, setSaving] = useState(false);
   return (
     <Dialog
       open={target !== null}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open && !saving) onClose();
       }}
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -249,6 +263,7 @@ export function EndpointDialog({
             webhook={target === "new" ? null : target}
             onClose={onClose}
             onCreated={onCreated}
+            onSavingChange={setSaving}
           />
         ) : null}
       </DialogContent>

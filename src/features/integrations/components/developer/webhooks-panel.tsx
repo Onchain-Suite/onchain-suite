@@ -129,6 +129,7 @@ export function WebhooksPanel() {
         <WebhookDetail
           hook={current}
           busy={test.isPending || remove.isPending}
+          toggling={setStatus.isPending}
           onToggle={(active) =>
             setStatus.mutate({
               id: current.id,

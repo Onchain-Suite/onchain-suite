@@ -270,10 +270,17 @@ const DEFS: ConnectorDef[] = [
         hint: "Your EVM JSON-RPC endpoint, on any chain.",
       }),
       text("contractAddress", "Contract address", { placeholder: "0x…" }),
+      optional(
+        text("startBlock", "Start block", {
+          placeholder: "e.g. 18500000",
+          hint: "Optional. Leave blank and we find the block the contract was deployed at. Set it if your endpoint does not keep old state.",
+        })
+      ),
     ],
     action: "data-sync",
+    scheduled: true,
     where:
-      "Reads the contract's recent logs and adds the wallets in them. It covers about the last 2,000 blocks, so use Contracts for a full history.",
+      "Reads the contract's event logs from its first block and adds every wallet in them. After that, new blocks are read every 6 hours.",
   },
 
   ...MIGRATION_CONNECTORS,

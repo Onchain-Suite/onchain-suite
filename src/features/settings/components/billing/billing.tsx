@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { fadeInUp } from "../../utils";
 import { BillingInvoicesCard } from "./billing-invoices-card";
 import { CardOnFileCard } from "./card-on-file-card";
+import { CheckoutReturnToast } from "./checkout-return-toast";
 import PlanUsage from "./plan-usage";
 
 export default function BillingSettings() {
@@ -17,6 +18,7 @@ export default function BillingSettings() {
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
+      <CheckoutReturnToast />
       <PlanUsage />
 
       {/* Card on file drives auto-charge on renewal; invoices can also be paid

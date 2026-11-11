@@ -1,36 +1,87 @@
 "use client";
 
 import {
-  CheckCircleIcon,
-  InformationCircleIcon,
-  MagnifyingGlassIcon,
-} from "@heroicons/react/24/outline";
-import { useEffect, useState } from "react";
+  CheckmarkCircle02Icon,
+  File01Icon,
+  Globe02Icon,
+  GridViewIcon,
+  Mail01Icon,
+  PlusSignIcon,
+  SentIcon,
+  UserMultipleIcon,
+} from "@hugeicons/core-free-icons";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-
-import { cn } from "@/lib/utils";
 
 import { connectorFor } from "../../data/connectors";
-import { MIGRATION_CATEGORIES, MIGRATIONS } from "../../data/migrations";
+import {
+  MIGRATION_CATEGORIES,
+  MIGRATION_CONSENT,
+  MIGRATIONS,
+} from "../../data/migrations";
 import { useConnections } from "../../hooks/use-connections";
-import { requestSource } from "../../hooks/use-requested-sources";
+import {
+  requestSource,
+  useRequestedSources,
+} from "../../hooks/use-requested-sources";
 import type { Migration, MigrationCategory } from "../../types/sources";
 import { findConnection } from "../../utils/connections";
-import { searchMigrations } from "../../utils/sources";
+import {
+  migrationCoverage,
+  migrationsOfCategory,
+  searchMigrations,
+} from "../../utils/sources";
+import { DirectoryFrame, DirectoryGroup } from "../directory/directory-frame";
+import { DirectoryRail, type RailItem } from "../directory/directory-rail";
+import { DirectorySearch } from "../directory/directory-search";
 import { MigrateDialog } from "./migrate-dialog";
+import { MigrationCard } from "./migration-card";
+import { Icon, type IconSvgElement } from "@/shared/components/common/hugeicon";
+
+const CATEGORY_ICON: Record<MigrationCategory, IconSvgElement> = {
+  email: Mail01Icon,
+  lifecycle: SentIcon,
+  crm: UserMultipleIcon,
+  web3: Globe02Icon,
+  file: File01Icon,
+};
+
+const CATEGORY_LABEL = new Map(
+  MIGRATION_CATEGORIES.map((c) => [c.id, c.label])
+);
+
+const RAIL_ICON = "size-[15px] shrink-0";
+
+/** Every category with how many tools it holds: static, so built once. */
+const RAIL: RailItem<MigrationCategory | "all">[] = [
+  {
+    key: "all",
+    label: "All",
+    icon: <Icon icon={GridViewIcon} className={RAIL_ICON} />,
+    count: MIGRATIONS.length,
+  },
+  ...MIGRATION_CATEGORIES.map((c) => ({
+    key: c.id,
+    label: c.label,
+    icon: <Icon icon={CATEGORY_ICON[c.id]} className={RAIL_ICON} />,
+    count: migrationsOfCategory(c.id).length,
+  })),
+];
+
+const CSV = MIGRATIONS.find((m) => m.category === "file");
 
 /**
- * Migrating in from another tool. Deliberately not a grid of logos: the question
- * at this moment is not "which do you support" (they know what they are leaving)
- * but "what comes across, and what do I lose". So it is a search and a row per
- * tool, and each row answers both before anything starts. Tools with a backend
- * importer connect and run here; the rest take the CSV route.
+ * Migrating in from another tool. Laid out exactly like Sources next door:
+ * search across the top, categories down one side, a card per tool. Two tabs
+ * that both answer "what can I plug in" should not need learning twice. Tools
+ * with a backend importer connect and run in the dialog; the rest take the CSV
+ * route, and their cards say so.
  */
 export function MigrateList({ reopen = null }: { reopen?: string | null }) {
   const [q, setQ] = useState("");
+  const [cat, setCat] = useState<MigrationCategory | "all">("all");
   const [picked, setPicked] = useState<Migration | null>(null);
   // Back from OAuth: reopen that tool's dialog so the migration can start.
   useEffect(() => {
@@ -39,132 +90,111 @@ export function MigrateList({ reopen = null }: { reopen?: string | null }) {
     if (m) setPicked(m);
   }, [reopen]);
   const { connections } = useConnections();
-  const [cat, setCat] = useState<MigrationCategory | "all">("all");
-  const found = searchMigrations(q);
-  const rows = cat === "all" ? found : found.filter((m) => m.category === cat);
-  const countFor = (id: MigrationCategory | "all") =>
-    id === "all" ? found.length : found.filter((m) => m.category === id).length;
+  const requested = useRequestedSources();
+
+  const term = q.trim();
+  const results = useMemo(() => searchMigrations(q), [q]);
+  const asked = requested.some((r) => r.toLowerCase() === term.toLowerCase());
+
+  const groups = term
+    ? [
+        {
+          id: "results",
+          label: `${results.length} ${results.length === 1 ? "tool" : "tools"}`,
+          items: results,
+        },
+      ]
+    : MIGRATION_CATEGORIES.filter((c) => cat === "all" || c.id === cat).map(
+        (c) => ({
+          id: c.id,
+          label: c.label,
+          items: migrationsOfCategory(c.id),
+        })
+      );
+
+  const card = (m: Migration) => {
+    const def = connectorFor(m.id);
+    return (
+      <MigrationCard
+        key={m.id}
+        migration={m}
+        categoryLabel={CATEGORY_LABEL.get(m.category) ?? ""}
+        coverage={migrationCoverage(m, Boolean(def))}
+        connected={
+          def ? Boolean(findConnection(connections, def.id)?.verified) : false
+        }
+        onOpen={setPicked}
+      />
+    );
+  };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
-        <InformationCircleIcon
-          aria-hidden="true"
-          className="size-4 shrink-0 text-muted-foreground"
-        />
-        <span className="min-w-0 flex-1 text-muted-foreground">
-          Coming from something not listed? Export a CSV and import it, or tell
-          us and we will look at it.
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            const term = q.trim();
-            if (term) requestSource(term);
-            toast("We'll be in touch about your tool");
-          }}
-        >
-          Ask us
-        </Button>
-      </div>
-
-      <div className="relative max-w-xl">
-        <MagnifyingGlassIcon
-          aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-        />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          autoComplete="off"
-          aria-label="Search tools to migrate from"
-          placeholder="Search the tool you are moving from"
-          className="pl-9"
-        />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        {(
-          [{ id: "all" as const, label: "All" }, ...MIGRATION_CATEGORIES] as {
-            id: MigrationCategory | "all";
-            label: string;
-          }[]
-        ).map((c) => {
-          const active = cat === c.id;
-          return (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setCat(c.id)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-sm transition-colors",
-                active
-                  ? "border-primary bg-primary/[0.06] text-foreground"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              )}
+    <>
+      <DirectoryFrame
+        search={
+          <DirectorySearch
+            value={q}
+            onChange={setQ}
+            label="Search tools to migrate from"
+            placeholder="What are you moving from? Mailchimp, Klaviyo, HubSpot, a CSV…"
+          />
+        }
+        rail={
+          term ? undefined : (
+            <DirectoryRail
+              label="Migration categories"
+              items={RAIL}
+              value={cat}
+              onChange={setCat}
             >
-              {c.label}
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {countFor(c.id)}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {rows.length === 0 ? (
-        <p className="max-w-xl text-sm text-muted-foreground">
-          No migration built for &ldquo;{q.trim()}&rdquo; yet. A CSV export from
-          it will import here: wallet or email, one row per contact.
-        </p>
-      ) : (
-        <div className="divide-y divide-border rounded-xl border border-border">
-          {rows.map((m) => {
-            const def = connectorFor(m.id);
-            const connected = def
-              ? Boolean(findConnection(connections, def.id)?.verified)
-              : false;
-            return (
-              <div
-                key={m.id}
-                className="flex flex-wrap items-center gap-3 px-4 py-3"
+              <p className="mx-2.5 mt-3.5 hidden text-[11.5px] leading-relaxed text-(--text-tertiary) md:block">
+                {MIGRATION_CONSENT}
+              </p>
+            </DirectoryRail>
+          )
+        }
+      >
+        {term && results.length === 0 ? (
+          <section className="space-y-3">
+            <h2 className="text-base font-semibold text-(--text-primary)">
+              No migration built for &ldquo;{term}&rdquo; yet
+            </h2>
+            <p className="max-w-xl text-sm text-(--text-secondary)">
+              Tell us and it goes on the list. Either way your contacts can come
+              in today: export a CSV from it, with a wallet or email column, and
+              import that.
+            </p>
+            {asked ? (
+              <p className="inline-flex items-center gap-1.5 text-sm text-(--status-success-text)">
+                <Icon icon={CheckmarkCircle02Icon} className="size-4" />
+                Asked for. We&rsquo;ll email you when it lands.
+              </p>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (requestSource(term))
+                    toast.success(`Noted. We'll look at ${term}`);
+                }}
               >
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                    {m.name}
-                    {connected ? (
-                      <CheckCircleIcon
-                        aria-label="Connected"
-                        className="size-3.5 text-emerald-600 dark:text-emerald-400"
-                      />
-                    ) : null}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {m.brings}
-                  </div>
-                  {m.leaves ? (
-                    <div className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-                      <InformationCircleIcon
-                        aria-hidden="true"
-                        className="size-3.5"
-                      />
-                      {m.leaves}
-                    </div>
-                  ) : null}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPicked(m)}
-                >
-                  {def ? "Migrate" : "Use a CSV"}
-                </Button>
+                <Icon icon={PlusSignIcon} className="mr-1.5 size-4" />
+                Ask for {term}
+              </Button>
+            )}
+            {CSV ? (
+              <div className="grid gap-3 pt-2 sm:grid-cols-2 xl:grid-cols-3">
+                {card(CSV)}
               </div>
-            );
-          })}
-        </div>
-      )}
+            ) : null}
+          </section>
+        ) : (
+          groups.map((g) => (
+            <DirectoryGroup key={g.id} label={g.label}>
+              {g.items.map(card)}
+            </DirectoryGroup>
+          ))
+        )}
+      </DirectoryFrame>
 
       <MigrateDialog
         migration={picked}
@@ -172,6 +202,6 @@ export function MigrateList({ reopen = null }: { reopen?: string | null }) {
           if (!open) setPicked(null);
         }}
       />
-    </div>
+    </>
   );
 }

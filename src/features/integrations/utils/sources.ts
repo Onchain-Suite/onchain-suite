@@ -5,6 +5,7 @@ import { FALLBACK_IDS, SETUP_DOC_BASE, SOURCES } from "../data/sources";
 import type {
   DataSource,
   Migration,
+  MigrationCategory,
   SourceKind,
   SourceStatus,
 } from "../types/sources";
@@ -43,6 +44,25 @@ export const searchMigrations = (q: string): Migration[] => {
     `${m.name} ${m.brings}`.toLowerCase().includes(t)
   );
 };
+
+export const migrationsOfCategory = (
+  category: MigrationCategory
+): Migration[] => MIGRATIONS.filter((m) => m.category === category);
+
+/**
+ * What a migration card can promise before anything starts. A tool with no
+ * importer comes in as a file the person exports, so it never claims that
+ * everything comes across: what the export holds is up to the tool.
+ */
+export type MigrationCoverage = "file" | "partial" | "full";
+
+export function migrationCoverage(
+  m: Migration,
+  hasImporter: boolean
+): MigrationCoverage {
+  if (m.category === "file" || !hasImporter) return "file";
+  return m.leaves ? "partial" : "full";
+}
 
 /** Sources that are real without a connector: the events API and file import. */
 const BUILT_IN_ROUTES = new Set(["csv", "sdk", "webhook-in"]);

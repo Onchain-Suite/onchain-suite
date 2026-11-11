@@ -1,42 +1,36 @@
 "use client";
 
 import {
-  ArrowsRightLeftIcon,
-  ArrowUpTrayIcon,
-  BoltIcon,
-  ClipboardDocumentListIcon,
-  ClockIcon,
-  CursorArrowRaysIcon,
+  ArrowDataTransferHorizontalIcon,
+  Clock01Icon,
+  CursorPointer01Icon,
+  File01Icon,
   FingerPrintIcon,
-  GlobeAltIcon,
-} from "@heroicons/react/24/outline";
-import type { ComponentType, SVGProps } from "react";
+  FlashIcon,
+  Globe02Icon,
+  Upload04Icon,
+} from "@hugeicons/core-free-icons";
 import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 
 import { FRESHNESS } from "../../data/sources";
-import type {
-  DataSource,
-  Freshness,
-  SourceKindIcon,
-} from "../../types/sources";
+import type { Freshness, SourceKindIcon } from "../../types/sources";
+import { Icon, type IconSvgElement } from "@/shared/components/common/hugeicon";
 
-type IconType = ComponentType<SVGProps<SVGSVGElement>>;
-
-/** SourceKindIcon (data-layer key) -> Heroicon, so the data stays React-free. */
-export const KIND_ICON: Record<SourceKindIcon, IconType> = {
+/** SourceKindIcon (data-layer key) -> icon, so the data stays React-free. */
+export const KIND_ICON: Record<SourceKindIcon, IconSvgElement> = {
   fingerprint: FingerPrintIcon,
-  network: GlobeAltIcon,
-  "clipboard-list": ClipboardDocumentListIcon,
-  "square-mouse-pointer": CursorArrowRaysIcon,
-  "arrow-left-right": ArrowsRightLeftIcon,
+  network: Globe02Icon,
+  "clipboard-list": File01Icon,
+  "square-mouse-pointer": CursorPointer01Icon,
+  "arrow-left-right": ArrowDataTransferHorizontalIcon,
 };
 
-const FRESH_ICON: Record<Freshness, IconType> = {
-  live: BoltIcon,
-  scheduled: ClockIcon,
-  "one-off": ArrowUpTrayIcon,
+const FRESH_ICON: Record<Freshness, IconSvgElement> = {
+  live: FlashIcon,
+  scheduled: Clock01Icon,
+  "one-off": Upload04Icon,
 };
 
 /**
@@ -51,7 +45,8 @@ export function SourceMark({
   source,
   className,
 }: {
-  source: DataSource;
+  /** Anything with a name and, when it is a vendor's, their domain. */
+  source: { name: string; domain?: string };
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
@@ -84,13 +79,12 @@ export function SourceMark({
 
 /** A freshness chip (Live / Scheduled / One-off) with its latency note on hover. */
 export function FreshChip({ freshness }: { freshness: Freshness }) {
-  const Icon = FRESH_ICON[freshness];
   return (
     <span
       title={FRESHNESS[freshness].can}
       className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
     >
-      <Icon aria-hidden="true" className="size-3" />
+      <Icon icon={FRESH_ICON[freshness]} className="size-3" />
       {FRESHNESS[freshness].label}
     </span>
   );

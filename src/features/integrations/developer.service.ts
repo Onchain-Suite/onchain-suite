@@ -21,78 +21,37 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
  *     and is still serving traffic until then; greying it out on any truthy
  *     `revokedAt` tells the customer their live key is dead while it works.
  */
+import type {
+  CreateKeyInput,
+  CreateWebhookInput,
+  DeveloperKey,
+  DeveloperKeyWithToken,
+  KeyEnvironment,
+  KeyScope,
+  KeyStatus,
+  RollKeyInput,
+  UpdateWebhookInput,
+  WebhookEndpoint,
+  WebhookEndpointWithSecret,
+  WebhookStatus,
+  WebhookTestResult,
+} from "./contracts/developer";
 
-export type KeyEnvironment = "live" | "test";
-export type KeyScope = "read_write" | "read_only";
-export type KeyStatus = "active" | "expiring" | "revoked";
-
-/** A secret key as returned by list/create/roll (masked apart from `prefix`). */
-export interface DeveloperKey {
-  id: string;
-  name: string;
-  /** Masked leading segment shown after creation, e.g. `sk_live_a1b2…`. */
-  prefix: string;
-  environment: KeyEnvironment;
-  scope: KeyScope;
-  status: KeyStatus;
-  /** Stamped on every successful call - null means the key was never used. */
-  lastUsedAt: string | null;
-  /**
-   * Expiry INSTANT, not a boolean. A rolled key carries a future value and is
-   * still accepting traffic until then. Never gate row state on this - use
-   * `status`. Kept so the UI can surface the deadline.
-   */
-  revokedAt: string | null;
-  createdAt: string | null;
-}
-
-export interface CreateKeyInput {
-  environment: KeyEnvironment;
-  name?: string;
-  scope?: KeyScope;
-}
-
-/** Create/roll response: the row plus the full `token`, returned once. */
-export interface DeveloperKeyWithToken extends DeveloperKey {
-  token: string;
-  /** Roll only: the key being retired and when it stops working. */
-  replaced?: { id: string; expiresAt: string | null };
-}
-
-export interface RollKeyInput {
-  /** 0 kills the outgoing key now (leak); 24-168 keeps it working (rotation). */
-  expireInHours: number;
-}
-
-export type WebhookStatus = "active" | "paused" | "failing";
-
-export interface WebhookEndpoint {
-  id: string;
-  url: string;
-  events: string[];
-  status: WebhookStatus;
-  /** Masked signing secret, e.g. `whsec_••••1234`. */
-  secretHint: string | null;
-  lastDeliveryAt: string | null;
-  lastDeliveryStatus: string | null;
-  failureCount: number;
-  createdAt: string | null;
-}
-
-export interface CreateWebhookInput {
-  url: string;
-  events: string[];
-}
-
-/** Create response: the row plus the full `whsec_…` secret, returned once. */
-export interface WebhookEndpointWithSecret extends WebhookEndpoint {
-  secret: string;
-}
-
-export interface UpdateWebhookInput {
-  status?: WebhookStatus;
-  events?: string[];
-}
+export type {
+  CreateKeyInput,
+  CreateWebhookInput,
+  DeveloperKey,
+  DeveloperKeyWithToken,
+  KeyEnvironment,
+  KeyScope,
+  KeyStatus,
+  RollKeyInput,
+  UpdateWebhookInput,
+  WebhookEndpoint,
+  WebhookEndpointWithSecret,
+  WebhookStatus,
+  WebhookTestResult,
+} from "./contracts/developer";
 
 const pickOrgId = (orgId?: string) =>
   orgId ?? getSelectedOrganizationId() ?? null;
@@ -164,6 +123,11 @@ const asNullableString = (v: unknown): string | null =>
   typeof v === "string" && v.length > 0 ? v : null;
 const asNumber = (v: unknown): number =>
   typeof v === "number" && Number.isFinite(v) ? v : 0;
+/** An HTTP status: a number on the wire, tolerated as a numeric string. */
+const asNullableStatus = (v: unknown): number | null => {
+  const n = typeof v === "string" && v.trim() !== "" ? Number(v) : v;
+  return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null;
+};
 const asStringArray = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 
@@ -271,7 +235,7 @@ const normalizeWebhook = (raw: unknown): WebhookEndpoint | null => {
     status: toWebhookStatus(raw.status),
     secretHint: asNullableString(raw.secretHint),
     lastDeliveryAt: asNullableString(raw.lastDeliveryAt),
-    lastDeliveryStatus: asNullableString(raw.lastDeliveryStatus),
+    lastDeliveryStatus: asNullableStatus(raw.lastDeliveryStatus),
     failureCount: asNumber(raw.failureCount),
     createdAt: asNullableString(raw.createdAt),
   };
@@ -409,7 +373,7 @@ export const developerService = {
         status: toWebhookStatus(obj.status),
         secretHint: asNullableString(obj.secretHint),
         lastDeliveryAt: asNullableString(obj.lastDeliveryAt),
-        lastDeliveryStatus: asNullableString(obj.lastDeliveryStatus),
+        lastDeliveryStatus: asNullableStatus(obj.lastDeliveryStatus),
         failureCount: asNumber(obj.failureCount),
         createdAt: asNullableString(obj.createdAt),
       }),
@@ -433,12 +397,22 @@ export const developerService = {
     return normalizeWebhook(extractData<unknown>(payload));
   },
 
-  /** `POST /developer/webhooks/{id}/test` - signed `ping` down the real path. */
-  async testWebhook(id: string, orgId?: string): Promise<void> {
-    await request<unknown>(
+  /**
+   * `POST /developer/webhooks/{id}/test` - signed `ping` down the real path.
+   * Resolves with the endpoint's answer when it accepted the ping; an endpoint
+   * that answered 4xx/5xx, or did not answer, rejects with the reason.
+   */
+  async testWebhook(id: string, orgId?: string): Promise<WebhookTestResult> {
+    const payload = await request<unknown>(
       { method: "POST", url: `/developer/webhooks/${id}/test` },
       orgId
     );
+    const root = extractData<unknown>(payload);
+    const obj = isJsonObject(root) ? root : {};
+    return {
+      ok: obj.ok !== false,
+      status: asNullableStatus(obj.status) ?? 200,
+    };
   },
 
   /** `DELETE /developer/webhooks/{id}`. */

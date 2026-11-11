@@ -77,8 +77,17 @@ export function TeamCard() {
     queryFn: () => billingService.getPlanUsage(organizationId ?? undefined),
   });
 
+  // The roster and the seat meter are read separately, and the meter is
+  // cached for a minute. Anything that changes who is in the workspace
+  // refreshes both: after removing someone from a full workspace the meter
+  // still read full, and kept the invite hidden with a seat free.
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: membersKey(organizationId) });
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: membersKey(organizationId) }),
+      queryClient.invalidateQueries({
+        queryKey: ["billing", "plan-usage", organizationId],
+      }),
+    ]);
 
   const inviteMutation = useMutation({
     mutationFn: async () => {

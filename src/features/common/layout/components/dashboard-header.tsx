@@ -7,13 +7,14 @@ import { useCommandPalette } from "@/components/common/command-palette";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
+import type { Crumb } from "../utils/breadcrumbs";
+import { Breadcrumbs } from "./breadcrumbs";
+
 export const DashboardHeader = ({
   breadcrumbs,
-  currentPage,
   hasActiveOrganization = true,
 }: {
-  breadcrumbs?: { href: string; label: string }[];
-  currentPage?: string;
+  breadcrumbs: Crumb[];
   hasActiveOrganization?: boolean;
 }) => {
   const palette = useCommandPalette();
@@ -27,27 +28,7 @@ export const DashboardHeader = ({
           orientation="vertical"
           className="mr-1 data-[orientation=vertical]:h-4 md:hidden"
         />
-        <div className="hidden items-center gap-2 text-sm font-medium md:flex">
-          {breadcrumbs?.map((crumb, index) => (
-            <span key={crumb.href} className="flex items-center gap-2">
-              {typeof crumb.href === "string" && crumb.href.length > 0 ? (
-                <a href={crumb.href} className="hover:underline">
-                  {crumb.label}
-                </a>
-              ) : (
-                <span>{crumb.label}</span>
-              )}
-              {index < (breadcrumbs?.length ?? 0) - 1 && (
-                <span className="text-muted-foreground">/</span>
-              )}
-            </span>
-          ))}
-          {currentPage &&
-            currentPage !==
-              breadcrumbs?.[(breadcrumbs?.length ?? 0) - 1]?.label && (
-              <span className="text-foreground">{currentPage}</span>
-            )}
-        </div>
+        <Breadcrumbs crumbs={breadcrumbs} />
       </div>
 
       <div className="flex min-w-0 items-center gap-2 px-1 sm:px-4 md:ml-auto">

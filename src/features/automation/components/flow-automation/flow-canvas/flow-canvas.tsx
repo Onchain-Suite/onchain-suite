@@ -16,6 +16,7 @@ import {
   MAX_TRIGGERS,
   type Slot,
 } from "../../../utils/flow-tree";
+import { EntryTools } from "./entry-tools";
 import { FlowCard, type FlowCardNode } from "./flow-card";
 import { StepMenu, type StepMenuGroup } from "./step-menu";
 import {
@@ -246,9 +247,12 @@ export function FlowCanvas(props: FlowCanvasProps) {
       onOpenChange={(o) => setMenuAt(o ? "trigger" : null)}
     >
       <PopoverTrigger asChild>
-        <button type="button" className="ab-addentry">
+        <button
+          type="button"
+          className={big ? "ab-addentry ab-addentry--big" : "ab-addentry"}
+        >
           <PlusIcon aria-hidden="true" className="h-3.5 w-3.5" />
-          {big ? "Add a trigger" : "Add trigger"}
+          {big ? "Add a way in" : "Add another way in"}
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -256,8 +260,8 @@ export function FlowCanvas(props: FlowCanvasProps) {
         className="ab-menu w-[min(680px,calc(100vw-32px))]"
       >
         <StepMenu
-          title="Add a trigger"
-          placeholder="Search triggers"
+          title="Add a way in"
+          placeholder="Search ways in"
           groups={triggerGroups}
           paginate
           onPick={(type) => {
@@ -339,59 +343,25 @@ export function FlowCanvas(props: FlowCanvasProps) {
         <div className="ab-stage" ref={stage} style={{ zoom }}>
           {tree.roots.length === 0 ? (
             <div className="ab-start">
-              <b>How do people enter this automation?</b>
+              <b>How do people start this Loop?</b>
               <span>
                 Pick a way in: an on-chain event, a form, a list or a tag. You
-                can add more than one - a wallet enters when any of them fires.
-                Then add what happens next with the +.
+                can add more than one, and someone starts when any of them
+                happens. Then add what comes next with the +.
               </span>
               {triggerMenu(true)}
             </div>
           ) : (
             <>
-              {/* What starts the automation, how to add to it, and whether
-                  each trigger has its own first steps sit above the triggers,
-                  so nothing interrupts the line down to what everyone does. */}
-              <div className="ab-entrytools">
-                <span className="ab-caption">
-                  {tree.roots.length > 1
-                    ? "People start when any of these happen"
-                    : "People start when"}
-                </span>
-                {tree.roots.length < MAX_TRIGGERS && (
-                  <div className="ab-entryadd">{triggerMenu(false)}</div>
-                )}
-                {tree.roots.length > 1 && (
-                  <div
-                    className="ab-splitseg"
-                    role="radiogroup"
-                    aria-label="First steps"
-                  >
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={!tree.split}
-                      disabled={tree.split && !canUnsplit(tree)}
-                      title={
-                        tree.split && !canUnsplit(tree)
-                          ? "Empty the per-trigger steps first"
-                          : undefined
-                      }
-                      onClick={() => onSetSplit(false)}
-                    >
-                      Same steps for everyone
-                    </button>
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={tree.split}
-                      onClick={() => onSetSplit(true)}
-                    >
-                      Different first steps for each
-                    </button>
-                  </div>
-                )}
-              </div>
+              <EntryTools
+                count={tree.roots.length}
+                split={tree.split}
+                canUnsplit={canUnsplit(tree)}
+                onSetSplit={onSetSplit}
+                addMenu={
+                  tree.roots.length < MAX_TRIGGERS ? triggerMenu(false) : null
+                }
+              />
               {tree.split ? (
                 <div className="ab-fork ab-fork--entries">
                   {tree.lanes.map((lane) => (

@@ -1,47 +1,27 @@
 "use client";
 
-import {
-  ArrowLeftIcon,
-  CheckBadgeIcon,
-  ExclamationTriangleIcon,
-  MagnifyingGlassIcon,
-  PencilSquareIcon,
-} from "@heroicons/react/24/outline";
-import { useQuery } from "@tanstack/react-query";
+import { PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { type ManualContractDraft } from "../../constants/guided";
+import { useContractLookup } from "../../hooks/use-contract-lookup";
+import { useSupportedChains } from "../../hooks/use-supported-chains";
 import {
-  DEFAULT_CHAIN,
-  SUPPORTED_CHAINS,
-  type SupportedChain,
-} from "../../data/chains";
-import {
-  onboardingService,
-  type ResolvedContractFound,
-} from "../../onboarding.service";
-import { ObSelect, type ObSelectOption } from "./ob-select";
-
-const EVM_ADDRESS_RE = /^0x[0-9a-f]{40}$/i;
-
-const STANDARD_LABEL: Record<string, string> = {
-  erc20: "ERC-20 token",
-  erc721: "ERC-721 NFT",
-  erc1155: "ERC-1155 NFT",
-  unknown: "Contract",
-};
-
-/** Contract types offered in the by-hand form (maps loosely to the resolver's standards). */
-const CONTRACT_TYPES: { value: string; label: string }[] = [
-  { value: "erc20", label: "ERC-20 token" },
-  { value: "erc721", label: "ERC-721 NFT" },
-  { value: "erc1155", label: "ERC-1155 NFT" },
-  { value: "other", label: "Other contract" },
-];
+  ANY_CHAIN,
+  isElsewhere,
+  markElsewhere,
+  OTHER_CHAIN,
+  toAddress,
+} from "../../utils/contract-lookup";
+import { ChainRequestForm } from "./chain-request-form";
+import { ContractLookupNote } from "./contract-lookup-note";
+import { ContractManualEntry } from "./contract-manual-entry";
+import { ObSelect } from "./ob-select";
+import { ResolvedContractCard } from "./resolved-contract-card";
+import { Icon } from "@/shared/components/common/hugeicon";
 
 const EMPTY_MANUAL: ManualContractDraft = {
   name: "",
@@ -50,35 +30,14 @@ const EMPTY_MANUAL: ManualContractDraft = {
   type: "erc20",
 };
 
-/** Order the chain list with the project's chosen chains first. */
-const toOptions = (chains: SupportedChain[]): ObSelectOption[] =>
-  chains.map((c) => ({ value: c.key, label: c.label, logo: c.logo }));
-
-function useChainOptions(chains: string[]) {
-  return useMemo(
-    () => [
-      ...SUPPORTED_CHAINS.filter((c) => chains.includes(c.key)),
-      ...SUPPORTED_CHAINS.filter((c) => !chains.includes(c.key)),
-    ],
-    [chains]
-  );
-}
-
-/** Debounce a value (~400ms) so the resolver never fires per keystroke. */
-function useDebounced<T>(value: T, delayMs = 400): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const id = window.setTimeout(() => setDebounced(value), delayMs);
-    return () => window.clearTimeout(id);
-  }, [value, delayMs]);
-  return debounced;
-}
-
 /**
- * Step 4 - the contract. The primary input is just an address and its chain: we read the contract
- * off the chain for real (Alchemy) and show what it is. When that is not enough (no address to
- * hand, or extra detail to add) the "enter the details by hand" form takes a name and type too.
- * Nothing is indexed here; indexing starts once the plan is active, so Continue is a skip.
+ * Step 4 - the contract. The input is just an address: we look for it on every
+ * chain we index, read what it is off the chain it is on, and show that. The
+ * chain can be picked by hand (then only that chain is read), and a chain that
+ * is not in the list can be named so we know to add it. When an address is not
+ * enough, the "enter the details by hand" form takes a name and type too.
+ * Indexing starts when this step is left with a contract found (see
+ * use-start-indexing); with none, Continue is a skip.
  */
 export function StepContract({
   value,
@@ -91,19 +50,20 @@ export function StepContract({
 }: {
   value: string;
   onChange: (v: string) => void;
-  /** The chain to read the address on (backend key), chosen by the user. */
-  chain: string;
-  onChain: (c: string) => void;
+  /** The chain the address was found on (backend key), or null before it is. */
+  chain: string | null;
+  onChain: (c: string | null) => void;
   /** The by-hand contract (orchestrator-owned so it survives step navigation). */
   manual: ManualContractDraft | null;
   onManual: (m: ManualContractDraft | null) => void;
+  /** The project's chains, preferred when the address is on several. */
   chains: string[];
 }) {
   const [byHand, setByHand] = useState(manual !== null);
 
   if (byHand) {
     return (
-      <ManualEntry
+      <ContractManualEntry
         draft={manual ?? EMPTY_MANUAL}
         onChange={onManual}
         chains={chains}
@@ -125,8 +85,8 @@ export function StepContract({
       onEnterByHand={() => {
         onManual({
           ...EMPTY_MANUAL,
-          address: EVM_ADDRESS_RE.test(value.trim()) ? value.trim() : "",
-          chain,
+          address: toAddress(value) ?? "",
+          chain: chain ?? chains[0] ?? "",
         });
         setByHand(true);
       }}
@@ -134,7 +94,7 @@ export function StepContract({
   );
 }
 
-/** The default input: a contract address and its chain, resolved live against the chain. */
+/** The default input: a contract address, found on whichever chain holds it. */
 function AddressEntry({
   value,
   onChange,
@@ -145,29 +105,64 @@ function AddressEntry({
 }: {
   value: string;
   onChange: (v: string) => void;
-  chain: string;
-  onChain: (c: string) => void;
+  chain: string | null;
+  onChain: (c: string | null) => void;
   chains: string[];
   onEnterByHand: () => void;
 }) {
-  const chainOptions = useChainOptions(chains);
-  const trimmed = value.trim();
-  const address = EVM_ADDRESS_RE.test(trimmed) ? trimmed.toLowerCase() : null;
-  const invalid = trimmed.length > 0 && address === null;
-  const debouncedAddress = useDebounced(address);
+  const supported = useSupportedChains();
+  // The chain to read; null means "look everywhere". It starts as the chain
+  // already chosen for this address (found earlier, or picked by hand), so
+  // coming back to this step does not look everywhere again and quietly move
+  // the contract to another chain the same address is deployed on.
+  const [pinned, setPinned] = useState<string | null>(chain);
+  const [otherOpen, setOtherOpen] = useState(false);
+  // They told us the contract is on a chain we do not index. A deployment we
+  // found for the same address elsewhere is then not theirs to index.
+  const [elsewhere, setElsewhere] = useState(() => isElsewhere(value));
 
-  const resolveQuery = useQuery({
-    queryKey: ["onboarding", "resolve-contract", debouncedAddress, chain],
-    queryFn: ({ signal }) =>
-      onboardingService.resolveContract(
-        { address: debouncedAddress as string, chain },
-        { signal }
-      ),
-    enabled: Boolean(debouncedAddress),
-    retry: false,
-    staleTime: 5 * 60 * 1000,
+  const { state, retry } = useContractLookup({
+    raw: value,
+    chain: pinned,
+    preferred: chains,
   });
-  const resolved = resolveQuery.data;
+
+  // The orchestrator indexes on the chain the address was FOUND on, and on
+  // nothing at all while it has not been found.
+  const foundChain = state.kind === "found" ? state.contract.chain : null;
+  const follows = state.kind !== "looking" && !elsewhere;
+  useEffect(() => {
+    if (follows && foundChain !== chain) onChain(foundChain);
+  }, [follows, foundChain, chain, onChain]);
+
+  // Reading another chain: the deployment we held is not the one to index
+  // until that read lands, so leaving the step before then indexes nothing.
+  const pin = (next: string | null) => {
+    if (next === pinned) return;
+    setPinned(next);
+    if (next !== chain) onChain(null);
+  };
+
+  const options = useMemo(() => {
+    const list = supported.map((c) => ({
+      value: c.key,
+      label: c.label,
+      logo: c.logo,
+    }));
+    const shown = pinned ?? foundChain;
+    if (shown && !list.some((o) => o.value === shown)) {
+      const label =
+        state.kind === "found" && state.contract.chain === shown
+          ? state.contract.chainLabel
+          : shown;
+      list.unshift({ value: shown, label, logo: undefined });
+    }
+    return [
+      { value: ANY_CHAIN, label: "Find it for me", logo: undefined },
+      ...list,
+      { value: OTHER_CHAIN, label: "Another chain…", logo: undefined },
+    ];
+  }, [supported, pinned, foundChain, state]);
 
   return (
     <>
@@ -175,8 +170,9 @@ function AddressEntry({
         Add your smart contract
       </h1>
       <p className="text-muted-foreground mt-3">
-        Enter your contract address and pick its chain. We read it off the chain
-        and index its events once your plan is active.
+        Paste your contract address. We find which chain it is on, read what it
+        is, and start indexing it straight away, so holders and activity are
+        there when you finish.
       </p>
 
       <div className="mt-8 space-y-4">
@@ -189,54 +185,81 @@ function AddressEntry({
               autoComplete="off"
               spellCheck={false}
               value={value}
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                // A different address is looked for everywhere again, and has
+                // no chain until it is found: the old one's is dropped now.
+                if (toAddress(next) !== toAddress(value)) {
+                  setPinned(null);
+                  onChain(null);
+                }
+                setElsewhere(false);
+                markElsewhere(null);
+                setOtherOpen(false);
+                onChange(next);
+              }}
               placeholder="0x…"
               className="font-mono"
-              aria-invalid={invalid}
-              aria-describedby={invalid ? "ob-address-err" : undefined}
+              aria-invalid={state.kind === "invalid"}
+              aria-describedby="ob-address-note"
             />
           </div>
           <div className="shrink-0 space-y-2">
             <Label htmlFor="ob-chain">Chain</Label>
             <ObSelect
               id="ob-chain"
-              value={chain}
-              onChange={onChain}
-              options={toOptions(chainOptions)}
+              value={
+                otherOpen || elsewhere
+                  ? OTHER_CHAIN
+                  : (pinned ?? foundChain ?? ANY_CHAIN)
+              }
+              onChange={(v) => {
+                setOtherOpen(v === OTHER_CHAIN);
+                if (v === OTHER_CHAIN) return;
+                setElsewhere(false);
+                markElsewhere(null);
+                pin(v === ANY_CHAIN ? null : v);
+              }}
+              options={options}
             />
           </div>
         </div>
-        {invalid ? (
-          <p id="ob-address-err" className="text-destructive text-xs">
-            Enter a valid address (0x followed by 40 hex characters).
-          </p>
-        ) : null}
 
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            onClick={() => resolveQuery.refetch()}
-            disabled={!address}
-          >
-            <MagnifyingGlassIcon
-              aria-hidden="true"
-              className="mr-1.5 h-4 w-4"
+        <div id="ob-address-note">
+          {elsewhere ? null : state.kind === "found" ? (
+            <ResolvedContractCard
+              contract={state.contract}
+              onPickChain={(ref) => pin(ref.chain)}
             />
-            Look it up
-          </Button>
+          ) : (
+            <ContractLookupNote
+              state={state}
+              chainCount={supported.length}
+              onPickChain={(ref) => pin(ref.chain)}
+              onOtherChain={() => setOtherOpen(true)}
+              onRetry={retry}
+            />
+          )}
         </div>
 
-        {/* Live resolution of the address on the chosen chain. */}
-        {address ? (
-          resolveQuery.isPending ? (
-            <p className="text-muted-foreground text-sm">
-              Checking the chain for this address…
-            </p>
-          ) : resolved?.found ? (
-            <ResolvedCard contract={resolved} />
-          ) : resolved && !resolved.found && resolved.reason === "no-code" ? (
-            <NotFound />
-          ) : null
+        {otherOpen || elsewhere ? (
+          <ChainRequestForm
+            address={toAddress(value)}
+            onSupported={(ref) => {
+              // It is a chain we index after all: whatever was said before
+              // about it being elsewhere no longer holds.
+              setElsewhere(false);
+              markElsewhere(null);
+              setOtherOpen(false);
+              pin(ref.chain);
+            }}
+            onRecorded={() => {
+              setElsewhere(true);
+              markElsewhere(toAddress(value));
+              setPinned(null);
+              onChain(null);
+            }}
+          />
         ) : null}
 
         {/* A clear alternative, not a buried link. */}
@@ -246,7 +269,7 @@ function AddressEntry({
           className="border-border hover:border-primary/50 hover:bg-muted/40 flex w-full items-center gap-3 rounded-xl border border-dashed p-3 text-left transition-colors"
         >
           <span className="bg-muted text-muted-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
-            <PencilSquareIcon aria-hidden="true" className="h-4 w-4" />
+            <Icon icon={PencilEdit02Icon} className="size-4" />
           </span>
           <span className="min-w-0">
             <span className="text-foreground block text-sm font-medium">
@@ -259,169 +282,5 @@ function AddressEntry({
         </button>
       </div>
     </>
-  );
-}
-
-/** The by-hand fallback: name, address, chain and type, for full control over the contract. */
-function ManualEntry({
-  draft,
-  onChange,
-  chains,
-  onBack,
-}: {
-  draft: ManualContractDraft;
-  onChange: (m: ManualContractDraft) => void;
-  chains: string[];
-  onBack: () => void;
-}) {
-  const chainOptions = useChainOptions(chains);
-  const set = (patch: Partial<ManualContractDraft>) =>
-    onChange({ ...draft, ...patch });
-  const addressValid =
-    draft.address.trim() === "" || EVM_ADDRESS_RE.test(draft.address.trim());
-
-  return (
-    <>
-      <h1 className="text-foreground text-3xl font-bold">
-        Add your smart contract
-      </h1>
-      <p className="text-muted-foreground mt-3">
-        Enter the contract details yourself. We index holders and activity from
-        this address once your plan is active.
-      </p>
-
-      <div className="mt-8 space-y-5">
-        <div className="space-y-2">
-          <Label htmlFor="ob-name">Contract name</Label>
-          <Input
-            id="ob-name"
-            value={draft.name}
-            onChange={(e) => set({ name: e.target.value })}
-            placeholder="e.g. Acme Packs"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="ob-m-address">Contract address</Label>
-          <Input
-            id="ob-m-address"
-            value={draft.address}
-            onChange={(e) => set({ address: e.target.value })}
-            placeholder="0x…"
-            className="font-mono"
-            aria-invalid={!addressValid}
-            aria-describedby="ob-m-address-hint"
-          />
-          {!addressValid ? (
-            <p id="ob-m-address-hint" className="text-destructive text-xs">
-              Enter a valid address (0x followed by 40 hex characters).
-            </p>
-          ) : null}
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <div className="space-y-2">
-            <Label htmlFor="ob-m-chain">Chain</Label>
-            <ObSelect
-              id="ob-m-chain"
-              value={draft.chain || (chainOptions[0]?.key ?? DEFAULT_CHAIN)}
-              onChange={(c) => set({ chain: c })}
-              options={toOptions(chainOptions)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="ob-m-type">Type</Label>
-            <ObSelect
-              id="ob-m-type"
-              value={draft.type}
-              onChange={(t) => set({ type: t })}
-              options={CONTRACT_TYPES}
-            />
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm"
-        >
-          <ArrowLeftIcon aria-hidden="true" className="h-4 w-4" />
-          Back to address and chain
-        </button>
-      </div>
-    </>
-  );
-}
-
-/** A confirmed, on-chain contract: the honest result, verified against the chain. */
-function ResolvedCard({ contract }: { contract: ResolvedContractFound }) {
-  const title =
-    contract.name ??
-    (contract.symbol ? `$${contract.symbol}` : "Verified contract");
-  const where = contract.chainLabel
-    ? `Verified on ${contract.chainLabel}`
-    : "Verified on-chain";
-  return (
-    <div className="border-primary/40 bg-primary/5 rounded-xl border p-4">
-      <div className="flex items-start gap-3">
-        <span className="bg-background border-border flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border">
-          {contract.logo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={contract.logo}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <CheckBadgeIcon
-              aria-hidden="true"
-              className="text-primary h-5 w-5"
-            />
-          )}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-foreground text-sm font-semibold">
-              {title}
-            </span>
-            {contract.symbol && contract.name ? (
-              <span className="text-muted-foreground font-mono text-xs">
-                {contract.symbol}
-              </span>
-            ) : null}
-            <span className="border-primary/30 text-primary inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium">
-              <CheckBadgeIcon aria-hidden="true" className="h-3 w-3" />
-              {where}
-            </span>
-          </div>
-          <p className="text-muted-foreground mt-1 text-xs">
-            {STANDARD_LABEL[contract.standard] ?? "Contract"}
-            {" · "}
-            <span className="font-mono">
-              {`${contract.address.slice(0, 8)}…${contract.address.slice(-6)}`}
-            </span>
-          </p>
-          <p className="text-muted-foreground mt-1 text-xs">
-            We will index this contract and its events once your plan is active.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Nothing resolved: the address held no code on the chosen chain. */
-function NotFound() {
-  return (
-    <div className="border-border bg-muted/30 flex items-start gap-2 rounded-xl border p-3">
-      <ExclamationTriangleIcon
-        aria-hidden="true"
-        className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0"
-      />
-      <p className="text-muted-foreground text-xs">
-        No contract found at this address on the selected chain. Check the
-        address, or pick the chain it is deployed on.
-      </p>
-    </div>
   );
 }

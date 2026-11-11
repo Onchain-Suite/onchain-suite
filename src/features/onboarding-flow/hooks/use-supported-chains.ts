@@ -7,42 +7,56 @@ import { isJsonObject } from "@/lib/utils";
 
 import { SUPPORTED_CHAINS, type SupportedChain } from "../data/chains";
 
+const LOGO_BY_KEY = new Map(SUPPORTED_CHAINS.map((c) => [c.key, c.logo]));
+
 /**
- * The supported chains, from the backend when available.
+ * The chains the backend indexes, out of `GET /chains`.
  *
- * The long-term source of truth is `GET /chains`; until it ships (or if it fails) this falls back
- * to the static {@link SUPPORTED_CHAINS} list, so the pickers never break. We keep our own logo for
- * a chain the backend returns when we recognise its key (the backend does not know our ChainLogo
- * set). See docs/onboarding-v2-backend-handoff.md.
+ * It answers `{ chains: [{ slug, label, family, testnet, ... }] }`. (An earlier
+ * version of this read a bare array with a `key` field, matched nothing, and
+ * silently served the seven-chain fallback as if it were the whole list.)
+ * Testnets are left out: nobody onboards a production audience from one. We
+ * keep our own logo for a chain we recognise, since the backend does not know
+ * our ChainLogo set. Anything unusable falls back to the static list, so the
+ * pickers never break.
  */
+export function toSupportedChains(payload: unknown): SupportedChain[] {
+  const root =
+    isJsonObject(payload) && "data" in payload ? payload.data : payload;
+  const rows = Array.isArray(root)
+    ? root
+    : isJsonObject(root) && Array.isArray(root.chains)
+      ? root.chains
+      : [];
+
+  const chains = rows.flatMap((row): SupportedChain[] => {
+    if (!isJsonObject(row) || row.testnet === true) return [];
+    const key =
+      typeof row.slug === "string"
+        ? row.slug
+        : typeof row.key === "string"
+          ? row.key
+          : "";
+    const label =
+      typeof row.label === "string"
+        ? row.label
+        : typeof row.name === "string"
+          ? row.name
+          : "";
+    if (!key || !label) return [];
+    return [{ key, label, logo: LOGO_BY_KEY.get(key) }];
+  });
+
+  return chains.length > 0 ? chains : SUPPORTED_CHAINS;
+}
+
 async function fetchSupportedChains(): Promise<SupportedChain[]> {
-  // Silent: the endpoint may not exist yet (or needs org context); any failure just falls back to
-  // the static list, so it must not log an error.
+  // Silent: any failure just falls back to the static list, so it must not
+  // log an error.
   const res = await apiClient.get("/chains", {
     headers: { "x-onchain-silent-error": "1" },
   });
-  const payload: unknown = res.data;
-  const root =
-    isJsonObject(payload) && "data" in payload ? payload.data : payload;
-  const rows = Array.isArray(root) ? root : [];
-
-  const logoByKey = new Map(SUPPORTED_CHAINS.map((c) => [c.key, c.logo]));
-  const chains = rows
-    .map((row): SupportedChain | null => {
-      if (!isJsonObject(row)) return null;
-      const key = typeof row.key === "string" ? row.key : undefined;
-      const label =
-        typeof row.label === "string"
-          ? row.label
-          : typeof row.name === "string"
-            ? row.name
-            : undefined;
-      if (!key || !label) return null;
-      return { key, label, logo: logoByKey.get(key) };
-    })
-    .filter((c): c is SupportedChain => c !== null);
-
-  return chains.length > 0 ? chains : SUPPORTED_CHAINS;
+  return toSupportedChains(res.data as unknown);
 }
 
 /** Returns the supported chains, defaulting to the static list on first render / on error. */

@@ -93,8 +93,8 @@ export function cerebraLine(c: LineContext): string {
 
   if (c.step === "contract") {
     return c.picked
-      ? `Found ${c.picked}. I'll start indexing it as soon as your plan is active.`
-      : "Paste an address, an explorer link or your website, and I'll find the contract and its events. You can add it later too.";
+      ? `Found ${c.picked}. I'll start indexing it when you continue.`
+      : "Paste the contract address and I'll find which chain it is on. You can add it later too.";
   }
 
   // The plan step. PlanPicker owns the size/tier, so Cerebra stays general here.

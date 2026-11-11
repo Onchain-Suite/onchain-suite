@@ -32,7 +32,6 @@ import {
   type StepId,
 } from "./constants/guided";
 import { isStartPath } from "./constants/guided";
-import { DEFAULT_CHAIN } from "./data/chains";
 import {
   resolveResumeFlowStep,
   useCreateOrganization,
@@ -40,9 +39,10 @@ import {
   useOnboardingTracking,
 } from "./hooks";
 import { useOnboardingContracts } from "./hooks/use-onboarding-contracts";
-import { onboardingService } from "./onboarding.service";
+import { useStartIndexing } from "./hooks/use-start-indexing";
 import { type OnboardingData } from "./types";
 import { classify } from "./utils/contract-input";
+import { INDEXING_START_WAIT_MS, settleWithin } from "./utils/indexing-start";
 import { sectorGroupOf } from "./utils/sector";
 import {
   answersService,
@@ -174,9 +174,6 @@ export function OnboardingFlow() {
   // The developer invited from the technical step, so the DNS step can say the
   // records travel with that invite.
   const [handoffSentTo, setHandoffSentTo] = React.useState<string | null>(null);
-  // The chain a pasted address actually resolved on (from the real on-chain
-  // resolver) or the chain the user picked, so indexing uses it.
-  const [resolvedChain, setResolvedChain] = React.useState<string | null>(null);
   // A contract entered by hand on step 4 (the fallback when auto-find misses).
   const [manual, setManual] = React.useState<ManualContractDraft | null>(null);
 
@@ -188,7 +185,16 @@ export function OnboardingFlow() {
   }, []);
 
   // The one contract the backend indexes (see use-onboarding-contracts).
-  const allContracts = useOnboardingContracts(profile, resolvedChain, manual);
+  const allContracts = useOnboardingContracts(profile, manual);
+  const startIndexing = useStartIndexing();
+  // The contract's chain lives in one place, the profile, whichever step set
+  // it. A second copy here let an address found nowhere on the contract step
+  // fall back to the chain of the address it replaced.
+  const setContractChain = React.useCallback(
+    (chain: string | null) =>
+      setProfile((p) => ({ ...p, chains: chain ? [chain] : [] })),
+    []
+  );
 
   const at: StepId = flow[Math.min(stepIndex, flow.length - 1)];
 
@@ -273,6 +279,10 @@ export function OnboardingFlow() {
         setBusy(false);
         if (!ok) return;
         orgCreatedRef.current = true;
+        // The workspace exists, so a contract given on this step starts
+        // indexing now rather than after the plan. Settled (briefly) before
+        // the step is tracked: both write the same progress record.
+        await settleWithin(startIndexing(allContracts), INDEXING_START_WAIT_MS);
         // The workspace exists now: save what it starts from on it, so Home
         // has it on any device and a drop-off later still leaves the answer.
         if (profile.start) {
@@ -313,6 +323,9 @@ export function OnboardingFlow() {
     // step name, `guidedStep` for the real granularity) so drop-off per guided
     // step is visible; entering the plan flips to the plan_selection step.
     const next = stepIndex + 1;
+    if (at === "contract") {
+      await settleWithin(startIndexing(allContracts), INDEXING_START_WAIT_MS);
+    }
     if (at === "goal") {
       persistProfile(profile);
       if (profile.goal) saveWorkspaceAnswers({ goal: profile.goal });
@@ -421,25 +434,11 @@ export function OnboardingFlow() {
       console.error("Error completing onboarding:", error);
     }
 
-    // Index-after-plan: indexing is the part that costs, so it only starts once
-    // a plan is chosen. With a plan and at least one picked contract that has an
-    // address, kick off the initial historical indexing through the
-    // `connect-chain` task - which also marks that card done on the dashboard.
-    // Fire-and-forget: it must never delay the hop to the workspace.
-    if (user?.id && finalData.selectedPlan && allContracts.length > 0) {
-      onboardingService
-        .completeTask("connect-chain", {
-          contracts: allContracts.map((c) => ({
-            address: c.address,
-            chain: c.chain,
-            name: c.name,
-          })),
-          lookbackDays: 90,
-        })
-        .catch((error) => {
-          console.warn("Failed to start contract indexing:", error);
-        });
-    }
+    // Indexing was started as soon as the contract was known (the project or
+    // contract step). This covers a contract it could not be started for then;
+    // one already started is skipped. Fire-and-forget: it must never delay the
+    // hop to the workspace.
+    if (user?.id) startIndexing(allContracts).catch(() => undefined);
 
     push(PRIVATE_ROUTES.DASHBOARD);
   };
@@ -584,8 +583,8 @@ export function OnboardingFlow() {
           <StepContract
             value={profile.contract}
             onChange={(v) => setProfile((p) => ({ ...p, contract: v }))}
-            chain={resolvedChain ?? profile.chains[0] ?? DEFAULT_CHAIN}
-            onChain={setResolvedChain}
+            chain={profile.chains[0] ?? null}
+            onChain={setContractChain}
             manual={manual}
             onManual={setManual}
             chains={profile.chains}

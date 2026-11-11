@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { connectorFor } from "../../data/connectors";
+import { MIGRATION_CONSENT } from "../../data/migrations";
 import type { Migration } from "../../types/sources";
 import { ConnectorPanel } from "../connect/connector-panel";
 import { MigrationRun } from "./migration-run";
@@ -29,6 +30,7 @@ export function MigrateDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const def = migration ? connectorFor(migration.id) : null;
+  const isFile = migration?.category === "file";
 
   return (
     <Dialog open={Boolean(migration)} onOpenChange={onOpenChange}>
@@ -36,7 +38,11 @@ export function MigrateDialog({
         {migration ? (
           <>
             <DialogHeader>
-              <DialogTitle>Migrate from {migration.name}</DialogTitle>
+              <DialogTitle>
+                {isFile
+                  ? "Import a CSV file"
+                  : `Migrate from ${migration.name}`}
+              </DialogTitle>
               <DialogDescription>
                 <span className="font-medium text-foreground">
                   What comes across.
@@ -55,11 +61,7 @@ export function MigrateDialog({
                   <span>{migration.leaves}.</span>
                 </p>
               ) : null}
-              <p className="text-muted-foreground">
-                Contacts arrive suppressed-safe: anyone unsubscribed in{" "}
-                {migration.name} stays unsubscribed here, and nothing is sent to
-                anyone as part of a migration.
-              </p>
+              <p className="text-muted-foreground">{MIGRATION_CONSENT}</p>
             </div>
 
             {def ? (
@@ -69,9 +71,9 @@ export function MigrateDialog({
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  There&apos;s no direct importer for {migration.name} yet.
-                  Export your contacts from it as a CSV and import that: a
-                  wallet or email column, one row per contact.
+                  {isFile
+                    ? "Upload the file, match its columns to contact attributes, and preview the totals before anything imports."
+                    : `There's no direct importer for ${migration.name} yet. Export your contacts from it as a CSV and import that: a wallet or email column, one row per contact.`}
                 </p>
                 <Button asChild size="sm">
                   <Link href="/audience/import-export">Import a CSV</Link>

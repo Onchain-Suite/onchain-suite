@@ -70,13 +70,15 @@ export interface DataSource {
  * leave. So each migration states what comes across and what does not.
  */
 /** How migration tools group in the Migrate tab's filter. */
-export type MigrationCategory = "email" | "lifecycle" | "crm" | "web3";
+export type MigrationCategory = "email" | "lifecycle" | "crm" | "web3" | "file";
 
 export interface Migration {
   id: string;
   name: string;
   /** Which kind of tool this is, for the category filter. */
   category: MigrationCategory;
+  /** The vendor's own domain, which is where its icon comes from. */
+  domain?: string;
   /** What actually comes across. Named per tool because it genuinely differs. */
   brings: string;
   /** What does not, stated rather than discovered. */

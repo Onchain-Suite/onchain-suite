@@ -12,6 +12,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { useLocalStorage } from "@/hooks/client/use-local-storage";
@@ -23,6 +24,7 @@ import {
 import { AutomationStatsView } from "../components/automation-stats-view";
 import { DeleteLoopDialog } from "../components/delete-loop-dialog";
 import { LoopsTable } from "../components/loops-table";
+import { useDuplicateAutomation } from "../hooks/use-automations";
 import {
   LOOP_STATUS_LABEL,
   type LoopRow,
@@ -77,6 +79,11 @@ export function AutomationsListView() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pendingDelete, setPendingDelete] = useState<LoopRow | null>(null);
+  const router = useRouter();
+  // A copy is made to be changed, so it opens in the builder straight away.
+  const duplicate = useDuplicateAutomation((id) =>
+    router.push(`/automations/${id}`)
+  );
 
   // Debounce the search so we don't fire a request on every keystroke.
   useEffect(() => {
@@ -285,7 +292,14 @@ export function AutomationsListView() {
             {listQuery.isLoading ? (
               <TableSkeleton rows={5} />
             ) : rows.length > 0 ? (
-              <LoopsTable rows={rows} onDelete={setPendingDelete} />
+              <LoopsTable
+                rows={rows}
+                onDuplicate={(row) => duplicate.mutate(row.id)}
+                onDelete={setPendingDelete}
+                duplicatingId={
+                  duplicate.isPending ? (duplicate.variables ?? null) : null
+                }
+              />
             ) : (
               <EmptyState
                 icon={FlashIcon}

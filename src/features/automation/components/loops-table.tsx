@@ -1,6 +1,10 @@
 "use client";
 
-import { ArrowRight01Icon, Delete02Icon } from "@hugeicons/core-free-icons";
+import {
+  ArrowRight01Icon,
+  Copy01Icon,
+  Delete02Icon,
+} from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -39,16 +43,26 @@ export function LoopStatusBadge({ status }: { status: LoopStatus }) {
 const TH = "px-4 py-3 text-xs font-medium text-(--text-tertiary)";
 const TD = "px-4 py-3.5";
 
+// Hidden until the row is hovered or focused; always shown where there is no
+// hover to reveal them (touch).
+const ROW_ACTION =
+  "rounded-md p-1 text-(--text-tertiary) opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100 focus-visible:opacity-100 disabled:cursor-not-allowed [@media(hover:none)]:opacity-100";
+
 /**
  * The Loops list (2.7 columns). A row opens its Loop: click, or J/K to reach
- * it and Enter. Delete stays on the row, behind its own button.
+ * it and Enter. Duplicate and Delete stay on the row, behind their own buttons.
  */
 export function LoopsTable({
   rows,
+  onDuplicate,
   onDelete,
+  duplicatingId = null,
 }: {
   rows: LoopRow[];
+  onDuplicate: (row: LoopRow) => void;
   onDelete: (row: LoopRow) => void;
+  /** The Loop being copied right now, so it cannot be copied twice. */
+  duplicatingId?: string | null;
 }) {
   const router = useRouter();
   const open = (id: string) => router.push(`/automations/${id}`);
@@ -69,7 +83,7 @@ export function LoopsTable({
               Converted
             </th>
             <th className={cn(TH, "text-right")}>Last triggered</th>
-            <th className="w-20 px-4 py-3">
+            <th className="w-28 px-4 py-3">
               <span className="sr-only">Actions</span>
             </th>
           </tr>
@@ -123,13 +137,33 @@ export function LoopsTable({
                   <div className="flex items-center justify-end gap-1">
                     <button
                       type="button"
+                      disabled={duplicatingId !== null}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDuplicate(row);
+                      }}
+                      aria-label={`Duplicate ${row.name}`}
+                      title="Duplicate Loop"
+                      className={cn(
+                        ROW_ACTION,
+                        "hover:bg-(--tint-hover) hover:text-(--text-primary)",
+                        duplicatingId === row.id && "opacity-100"
+                      )}
+                    >
+                      <Icon icon={Copy01Icon} className="size-4" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onDelete(row);
                       }}
                       aria-label={`Delete ${row.name}`}
                       title="Delete Loop"
-                      className="rounded-md p-1 text-(--text-tertiary) opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100 hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100"
+                      className={cn(
+                        ROW_ACTION,
+                        "hover:bg-destructive/10 hover:text-destructive"
+                      )}
                     >
                       <Icon icon={Delete02Icon} className="size-4" />
                     </button>

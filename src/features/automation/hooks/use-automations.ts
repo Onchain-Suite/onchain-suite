@@ -24,3 +24,31 @@ export function useDeleteAutomation(onSuccess?: () => void) {
       ),
   });
 }
+
+/**
+ * Duplicate a Loop as a draft: its steps, trigger and email designs, none of
+ * its runs. `onDuplicated` gets the copy's id, so the caller can open it.
+ */
+export function useDuplicateAutomation(onDuplicated?: (id: string) => void) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => automationService.duplicateAutomation(id),
+    onSuccess: (result) => {
+      queryClient
+        .invalidateQueries({ queryKey: ["automations"] })
+        .catch(() => undefined);
+      const id =
+        typeof result?.automationId === "string" ? result.automationId : "";
+      if (!id) {
+        toast.success("Loop duplicated. The copy is in your drafts.");
+        return;
+      }
+      toast.success("Loop duplicated. Opening the copy.");
+      onDuplicated?.(id);
+    },
+    onError: (e) =>
+      toast.error(
+        e instanceof Error ? e.message : "Couldn't duplicate the Loop"
+      ),
+  });
+}

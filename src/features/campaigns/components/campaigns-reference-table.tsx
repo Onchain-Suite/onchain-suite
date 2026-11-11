@@ -1,10 +1,11 @@
 "use client";
 
 import {
-  EllipsisVerticalIcon,
-  NoSymbolIcon,
-  TrashIcon,
-} from "@heroicons/react/24/outline";
+  Copy01Icon,
+  Delete02Icon,
+  MoreVerticalIcon,
+  UnavailableIcon,
+} from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { campaignsService } from "../campaigns.service";
 import { CHANNEL_DISPLAY, channelKeysFor } from "../data/channels";
 import type { Campaign, CampaignStatus } from "../types/campaign";
+import { Icon } from "@/shared/components/common/hugeicon";
 
 const STATUS_META: Record<
   CampaignStatus,
@@ -268,12 +270,15 @@ function RateCells({ campaign }: { campaign: Campaign }) {
 export function CampaignsReferenceTable({
   data,
   onSelect,
+  onDuplicate,
   onDelete,
   onCancel,
 }: {
   data: Campaign[];
   /** Row click - opens the campaign detail drawer. */
   onSelect: (campaign: Campaign) => void;
+  /** Row menu - copies the campaign as a draft and opens the copy. */
+  onDuplicate: (campaign: Campaign) => void;
   /** Row menu - asks the list to confirm + delete the campaign. */
   onDelete: (campaign: Campaign) => void;
   /** Row menu - asks the list to confirm + cancel an in-flight/scheduled send. */
@@ -352,16 +357,17 @@ export function CampaignsReferenceTable({
                         aria-label={`Actions for ${campaign.name}`}
                         className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                       >
-                        <EllipsisVerticalIcon
-                          className="size-4"
-                          aria-hidden="true"
-                        />
+                        <Icon icon={MoreVerticalIcon} className="size-4" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onDuplicate(campaign)}>
+                        <Icon icon={Copy01Icon} className="size-4" />
+                        Duplicate
+                      </DropdownMenuItem>
                       {CANCELLABLE_STATUSES.has(campaign.status) ? (
                         <DropdownMenuItem onClick={() => onCancel(campaign)}>
-                          <NoSymbolIcon className="size-4" aria-hidden="true" />
+                          <Icon icon={UnavailableIcon} className="size-4" />
                           Cancel send
                         </DropdownMenuItem>
                       ) : null}
@@ -369,7 +375,7 @@ export function CampaignsReferenceTable({
                         variant="destructive"
                         onClick={() => onDelete(campaign)}
                       >
-                        <TrashIcon className="size-4" aria-hidden="true" />
+                        <Icon icon={Delete02Icon} className="size-4" />
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>

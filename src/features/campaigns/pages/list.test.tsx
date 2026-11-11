@@ -1,9 +1,18 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { campaignsService } from "../campaigns.service";
 import { CampaignsListsView } from "./list";
+
+const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
 // The reference table's row menu uses @/ui/dropdown-menu. This lightweight mock
 // renders the menu items inline (no portal/open state) so the row actions are
@@ -52,10 +61,7 @@ vi.mock("next/link", () => {
 
 vi.mock("next/navigation", () => {
   return {
-    useRouter: () => ({
-      push: vi.fn(),
-      replace: vi.fn(),
-    }),
+    useRouter: () => router,
     usePathname: () => "/campaigns",
     useSearchParams: () => new URLSearchParams(""),
   };
@@ -106,6 +112,11 @@ vi.mock("../campaigns.service", () => {
           createdAt: new Date(),
         },
       ]),
+      duplicateCampaign: vi.fn(async () => ({
+        id: "c_copy",
+        name: "Copy of Draft One",
+        status: "draft",
+      })),
       deleteCampaign: vi.fn(async () => undefined),
       cancelCampaign: vi.fn(async () => undefined),
       // Each sent row fetches its own funnel for the open/click-rate columns.
@@ -194,6 +205,37 @@ describe("CampaignsListsView", () => {
 
     expect(
       await screen.findByRole("heading", { name: /delete campaign/i })
+    ).toBeInTheDocument();
+  });
+
+  it("duplicates a campaign from its row menu and opens the copy", async () => {
+    renderWithClient(<CampaignsListsView />);
+
+    const row = (await screen.findByText("Draft One")).closest("tr");
+    fireEvent.click(
+      within(row as HTMLElement).getByRole("menuitem", { name: /duplicate/i })
+    );
+
+    await waitFor(() =>
+      expect(campaignsService.duplicateCampaign).toHaveBeenCalledWith(
+        "c_3",
+        undefined
+      )
+    );
+    // The copy opens in the wizard on its first step, ready to change.
+    await waitFor(() =>
+      expect(router.push).toHaveBeenCalledWith(
+        "/campaigns/new?campaign=c_copy&step=1"
+      )
+    );
+  });
+
+  it("offers Duplicate on a sent campaign too, to send it again", async () => {
+    renderWithClient(<CampaignsListsView />);
+
+    const row = (await screen.findByText("Welcome")).closest("tr");
+    expect(
+      within(row as HTMLElement).getByRole("menuitem", { name: /duplicate/i })
     ).toBeInTheDocument();
   });
 });

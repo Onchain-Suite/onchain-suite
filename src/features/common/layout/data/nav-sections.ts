@@ -1,11 +1,11 @@
 import {
   AiBrain01Icon,
   ChartLineData01Icon,
-  DashboardSquare01Icon,
   DatabaseIcon,
-  FlashIcon,
+  Home01Icon,
   InboxIcon,
   Megaphone01Icon,
+  RepeatIcon,
   TaskDaily01Icon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
@@ -46,7 +46,7 @@ const RAW: NavSection[] = [
       {
         title: "Home",
         url: PRIVATE_ROUTES.DASHBOARD,
-        icon: hugeicon(DashboardSquare01Icon, "HomeGlyph"),
+        icon: hugeicon(Home01Icon, "HomeGlyph"),
       },
       {
         title: "Inbox",
@@ -71,7 +71,7 @@ const RAW: NavSection[] = [
       {
         title: "Loops",
         url: PRIVATE_ROUTES.AUTOMATIONS,
-        icon: hugeicon(FlashIcon, "LoopsGlyph"),
+        icon: hugeicon(RepeatIcon, "LoopsGlyph"),
       },
       {
         title: "Forms",

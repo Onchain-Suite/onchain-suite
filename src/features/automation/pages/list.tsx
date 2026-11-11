@@ -3,10 +3,10 @@
 import {
   ChartLineData01Icon,
   Clock01Icon,
-  FlashIcon,
   LayerIcon,
   Mail01Icon,
   PlusSignIcon,
+  RepeatIcon,
   Search01Icon,
   TaskDaily01Icon,
 } from "@hugeicons/core-free-icons";
@@ -53,7 +53,7 @@ const FILTERS: Filter[] = ["all", "active", "paused", "draft"];
 const PER_PAGE = 10;
 
 const NewGlyph = hugeicon(PlusSignIcon, "NewGlyph");
-const LoopGlyph = hugeicon(FlashIcon, "LoopGlyph");
+const LoopGlyph = hugeicon(RepeatIcon, "LoopGlyph");
 
 const VIEW_TABS: PageTabItem[] = [
   { id: "automations", label: "Loops", icon: hugeicon(LayerIcon, "LoopsTab") },
@@ -302,7 +302,7 @@ export function AutomationsListView() {
               />
             ) : (
               <EmptyState
-                icon={FlashIcon}
+                icon={RepeatIcon}
                 title="No Loops match"
                 description="Try a different search, or switch to All."
               />

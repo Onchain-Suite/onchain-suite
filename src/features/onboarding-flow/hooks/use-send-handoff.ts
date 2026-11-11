@@ -9,8 +9,27 @@ import { getSelectedOrganizationId } from "@/lib/utils";
 import {
   INVITE_RATE_LIMIT_MESSAGE,
   isRateLimitError,
+  isSeatLimitError,
   organizationMembersService,
 } from "@/features/settings/organization-members.service";
+
+/**
+ * A new workspace's seats are enough for the owner and the developer they hand
+ * setup to. Inviting more people than that from inside the wizard hits the
+ * seat limit, and a seat cannot be added here: Billing is on the other side of
+ * setup. So the way forward is to finish (or skip) setup first.
+ */
+export const HANDOFF_SEATS_FULL_MESSAGE =
+  "Your workspace's seats are all taken. Finish or skip setup, add a seat in Settings, Billing, then invite them from Settings, Team.";
+
+/** What to say when the handoff invite did not go out. */
+export function handoffFailureMessage(error: unknown): string {
+  if (isSeatLimitError(error)) return HANDOFF_SEATS_FULL_MESSAGE;
+  if (isRateLimitError(error)) return INVITE_RATE_LIMIT_MESSAGE;
+  return error instanceof Error && error.message
+    ? error.message
+    : "Failed to send the invite.";
+}
 
 /**
  * Hand the technical setup to whoever holds the credentials.
@@ -51,13 +70,7 @@ export function useSendHandoff() {
         });
         return true;
       } catch (error) {
-        toast.error(
-          isRateLimitError(error)
-            ? INVITE_RATE_LIMIT_MESSAGE
-            : error instanceof Error
-              ? error.message
-              : "Failed to send the invite."
-        );
+        toast.error(handoffFailureMessage(error));
         return false;
       }
     },

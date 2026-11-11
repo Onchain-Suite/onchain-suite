@@ -84,13 +84,36 @@ export interface AcceptInviteResult {
  */
 export class OrganizationMembersError extends Error {
   readonly status: number | null;
+  /** The plan limit that refused the request (`"seats"`), on a 402. */
+  readonly limitKey: string | null;
 
-  constructor(message: string, status: number | null, cause?: unknown) {
+  constructor(
+    message: string,
+    status: number | null,
+    cause?: unknown,
+    limitKey: string | null = null
+  ) {
     super(message, { cause });
     this.name = "OrganizationMembersError";
     this.status = status;
+    this.limitKey = limitKey;
   }
 }
+
+/**
+ * True when an invite was refused because every seat is taken. The backend
+ * answers 402 `PLAN_LIMIT_EXCEEDED` with `limitKey: "seats"` once members and
+ * pending invites fill the workspace's seats. Its own message says "Upgrade to
+ * raise the limit", which is not the way out here: a seat is added in Billing.
+ * Callers say that instead (see {@link SEATS_FULL_MESSAGE}).
+ */
+export const isSeatLimitError = (error: unknown): boolean =>
+  error instanceof OrganizationMembersError &&
+  error.status === 402 &&
+  (error.limitKey === null || error.limitKey === "seats");
+
+export const SEATS_FULL_MESSAGE =
+  "All of this workspace's seats are taken. Add a seat in Billing, then send the invite.";
 
 /** True when the error is the invite endpoints' 5/min rate limit. */
 export const isRateLimitError = (error: unknown): boolean =>
@@ -140,7 +163,13 @@ const request = async <T>(
         : typeof backendMessage === "string" && backendMessage.length > 0
           ? backendMessage
           : (err.message ?? "Organization members request failed");
-    throw new OrganizationMembersError(String(message), status, e);
+    const limitKey =
+      isJsonObject(data) && typeof data.limitKey === "string"
+        ? data.limitKey
+        : isJsonObject(nestedError) && typeof nestedError.limitKey === "string"
+          ? nestedError.limitKey
+          : null;
+    throw new OrganizationMembersError(String(message), status, e, limitKey);
   }
 };
 

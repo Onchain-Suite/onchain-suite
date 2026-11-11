@@ -7,21 +7,22 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { apiClient } from "@/lib/api-client";
-import { cn } from "@/lib/utils";
 
 import { usePagination } from "../../hooks/use-pagination";
 import { ListPager } from "../list-pager";
 import { SettingsCard } from "../settings-card";
+import { BILLING_HREF, TeamSeats } from "./team-seats";
 import { useAccountOrg } from "./use-account-org";
 import { billingService } from "@/features/billing/billing.service";
 import {
   includedSeatsForPlan,
-  SEAT_PRICE_USD,
-  seatBilling,
+  seatUsage,
 } from "@/features/billing/seat-pricing";
 import {
   type AssignableRole,
+  isSeatLimitError,
   organizationMembersService,
+  SEATS_FULL_MESSAGE,
 } from "@/features/settings/organization-members.service";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -97,8 +98,16 @@ export function TeamCard() {
       setDraft({ email: "", role: "EDITOR" });
       toast.success("Invite sent");
     },
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Failed to send invite"),
+    onError: (e: unknown) => {
+      // Someone else may have taken the last seat since this card loaded: say
+      // where a seat is added, and re-read so the card shows it as full.
+      if (isSeatLimitError(e)) {
+        toast.error(SEATS_FULL_MESSAGE);
+        invalidate().catch(() => undefined);
+        return;
+      }
+      toast.error(e instanceof Error ? e.message : "Failed to send invite");
+    },
   });
 
   const roleMutation = useMutation({
@@ -176,25 +185,20 @@ export function TeamCard() {
   );
   const pager = usePagination(teamRows, TEAM_PER_PAGE);
 
+  // Seats are bought ahead (the plan's, plus any added in Billing) and the
+  // backend refuses an invite once members and pending invites fill them.
+  // Pending invites are not in the backend's meter, so they are added here.
   const seatMeter = planUsageQuery.data?.meters?.seats;
-  const seatLimit =
-    seatMeter?.limit ??
-    (planUsageQuery.data?.plan
-      ? includedSeatsForPlan(planUsageQuery.data.plan)
-      : undefined);
-  const seatUsed = seatMeter?.used ?? members.length + invites.length;
-  const hasSeatMeter = typeof seatLimit === "number" && seatLimit > 0;
-  const seatsFull = hasSeatMeter && seatUsed >= seatLimit;
-  const seatPercent = hasSeatMeter
-    ? Math.min(100, Math.round((seatUsed / seatLimit) * 100))
-    : 0;
-  // Seats are usage-billed: adding a member past the included allowance bills
-  // the extra at $10/mo on the next invoice (no separate purchase). Drive the
-  // "+$10/mo" disclosure and the current extra-seat cost off the SSOT helper.
-  const seats = seatBilling(seatUsed, seatLimit);
-  // Only disclose the charge when we actually know the allowance; without the
-  // meter we can't tell a free seat from a billable one, so don't guess.
-  const nextSeatBillable = hasSeatMeter && seats.nextIsBillable;
+  const seats = seatUsage({
+    members: seatMeter?.used ?? members.length,
+    pendingInvites: invites.length,
+    limit:
+      seatMeter?.limit ??
+      (planUsageQuery.data?.plan
+        ? includedSeatsForPlan(planUsageQuery.data.plan)
+        : undefined),
+  });
+  const seatsFull = seats?.isFull === true;
 
   return (
     <SettingsCard
@@ -202,7 +206,13 @@ export function TeamCard() {
       title="Team"
       description="Access and member roles"
       action={
-        !inviting ? (
+        seatsFull ? (
+          // No seat to give: the next step is adding one, not an invite the
+          // backend would refuse.
+          <Button size="sm" asChild>
+            <Link href={BILLING_HREF}>Add a seat</Link>
+          </Button>
+        ) : !inviting ? (
           <Button
             size="sm"
             onClick={() => setInviting(true)}
@@ -214,50 +224,11 @@ export function TeamCard() {
         ) : null
       }
     >
-      {hasSeatMeter ? (
-        <div className="mb-4 rounded-xl border border-border/60 bg-background/40 p-4">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium text-foreground">Seats</span>
-            <span className="tabular-nums text-muted-foreground">
-              {seatUsed} of {seatLimit} used
-            </span>
-          </div>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className={cn(
-                "h-full rounded-full transition-[width] duration-300",
-                seatsFull ? "bg-amber-500" : "bg-primary"
-              )}
-              style={{ width: `${seatPercent}%` }}
-            />
-          </div>
-          {seats.extraSeats > 0 ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {seats.extraSeats} extra{" "}
-              {seats.extraSeats === 1 ? "seat" : "seats"} beyond your plan ·{" "}
-              <span className="font-medium text-foreground">
-                +${seats.extraMonthlyUsd}/mo
-              </span>{" "}
-              on your invoice. Manage in{" "}
-              <Link
-                href="/settings?tab=billing"
-                className="font-medium text-foreground underline-offset-2 hover:underline"
-              >
-                Billing
-              </Link>
-              .
-            </p>
-          ) : seatsFull ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              All {seatLimit} included seats are in use. Inviting another
-              teammate adds a seat at ${SEAT_PRICE_USD}/mo, billed on your next
-              invoice.
-            </p>
-          ) : null}
-        </div>
+      {seats ? (
+        <TeamSeats usage={seats} pendingInvites={invites.length} />
       ) : null}
 
-      {inviting ? (
+      {inviting && !seatsFull ? (
         <form
           className="mb-4 grid gap-3 rounded-xl border border-border/60 bg-background/40 p-4 sm:grid-cols-[1fr_auto]"
           onSubmit={(e) => {
@@ -288,23 +259,9 @@ export function TeamCard() {
               ))}
             </SelectContent>
           </Select>
-          {nextSeatBillable ? (
-            <p className="text-xs text-muted-foreground sm:col-span-2">
-              This teammate uses an extra seat.{" "}
-              <span className="font-medium text-foreground">
-                +${SEAT_PRICE_USD}/mo
-              </span>{" "}
-              will be added to your plan and billed on your next invoice once
-              they accept.
-            </p>
-          ) : null}
           <div className="flex gap-2 sm:col-span-2">
             <Button type="submit" size="sm" disabled={inviteMutation.isPending}>
-              {inviteMutation.isPending
-                ? "Sending…"
-                : nextSeatBillable
-                  ? `Add seat & invite · +$${SEAT_PRICE_USD}/mo`
-                  : "Send invite"}
+              {inviteMutation.isPending ? "Sending…" : "Send invite"}
             </Button>
             <Button
               type="button"

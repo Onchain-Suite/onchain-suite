@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   clampExtraSeats,
   includedSeatsForPlan,
-  SEAT_PRICE_USD,
-  seatBilling,
+  seatUsage,
 } from "./seat-pricing";
 
 describe("includedSeatsForPlan", () => {
@@ -26,36 +25,43 @@ describe("clampExtraSeats", () => {
   });
 });
 
-describe("seatBilling", () => {
-  it("is free and the next seat is free while under the allowance", () => {
-    const b = seatBilling(2, 4);
-    expect(b.extraSeats).toBe(0);
-    expect(b.extraMonthlyUsd).toBe(0);
-    expect(b.nextIsBillable).toBe(false);
-  });
-
-  it("flags the next seat as billable once the allowance is exactly full", () => {
-    const b = seatBilling(4, 4);
-    expect(b.extraSeats).toBe(0);
-    expect(b.nextIsBillable).toBe(true);
-  });
-
-  it("prices seats beyond the allowance at the SSOT rate", () => {
-    const b = seatBilling(6, 4);
-    expect(b.extraSeats).toBe(2);
-    expect(b.extraMonthlyUsd).toBe(2 * SEAT_PRICE_USD);
-    expect(b.nextIsBillable).toBe(true);
-  });
-
-  it("clamps non-finite / negative inputs to zero", () => {
-    expect(seatBilling(NaN, 4)).toEqual({
-      extraSeats: 0,
-      extraMonthlyUsd: 0,
-      nextIsBillable: false,
+describe("seatUsage", () => {
+  it("counts members and pending invites as taken", () => {
+    expect(seatUsage({ members: 1, pendingInvites: 1, limit: 4 })).toEqual({
+      taken: 2,
+      limit: 4,
+      free: 2,
+      isFull: false,
+      percent: 50,
     });
-    expect(seatBilling(5, undefined)).toMatchObject({
-      extraSeats: 5,
-      nextIsBillable: true,
-    });
+  });
+
+  // The backend refuses the next invite at members + pending invites = limit.
+  it("is full when a pending invite holds the last seat", () => {
+    const u = seatUsage({ members: 1, pendingInvites: 1, limit: 2 });
+    expect(u).toMatchObject({ taken: 2, free: 0, isFull: true, percent: 100 });
+  });
+
+  it("stays full, and caps the meter, when over the limit", () => {
+    const u = seatUsage({ members: 5, pendingInvites: 0, limit: 2 });
+    expect(u).toMatchObject({ taken: 5, free: 0, isFull: true, percent: 100 });
+  });
+
+  it("says nothing when the limit is unknown or the plan has none", () => {
+    expect(seatUsage({ members: 3, pendingInvites: 0, limit: undefined })).toBe(
+      null
+    );
+    expect(seatUsage({ members: 3, pendingInvites: 0, limit: -1 })).toBeNull();
+    expect(seatUsage({ members: 3, pendingInvites: 0, limit: 0 })).toBeNull();
+    expect(seatUsage({ members: 3, pendingInvites: 0, limit: NaN })).toBeNull();
+  });
+
+  it("treats missing or junk counts as zero", () => {
+    expect(
+      seatUsage({ members: NaN, pendingInvites: undefined, limit: 2 })
+    ).toMatchObject({ taken: 0, free: 2, isFull: false });
+    expect(
+      seatUsage({ members: -3, pendingInvites: null, limit: 2 })
+    ).toMatchObject({ taken: 0 });
   });
 });

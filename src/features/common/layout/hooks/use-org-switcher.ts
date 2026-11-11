@@ -307,11 +307,26 @@ export function useOrgSwitcher(): UseOrgSwitcher {
     };
     // A request was refused because the workspace is gone or this person was
     // removed from it (see `reportOrgAccessLost`). A page fires many requests
-    // at once, so the gap between reads turns the burst into one.
-    const onAccessLost = () => settled(refresh());
+    // at once, so the burst becomes one read. If the list was read moments
+    // ago the read is put off until the gap has passed, not dropped: a page
+    // that has finished loading may never fire another request to ask again.
+    let pending: number | null = null;
+    const onAccessLost = () => {
+      if (pending !== null) return;
+      const wait = REFRESH_MIN_GAP_MS - organizationListAgeMs();
+      if (wait <= 0) {
+        settled(refresh());
+        return;
+      }
+      pending = window.setTimeout(() => {
+        pending = null;
+        settled(refresh(true));
+      }, wait);
+    };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener(ORG_ACCESS_LOST_EVENT, onAccessLost);
     return () => {
+      if (pending !== null) window.clearTimeout(pending);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener(ORG_ACCESS_LOST_EVENT, onAccessLost);
     };

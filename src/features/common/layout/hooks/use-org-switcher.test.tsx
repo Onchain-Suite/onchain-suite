@@ -145,6 +145,32 @@ describe("useOrgSwitcher", () => {
     expect(vi.mocked(apiClient.get)).toHaveBeenCalledTimes(2);
   });
 
+  // The list was read a moment ago, so the read is too soon to repeat. It
+  // used to be dropped, and a page that had finished loading never asked again.
+  it("puts off the re-read when the list is fresh, and still makes it", async () => {
+    document.cookie = `${ORG_SELECTION_COOKIE}=org_2; path=/`;
+    listReturns([ACME, BETA], [ACME]);
+    const { result } = renderHook(() => useOrgSwitcher());
+    await waitFor(() => expect(result.current.organizations).toHaveLength(2));
+
+    vi.useFakeTimers();
+    act(() => {
+      window.dispatchEvent(new CustomEvent(ORG_ACCESS_LOST_EVENT));
+      window.dispatchEvent(new CustomEvent(ORG_ACCESS_LOST_EVENT));
+    });
+    // Nothing yet: the first read was seconds ago.
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(16_000);
+    });
+    vi.useRealTimers();
+
+    await waitFor(() => expect(result.current.organizations).toEqual([ACME]));
+    expect(vi.mocked(apiClient.get)).toHaveBeenCalledTimes(2);
+    expect(document.cookie).toContain(`${ORG_SELECTION_COOKIE}=org_1`);
+  });
+
   it("keeps the list on screen when a refresh fails", async () => {
     listReturns([ACME, BETA]);
     const { result } = renderHook(() => useOrgSwitcher());

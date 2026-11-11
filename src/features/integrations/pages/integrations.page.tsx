@@ -34,8 +34,8 @@ import {
  * Integrations (2.7): every connection to something outside, sources in and
  * channels out, on one screen with six tabs. The header and the tabs stay put
  * and each tab moves inside the space under them, so the page fits the window:
- * Sources, Migrate, Webhooks and API lay out their own scrolling boxes, and
- * Events and Channels scroll as one. Below md the page scrolls as usual.
+ * Sources, Events, Migrate, Webhooks and API lay out their own scrolling
+ * boxes, and Channels scrolls as one. Below md the page scrolls as usual.
  */
 
 type TabId = "sources" | "events" | "migrate" | "channels" | "webhooks" | "api";
@@ -55,6 +55,7 @@ const isTab = (v: string | null): v is TabId => TABS.some((t) => t.key === v);
 /** Tabs that lay out their own scrolling boxes inside the panel. */
 const SELF_SCROLLING = new Set<TabId>([
   "sources",
+  "events",
   "migrate",
   "webhooks",
   "api",

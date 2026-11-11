@@ -1,17 +1,12 @@
 "use client";
 
-import {
-  BoltIcon,
-  CodeBracketIcon,
-  PlusIcon,
-} from "@heroicons/react/24/outline";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ComponentType, SVGProps } from "react";
 import { useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-
+import { connectionsService } from "../connections.service";
+import { contractsTile, productEventsTile } from "../utils/events";
+import { ContractsView } from "./events/contracts-view";
+import { EventsHealth } from "./events/events-health";
 import { ProductEvents } from "./events/product-events";
 import { ImportContractsDialog } from "@/features/audience/components/import-contracts-dialog";
 import {
@@ -20,24 +15,27 @@ import {
 } from "@/features/settings/components/account/project-card";
 import { useAccountOrg } from "@/features/settings/components/account/use-account-org";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
+import { Segmented } from "@/shared/components/page/segmented";
 
-function shortAddress(addr: string): string {
-  return addr.length > 18 ? `${addr.slice(0, 10)}…${addr.slice(-6)}` : addr;
-}
+type View = "contracts" | "product";
 
 /**
- * The Events tab: the inputs Loops trigger on. Indexed contracts come from
- * project settings; product events from `GET /events/catalog` (what arrived
- * through the events API in the last 30 days).
+ * The Events tab (2.7): the inputs Loops and segments are built on. Health
+ * stays on top; under it the two lists are views of the same space, switched
+ * by a segmented control, each filling the window and scrolling inside its
+ * own box. Indexed contracts come from project settings; product events from
+ * `GET /events/catalog` (what arrived through the events API lately).
  */
 export function EventsTab() {
   const { organizationId } = useAccountOrg();
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [view, setView] = useState<View>("contracts");
+  const enabled = Boolean(organizationId);
 
   const settingsQuery = useQuery({
     queryKey: projectSettingsKey(organizationId),
-    enabled: Boolean(organizationId),
+    enabled,
     retry: false,
     queryFn: () =>
       projectSettingsService.getProjectSettings(organizationId ?? undefined),
@@ -45,11 +43,22 @@ export function EventsTab() {
 
   const chainsQuery = useQuery({
     queryKey: supportedChainsKey(organizationId),
-    enabled: Boolean(organizationId),
+    enabled,
     retry: false,
     staleTime: 30 * 60 * 1000,
     queryFn: () =>
       projectSettingsService.getSupportedChains(organizationId ?? undefined),
+  });
+
+  // Read here, not in the pane, so the health tile and the tab's count are
+  // right before the Product events view is opened.
+  const catalogQuery = useQuery({
+    queryKey: ["events", "catalog", organizationId],
+    enabled,
+    retry: false,
+    staleTime: 5 * 60_000,
+    queryFn: () =>
+      connectionsService.eventsCatalog(organizationId ?? undefined),
   });
 
   const contracts = useMemo(
@@ -63,106 +72,76 @@ export function EventsTab() {
     return (slug?: string) => (slug ? (map.get(slug) ?? slug) : "-");
   }, [chainsQuery.data]);
 
+  const eventCount = catalogQuery.data?.events.length;
+  const tiles = useMemo(
+    () => [
+      contractsTile(settingsQuery.isSuccess ? contracts.length : null),
+      productEventsTile(catalogQuery.isError ? null : catalogQuery.data),
+    ],
+    [
+      settingsQuery.isSuccess,
+      contracts.length,
+      catalogQuery.isError,
+      catalogQuery.data,
+    ]
+  );
+
+  const options = useMemo(
+    () => [
+      {
+        key: "contracts" as const,
+        label: settingsQuery.isSuccess
+          ? `Indexed contracts · ${contracts.length}`
+          : "Indexed contracts",
+      },
+      {
+        key: "product" as const,
+        label:
+          eventCount === undefined
+            ? "Product events"
+            : `Product events · ${eventCount}`,
+      },
+    ],
+    [settingsQuery.isSuccess, contracts.length, eventCount]
+  );
+
   return (
-    <div className="space-y-10">
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <SectionHeading
-            icon={BoltIcon}
-            title="Indexed contracts"
-            blurb="Every behavioural trigger comes from here. A contract we do not index is a wallet we cannot segment, score or message about."
-          />
-          <Button size="sm" onClick={() => setAdding(true)}>
-            <PlusIcon aria-hidden="true" className="mr-1.5 size-4" />
-            Add contract
-          </Button>
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col gap-3.5">
+      <div className="shrink-0">
+        <EventsHealth tiles={tiles} />
+      </div>
+      <Segmented
+        className="shrink-0 self-start"
+        label="Events to show"
+        options={options}
+        value={view}
+        onChange={setView}
+      />
 
-        {settingsQuery.isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-12 w-full rounded-xl" />
-            <Skeleton className="h-12 w-full rounded-xl" />
-          </div>
-        ) : contracts.length === 0 ? (
-          <EmptyState text="No contracts indexed yet. Add one to start segmenting on-chain behaviour." />
-        ) : (
-          <div className="overflow-hidden rounded-xl border border-border">
-            <div className="grid grid-cols-[1fr_auto] gap-4 border-b border-border bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground">
-              <span>Contract</span>
-              <span>Chain</span>
-            </div>
-            {contracts.map((c) => (
-              <div
-                key={`${c.chain ?? ""}-${c.address}`}
-                className="grid grid-cols-[1fr_auto] items-center gap-4 border-b border-border px-4 py-3 last:border-0"
-              >
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-foreground">
-                    {c.label ?? shortAddress(c.address)}
-                  </span>
-                  {c.label ? (
-                    <span className="block truncate font-mono text-xs text-muted-foreground">
-                      {shortAddress(c.address)}
-                    </span>
-                  ) : null}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {chainLabel(c.chain)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="space-y-3">
-        <SectionHeading
-          icon={CodeBracketIcon}
-          title="Product events"
-          blurb="What customers do inside your own app, sent through the SDK. The other half of every segment that crosses both lanes."
+      {view === "contracts" ? (
+        <ContractsView
+          contracts={contracts}
+          isLoading={settingsQuery.isLoading}
+          chainLabel={chainLabel}
+          onAdd={() => setAdding(true)}
         />
-        <ProductEvents orgId={organizationId} />
-      </section>
+      ) : (
+        <ProductEvents
+          catalog={catalogQuery.data}
+          isLoading={catalogQuery.isLoading}
+          error={catalogQuery.error ? catalogQuery.error.message : null}
+        />
+      )}
 
       <ImportContractsDialog
         open={adding}
         onOpenChange={setAdding}
         onImported={() => {
-          queryClient.invalidateQueries({
-            queryKey: projectSettingsKey(organizationId),
-          });
+          queryClient
+            .invalidateQueries({ queryKey: projectSettingsKey(organizationId) })
+            .catch(() => undefined);
         }}
       />
-    </div>
-  );
-}
-
-function SectionHeading({
-  icon: Icon,
-  title,
-  blurb,
-}: {
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
-  title: string;
-  blurb: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
-        <Icon aria-hidden="true" className="size-4" />
-      </span>
-      <div>
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        <p className="max-w-xl text-xs text-muted-foreground">{blurb}</p>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center text-sm text-muted-foreground">
-      {text}
     </div>
   );
 }

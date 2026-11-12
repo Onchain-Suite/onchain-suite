@@ -173,13 +173,21 @@ export function planSubmit(input: {
   current?: CurrentPlanSize | null;
   selection: "suite" | "send" | "payg";
   submitLabel?: string;
-  /** The quote for the slider's size: its plan name and price without seats. */
-  quote?: { planLabel?: string; monthlyPrice?: number } | null;
+  /**
+   * The quote the picker holds: its plan name, its price without seats, and
+   * the size it was priced for. While a new size is being quoted the picker
+   * still holds the LAST quote, so the size is checked before a price is used.
+   */
+  quote?: { planLabel?: string; monthlyPrice?: number; units?: number } | null;
   paymentMethod: "card" | "crypto";
   /** Seats added on the stepper. */
   extraSeats?: number;
 }): { change: PlanChange; disabled: boolean; label: string; hint: string } {
   const isPayg = input.resolvedPlan === "payg";
+  // A price is named only when it is the price of the size that will be
+  // bought. The quote lags the slider by a request; for that moment its price
+  // belongs to the previous size, and the button already submits the new one.
+  const quotedForThisSize = input.quote?.units === Math.round(input.units);
   const change = planChange({
     resolvedPlan: input.resolvedPlan,
     currentPlan: (input.currentPlan ?? "").trim().toLowerCase(),
@@ -211,7 +219,7 @@ export function planSubmit(input: {
       chargedNow: input.current?.upgradeChargedNow === true,
       extraSeats: input.extraSeats,
       currentMonthly: input.current?.monthlyPrice,
-      newMonthly: input.quote?.monthlyPrice,
+      newMonthly: quotedForThisSize ? input.quote?.monthlyPrice : null,
     }),
   };
 }

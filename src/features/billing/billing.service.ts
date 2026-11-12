@@ -857,7 +857,7 @@ const requestWithRetry = async <T>(
   }
 };
 
-const billingRequest = async <T>(
+export const billingRequest = async <T>(
   config: AxiosRequestConfig,
   options?: BillingServiceOptions
 ): Promise<T> => {

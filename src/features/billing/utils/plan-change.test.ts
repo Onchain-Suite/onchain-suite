@@ -285,8 +285,74 @@ describe("planSubmit", () => {
     });
     expect(out.label).toBe("Update to 5,000 contacts");
     expect(out.hint).toBe(
-      "Your card is charged the difference for this period now, about $26, with no checkout. From your next renewal it is $65/mo."
+      "Your card is charged the difference for this period now, about $26, with no checkout. From your next renewal the plan is $65/mo."
     );
+  });
+
+  // Review finding: with seats added on the stepper the headline shows plan
+  // plus seats, and "it is $65/mo" read as the total. The change made here
+  // does not buy seats at all.
+  it("calls the renewal figure the plan's, and says seats are not part of this", () => {
+    const withSeats = planSubmit({
+      ...base,
+      quote: { planLabel: "Launch", monthlyPrice: 65 },
+      resolvedPlan: "launch",
+      currentPlan: "launch",
+      units: 5_000,
+      current: { ...subscriber(2_500), monthlyPrice: 39 },
+      extraSeats: 2,
+    });
+    expect(withSeats.hint).toMatch(/the plan is \$65\/mo/);
+    expect(withSeats.hint).toMatch(
+      /Seats are not changed here; add or remove them in Manage billing\.$/
+    );
+
+    const noSeats = planSubmit({
+      ...base,
+      quote: { planLabel: "Launch", monthlyPrice: 65 },
+      resolvedPlan: "launch",
+      currentPlan: "launch",
+      units: 5_000,
+      current: { ...subscriber(2_500), monthlyPrice: 39 },
+      extraSeats: 0,
+    });
+    expect(noSeats.hint).not.toMatch(/Seats/);
+  });
+
+  it("says the same about seats on a smaller size and on an older server", () => {
+    const smaller = planSubmit({
+      ...base,
+      resolvedPlan: "launch",
+      currentPlan: "launch",
+      units: 2_500,
+      current: { ...subscriber(5_000), monthlyPrice: 65 },
+      extraSeats: 1,
+    });
+    expect(smaller.hint).toMatch(/Seats are not changed here/);
+
+    const older = planSubmit({
+      ...base,
+      resolvedPlan: "launch",
+      currentPlan: "launch",
+      units: 12_000,
+      current: { ...subscriber(5_000), upgradeChargedNow: false },
+      extraSeats: 1,
+    });
+    expect(older.hint).toMatch(/added to your next invoice/);
+    expect(older.hint).toMatch(/Seats are not changed here/);
+  });
+
+  it("does not mention seats to someone going to a checkout, where they are bought", () => {
+    const out = planSubmit({
+      selection: "suite",
+      resolvedPlan: "launch",
+      units: 11_000,
+      quote: { planLabel: "Launch", monthlyPrice: 126 },
+      paymentMethod: "card",
+      extraSeats: 3,
+    });
+    expect(out.hint).toMatch(/secure Stripe checkout page/);
+    expect(out.hint).not.toMatch(/Seats/);
   });
 
   it("says a smaller size waits for renewal and moves no money now", () => {

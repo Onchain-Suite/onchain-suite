@@ -14,7 +14,7 @@ describe("checkoutReturnNotice", () => {
   it("confirms a change of size, and asks for the figures to be read again", () => {
     expect(checkoutReturnNotice({ subscription: "updated" })).toEqual({
       kind: "success",
-      message: "Plan updated. Your next invoice reflects the change.",
+      message: "Plan updated. The price below is what you pay now.",
       refresh: true,
     });
   });

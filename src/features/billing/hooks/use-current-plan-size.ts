@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { getSelectedOrganizationId } from "@/lib/utils";
+import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import { billingService } from "../billing.service";
 import type { CurrentPlanSize } from "../utils/plan-change";
@@ -45,8 +45,16 @@ export function useCurrentPlanSize(): CurrentPlanSize {
 
   const sub = subscription.data;
   if (!subscription.isSuccess || !sub) {
-    return { units: null, hasSubscription: false, canResize: false };
+    return {
+      units: null,
+      hasSubscription: false,
+      canResize: false,
+      monthlyPrice: null,
+      upgradeChargedNow: false,
+    };
   }
+  // `plan` is typed as a name but arrives as an object carrying the price.
+  const plan: unknown = usage.data?.plan;
   return {
     // A subscription knows its own size; otherwise the plan's contact limit
     // is the size that was paid for.
@@ -56,5 +64,7 @@ export function useCurrentPlanSize(): CurrentPlanSize {
       positive(usage.data?.meters?.contacts?.limit),
     hasSubscription: sub.hasSubscription === true,
     canResize: sub.canResize === true,
+    monthlyPrice: isJsonObject(plan) ? positive(plan.monthlyPrice) : null,
+    upgradeChargedNow: sub.upgradeChargedNow === true,
   };
 }

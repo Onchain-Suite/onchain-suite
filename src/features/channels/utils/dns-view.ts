@@ -39,43 +39,36 @@ export const DNS_GROUPS: readonly DnsGroup[] = [
   { id: "other", title: "Other records", why: "" },
 ];
 
-/** Registrable suffixes that are two labels long, so the zone is three. */
-const TWO_LEVEL_SUFFIXES = new Set([
-  "co.uk",
-  "org.uk",
-  "ac.uk",
-  "gov.uk",
-  "com.au",
-  "net.au",
-  "org.au",
-  "co.nz",
-  "co.za",
-  "com.ng",
-  "co.in",
-  "co.jp",
-  "co.kr",
-  "com.br",
-  "com.mx",
-  "com.sg",
-  "com.tr",
-  "com.ar",
-  "com.hk",
-  "co.id",
-  "co.il",
-  "co.ke",
-  "com.gh",
-]);
-
 const clean = (value: string) => value.trim().toLowerCase().replace(/\.$/, "");
 
 /**
- * The zone a domain's records are added to: the registrable domain. For
- * "mail.acme.com" that is "acme.com"; for "mail.acme.co.uk", "acme.co.uk".
+ * The zone a domain's records are added to: its registrable domain. For
+ * "mail.acme.com" that is "acme.com"; for "mail.acme.com.cn", "acme.com.cn".
+ *
+ * Where the registrable domain ends is a fact about the public suffix list,
+ * not something the labels show: "com.cn" is a suffix and "acme.cn" is not.
+ * A short list kept by hand got "com.cn" wrong, offered "bounce.mail.acme" as
+ * the host, and a record added that way lands on the wrong name and never
+ * verifies. So the answer comes from `registrable` (the list itself, see
+ * `use-zone-of`), and without one there is no zone: the caller shows whole
+ * names, which are right in any zone.
  */
-export function zoneOf(domain: string): string {
-  const labels = clean(domain).split(".").filter(Boolean);
-  const lastTwo = labels.slice(-2).join(".");
-  return labels.slice(TWO_LEVEL_SUFFIXES.has(lastTwo) ? -3 : -2).join(".");
+export function zoneOf(
+  domain: string,
+  registrable: ((domain: string) => string | null) | null | undefined
+): string | null {
+  const full = clean(domain);
+  if (!full || !registrable) return null;
+  let zone: string | null;
+  try {
+    zone = registrable(full);
+  } catch {
+    return null;
+  }
+  if (!zone) return null;
+  const z = clean(zone);
+  // Only a zone the domain is actually in is any use to make a host relative.
+  return z && (full === z || full.endsWith(`.${z}`)) ? z : null;
 }
 
 /** The host as most DNS providers want it typed: relative to the zone, "@" for the apex. */
@@ -87,9 +80,25 @@ export function relativeHost(name: string, zone: string): string {
   return full.endsWith(`.${z}`) ? full.slice(0, -(z.length + 1)) : full;
 }
 
-/** The record's full name. The backend sends it; the bare host is the fallback. */
-export const recordName = (record: Pick<DnsRecordRow, "fqdn" | "host">) =>
-  record.fqdn ?? record.host;
+/**
+ * The record's full name: the one that is right whatever zone it is typed in.
+ *
+ * The backend sends it as `fqdn`. A record without one (the records shown
+ * before a domain has a DNS report) carries a host relative to the SENDING
+ * domain: "bounce" for mail.acme.com means bounce.mail.acme.com. Left bare, it
+ * was exported in the zone file as "bounce.", a name at the root of DNS.
+ */
+export function recordName(
+  record: Pick<DnsRecordRow, "fqdn" | "host">,
+  domain: string
+): string {
+  if (record.fqdn) return clean(record.fqdn);
+  const host = clean(record.host);
+  const d = clean(domain);
+  if (!d) return host;
+  if (!host || host === "@") return d;
+  return host === d || host.endsWith(`.${d}`) ? host : `${host}.${d}`;
+}
 
 /** The value to publish: the merged, always-safe one when the backend offers it. */
 export const recordValue = (
@@ -100,7 +109,8 @@ export const recordValue = (
 export function dnsGroupOf(
   record: Pick<DnsRecordRow, "fqdn" | "host" | "type" | "value">
 ): DnsGroupId {
-  const name = clean(recordName(record));
+  // The group shows in the leading labels, so the bare host is enough.
+  const name = clean(record.fqdn ?? record.host);
   const type = record.type.trim().toUpperCase();
   const value = record.value.trim().toLowerCase().replace(/^"/, "");
   if (name.includes("._domainkey") || name.startsWith("_domainkey")) {
@@ -206,7 +216,7 @@ export function zoneFile(
           : type === "CNAME"
             ? dotted(value)
             : value;
-    return [dotted(clean(recordName(record))), "3600", "IN", type, data].join(
+    return [dotted(recordName(record, domain)), "3600", "IN", type, data].join(
       "\t"
     );
   });

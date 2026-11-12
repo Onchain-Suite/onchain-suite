@@ -59,19 +59,21 @@ function statusOf(record: DnsRecordRow, checked: boolean) {
 
 function RecordRow({
   record,
+  domain,
   zone,
   full,
   checked,
   first,
 }: {
   record: DnsRecordRow;
-  zone: string;
+  domain: string;
+  zone: string | null;
   full: boolean;
   checked: boolean;
   /** First of its group: the group's heading sits right above, so no rule. */
   first: boolean;
 }) {
-  const name = recordName(record);
+  const name = recordName(record, domain);
   const type = record.type.toUpperCase();
   const status = statusOf(record, checked);
   const live =
@@ -102,7 +104,7 @@ function RecordRow({
         className="col-span-2 min-w-0 @2xl:col-span-1 @2xl:col-start-2 @2xl:row-start-1"
       >
         <CopyCell
-          value={full ? name : relativeHost(name, zone)}
+          value={full || !zone ? name : relativeHost(name, zone)}
           what={`host for ${type} ${name}`}
         />
       </span>
@@ -159,7 +161,11 @@ export function DnsRecordsTable({
 }: {
   domain: string;
   records: DnsRecordRow[];
-  zone: string;
+  /**
+   * The zone the records are added to, when it is known. Without it there is
+   * no short host to offer: whole names only, which are right in any zone.
+   */
+  zone: string | null;
   /** Show whole record names instead of hosts relative to the zone. */
   full: boolean;
   onFullChange: (full: boolean) => void;
@@ -172,42 +178,50 @@ export function DnsRecordsTable({
   );
   return (
     <div className="@container space-y-2.5">
-      <div className="flex flex-wrap items-center gap-3">
-        <div
-          role="group"
-          aria-label="Host format"
-          className="inline-flex rounded-lg bg-muted p-0.5"
-        >
-          {[
-            { on: false, label: "Short host" },
-            { on: true, label: "Full name" },
-          ].map((option) => (
-            <button
-              key={option.label}
-              type="button"
-              aria-pressed={full === option.on}
-              onClick={() => onFullChange(option.on)}
-              className={cn(
-                "rounded-md px-2.5 py-1 text-xs text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                full === option.on &&
-                  "bg-background font-medium text-foreground shadow-sm"
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
+      {zone ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <div
+            role="group"
+            aria-label="Host format"
+            className="inline-flex rounded-lg bg-muted p-0.5"
+          >
+            {[
+              { on: false, label: "Short host" },
+              { on: true, label: "Full name" },
+            ].map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                aria-pressed={full === option.on}
+                onClick={() => onFullChange(option.on)}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  full === option.on &&
+                    "bg-background font-medium text-foreground shadow-sm"
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {full ? (
+              "For providers that want the whole name."
+            ) : (
+              <>
+                Most providers add{" "}
+                <code className="font-mono text-foreground">{zone}</code> for
+                you.
+              </>
+            )}
+          </span>
         </div>
-        <span className="text-xs text-muted-foreground">
-          {full ? (
-            "For providers that want the whole name."
-          ) : (
-            <>
-              Most providers add{" "}
-              <code className="font-mono text-foreground">{zone}</code> for you.
-            </>
-          )}
-        </span>
-      </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Hosts are shown as whole names. If your provider adds the domain for
+          you, leave that part off.
+        </p>
+      )}
 
       <div
         role="table"
@@ -249,6 +263,7 @@ export function DnsRecordsTable({
               <RecordRow
                 key={record.id}
                 record={record}
+                domain={domain}
                 zone={zone}
                 full={full}
                 checked={checked}

@@ -1,3 +1,4 @@
+import { getDomain } from "tldts";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,6 +11,7 @@ import {
   needsFix,
   progressPercent,
   provisionedRecords,
+  recordName,
   relativeHost,
   zoneFile,
   zoneOf,
@@ -56,20 +58,83 @@ const records = [
   },
 ];
 
+/** The public suffix list, as the app loads it. */
+const registrable = (domain: string) =>
+  getDomain(domain, { allowPrivateDomains: false });
+
 describe("zoneOf", () => {
   it("is the registrable domain, which is where records are added", () => {
-    expect(zoneOf("mail.acme.com")).toBe("acme.com");
-    expect(zoneOf("acme.com")).toBe("acme.com");
-    expect(zoneOf("a.b.mail.acme.com")).toBe("acme.com");
+    expect(zoneOf("mail.acme.com", registrable)).toBe("acme.com");
+    expect(zoneOf("acme.com", registrable)).toBe("acme.com");
+    expect(zoneOf("a.b.mail.acme.com", registrable)).toBe("acme.com");
   });
 
-  it("keeps three labels under a two-label suffix", () => {
-    expect(zoneOf("mail.acme.co.uk")).toBe("acme.co.uk");
-    expect(zoneOf("acme.com.ng")).toBe("acme.com.ng");
+  // A list kept by hand had co.uk and not com.cn: the zone came out as
+  // "com.cn", the short host as "bounce.mail.acme", and a record added that
+  // way sits on the wrong name and never verifies.
+  it("knows a two-label suffix from the public suffix list, not from a guess", () => {
+    expect(zoneOf("mail.acme.com.cn", registrable)).toBe("acme.com.cn");
+    expect(zoneOf("mail.acme.co.uk", registrable)).toBe("acme.co.uk");
+    expect(zoneOf("acme.com.ng", registrable)).toBe("acme.com.ng");
+    expect(zoneOf("mail.acme.kyoto.jp", registrable)).toBe("acme.kyoto.jp");
+    // And does not invent one: .co is a top-level domain of its own.
+    expect(zoneOf("mail.acme.co", registrable)).toBe("acme.co");
   });
 
   it("ignores case, spaces and a trailing dot", () => {
-    expect(zoneOf(" Mail.Acme.COM. ")).toBe("acme.com");
+    expect(zoneOf(" Mail.Acme.COM. ", registrable)).toBe("acme.com");
+  });
+
+  // No zone means whole names are shown, which are right in any zone.
+  it("is unknown until the list is there, and when it cannot place the domain", () => {
+    expect(zoneOf("mail.acme.com", null)).toBeNull();
+    expect(zoneOf("mail.acme.com", undefined)).toBeNull();
+    expect(zoneOf("mail.acme.com", () => null)).toBeNull();
+    expect(zoneOf("", registrable)).toBeNull();
+    expect(zoneOf("localhost", registrable)).toBeNull();
+    expect(
+      zoneOf("mail.acme.com", () => {
+        throw new Error("boom");
+      })
+    ).toBeNull();
+  });
+
+  it("refuses a zone the domain is not in", () => {
+    expect(zoneOf("mail.acme.com", () => "other.io")).toBeNull();
+    expect(zoneOf("notacme.com", () => "acme.com")).toBeNull();
+  });
+});
+
+describe("recordName", () => {
+  it("is the full name the backend sent", () => {
+    expect(
+      recordName({ host: "bounce", fqdn: "Bounce.Mail.Acme.com." }, DOMAIN)
+    ).toBe("bounce.mail.acme.com");
+  });
+
+  // Records shown before a domain has a DNS report carry a host relative to
+  // the sending domain and no full name.
+  it("puts a relative host under the sending domain", () => {
+    expect(recordName({ host: "bounce" }, DOMAIN)).toBe("bounce.mail.acme.com");
+    expect(recordName({ host: "abc._domainkey" }, DOMAIN)).toBe(
+      "abc._domainkey.mail.acme.com"
+    );
+  });
+
+  it("is the sending domain itself for @ or an empty host", () => {
+    expect(recordName({ host: "@" }, DOMAIN)).toBe(DOMAIN);
+    expect(recordName({ host: "" }, DOMAIN)).toBe(DOMAIN);
+  });
+
+  it("does not add the domain to a host that already ends in it", () => {
+    expect(recordName({ host: "bounce.mail.acme.com" }, DOMAIN)).toBe(
+      "bounce.mail.acme.com"
+    );
+    expect(recordName({ host: "mail.acme.com" }, DOMAIN)).toBe(DOMAIN);
+    // "xmail.acme.com" ends in the same letters but is not under it.
+    expect(recordName({ host: "xmail.acme.com" }, DOMAIN)).toBe(
+      "xmail.acme.com.mail.acme.com"
+    );
   });
 });
 
@@ -184,6 +249,17 @@ describe("zoneFile", () => {
     );
   });
 
+  // Exported as "bounce.", a relative host became a name at the root of DNS
+  // and the imported file published nothing useful.
+  it("qualifies a record that has only a relative host", () => {
+    const out = zoneFile(DOMAIN, [
+      { host: "bounce", type: "MX", value: "10 feedback-smtp.amazonses.com" },
+      { host: "@", type: "TXT", value: "v=spf1 -all" },
+    ]);
+    expect(out.split("\n")[1]?.split("\t")[0]).toBe("bounce.mail.acme.com.");
+    expect(out.split("\n")[2]?.split("\t")[0]).toBe("mail.acme.com.");
+  });
+
   it("quotes TXT data", () => {
     expect(lines[4]).toBe(
       'bounce.mail.acme.com.\t3600\tIN\tTXT\t"v=spf1 include:amazonses.com ~all"'
@@ -194,7 +270,9 @@ describe("zoneFile", () => {
     const out = zoneFile(DOMAIN, [
       { host: "bounce", type: "TXT", value: '"v=spf1 -all"' },
     ]);
-    expect(out.split("\n")[1]).toBe('bounce.\t3600\tIN\tTXT\t"v=spf1 -all"');
+    expect(out.split("\n")[1]).toBe(
+      'bounce.mail.acme.com.\t3600\tIN\tTXT\t"v=spf1 -all"'
+    );
   });
 
   it("splits TXT data longer than one string may be", () => {
@@ -211,7 +289,7 @@ describe("zoneFile", () => {
       { host: "bounce", type: "mx", value: "feedback-smtp.amazonses.com" },
     ]);
     expect(out.split("\n")[1]).toBe(
-      "bounce.\t3600\tIN\tMX\t10 feedback-smtp.amazonses.com."
+      "bounce.mail.acme.com.\t3600\tIN\tMX\t10 feedback-smtp.amazonses.com."
     );
   });
 

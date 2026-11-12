@@ -40,13 +40,15 @@ const records: DnsRecordRow[] = [
   },
 ];
 
-function renderTable(over: { full?: boolean; checked?: boolean } = {}) {
+function renderTable(
+  over: { full?: boolean; checked?: boolean; zone?: string | null } = {}
+) {
   const onFullChange = vi.fn();
   render(
     <DnsRecordsTable
       domain="mail.acme.com"
       records={records}
-      zone="acme.com"
+      zone={over.zone === undefined ? "acme.com" : over.zone}
       full={over.full ?? false}
       onFullChange={onFullChange}
       checked={over.checked ?? true}
@@ -86,6 +88,15 @@ describe("DnsRecordsTable", () => {
     expect(screen.getByText("abc._domainkey.mail.acme.com")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Short host" }));
     expect(onFullChange).toHaveBeenCalledWith(false);
+  });
+
+  // The zone comes from the public suffix list. Until it is known, a short
+  // host would be a guess, and a wrong one puts the record on the wrong name.
+  it("shows whole names, and offers no short host, while the zone is unknown", () => {
+    renderTable({ zone: null });
+    expect(screen.getByText("abc._domainkey.mail.acme.com")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Short host" })).toBeNull();
+    expect(screen.getByText(/shown as whole names/)).toBeTruthy();
   });
 
   it("says where each record stands, in the words of someone adding it", () => {

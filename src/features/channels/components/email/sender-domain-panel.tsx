@@ -15,12 +15,12 @@ import {
   senderDomainDnsKey,
   senderDomainsKey,
 } from "../../hooks/use-sender-domains";
+import { useZoneOf } from "../../hooks/use-zone-of";
 import {
   ago,
   dnsProgress,
   progressPercent,
   provisionedRecords,
-  zoneOf,
 } from "../../utils/dns-view";
 import { parseDomainDns } from "../../utils/domain-dns";
 import {
@@ -116,7 +116,8 @@ export function SenderDomainPanel({
     [dns, provisionQuery.data]
   );
   const progress = useMemo(() => dnsProgress(records), [records]);
-  const zone = zoneOf(domain.domain);
+  // Null until the public suffix list has loaded: whole names until then.
+  const zone = useZoneOf(domain.domain);
   const loading =
     dnsQuery.isLoading || (!hasReport && provisionQuery.isLoading);
   const now = useNow(!verified && dnsQuery.dataUpdatedAt > 0);

@@ -79,7 +79,7 @@ export function DomainFileActions({
             buildDnsCsv(
               records.map((r) => ({
                 type: r.type,
-                name: recordName(r),
+                name: recordName(r, domain),
                 value: recordValue(r),
               }))
             ),

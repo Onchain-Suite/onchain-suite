@@ -116,7 +116,8 @@ describe("SenderDomains", () => {
     renderPanel();
     expect(await screen.findByText("Waiting on DNS")).toBeTruthy();
     expect(await screen.findByText("1 of 2")).toBeTruthy();
-    expect(screen.getByText("abc._domainkey.mail")).toBeTruthy();
+    // Short hosts appear once the public suffix list has placed the zone.
+    expect(await screen.findByText("abc._domainkey.mail")).toBeTruthy();
     expect(service.getDomainDns).toHaveBeenCalledWith("d1", "org1");
     expect(
       screen.getByRole("button", { name: "Add another domain" })

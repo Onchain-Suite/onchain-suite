@@ -1,3 +1,5 @@
+import { paidTimeHint } from "./paid-time-hint";
+
 /**
  * What pressing the plan picker's button would do for a workspace, given what
  * it has now.
@@ -32,6 +34,10 @@ export interface CurrentPlanSize {
   monthlyPrice?: number | null;
   /** The server charges a larger size at once, not on the next invoice. */
   upgradeChargedNow?: boolean;
+  /** The day they are paid up to, with or without a subscription. */
+  paidThrough?: string | null;
+  /** The server does not bill time already paid for a second time. */
+  paidTimeCredited?: boolean;
 }
 
 export function planChange(input: {
@@ -145,6 +151,9 @@ export function planSubmitHint(input: {
   extraSeats?: number;
   currentMonthly?: number | null;
   newMonthly?: number | null;
+  /** The day they are paid up to, and whether the server credits it. */
+  paidThrough?: string | null;
+  paidTimeCredited?: boolean;
 }): string {
   const { change, isPayg, inPlace, paymentMethod } = input;
   if (change === "blocked") {
@@ -160,6 +169,18 @@ export function planSubmitHint(input: {
       newMonthly: input.newMonthly,
     });
   }
+  // Paid for this cycle another way, and buying by card: not billed for it
+  // again. Crypto has no such credit, so it keeps the ordinary line.
+  const overPaidTime =
+    paymentMethod === "card" && !inPlace && change !== "current"
+      ? paidTimeHint({
+          credited: input.paidTimeCredited,
+          paidThrough: input.paidThrough,
+          currentMonthly: input.currentMonthly,
+          newMonthly: input.newMonthly,
+        })
+      : null;
+  if (overPaidTime) return overPaidTime;
   return paymentMethod === "card"
     ? "You'll complete payment on a secure Stripe checkout page. The price shown is what you're billed."
     : "You'll pay in USDC on a hosted crypto checkout page. The price shown is what you're billed.";
@@ -230,6 +251,11 @@ export function planSubmit(input: {
       extraSeats: input.extraSeats,
       currentMonthly: input.current?.monthlyPrice,
       newMonthly: quotedForThis ? input.quote?.monthlyPrice : null,
+      // A subscriber's change is made in place; this is for one who is not.
+      paidThrough: input.current?.hasSubscription
+        ? null
+        : input.current?.paidThrough,
+      paidTimeCredited: input.current?.paidTimeCredited === true,
     }),
   };
 }

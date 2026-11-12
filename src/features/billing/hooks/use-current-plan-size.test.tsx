@@ -75,6 +75,8 @@ describe("useCurrentPlanSize", () => {
         // What they pay now, so the picker can say what an upgrade adds.
         monthlyPrice: 65,
         upgradeChargedNow: true,
+        paidThrough: null,
+        paidTimeCredited: false,
       })
     );
   });
@@ -89,6 +91,25 @@ describe("useCurrentPlanSize", () => {
         canResize: false,
         monthlyPrice: 65,
         upgradeChargedNow: false,
+        paidThrough: null,
+        paidTimeCredited: false,
+      })
+    );
+  });
+
+  // What the picker needs to say a paid-up workspace owes only the difference.
+  it("reports the day paid up to, and that the server credits it", async () => {
+    subscription.mockResolvedValue({
+      ...noSubscription,
+      planExpiresAt: "2026-11-24T20:50:00.000Z",
+      paidTimeCredited: true,
+    });
+    const { result } = renderHook(() => useCurrentPlanSize(), { wrapper });
+    await waitFor(() =>
+      expect(result.current).toMatchObject({
+        hasSubscription: false,
+        paidThrough: "2026-11-24T20:50:00.000Z",
+        paidTimeCredited: true,
       })
     );
   });

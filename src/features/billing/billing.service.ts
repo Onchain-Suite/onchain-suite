@@ -9,6 +9,7 @@ import type {
   InvoiceStatus,
 } from "./contracts/billing-records";
 import type { PlanUsageResponse } from "./contracts/plan-usage";
+import type { OrgSubscriptionResponse } from "./contracts/subscription";
 import { clampExtraSeats, SEAT_PRICE_USD } from "./seat-pricing";
 
 export type {
@@ -67,40 +68,7 @@ export interface BillingPlansResponse {
   [key: string]: unknown;
 }
 
-/**
- * Response of `GET /billing/subscription/:organizationId` - the org's Stripe
- * subscription lifecycle, used for the billing panel's STATUS card and the
- * "cancels on <date>" indicator. `hasSubscription` is false for an org billed
- * another way (crypto/admin), in which case the UI shows the plan alone.
- */
-export interface OrgSubscriptionResponse {
-  hasSubscription: boolean;
-  status: string | null;
-  cancelAtPeriodEnd: boolean;
-  currentPeriodEnd: string | null;
-  priceId: string | null;
-  plan: string | null;
-  planExpiresAt: string | null;
-  /**
-   * The size the subscription was bought at. Absent on a backend that
-   * predates sizes (2026-11-11), null when none is on record.
-   */
-  capacity?: number | null;
-  /** The size it is billed at now; it follows a list that outgrew `capacity`. */
-  billedUnits?: number | null;
-  /**
-   * `POST /billing/subscribe` will change this subscription in place. Absent
-   * (so falsy) on an older backend, where the same call starts a second
-   * checkout: the picker must not offer a subscriber a change without it.
-   */
-  canResize?: boolean;
-  /**
-   * A larger size is charged at once (the difference for the current period)
-   * rather than on the next invoice. Absent (so falsy) on a backend that
-   * still defers it: the picker reads this before it tells a buyer which.
-   */
-  upgradeChargedNow?: boolean;
-}
+export type { OrgSubscriptionResponse } from "./contracts/subscription";
 
 /** One priced line from `GET /billing/plan-usage/:org/cost`. */
 export interface PricedUsageLine {

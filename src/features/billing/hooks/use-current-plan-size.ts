@@ -66,5 +66,8 @@ export function useCurrentPlanSize(): CurrentPlanSize {
     canResize: sub.canResize === true,
     monthlyPrice: isJsonObject(plan) ? positive(plan.monthlyPrice) : null,
     upgradeChargedNow: sub.upgradeChargedNow === true,
+    paidThrough:
+      typeof sub.planExpiresAt === "string" ? sub.planExpiresAt : null,
+    paidTimeCredited: sub.paidTimeCredited === true,
   };
 }

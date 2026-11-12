@@ -8,27 +8,11 @@ import { toast } from "sonner";
 
 import { SettingsCard, StatusPill } from "../settings-card";
 import { billingService } from "@/features/billing/billing.service";
+import { cardOnFileView } from "@/features/settings/utils/card-on-file-view";
 import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 const BILLING_TAB_HREF = "/settings?tab=billing";
-
-const formatSince = (iso?: string | null) => {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
-};
-
-const titleCaseBrand = (brand?: string | null) => {
-  const value = (brand ?? "").trim();
-  if (!value) return "Card";
-  return value.charAt(0).toUpperCase() + value.slice(1);
-};
 
 /**
  * Card on file for the org, with an Add / Update action that starts the hosted
@@ -36,6 +20,10 @@ const titleCaseBrand = (brand?: string | null) => {
  * a card is what lets renewals auto-charge on the expiry day - without one the
  * org still gets reminder emails and the hosted Pay link, just not silent
  * charging.
+ *
+ * A workspace on a card subscription has a card of another kind: the one Stripe
+ * renews the subscription on. It is shown as that, and its action opens
+ * Stripe's billing portal, the only place it can be changed.
  */
 export function CardOnFileCard() {
   const router = useRouter();
@@ -59,9 +47,10 @@ export function CardOnFileCard() {
     refetchInterval: waitingForCard ? 2500 : false,
   });
 
-  const card = cardQuery.data;
-  const hasCard = card?.hasCard === true;
-  const since = formatSince(card?.since);
+  const view = cardOnFileView(cardQuery.data);
+  // The save flow is finished when a card saved with us appears. A
+  // subscription's card was there all along and proves nothing.
+  const hasCard = view.savedWithUs;
 
   // Strip the ?card= param so a refresh doesn't replay the toast/poll.
   useEffect(() => {
@@ -124,11 +113,29 @@ export function CardOnFileCard() {
       ),
   });
 
+  // The subscription's card lives in Stripe; so does the page that changes it.
+  const portalMutation = useMutation({
+    mutationFn: () => billingService.billingPortal(),
+    onSuccess: ({ url }) => {
+      if (url) {
+        window.location.assign(url);
+        return;
+      }
+      toast.error("Couldn't open Stripe billing. Please try again.");
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : "Couldn't open Stripe billing."
+      ),
+  });
+
+  const action = view.action === "portal" ? portalMutation : setupMutation;
+
   return (
     <SettingsCard
       replayBlock
       title="Card on file"
-      description="Save a card to auto-charge renewals on the expiry day."
+      description={view.description}
     >
       {cardQuery.isLoading ? (
         <Skeleton className="h-14 w-full rounded-xl" />
@@ -159,44 +166,30 @@ export function CardOnFileCard() {
             <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
               <CreditCardIcon aria-hidden="true" className="size-5" />
             </span>
-            {hasCard ? (
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">
-                    {titleCaseBrand(card?.brand)} •••• {card?.last4 ?? "----"}
-                  </span>
-                  <StatusPill tone="success">On file</StatusPill>
-                </div>
-                {since ? (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Added {since}
-                  </p>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-foreground">
+                  {view.title}
+                </span>
+                {view.pill ? (
+                  <StatusPill tone="success">{view.pill}</StatusPill>
                 ) : null}
               </div>
-            ) : (
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  No card on file
-                </p>
+              {view.note ? (
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Without a card, renewals fall back to reminder emails + a
-                  hosted Pay link.
+                  {view.note}
                 </p>
-              </div>
-            )}
+              ) : null}
+            </div>
           </div>
 
           <Button
             className="shrink-0"
-            variant={hasCard ? "outline" : "default"}
-            disabled={setupMutation.isPending}
-            onClick={() => setupMutation.mutate()}
+            variant={view.hasCard ? "outline" : "default"}
+            disabled={action.isPending}
+            onClick={() => action.mutate()}
           >
-            {setupMutation.isPending
-              ? "Redirecting…"
-              : hasCard
-                ? "Update card"
-                : "Add card"}
+            {action.isPending ? "Redirecting…" : view.actionLabel}
           </Button>
         </div>
       )}

@@ -3,7 +3,25 @@ import type { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import type {
+  CardOnFile,
+  CustomerInvoice,
+  InvoiceStatus,
+} from "./contracts/billing-records";
+import type { PlanUsageResponse } from "./contracts/plan-usage";
 import { clampExtraSeats, SEAT_PRICE_USD } from "./seat-pricing";
+
+export type {
+  CardOnFile,
+  CustomerInvoice,
+  InvoiceStatus,
+} from "./contracts/billing-records";
+export type {
+  PlanUsageMeter,
+  PlanUsageMeters,
+  PlanUsageMeterStatus,
+  PlanUsageResponse,
+} from "./contracts/plan-usage";
 
 export type BillingPeriod = "month" | "current";
 
@@ -46,38 +64,6 @@ export interface BillingPlan {
 
 export interface BillingPlansResponse {
   plans?: BillingPlan[];
-  [key: string]: unknown;
-}
-
-export type PlanUsageMeterStatus = "ok" | "warn" | "exceeded" | string;
-
-/** One usage meter from `GET /billing/plan-usage/:organizationId`. */
-export interface PlanUsageMeter {
-  used: number;
-  limit: number;
-  percent: number;
-  status: PlanUsageMeterStatus;
-}
-
-/**
- * Known meter keys returned by `GET /billing/plan-usage/:organizationId`
- * (docs/backend.md 2026-07-03 pricing system + 2026-07-11 trackedWallets).
- */
-export interface PlanUsageMeters {
-  contacts?: PlanUsageMeter;
-  emailsPerMonth?: PlanUsageMeter;
-  aiCredits?: PlanUsageMeter;
-  goldrushCredits?: PlanUsageMeter;
-  seats?: PlanUsageMeter;
-  automations?: PlanUsageMeter;
-  apiKeys?: PlanUsageMeter;
-  trackedWallets?: PlanUsageMeter;
-}
-
-/** Response of `GET /billing/plan-usage/:organizationId`. */
-export interface PlanUsageResponse {
-  plan?: string;
-  meters?: PlanUsageMeters;
   [key: string]: unknown;
 }
 
@@ -636,7 +622,7 @@ export interface SubscribeRequest {
   plan: PlanCheckoutSlug | "send" | (string & {});
   /** Defaults to the active org on the backend. */
   organizationId?: string;
-  /** Normally omitted — the backend uses the request Origin for return URLs. */
+  /** Normally omitted - the backend uses the request Origin for return URLs. */
   returnUrl?: string;
   /**
    * Seats to buy ABOVE the tier's included count (a DELTA, 0-50, not a total).
@@ -655,7 +641,7 @@ export interface SubscribeRequest {
   contacts?: number;
 }
 
-/** Response of POST /billing/subscribe — the hosted Stripe Checkout URL. */
+/** Response of POST /billing/subscribe - the hosted Stripe Checkout URL. */
 export interface SubscribeResponse {
   url?: string;
   [key: string]: unknown;
@@ -684,8 +670,6 @@ export interface PaygWallet {
   [key: string]: unknown;
 }
 
-export type InvoiceStatus = "paid" | "open" | "void" | "uncollectible" | string;
-
 export interface BillingInvoice {
   id: string;
   number?: string;
@@ -711,34 +695,6 @@ export interface InvoiceListResponse {
 export interface InvoiceDownloadResponse {
   url?: string;
   [key: string]: unknown;
-}
-
-/**
- * Customer-facing invoice row from `GET /billing/invoices?organizationId=`
- * (OWNER, membership-checked). `payUrl` is the Stripe hosted card page; crypto
- * invoices are paid from the wallet. Admin-only fields (reminders, charge
- * errors, Stripe ids) are never exposed here.
- */
-export interface CustomerInvoice {
-  /** Real row id — used for the download / pay actions. */
-  id: string;
-  number: string;
-  description: string;
-  amountUsd: number;
-  status: InvoiceStatus;
-  dueAt?: string | null;
-  paidAt?: string | null;
-  payUrl?: string | null;
-  /** True when a receipt PDF can be downloaded (every paid invoice). */
-  canDownload?: boolean;
-}
-
-/** The org's saved card from `GET /billing/card?organizationId=`. */
-export interface CardOnFile {
-  hasCard: boolean;
-  brand?: string | null;
-  last4?: string | null;
-  since?: string | null;
 }
 
 /**
@@ -1177,7 +1133,7 @@ export const billingService = {
   },
 
   /**
-   * Stripe Customer Portal session (`GET /billing/portal → { url }`) — the
+   * Stripe Customer Portal session (`GET /billing/portal → { url }`) - the
    * hosted page where a customer cancels, swaps card, and views invoices.
    * Redirect the browser to `url`.
    */

@@ -4,14 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import type { ChannelReadiness, SocialChannelId } from "../types/channel";
-import { deriveChannelReadiness } from "../utils/readiness";
+import {
+  deriveChannelReadiness,
+  type ReadinessInputs,
+} from "../utils/readiness";
+import { useSenderDomains } from "./use-sender-domains";
 import { useConnections } from "@/features/integrations/hooks/use-connections";
 import { connectionState } from "@/features/integrations/utils/connections";
-import { normalizeDomainStatus } from "@/features/settings/components/account/domain-status";
 import { useAccountOrg } from "@/features/settings/components/account/use-account-org";
 import { inAppService } from "@/features/settings/inapp.service";
 import { pushCredentialsService } from "@/features/settings/push-credentials.service";
-import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
 
 /**
  * Derives the readiness of every sending channel from the real email / in-app /
@@ -20,18 +22,16 @@ import { senderIdentitiesService } from "@/features/settings/sender-identities.s
  */
 export function useChannelReadiness(): {
   readiness: ChannelReadiness[];
+  /** The facts the list was derived from, for each channel's own progress. */
+  inputs: ReadinessInputs;
   isLoading: boolean;
 } {
   const { organizationId } = useAccountOrg();
   const enabled = Boolean(organizationId);
   const orgId = organizationId ?? undefined;
 
-  const domainsQuery = useQuery({
-    queryKey: ["channels", "readiness", "domains", organizationId],
-    enabled,
-    retry: false,
-    queryFn: () => senderIdentitiesService.listDomains(orgId),
-  });
+  // Shared with the email panel, so a domain verified there shows here at once.
+  const { query: domainsQuery } = useSenderDomains();
 
   // Shares the cache with the Settings in-app card (same key + read).
   const inappQuery = useQuery({
@@ -42,7 +42,8 @@ export function useChannelReadiness(): {
   });
 
   const pushQuery = useQuery({
-    queryKey: ["channels", "readiness", "push-credentials", organizationId],
+    // Same key as the credentials card, so saving one there shows here at once.
+    queryKey: ["organization", "push-credentials", organizationId],
     enabled,
     retry: false,
     queryFn: () => pushCredentialsService.list(orgId),
@@ -51,10 +52,8 @@ export function useChannelReadiness(): {
   // The social channels' saved connections, shared with the connect panels.
   const social = useConnections();
 
-  const readiness = useMemo(() => {
-    const domainStatuses = (domainsQuery.data ?? []).map((d) =>
-      normalizeDomainStatus(d.status)
-    );
+  const inputs = useMemo((): ReadinessInputs => {
+    const domainStatuses = (domainsQuery.data ?? []).map((d) => d.status);
     const status = inappQuery.data;
     const hasKey =
       Boolean(status?.publishableKeys.production) ||
@@ -64,7 +63,7 @@ export function useChannelReadiness(): {
     const stateOf = (id: SocialChannelId) =>
       connectionState(list.find((c) => c.connector === id));
 
-    return deriveChannelReadiness({
+    return {
       domainStatuses,
       webPush: { hasKey, sessionCount: status?.sessionCount ?? null },
       mobilePush: {
@@ -79,11 +78,13 @@ export function useChannelReadiness(): {
         discord: stateOf("discord"),
         farcaster: stateOf("farcaster"),
       },
-    });
+    };
   }, [domainsQuery.data, inappQuery.data, pushQuery.data, social.connections]);
+  const readiness = useMemo(() => deriveChannelReadiness(inputs), [inputs]);
 
   return {
     readiness,
+    inputs,
     isLoading:
       domainsQuery.isLoading ||
       inappQuery.isLoading ||

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { CHANNEL_META } from "../../data/channels";
 import type { SocialChannelId } from "../../types/channel";
+import { SetupGuide } from "../setup/setup-guide";
 import { ConsentImportCard } from "./consent-import-card";
 import { DiscordImport } from "./discord-import";
 import { SmsManagedSetup } from "./sms-managed-setup";
@@ -56,16 +57,24 @@ const ALTERNATIVE: Partial<Record<SocialChannelId, ReactNode>> = {
  * signer or token). The server verifies it with the platform before saving;
  * secrets are never shown again.
  */
-export function ChannelConnect({ channel }: { channel: SocialChannelId }) {
+export function ChannelConnect({
+  channel,
+  connected = false,
+}: {
+  channel: SocialChannelId;
+  /** The platform has accepted the credential: the steps are behind them. */
+  connected?: boolean;
+}) {
   const meta = CHANNEL_META[channel];
   const def = CONNECTORS.get(channel);
   const next = NEXT_STEP[channel];
 
   return (
-    <div className="max-w-xl space-y-4">
-      <p className="text-xs text-muted-foreground">
+    <div className="max-w-2xl space-y-4">
+      <p className="text-sm leading-6 text-muted-foreground">
         {meta.kind === "dm" ? KIND_NOTE.dm : KIND_NOTE.post}
       </p>
+      {connected ? null : <SetupGuide channel={channel} />}
       {ALTERNATIVE[channel] ?? null}
       {def ? (
         <div className="rounded-xl border border-border bg-card p-4">

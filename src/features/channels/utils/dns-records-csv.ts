@@ -10,7 +10,7 @@ export interface DnsCsvRecord {
   /**
    * The FULL record name (e.g. "bounce.mg.example.com"), not the relative host.
    * A full name is unambiguous in any zone, so the record can't be created one
-   * level too high — the apex-vs-subdomain mistake that silently fails sender
+   * level too high - the apex-vs-subdomain mistake that silently fails sender
    * verification.
    */
   name: string;

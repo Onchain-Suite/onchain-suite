@@ -61,3 +61,38 @@ export function normalizeDomainStatus(raw: unknown): DomainStatus {
 
   return "pending";
 }
+
+/** A sending domain as the Channels email panel lists it. */
+export interface SenderDomain {
+  id: string;
+  domain: string;
+  status: DomainStatus;
+}
+
+/**
+ * The rows of `GET /domain`, made into what the panel lists. A row with no
+ * domain name is dropped; one with no id is keyed by its name.
+ */
+export function toSenderDomains(rows: readonly unknown[]): SenderDomain[] {
+  const out: SenderDomain[] = [];
+  for (const row of rows) {
+    if (typeof row !== "object" || row === null) continue;
+    const record = row as Record<string, unknown>;
+    const domain =
+      typeof record.domain === "string" ? record.domain.trim() : "";
+    if (!domain) continue;
+    out.push({
+      id:
+        typeof record.id === "string" && record.id.length > 0
+          ? record.id
+          : domain,
+      domain,
+      status: normalizeDomainStatus(record.status),
+    });
+  }
+  return out;
+}
+
+/** The email channel can send once any one domain is verified. */
+export const hasVerifiedDomain = (domains: readonly SenderDomain[]) =>
+  domains.some((d) => d.status === "verified");

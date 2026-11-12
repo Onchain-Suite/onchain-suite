@@ -2,15 +2,15 @@
 
 import dynamic from "next/dynamic";
 
-// The real sending-domain flow (input -> generate DNS records -> check -> verified) lives in
-// Settings and is self-contained (no routing, no role gating). The "bare" variant drops the
-// Settings card chrome so it sits under this step's own heading, matching the zip's single-panel
-// layout. It is below the fold of onboarding and pulls in React Query + the records table, so it
-// is code-split and only loads when the step is reached.
-const SenderVerificationCard = dynamic(
+// The real sending-domain flow (input -> generate DNS records -> check -> verified) is the email
+// channel's own setup panel and is self-contained (no routing, no role gating), so it sits under
+// this step's heading as it does in Integrations -> Channels -> Email. It is below the fold of
+// onboarding and pulls in React Query + the records table, so it is code-split and only loads
+// when the step is reached.
+const SenderDomains = dynamic(
   () =>
-    import("@/features/settings/components/account/sender-verification-card").then(
-      (m) => m.SenderVerificationCard
+    import("@/features/channels/components/email/sender-domains").then(
+      (m) => m.SenderDomains
     ),
   {
     ssr: false,
@@ -21,7 +21,7 @@ const SenderVerificationCard = dynamic(
 );
 
 /**
- * The sending domain. The real generate-and-verify card from Settings, dropped into the step so
+ * The sending domain. The email channel's generate-and-verify panel, dropped into the step so
  * the records can be set up here and now. Nothing blocks: the records resolve on their own
  * schedule and can be added whenever the account owner can reach their DNS, so Continue is a skip.
  */
@@ -52,12 +52,12 @@ export function StepDns({
       </p>
 
       <div className="mt-8">
-        <SenderVerificationCard variant="bare" defaultDomain={domain} />
+        <SenderDomains defaultDomain={domain} />
       </div>
 
       <p className="text-muted-foreground mt-4 text-sm">
         You do not have to finish this here. Verification runs on its own, and
-        you can come back to it from Settings → Integrations → Channels.
+        you can come back to it from Integrations → Channels → Email.
       </p>
     </>
   );

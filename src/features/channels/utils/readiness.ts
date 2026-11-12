@@ -5,7 +5,7 @@ import type {
   ChannelReadinessStatus,
   SocialChannelId,
 } from "../types/channel";
-import type { DomainStatus } from "@/features/settings/components/account/domain-status";
+import type { DomainStatus } from "./domain-status";
 
 /** Same states as the integrations connection helper, kept local so this
  *  stays a dependency-free pure module. */
@@ -66,6 +66,9 @@ function emailEntry(domainStatuses: DomainStatus[]): ChannelReadiness {
       "A sending domain is waiting on DKIM and SPF"
     );
   }
+  if (domainStatuses.includes("failed")) {
+    return entry("email", "none", "A sending domain failed its DNS check");
+  }
   return entry("email", "none", "No verified sending domain");
 }
 
@@ -90,6 +93,16 @@ function pushEntry(
   return entry("push", status, blocker);
 }
 
+/** What is missing, in the words of the thing that has to be connected. */
+const NOT_CONNECTED: Record<SocialChannelId, string> = {
+  x: "X app not connected",
+  whatsapp: "Not connected to Meta",
+  sms: "No SMS account connected",
+  telegram: "No bot connected",
+  discord: "No bot connected",
+  farcaster: "No signer connected",
+};
+
 function socialEntry(
   id: SocialChannelId,
   state: SocialConnectionState = "none"
@@ -102,7 +115,7 @@ function socialEntry(
       `Saved, but ${CHANNEL_META[id].label} rejected the credential`
     );
   }
-  return entry(id, "none", "Not connected yet");
+  return entry(id, "none", NOT_CONNECTED[id]);
 }
 
 /** Every channel's readiness in one list, so the UI never has to know how each

@@ -23,6 +23,7 @@ import {
 
 import type { CampaignFormData } from "../../validations";
 import { SubjectLineInput } from "./subject-line-input";
+import { channelSetupHref } from "@/features/channels/data/channels";
 
 export interface EmailMessageFormProps {
   form: UseFormReturn<CampaignFormData>;
@@ -175,10 +176,10 @@ export function EmailMessageForm({
                   No verified sending domain. Branded email can&apos;t send
                   until you verify one in{" "}
                   <Link
-                    href="/settings?tab=account"
+                    href={channelSetupHref("email")}
                     className="font-medium underline underline-offset-2"
                   >
-                    Settings → Sender verification
+                    Integrations → Channels → Email
                   </Link>
                   . In-app push is unaffected.
                 </p>

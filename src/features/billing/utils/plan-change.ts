@@ -92,20 +92,31 @@ const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
  * for the period they are in; the new price in full starts at the next
  * renewal. The amounts are the picker's quotes, which are whole dollars, so
  * the difference is "about": the card is charged to the cent.
+ *
+ * Both figures are the PLAN's. A change made here does not touch seats, which
+ * are their own line on the subscription, so the renewal figure is called the
+ * plan's and never passed off as the total; and seats added on the stepper
+ * are said plainly not to be part of this.
  */
 function inPlaceHint(input: {
   larger: boolean;
   chargedNow: boolean;
+  /** Seats added on the stepper, which this change will not buy. */
+  extraSeats?: number;
   currentMonthly?: number | null;
   newMonthly?: number | null;
 }): string {
+  const seats =
+    (input.extraSeats ?? 0) > 0
+      ? " Seats are not changed here; add or remove them in Manage billing."
+      : "";
   if (!input.larger) {
-    return "Takes effect at your next renewal, with no checkout. Nothing is charged or refunded now.";
+    return `Takes effect at your next renewal, with no checkout. Nothing is charged or refunded now.${seats}`;
   }
   // A server that has not said it charges at once adds the cost to the next
   // invoice instead. Say what THAT server does, not what the newest one does.
   if (!input.chargedNow) {
-    return "Applied to your subscription straight away, with no checkout. The extra for this period is added to your next invoice.";
+    return `Applied to your subscription straight away, with no checkout. The extra for this period is added to your next invoice.${seats}`;
   }
   const { currentMonthly, newMonthly } = input;
   if (
@@ -114,9 +125,9 @@ function inPlaceHint(input: {
     currentMonthly > 0 &&
     newMonthly > currentMonthly
   ) {
-    return `Your card is charged the difference for this period now, about ${dollars(newMonthly - currentMonthly)}, with no checkout. From your next renewal it is ${dollars(newMonthly)}/mo.`;
+    return `Your card is charged the difference for this period now, about ${dollars(newMonthly - currentMonthly)}, with no checkout. From your next renewal the plan is ${dollars(newMonthly)}/mo.${seats}`;
   }
-  return "Your card is charged the difference for this period now, with no checkout. The new price in full starts at your next renewal.";
+  return `Your card is charged the difference for this period now, with no checkout. The new price in full starts at your next renewal.${seats}`;
 }
 
 /** The line under the button: what happens next, and to their money. */
@@ -130,6 +141,8 @@ export function planSubmitHint(input: {
   larger?: boolean;
   /** The server charges a larger size at once. */
   chargedNow?: boolean;
+  /** Seats added on the stepper. */
+  extraSeats?: number;
   currentMonthly?: number | null;
   newMonthly?: number | null;
 }): string {
@@ -142,6 +155,7 @@ export function planSubmitHint(input: {
     return inPlaceHint({
       larger: input.larger !== false,
       chargedNow: input.chargedNow === true,
+      extraSeats: input.extraSeats,
       currentMonthly: input.currentMonthly,
       newMonthly: input.newMonthly,
     });
@@ -162,6 +176,8 @@ export function planSubmit(input: {
   /** The quote for the slider's size: its plan name and price without seats. */
   quote?: { planLabel?: string; monthlyPrice?: number } | null;
   paymentMethod: "card" | "crypto";
+  /** Seats added on the stepper. */
+  extraSeats?: number;
 }): { change: PlanChange; disabled: boolean; label: string; hint: string } {
   const isPayg = input.resolvedPlan === "payg";
   const change = planChange({
@@ -193,6 +209,7 @@ export function planSubmit(input: {
       paymentMethod: input.paymentMethod,
       larger: input.units > (input.current?.units ?? 0),
       chargedNow: input.current?.upgradeChargedNow === true,
+      extraSeats: input.extraSeats,
       currentMonthly: input.current?.monthlyPrice,
       newMonthly: input.quote?.monthlyPrice,
     }),

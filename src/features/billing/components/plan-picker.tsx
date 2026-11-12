@@ -247,7 +247,6 @@ export function PlanPicker({
       : selection === "send"
         ? "send"
         : (quote?.plan ?? "launch");
-
   const submit = planSubmit({
     resolvedPlan,
     currentPlan,
@@ -255,8 +254,9 @@ export function PlanPicker({
     current,
     selection,
     submitLabel,
-    planLabel: quote?.planLabel,
+    quote,
     paymentMethod,
+    extraSeats,
   });
 
   // Warn as the handle nears a tier boundary (the price is a real cliff there).
@@ -285,10 +285,9 @@ export function PlanPicker({
         return;
       }
       const planRef = selection === "send" ? "send" : (quote?.plan ?? "launch");
-      const unitsToBuy = selection === "send" ? subscribers : contacts;
       const checkout = await startPlanCheckout(planRef, undefined, {
         paymentMethod,
-        contacts: unitsToBuy,
+        contacts: units,
         extraSeats,
       });
       if (!checkout?.paymentUrl) {

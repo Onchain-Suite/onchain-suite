@@ -12,6 +12,11 @@
  *    has already been charged for; the page's figures are read again so it
  *    shows the price of the size they now have.
  *
+ *  - `subscription=started`: a workspace that renewed month by month through
+ *    our invoices has put its renewal on a subscription. Nothing was charged
+ *    (the time up to its renewal date is already paid for), which is exactly
+ *    what someone who has just entered a card needs to be told.
+ *
  * Anything else, including a value nobody defined, says nothing.
  */
 export interface CheckoutReturnNotice {
@@ -29,6 +34,14 @@ export function checkoutReturnNotice(params: {
     return {
       kind: "success",
       message: "Plan updated. The price below is what you pay now.",
+      refresh: true,
+    };
+  }
+  if (params.subscription === "started") {
+    return {
+      kind: "success",
+      message:
+        "Your plan now renews by itself. Nothing was charged today; the first charge is on your renewal date.",
       refresh: true,
     };
   }

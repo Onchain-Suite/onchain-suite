@@ -7,6 +7,7 @@ import { BillingInvoicesCard } from "./billing-invoices-card";
 import { CardOnFileCard } from "./card-on-file-card";
 import { CheckoutReturnToast } from "./checkout-return-toast";
 import PlanUsage from "./plan-usage";
+import { RenewalNoticeCard } from "./renewal-notice-card";
 
 export default function BillingSettings() {
   return (
@@ -19,6 +20,8 @@ export default function BillingSettings() {
       className="space-y-6"
     >
       <CheckoutReturnToast />
+      {/* Only for a workspace still renewing through our own invoices. */}
+      <RenewalNoticeCard />
       <PlanUsage />
 
       {/* Card on file drives auto-charge on renewal; invoices can also be paid

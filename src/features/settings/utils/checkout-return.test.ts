@@ -19,6 +19,16 @@ describe("checkoutReturnNotice", () => {
     });
   });
 
+  // Someone who has just entered a card needs to hear that it was not charged.
+  it("confirms a renewal put on a subscription, and that nothing was charged", () => {
+    expect(checkoutReturnNotice({ subscription: "started" })).toEqual({
+      kind: "success",
+      message:
+        "Your plan now renews by itself. Nothing was charged today; the first charge is on your renewal date.",
+      refresh: true,
+    });
+  });
+
   it("says nothing for a plain visit or a marker nobody defined", () => {
     for (const params of [
       {},

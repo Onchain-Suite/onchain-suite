@@ -28,6 +28,10 @@ export interface CurrentPlanSize {
   hasSubscription: boolean;
   /** The server will change that subscription in place. */
   canResize: boolean;
+  /** What the plan costs them a month now, in dollars; null when unknown. */
+  monthlyPrice?: number | null;
+  /** The server charges a larger size at once, not on the next invoice. */
+  upgradeChargedNow?: boolean;
 }
 
 export function planChange(input: {
@@ -79,6 +83,42 @@ export function planSubmitLabel(input: {
   return `${submitLabel ?? "Continue with"} ${planLabel}`;
 }
 
+const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+
+/**
+ * What a subscriber is told about a change that is applied with no checkout.
+ *
+ * A larger size is charged at once, for the difference between the two sizes
+ * for the period they are in; the new price in full starts at the next
+ * renewal. The amounts are the picker's quotes, which are whole dollars, so
+ * the difference is "about": the card is charged to the cent.
+ */
+function inPlaceHint(input: {
+  larger: boolean;
+  chargedNow: boolean;
+  currentMonthly?: number | null;
+  newMonthly?: number | null;
+}): string {
+  if (!input.larger) {
+    return "Takes effect at your next renewal, with no checkout. Nothing is charged or refunded now.";
+  }
+  // A server that has not said it charges at once adds the cost to the next
+  // invoice instead. Say what THAT server does, not what the newest one does.
+  if (!input.chargedNow) {
+    return "Applied to your subscription straight away, with no checkout. The extra for this period is added to your next invoice.";
+  }
+  const { currentMonthly, newMonthly } = input;
+  if (
+    typeof currentMonthly === "number" &&
+    typeof newMonthly === "number" &&
+    currentMonthly > 0 &&
+    newMonthly > currentMonthly
+  ) {
+    return `Your card is charged the difference for this period now, about ${dollars(newMonthly - currentMonthly)}, with no checkout. From your next renewal it is ${dollars(newMonthly)}/mo.`;
+  }
+  return "Your card is charged the difference for this period now, with no checkout. The new price in full starts at your next renewal.";
+}
+
 /** The line under the button: what happens next, and to their money. */
 export function planSubmitHint(input: {
   change: PlanChange;
@@ -86,6 +126,12 @@ export function planSubmitHint(input: {
   /** They subscribe by card, so a change is applied without a checkout. */
   inPlace: boolean;
   paymentMethod: "card" | "crypto";
+  /** The new size is larger than the one they have. */
+  larger?: boolean;
+  /** The server charges a larger size at once. */
+  chargedNow?: boolean;
+  currentMonthly?: number | null;
+  newMonthly?: number | null;
 }): string {
   const { change, isPayg, inPlace, paymentMethod } = input;
   if (change === "blocked") {
@@ -93,7 +139,12 @@ export function planSubmitHint(input: {
   }
   if (isPayg) return "No credit card required. Upgrade anytime.";
   if (inPlace && change !== "current") {
-    return "Applied to your subscription straight away, with no checkout. A larger size is charged pro rata on your next invoice; a smaller one starts at renewal.";
+    return inPlaceHint({
+      larger: input.larger !== false,
+      chargedNow: input.chargedNow === true,
+      currentMonthly: input.currentMonthly,
+      newMonthly: input.newMonthly,
+    });
   }
   return paymentMethod === "card"
     ? "You'll complete payment on a secure Stripe checkout page. The price shown is what you're billed."
@@ -108,7 +159,8 @@ export function planSubmit(input: {
   current?: CurrentPlanSize | null;
   selection: "suite" | "send" | "payg";
   submitLabel?: string;
-  planLabel?: string;
+  /** The quote for the slider's size: its plan name and price without seats. */
+  quote?: { planLabel?: string; monthlyPrice?: number } | null;
   paymentMethod: "card" | "crypto";
 }): { change: PlanChange; disabled: boolean; label: string; hint: string } {
   const isPayg = input.resolvedPlan === "payg";
@@ -126,7 +178,8 @@ export function planSubmit(input: {
       isPayg,
       submitLabel: input.submitLabel,
       planLabel:
-        input.planLabel ?? (input.selection === "send" ? "Send" : "Suite"),
+        input.quote?.planLabel ??
+        (input.selection === "send" ? "Send" : "Suite"),
       units: input.units,
       unit: input.selection === "send" ? "subscribers" : "contacts",
     }),
@@ -138,6 +191,10 @@ export function planSubmit(input: {
         input.current?.hasSubscription === true &&
         input.current.canResize,
       paymentMethod: input.paymentMethod,
+      larger: input.units > (input.current?.units ?? 0),
+      chargedNow: input.current?.upgradeChargedNow === true,
+      currentMonthly: input.current?.monthlyPrice,
+      newMonthly: input.quote?.monthlyPrice,
     }),
   };
 }

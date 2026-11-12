@@ -108,6 +108,12 @@ export interface OrgSubscriptionResponse {
    * checkout: the picker must not offer a subscriber a change without it.
    */
   canResize?: boolean;
+  /**
+   * A larger size is charged at once (the difference for the current period)
+   * rather than on the next invoice. Absent (so falsy) on a backend that
+   * still defers it: the picker reads this before it tells a buyer which.
+   */
+  upgradeChargedNow?: boolean;
 }
 
 /** One priced line from `GET /billing/plan-usage/:org/cost`. */

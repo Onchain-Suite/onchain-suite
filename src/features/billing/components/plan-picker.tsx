@@ -255,7 +255,7 @@ export function PlanPicker({
     current,
     selection,
     submitLabel,
-    planLabel: quote?.planLabel,
+    quote,
     paymentMethod,
   });
 

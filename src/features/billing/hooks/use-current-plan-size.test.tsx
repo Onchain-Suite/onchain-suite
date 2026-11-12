@@ -26,7 +26,13 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   </QueryClientProvider>
 );
 
-const UNKNOWN = { units: null, hasSubscription: false, canResize: false };
+const UNKNOWN = {
+  units: null,
+  hasSubscription: false,
+  canResize: false,
+  monthlyPrice: null,
+  upgradeChargedNow: false,
+};
 const noSubscription = {
   hasSubscription: false,
   status: null,
@@ -42,6 +48,8 @@ describe("useCurrentPlanSize", () => {
     usage.mockReset();
     subscription.mockReset();
     usage.mockResolvedValue({
+      // The server sends the plan as an object; the type calls it a name.
+      plan: { key: "launch", label: "Launch", monthlyPrice: 65 } as never,
       meters: {
         contacts: { used: 20, limit: 5000, percent: 0, status: "ok" },
       },
@@ -56,6 +64,7 @@ describe("useCurrentPlanSize", () => {
       capacity: 5000,
       billedUnits: 7300,
       canResize: true,
+      upgradeChargedNow: true,
     });
     const { result } = renderHook(() => useCurrentPlanSize(), { wrapper });
     await waitFor(() =>
@@ -63,6 +72,9 @@ describe("useCurrentPlanSize", () => {
         units: 7300,
         hasSubscription: true,
         canResize: true,
+        // What they pay now, so the picker can say what an upgrade adds.
+        monthlyPrice: 65,
+        upgradeChargedNow: true,
       })
     );
   });
@@ -75,6 +87,8 @@ describe("useCurrentPlanSize", () => {
         units: 5000,
         hasSubscription: false,
         canResize: false,
+        monthlyPrice: 65,
+        upgradeChargedNow: false,
       })
     );
   });
@@ -117,6 +131,8 @@ describe("useCurrentPlanSize", () => {
     const { result } = renderHook(() => useCurrentPlanSize(), { wrapper });
     await waitFor(() => expect(result.current.hasSubscription).toBe(true));
     expect(result.current.canResize).toBe(false);
+    // Nor has it said it charges an upgrade at once.
+    expect(result.current.upgradeChargedNow).toBe(false);
     expect(
       planChange({
         resolvedPlan: "launch",

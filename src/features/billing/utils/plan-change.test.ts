@@ -11,7 +11,12 @@ import {
 const subscriber = (
   units: number | null,
   canResize = true
-): CurrentPlanSize => ({ units, hasSubscription: true, canResize });
+): CurrentPlanSize => ({
+  units,
+  hasSubscription: true,
+  canResize,
+  upgradeChargedNow: true,
+});
 const paidAnotherWay = (units: number | null): CurrentPlanSize => ({
   units,
   hasSubscription: false,
@@ -206,11 +211,11 @@ describe("planSubmitHint", () => {
       change: "resize",
       isPayg: false,
       inPlace: true,
+      chargedNow: true,
       paymentMethod: "card",
     });
     expect(hint).toMatch(/no checkout/);
-    expect(hint).toMatch(/pro rata on your next invoice/);
-    expect(hint).toMatch(/smaller one starts at renewal/);
+    expect(hint).toMatch(/charged the difference for this period now/);
   });
 
   it("promises a checkout only where there will be one", () => {
@@ -246,7 +251,7 @@ describe("planSubmit", () => {
   const base = {
     selection: "suite" as const,
     submitLabel: "Upgrade to",
-    planLabel: "Launch",
+    quote: { planLabel: "Launch", monthlyPrice: 139 },
     paymentMethod: "card" as const,
   };
 
@@ -265,6 +270,72 @@ describe("planSubmit", () => {
       label: "Update to 12,000 contacts",
     });
     expect(out.hint).toMatch(/no checkout/);
+  });
+
+  // "They pay $39 at 2,500, upgrade to 5,000 this month, pay the difference
+  // now, and $65 from next month."
+  it("says what an upgrade charges now and what it costs from the next renewal", () => {
+    const out = planSubmit({
+      ...base,
+      quote: { planLabel: "Launch", monthlyPrice: 65 },
+      resolvedPlan: "launch",
+      currentPlan: "launch",
+      units: 5_000,
+      current: { ...subscriber(2_500), monthlyPrice: 39 },
+    });
+    expect(out.label).toBe("Update to 5,000 contacts");
+    expect(out.hint).toBe(
+      "Your card is charged the difference for this period now, about $26, with no checkout. From your next renewal it is $65/mo."
+    );
+  });
+
+  it("says a smaller size waits for renewal and moves no money now", () => {
+    const out = planSubmit({
+      ...base,
+      quote: { planLabel: "Launch", monthlyPrice: 39 },
+      resolvedPlan: "launch",
+      currentPlan: "launch",
+      units: 2_500,
+      current: { ...subscriber(5_000), monthlyPrice: 65 },
+    });
+    expect(out.hint).toMatch(/next renewal/);
+    expect(out.hint).toMatch(/Nothing is charged or refunded now/);
+  });
+
+  // The frontend goes live on merge; the backend is deployed by hand. Until
+  // it is, the server still adds an upgrade to the next invoice.
+  it("does not promise a charge now to a server that has not said it makes one", () => {
+    const out = planSubmit({
+      ...base,
+      quote: { planLabel: "Launch", monthlyPrice: 65 },
+      resolvedPlan: "launch",
+      currentPlan: "launch",
+      units: 5_000,
+      current: {
+        ...subscriber(2_500),
+        monthlyPrice: 39,
+        upgradeChargedNow: false,
+      },
+    });
+    expect(out.label).toBe("Update to 5,000 contacts");
+    expect(out.hint).toBe(
+      "Applied to your subscription straight away, with no checkout. The extra for this period is added to your next invoice."
+    );
+    expect(out.hint).not.toMatch(/charged the difference/);
+  });
+
+  it("names no amount it does not know", () => {
+    const out = planSubmit({
+      ...base,
+      quote: null,
+      resolvedPlan: "launch",
+      currentPlan: "launch",
+      units: 12_000,
+      current: subscriber(5_000),
+    });
+    expect(out.hint).toBe(
+      "Your card is charged the difference for this period now, with no checkout. The new price in full starts at your next renewal."
+    );
   });
 
   it("is a dead button at the size they already have", () => {
@@ -296,7 +367,7 @@ describe("planSubmit", () => {
       selection: "suite",
       resolvedPlan: "launch",
       units: 11_000,
-      planLabel: "Launch",
+      quote: { planLabel: "Launch", monthlyPrice: 126 },
       paymentMethod: "card",
     });
     expect(out).toMatchObject({

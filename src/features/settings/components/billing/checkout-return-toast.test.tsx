@@ -48,7 +48,7 @@ describe("CheckoutReturnToast", () => {
   it("confirms a change of size and reads the billing figures again", () => {
     const { invalidate } = renderAt("tab=billing&subscription=updated");
     expect(toast.success).toHaveBeenCalledWith(
-      "Plan updated. Your next invoice reflects the change."
+      "Plan updated. The price below is what you pay now."
     );
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["billing"] });
   });

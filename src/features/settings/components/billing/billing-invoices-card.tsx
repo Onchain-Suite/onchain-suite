@@ -16,6 +16,10 @@ import {
   billingService,
   type CustomerInvoice,
 } from "@/features/billing/billing.service";
+import {
+  invoiceRowAction,
+  isPaidInvoice,
+} from "@/features/settings/utils/invoice-row-action";
 import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
@@ -68,6 +72,7 @@ const toInvoiceArray = (payload: unknown): CustomerInvoice[] => {
  * Customer-facing invoice list (`GET /billing/invoices`): number, description,
  * amount, status and the pay date, with a Pay button that opens the invoice's
  * hosted `payUrl` (Stripe card page; crypto invoices are paid from the wallet).
+ * A card subscription's invoices are Stripe's own, and link to its page and PDF.
  */
 export function BillingInvoicesCard() {
   const invoicesQuery = useQuery({
@@ -137,13 +142,14 @@ export function BillingInvoicesCard() {
                 <th className="px-4 py-2 text-right font-medium">Amount</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium">Date</th>
-                <th className="w-px py-2" aria-label="Pay" />
+                <th className="w-px py-2" aria-label="Actions" />
               </tr>
             </thead>
             <tbody>
               {pager.items.map((invoice, index) => {
-                const isPaid = invoice.status?.toLowerCase() === "paid";
+                const isPaid = isPaidInvoice(invoice);
                 const date = isPaid ? invoice.paidAt : invoice.dueAt;
+                const action = invoiceRowAction(invoice);
                 return (
                   <tr
                     key={invoice.id || invoice.number || `invoice-${index}`}
@@ -174,10 +180,10 @@ export function BillingInvoicesCard() {
                       {formatDate(date)}
                     </td>
                     <td className="py-3 pl-4 text-right">
-                      {!isPaid && invoice.payUrl ? (
+                      {action.kind === "pay" ? (
                         <Button asChild size="sm">
                           <a
-                            href={invoice.payUrl}
+                            href={action.href}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
@@ -188,7 +194,40 @@ export function BillingInvoicesCard() {
                             />
                           </a>
                         </Button>
-                      ) : isPaid && invoice.canDownload !== false ? (
+                      ) : action.kind === "stripe" ? (
+                        <div className="flex justify-end gap-2">
+                          {action.viewUrl ? (
+                            <Button asChild variant="outline" size="sm">
+                              <a
+                                href={action.viewUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                View
+                                <ArrowTopRightOnSquareIcon
+                                  aria-hidden="true"
+                                  className="ml-1.5 size-3.5"
+                                />
+                              </a>
+                            </Button>
+                          ) : null}
+                          {action.pdfUrl ? (
+                            <Button asChild variant="outline" size="sm">
+                              <a
+                                href={action.pdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                PDF
+                                <ArrowDownTrayIcon
+                                  aria-hidden="true"
+                                  className="ml-1.5 size-3.5"
+                                />
+                              </a>
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : action.kind === "receipt" ? (
                         <Button
                           variant="outline"
                           size="sm"

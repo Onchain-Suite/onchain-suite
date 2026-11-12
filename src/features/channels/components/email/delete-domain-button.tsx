@@ -5,7 +5,7 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 
-import type { DomainStatus } from "./domain-status";
+import type { DomainStatus } from "../../utils/domain-status";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +36,7 @@ export function DeleteDomainButton({
 }) {
   const description =
     status === "verified"
-      ? "Branded sending from this domain will stop until it is re-verified."
+      ? "This domain is verified and in use. Removing it stops every email that sends from it, scheduled sends included, until another domain is verified. Your DNS records stay where they are, so adding it again verifies quickly."
       : "This removes the domain and the DNS records generated for it. You can add it again later.";
 
   return (
@@ -46,10 +46,10 @@ export function DeleteDomainButton({
           type="button"
           disabled={pending}
           aria-label={`Remove ${domain}`}
-          title="Remove domain"
-          className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
         >
           <TrashIcon aria-hidden="true" className="h-4 w-4" />
+          {pending ? "Removing…" : "Remove domain"}
         </button>
       </AlertDialogTrigger>
       <AlertDialogContent>

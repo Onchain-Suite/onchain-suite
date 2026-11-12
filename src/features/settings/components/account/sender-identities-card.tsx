@@ -2,6 +2,7 @@
 
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -9,6 +10,7 @@ import { usePagination } from "../../hooks/use-pagination";
 import { ListPager } from "../list-pager";
 import { SettingsCard, StatusPill } from "../settings-card";
 import { useAccountOrg } from "./use-account-org";
+import { channelSetupHref } from "@/features/channels/data/channels";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -191,7 +193,15 @@ export function SenderIdentitiesCard() {
             No senders yet
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Add a From-address on a verified domain to start sending.
+            Add a From-address on a verified domain to start sending. Domains
+            are verified in{" "}
+            <Link
+              href={channelSetupHref("email")}
+              className="font-medium text-foreground underline underline-offset-2"
+            >
+              Integrations → Channels → Email
+            </Link>
+            .
           </p>
         </div>
       ) : senders.length > 0 ? (

@@ -108,6 +108,7 @@ import {
 import type { List, Segment } from "@/features/campaigns/types";
 import { placementDeliverable } from "@/features/campaigns/utils/inapp-readiness";
 import { xContent } from "@/features/campaigns/x/x-content";
+import { channelSetupHref } from "@/features/channels/data/channels";
 import { useOrgSwitcherContext } from "@/features/common/layout/components/org-switcher-context";
 import {
   type IntelligenceSegment,
@@ -128,12 +129,8 @@ import { useActiveTimezone } from "@/shared/hooks/client/use-timezones";
 // Preview has its own page so the rendered email gets room, alongside the
 // campaign details and a send-a-test control.
 const TOTAL_STEPS = 3;
-/**
- * Domain verification lives in the account tab's "Sender verification"
- * section, which is collapsed by default - `section=` expands and scrolls to
- * it so the link lands on the thing the user was told to do.
- */
-const SENDER_VERIFICATION_HREF = `${PRIVATE_ROUTES.SETTINGS}?tab=account&section=sender-verification`;
+/** Domain verification is the email channel's setup (Integrations -> Channels). */
+const SENDER_VERIFICATION_HREF = channelSetupHref("email");
 const campaignTypes = new Set<CampaignFormData["campaignType"]>([
   "email-blast",
   "smart-sending",
@@ -920,7 +917,7 @@ function CampaignPreviewStep({
               <p className="text-sm leading-relaxed text-amber-700 dark:text-amber-400">
                 You can&apos;t send this campaign yet. Your role can&apos;t
                 launch campaigns for this organization - ask an admin to send,
-                or check your sender verification in Settings.
+                or check your sending domain in Integrations → Channels.
               </p>
             </div>
           ) : null}
@@ -1603,7 +1600,7 @@ export function CreateCampaignPage() {
   // `senderIdentityId`, so on return the "Send as" dropdown still shows the
   // sender (it matches purely by address) while the link is gone. The schema
   // only waives the sender NAME when the link is present, so without this,
-  // Continue fails validation on a blank name — and the offending field sits
+  // Continue fails validation on a blank name - and the offending field sits
   // below the fold, so the button just reads as dead. Matching by address is
   // safe: the dropdown already treats this identity as the selected one.
   const watchedSenderEmail = form.watch("senderEmail");
@@ -2105,7 +2102,7 @@ export function CreateCampaignPage() {
     if (!isValid) {
       // Never fail silently. A blocked Continue with no feedback reads as a
       // dead button (the reported bug). Focus and announce the first offending
-      // field — most often `senderName`, required when the sender-identity link
+      // field - most often `senderName`, required when the sender-identity link
       // is missing and the name is blank, on a field below the fold.
       const { errors } = form.formState;
       const firstInvalid = fieldsToValidate.find((field) => errors[field]);

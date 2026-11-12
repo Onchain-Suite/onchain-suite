@@ -74,6 +74,10 @@ export const CHANNEL_META: Record<ChannelId, ChannelMeta> = {
   },
 };
 
+/** Where a channel is set up: its own page under Integrations -> Channels. */
+export const channelSetupHref = (id: ChannelId) =>
+  `/integrations?tab=channels&channel=${id}`;
+
 /** Display order in the Channels tab: the live channels first, then social. */
 export const CHANNEL_ORDER: ChannelId[] = [
   "email",

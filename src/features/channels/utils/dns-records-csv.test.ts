@@ -34,7 +34,7 @@ describe("csvCell", () => {
 describe("buildDnsCsv", () => {
   it("emits a header and one CRLF-terminated row per record", () => {
     // Names are FULL record names (fqdn), so a DNS admin can't place them one
-    // zone level too high — the subdomain-vs-apex mistake this export prevents.
+    // zone level too high - the subdomain-vs-apex mistake this export prevents.
     const records: DnsCsvRecord[] = [
       {
         type: "TXT",

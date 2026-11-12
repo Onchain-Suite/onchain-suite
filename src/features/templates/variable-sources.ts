@@ -35,9 +35,13 @@ export interface VariableSourceInfo {
 
 /** Account tab holds the org profile (name, billing email, address, ticker). */
 export const SETTINGS_ACCOUNT_HREF = "/settings?tab=account";
-/** The sender-verification card within the Account tab. */
+/**
+ * The sender-addresses card within the Account tab. A from-address needs a
+ * verified sending domain first, and that is set up in Integrations ->
+ * Channels -> Email; the card says so and links there.
+ */
 export const SETTINGS_SENDER_HREF =
-  "/settings?tab=account&section=sender-verification";
+  "/settings?tab=account&section=sender-addresses";
 
 /**
  * Canonical source map, keyed by token. Aliases (e.g. legacy
@@ -82,9 +86,10 @@ export const VARIABLE_SOURCES: Record<string, VariableSourceInfo> = {
     key: "sender_email",
     label: "Sender email",
     kind: "settings",
-    collectedAt: "Settings → Account → Sender verification",
+    collectedAt: "Settings → Account → Sender addresses",
     href: SETTINGS_SENDER_HREF,
-    fillHint: "Verify a sending domain / from-address in Settings → Account.",
+    fillHint:
+      "Verify a sending domain in Integrations → Channels → Email, then add a from-address in Settings → Account.",
   },
 
   // -- Campaign-sourced -----------------------------------------------------

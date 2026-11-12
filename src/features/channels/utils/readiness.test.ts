@@ -51,6 +51,10 @@ describe("deriveChannelReadiness - email", () => {
       "none"
     );
     expect(byId(base).email.blocker).toMatch(/no verified sending domain/i);
+    // A failed check is said, so the row does not read as never started.
+    expect(byId({ ...base, domainStatuses: ["failed"] }).email.blocker).toBe(
+      "A sending domain failed its DNS check"
+    );
   });
 });
 
@@ -110,7 +114,11 @@ describe("deriveChannelReadiness - all channels", () => {
 
   it("defaults the social channels to not connected", () => {
     expect(byId(base).whatsapp.status).toBe("none");
-    expect(byId(base).discord.blocker).toMatch(/not connected/i);
+    // Said in the words of the thing that has to be connected.
+    expect(byId(base).discord.blocker).toBe("No bot connected");
+    expect(byId(base).whatsapp.blocker).toBe("Not connected to Meta");
+    expect(byId(base).x.blocker).toBe("X app not connected");
+    expect(byId(base).farcaster.blocker).toBe("No signer connected");
   });
 
   it("reflects a connected social channel when its state is threaded through", () => {

@@ -2,48 +2,7 @@ import { CopyButton } from "@/components/common/copy-button";
 
 import { cn } from "@/lib/utils";
 
-import type { DnsRecordRow } from "./domain-dns";
-
-/** A labelled, copyable DNS value (Host, Value, Recommended value). */
-export function DnsField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 flex items-start gap-1.5">
-        <code className="block min-w-0 flex-1 break-all rounded-md bg-muted px-2 py-1 text-xs text-foreground">
-          {value}
-        </code>
-        <CopyButton value={value} label={`Copy ${label.toLowerCase()}`} />
-      </div>
-    </div>
-  );
-}
-
-/** What is live in the user's DNS right now ([] renders as "Nothing published"). */
-export function CurrentInDns({ current }: { current: string[] | undefined }) {
-  if (current === undefined) return null;
-  return (
-    <div>
-      <div className="text-xs text-muted-foreground">Current in your DNS</div>
-      {current.length === 0 ? (
-        <div className="mt-1 rounded-md border border-dashed border-border/70 px-2 py-1 text-xs italic text-muted-foreground">
-          Nothing published yet
-        </div>
-      ) : (
-        <div className="mt-1 space-y-1">
-          {current.map((live) => (
-            <code
-              key={live}
-              className="block break-all rounded-md bg-muted/60 px-2 py-1 text-xs text-muted-foreground"
-            >
-              {live}
-            </code>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import type { DnsRecordRow } from "../../utils/domain-dns";
 
 /** The edit instructions for a conflicting (or informational) existing record. */
 export function ConflictBox({
@@ -80,7 +39,7 @@ export function ConflictBox({
           </span>
           {action.host && !action.currentValue && !action.newValue ? (
             // A value-less action (e.g. "remove the misplaced record") is about
-            // a record NAME, not a value — the value is already on the card.
+            // a record NAME, not a value - the value is already on the card.
             // Show the full name to act on, with a copy button to find it.
             <span className="flex items-center gap-1">
               <code className="break-all rounded bg-muted px-1.5 py-0.5 text-[11px]">

@@ -49,17 +49,6 @@ export interface SenderDomainRecord {
   [key: string]: unknown;
 }
 
-/** Registrar-ready record from `GET /domain/{id}/dns`. */
-export interface DomainDnsRecord {
-  id?: string;
-  host?: string;
-  type?: string;
-  value?: string;
-  ttl?: string | number;
-  priority?: string | number;
-  [key: string]: unknown;
-}
-
 /** One provider's records from `POST /domain/{id}/provision`. */
 export interface DomainProvisionProvider {
   provider: "sendgrid" | "ses" | "acs" | string;
@@ -206,7 +195,7 @@ const pickBooleanLike = (...values: unknown[]) => {
  * stripped so "not_started" / "in-progress" match regardless of delimiter.
  *
  * Mirrors `normalizeDomainStatus` in the domain list UI
- * (components/account/domain-status.ts); kept here with the varargs +
+ * (channels/utils/domain-status.ts); kept here with the varargs +
  * `undefined` contract this service depends on.
  */
 export const resolveExplicitStatus = (
@@ -400,8 +389,8 @@ export const senderIdentitiesService = {
    *
    * The name is what recipients read above the subject; the address is
    * immutable here because a different address needs its own verification.
-   * Renaming does NOT reset verification — no email-auth mechanism binds the
-   * display name — so a verified sender stays verified through this.
+   * Renaming does NOT reset verification - no email-auth mechanism binds the
+   * display name - so a verified sender stays verified through this.
    *
    * Send an empty string to clear the name and send from the bare address.
    */
@@ -468,7 +457,7 @@ export const senderIdentitiesService = {
   /**
    * `POST /domain` - registers the domain and provisions it in Azure ACS.
    * Check `status` on the response: `VERIFIED` → done (skip the DNS screen),
-   * `PENDING_VERIFICATION` → show `getDomainDns` records then `verifyDomain`.
+   * `PENDING_VERIFICATION` → show the `getDomainDns` records, then `recheckDomain`.
    */
   createDomain(domain: string, orgId?: string) {
     return request<SenderDomainRecord>(
@@ -485,13 +474,16 @@ export const senderIdentitiesService = {
     );
   },
 
-  /** `GET /domain/{id}/dns` - registrar-ready TXT/DKIM/SPF records. */
-  async getDomainDns(domainId: string, orgId?: string) {
-    const payload = await request<unknown>(
+  /**
+   * `GET /domain/{id}/dns` - the domain's DNS report: the records to publish,
+   * what is live for each, conflicts, and whether the domain can send. Returned
+   * as received; `parseDomainDns` (channels/utils/domain-dns) reads it.
+   */
+  getDomainDns(domainId: string, orgId?: string) {
+    return request<unknown>(
       { method: "GET", url: `/domain/${domainId}/dns` },
       orgId
     );
-    return toArray(payload).filter(isJsonObject) as DomainDnsRecord[];
   },
 
   /**
@@ -534,31 +526,8 @@ export const senderIdentitiesService = {
   },
 
   /**
-   * `POST /domain/{id}/verify` - long-polls Azure until VERIFIED/FAILED, so
-   * it is explicitly bounded rather than left to hang.
-   */
-  verifyDomain(domainId: string, orgId?: string) {
-    return request<DomainStatusResponse>(
-      {
-        method: "POST",
-        url: `/domain/${domainId}/verify`,
-        timeout: 120_000,
-      },
-      orgId
-    );
-  },
-
-  /** `GET /domain/{id}/status`. */
-  getDomainStatus(domainId: string, orgId?: string) {
-    return request<DomainStatusResponse>(
-      { method: "GET", url: `/domain/${domainId}/status` },
-      orgId
-    );
-  },
-
-  /**
    * `POST /domain/{id}/recheck` - re-checks published DNS against the provider.
-   * Like `verifyDomain`, the provider lookup can run well past the 30s api-client
+   * The provider lookup can run well past the 30s api-client
    * default, so bound it explicitly at 120s rather than letting the default
    * abort a check that is still in flight.
    */

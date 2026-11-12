@@ -95,6 +95,19 @@ export interface OrgSubscriptionResponse {
   priceId: string | null;
   plan: string | null;
   planExpiresAt: string | null;
+  /**
+   * The size the subscription was bought at. Absent on a backend that
+   * predates sizes (2026-11-11), null when none is on record.
+   */
+  capacity?: number | null;
+  /** The size it is billed at now; it follows a list that outgrew `capacity`. */
+  billedUnits?: number | null;
+  /**
+   * `POST /billing/subscribe` will change this subscription in place. Absent
+   * (so falsy) on an older backend, where the same call starts a second
+   * checkout: the picker must not offer a subscriber a change without it.
+   */
+  canResize?: boolean;
 }
 
 /** One priced line from `GET /billing/plan-usage/:org/cost`. */

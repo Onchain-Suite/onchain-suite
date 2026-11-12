@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { PlanPicker } from "@/features/billing/components/plan-picker";
+import { useCurrentPlanSize } from "@/features/billing/hooks/use-current-plan-size";
 
 /**
  * Settings > Billing "Change plan" - renders the shared {@link PlanPicker}
@@ -30,6 +31,7 @@ export default function ChangePlanDialog({
 }) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
+  const current = useCurrentPlanSize();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -47,12 +49,15 @@ export default function ChangePlanDialog({
             Choose your plan
           </DialogTitle>
           <DialogDescription>
-            Upgrade to unlock more contacts, channels, and intelligence. Pay by
-            card (Stripe) or crypto - your plan unlocks once payment confirms.
+            Move the slider to the list size you need. Pay by card (Stripe) or
+            crypto - your plan unlocks once payment confirms.
           </DialogDescription>
         </DialogHeader>
         <PlanPicker
+          // Keyed on the size so the slider opens on it once it is known.
+          key={current.units ?? "unknown"}
           currentPlan={currentPlan}
+          current={current}
           submitLabel="Upgrade to"
           onCompleted={() => {
             queryClient.invalidateQueries({ queryKey: ["billing"] });

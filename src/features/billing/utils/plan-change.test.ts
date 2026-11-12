@@ -251,7 +251,12 @@ describe("planSubmit", () => {
   const base = {
     selection: "suite" as const,
     submitLabel: "Upgrade to",
-    quote: { planLabel: "Launch", monthlyPrice: 139 },
+    quote: {
+      planLabel: "Launch",
+      monthlyPrice: 139,
+      units: 12_000,
+      line: "suite",
+    },
     paymentMethod: "card" as const,
   };
 
@@ -277,7 +282,12 @@ describe("planSubmit", () => {
   it("says what an upgrade charges now and what it costs from the next renewal", () => {
     const out = planSubmit({
       ...base,
-      quote: { planLabel: "Launch", monthlyPrice: 65 },
+      quote: {
+        planLabel: "Launch",
+        monthlyPrice: 65,
+        units: 5_000,
+        line: "suite",
+      },
       resolvedPlan: "launch",
       currentPlan: "launch",
       units: 5_000,
@@ -295,7 +305,12 @@ describe("planSubmit", () => {
   it("calls the renewal figure the plan's, and says seats are not part of this", () => {
     const withSeats = planSubmit({
       ...base,
-      quote: { planLabel: "Launch", monthlyPrice: 65 },
+      quote: {
+        planLabel: "Launch",
+        monthlyPrice: 65,
+        units: 5_000,
+        line: "suite",
+      },
       resolvedPlan: "launch",
       currentPlan: "launch",
       units: 5_000,
@@ -309,7 +324,12 @@ describe("planSubmit", () => {
 
     const noSeats = planSubmit({
       ...base,
-      quote: { planLabel: "Launch", monthlyPrice: 65 },
+      quote: {
+        planLabel: "Launch",
+        monthlyPrice: 65,
+        units: 5_000,
+        line: "suite",
+      },
       resolvedPlan: "launch",
       currentPlan: "launch",
       units: 5_000,
@@ -373,7 +393,12 @@ describe("planSubmit", () => {
   it("does not promise a charge now to a server that has not said it makes one", () => {
     const out = planSubmit({
       ...base,
-      quote: { planLabel: "Launch", monthlyPrice: 65 },
+      quote: {
+        planLabel: "Launch",
+        monthlyPrice: 65,
+        units: 5_000,
+        line: "suite",
+      },
       resolvedPlan: "launch",
       currentPlan: "launch",
       units: 5_000,
@@ -388,6 +413,101 @@ describe("planSubmit", () => {
       "Applied to your subscription straight away, with no checkout. The extra for this period is added to your next invoice."
     );
     expect(out.hint).not.toMatch(/charged the difference/);
+  });
+
+  // Review finding: the quote is fetched after the slider moves, and the
+  // picker keeps showing the last one meanwhile. The line named the PREVIOUS
+  // size's price while the button was already submitting the new size.
+  it("names no amount while the quote it holds is for another size", () => {
+    const stale = planSubmit({
+      ...base,
+      // Still the quote for 5,000; the slider is now on 12,000.
+      quote: {
+        planLabel: "Launch",
+        monthlyPrice: 65,
+        units: 5_000,
+        line: "suite",
+      },
+      resolvedPlan: "launch",
+      currentPlan: "launch",
+      units: 12_000,
+      current: { ...subscriber(2_500), monthlyPrice: 39 },
+    });
+    expect(stale.label).toBe("Update to 12,000 contacts");
+    expect(stale.hint).toBe(
+      "Your card is charged the difference for this period now, with no checkout. The new price in full starts at your next renewal."
+    );
+    expect(stale.hint).not.toMatch(/\$/);
+
+    // The quote for 12,000 arrives: now the amounts are named.
+    const fresh = planSubmit({
+      ...base,
+      quote: {
+        planLabel: "Launch",
+        monthlyPrice: 139,
+        units: 12_000,
+        line: "suite",
+      },
+      resolvedPlan: "launch",
+      currentPlan: "launch",
+      units: 12_000,
+      current: { ...subscriber(2_500), monthlyPrice: 39 },
+    });
+    expect(fresh.hint).toMatch(/about \$100/);
+    expect(fresh.hint).toMatch(/the plan is \$139\/mo/);
+  });
+
+  // Review finding: Suite and Send can sit on the same number. Switching line
+  // kept the other line's quote for a moment, and its size matched.
+  it("names no amount from a quote for the other plan line, even at the same size", () => {
+    const out = planSubmit({
+      selection: "send",
+      submitLabel: "Upgrade to",
+      paymentMethod: "card",
+      // The Suite quote for 10,000 contacts; the picker is now on Send.
+      quote: {
+        planLabel: "Launch",
+        monthlyPrice: 118,
+        units: 10_000,
+        line: "suite",
+      },
+      resolvedPlan: "send",
+      currentPlan: "send",
+      units: 10_000,
+      current: { ...subscriber(5_000), monthlyPrice: 26 },
+    });
+    expect(out.label).toBe("Update to 10,000 subscribers");
+    expect(out.hint).not.toMatch(/\$/);
+
+    const matching = planSubmit({
+      selection: "send",
+      submitLabel: "Upgrade to",
+      paymentMethod: "card",
+      quote: {
+        planLabel: "Send",
+        monthlyPrice: 46,
+        units: 10_000,
+        line: "send",
+      },
+      resolvedPlan: "send",
+      currentPlan: "send",
+      units: 10_000,
+      current: { ...subscriber(5_000), monthlyPrice: 26 },
+    });
+    expect(matching.hint).toMatch(/about \$20/);
+    expect(matching.hint).toMatch(/the plan is \$46\/mo/);
+  });
+
+  it("names no amount from a quote that does not say what size it is for", () => {
+    const out = planSubmit({
+      ...base,
+      quote: { planLabel: "Launch", monthlyPrice: 139 },
+      resolvedPlan: "launch",
+      currentPlan: "launch",
+      units: 12_000,
+      current: { ...subscriber(2_500), monthlyPrice: 39 },
+    });
+    expect(out.hint).not.toMatch(/\$/);
   });
 
   it("names no amount it does not know", () => {

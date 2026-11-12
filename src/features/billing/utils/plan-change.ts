@@ -173,13 +173,31 @@ export function planSubmit(input: {
   current?: CurrentPlanSize | null;
   selection: "suite" | "send" | "payg";
   submitLabel?: string;
-  /** The quote for the slider's size: its plan name and price without seats. */
-  quote?: { planLabel?: string; monthlyPrice?: number } | null;
+  /**
+   * The quote the picker holds: its plan name, its price without seats, and
+   * what it was priced for (which line, what size). While a new quote is being
+   * fetched the picker still holds the LAST one, so both are checked before a
+   * price is used.
+   */
+  quote?: {
+    planLabel?: string;
+    monthlyPrice?: number;
+    units?: number;
+    line?: string;
+  } | null;
   paymentMethod: "card" | "crypto";
   /** Seats added on the stepper. */
   extraSeats?: number;
 }): { change: PlanChange; disabled: boolean; label: string; hint: string } {
   const isPayg = input.resolvedPlan === "payg";
+  // A price is named only when it is the price of what will be bought: this
+  // size, on this line. The quote lags the picker by a request; for that
+  // moment its price belongs to the previous size, or to the other line
+  // (Suite and Send can sit on the same number), and the button already
+  // submits the new choice.
+  const quotedForThis =
+    input.quote?.units === Math.round(input.units) &&
+    input.quote.line === input.selection;
   const change = planChange({
     resolvedPlan: input.resolvedPlan,
     currentPlan: (input.currentPlan ?? "").trim().toLowerCase(),
@@ -211,7 +229,7 @@ export function planSubmit(input: {
       chargedNow: input.current?.upgradeChargedNow === true,
       extraSeats: input.extraSeats,
       currentMonthly: input.current?.monthlyPrice,
-      newMonthly: input.quote?.monthlyPrice,
+      newMonthly: quotedForThis ? input.quote?.monthlyPrice : null,
     }),
   };
 }

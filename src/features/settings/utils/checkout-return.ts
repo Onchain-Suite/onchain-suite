@@ -8,7 +8,9 @@
  *    same as before they left and wonder whether it had.
  *  - `subscription=updated`: a workspace that already subscribes changed its
  *    size. There is no checkout for that (a second one would be a second
- *    subscription), so this is the only confirmation they get.
+ *    subscription), so this is the only confirmation they get. A larger size
+ *    has already been charged for; the page's figures are read again so it
+ *    shows the price of the size they now have.
  *
  * Anything else, including a value nobody defined, says nothing.
  */
@@ -26,7 +28,7 @@ export function checkoutReturnNotice(params: {
   if (params.subscription === "updated") {
     return {
       kind: "success",
-      message: "Plan updated. Your next invoice reflects the change.",
+      message: "Plan updated. The price below is what you pay now.",
       refresh: true,
     };
   }

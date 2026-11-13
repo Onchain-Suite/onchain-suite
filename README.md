@@ -164,4 +164,4 @@ Authorized JavaScript origin in the Google OAuth console (the
 ## Links
 
 - Website: https://onchainsuite.com
-- X (Twitter): https://twitter.com/onchainsuite
+- X (Twitter): https://twitter.com/0nchainsuite

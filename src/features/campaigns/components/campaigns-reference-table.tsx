@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { campaignsService } from "../campaigns.service";
 import { CHANNEL_DISPLAY, channelKeysFor } from "../data/channels";
 import type { Campaign, CampaignStatus } from "../types/campaign";
+import { settlingTitle } from "../utils/rates";
 import { Icon } from "@/shared/components/common/hugeicon";
 
 const STATUS_META: Record<
@@ -117,8 +118,9 @@ const denomLabel = (n: number | undefined, kind: string) =>
 
 /**
  * Right-aligned rate cell. `title` states the denominator (the rate is
- * meaningless without it). Rates are already percentages - not clamped, so a
- * click rate above 100% (multi-click + scanner prefetch) shows honestly.
+ * meaningless without it). Rates are already percentages and are not clamped
+ * here: the backend counts people, not events, and bounds the denominator, so
+ * a rate above 100% would be a backend bug worth seeing.
  */
 function RateValueCell({
   value,
@@ -146,6 +148,22 @@ function RateDashCell() {
   return (
     <td className="px-4 py-4 text-right tabular-nums text-muted-foreground">
       -
+    </td>
+  );
+}
+
+/**
+ * Shown instead of a rate while a send is in flight or under an hour old. A
+ * rate in that window is not wrong so much as premature: it moves a lot, and
+ * people read it as the result.
+ */
+function RateSettlingCell({ title }: { title: string }) {
+  return (
+    <td
+      className="px-4 py-4 text-right text-xs text-muted-foreground"
+      title={title}
+    >
+      Collecting
     </td>
   );
 }
@@ -188,7 +206,7 @@ function RateCells({ campaign }: { campaign: Campaign }) {
     queryKey: ["campaigns", campaign.id, "analytics"],
     queryFn: () => campaignsService.getAnalytics(campaign.id),
     // Only fetch when the row didn't already carry rates (in-app / legacy rows).
-    enabled: isSent && !hasListRates,
+    enabled: isSent && !hasListRates && !campaign.ratesSettling,
     staleTime: 5 * 60 * 1000,
     retry: false,
     refetchOnWindowFocus: false,
@@ -200,6 +218,17 @@ function RateCells({ campaign }: { campaign: Campaign }) {
       <>
         <RateDashCell />
         <RateDashCell />
+      </>
+    );
+  }
+
+  // Still settling: no number yet, for either column.
+  if (campaign.ratesSettling) {
+    const title = settlingTitle(campaign.ratesSettleAt);
+    return (
+      <>
+        <RateSettlingCell title={title} />
+        <RateSettlingCell title={title} />
       </>
     );
   }

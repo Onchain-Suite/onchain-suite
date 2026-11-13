@@ -752,6 +752,9 @@ const toCampaign = (raw: unknown): Campaign => {
       toFiniteNumber(obj.clickRateOfAudience) ?? toFiniteNumber(obj.clickRate),
     openRateOfDelivered: toFiniteNumber(obj.openRateOfDelivered),
     clickRateOfDelivered: toFiniteNumber(obj.clickRateOfDelivered),
+    ratesSettling: obj.ratesSettling === true,
+    ratesSettleAt:
+      typeof obj.ratesSettleAt === "string" ? obj.ratesSettleAt : undefined,
     opens: toFiniteNumber(obj.opens),
     // `clicks` is now unique clickers; `totalClicks` is event volume.
     clicks: toFiniteNumber(obj.clicks),

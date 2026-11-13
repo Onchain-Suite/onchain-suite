@@ -42,6 +42,14 @@ export interface Campaign {
   ratesSettling?: boolean;
   /** When the rates settle (ISO). Absent while still sending or once settled. */
   ratesSettleAt?: string;
+  /**
+   * For a sent campaign: how many of its emails have actually left (the
+   * provider accepted them, or something happened to them since) out of its
+   * recipients. "sent" status alone only means queued: on 2026-11-13 campaigns
+   * read "Sent" while most of their emails sat in a stalled queue.
+   * `partly_sent` = still incomplete past the stale limit (about a day).
+   */
+  sendProgress?: CampaignSendProgress;
   /** Unique openers so far. */
   opens?: number;
   /**
@@ -115,4 +123,10 @@ export interface MergeTag {
 export interface Timezone {
   value: string;
   label: string;
+}
+
+export interface CampaignSendProgress {
+  sent: number;
+  total: number;
+  state: "sending" | "sent" | "partly_sent";
 }

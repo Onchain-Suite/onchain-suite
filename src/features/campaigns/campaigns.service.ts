@@ -11,7 +11,7 @@ import type {
 } from "./contracts/goals";
 import type { CampaignLiftResult } from "./contracts/lift";
 import { withApiErrorFields } from "./lib/launch-errors";
-import type { Campaign } from "./types/campaign";
+import type { Campaign, CampaignSendProgress } from "./types/campaign";
 
 export interface ListCampaignsParams {
   page?: number;
@@ -755,6 +755,7 @@ const toCampaign = (raw: unknown): Campaign => {
     ratesSettling: obj.ratesSettling === true,
     ratesSettleAt:
       typeof obj.ratesSettleAt === "string" ? obj.ratesSettleAt : undefined,
+    sendProgress: toSendProgress(obj.sendProgress),
     opens: toFiniteNumber(obj.opens),
     // `clicks` is now unique clickers; `totalClicks` is event volume.
     clicks: toFiniteNumber(obj.clicks),
@@ -1447,3 +1448,19 @@ export const campaignsService = {
     );
   },
 };
+
+/** The list row's send progress, or undefined when absent or malformed. */
+export function toSendProgress(
+  value: unknown
+): CampaignSendProgress | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as Record<string, unknown>;
+  const sent = Number(v.sent);
+  const total = Number(v.total);
+  const { state } = v;
+  if (!Number.isFinite(sent) || !Number.isFinite(total) || total <= 0)
+    return undefined;
+  if (state !== "sending" && state !== "sent" && state !== "partly_sent")
+    return undefined;
+  return { sent: Math.min(Math.max(0, sent), total), total, state };
+}

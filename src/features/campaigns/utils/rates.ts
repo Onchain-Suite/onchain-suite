@@ -131,3 +131,28 @@ export function settlingTitle(ratesSettleAt: string | undefined): string {
   });
   return `${base} Ready at ${time}.`;
 }
+
+/**
+ * The status pill for a list row. A "sent" campaign whose emails are still
+ * leaving reads "Sending"; one still incomplete past the stale limit reads
+ * "Partly sent". Everything else keeps its own status.
+ */
+export function displayStatus(
+  campaign: Pick<Campaign, "status" | "sendProgress">
+): CampaignStatus | "partly_sent" {
+  if (campaign.status !== "sent" || !campaign.sendProgress)
+    return campaign.status;
+  if (campaign.sendProgress.state === "sending") return "sending";
+  if (campaign.sendProgress.state === "partly_sent") return "partly_sent";
+  return "sent";
+}
+
+/** "1,341 of 3,235 sent" while incomplete; nothing once everything has left. */
+export function sendProgressLabel(
+  campaign: Pick<Campaign, "status" | "sendProgress">
+): string | null {
+  const p = campaign.sendProgress;
+  if (campaign.status !== "sent" || !p || p.state === "sent") return null;
+  const fmt = (n: number) => n.toLocaleString("en-US");
+  return `${fmt(p.sent)} of ${fmt(p.total)} sent`;
+}

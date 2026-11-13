@@ -64,3 +64,32 @@ describe("campaignsService enum mapping", () => {
     });
   });
 });
+
+describe("toSendProgress", () => {
+  it("accepts the API shape and clamps sent to total", async () => {
+    const { toSendProgress } = await import("./campaigns.service");
+    expect(
+      toSendProgress({ sent: 208, total: 3235, state: "sending" })
+    ).toEqual({ sent: 208, total: 3235, state: "sending" });
+    expect(toSendProgress({ sent: 12, total: 10, state: "sent" })).toEqual({
+      sent: 10,
+      total: 10,
+      state: "sent",
+    });
+  });
+
+  it("drops anything malformed rather than guessing", async () => {
+    const { toSendProgress } = await import("./campaigns.service");
+    for (const bad of [
+      null,
+      undefined,
+      "x",
+      {},
+      { sent: 1, total: 0, state: "sent" },
+      { sent: 1, total: 2, state: "done" },
+      { sent: "a", total: 2, state: "sent" },
+    ]) {
+      expect(toSendProgress(bad)).toBeUndefined();
+    }
+  });
+});

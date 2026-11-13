@@ -20,8 +20,23 @@ import { cn } from "@/lib/utils";
 import { campaignsService } from "../campaigns.service";
 import { CHANNEL_DISPLAY, channelKeysFor } from "../data/channels";
 import type { Campaign, CampaignStatus } from "../types/campaign";
-import { settlingTitle } from "../utils/rates";
+import {
+  displayStatus,
+  sendProgressLabel,
+  settlingTitle,
+} from "../utils/rates";
 import { Icon } from "@/shared/components/common/hugeicon";
+
+/**
+ * A sent campaign whose emails are still incomplete past the stale limit:
+ * some were held, failed or never left. Amber, so it is noticed.
+ */
+const PARTLY_SENT_META = {
+  label: "Partly sent",
+  dot: "bg-amber-500",
+  text: "text-amber-600 dark:text-amber-400",
+  bg: "bg-amber-500/10",
+};
 
 const STATUS_META: Record<
   CampaignStatus,
@@ -318,7 +333,12 @@ export function CampaignsReferenceTable({
         </thead>
         <tbody>
           {data.map((campaign) => {
-            const status = STATUS_META[campaign.status] ?? STATUS_META.draft;
+            const shown = displayStatus(campaign);
+            const status =
+              shown === "partly_sent"
+                ? PARTLY_SENT_META
+                : (STATUS_META[shown] ?? STATUS_META.draft);
+            const progress = sendProgressLabel(campaign);
             const channelKeys = channelKeysFor(campaign.channelsUsed);
             return (
               <tr
@@ -354,6 +374,11 @@ export function CampaignsReferenceTable({
                     <span className={cn("size-1.5 rounded-full", status.dot)} />
                     {status.label}
                   </span>
+                  {progress ? (
+                    <div className="mt-1 text-xs tabular-nums text-muted-foreground">
+                      {progress}
+                    </div>
+                  ) : null}
                 </td>
                 <td className="px-4 py-4 text-right tabular-nums text-foreground">
                   {formatCount(campaign.recipients)}

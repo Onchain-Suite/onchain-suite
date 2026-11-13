@@ -4,7 +4,9 @@ import { settlingTitle } from "./rates";
 
 describe("settlingTitle", () => {
   it("explains why there is no rate yet", () => {
-    expect(settlingTitle(undefined)).toMatch(/about an hour after sending/);
+    expect(settlingTitle(undefined)).toMatch(
+      /0% until about an hour after sending/
+    );
     expect(settlingTitle(undefined)).not.toMatch(/Ready at/);
   });
 

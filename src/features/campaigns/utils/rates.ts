@@ -115,3 +115,19 @@ export const weightedAverageRate = (
   if (totalWeight === 0) return undefined;
   return Math.min(100, Math.max(0, weightedSum / totalWeight));
 };
+
+/**
+ * Tooltip for a rate that is still settling. Says why there is no number yet
+ * and, when the backend knows it, the time the rates will be shown.
+ */
+export function settlingTitle(ratesSettleAt: string | undefined): string {
+  const base =
+    "Rates appear about an hour after sending, once deliveries are confirmed and early automatic opens have settled.";
+  const at = ratesSettleAt ? new Date(ratesSettleAt) : null;
+  if (!at || Number.isNaN(at.getTime())) return base;
+  const time = at.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${base} Ready at ${time}.`;
+}

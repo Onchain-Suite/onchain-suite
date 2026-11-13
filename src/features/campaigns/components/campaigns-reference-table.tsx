@@ -152,22 +152,6 @@ function RateDashCell() {
   );
 }
 
-/**
- * Shown instead of a rate while a send is in flight or under an hour old. A
- * rate in that window is not wrong so much as premature: it moves a lot, and
- * people read it as the result.
- */
-function RateSettlingCell({ title }: { title: string }) {
-  return (
-    <td
-      className="px-4 py-4 text-right text-xs text-muted-foreground"
-      title={title}
-    >
-      Collecting
-    </td>
-  );
-}
-
 /** Thin pulse while a sent row's analytics loads. */
 function RateLoadingCell() {
   return (
@@ -222,13 +206,16 @@ function RateCells({ campaign }: { campaign: Campaign }) {
     );
   }
 
-  // Still settling: no number yet, for either column.
+  // Still settling: 0% for both columns until the rates settle. The real
+  // figure in the first hour is mostly machine opens and incomplete delivery,
+  // so it is held back rather than shown and then revised; the tooltip says
+  // when it will appear.
   if (campaign.ratesSettling) {
     const title = settlingTitle(campaign.ratesSettleAt);
     return (
       <>
-        <RateSettlingCell title={title} />
-        <RateSettlingCell title={title} />
+        <RateValueCell value={0} title={title} />
+        <RateValueCell value={0} title={title} />
       </>
     );
   }

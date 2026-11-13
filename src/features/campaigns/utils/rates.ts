@@ -122,7 +122,7 @@ export const weightedAverageRate = (
  */
 export function settlingTitle(ratesSettleAt: string | undefined): string {
   const base =
-    "Rates appear about an hour after sending, once deliveries are confirmed and early automatic opens have settled.";
+    "Shows 0% until about an hour after sending, once deliveries are confirmed and early automatic opens have settled.";
   const at = ratesSettleAt ? new Date(ratesSettleAt) : null;
   if (!at || Number.isNaN(at.getTime())) return base;
   const time = at.toLocaleTimeString(undefined, {

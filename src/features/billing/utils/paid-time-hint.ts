@@ -9,11 +9,16 @@
  * and the price shown from the day they are paid up to, so that is what is
  * said, with the date.
  *
+ * Extra seats bought on the same checkout start with the plan on that date, so
+ * a month of them is charged today too, and the line says so.
+ *
  * Null when there is nothing true to say, and the ordinary line is shown: the
  * server has not said it does this, they have paid for nothing, the date is
  * past or within two hours, or it is more than a month off (an annual plan
  * with months left, which the server still bills from today).
  */
+
+import { clampExtraSeats, SEAT_PRICE_USD } from "../seat-pricing";
 
 const DATE = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -49,6 +54,8 @@ export function paidTimeHint(input: {
   currentMonthly?: number | null;
   /** The quote for the size on the slider; null while it is being fetched. */
   newMonthly?: number | null;
+  /** Seats added on the stepper, bought with the plan. */
+  extraSeats?: number;
   now?: Date;
 }): string | null {
   if (input.credited !== true) return null;
@@ -62,14 +69,31 @@ export function paidTimeHint(input: {
 
   const until = DATE.format(through);
   const next = positive(input.newMonthly);
+  const seats = clampExtraSeats(input.extraSeats);
+  const seatsMonthly = seats * SEAT_PRICE_USD;
   const page = "on a secure Stripe checkout page";
   if (next === null) {
-    return `You have already paid up to ${until}. Today you pay only the difference for a larger size, ${page}. The new price starts on that date.`;
+    const what =
+      seats > 0
+        ? "the difference for a larger size and the extra seats until then"
+        : "the difference for a larger size";
+    return `You have already paid up to ${until}. Today you pay only ${what}, ${page}. The new price starts on that date.`;
   }
   // The amounts are the picker's quotes, in whole dollars: "about".
-  const difference = Math.round(next) - Math.round(current);
-  if (difference < 1 || left < MIN_CHARGE_LEAD_MS) {
-    return `You have already paid up to ${until}, so nothing is charged today. You'll add a card ${page}, and the plan is ${dollars(next)}/mo from that date.`;
+  const difference = Math.max(0, Math.round(next) - Math.round(current));
+  const owed = difference + seatsMonthly;
+  const after =
+    seats > 0
+      ? `${dollars(next)}/mo, plus ${dollars(seatsMonthly)}/mo for ${seats} extra seat${seats === 1 ? "" : "s"}`
+      : `${dollars(next)}/mo`;
+  if (owed < 1 || left < MIN_CHARGE_LEAD_MS) {
+    return `You have already paid up to ${until}, so nothing is charged today. You'll add a card ${page}, and the plan is ${after} from that date.`;
   }
-  return `You have already paid up to ${until}, so today you pay only the difference, about ${dollars(difference)}, ${page}. From that date the plan is ${dollars(next)}/mo.`;
+  const what =
+    difference >= 1 && seats > 0
+      ? "the difference and the extra seats until then"
+      : seats > 0
+        ? "for the extra seats until then"
+        : "the difference";
+  return `You have already paid up to ${until}, so today you pay only ${what}, about ${dollars(owed)}, ${page}. From that date the plan is ${after}.`;
 }

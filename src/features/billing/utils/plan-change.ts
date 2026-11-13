@@ -178,6 +178,7 @@ export function planSubmitHint(input: {
           paidThrough: input.paidThrough,
           currentMonthly: input.currentMonthly,
           newMonthly: input.newMonthly,
+          extraSeats: input.extraSeats,
         })
       : null;
   if (overPaidTime) return overPaidTime;

@@ -56,6 +56,42 @@ describe("paidTimeHint", () => {
     );
   });
 
+  // Seats bought with the plan start on the same date, so a month of them is
+  // charged today; leaving them out understated the charge by $10 a seat.
+  describe("with extra seats", () => {
+    it("counts a month of them in today's charge and in the price after", () => {
+      expect(hint({ extraSeats: 2 })).toBe(
+        "You have already paid up to 24 Nov 2026, so today you pay only the difference and the extra seats until then, about $41, on a secure Stripe checkout page. From that date the plan is $65/mo, plus $20/mo for 2 extra seats."
+      );
+    });
+
+    it("names the seats alone when the size costs no more", () => {
+      expect(hint({ newMonthly: 44, extraSeats: 1 })).toBe(
+        "You have already paid up to 24 Nov 2026, so today you pay only for the extra seats until then, about $10, on a secure Stripe checkout page. From that date the plan is $44/mo, plus $10/mo for 1 extra seat."
+      );
+    });
+
+    it("says nothing is charged today inside the last two days, seats or not", () => {
+      expect(
+        hint({ paidThrough: "2026-11-14T14:00:00.000Z", extraSeats: 2 })
+      ).toMatch(
+        /^You have already paid up to 14 Nov 2026, so nothing is charged today\. .* \$65\/mo, plus \$20\/mo for 2 extra seats from that date\.$/
+      );
+    });
+
+    it("mentions them while the quote is loading", () => {
+      expect(hint({ newMonthly: null, extraSeats: 3 })).toContain(
+        "the difference for a larger size and the extra seats until then"
+      );
+    });
+
+    it("ignores a seat count that is not one", () => {
+      for (const extraSeats of [0, -2, Number.NaN]) {
+        expect(hint({ extraSeats })).toBe(hint());
+      }
+    });
+  });
+
   describe("says nothing, so the ordinary line is shown", () => {
     // A server that bills the whole month must not be spoken for.
     it("unless the server has said it credits paid time", () => {
@@ -140,6 +176,12 @@ describe("the picker's line for a workspace paid up another way", () => {
     expect(
       submit({ current: { ...current, paidTimeCredited: false } }).hint
     ).toBe(ORDINARY);
+  });
+
+  it("counts the seats on the stepper", () => {
+    expect(submit({ extraSeats: 2 }).hint).toMatch(
+      /about \$41, .* plus \$20\/mo for 2 extra seats\.$/
+    );
   });
 
   // Crypto is a one-off payment with its own rule; nothing is promised here.

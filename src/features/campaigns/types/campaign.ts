@@ -36,8 +36,8 @@ export interface Campaign {
   /**
    * True while the send is in flight or finished under an hour ago: delivery
    * receipts are still arriving and early opens are mostly mail clients
-   * fetching the tracking pixel, so the rates will still move. Show
-   * "Collecting" instead of a rate.
+   * fetching the tracking pixel, so the rates will still move. The list
+   * shows 0% until it settles.
    */
   ratesSettling?: boolean;
   /** When the rates settle (ISO). Absent while still sending or once settled. */

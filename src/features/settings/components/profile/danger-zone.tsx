@@ -9,6 +9,7 @@ import { apiClient } from "@/lib/api-client";
 import { signOut } from "@/lib/auth-client";
 import { isJsonObject } from "@/lib/utils";
 
+import { useOrgSwitcherContextOptional } from "@/features/common/layout/components/org-switcher-context";
 import { SettingsCard } from "@/features/settings/components/settings-card";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -41,6 +42,13 @@ const extractErrorCode = (error: unknown): string => {
 export default function DangerZone() {
   const [open, setOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
+  // Every workspace this account belongs to. Deleting the account removes
+  // the person from ALL of them, not only the ones it deletes: on 2026-11-13
+  // a user who wanted one workspace gone deleted his account (the only button
+  // that did it) and lost access to two other teams' workspaces. Name them.
+  const workspaces = (useOrgSwitcherContextOptional()?.organizations ?? [])
+    .map((org) => org.name?.trim())
+    .filter((name): name is string => Boolean(name));
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
@@ -71,7 +79,7 @@ export default function DangerZone() {
   return (
     <SettingsCard
       title="Danger zone"
-      description="Permanently delete your account and the workspaces only you belong to."
+      description="Permanently delete your account. You lose access to every workspace you belong to."
       className="border-destructive/40"
       action={
         <Button
@@ -92,9 +100,10 @@ export default function DangerZone() {
           className="mt-0.5 size-5 shrink-0 text-destructive"
         />
         <p className="max-w-xl text-sm text-muted-foreground">
-          Deleting your account removes your profile and every workspace where
-          you are the only member. Workspaces with other members must be
-          transferred first - your team is never deleted out from under them.
+          Deleting your account removes your profile, removes you from every
+          workspace you belong to, and deletes the workspaces where you are the
+          only member. To leave or delete one workspace without losing the
+          others, ask its owner or support instead.
         </p>
       </div>
 
@@ -109,6 +118,26 @@ export default function DangerZone() {
               are the only member. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
+          {workspaces.length > 0 ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+              <p className="font-medium text-foreground">
+                You will lose access to{" "}
+                {workspaces.length === 1
+                  ? "this workspace"
+                  : `all ${workspaces.length} of these workspaces`}
+                :
+              </p>
+              <ul className="mt-1 list-disc pl-5 text-muted-foreground">
+                {workspaces.map((name) => (
+                  <li key={name}>{name}</li>
+                ))}
+              </ul>
+              <p className="mt-2 text-muted-foreground">
+                Getting back in later needs each workspace&apos;s owner to
+                invite you again.
+              </p>
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="delete-account-confirm">
               Type <span className="font-semibold">{CONFIRM_WORD}</span> to

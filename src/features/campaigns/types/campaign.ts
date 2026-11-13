@@ -25,14 +25,23 @@ export interface Campaign {
    */
   delivered?: number;
   // Engagement rates from GET /campaigns. All are ALREADY percentages
-  // (4.64 means 4.64%) - never multiply by 100. clickRateOfDelivered can exceed
-  // 100% legitimately (multi-click + scanner prefetch) - never clamp it.
+  // (4.64 means 4.64%) - never multiply by 100. The backend counts people and bounds
+  // the denominator, so a rate above 100% is a backend bug: do not clamp it away.
   /** Rate over the full audience (`recipients`) - climbs from 0 during a waved send. */
   openRateOfAudience?: number;
   clickRateOfAudience?: number;
   /** Rate over what actually delivered - the only honest rate mid-send. */
   openRateOfDelivered?: number;
   clickRateOfDelivered?: number;
+  /**
+   * True while the send is in flight or finished under an hour ago: delivery
+   * receipts are still arriving and early opens are mostly mail clients
+   * fetching the tracking pixel, so the rates will still move. Show
+   * "Collecting" instead of a rate.
+   */
+  ratesSettling?: boolean;
+  /** When the rates settle (ISO). Absent while still sending or once settled. */
+  ratesSettleAt?: string;
   /** Unique openers so far. */
   opens?: number;
   /**

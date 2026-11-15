@@ -24,7 +24,11 @@ describe("suite pricing", () => {
 
   it("gives Launch at least 50,000 emails and scales seats", () => {
     expect(allowances(2_500).emails).toBe(50_000);
-    expect(allowances(25_000).seats).toBe(4);
+    expect(allowances(2_500).seats).toBe(3);
+    expect(allowances(24_999).seats).toBe(3);
+    expect(allowances(25_000).seats).toBe(5);
+    expect(allowances(74_999).seats).toBe(5);
+    expect(allowances(75_000).seats).toBe(7);
   });
 
   it("offers Onramp only from Growth", () => {

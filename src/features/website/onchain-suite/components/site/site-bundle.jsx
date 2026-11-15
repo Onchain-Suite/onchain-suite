@@ -5614,7 +5614,7 @@ var PACKAGES = [
     credits: 1e4,
     emails: 5e4,
     inapp: 25e3,
-    seats: 2,
+    seats: 3,
   },
   {
     id: "launch-plus",
@@ -5636,7 +5636,7 @@ var PACKAGES = [
     credits: 1e5,
     emails: 25e4,
     inapp: 25e4,
-    seats: 4,
+    seats: 5,
   },
   {
     id: "growth-plus",

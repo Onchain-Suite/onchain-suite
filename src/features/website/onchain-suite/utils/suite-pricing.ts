@@ -40,12 +40,19 @@ export function suitePrice(contacts: number): number {
   );
 }
 
+/**
+ * Team seats included, per level: the same flat number the backend plan
+ * catalog grants (Launch 3, Growth 5, Pro 7; raised 2026-11-15). It used to
+ * step up inside a level by contact count, which the product never enforced.
+ */
+export const SEATS_BY_LEVEL: Record<SuiteLevel, number> = {
+  launch: 3,
+  growth: 5,
+  pro: 7,
+};
+
 export function seatsIncluded(contacts: number): number {
-  if (contacts >= 75_000) return 7;
-  if (contacts >= 50_000) return 5;
-  if (contacts >= 25_000) return 4;
-  if (contacts >= 10_000) return 3;
-  return 2;
+  return SEATS_BY_LEVEL[levelFor(contacts)];
 }
 
 export interface Allowances {

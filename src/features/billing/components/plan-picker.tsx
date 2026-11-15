@@ -59,7 +59,7 @@ const TIER_ALLOWANCES: Record<string, [string, string][]> = {
     ["On-chain credits", "1,000"],
     ["AI credits", "500"],
     ["ONS+ verifications", "250"],
-    ["Team seats", "2"],
+    ["Team seats", "3"],
   ],
   growth: [
     ["Emails / mo", "250,000"],
@@ -68,7 +68,7 @@ const TIER_ALLOWANCES: Record<string, [string, string][]> = {
     ["AI credits", "8,000"],
     ["ONS+ verifications", "2,500"],
     ["Dedicated IP", "1"],
-    ["Team seats", "4"],
+    ["Team seats", "5"],
   ],
   pro: [
     ["Emails / mo", "750,000"],

@@ -627,7 +627,10 @@ export interface PaygWallet {
     deltaMicroUsd?: number;
     /** 'topup' | 'grant' | 'debit' | 'adjustment'. */
     kind?: string;
-    /** Which meter a debit charged (aiCredits, messages, goldrushCredits, …). */
+    /**
+     * Which meter a debit charged (aiCredits, messages, goldrushCredits, …).
+     * `goldrushCredits` is the on-chain meter, shown as "Onchain credits".
+     */
     meter?: string | null;
     /** Units billed on a debit. */
     quantity?: number | null;
@@ -901,11 +904,12 @@ export const billingService = {
 
   /**
    * Per-meter plan usage (`GET /billing/plan-usage/:organizationId`) -
-   * `{ plan, meters: { contacts, emailsPerMonth, aiCredits, goldrushCredits,
+   * `{ plan, meters: { contacts, emailsPerMonth, aiCredits, onchainCredits,
    * seats, automations, apiKeys, trackedWallets } }`, each meter
    * `{ used, limit, percent, status }`. The `aiCredits` meter is the one that
    * gates the AI assistant / SQL generation / on-chain agent (402
-   * AI_CREDITS_EXCEEDED).
+   * AI_CREDITS_EXCEEDED). `onchainCredits` may still arrive only as its old
+   * alias `goldrushCredits`: read `onchainCredits ?? goldrushCredits`.
    */
   getPlanUsage(organizationId?: string, options?: BillingServiceOptions) {
     const orgId = organizationId ?? pickOrgId(options);

@@ -23,14 +23,24 @@ export interface UsageRow {
 
 export type UsageBlockState = "loading" | "rows" | "free" | "error" | "empty";
 
-/** Meters in the order the page lists them, with the name each one is shown by. */
-const METERS: ReadonlyArray<readonly [key: string, label: string]> = [
+/**
+ * Meters in the order the page lists them, with the name each one is shown by,
+ * and any older key the backend still sends the same meter under.
+ *
+ * `onchainCredits` was called `goldrushCredits`, after the data provider. That
+ * name reached customers, so the backend renamed it and keeps the old key as an
+ * alias for a while. Read the new key first and fall back to the old one, so
+ * the row survives either backend.
+ */
+const METERS: ReadonlyArray<
+  readonly [key: string, label: string, aliases?: readonly string[]]
+> = [
   ["contacts", "Contacts"],
   ["trackedWallets", "Tracked wallets"],
   ["emailsPerMonth", "Emails this month"],
   ["inAppPushesPerMonth", "In-app pushes this month"],
   ["aiCredits", "AI credits"],
-  ["goldrushCredits", "Enrichment & on-chain"],
+  ["onchainCredits", "Onchain credits", ["goldrushCredits"]],
   ["seats", "Seats"],
   ["automations", "Loops"],
   ["apiKeys", "API keys"],
@@ -69,8 +79,10 @@ const worthShowing = (used: number, limit: number | null) =>
 export function usageRowsFromMeters(meters: unknown): UsageRow[] {
   if (!isRecord(meters)) return [];
   const rows: UsageRow[] = [];
-  for (const [key, label] of METERS) {
-    const meter = meters[key];
+  for (const [key, label, aliases = []] of METERS) {
+    const meter = [key, ...aliases]
+      .map((k) => meters[k])
+      .find((m) => m !== undefined && m !== null);
     if (!isRecord(meter)) continue;
     const used = numberOf(meter.used);
     const limit = numberOf(meter.limit);

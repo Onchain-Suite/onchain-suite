@@ -1486,12 +1486,16 @@ export const intelligenceService = {
 
   // Seed Intelligence tables from saved project-settings contracts (or the
   // provided ones). Discovers holders + enqueues per-wallet enrichment.
+  // Refused up front with 402 REFRESH_EXCEEDS_CREDITS when re-enriching every
+  // wallet could cost more Onchain credits than are left; `allowPartial: true`
+  // runs it anyway, enriching wallets until the credits run out.
   enrichProtocol(
     body?: {
       contracts?: Array<{ chain?: string; address: string }>;
       includeContacts?: boolean;
       limitPerContract?: number;
       forceRefresh?: boolean;
+      allowPartial?: boolean;
     },
     orgId?: string
   ) {

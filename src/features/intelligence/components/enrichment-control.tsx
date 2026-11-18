@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowPathIcon, SparklesIcon } from "@heroicons/react/24/outline";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import {
@@ -11,7 +11,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import { useProtocolRefresh } from "../hooks/use-protocol-refresh";
 import { intelligenceService } from "../intelligence.service";
+import { RefreshExceedsCreditsDialog } from "./refresh-exceeds-credits-dialog";
 
 const timeAgo = (iso: string | null): string => {
   if (!iso) return "never";
@@ -30,11 +32,9 @@ const timeAgo = (iso: string | null): string => {
  * Compact wallet/contract enrichment button (sits next to the credit meter).
  * Kicks off holder discovery + per-wallet enrichment from saved project-settings
  * contracts - this is what populates `user_onchain_metrics`, so SQL queries
- * return rows. Status is surfaced in the tooltip. Spends Alchemy on-chain data credits.
+ * return rows. Status is surfaced in the tooltip. Spends Onchain credits.
  */
 export function EnrichmentControl() {
-  const queryClient = useQueryClient();
-
   const statusQuery = useQuery({
     queryKey: ["intelligence", "enrichment", "status"],
     queryFn: () => intelligenceService.getEnrichmentStatus(),
@@ -47,52 +47,40 @@ export function EnrichmentControl() {
     },
   });
 
-  const enrichMutation = useMutation({
-    mutationFn: () => intelligenceService.enrichProtocol(),
-    onSuccess: async (res) => {
+  const refresh = useProtocolRefresh({
+    onStarted: (res, { allowPartial }) => {
       // Show the audience total being enriched (the whole contact set), not
       // just the newly-discovered holders.
       const wallets = res?.contactsEnqueued ?? res?.walletsEnqueued ?? 0;
       toast.success(
-        wallets > 0
-          ? `Refreshing on-chain data for ${wallets.toLocaleString()} wallets - updates shortly.`
-          : "Refresh started. Save contract addresses in Settings to seed more wallets."
+        allowPartial
+          ? "Refreshing as many wallets as your Onchain credits allow - updates shortly."
+          : wallets > 0
+            ? `Refreshing on-chain data for ${wallets.toLocaleString()} wallets - updates shortly.`
+            : "Refresh started. Save contract addresses in Settings to seed more wallets."
       );
-      await queryClient.invalidateQueries({
-        queryKey: ["intelligence", "enrichment", "status"],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["intelligence", "credits"],
-      });
-    },
-    onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : "";
-      if (
-        msg.toUpperCase().includes("CREDITS_EXCEEDED") ||
-        msg.includes("402")
-      ) {
-        toast.error(
-          "Out of credits - top up the usage wallet or upgrade in Settings → Billing."
-        );
-        return;
-      }
-      toast.error(msg || "Failed to start enrichment");
     },
   });
 
   const status = statusQuery.data;
   const enriched = status?.enrichedWallets ?? 0;
   const pending = status?.pending ?? 0;
-  const busy = enrichMutation.isPending || pending > 0;
+  const busy = refresh.isPending || pending > 0;
 
   return (
     <TooltipProvider>
+      <RefreshExceedsCreditsDialog
+        message={refresh.overCreditsMessage}
+        pending={refresh.isPending}
+        onRefreshWhatFits={refresh.refreshWhatFits}
+        onClose={refresh.dismissOverCredits}
+      />
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={() => enrichMutation.mutate()}
-            disabled={enrichMutation.isPending}
+            onClick={refresh.refresh}
+            disabled={refresh.isPending}
             aria-label="Refresh on-chain data"
             className="inline-flex h-[42px] shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-muted/40 disabled:opacity-60"
           >
@@ -107,7 +95,7 @@ export function EnrichmentControl() {
                 aria-hidden="true"
               />
             )}
-            {enrichMutation.isPending ? "Refreshing…" : "Refresh data"}
+            {refresh.isPending ? "Refreshing…" : "Refresh data"}
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-[240px] text-xs">

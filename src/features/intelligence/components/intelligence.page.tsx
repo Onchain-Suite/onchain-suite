@@ -8,7 +8,7 @@ import {
   // CodeBracketIcon, // re-add when the hidden SQL tab is restored
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -17,9 +17,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { cn } from "@/lib/utils";
 
+import { useProtocolRefresh } from "../hooks/use-protocol-refresh";
 import { intelligenceService } from "../intelligence.service";
 import { toQueryHistoryItems } from "../utils/query-history";
 import { QueryTab } from "./query";
+import { RefreshExceedsCreditsDialog } from "./refresh-exceeds-credits-dialog";
 import { SegmentsView } from "./segments/segments-view";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 
@@ -41,7 +43,6 @@ const timeAgo = (iso: string | null | undefined): string => {
 
 /** Reference header status: enriched-time + wallet count + a Refresh action. */
 function EnrichmentStatus() {
-  const queryClient = useQueryClient();
   const statusQuery = useQuery({
     queryKey: ["intelligence", "enrichment", "status"],
     queryFn: () => intelligenceService.getEnrichmentStatus(),
@@ -54,41 +55,33 @@ function EnrichmentStatus() {
     },
   });
 
-  const enrichMutation = useMutation({
-    mutationFn: () => intelligenceService.enrichProtocol(),
-    onSuccess: async (res) => {
+  const refresh = useProtocolRefresh({
+    failureMessage: "Failed to refresh enrichment",
+    onStarted: (res, { allowPartial }) => {
       const wallets = res?.walletsEnqueued ?? 0;
       toast.success(
-        wallets > 0
-          ? `Enriching ${wallets.toLocaleString()} wallets - metrics will populate shortly.`
-          : "Enrichment started. Save contract addresses in Settings to seed more wallets."
+        allowPartial
+          ? "Refreshing as many wallets as your Onchain credits allow - metrics will populate shortly."
+          : wallets > 0
+            ? `Enriching ${wallets.toLocaleString()} wallets - metrics will populate shortly.`
+            : "Enrichment started. Save contract addresses in Settings to seed more wallets."
       );
-      await queryClient.invalidateQueries({
-        queryKey: ["intelligence", "enrichment", "status"],
-      });
-    },
-    onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : "";
-      if (
-        msg.toUpperCase().includes("CREDITS_EXCEEDED") ||
-        msg.includes("402")
-      ) {
-        toast.error(
-          "Out of credits - top up the usage wallet or upgrade in Settings → Billing."
-        );
-        return;
-      }
-      toast.error(msg || "Failed to refresh enrichment");
     },
   });
 
   const status = statusQuery.data;
   const enriched = status?.enrichedWallets ?? 0;
   const pending = status?.pending ?? 0;
-  const busy = enrichMutation.isPending || pending > 0;
+  const busy = refresh.isPending || pending > 0;
 
   return (
     <div className="flex items-center gap-4 text-sm">
+      <RefreshExceedsCreditsDialog
+        message={refresh.overCreditsMessage}
+        pending={refresh.isPending}
+        onRefreshWhatFits={refresh.refreshWhatFits}
+        onClose={refresh.dismissOverCredits}
+      />
       <span className="flex items-center gap-1.5 text-muted-foreground">
         <CheckIcon aria-hidden="true" className="h-4 w-4 text-emerald-500" />
         Data enriched {timeAgo(status?.lastEnrichedAt)} ·{" "}
@@ -96,8 +89,8 @@ function EnrichmentStatus() {
       </span>
       <button
         type="button"
-        onClick={() => enrichMutation.mutate()}
-        disabled={enrichMutation.isPending}
+        onClick={refresh.refresh}
+        disabled={refresh.isPending}
         title="Re-enrich your wallets' on-chain data"
         className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 font-medium text-foreground shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/50 disabled:opacity-60"
       >

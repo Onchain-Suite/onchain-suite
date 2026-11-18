@@ -25,6 +25,13 @@ export interface PlanUsageMeters {
   emailsPerMonth?: PlanUsageMeter;
   inAppPushesPerMonth?: PlanUsageMeter;
   aiCredits?: PlanUsageMeter;
+  /** Wallet data and on-chain reads, shown as "Onchain credits". */
+  onchainCredits?: PlanUsageMeter;
+  /**
+   * The same meter under its old, provider-named key. The backend keeps it as
+   * an alias for now: read `onchainCredits ?? goldrushCredits`.
+   * @deprecated Use `onchainCredits`.
+   */
   goldrushCredits?: PlanUsageMeter;
   seats?: PlanUsageMeter;
   automations?: PlanUsageMeter;

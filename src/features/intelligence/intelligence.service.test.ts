@@ -221,6 +221,43 @@ describe("intelligenceService", () => {
     );
   });
 
+  it("sends allowPartial on a refresh only when asked, and keeps the 402 body on the cause", async () => {
+    await intelligenceService.enrichProtocol();
+    await intelligenceService.enrichProtocol({ allowPartial: true });
+    expect(mocks.apiClient.request).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        method: "POST",
+        url: "/intelligence/query/enrichment/protocol",
+        data: {},
+      })
+    );
+    expect(mocks.apiClient.request).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        url: "/intelligence/query/enrichment/protocol",
+        data: { allowPartial: true },
+      })
+    );
+
+    const body = {
+      success: false,
+      error: { code: "REFRESH_EXCEEDS_CREDITS", message: "Too many wallets" },
+    };
+    mocks.apiClient.request.mockRejectedValueOnce({
+      message: "Request failed with status code 402",
+      response: { status: 402, data: body },
+    });
+    const err = await intelligenceService
+      .enrichProtocol()
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toBe("Too many wallets");
+    expect((err as Error).cause).toMatchObject({
+      response: { status: 402, data: body },
+    });
+  });
+
   it("supports wallet and contact enrichment endpoints", async () => {
     await intelligenceService.enqueueWalletEnrichment({
       walletAddress: "0xabc",

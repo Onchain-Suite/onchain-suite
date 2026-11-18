@@ -42,11 +42,14 @@ const formatLedgerUsd = (value: number) =>
 
 // Humanize a meter key into a readable cost category. These are the things a
 // client actually spends on: email sends, AI actions, wallet enrichment/on-chain
-// reads, and the verification run at import time.
+// reads, and the verification run at import time. Ledger rows still name the
+// on-chain meter `goldrushCredits` (after the data provider); customers see it
+// as "Onchain credits", whichever key a row carries.
 const METER_LABELS: Record<string, string> = {
   messages: "Email",
   aiCredits: "AI credits",
-  goldrushCredits: "Enrichment & on-chain",
+  onchainCredits: "Onchain credits",
+  goldrushCredits: "Onchain credits",
   ons_plus: "Import verification",
   in_app_push: "In-app push",
 };

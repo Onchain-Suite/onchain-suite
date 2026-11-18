@@ -57,7 +57,7 @@ const TIER_ALLOWANCES: Record<string, [string, string][]> = {
   launch: [
     ["Emails / mo", "50,000"],
     ["In-app push / mo", "25,000"],
-    ["On-chain credits", "1,000"],
+    ["Onchain credits", "1,000"],
     ["AI credits", "500"],
     ["ONS+ verifications", "250"],
     ["Team seats", "3"],
@@ -65,7 +65,7 @@ const TIER_ALLOWANCES: Record<string, [string, string][]> = {
   growth: [
     ["Emails / mo", "250,000"],
     ["In-app push / mo", "250,000"],
-    ["On-chain credits", "10,000"],
+    ["Onchain credits", "10,000"],
     ["AI credits", "8,000"],
     ["ONS+ verifications", "2,500"],
     ["Dedicated IP", "1"],
@@ -74,7 +74,7 @@ const TIER_ALLOWANCES: Record<string, [string, string][]> = {
   pro: [
     ["Emails / mo", "750,000"],
     ["In-app push / mo", "1,000,000"],
-    ["On-chain credits", "25,000"],
+    ["Onchain credits", "25,000"],
     ["AI credits", "16,000"],
     ["ONS+ verifications", "7,500"],
     ["Dedicated IP", "1"],

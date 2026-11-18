@@ -43,10 +43,51 @@ describe("usageRowsFromMeters", () => {
       "Tracked wallets",
       "Emails this month",
       "AI credits",
-      "Enrichment & on-chain",
+      "Onchain credits",
       "Seats",
       "Loops",
       "API keys",
+    ]);
+  });
+
+  it("reads the on-chain meter by its new key, as Onchain credits", () => {
+    const rows = usageRowsFromMeters({ onchainCredits: meter(250, 1000) });
+    expect(rows).toEqual([
+      {
+        key: "onchainCredits",
+        label: "Onchain credits",
+        used: 250,
+        limit: 1000,
+      },
+    ]);
+  });
+
+  // Until every backend sends `onchainCredits`, the old key is all there is.
+  it("falls back to the old goldrushCredits key", () => {
+    const rows = usageRowsFromMeters({ goldrushCredits: meter(40, 1000) });
+    expect(rows).toEqual([
+      {
+        key: "onchainCredits",
+        label: "Onchain credits",
+        used: 40,
+        limit: 1000,
+      },
+    ]);
+  });
+
+  // The backend sends both while the alias lasts: one row, from the new key.
+  it("shows the meter once when both keys arrive, preferring the new one", () => {
+    const rows = usageRowsFromMeters({
+      onchainCredits: meter(300, 1000),
+      goldrushCredits: meter(1, 2),
+    });
+    expect(rows).toEqual([
+      {
+        key: "onchainCredits",
+        label: "Onchain credits",
+        used: 300,
+        limit: 1000,
+      },
     ]);
   });
 

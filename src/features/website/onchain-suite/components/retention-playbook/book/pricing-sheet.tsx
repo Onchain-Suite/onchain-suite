@@ -56,7 +56,7 @@ function Option({
           <dd>{fmt(a.inApp)}</dd>
         </div>
         <div>
-          <dt>Wallet-data credits</dt>
+          <dt>Onchain credits</dt>
           <dd>{fmt(a.credits)}</dd>
         </div>
         <div>

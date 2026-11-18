@@ -17,6 +17,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 
 import { intelligenceService } from "@/features/intelligence/intelligence.service";
+import { classifyEnrichmentError } from "@/features/intelligence/utils/enrichment-credit-error";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 
 /**
@@ -84,17 +85,7 @@ export function EnrichSelectedControl({
       onEnqueued?.();
     },
     onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : "";
-      if (
-        msg.toUpperCase().includes("CREDITS_EXCEEDED") ||
-        msg.includes("402")
-      ) {
-        toast.error(
-          "Out of credits — top up the usage wallet or upgrade in Settings → Billing."
-        );
-        return;
-      }
-      toast.error(msg || "Failed to start enrichment");
+      toast.error(classifyEnrichmentError(err).message);
     },
   });
 

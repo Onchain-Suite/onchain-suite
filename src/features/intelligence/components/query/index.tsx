@@ -717,10 +717,25 @@ const MCP_FAILURE_GUIDANCE: Array<{ match: RegExp; guidance: string }> = [
     guidance:
       'The backend\'s AI agent sent a message role ("developer") that its configured LLM provider doesn\'t accept. This is a backend configuration bug - the agent needs to use the "system" role (or an LLM endpoint that supports "developer") for this environment\'s model. Nothing on your side; flag it to the backend team.',
   },
+  // Two different meters run out separately, so say which one. The backend's
+  // own messages name them ("AI credit allowance…", "Onchain credit
+  // allowance…") and carry codes; AI_CREDITS_EXCEEDED must be matched before
+  // the onchain codes because CREDITS_EXCEEDED is a substring of it.
+  {
+    match: /AI_CREDITS_EXCEEDED|\bAI credit/i,
+    guidance:
+      "Your organization has used its AI credit allowance and the usage wallet can't cover the overage. Top up the wallet or upgrade in Settings → Billing.",
+  },
+  {
+    match:
+      /ONCHAIN_CREDITS_EXHAUSTED|REFRESH_EXCEEDS_CREDITS|\bCREDITS_EXCEEDED|onchain credit/i,
+    guidance:
+      "Your organization has used its Onchain credits for this month and the usage wallet can't cover more. Questions about your own audience and campaigns still work; onchain lookups resume after a top-up or upgrade in Settings → Billing.",
+  },
   {
     match: /plan_limit_exceeded|credit/i,
     guidance:
-      "Your organization has used its AI credit allowance and the usage wallet can't cover the overage. Top up the wallet or upgrade in Settings → Billing.",
+      "Your organization has reached a plan limit and the usage wallet can't cover the overage. Top up the wallet or upgrade in Settings → Billing.",
   },
   {
     match: /rate limit|too many requests/i,
@@ -729,7 +744,7 @@ const MCP_FAILURE_GUIDANCE: Array<{ match: RegExp; guidance: string }> = [
   },
 ];
 
-const guidanceForAgentFailure = (
+export const guidanceForAgentFailure = (
   message: string,
   statusCode?: number
 ): string | undefined => {

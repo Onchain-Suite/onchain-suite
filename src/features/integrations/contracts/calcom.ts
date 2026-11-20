@@ -61,7 +61,9 @@ export interface CalcomBookingPayload {
   responses?: Record<string, CalcomResponseValue>;
   /** REST custom-field answers (fallback). */
   bookingFieldsResponses?: Record<string, CalcomResponseValue>;
-  eventType?: { slug?: string; title?: string } | null;
+  /** Numeric id of the booking link (event type). */
+  eventTypeId?: number;
+  eventType?: { id?: number; slug?: string; title?: string } | null;
 }
 
 /** The full webhook envelope Cal.com POSTs to the subscriber URL. */

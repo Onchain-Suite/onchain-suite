@@ -11,6 +11,7 @@ import { HoldoutCard } from "../components/account/holdout-card";
 import { NftEnrichmentCard } from "../components/account/nft-enrichment-card";
 import { ProfileCompletenessCard } from "../components/account/profile-completeness-card";
 import { ProjectCard } from "../components/account/project-card";
+import { RevenueEventsCard } from "../components/account/revenue-events-card";
 import { SenderIdentitiesCard } from "../components/account/sender-identities-card";
 import { SmartSendingCard } from "../components/account/smart-sending-card";
 import { channelSetupHref } from "@/features/channels/data/channels";
@@ -56,6 +57,7 @@ export default function CompanySettingsView() {
       <div id={CONTRACTS_SECTION_ID} className="scroll-mt-6">
         <ContractsCard />
       </div>
+      <RevenueEventsCard />
       <NftEnrichmentCard />
       <BrandingCard />
       <div id={SENDER_ADDRESSES_SECTION_ID} className="scroll-mt-6">

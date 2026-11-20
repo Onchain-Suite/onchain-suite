@@ -4,6 +4,7 @@ import { backendBaseUrl } from "@/lib/public-forms-backend";
 
 import type { CalcomWebhookEnvelope } from "@/features/integrations/contracts/calcom";
 import { mapCalcomBookingToEvent } from "@/features/integrations/utils/calcom-event";
+import { bookingMatchesEventTypes } from "@/features/integrations/utils/calcom-event-filter";
 import { verifyCalcomSignature } from "@/features/integrations/utils/calcom-signature";
 
 // Needs Node crypto (HMAC) and must read the raw body for signature checking,
@@ -31,6 +32,11 @@ const CREATE_TRIGGERS = new Set(["BOOKING_CREATED"]);
  *  - CALCOM_INGEST_API_KEY  sk_live secret key (resolves the org, write scope)
  *  - CALCOM_TARGET_LIST     list name/id to add to (default below) [optional]
  *  - CALCOM_EVENT_NAME      custom event name (default below) [optional]
+ *  - CALCOM_EVENT_TYPES     comma-separated booking links that count, by slug,
+ *                           title or id (e.g. "15min"); unset = every booking.
+ *                           An account-level Cal webhook fires for EVERY link,
+ *                           so without this a non-demo booking joins the demo
+ *                           list and gets its sequence. [optional]
  *  - BACKEND_URL            backend base (defaults to api.onchainsuite.com/api/v1)
  */
 export async function POST(req: NextRequest) {
@@ -74,6 +80,19 @@ export async function POST(req: NextRequest) {
   if (!CREATE_TRIGGERS.has(trigger)) {
     // Acknowledge so Cal doesn't retry an event we intentionally ignore.
     return NextResponse.json({ ok: true, skipped: trigger || "no-trigger" });
+  }
+
+  const match = bookingMatchesEventTypes(
+    envelope.payload,
+    process.env.CALCOM_EVENT_TYPES
+  );
+  if (!match.allowed) {
+    // Not one of the booking links this relay is for. Ack so Cal doesn't retry.
+    console.warn("[calcom] booking link not in CALCOM_EVENT_TYPES, skipped", {
+      seen: match.seen,
+      uid: envelope.payload?.uid,
+    });
+    return NextResponse.json({ ok: true, skipped: "event-type" });
   }
 
   const event = mapCalcomBookingToEvent(envelope.payload, {

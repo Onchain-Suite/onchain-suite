@@ -288,7 +288,11 @@ export function resolveMetric(
         { stage: "Cold", value: Number(a.coldCount ?? 0) },
       ];
       if (rows.every((r) => r.value === 0))
-        return empty("stage", "count", "No contacts have a health score yet.");
+        return empty(
+          "stage",
+          "count",
+          "No contacts have an estimated LTV yet. Set a contract fee rate or revenue events in Settings to measure it."
+        );
       return {
         categoryKey: "stage",
         rows,

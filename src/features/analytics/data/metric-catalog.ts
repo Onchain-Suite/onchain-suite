@@ -120,7 +120,8 @@ export const METRICS: MetricDef[] = [
   {
     id: "lifecycle",
     label: "Lifecycle stage",
-    description: "Contacts that are active, cooling or cold.",
+    description:
+      "Contacts by estimated LTV: top 10% active, next 30% cooling, the rest cold.",
     group: "Audience",
     sources: ["audience"],
     charts: ["donut", "hbar", "bar", "table"],

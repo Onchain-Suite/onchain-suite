@@ -718,12 +718,23 @@ export function ProfileDetailPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Predicted LTV</span>
-                <span className="font-semibold text-foreground">
-                  {typeof churnQuery.data.predictedLtvUsd === "number"
-                    ? formatUsd(churnQuery.data.predictedLtvUsd)
-                    : "Not available"}
+                <span className="text-muted-foreground">
+                  Estimated LTV (12 months)
                 </span>
+                {/* null = the project has no fee rate or revenue events set, so
+                    there is nothing to measure; $0 is a real, measured answer. */}
+                {typeof churnQuery.data.predictedLtvUsd === "number" ? (
+                  <span className="font-semibold text-foreground">
+                    {formatUsd(churnQuery.data.predictedLtvUsd)}
+                  </span>
+                ) : (
+                  <span
+                    className="text-muted-foreground"
+                    title="Set a contract fee rate or revenue events in Settings to measure this contact's value to your project."
+                  >
+                    Not measured yet
+                  </span>
+                )}
               </div>
             </div>
           ) : (

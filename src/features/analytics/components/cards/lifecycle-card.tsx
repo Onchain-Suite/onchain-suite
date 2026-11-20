@@ -11,7 +11,7 @@ import {
 } from "../analytics-card";
 import { MetricChart } from "../metric-chart";
 
-/** Contacts by health: active, cooling, cold, healthiest first. */
+/** Contacts by value band (Estimated LTV percentiles): active, cooling, cold, highest value first. */
 export function LifecycleCard() {
   const q = useAnalyticsSource("audience", "30d");
   const data = resolveMetric("lifecycle", { audience: q.data });
@@ -21,11 +21,11 @@ export function LifecycleCard() {
       title="Lifecycle"
       meta={
         typeof a?.total === "number"
-          ? `${formatCount(a.total)} contacts, healthiest first`
+          ? `${formatCount(a.total)} contacts, highest value first`
           : undefined
       }
       span={2}
-      foot="Stages come from each contact's health score: recent on-chain and message activity."
+      foot="Stages come from Estimated LTV, each contact's expected value to your project over the next 12 months: active is your top 10%, cooling the next 30%, cold the rest. Contacts without a measured value are not counted."
     >
       {q.isLoading ? (
         <CardLoading />

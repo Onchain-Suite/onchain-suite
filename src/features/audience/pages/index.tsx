@@ -312,7 +312,8 @@ export function AudiencePages() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   // Net-worth sort on the Lifetime column. null = the backend's default order
-  // (health score); a click cycles desc → asc → off. Only one sortable column
+  // (estimated LTV, highest first, unmeasured last; the API still calls this
+  // sort `healthScore`); a click cycles desc → asc → off. Only one sortable column
   // today, so the key doubles as the "is anything sorted" flag.
   const [sortDir, setSortDir] = useState<"asc" | "desc" | null>(null);
 

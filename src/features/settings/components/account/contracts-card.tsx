@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { usePagination } from "../../hooks/use-pagination";
 import { ListPager } from "../list-pager";
 import { SettingsCard } from "../settings-card";
+import { ContractFeeRate, FeeRateInput } from "./contract-fee-rate";
 import { projectSettingsKey, supportedChainsKey } from "./project-card";
 import { useAccountOrg } from "./use-account-org";
 import { automationService } from "@/features/automation/automation.service";
@@ -25,6 +26,7 @@ import {
   type ProjectSettingsFormData,
   projectSettingsService,
 } from "@/features/settings/project-settings.service";
+import { percentToBps } from "@/features/settings/utils/project-value";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -47,7 +49,13 @@ export function ContractsCard() {
     address: string;
     label?: string;
   } | null>(null);
-  const [draft, setDraft] = useState({ chain: "", address: "", label: "" });
+  const [draft, setDraft] = useState({
+    chain: "",
+    address: "",
+    label: "",
+    feeRate: "",
+  });
+  const [draftFeeError, setDraftFeeError] = useState<string | undefined>();
 
   const settingsQuery = useQuery({
     queryKey: projectSettingsKey(organizationId),
@@ -70,7 +78,7 @@ export function ContractsCard() {
   const chains = useMemo(() => chainsQuery.data ?? [], [chainsQuery.data]);
   // One indexed lookup per contract, cached for the session: the row has to
   // show whether an address is already covered, and the alternative is pasting
-  // again to find out — which is also how a good ABI gets overwritten by a
+  // again to find out, which is also how a good ABI gets overwritten by a
   // worse one.
   const interfaceQueries = useQueries({
     queries: (settings?.contractAddresses ?? [])
@@ -126,15 +134,26 @@ export function ContractsCard() {
       const address = draft.address.trim();
       if (!draft.chain) throw new Error("Select a chain");
       if (!address) throw new Error("Enter a contract address");
+      const fee = percentToBps(draft.feeRate);
+      if (!fee.ok) {
+        setDraftFeeError(fee.error);
+        throw new Error(fee.error);
+      }
       return saveContracts([
         ...(settings?.contractAddresses ?? []),
-        { chain: draft.chain, address, label: draft.label.trim() || undefined },
+        {
+          chain: draft.chain,
+          address,
+          label: draft.label.trim() || undefined,
+          ...(fee.feeBps !== undefined ? { feeBps: fee.feeBps } : {}),
+        },
       ]);
     },
     onSuccess: (saved) => {
       queryClient.setQueryData(projectSettingsKey(organizationId), saved);
       setAdding(false);
-      setDraft({ chain: "", address: "", label: "" });
+      setDraft({ chain: "", address: "", label: "", feeRate: "" });
+      setDraftFeeError(undefined);
       toast.success("Contract added");
       // The new contract is appended last - jump to its page so it's visible.
       // setPage is unclamped; the next render (with the added row) clamps it.
@@ -164,10 +183,41 @@ export function ContractsCard() {
       ),
   });
 
+  // Fee rates feed Estimated LTV. The whole list is re-sent (the API replaces
+  // it), and saveProjectSettings carries every other field of every row.
+  const feeMutation = useMutation({
+    mutationFn: (target: {
+      chain?: string;
+      address: string;
+      feeBps: number | undefined;
+    }) =>
+      saveContracts(
+        (settings?.contractAddresses ?? []).map((c) => {
+          if (c.address !== target.address || c.chain !== target.chain) {
+            return c;
+          }
+          const next = { ...c };
+          if (target.feeBps === undefined) delete next.feeBps;
+          else next.feeBps = target.feeBps;
+          return next;
+        })
+      ),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(projectSettingsKey(organizationId), saved);
+      toast.success(
+        "Fee rate saved. It applies at each wallet's next enrichment."
+      );
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : "Failed to save fee rate"
+      ),
+  });
+
   return (
     <SettingsCard
       title="Contracts"
-      description="Indexed into the on-chain intelligence pipeline"
+      description="Indexed into the on-chain intelligence pipeline. A fee rate on a contract lets Estimated LTV count what wallets pay the project through it."
       action={
         !adding ? (
           <Button
@@ -217,6 +267,17 @@ export function ContractsCard() {
             }
             placeholder="0x…"
           />
+          <div className="sm:col-span-2">
+            <FeeRateInput
+              id="new-contract-fee"
+              value={draft.feeRate}
+              onChange={(next) => {
+                setDraft((d) => ({ ...d, feeRate: next }));
+                setDraftFeeError(undefined);
+              }}
+              error={draftFeeError}
+            />
+          </div>
           <div className="flex gap-2 sm:col-span-2">
             <Button type="submit" size="sm" disabled={addMutation.isPending}>
               {addMutation.isPending ? "Adding…" : "Add contract"}
@@ -272,6 +333,18 @@ export function ContractsCard() {
                 <code className="mt-0.5 block truncate font-mono text-xs text-muted-foreground">
                   {contract.address}
                 </code>
+                <ContractFeeRate
+                  rowId={`${contract.chain}-${contract.address}`}
+                  feeBps={contract.feeBps}
+                  saving={feeMutation.isPending}
+                  onSave={(feeBps) =>
+                    feeMutation.mutateAsync({
+                      chain: contract.chain,
+                      address: contract.address,
+                      feeBps,
+                    })
+                  }
+                />
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Button
@@ -284,7 +357,7 @@ export function ContractsCard() {
                       label: contract.label ?? undefined,
                     })
                   }
-                  // A submitted interface can still be replaced — a partial ABI
+                  // A submitted interface can still be replaced, a partial ABI
                   // pasted in a hurry should be fixable by pasting the full one.
                   disabled={!contract.chain}
                 >

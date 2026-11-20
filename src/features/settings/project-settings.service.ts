@@ -5,11 +5,26 @@ import type { AxiosError } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
+import {
+  normalizeRevenueEvents,
+  readFeeBps,
+  type RevenueEventSetting,
+  sanitizeRevenueEvents,
+} from "./utils/project-value";
+
+export type { RevenueEventSetting } from "./utils/project-value";
+
 export interface ProjectSettingsAddressRow {
   chain?: string;
   address: string;
   label?: string;
   icon?: string | null;
+  /**
+   * Contracts only: basis points (0-10000) of USD a wallet sends to this
+   * contract that the project keeps. Mint = 10000, 0.3% pool = 30. Absent
+   * means "not set", which is not the same as 0 (backend 2026-11-20).
+   */
+  feeBps?: number;
 }
 
 /**
@@ -42,6 +57,12 @@ export interface ProjectSettingsFormData {
   contractAddresses: ProjectSettingsAddressRow[];
   treasuryWallets: ProjectSettingsAddressRow[];
   teamWallets: ProjectSettingsAddressRow[];
+  /**
+   * Custom events whose payload carries revenue in USD. Optional so a form
+   * that never loaded it cannot clear it: the save payload only includes it
+   * when it is an array (sending `[]` clears the list server-side).
+   */
+  revenueEvents?: RevenueEventSetting[];
   /** Reveal (decrypt) contact emails in the dashboard. UI visibility only.
    *  Shown by default; turning the toggle off persists `false` to opt out.
    *  Optional so the big settings form needn't set it; the dedicated toggle
@@ -94,7 +115,7 @@ const normalizeAddressRows = (
   if (!Array.isArray(value)) return [];
 
   return value
-    .map((entry) => {
+    .map((entry): ProjectSettingsAddressRow | null => {
       if (!isJsonObject(entry)) return null;
       const row = entry as Record<string, unknown>;
       const chain = pickString(row.chain, row.network);
@@ -104,12 +125,16 @@ const normalizeAddressRows = (
         row.walletAddress
       );
       const label = pickString(row.label, row.name);
+      const icon = pickString(row.icon);
+      const feeBps = readFeeBps(row.feeBps);
       if (address.length === 0) return null;
       if (options?.requireChain && chain.length === 0) return null;
       return {
         ...(chain ? { chain } : {}),
         address,
         ...(label ? { label } : {}),
+        ...(icon ? { icon } : {}),
+        ...(feeBps !== undefined ? { feeBps } : {}),
       } satisfies ProjectSettingsAddressRow;
     })
     .filter((row): row is ProjectSettingsAddressRow => Boolean(row));
@@ -212,6 +237,7 @@ export const normalizeProjectSettings = (
     contractAddresses,
     treasuryWallets,
     teamWallets,
+    revenueEvents: normalizeRevenueEvents(root.revenueEvents),
     // Shown by default; only an explicit `false` opts out.
     revealContactEmails: root.revealContactEmails !== false,
   };
@@ -229,35 +255,49 @@ const sanitizeRows = (
   rows: ProjectSettingsAddressRow[],
   options?: { requireChain?: boolean }
 ) => {
-  return rows
-    .map((row) => ({
-      chain: pickString(row.chain),
-      address: pickString(row.address),
-      label: pickString(row.label),
-    }))
-    .filter((row) => {
-      if (row.address.length === 0) return false;
-      if (options?.requireChain && row.chain.length === 0) return false;
-      return true;
-    })
-    .map((row) => ({
-      ...(row.chain ? { chain: row.chain } : {}),
-      address: row.address,
-      ...(row.label ? { label: row.label } : {}),
-    }));
+  return (
+    rows
+      .map((row) => ({
+        chain: pickString(row.chain),
+        address: pickString(row.address),
+        label: pickString(row.label),
+        icon: pickString(row.icon),
+        feeBps: readFeeBps(row.feeBps),
+      }))
+      .filter((row) => {
+        if (row.address.length === 0) return false;
+        if (options?.requireChain && row.chain.length === 0) return false;
+        return true;
+      })
+      // Every field the backend stores goes back out: `contractAddresses` is
+      // replaced wholesale on PUT, so a field dropped here is deleted there.
+      // That is how saving the project name used to wipe fee rates and icons.
+      .map((row) => ({
+        ...(row.chain ? { chain: row.chain } : {}),
+        address: row.address,
+        ...(row.label ? { label: row.label } : {}),
+        ...(row.icon ? { icon: row.icon } : {}),
+        ...(row.feeBps !== undefined ? { feeBps: row.feeBps } : {}),
+      }))
+  );
 };
 
 // Only the fields the backend's project-settings schema accepts. `treasuryWallets`
 // and `teamWallets` were removed server-side, and empty optional scalars (e.g.
 // "" billingEmail / phone) fail validation - so omit anything empty and always
 // send the arrays (so the user can clear them).
-const toSavePayload = (values: ProjectSettingsFormData) => {
+export const toSavePayload = (values: ProjectSettingsFormData) => {
   const payload: Record<string, unknown> = {
     primaryChains: toStringArray(values.primaryChains),
     contractAddresses: sanitizeRows(values.contractAddresses, {
       requireChain: true,
     }),
   };
+  // The array replaces the stored list, so only send it when this form
+  // actually holds one; `undefined` leaves the stored list alone.
+  if (Array.isArray(values.revenueEvents)) {
+    payload.revenueEvents = sanitizeRevenueEvents(values.revenueEvents);
+  }
   const optional: Array<[string, string]> = [
     ["projectName", pickString(values.name)],
     ["billingEmail", pickString(values.email)],

@@ -114,10 +114,16 @@ import {
   type IntelligenceSegment,
   intelligenceService,
 } from "@/features/intelligence/intelligence.service";
+import { EmailSaveBlockedBanner } from "@/features/presend/components/email-save-blocked-banner";
 import { PresendDialog } from "@/features/presend/components/presend-dialog";
+import { SaveBlockedReason } from "@/features/presend/components/save-blocked-reason";
+import { useEmailSaveBlock } from "@/features/presend/hooks/use-email-save-block";
 import { usePresendGate } from "@/features/presend/hooks/use-presend-gate";
+import { EMAIL_SAVE_BLOCKED_REASON } from "@/features/presend/utils/email-save-block";
 import {
   isPresendStopped,
+  otherValidationErrors,
+  requestErrorMessage,
   toPresendResult,
 } from "@/features/presend/utils/presend-errors";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
@@ -1338,6 +1344,11 @@ export function CreateCampaignPage() {
   const [campaignId, setCampaignId] = useState<string | undefined>(
     initialCampaignFromUrl
   );
+  // The email editor refused to save this campaign's latest design; sending
+  // now would ship the previous one, so the send waits until it clears.
+  const emailSaveBlock = useEmailSaveBlock({
+    campaignIds: campaignId ? [campaignId] : [],
+  });
   const [isBootstrappingCampaign, setIsBootstrappingCampaign] = useState(false);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [isHydratingCampaign, setIsHydratingCampaign] = useState(false);
@@ -2262,6 +2273,10 @@ export function CreateCampaignPage() {
       toast.error("Missing campaign id.");
       return;
     }
+    if (emailSaveBlock) {
+      toast.error(EMAIL_SAVE_BLOCKED_REASON);
+      return;
+    }
     if (!canLaunchCampaigns) {
       toast.error("Your role cannot launch campaigns for this organization.");
       return;
@@ -2421,19 +2436,11 @@ export function CreateCampaignPage() {
       // A pre-send block also makes validation fail; the gate below shows it
       // with its fix, so only the other validation failures toast here.
       const validatedPresend = toPresendResult(validation?.presend);
+      // `source: "presend"` entries are copies of the blocks the review
+      // shows; everything else is an ordinary validation failure.
+      const otherErrors = otherValidationErrors(validation?.errors);
       if (!validation?.valid && !validatedPresend?.blocked) {
-        const errors = Array.isArray(validation?.errors)
-          ? validation.errors
-              .map((e) => {
-                if (typeof e === "string") return e;
-                if (typeof e === "object" && e !== null && "message" in e) {
-                  const m = (e as { message?: unknown }).message;
-                  if (typeof m === "string" && m.trim().length > 0) return m;
-                }
-                return null;
-              })
-              .filter((m): m is string => Boolean(m && m.length > 0))
-          : [];
+        const errors = otherErrors;
 
         toast.error(
           errors.length > 0
@@ -2449,6 +2456,7 @@ export function CreateCampaignPage() {
       setShowSendConfirm(false);
       await presendGate.run({
         action: "send",
+        otherErrors,
         preflight: () =>
           validatedPresend?.mode === "full"
             ? Promise.resolve(validatedPresend)
@@ -2483,9 +2491,7 @@ export function CreateCampaignPage() {
         );
         return;
       }
-      const message =
-        e instanceof Error ? e.message : "Failed to launch campaign";
-      toast.error(message);
+      toast.error(requestErrorMessage(e, "Failed to launch campaign"));
     } finally {
       setIsLaunching(false);
       setShowSendConfirm(false);
@@ -2961,6 +2967,11 @@ export function CreateCampaignPage() {
                       />
                     )}
 
+                    <EmailSaveBlockedBanner
+                      block={emailSaveBlock}
+                      className="mx-4 mb-4 sm:mx-6"
+                    />
+
                     {/* Navigation. The final step owns the send-timing actions
                       and the send button, so its footer only navigates back. */}
                     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-4 sm:px-6">
@@ -3028,38 +3039,53 @@ export function CreateCampaignPage() {
                                 }`
                               : "your audience";
                           return (
-                            <Button
-                              type="submit"
-                              disabled={!campaignId || !canSend || submitting}
-                              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-6 transition-all duration-300 ease-in-out hover:shadow-lg"
+                            <SaveBlockedReason
+                              reason={
+                                emailSaveBlock
+                                  ? EMAIL_SAVE_BLOCKED_REASON
+                                  : null
+                              }
                             >
-                              {submitting ? (
-                                <>
-                                  <ArrowPathIcon
-                                    aria-hidden="true"
-                                    className="mr-2 h-4 w-4 animate-spin"
-                                  />
-                                  {sendIsScheduled ? "Scheduling…" : "Sending…"}
-                                </>
-                              ) : (
-                                <>
-                                  {sendIsScheduled && !sendIsPush
-                                    ? `Schedule for ${audienceLabel}`
-                                    : `Send to ${audienceLabel}`}
-                                  {sendIsScheduled && !sendIsPush ? (
-                                    <ClockIcon
+                              <Button
+                                type="submit"
+                                disabled={
+                                  !campaignId ||
+                                  !canSend ||
+                                  submitting ||
+                                  Boolean(emailSaveBlock)
+                                }
+                                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl px-6 transition-all duration-300 ease-in-out hover:shadow-lg"
+                              >
+                                {submitting ? (
+                                  <>
+                                    <ArrowPathIcon
                                       aria-hidden="true"
-                                      className="ml-2 h-4 w-4"
+                                      className="mr-2 h-4 w-4 animate-spin"
                                     />
-                                  ) : (
-                                    <PaperAirplaneIcon
-                                      aria-hidden="true"
-                                      className="ml-2 h-4 w-4"
-                                    />
-                                  )}
-                                </>
-                              )}
-                            </Button>
+                                    {sendIsScheduled
+                                      ? "Scheduling…"
+                                      : "Sending…"}
+                                  </>
+                                ) : (
+                                  <>
+                                    {sendIsScheduled && !sendIsPush
+                                      ? `Schedule for ${audienceLabel}`
+                                      : `Send to ${audienceLabel}`}
+                                    {sendIsScheduled && !sendIsPush ? (
+                                      <ClockIcon
+                                        aria-hidden="true"
+                                        className="ml-2 h-4 w-4"
+                                      />
+                                    ) : (
+                                      <PaperAirplaneIcon
+                                        aria-hidden="true"
+                                        className="ml-2 h-4 w-4"
+                                      />
+                                    )}
+                                  </>
+                                )}
+                              </Button>
+                            </SaveBlockedReason>
                           );
                         })()
                       )}

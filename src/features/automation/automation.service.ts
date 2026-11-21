@@ -5,6 +5,10 @@ import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import type { TemplateStep } from "./data/protocol-templates";
 import { withApiErrorFields } from "./utils/builder-issues";
+import type {
+  AutomationPresendGraph,
+  PresendResult,
+} from "@/features/presend/contracts/presend";
 
 const pickOrgId = (orgId?: string) =>
   orgId ?? getSelectedOrganizationId() ?? null;
@@ -486,6 +490,28 @@ export const automationService = {
   ) {
     return request<Record<string, unknown>>(
       { method: "PUT", url: `/automations/${automationId}/status`, data: body },
+      orgId
+    );
+  },
+
+  /**
+   * Run the pre-send check without changing anything, on the graph the gated
+   * route would check: `draft` for publish, `saved` for resuming / turning on
+   * an existing graph. Same evaluator as the gate, so a clean result here
+   * means the activation will not be refused for content (the call itself
+   * still answers authoritatively).
+   */
+  getPresendCheck(
+    automationId: string,
+    graph: AutomationPresendGraph = "draft",
+    orgId?: string
+  ) {
+    return request<PresendResult>(
+      {
+        method: "GET",
+        url: `/automations/${automationId}/presend-check`,
+        params: { graph },
+      },
       orgId
     );
   },

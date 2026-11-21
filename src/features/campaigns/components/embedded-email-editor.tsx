@@ -10,6 +10,12 @@ import { Button } from "@/components/ui/button";
 import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
 
 import { campaignsService } from "@/features/campaigns/campaigns.service";
+import { EmailSaveBlockedBanner } from "@/features/presend/components/email-save-blocked-banner";
+import { useEmailSaveBlock } from "@/features/presend/hooks/use-email-save-block";
+import {
+  parseEditorSaveMessage,
+  publishEditorSaveMessage,
+} from "@/features/presend/utils/email-save-block";
 import { templatesService } from "@/features/templates/templates.service";
 import { publishEmailDesignSaved } from "@/shared/utils/email-design-channel";
 
@@ -56,6 +62,8 @@ export function EmbeddedEmailEditor({
   // we don't spawn a new template per save.
   const savedTemplateIdRef = useRef<string>((templateId ?? "").trim());
   const [savingTemplate, setSavingTemplate] = useState(false);
+  // Set when the builder reports the backend refused to save the design.
+  const saveBlock = useEmailSaveBlock({ campaignIds: [campaignId] });
 
   // The builder calls the backend directly with the editor token, so it must hit
   // the SAME backend that issued the token. Prefer our public backend; the
@@ -185,6 +193,14 @@ export function EmbeddedEmailEditor({
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== allowedOrigin) return;
       const { data } = event;
+      // EMAIL_SAVE_BLOCKED / EMAIL_SAVE_BLOCK_CLEARED: the builder's save was
+      // refused (or later went through). Recorded for this tab and mirrored to
+      // others, so the wizard / automation builder hold their send buttons.
+      const saveMessage = parseEditorSaveMessage(data, campaignId);
+      if (saveMessage) {
+        publishEditorSaveMessage(saveMessage);
+        return;
+      }
       const type =
         typeof data === "string"
           ? data
@@ -215,6 +231,8 @@ export function EmbeddedEmailEditor({
           typeof payload.previewText === "string"
             ? payload.previewText
             : undefined;
+        // A save that went through supersedes any earlier refusal.
+        publishEditorSaveMessage({ type: "cleared", campaignId });
         persistAsTemplate(payload).then((asTemplate) => {
           // Tell an automation builder open in another tab to pull this design
           // onto its Send Email node now, rather than waiting for a tab refocus.
@@ -269,6 +287,12 @@ export function EmbeddedEmailEditor({
           Saved to this campaign automatically
         </span>
       </div>
+
+      {saveBlock ? (
+        <div className="shrink-0 border-b border-border px-4 py-3">
+          <EmailSaveBlockedBanner block={saveBlock} />
+        </div>
+      ) : null}
 
       <div className="relative flex-1 bg-muted/30">
         {savingTemplate ? (

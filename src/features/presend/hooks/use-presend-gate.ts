@@ -28,6 +28,20 @@ export interface PresendRunOptions<T> {
    */
   preflight?: () => Promise<PresendResult | null | undefined>;
   action: PresendAction;
+  /**
+   * Validation errors already known to sit beside a preflight block (e.g.
+   * `POST /campaigns/{id}/validate`'s non-presend `errors`), shown with it.
+   */
+  otherErrors?: string[];
+  /** Automation only: how to name and reach the Send Email steps a check names. */
+  steps?: PresendSteps;
+}
+
+export interface PresendSteps {
+  /** The step's name in the builder, or undefined when it is not on the graph. */
+  nameOf?: (nodeId: string) => string | undefined;
+  /** Close the review and bring this step into view. */
+  onGoTo?: (nodeId: string) => void;
 }
 
 interface DialogState {
@@ -36,6 +50,7 @@ interface DialogState {
   newCodes: string[];
   otherErrors: string[];
   action: PresendAction;
+  steps?: PresendSteps;
 }
 
 /** Re-asks are bounded: a backend that 409s forever must not loop forever. */
@@ -76,7 +91,7 @@ export function usePresendGate() {
 
   const run = useCallback(
     async <T>(options: PresendRunOptions<T>): Promise<T> => {
-      const { attempt, preflight, action } = options;
+      const { attempt, preflight, action, steps } = options;
       let ack: string[] | undefined;
 
       if (preflight) {
@@ -87,6 +102,7 @@ export function usePresendGate() {
           newCodes: [],
           otherErrors: [],
           action,
+          steps,
         });
         let result: PresendResult | null | undefined;
         try {
@@ -104,8 +120,9 @@ export function usePresendGate() {
           await ask({
             checks: result.checks,
             newCodes: [],
-            otherErrors: [],
+            otherErrors: options.otherErrors ?? [],
             action,
+            steps,
           });
           throw new PresendStoppedError("blocked");
         }
@@ -115,6 +132,7 @@ export function usePresendGate() {
             newCodes: [],
             otherErrors: [],
             action,
+            steps,
           });
           if (!confirmed) throw new PresendStoppedError("cancelled");
           ack = warnCodesOf(result.checks);
@@ -133,6 +151,7 @@ export function usePresendGate() {
               newCodes: [],
               otherErrors: refusal.otherErrors,
               action,
+              steps,
             });
             throw new PresendStoppedError("blocked");
           }
@@ -146,6 +165,7 @@ export function usePresendGate() {
               : [],
             otherErrors: [],
             action,
+            steps,
           });
           if (!confirmed) throw new PresendStoppedError("cancelled");
           ack = refusal.warnCodes;
@@ -155,6 +175,7 @@ export function usePresendGate() {
     [ask]
   );
 
+  const steps = state?.steps;
   const dialogProps: PresendDialogProps = useMemo(
     () => ({
       open: state !== null,
@@ -165,8 +186,17 @@ export function usePresendGate() {
       otherErrors: state?.otherErrors ?? [],
       onConfirm: () => settle(true),
       onCancel: () => settle(false),
+      stepName: steps?.nameOf,
+      // Going to a step abandons this review: the run stops as cancelled (or
+      // blocked), then the builder focuses the step.
+      onGoToStep: steps?.onGoTo
+        ? (nodeId: string) => {
+            settle(false);
+            steps.onGoTo?.(nodeId);
+          }
+        : undefined,
     }),
-    [settle, state]
+    [settle, state, steps]
   );
 
   return { run, dialogProps };

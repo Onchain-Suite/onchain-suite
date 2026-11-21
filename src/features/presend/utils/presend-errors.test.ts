@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { block, result, warn } from "../test/fixtures";
-import { parsePresendError, toPresendResult } from "./presend-errors";
+import {
+  otherValidationErrors,
+  parsePresendError,
+  requestErrorMessage,
+  stepsOf,
+  toPresendResult,
+} from "./presend-errors";
 
 const apiError = (fields: Record<string, unknown>) =>
   Object.assign(new Error("refused"), fields);
@@ -52,6 +58,30 @@ describe("parsePresendError", () => {
     ).toBeNull();
   });
 
+  it("drops only the source:presend copies from errors[], by marker not by code", () => {
+    const parsed = parsePresendError(
+      apiError({
+        code: "VALIDATION_FAILED",
+        details: {
+          code: "VALIDATION_FAILED",
+          checks: [block("URL_SHORTENER")],
+          errors: [
+            { code: "URL_SHORTENER", message: "shortener", source: "presend" },
+            { code: "SUBJECT_REQUIRED", message: "Subject is required" },
+            // Same code as a block but no marker: an ordinary error, kept.
+            { code: "URL_SHORTENER", message: "legacy copy" },
+          ],
+        },
+      })
+    );
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        kind: "blocked",
+        otherErrors: ["Subject is required", "legacy copy"],
+      })
+    );
+  });
+
   it("ignores unrelated errors", () => {
     expect(parsePresendError(new Error("boom"))).toBeNull();
     expect(parsePresendError("nope")).toBeNull();
@@ -69,5 +99,67 @@ describe("toPresendResult", () => {
     });
     expect(parsed?.blocked).toBe(true);
     expect(parsed?.checks).toHaveLength(1);
+  });
+});
+
+describe("otherValidationErrors", () => {
+  it("keeps strings and unmarked entries, drops presend copies and blanks", () => {
+    expect(
+      otherValidationErrors([
+        "Audience is empty",
+        { code: "X", message: "x", source: "presend" },
+        { code: "Y", message: "  " },
+        { code: "Z", message: "An error occurred" },
+        { code: "W", message: "Subject is required" },
+      ])
+    ).toEqual(["Audience is empty", "Subject is required"]);
+    expect(otherValidationErrors(undefined)).toEqual([]);
+  });
+});
+
+describe("stepsOf", () => {
+  it("reads details.steps, falls back to nodeId, and is empty for campaigns", () => {
+    expect(
+      stepsOf({
+        ...block("URL_SHORTENER"),
+        details: {
+          nodeId: "email-1",
+          steps: ["email-1", "email-3", "email-1"],
+        },
+      })
+    ).toEqual(["email-1", "email-3"]);
+    expect(
+      stepsOf({ ...warn("GMAIL_CLIP"), details: { nodeId: "email-2" } })
+    ).toEqual(["email-2"]);
+    expect(stepsOf(warn("GMAIL_CLIP"))).toEqual([]);
+  });
+});
+
+describe("requestErrorMessage", () => {
+  it("never returns the generic filter fallback when details say more", () => {
+    expect(
+      requestErrorMessage(
+        apiError({
+          message: "An error occurred",
+          code: "VALIDATION_FAILED",
+          details: {
+            code: "VALIDATION_FAILED",
+            errors: [
+              { code: "SUBJECT_REQUIRED", message: "Subject is required" },
+            ],
+          },
+        }),
+        "Failed"
+      )
+    ).toBe("Subject is required");
+    expect(
+      requestErrorMessage(
+        Object.assign(new Error("An error occurred"), {}),
+        "Failed to update status"
+      )
+    ).toBe("Failed to update status");
+    expect(requestErrorMessage(new Error("Not found"), "Failed")).toBe(
+      "Not found"
+    );
   });
 });

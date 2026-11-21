@@ -11,6 +11,7 @@ import {
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 
+import { SaveBlockedReason } from "@/features/presend/components/save-blocked-reason";
 import { Button } from "@/shared/components/ui/button";
 
 export type BuilderTab = "builder" | "stats";
@@ -38,6 +39,11 @@ interface BuilderBarProps {
   onPublish: () => void;
   onPause: () => void;
   onTurnOn: () => void;
+  /**
+   * Set while the email editor reports a refused save: going live would ship
+   * the previous design, so Publish and Turn on wait, and this says why.
+   */
+  saveBlockedReason?: string | null;
 }
 
 const BADGE: Record<string, { cls: string; text: string }> = {
@@ -162,27 +168,35 @@ export function BuilderBar(p: BuilderBarProps) {
             Pause
           </Button>
         ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={p.onTurnOn}
-            disabled={p.toggling}
-          >
-            <PlayIcon aria-hidden="true" />
-            Turn on
-          </Button>
+          <SaveBlockedReason reason={p.saveBlockedReason}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={p.onTurnOn}
+              disabled={p.toggling || Boolean(p.saveBlockedReason)}
+            >
+              <PlayIcon aria-hidden="true" />
+              Turn on
+            </Button>
+          </SaveBlockedReason>
         ))}
-      <Button
-        size="sm"
-        onClick={p.onPublish}
-        disabled={p.saving || p.publishing}
-        title="Save and make these changes live. The running automation only follows the published version."
-      >
-        {(p.saving || p.publishing) && (
-          <ArrowPathIcon aria-hidden="true" className="animate-spin" />
-        )}
-        Publish
-      </Button>
+      <SaveBlockedReason reason={p.saveBlockedReason}>
+        <Button
+          size="sm"
+          onClick={p.onPublish}
+          disabled={p.saving || p.publishing || Boolean(p.saveBlockedReason)}
+          title={
+            p.saveBlockedReason
+              ? undefined
+              : "Save and make these changes live. The running automation only follows the published version."
+          }
+        >
+          {(p.saving || p.publishing) && (
+            <ArrowPathIcon aria-hidden="true" className="animate-spin" />
+          )}
+          Publish
+        </Button>
+      </SaveBlockedReason>
     </div>
   );
 }

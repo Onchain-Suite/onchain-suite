@@ -141,9 +141,18 @@ import { canRunLendingHealthFactorNow } from "@/features/automation/utils/run-no
 import { stepKindLabel } from "@/features/automation/utils/step-summary";
 import { campaignsService } from "@/features/campaigns/campaigns.service";
 import { useFormsList } from "@/features/forms/hooks/use-forms";
+import { EmailSaveBlockedBanner } from "@/features/presend/components/email-save-blocked-banner";
 import { PresendDialog } from "@/features/presend/components/presend-dialog";
-import { usePresendGate } from "@/features/presend/hooks/use-presend-gate";
-import { isPresendStopped } from "@/features/presend/utils/presend-errors";
+import { useEmailSaveBlock } from "@/features/presend/hooks/use-email-save-block";
+import {
+  type PresendSteps,
+  usePresendGate,
+} from "@/features/presend/hooks/use-presend-gate";
+import { EMAIL_SAVE_BLOCKED_REASON } from "@/features/presend/utils/email-save-block";
+import {
+  isPresendStopped,
+  requestErrorMessage,
+} from "@/features/presend/utils/presend-errors";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
@@ -370,6 +379,25 @@ const CreateAutomationContent = () => {
     });
   }, []);
 
+  // How the pre-send review names a check's Send Email steps and takes the
+  // user to one. A node id not on this canvas (deleted since the last save)
+  // gets no name, so the review shows "Email step" with nowhere to go.
+  const presendSteps = useMemo<PresendSteps>(
+    () => ({
+      nameOf: (nodeId) =>
+        nodes.some((n) => n.id === nodeId) ? labelForNode(nodeId) : undefined,
+      onGoTo: (nodeId) => {
+        setActiveTab("builder");
+        focusNode(nodeId);
+      },
+    }),
+    [focusNode, labelForNode, nodes]
+  );
+  // Set just before a draft's publish chains into "turn on": the publish
+  // already reviewed the same content, so the status call skips its own look
+  // (the call itself is still gated server-side).
+  const statusPresendCoveredRef = useRef(false);
+
   /**
    * Record what the backend said about this exact graph and point the user at
    * the first blocking step. `AUTOMATION_BUILDER_INVALID` arrives as a single
@@ -415,7 +443,7 @@ const CreateAutomationContent = () => {
         );
         return true;
       }
-      toast.error(error instanceof Error ? error.message : fallback);
+      toast.error(requestErrorMessage(error, fallback));
       return false;
     },
     [recordServerIssues]
@@ -950,6 +978,11 @@ const CreateAutomationContent = () => {
     mutationFn: async () =>
       presendGate.run({
         action: "activate",
+        // Publish checks the draft graph; look before sending so warns and
+        // blocks open the review first.
+        preflight: () =>
+          automationService.getPresendCheck(automationId, "draft"),
+        steps: presendSteps,
         attempt: (ack) =>
           automationService.publishAutomation(automationId, undefined, ack),
       }),
@@ -2041,6 +2074,7 @@ const CreateAutomationContent = () => {
       // save.
       const builder = await presendGate.run({
         action: "save",
+        steps: presendSteps,
         attempt: (ack) =>
           automationService.saveBuilder(automationId, {
             ...toWireGraph({ nodes, edges }),
@@ -2460,9 +2494,20 @@ const CreateAutomationContent = () => {
           status: nextStatus,
         });
       }
-      // Turning it on is gated by the pre-send check like a publish.
+      // Turning it on is gated by the pre-send check like a publish, on the
+      // SAVED graph (what the status route checks). Skip the look when a
+      // publish just reviewed the same content.
+      const covered = statusPresendCoveredRef.current;
+      statusPresendCoveredRef.current = false;
       return presendGate.run({
         action: "activate",
+        ...(covered
+          ? {}
+          : {
+              preflight: () =>
+                automationService.getPresendCheck(automationId, "saved"),
+            }),
+        steps: presendSteps,
         attempt: (ack) =>
           automationService.updateAutomationStatus(automationId, {
             status: nextStatus,
@@ -2473,9 +2518,7 @@ const CreateAutomationContent = () => {
     onError: (err) => {
       // Status stays as it was: onSuccess is the only place it flips.
       if (isPresendStopped(err)) return;
-      toast.error(
-        err instanceof Error ? err.message : "Failed to update status"
-      );
+      toast.error(requestErrorMessage(err, "Failed to update status"));
     },
     onSuccess: (res, nextStatus) => {
       setAutomationData((prev) => ({ ...prev, status: nextStatus }));
@@ -2504,11 +2547,13 @@ const CreateAutomationContent = () => {
     const finish = () => setShowActivateConfirm(false);
     if (automationData.status === "draft") {
       publishMutation.mutate(undefined, {
-        onSuccess: () =>
+        onSuccess: () => {
+          statusPresendCoveredRef.current = true;
           statusToggleMutation.mutate("active", {
             onSuccess: finish,
             onError: finish,
-          }),
+          });
+        },
         onError: finish,
       });
     } else {
@@ -2570,6 +2615,23 @@ const CreateAutomationContent = () => {
       }),
     [nodes]
   );
+  // The hosted email editor reports when the backend refused to save a Send
+  // Email step's design; until it clears, publishing would ship the previous
+  // version, so the go-live actions wait.
+  const emailNodeIds = useMemo(() => {
+    const campaignIds: string[] = [];
+    const designIds: string[] = [];
+    for (const n of nodes) {
+      if (!isJsonObject(n.data)) continue;
+      const campaignId = asString(n.data.campaignId);
+      const designId = asString(n.data.designId);
+      if (campaignId) campaignIds.push(campaignId);
+      if (designId) designIds.push(designId);
+    }
+    return { campaignIds, designIds };
+  }, [nodes]);
+  const emailSaveBlock = useEmailSaveBlock(emailNodeIds);
+  const saveBlockedReason = emailSaveBlock ? EMAIL_SAVE_BLOCKED_REASON : null;
   const emailNeedsSender =
     hasEmailNode &&
     !senderIdentitiesQuery.isLoading &&
@@ -2764,7 +2826,7 @@ const CreateAutomationContent = () => {
         confirmLabel="Turn on"
         confirmingLabel="Turning on…"
         confirming={statusToggleMutation.isPending || publishMutation.isPending}
-        confirmDisabled={!canActivate}
+        confirmDisabled={!canActivate || Boolean(saveBlockedReason)}
         onConfirm={activateAutomation}
       />
 
@@ -2801,7 +2863,10 @@ const CreateAutomationContent = () => {
         onPublish={handlePublish}
         onPause={() => statusToggleMutation.mutate("paused")}
         onTurnOn={() => setShowActivateConfirm(true)}
+        saveBlockedReason={saveBlockedReason}
       />
+
+      <EmailSaveBlockedBanner block={emailSaveBlock} className="mb-3" />
 
       {activeTab === "builder" && hasOnchainTrigger ? (
         <ContractAddressNudge

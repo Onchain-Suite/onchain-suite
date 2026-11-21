@@ -32,6 +32,9 @@ import {
   type Draft,
   type Template,
 } from "@/features/automation/types";
+import { PresendDialog } from "@/features/presend/components/presend-dialog";
+import { usePresendGate } from "@/features/presend/hooks/use-presend-gate";
+import { isPresendStopped } from "@/features/presend/utils/presend-errors";
 import { PageHeader } from "@/shared/components/page/page-header";
 import {
   StatCardsSkeleton,
@@ -131,6 +134,7 @@ export const AutomationList = () => {
   const limit = 20;
 
   const queryClient = useQueryClient();
+  const presendGate = usePresendGate();
   const [deleteModal, setDeleteModal] = useState<{
     show: boolean;
     automation: Automation | null;
@@ -308,8 +312,20 @@ export const AutomationList = () => {
   const toggleStatusMutation = useMutation({
     mutationFn: async (automation: Automation) => {
       const next = automation.status === "active" ? "paused" : "active";
-      await automationService.updateAutomationStatus(automation.id, {
-        status: next,
+      if (next === "paused") {
+        await automationService.updateAutomationStatus(automation.id, {
+          status: next,
+        });
+        return;
+      }
+      // Turning one on runs the pre-send check; warns need acknowledging.
+      await presendGate.run({
+        action: "activate",
+        attempt: (ack) =>
+          automationService.updateAutomationStatus(automation.id, {
+            status: next,
+            ...(ack ? { acknowledgedWarnings: ack } : {}),
+          }),
       });
     },
     onSuccess: async () => {
@@ -318,6 +334,8 @@ export const AutomationList = () => {
       setTimeout(() => setToast(null), 3000);
     },
     onError: (err) => {
+      // Blocked or cancelled at the pre-send review: the dialog said why.
+      if (isPresendStopped(err)) return;
       const message =
         err instanceof Error ? err.message : "Failed to update status";
       setToast({ show: true, message, type: "error" });
@@ -414,6 +432,7 @@ export const AutomationList = () => {
 
   return (
     <div className="space-y-4">
+      <PresendDialog {...presendGate.dialogProps} />
       <PageHeader
         title="Automations"
         description="Trigger personalized flows from your users' onchain signals."

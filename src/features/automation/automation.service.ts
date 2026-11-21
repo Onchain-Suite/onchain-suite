@@ -231,6 +231,12 @@ export type AutomationRuntimeTriggerResponse = {
 
 export type AutomationStatusUpdateBody = {
   status: "active" | "paused" | "draft" | "archived" | string;
+  /**
+   * Pre-send acknowledgement: every current warn code. Only read when the
+   * request turns an automation ACTIVE (or changes a live Send Email step);
+   * otherwise ignored.
+   */
+  acknowledgedWarnings?: string[];
 };
 
 export type BuilderProjectContract = {
@@ -484,9 +490,21 @@ export const automationService = {
     );
   },
 
-  publishAutomation(automationId: string, orgId?: string) {
+  /**
+   * Make the draft live. Gated by the pre-send check: 409
+   * PRESEND_ACK_REQUIRED (resend with every warn code) or 422 PRESEND_BLOCKED.
+   */
+  publishAutomation(
+    automationId: string,
+    orgId?: string,
+    acknowledgedWarnings?: string[]
+  ) {
     return request<Record<string, unknown>>(
-      { method: "POST", url: `/automations/${automationId}/publish` },
+      {
+        method: "POST",
+        url: `/automations/${automationId}/publish`,
+        ...(acknowledgedWarnings ? { data: { acknowledgedWarnings } } : {}),
+      },
       orgId
     );
   },

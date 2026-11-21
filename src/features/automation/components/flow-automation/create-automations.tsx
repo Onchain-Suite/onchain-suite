@@ -141,6 +141,9 @@ import { canRunLendingHealthFactorNow } from "@/features/automation/utils/run-no
 import { stepKindLabel } from "@/features/automation/utils/step-summary";
 import { campaignsService } from "@/features/campaigns/campaigns.service";
 import { useFormsList } from "@/features/forms/hooks/use-forms";
+import { PresendDialog } from "@/features/presend/components/presend-dialog";
+import { usePresendGate } from "@/features/presend/hooks/use-presend-gate";
+import { isPresendStopped } from "@/features/presend/utils/presend-errors";
 import { ContractAddressNudge } from "@/features/settings/components/contract-address-nudge";
 import { projectSettingsService } from "@/features/settings/project-settings.service";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
@@ -314,6 +317,7 @@ const CreateAutomationContent = () => {
   );
   // Guard before an automation goes live and starts enrolling contacts.
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
+  const presendGate = usePresendGate();
   // The "to finish" list under the bar: opened from the bar, or by a check.
   const [issuesOpen, setIssuesOpen] = useState(false);
   // What the backend said about the graph, and the graph it said it about.
@@ -941,7 +945,14 @@ const CreateAutomationContent = () => {
   });
 
   const publishMutation = useMutation({
-    mutationFn: async () => automationService.publishAutomation(automationId),
+    // Publish makes the draft live, so the backend runs the pre-send check:
+    // a 409 asks for the warns to be acknowledged, a 422 refuses outright.
+    mutationFn: async () =>
+      presendGate.run({
+        action: "activate",
+        attempt: (ack) =>
+          automationService.publishAutomation(automationId, undefined, ack),
+      }),
     onSuccess: async (res) => {
       await queryClient.invalidateQueries({ queryKey: ["automations"] });
       await automationDetailQuery.refetch();
@@ -959,6 +970,9 @@ const CreateAutomationContent = () => {
       );
     },
     onError: (err) => {
+      // Stopped at the pre-send review: the dialog already said why, and the
+      // automation is still a draft.
+      if (isPresendStopped(err)) return;
       // Publish validates the draft graph server-side; on rejection the useful
       // detail rides in `errors[]`, so route it to the issues panel.
       reportGraphError(err, "Failed to publish");
@@ -2022,9 +2036,17 @@ const CreateAutomationContent = () => {
         name,
         description: automationData.description ?? "",
       });
-      const builder = await automationService.saveBuilder(automationId, {
-        ...toWireGraph({ nodes, edges }),
-        settings: flowSettings,
+      // On a LIVE automation a changed Send Email step is re-checked before it
+      // is saved; on anything else the gate never triggers and this is a plain
+      // save.
+      const builder = await presendGate.run({
+        action: "save",
+        attempt: (ack) =>
+          automationService.saveBuilder(automationId, {
+            ...toWireGraph({ nodes, edges }),
+            settings: flowSettings,
+            ...(ack ? { acknowledgedWarnings: ack } : {}),
+          }),
       });
       return { createdId: null as string | null, builder };
     },
@@ -2040,6 +2062,14 @@ const CreateAutomationContent = () => {
     },
     onError: (err) => {
       setIsSaving(false);
+      if (isPresendStopped(err)) {
+        // Nothing reached the live automation. The edit survives only in the
+        // draft autosave, so say that rather than leaving "saved" implied.
+        toast.info(
+          "Not saved to the live automation. Your edit is kept as a draft."
+        );
+        return;
+      }
       reportGraphError(err, "Failed to save");
     },
   });
@@ -2425,9 +2455,27 @@ const CreateAutomationContent = () => {
       if (isNew || !automationId) {
         throw new Error("Save the automation before activating it.");
       }
-      return automationService.updateAutomationStatus(automationId, {
-        status: nextStatus,
+      if (nextStatus !== "active") {
+        return automationService.updateAutomationStatus(automationId, {
+          status: nextStatus,
+        });
+      }
+      // Turning it on is gated by the pre-send check like a publish.
+      return presendGate.run({
+        action: "activate",
+        attempt: (ack) =>
+          automationService.updateAutomationStatus(automationId, {
+            status: nextStatus,
+            ...(ack ? { acknowledgedWarnings: ack } : {}),
+          }),
       });
+    },
+    onError: (err) => {
+      // Status stays as it was: onSuccess is the only place it flips.
+      if (isPresendStopped(err)) return;
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update status"
+      );
     },
     onSuccess: (res, nextStatus) => {
       setAutomationData((prev) => ({ ...prev, status: nextStatus }));
@@ -2687,6 +2735,7 @@ const CreateAutomationContent = () => {
         activeTab === "builder" && "ab--build"
       )}
     >
+      <PresendDialog {...presendGate.dialogProps} />
       <SendConfirmDialog
         open={showActivateConfirm}
         onOpenChange={setShowActivateConfirm}

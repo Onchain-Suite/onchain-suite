@@ -114,6 +114,12 @@ import {
   type IntelligenceSegment,
   intelligenceService,
 } from "@/features/intelligence/intelligence.service";
+import { PresendDialog } from "@/features/presend/components/presend-dialog";
+import { usePresendGate } from "@/features/presend/hooks/use-presend-gate";
+import {
+  isPresendStopped,
+  toPresendResult,
+} from "@/features/presend/utils/presend-errors";
 import { senderIdentitiesService } from "@/features/settings/sender-identities.service";
 import { LIBRARY_EMAIL_TEMPLATES } from "@/features/templates/library-templates";
 import { templatesService } from "@/features/templates/templates.service";
@@ -1323,6 +1329,7 @@ export function CreateCampaignPage() {
   // Pre-send guard: the submit button opens this; the real launch only fires
   // once the user confirms. `isLaunching` drives the dialog's confirm spinner.
   const [showSendConfirm, setShowSendConfirm] = useState(false);
+  const presendGate = usePresendGate();
   const dmSend = useDmSend(() => setShowConfirmation(true));
   const [isLaunching, setIsLaunching] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -2411,7 +2418,10 @@ export function CreateCampaignPage() {
         .catch(() => undefined);
 
       const validation = await campaignsService.validateCampaign(campaignId);
-      if (!validation?.valid) {
+      // A pre-send block also makes validation fail; the gate below shows it
+      // with its fix, so only the other validation failures toast here.
+      const validatedPresend = toPresendResult(validation?.presend);
+      if (!validation?.valid && !validatedPresend?.blocked) {
         const errors = Array.isArray(validation?.errors)
           ? validation.errors
               .map((e) => {
@@ -2433,9 +2443,23 @@ export function CreateCampaignPage() {
         return;
       }
 
-      await campaignsService.launchCampaign(campaignId);
+      // Validate already ran the full pre-send check unless the backend flag
+      // is off (legacy mode); only then ask the dedicated endpoint. Launch is
+      // authoritative either way: its 409/422 re-open the review.
+      setShowSendConfirm(false);
+      await presendGate.run({
+        action: "send",
+        preflight: () =>
+          validatedPresend?.mode === "full"
+            ? Promise.resolve(validatedPresend)
+            : campaignsService.getPresendCheck(campaignId),
+        attempt: (ack) =>
+          campaignsService.launchCampaign(campaignId, undefined, ack),
+      });
       setShowConfirmation(true);
     } catch (e) {
+      // Blocked or cancelled at the pre-send review: the dialog said why.
+      if (isPresendStopped(e)) return;
       // An unverified sender domain is the one launch failure the user can
       // fix themselves - point them at the verification flow rather than
       // showing a raw backend string.
@@ -2706,6 +2730,7 @@ export function CreateCampaignPage() {
 
   return (
     <div className="min-h-screen bg-background font-sans -mt-[20px] z-2">
+      <PresendDialog {...presendGate.dialogProps} />
       <SendConfirmDialog
         open={showSendConfirm}
         onOpenChange={setShowSendConfirm}

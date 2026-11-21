@@ -12,6 +12,7 @@ import type {
 import type { CampaignLiftResult } from "./contracts/lift";
 import { withApiErrorFields } from "./lib/launch-errors";
 import type { Campaign, CampaignSendProgress } from "./types/campaign";
+import type { PresendResult } from "@/features/presend/contracts/presend";
 
 export interface ListCampaignsParams {
   page?: number;
@@ -389,6 +390,10 @@ export interface CampaignScheduleSettings {
 export interface CampaignValidateResult {
   valid: boolean;
   errors?: unknown[];
+  /** Pre-send warns (`{ code, message, fix }`). They never make it invalid. */
+  warnings?: unknown[];
+  /** Full pre-send result. `mode: "legacy"` when the backend flag is off. */
+  presend?: PresendResult;
   [key: string]: unknown;
 }
 
@@ -1131,9 +1136,32 @@ export const campaignsService = {
       .catch(() => [] as unknown[]);
   },
 
-  launchCampaign(id: string, orgId?: string) {
+  /**
+   * Run the pre-send checks without launching. Always the full rule set,
+   * whatever the backend flag; renders the campaign once, so it can take a
+   * second or two on a cold DNS cache.
+   */
+  getPresendCheck(id: string, orgId?: string) {
+    return request<PresendResult>(
+      { method: "GET", url: `/campaigns/${id}/presend-check` },
+      orgId
+    );
+  },
+
+  /**
+   * Launch now, or queue at the saved schedule. `acknowledgedWarnings` must
+   * list EVERY current pre-send warn code; otherwise the backend answers 409
+   * PRESEND_ACK_REQUIRED (and 422 VALIDATION_FAILED with `checks` on a block).
+   * Omitted when nothing was acknowledged, so an older backend sees the same
+   * body-less request it always did.
+   */
+  launchCampaign(id: string, orgId?: string, acknowledgedWarnings?: string[]) {
     return request<{ success?: boolean }>(
-      { method: "POST", url: `/campaigns/${id}/launch` },
+      {
+        method: "POST",
+        url: `/campaigns/${id}/launch`,
+        ...(acknowledgedWarnings ? { data: { acknowledgedWarnings } } : {}),
+      },
       orgId
     );
   },

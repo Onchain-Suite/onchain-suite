@@ -193,8 +193,12 @@ export const requestErrorMessage = (
   error: unknown,
   fallback: string
 ): string => {
+  // Services prefix the status ("[HTTP 422] An error occurred"); the
+  // placeholder is just as useless with it.
   const own =
-    error instanceof Error && error.message.trim() !== GENERIC_ERROR_MESSAGE
+    error instanceof Error &&
+    error.message.replace(/^\[HTTP \d+\]\s*/, "").trim() !==
+      GENERIC_ERROR_MESSAGE
       ? error.message.trim()
       : "";
   if (own) return own;

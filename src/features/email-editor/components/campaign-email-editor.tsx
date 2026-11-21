@@ -3,7 +3,7 @@
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { getSelectedOrganizationId } from "@/lib/utils";
@@ -12,7 +12,12 @@ import { useEmailAutosave } from "../hooks/use-email-autosave";
 import { useEmailSource } from "../hooks/use-email-source";
 import type { DocNode } from "../types/email-doc";
 import { buildEmailPayload } from "../utils/email-payload";
+import { linkHighlightCss } from "../utils/link-highlight";
 import { campaignsService } from "@/features/campaigns/campaigns.service";
+import { EmailSaveBlockedBanner } from "@/features/presend/components/email-save-blocked-banner";
+import { SaveBlockedDialog } from "@/features/presend/components/save-blocked-dialog";
+import { requestErrorMessage } from "@/features/presend/utils/presend-errors";
+import { saveBlockLinks } from "@/features/presend/utils/save-refusal";
 import { templatesService } from "@/features/templates/templates.service";
 import { Button } from "@/shared/components/ui/button";
 
@@ -71,7 +76,11 @@ export function CampaignEmailEditor({
   const [finishing, setFinishing] = useState(false);
   const name = (title ?? "").trim() || "Untitled email";
 
-  const { schedule, flush } = autosave;
+  const { schedule, flush, isBlocked } = autosave;
+  const highlight = useMemo(
+    () => linkHighlightCss(saveBlockLinks(autosave.block)),
+    [autosave.block]
+  );
   const onChange = useCallback(
     (doc: DocNode, footer: string) => {
       latest.current = { doc, footer };
@@ -89,20 +98,23 @@ export function CampaignEmailEditor({
 
   const back = useCallback(async () => {
     if (!(await flush())) {
-      toast.error(
-        "Your last changes didn't save. Try again, or copy the HTML before leaving."
-      );
+      // A pre-send block opens its own dialog; a toast would repeat it.
+      if (!isBlocked())
+        toast.error(
+          "Your last changes didn't save. Try again, or copy the HTML before leaving."
+        );
       return;
     }
     refreshCampaign();
     onBack();
-  }, [flush, refreshCampaign, onBack]);
+  }, [flush, isBlocked, refreshCampaign, onBack]);
 
   const done = useCallback(async () => {
     setFinishing(true);
     try {
       if (!(await flush())) {
-        toast.error("Your last changes didn't save. Try again in a moment.");
+        if (!isBlocked())
+          toast.error("Your last changes didn't save. Try again in a moment.");
         return;
       }
       if (latest.current) {
@@ -133,14 +145,24 @@ export function CampaignEmailEditor({
       onBack();
     } catch (e) {
       toast.error(
-        e instanceof Error
-          ? `Saved to the campaign, but not as a template. ${e.message}`
-          : "Couldn't save the template"
+        `Saved to the campaign, but not as a template. ${requestErrorMessage(
+          e,
+          "Couldn't save the template."
+        )}`
       );
     } finally {
       setFinishing(false);
     }
-  }, [flush, name, orgId, campaignId, queryClient, refreshCampaign, onBack]);
+  }, [
+    flush,
+    isBlocked,
+    name,
+    orgId,
+    campaignId,
+    queryClient,
+    refreshCampaign,
+    onBack,
+  ]);
 
   if (source.isError) {
     return (
@@ -162,22 +184,42 @@ export function CampaignEmailEditor({
 
   const { design, preheader } = source.data;
   return (
-    <EmailEditor
-      name={name}
-      initialBody={design.kind === "html" ? { html: design.html } : design.doc}
-      initialFooter={design.footer}
-      preheader={preheader}
-      orgId={orgId}
-      saveLabel={
-        autosave.label ||
-        (design.kind === "legacy" ? "Converted from the old editor" : "")
-      }
-      saveFailed={autosave.status === "error"}
-      doneLabel={finishing ? "Saving…" : "Done"}
-      doneBusy={finishing}
-      onChange={onChange}
-      onBack={back}
-      onDone={done}
-    />
+    <div className="flex h-full flex-col">
+      {highlight ? (
+        <style data-testid="save-block-highlight">{highlight}</style>
+      ) : null}
+      <EmailSaveBlockedBanner
+        block={autosave.block}
+        className="m-3 mb-0 shrink-0"
+      />
+      <SaveBlockedDialog
+        block={autosave.block}
+        open={autosave.dialogOpen}
+        onClose={autosave.closeDialog}
+      />
+      <div className="min-h-0 flex-1">
+        <EmailEditor
+          name={name}
+          initialBody={
+            design.kind === "html" ? { html: design.html } : design.doc
+          }
+          initialFooter={design.footer}
+          preheader={preheader}
+          orgId={orgId}
+          saveLabel={
+            autosave.label ||
+            (design.kind === "legacy" ? "Converted from the old editor" : "")
+          }
+          saveFailed={
+            autosave.status === "error" || autosave.status === "blocked"
+          }
+          doneLabel={finishing ? "Saving…" : "Done"}
+          doneBusy={finishing}
+          onChange={onChange}
+          onBack={back}
+          onDone={done}
+        />
+      </div>
+    </div>
   );
 }

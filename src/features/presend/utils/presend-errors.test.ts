@@ -162,4 +162,19 @@ describe("requestErrorMessage", () => {
       "Not found"
     );
   });
+
+  it("treats the status-prefixed placeholder as the placeholder", () => {
+    expect(
+      requestErrorMessage(
+        Object.assign(new Error("[HTTP 400] An error occurred"), {
+          code: "BAD_REQUEST",
+          details: { message: "Body too large" },
+        }),
+        "Failed"
+      )
+    ).toBe("Body too large");
+    expect(
+      requestErrorMessage(new Error("[HTTP 500] Database down"), "Failed")
+    ).toBe("[HTTP 500] Database down");
+  });
 });

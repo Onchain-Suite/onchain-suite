@@ -222,7 +222,11 @@ describe("usePresendGate - campaign launch", () => {
       axiosRejection(422, {
         code: "VALIDATION_FAILED",
         errors: [
-          { code: "SEED_PHRASE_REQUEST", message: "asks for a seed phrase" },
+          {
+            code: "SEED_PHRASE_REQUEST",
+            message: "asks for a seed phrase",
+            source: "presend",
+          },
           { code: "SUBJECT_REQUIRED", message: "Subject is required" },
         ],
         checks: [block("SEED_PHRASE_REQUEST")],
@@ -235,6 +239,10 @@ describe("usePresendGate - campaign launch", () => {
       await screen.findByTestId("presend-block-SEED_PHRASE_REQUEST")
     ).toBeInTheDocument();
     expect(screen.getByText("Subject is required")).toBeInTheDocument();
+    // The `source: "presend"` copy of the block is not listed a second time.
+    expect(
+      screen.queryByText("asks for a seed phrase")
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send anyway" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 

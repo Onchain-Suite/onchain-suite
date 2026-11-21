@@ -34,7 +34,10 @@ import {
 } from "@/features/automation/types";
 import { PresendDialog } from "@/features/presend/components/presend-dialog";
 import { usePresendGate } from "@/features/presend/hooks/use-presend-gate";
-import { isPresendStopped } from "@/features/presend/utils/presend-errors";
+import {
+  isPresendStopped,
+  requestErrorMessage,
+} from "@/features/presend/utils/presend-errors";
 import { PageHeader } from "@/shared/components/page/page-header";
 import {
   StatCardsSkeleton,
@@ -318,9 +321,13 @@ export const AutomationList = () => {
         });
         return;
       }
-      // Turning one on runs the pre-send check; warns need acknowledging.
+      // Turning one on runs the pre-send check on the SAVED graph (what the
+      // status route checks); look first so warns and blocks open the review
+      // before anything is sent. The call's own 409/422 stay authoritative.
       await presendGate.run({
         action: "activate",
+        preflight: () =>
+          automationService.getPresendCheck(automation.id, "saved"),
         attempt: (ack) =>
           automationService.updateAutomationStatus(automation.id, {
             status: next,
@@ -336,8 +343,7 @@ export const AutomationList = () => {
     onError: (err) => {
       // Blocked or cancelled at the pre-send review: the dialog said why.
       if (isPresendStopped(err)) return;
-      const message =
-        err instanceof Error ? err.message : "Failed to update status";
+      const message = requestErrorMessage(err, "Failed to update status");
       setToast({ show: true, message, type: "error" });
       setTimeout(() => setToast(null), 3000);
     },

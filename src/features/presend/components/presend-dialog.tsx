@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  XCircleIcon,
-} from "@heroicons/react/24/outline";
-import Link from "next/link";
+import { CheckCircleIcon } from "@heroicons/react/24/outline";
 import { useEffect, useId, useState } from "react";
 
 import { Button } from "@/ui/button";
@@ -22,6 +17,7 @@ import { Label } from "@/ui/label";
 
 import type { PresendCheck } from "../contracts/presend";
 import { presendCopy } from "../utils/presend-copy";
+import { CheckRow } from "./presend-check-row";
 
 export type PresendAction = "send" | "activate" | "save";
 
@@ -42,6 +38,10 @@ export interface PresendDialogProps {
   otherErrors?: string[];
   onConfirm: () => void;
   onCancel: () => void;
+  /** Automation only: a Send Email step's name, undefined when not found. */
+  stepName?: (nodeId: string) => string | undefined;
+  /** Automation only: close the review and focus that step. */
+  onGoToStep?: (nodeId: string) => void;
 }
 
 const ACTION_LABEL: Record<PresendAction, string> = {
@@ -55,60 +55,6 @@ const ACTION_NOUN: Record<PresendAction, string> = {
   activate: "Activating",
   save: "Saving",
 };
-
-function CheckRow({ check, isNew }: { check: PresendCheck; isNew?: boolean }) {
-  const copy = presendCopy(check.code);
-  const isBlock = check.outcome === "block";
-  const Icon = isBlock ? XCircleIcon : ExclamationTriangleIcon;
-  return (
-    <li
-      data-testid={`presend-${check.outcome}-${check.code}`}
-      className={
-        isBlock
-          ? "rounded-md border border-destructive/30 bg-destructive/5 p-3"
-          : "rounded-md border border-amber-500/40 bg-amber-500/10 p-3"
-      }
-    >
-      <div className="flex items-start gap-2">
-        <Icon
-          aria-hidden="true"
-          className={
-            isBlock
-              ? "mt-0.5 size-4 shrink-0 text-destructive"
-              : "mt-0.5 size-4 shrink-0 text-amber-600"
-          }
-        />
-        <div className="min-w-0 space-y-1 text-sm">
-          <p className="font-medium text-foreground">
-            {copy.title}
-            {isNew ? (
-              <span className="ml-2 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600">
-                New
-              </span>
-            ) : null}
-          </p>
-          {check.message ? (
-            <p className="text-muted-foreground">{check.message}</p>
-          ) : null}
-          {check.fix ? (
-            <p className="text-foreground">
-              <span className="font-medium">Fix: </span>
-              {check.fix}
-            </p>
-          ) : null}
-          {copy.href ? (
-            <Link
-              href={copy.href}
-              className="inline-block text-primary underline-offset-4 hover:underline"
-            >
-              {copy.linkLabel ?? "Open settings"}
-            </Link>
-          ) : null}
-        </div>
-      </div>
-    </li>
-  );
-}
 
 /**
  * Pre-send review: blocks first (nothing can override them), then warnings
@@ -128,6 +74,8 @@ export function PresendDialog({
   otherErrors = [],
   onConfirm,
   onCancel,
+  stepName,
+  onGoToStep,
 }: PresendDialogProps) {
   const [acknowledged, setAcknowledged] = useState(false);
   const [showPassed, setShowPassed] = useState(false);
@@ -194,7 +142,12 @@ export function PresendDialog({
                 </h3>
                 <ul className="space-y-2">
                   {blocks.map((c) => (
-                    <CheckRow key={c.code} check={c} />
+                    <CheckRow
+                      key={c.code}
+                      check={c}
+                      stepName={stepName}
+                      onGoToStep={onGoToStep}
+                    />
                   ))}
                 </ul>
               </section>
@@ -226,6 +179,8 @@ export function PresendDialog({
                       key={c.code}
                       check={c}
                       isNew={newSet.has(c.code)}
+                      stepName={stepName}
+                      onGoToStep={onGoToStep}
                     />
                   ))}
                 </ul>

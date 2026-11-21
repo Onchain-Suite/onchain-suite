@@ -6,6 +6,9 @@ export const PRESEND_ACK_REQUIRED = "PRESEND_ACK_REQUIRED";
 export const PRESEND_BLOCKED = "PRESEND_BLOCKED";
 export const VALIDATION_FAILED = "VALIDATION_FAILED";
 
+/** The generic fallback the backend filter writes; never worth showing. */
+export const GENERIC_ERROR_MESSAGE = "An error occurred";
+
 /** A launch/activate/save the pre-send gate refused, parsed off the error. */
 export type PresendInterruption =
   | {
@@ -144,22 +147,68 @@ export const parsePresendError = (
     const fromResult = presend?.checks.filter((c) => c.outcome === "block");
     if (blocking.length === 0 && !fromResult?.length) return null;
     const shown = presend?.checks.length ? presend.checks : bodyChecks;
-    const blockCodes = new Set(
-      shown.filter((c) => c.outcome === "block").map((c) => c.code)
-    );
-    const otherErrors = Array.isArray(body.errors)
-      ? body.errors
-          .filter(isJsonObject)
-          .filter(
-            (err) => typeof err.code !== "string" || !blockCodes.has(err.code)
-          )
-          .map((err) => (typeof err.message === "string" ? err.message : ""))
-          .filter((m) => m.trim().length > 0)
-      : [];
+    const otherErrors = otherValidationErrors(body.errors);
     return { kind: "blocked", checks: shown, otherErrors };
   }
 
   return null;
+};
+
+/**
+ * The messages of a validation `errors[]` that are NOT copies of a pre-send
+ * block. The backend marks those copies `source: "presend"` (2026-11-21), so
+ * a client rendering `checks[]` shows these beside it without double-listing
+ * a block. Accepts strings too (older validate responses).
+ */
+export const otherValidationErrors = (errors: unknown): string[] =>
+  Array.isArray(errors)
+    ? errors
+        .map((err) => {
+          if (typeof err === "string") return err;
+          if (!isJsonObject(err) || err.source === "presend") return "";
+          return typeof err.message === "string" ? err.message : "";
+        })
+        .map((m) => m.trim())
+        .filter((m) => m.length > 0 && m !== GENERIC_ERROR_MESSAGE)
+    : [];
+
+/**
+ * The automation Send Email node ids a check applies to: `details.steps`,
+ * else the lone `details.nodeId`. Empty for a campaign check.
+ */
+export const stepsOf = (check: PresendCheck): string[] => {
+  const steps = strings(check.details?.steps);
+  if (steps.length > 0) return [...new Set(steps)];
+  const nodeId = check.details?.nodeId;
+  return typeof nodeId === "string" && nodeId ? [nodeId] : [];
+};
+
+/**
+ * A toast-able line for a failed request. The backend's filter writes the
+ * generic "An error occurred" into `error.message` when the refused body had
+ * no message of its own; the useful text is then in `details` (its `message`,
+ * or its `errors[]`), so read that instead of showing the placeholder.
+ */
+export const requestErrorMessage = (
+  error: unknown,
+  fallback: string
+): string => {
+  const own =
+    error instanceof Error && error.message.trim() !== GENERIC_ERROR_MESSAGE
+      ? error.message.trim()
+      : "";
+  if (own) return own;
+  const parsed = errorBody(error);
+  const body = parsed?.body;
+  if (body) {
+    const message = typeof body.message === "string" ? body.message.trim() : "";
+    if (message && message !== GENERIC_ERROR_MESSAGE) return message;
+    const others = otherValidationErrors(body.errors);
+    if (others.length > 0) return others.slice(0, 3).join(" • ");
+    const checks = toChecks(body.checks).filter((c) => c.message);
+    if (checks.length > 0) return checks[0].message;
+  }
+  return fallback;
 };
 
 /** Thrown by the gate when the user cancelled or a block stopped the action. */

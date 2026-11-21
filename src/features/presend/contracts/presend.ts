@@ -50,10 +50,15 @@ export interface PresendCheck {
   /**
    * Free-form evidence. `skipped` (string) on a pass means OUR lookup failed
    * (DNS timeout, RDAP down) and the check passed without evidence - show it
-   * greyed out, not as a green tick. `nodeId` names the failing Send Email
-   * node on an automation.
+   * greyed out, not as a green tick. On an automation (backend 2026-11-21):
+   * `steps` lists EVERY Send Email node id at this check's worst outcome, in
+   * graph order, and `nodeId` is the first of them (message/fix are its).
    */
-  details?: { skipped?: string; nodeId?: string } & Record<string, unknown>;
+  details?: {
+    skipped?: string;
+    nodeId?: string;
+    steps?: string[];
+  } & Record<string, unknown>;
 }
 
 export interface PresendResult {
@@ -66,6 +71,25 @@ export interface PresendResult {
   mode?: "full" | "legacy";
   /** Every code that applies, passes included, in a fixed order. */
   checks: PresendCheck[];
+}
+
+/**
+ * `GET /automations/{id}/presend-check?graph=`. `draft` (backend default) is
+ * what `POST /publish` checks; `saved` is what resuming an existing graph
+ * (`PUT /status {status:"active"}`) checks. Same evaluator as the gate.
+ */
+export type AutomationPresendGraph = "draft" | "saved";
+
+/**
+ * One entry of a 422's `errors[]` (and `POST /campaigns/{id}/validate`'s
+ * `errors`). Pre-send blocks appear here AND in `checks[]`; the copies here
+ * carry `source: "presend"` so a client rendering `checks[]` drops them
+ * (backend 2026-11-21). No `source` = an ordinary validation error.
+ */
+export interface PresendValidationError {
+  code?: string;
+  message?: string;
+  source?: "presend" | (string & {});
 }
 
 /** Body field accepted by every gated route. Must list EVERY current warn. */
@@ -95,7 +119,7 @@ export interface PresendBlockedBody {
   code: "VALIDATION_FAILED" | "PRESEND_BLOCKED";
   message?: string;
   rulesetVersion?: string;
-  errors?: Array<{ code?: string; message?: string }>;
+  errors?: PresendValidationError[];
   checks?: PresendCheck[];
   presend?: PresendResult;
 }

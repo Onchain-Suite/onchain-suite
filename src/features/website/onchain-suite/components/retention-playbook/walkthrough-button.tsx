@@ -10,9 +10,9 @@ import {
 } from "@/onchain-suite-website/utils/playbook-analytics";
 
 /**
- * "Book a walkthrough" link to /early-access. The site's Cal.com handler opens
- * its booking modal for any /early-access link and forwards `source`, the same
- * tagging the footer links use.
+ * "Book a walkthrough" link to the Cal.com booking page. The site's Cal.com
+ * handler opens its booking modal in place for that link and forwards
+ * `source`, the same tagging the footer links use.
  */
 const SIZES = {
   compact: "btn solid",

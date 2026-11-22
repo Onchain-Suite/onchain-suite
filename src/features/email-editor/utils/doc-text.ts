@@ -1,9 +1,4 @@
-import {
-  defaultFallback,
-  needsFallback,
-  REQUIRED_TAGS,
-  TAG_TOKEN,
-} from "../data/merge-tags";
+import { needsFallback, REQUIRED_TAGS, TAG_TOKEN } from "../data/merge-tags";
 import type { DocNode } from "../types/email-doc";
 
 /**
@@ -92,9 +87,6 @@ export function recipientTags(
   walk(doc);
   return Array.from(out, ([key, fallback]) => ({ key, fallback }));
 }
-
-/** The fallback a newly inserted chip starts with. */
-export const initialFallback = (key: string): string => defaultFallback(key);
 
 /** Every tag a section in the document is keyed on, once each. */
 export function sectionTags(doc: DocNode): string[] {

@@ -230,8 +230,8 @@ function CalBooking() {
       if (!a) return;
       const href = (a.getAttribute("href") || "").replace(/^#(?=\/)/, "");
       if (!(
-        href === "/early-access" ||
-        href.startsWith("/early-access?") ||
+        href === CAL_URL ||
+        href.startsWith(`${CAL_URL}?`) ||
         a.hasAttribute("data-book")
       ))
         return;
@@ -647,7 +647,7 @@ function MobileMenu({ links }) {
           )}
           <Link
             className="btn solid lg"
-            href="/early-access"
+            href={CAL_URL}
             onClick={() => setOpen(false)}
           >
             Book a walkthrough
@@ -1775,7 +1775,7 @@ function SiteChrome({ children }) {
           <Logo />
           <NavMenu />
           <div className="acts">
-            <Link className="btn solid" href="/early-access">
+            <Link className="btn solid" href={CAL_URL}>
               Book a walkthrough
             </Link>
             <MobileMenu links={NAV_LINKS} />
@@ -1831,23 +1831,6 @@ function SiteChrome({ children }) {
             <div className="ft-badges">
               <span className="trust-b">
                 <svg viewBox="0 0 16 16" aria-hidden="true">
-                  <path
-                    d="M8 1.5l5.5 2v4c0 3.4-2.3 6-5.5 7-3.2-1-5.5-3.6-5.5-7v-4z"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                  />
-                  <path
-                    d="M5.5 8.2l1.7 1.7 3.3-3.6"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                  />
-                </svg>
-                UK GDPR compliant
-              </span>
-              <span className="trust-b">
-                <svg viewBox="0 0 16 16" aria-hidden="true">
                   <rect
                     x="2.5"
                     y="3"
@@ -1864,7 +1847,7 @@ function SiteChrome({ children }) {
                     strokeWidth="1.3"
                   />
                 </svg>
-                Registered with the ICO
+                Registered with the ICO (Ref: ZC229106)
               </span>
             </div>
           </div>
@@ -2200,7 +2183,7 @@ function HomeBody() {
               <a className="btn lg" href="/pricing">
                 See pricing
               </a>
-              <a className="btn solid lg" href="/early-access">
+              <a className="btn solid lg" href={CAL_URL}>
                 Book a walkthrough
               </a>
             </div>
@@ -4109,7 +4092,7 @@ function HomeBody() {
               className="ctas"
               style={{ justifyContent: "flex-start", marginTop: "32px" }}
             >
-              <a className="btn solid" href="/early-access">
+              <a className="btn solid" href={CAL_URL}>
                 Book a walkthrough
               </a>
             </div>
@@ -5567,7 +5550,7 @@ function HomeBody() {
             </p>
           </div>
               <div className="ctas rv">
-                <a className="btn solid lg" href="/early-access">
+                <a className="btn solid lg" href={CAL_URL}>
                   Book a walkthrough
                 </a>
                 <a className="btn lg" href="/pricing">
@@ -6095,7 +6078,7 @@ function PricingPlans() {
               in-app? That is the Suite plan, from {usd(byId("launch").usd)} a
               month.
             </p>
-            <Link className="btn solid lg" href="/early-access">
+            <Link className="btn solid lg" href={CAL_URL}>
               Book a walkthrough
             </Link>
           </div>
@@ -6275,7 +6258,7 @@ function SuiteConfigurator({ cur }) {
                 <li key={t}>{t}</li>
               ))}
             </ul>
-            <Link className="btn solid lg" href="/early-access">
+            <Link className="btn solid lg" href={CAL_URL}>
               Talk to sales
             </Link>
           </>
@@ -6351,7 +6334,7 @@ function SuiteConfigurator({ cur }) {
                 <b>{fmt(al.inapp)}</b>
               </li>
             </ul>
-            <Link className="btn solid lg" href="/early-access">
+            <Link className="btn solid lg" href={CAL_URL}>
               Book a walkthrough
             </Link>
           </>
@@ -6442,7 +6425,7 @@ function CompareTable() {
             <div role="columnheader" className="cmp-send">
               <b>Send</b>
               <span>from ${SEND_BASE} a month</span>
-              <Link className="btn" href="/early-access">
+              <Link className="btn" href={CAL_URL}>
                 Book a walkthrough
               </Link>
             </div>
@@ -6465,7 +6448,7 @@ function CompareTable() {
               </span>
               <Link
                 className={"btn " + (lv.featured && !send ? "solid" : "")}
-                href="/early-access"
+                href={CAL_URL}
               >
                 {lv.id === "pro" ? "Talk to sales" : "Book a walkthrough"}
               </Link>
@@ -6646,7 +6629,7 @@ function CloseCta({ mainstream = false } = {}) {
             </p>
           </div>
           <div className="ctas rv">
-            <Link className="btn solid lg" href="/early-access">
+            <Link className="btn solid lg" href={CAL_URL}>
               Book a walkthrough
             </Link>
             <Link className="btn lg" href="/pricing">
@@ -6835,7 +6818,7 @@ function OnrampPanel() {
         {shown === "onramp" ? <OnrampBody /> : <UsageBody />}
         <footer className="onr-foot2">
           {shown === "onramp" && <p>We start three a month.</p>}
-          <Link className="btn solid lg" href="/early-access" onClick={close}>
+          <Link className="btn solid lg" href={CAL_URL} onClick={close}>
             Book a walkthrough
           </Link>
         </footer>
@@ -8913,7 +8896,7 @@ function ProductPage({
             {sub}
           </p>
           <div className="ctas load" style={{ animationDelay: ".18s" }}>
-            <Link className="btn solid lg" href="/early-access">
+            <Link className="btn solid lg" href={CAL_URL}>
               Book a walkthrough
             </Link>
             {docs ? (
@@ -10111,8 +10094,7 @@ function DataPage() {
           <p className="sub lead load" style={{ animationDelay: ".06s" }}>
             What OnchainSuite reads, what it never holds, and how
             wallet-to-email linking stays consent-based. Read-only access to
-            public chain data; no keys, no funds. UK GDPR compliant, registered
-            with the ICO.
+            public chain data; no keys, no funds. Registered with the ICO (Ref: ZC229106).
           </p>
           <p className="sub load" style={{ animationDelay: ".1s" }}>
             We read the two lanes your customers leave a record in, join them
@@ -10340,7 +10322,7 @@ function ForPage({
             {sub}
           </p>
           <div className="ctas load" style={{ animationDelay: ".18s" }}>
-            <Link className="btn solid lg" href="/early-access">
+            <Link className="btn solid lg" href={CAL_URL}>
               Book a walkthrough
             </Link>
             <Link className="btn lg" href="/pricing">
@@ -10452,7 +10434,7 @@ function ForPage({
                 ))}
               </ul>
               <p className="upsell">{plan.other}</p>
-              <Link className="btn solid lg" href="/early-access">
+              <Link className="btn solid lg" href={CAL_URL}>
                 Book a walkthrough
               </Link>
             </div>
@@ -11055,7 +11037,7 @@ function ReferPage() {
             className="ctas rv"
             style={{ justifyContent: "flex-start", marginTop: 32 }}
           >
-            <Link className="btn solid lg" href="/early-access">
+            <Link className="btn solid lg" href={CAL_URL}>
               Book a call
             </Link>
           </div>
@@ -11087,7 +11069,7 @@ function ReferPage() {
             className="ctas rv"
             style={{ justifyContent: "flex-start", marginTop: 32 }}
           >
-            <Link className="btn solid lg" href="/early-access">
+            <Link className="btn solid lg" href={CAL_URL}>
               Book a call
             </Link>
           </div>
@@ -11171,81 +11153,6 @@ function TeamPage() {
           ))}
         </section>
         <CloseCta />
-      </div>
-    </SiteChrome>
-  );
-}
-
-// app/early-access/page.jsx
-var metadata12 = {
-  title: "Book a walkthrough",
-  description:
-    "Book a fifteen-minute call with OnchainSuite. Bring a problem your team already has and we will show you how that journey would run on your own data.",
-  alternates: { canonical: "/early-access" },
-  openGraph: {
-    title: "Book a walkthrough · OnchainSuite",
-    url: "/early-access",
-    type: "website",
-    description:
-      "A fifteen-minute call with OnchainSuite, on a problem your team already has.",
-  },
-};
-function EarlyAccessPage() {
-  return (
-    <SiteChrome>
-      <div className="wrap">
-        <section className="book">
-          <div className="book-l">
-            <h1 className="h1 load" style={{ animationDelay: ".08s" }}>
-              See OnchainSuite on a problem your team already has.
-            </h1>
-            <p className="sub load" style={{ animationDelay: ".16s" }}>
-              Pick a time for a fifteen-minute call with our team, and bring the
-              problem you want to solve.
-            </p>
-            <ol className="book-steps load" style={{ animationDelay: ".24s" }}>
-              <li>
-                <b>Bring the problem</b>
-                <span>
-                  Such as customers who signed up and never made a first
-                  deposit.
-                </span>
-              </li>
-              <li>
-                <b>We check the data</b>
-                <span>
-                  Which records, and on the Suite plan which contracts, we
-                  support for it.
-                </span>
-              </li>
-              <li>
-                <b>You see the journey</b>
-                <span>
-                  How that Loop or campaign would run in OnchainSuite, and which
-                  plan fits.
-                </span>
-              </li>
-            </ol>
-            <div
-              className="ctas load"
-              style={{ animationDelay: ".32s", justifyContent: "flex-start" }}
-            >
-              <a
-                className="btn solid lg"
-                href={CAL_URL}
-                data-book
-                target="_blank"
-                rel="noreferrer"
-              >
-                Choose a time
-              </a>
-            </div>
-          </div>
-          <div className="book-r load" style={{ animationDelay: ".2s" }}>
-            <CloseArt />
-          </div>
-        </section>
-        <LogoRow label="Trusted and supported by" />
       </div>
     </SiteChrome>
   );
@@ -12322,7 +12229,7 @@ function ComparePage({ params }) {
             {c.intro}
           </p>
           <div className="ctas load" style={{ animationDelay: ".26s" }}>
-            <Link className="btn solid lg" href="/early-access">
+            <Link className="btn solid lg" href={CAL_URL}>
               Book a walkthrough
             </Link>
             <Link className="btn lg" href="/pricing">
@@ -13006,7 +12913,7 @@ function ToolsHub() {
               Tell us on a walkthrough and we may build the calculator next.
             </span>
             <em>
-              <Link href="/early-access">Book a walkthrough →</Link>
+              <Link href={CAL_URL}>Book a walkthrough →</Link>
             </em>
           </div>
         </section>
@@ -13187,7 +13094,7 @@ function ChurnCalculator() {
 
       <div style={{ marginTop: 20 }}>
         <a
-          href="/early-access"
+          href={CAL_URL}
           className="ocs-btn-primary"
           style={{
             display: "inline-block",
@@ -13425,7 +13332,7 @@ function ChurnCalculatorPage() {
           <p style={p}>
             OnchainSuite runs each of these as a Loop, started by real on-chain
             behaviour.{" "}
-            <a href="/early-access" style={{ color: ACCENT, fontWeight: 600 }}>
+            <a href={CAL_URL} style={{ color: ACCENT, fontWeight: 600 }}>
               Book a walkthrough
             </a>
             .
@@ -14744,7 +14651,7 @@ function DormantReactivationCalc() {
 
         <div style={{ marginTop: 24 }}>
           <a
-            href="/early-access"
+            href={CAL_URL}
             style={{
               display: "block",
               textAlign: "center",
@@ -15387,7 +15294,7 @@ function LtvCalculator() {
 
       <div style={{ marginTop: 18 }}>
         <a
-          href="/early-access"
+          href={CAL_URL}
           className="ocs-btn-primary"
           style={{
             display: "inline-block",
@@ -15596,7 +15503,7 @@ function LtvCalculatorPage() {
           <p style={p2}>
             OnchainSuite runs these as Loops, started by what wallets do
             on-chain.{" "}
-            <a href="/early-access" style={{ color: ACCENT, fontWeight: 600 }}>
+            <a href={CAL_URL} style={{ color: ACCENT, fontWeight: 600 }}>
               Book a walkthrough
             </a>
             .
@@ -18699,7 +18606,6 @@ var ROUTES = {
   "/hypothesis": [HypothesisPage, metadata9],
   "/refer": [ReferPage, metadata10],
   "/team": [TeamPage, metadata11],
-  "/early-access": [EarlyAccessPage, metadata12],
   "/compare": [CompareHub, metadata13],
   "/tools": [ToolsHub, metadata14],
   "/tools/churn-calculator": [ChurnCalculatorPage, metadata15],

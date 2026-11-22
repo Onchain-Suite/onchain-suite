@@ -308,5 +308,5 @@ export const GLOSSARY: { entries: GlossaryEntry[] } = {
 
 /** Where every "Book a walkthrough" goes. */
 export const NEXT_STEP = {
-  href: "/early-access",
+  href: "https://cal.com/onchainsuite/15min",
 };

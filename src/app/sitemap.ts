@@ -59,7 +59,6 @@ const PAGES: Array<{ path: string; priority: number; changeFrequency: Freq }> =
     { path: "/security", priority: 0.6, changeFrequency: "monthly" },
     { path: "/team", priority: 0.5, changeFrequency: "monthly" },
     { path: "/hypothesis", priority: 0.5, changeFrequency: "monthly" },
-    { path: "/early-access", priority: 0.5, changeFrequency: "weekly" },
     { path: "/refer", priority: 0.4, changeFrequency: "monthly" },
     { path: "/legal", priority: 0.2, changeFrequency: "yearly" },
     { path: "/privacy", priority: 0.2, changeFrequency: "yearly" },

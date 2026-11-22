@@ -76,11 +76,6 @@ vi.mock("sonner", () => {
   };
 });
 
-// The detail drawer fetches on its own; it is not under test here.
-vi.mock("../components/campaign-detail-sheet", () => ({
-  CampaignDetailSheet: () => null,
-}));
-
 vi.mock("../campaigns.service", () => {
   return {
     campaignsService: {

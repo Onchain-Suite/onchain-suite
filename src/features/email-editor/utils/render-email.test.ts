@@ -124,7 +124,19 @@ describe("renderEmailHtml (send)", () => {
   });
 
   it("uses nothing the sanitizer strips wholesale", () => {
-    expect(html).not.toMatch(/<style|<!--|class=|data-|<s>|font:/);
+    // The backend now keeps a head <style> (through sanitizeEmailCss) and
+    // `class` (body allow-list), so those are allowed. It still strips
+    // comments, data-*, <s> and the `font:` shorthand.
+    // `\sdata-…=` is the HTML-attribute form; the enhancement's `[data-ogsc]`
+    // CSS selector is fine and must not trip this.
+    expect(html).not.toMatch(/<!--|\sdata-[a-z]+=|<s>|font:/);
+    // The only <style> is the non-essential enhancement: @media rules, never
+    // inline-layout markup.
+    const styles = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(
+      (m) => m[1]
+    );
+    expect(styles).toHaveLength(1);
+    expect(styles[0]).toMatch(/@media/);
   });
 
   it("writes recipient tags with a default and compliance tags without", () => {

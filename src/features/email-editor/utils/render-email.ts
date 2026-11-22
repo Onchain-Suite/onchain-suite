@@ -11,17 +11,27 @@ import { safeHref, safeSrc, sanitizeEmailHtml } from "./email-safety";
 /**
  * Turns the email document into inbox HTML.
  *
- * Every send goes through the backend's sanitizer (onchain-backend
- * common/utils/sanitize.util.ts) before it reaches an inbox, and it keeps far
- * less than a browser would. This renderer only emits what survives it:
- *  - no `<style>`, classes, ids, data-* or comments (all stripped), so there are
- *    no media queries and no Outlook conditional comments;
- *  - only longhand inline styles from its allow-list: `font-family`,
- *    `font-size`, `font-weight`, `line-height` rather than the `font:` shorthand,
- *    which it drops (taking the typography with it), and sizes with units;
- *  - no `<s>`: strikethrough is a `text-decoration` span.
- * It also leaves out the preheader in `send` mode: the backend injects one from
- * the campaign's preview text, and a second would show twice.
+ * The send output is a complete, fully-inline, table-based email on its own:
+ * every colour, width and spacing is an inline style or a presentational
+ * attribute, so it renders correctly even if a client keeps nothing from the
+ * document head. On top of that baseline, send mode adds a NON-ESSENTIAL
+ * progressive enhancement the backend sanitizer now preserves (onchain-backend
+ * common/utils/email-html, which hoists head `<style>` through `sanitizeEmailCss`
+ * and keeps `color-scheme` metas): a head `<style>` with
+ * `@media (prefers-color-scheme: dark)` (dark-mode colour swaps, including
+ * Outlook.com's `[data-ogsc]`) and `@media (max-width: 600px)` (phone column
+ * stacking). The enhancement hooks onto `ocs-*` classes that carry no behaviour
+ * of their own, so if a client - or an older deployed sanitizer - drops the
+ * `<style>` and classes, the email falls back to exactly the inline baseline.
+ *
+ * Inline styles still use only the longhand properties the body sanitizer keeps
+ * (`font-family`/`font-size` rather than the `font:` shorthand it drops, sizes
+ * with units); strikethrough is a `text-decoration` span, not `<s>`; and there
+ * are no comments, so no Outlook `<!--[if mso]>` conditional/VML (the sanitizer
+ * strips every comment - the centered container survives Outlook via
+ * `<td align="center">` instead). The preheader is left out of send mode: the
+ * backend injects one from the campaign's preview text, and a second would show
+ * twice.
  */
 
 const FONT =
@@ -31,6 +41,30 @@ const BODY = "#3b4252";
 const MUTED = "#6b7280";
 const RULE = "#e3e6ec";
 export const DEFAULT_ACCENT = "#1727e0";
+
+/**
+ * Send-mode head `<style>`: a non-essential enhancement over the inline
+ * baseline. The backend keeps it (sanitizeEmailCss preserves `@media`); every
+ * rule is an `!important` override on top of inline styles, so dropping the
+ * block leaves the email exactly as its inline styles already render it.
+ *  - dark mode via `prefers-color-scheme` and Outlook.com's `[data-ogsc]`;
+ *  - phone column stacking via `max-width:600px`.
+ * Hooks are `ocs-*` classes only, which carry no behaviour of their own.
+ */
+const ENHANCE_CSS =
+  "@media (prefers-color-scheme:dark){" +
+  ".ocs-body,.ocs-outer{background-color:#0b1120!important}" +
+  ".ocs-card{background-color:#151c2c!important}" +
+  ".ocs-card h1,.ocs-card h2,.ocs-card h3,.ocs-card h4,.ocs-card p,.ocs-card li,.ocs-card td{color:#e6e9f2!important}" +
+  ".ocs-card a{color:#9db4ff!important}" +
+  "}" +
+  "[data-ogsc] .ocs-body,[data-ogsc] .ocs-outer{background-color:#0b1120!important}" +
+  "[data-ogsc] .ocs-card{background-color:#151c2c!important}" +
+  "[data-ogsc] .ocs-card h1,[data-ogsc] .ocs-card h2,[data-ogsc] .ocs-card h3,[data-ogsc] .ocs-card h4,[data-ogsc] .ocs-card p,[data-ogsc] .ocs-card li,[data-ogsc] .ocs-card td{color:#e6e9f2!important}" +
+  "[data-ogsc] .ocs-card a{color:#9db4ff!important}" +
+  "@media (max-width:600px){" +
+  ".ocs-col{display:block!important;width:100%!important;padding:0 0 16px!important}" +
+  "}";
 
 /** Text content: `"` is left alone so `{{ x | default: "y" }}` tokens survive. */
 const escText = (s: string) =>
@@ -69,6 +103,9 @@ export function renderEmailHtml(doc: DocNode, opts: RenderOptions): string {
   const accent = opts.accent ?? DEFAULT_ACCENT;
   const preview = opts.mode === "preview";
   const fill = (s: string) => (preview ? fillSamples(s) : s);
+  /* Class hooks for the send-mode `<style>` enhancement. Preview stays byte-
+     for-byte as before (no classes, its own dark toggle). */
+  const cls = (name: string) => (preview ? "" : ` class="${name}"`);
   const href = (raw: unknown) => escAttr(fill(safeHref(raw)));
 
   const marks = (html: string, list: DocMark[] | undefined): string => {
@@ -187,7 +224,7 @@ export function renderEmailHtml(doc: DocNode, opts: RenderOptions): string {
                 : i === cols.length - 1
                   ? "padding-left:12px"
                   : "padding:0 6px";
-            return `<td width="${w}%" valign="top" style="vertical-align:top;${pad}">${(c.content ?? []).map(block).join("")}</td>`;
+            return `<td width="${w}%" valign="top"${cls("ocs-col")} style="vertical-align:top;${pad}">${(c.content ?? []).map(block).join("")}</td>`;
           })
           .join("");
         return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px"><tr>${cells}</tr></table>`;
@@ -230,13 +267,15 @@ export function renderEmailHtml(doc: DocNode, opts: RenderOptions): string {
           ? "<style>html{background:#111}body{filter:invert(1) hue-rotate(180deg)}img{filter:invert(1) hue-rotate(180deg)}</style>"
           : ""
       }</head>`
-    : `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>`;
+    : `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+      `<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">` +
+      `<style>${ENHANCE_CSS}</style></head>`;
 
   return (
     `<!doctype html><html lang="en">${head}` +
-    `<body style="margin:0;padding:0;background-color:#f4f5f7">${pre}` +
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f4f5f7" style="background-color:#f4f5f7"><tr><td align="center" style="padding:24px 12px">` +
-    `<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-radius:8px"><tr><td style="padding:24px">${(
+    `<body${cls("ocs-body")} style="margin:0;padding:0;background-color:#f4f5f7">${pre}` +
+    `<table role="presentation"${cls("ocs-outer")} width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f4f5f7" style="background-color:#f4f5f7"><tr><td align="center" style="padding:24px 12px">` +
+    `<table role="presentation"${cls("ocs-card")} width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border-radius:8px"><tr><td style="padding:24px">${(
       doc.content ?? []
     )
       .map(block)

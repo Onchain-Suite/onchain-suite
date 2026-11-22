@@ -7,6 +7,12 @@ import {
   UserIcon,
   UsersIcon,
 } from "@heroicons/react/24/outline";
+import {
+  Download04Icon,
+  MailValidation01Icon,
+} from "@hugeicons/core-free-icons";
+
+import { hugeicon } from "@/shared/components/common/hugeicon";
 
 export const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -33,11 +39,16 @@ export const modalSlideUp = {
   exit: { opacity: 0, y: 20, scale: 0.95, transition: { duration: 0.2 } },
 };
 
+const SendingGlyph = hugeicon(MailValidation01Icon, "SendingGlyph");
+const ExportGlyph = hugeicon(Download04Icon, "ExportGlyph");
+
 export const tabs = [
   { id: "profile", label: "Profile", icon: UserIcon },
   { id: "account", label: "Account", icon: BuildingOffice2Icon },
   { id: "privacy", label: "Privacy & Identity", icon: ShieldCheckIcon },
   { id: "team", label: "Team & access", icon: UsersIcon },
+  { id: "sending", label: "Sending approval", icon: SendingGlyph },
+  { id: "exports", label: "Export requests", icon: ExportGlyph },
   { id: "audit", label: "Audit log", icon: DocumentTextIcon },
   { id: "billing", label: "Billing", icon: CreditCardIcon },
   { id: "rewards", label: "Rewards", icon: GiftIcon },

@@ -31,6 +31,7 @@ import { OrganizationStatusBanner } from "./organization-status-banner";
 import { PendingCheckoutBanner } from "@/features/billing/components/pending-checkout-banner";
 import { ProductTour } from "@/features/onboarding/components/product-tour";
 import { useOnboardingCompletion } from "@/features/onboarding/hooks/use-onboarding-completion";
+import { SendingApprovalAppBanner } from "@/features/settings/components/sending-approval/sending-approval-app-banner";
 import {
   getWipSection,
   SHOW_WIP_SECTIONS,
@@ -166,6 +167,7 @@ function DashboardLayoutInner({
           />
 
           {hasActiveOrganization ? <OrganizationStatusBanner /> : null}
+          {hasActiveOrganization ? <SendingApprovalAppBanner /> : null}
           <PendingCheckoutBanner />
 
           {/* Not a <main> - SidebarInset already renders one. */}

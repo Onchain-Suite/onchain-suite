@@ -12,6 +12,8 @@ import {
   campaignsService,
 } from "../../campaigns.service";
 import { formatPercentage } from "../../utils";
+import { hasHumanStats, readHumanStats } from "../../utils/human-engagement";
+import { HumanEngagementStats } from "../analytics/human-engagement-stats";
 
 interface CampaignAnalyticsDialogProps {
   campaignId: string;
@@ -48,14 +50,21 @@ function StatGrid({
 }
 
 function EmailFunnelSection({ funnel }: { funnel: CampaignEmailFunnel }) {
+  // Human-first block on top when the backend sent it; the raw funnel below
+  // stays for everything it already covered.
+  const human = readHumanStats(funnel);
   return (
     <div className="space-y-2">
       <div className="text-sm font-medium text-foreground">Email</div>
+      <HumanEngagementStats stats={human} />
       <StatGrid
         stats={[
           { label: "Sent", value: formatCount(funnel.sent) },
           { label: "Delivered", value: formatCount(funnel.delivered) },
-          { label: "Unique opens", value: formatCount(funnel.uniqueOpens) },
+          {
+            label: hasHumanStats(human) ? "Raw opens" : "Unique opens",
+            value: formatCount(funnel.uniqueOpens),
+          },
           { label: "Unique clicks", value: formatCount(funnel.uniqueClicks) },
           { label: "Total clicks", value: formatCount(funnel.totalClicks) },
           { label: "Bounces", value: formatCount(funnel.bounces) },

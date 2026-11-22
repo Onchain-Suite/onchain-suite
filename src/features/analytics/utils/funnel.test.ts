@@ -45,6 +45,21 @@ describe("funnel", () => {
     expect(worstDrop([{ name: "A", value: 0 }])).toBeNull();
   });
 
+  it("counts human email clicks when the overview has them", () => {
+    const c = {
+      email: {
+        delivered: 80,
+        uniqueOpens: 30,
+        uniqueClicks: 6,
+        humanClicks: 2,
+      },
+      inapp: { delivered: 20, viewed: 15, clicked: 4 },
+    };
+    expect(campaignFunnelSteps(c, undefined).map((s) => s.value)).toEqual([
+      100, 45, 6,
+    ]);
+  });
+
   it("adds Converted only when conversions are counted", () => {
     const c = {
       email: { delivered: 80, uniqueOpens: 30, uniqueClicks: 6 },

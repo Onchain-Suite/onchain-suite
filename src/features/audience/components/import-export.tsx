@@ -44,8 +44,10 @@ import {
   EMPTY_CONSENT_DRAFT,
   toConsentDeclaration,
 } from "../utils/consent";
+import { toExportStart } from "../utils/export-requests";
 import { importErrorMessage } from "../utils/import-error";
 import { ConsentDeclarationFields } from "./consent/consent-declaration-fields";
+import { ExportPendingNotice } from "./exports/export-pending-notice";
 import { ImportGateDialog } from "./import-gate-dialog";
 import { ImportReportDialog } from "./import-report-dialog";
 import {
@@ -465,6 +467,9 @@ export default function ImportExportPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("import");
   const [importJobId, setImportJobId] = useState<string | null>(null);
   const [exportJobId, setExportJobId] = useState<string | null>(null);
+  const [pendingExport, setPendingExport] = useState<{
+    estimatedRows: number | null;
+  } | null>(null);
   const [importHistory, setImportHistory] = useState<ImportHistoryItem[]>([]);
   const [exportHistory, setExportHistory] = useState<ExportHistoryItem[]>([]);
   // The import whose outcome report (modal + PDF) is open, if any.
@@ -1078,18 +1083,22 @@ export default function ImportExportPage() {
 
   const exportMutation = useMutation({
     mutationFn: async (format: AudienceImportExportFormat) => {
-      const res = await audienceService.createExportJob({ format });
-      const jobId =
-        typeof res.jobId === "string" && res.jobId.length > 0
-          ? res.jobId
-          : typeof (res as unknown as { id?: unknown }).id === "string"
-            ? String((res as unknown as { id?: unknown }).id)
-            : null;
-      if (!jobId)
+      const started = toExportStart(
+        await audienceService.createExportJob({ format })
+      );
+      if (!started)
         throw new Error("Export job started but no jobId was returned");
-      return { jobId, format };
+      return { started, format };
     },
-    onSuccess: ({ jobId, format }) => {
+    onSuccess: ({ started, format }) => {
+      // Over 10,000 contacts: held for a second admin, no job yet.
+      if (started.kind === "pending") {
+        setPendingExport({ estimatedRows: started.estimatedRows });
+        toast.message("Export waiting for approval by another admin.");
+        return;
+      }
+      const { jobId } = started;
+      setPendingExport(null);
       setExportJobId(jobId);
       const entry: ExportHistoryItem = {
         jobId,
@@ -1945,6 +1954,13 @@ export default function ImportExportPage() {
 
             {activeTab === "export" && (
               <section>
+                {pendingExport ? (
+                  <div className="mb-4">
+                    <ExportPendingNotice
+                      estimatedRows={pendingExport.estimatedRows}
+                    />
+                  </div>
+                ) : null}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <button
                     onClick={() => exportMutation.mutate("csv")}

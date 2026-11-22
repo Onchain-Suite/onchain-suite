@@ -76,10 +76,6 @@ vi.mock("../components/analytics-overview", () => ({
   CampaignsAnalyticsOverview: () => null,
 }));
 
-vi.mock("../components/campaign-detail-sheet", () => ({
-  CampaignDetailSheet: () => null,
-}));
-
 vi.mock("../campaigns.service", () => {
   return {
     campaignsService: {

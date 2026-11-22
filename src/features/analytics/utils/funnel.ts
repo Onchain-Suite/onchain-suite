@@ -89,7 +89,13 @@ export function campaignFunnelSteps(
     typeof v === "number" && Number.isFinite(v) ? v : 0;
   const reached = n(e.delivered) + n(p.delivered);
   const engaged = n(e.uniqueOpens) + n(p.viewed);
-  const clicked = n(e.uniqueClicks) + n(p.clicked);
+  // Human clicks when the overview carries them (backend 2026-11-22):
+  // scanners click every link, so raw email clicks overstate the step.
+  const emailClicks =
+    typeof e.humanClicks === "number" && Number.isFinite(e.humanClicks)
+      ? e.humanClicks
+      : n(e.uniqueClicks);
+  const clicked = emailClicks + n(p.clicked);
   const steps: FunnelStep[] = [
     { name: "Reached", value: reached },
     { name: "Engaged", value: engaged },

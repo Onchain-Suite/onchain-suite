@@ -1,4 +1,5 @@
 import { channelSetupHref } from "@/features/channels/data/channels";
+import { SENDING_APPROVAL_HREF } from "@/features/settings/utils/sending-approval";
 import {
   SETTINGS_ACCOUNT_HREF,
   SETTINGS_SENDER_HREF,
@@ -65,6 +66,24 @@ const COPY: Record<string, CodeCopy> = {
   CRYPTO_PHISHING_PHRASE: { title: "Phrasing that looks like phishing" },
   NEW_LINK_DOMAIN: { title: "Links to a newly registered domain" },
   NEVER_MAILED_SHARE: { title: "Many recipients never mailed before" },
+  SEND_SPIKE: { title: "Much bigger send than usual" },
+  SEND_SPIKE_HOLD: { title: "Sending is on hold after a spike" },
+  SENDING_APPROVAL_PENDING: {
+    title: "Account waiting for sending approval",
+    href: SENDING_APPROVAL_HREF,
+    linkLabel: "Sending approval",
+  },
+  SENDING_APPROVAL_REJECTED: {
+    title: "Sending was not approved",
+    href: SENDING_APPROVAL_HREF,
+    linkLabel: "Sending approval",
+  },
+  HIGH_RISK_TIER_REVIEW: {
+    title: "Run a seed test before a large send",
+    href: SENDING_APPROVAL_HREF,
+    linkLabel: "Sending approval",
+  },
+  CONSENT_DATE_UNKNOWN: { title: "Opt-in date unknown for some recipients" },
 };
 
 /** "NEW_LINK_DOMAIN" -> "New link domain" for a code this build doesn't know. */

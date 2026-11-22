@@ -9,10 +9,14 @@ import BillingSettings from "../components/billing/billing";
 import PrivacyIdentitySettings from "../components/privacy/privacy";
 import ProfileSettings from "../components/profile/profile";
 import RewardsSettings from "../components/rewards/rewards";
+import { SendingApprovalSection } from "../components/sending-approval/sending-approval-section";
 import { SettingsNav } from "../components/settings-nav";
 import TeamAccessSettings from "../components/team/team";
+import { useSendingApproval } from "../hooks/use-sending-approval";
 import { tabs } from "../utils";
+import { approvalApplies } from "../utils/sending-approval";
 import CompanySettingsView from "./company-settings-view";
+import { ExportRequestsPanel } from "@/features/audience/components/exports/export-requests-panel";
 import { useMyOrgRole } from "@/shared/hooks/client/use-my-org-role";
 
 export default function SettingsPage() {
@@ -29,12 +33,19 @@ export default function SettingsPage() {
   // Audit log is owner/admin only (the backend 403s otherwise); Billing is
   // owner-only. Role null (loading) counts as neither, so neither tab flashes.
   const isAdmin = isOwner || role === "ADMIN";
+  // Sending approval shows only for a workspace the gate applies to (new
+  // since the gate shipped, not grandfathered).
+  const approval = useSendingApproval();
+  const showSending = approvalApplies(approval.data);
   const visibleTabs = useMemo(
     () =>
       tabs.filter(
-        (t) => (t.id !== "billing" || isOwner) && (t.id !== "audit" || isAdmin)
+        (t) =>
+          (t.id !== "billing" || isOwner) &&
+          (t.id !== "audit" || isAdmin) &&
+          (t.id !== "sending" || showSending)
       ),
-    [isOwner, isAdmin]
+    [isOwner, isAdmin, showSending]
   );
 
   const tabIds = useMemo(
@@ -90,6 +101,8 @@ export default function SettingsPage() {
             {activeTab === "account" && <CompanySettingsView />}
             {activeTab === "privacy" && <PrivacyIdentitySettings />}
             {activeTab === "team" && <TeamAccessSettings />}
+            {activeTab === "sending" && <SendingApprovalSection />}
+            {activeTab === "exports" && <ExportRequestsPanel />}
             {activeTab === "audit" && isAdmin && <AuditLog />}
             {activeTab === "billing" && isOwner && <BillingSettings />}
             {activeTab === "rewards" && <RewardsSettings />}

@@ -9,6 +9,7 @@ import type {
   CreateGoalPayload,
   GoalMeasurement,
 } from "./contracts/goals";
+import type { HumanEngagement } from "./contracts/human-engagement";
 import type { CampaignLiftResult } from "./contracts/lift";
 import { withApiErrorFields } from "./lib/launch-errors";
 import type { Campaign, CampaignSendProgress } from "./types/campaign";
@@ -193,7 +194,12 @@ export interface CampaignChannelSendResult {
  * open/click denominators use `delivered` when ACS delivery events exist,
  * falling back to `sent`.
  */
-export interface CampaignEmailFunnel {
+/**
+ * `humanClicks`, `humanClickRate` and `opens` (the human-first block, backend
+ * 2026-11-22) come from {@link HumanEngagement}; all optional, absent on
+ * older data. Read them through `utils/human-engagement.ts`.
+ */
+export interface CampaignEmailFunnel extends HumanEngagement {
   sent?: number;
   delivered?: number;
   failed?: number;

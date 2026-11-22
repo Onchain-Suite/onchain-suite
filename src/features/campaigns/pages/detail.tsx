@@ -18,10 +18,17 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { campaignsService } from "../campaigns.service";
+import { HumanEngagementStats } from "../components/analytics/human-engagement-stats";
 import { LiftRow } from "../components/campaign-detail/lift-row";
 import { CHANNEL_DISPLAY, channelKeysFor } from "../data/channels";
 import { ChannelReportSection } from "../report/channel-report-section";
 import type { Campaign, CampaignStatus } from "../types/campaign";
+import {
+  formatOpenRange,
+  formatRate,
+  hasHumanStats,
+  readHumanStats,
+} from "../utils/human-engagement";
 import {
   campaignRates,
   campaignUsesEmail,
@@ -192,6 +199,10 @@ export function CampaignDetailPage({ id }: { id: string }) {
     refetchOnWindowFocus: false,
   });
   const analytics = analyticsQuery.data;
+  const human = useMemo(
+    () => readHumanStats(analytics?.email),
+    [analytics?.email]
+  );
 
   // Per-recipient engagement feed for this campaign (see getActivity). Returns
   // [] until the backend endpoint ships, so the section shows an empty state
@@ -427,15 +438,26 @@ export function CampaignDetailPage({ id }: { id: string }) {
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border lg:grid-cols-4">
         <Stat label="Recipients" value={fmtCount(campaign.recipients)} />
-        <Stat
-          label="Open / view rate"
-          value={fmtPct(rates.open)}
-          delta={openDelta}
-        />
+        {/* Human first (backend 2026-11-22): clicks by people lead, and opens
+            read as a range because Apple Mail Privacy Protection and bots
+            inflate them. Older data has no human block and keeps the raw
+            rates and their deltas. The deltas compare raw rates, so they are
+            dropped beside the human numbers rather than mixing the two. */}
         <Stat
           label="Click rate"
-          value={fmtPct(rates.click)}
-          delta={clickDelta}
+          value={
+            human.humanClickRate !== null
+              ? formatRate(human.humanClickRate)
+              : fmtPct(rates.click)
+          }
+          delta={human.humanClickRate !== null ? undefined : clickDelta}
+        />
+        <Stat
+          label={human.opens ? "Open rate" : "Open / view rate"}
+          value={
+            human.opens ? formatOpenRange(human.opens) : fmtPct(rates.open)
+          }
+          delta={human.opens ? undefined : openDelta}
         />
         <Stat
           label={status === "scheduled" ? "Scheduled" : "Sent"}
@@ -453,6 +475,14 @@ export function CampaignDetailPage({ id }: { id: string }) {
       ) : (
         <>
           <LiftRow campaignId={id} />
+          {hasHumanStats(human) ? (
+            <section className="rounded-2xl border border-border bg-card p-5">
+              <h2 className="mb-4 text-base font-semibold text-foreground">
+                Email engagement
+              </h2>
+              <HumanEngagementStats stats={human} />
+            </section>
+          ) : null}
           <div
             className={cn(
               "grid gap-6",

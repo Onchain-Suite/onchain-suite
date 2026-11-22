@@ -16,7 +16,9 @@ export type PresendBlockCode =
   | "DMARC_MULTIPLE_RECORDS"
   | "UNSUBSCRIBE_HEADERS_UNAVAILABLE"
   | "URL_SHORTENER"
-  | "SEED_PHRASE_REQUEST";
+  | "SEED_PHRASE_REQUEST"
+  | "SEND_SPIKE_HOLD"
+  | "SENDING_APPROVAL_REJECTED";
 
 /** Codes that warn and need an explicit acknowledgement to send. */
 export type PresendWarnCode =
@@ -27,7 +29,10 @@ export type PresendWarnCode =
   | "GMAIL_CLIP"
   | "CRYPTO_PHISHING_PHRASE"
   | "NEW_LINK_DOMAIN"
-  | "NEVER_MAILED_SHARE";
+  | "NEVER_MAILED_SHARE"
+  | "SEND_SPIKE"
+  | "SENDING_APPROVAL_PENDING"
+  | "HIGH_RISK_TIER_REVIEW";
 
 /**
  * Known codes. `POSTAL_ADDRESS_REQUIRED` warns before its grace date and blocks
@@ -38,6 +43,8 @@ export type PresendCode =
   | PresendBlockCode
   | PresendWarnCode
   | "POSTAL_ADDRESS_REQUIRED"
+  // Informational pass (backend 2026-11-22): recipients with no known opt-in date.
+  | "CONSENT_DATE_UNKNOWN"
   | (string & {});
 
 export interface PresendCheck {

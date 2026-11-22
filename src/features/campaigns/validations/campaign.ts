@@ -44,6 +44,12 @@ export const campaignFormSchema = z
      */
     smartSendingWindowHours: z.string().optional(),
     trackingParameters: z.boolean().default(true),
+    /**
+     * Include contacts the sunset policy would skip (no engagement in 180
+     * days, or 11 sends in a row without one). Off by default; see
+     * `utils/tracking-payload.ts` for why it is sent on every save.
+     */
+    sendToUnengaged: z.boolean().default(false),
     // UTM parameters appended to links when tracking is on.
     utmSource: z.string().optional(),
     utmMedium: z.string().optional(),

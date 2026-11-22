@@ -3,11 +3,9 @@
 import { ArrowsRightLeftIcon } from "@heroicons/react/24/outline";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 
 import { connectionsService } from "../../connections.service";
 import type { MigrationResult } from "../../contracts/connections";
@@ -22,41 +20,62 @@ import {
 import { BackgroundMigration } from "./background-migration";
 import { ExportRun } from "./export-run";
 import { MigrationSummary } from "./migration-summary";
+import { ConsentDeclarationFields } from "@/features/audience/components/consent/consent-declaration-fields";
+import type { ImportConsentDeclaration } from "@/features/audience/contracts/consent";
+import {
+  type ConsentDraft,
+  consentDraftError,
+  EMPTY_CONSENT_DRAFT,
+  toConsentDeclaration,
+} from "@/features/audience/utils/consent";
 
 /**
- * Start a migration once the tool is connected. The person confirms they may
- * message these contacts; the server still applies consent itself (only
- * confirmed, subscribed people come across, the rest are counted as held) and
- * sends nobody anything.
+ * Start a migration once the tool is connected. The person declares how these
+ * contacts opted in (recorded per contact); the server still applies consent
+ * itself (only confirmed, subscribed people come across, the rest are counted
+ * as held) and sends nobody anything.
  */
 export function MigrationRun({ def }: { def: ConnectorDef }) {
-  const id = useId();
-  const [agreed, setAgreed] = useState(false);
+  const [draft, setDraft] = useState<ConsentDraft>(EMPTY_CONSENT_DRAFT);
+  const draftError = consentDraftError(draft);
+  const agreed = draftError === null;
+  // beehiiv, Klaviyo and Mailchimp refuse a migration without this
+  // (backend 2026-11-22); every other tool records it when it can.
+  const declaration = agreed ? toConsentDeclaration(draft) : undefined;
 
   const consent = (
-    <div className="flex items-start gap-2">
-      <Checkbox
-        id={id}
-        checked={agreed}
-        onCheckedChange={(v) => setAgreed(v === true)}
-        className="mt-0.5"
-      />
-      <Label htmlFor={id} className="text-sm font-normal leading-snug">
-        These contacts agreed to hear from us, and I may move them to
-        OnchainSuite.
-      </Label>
-    </div>
+    <ConsentDeclarationFields
+      value={draft}
+      onChange={setDraft}
+      error={draft.source ? draftError : null}
+      showRowDateNote={false}
+    />
   );
 
   if (def.action === "migrate-async") {
-    return <ExportRun def={def} consent={consent} agreed={agreed} />;
+    return (
+      <ExportRun
+        def={def}
+        consent={consent}
+        agreed={agreed}
+        declaration={declaration}
+      />
+    );
   }
   return (
     <BackgroundMigration
       def={def}
       consent={consent}
       agreed={agreed}
-      fallback={<PagedMigration def={def} consent={consent} agreed={agreed} />}
+      declaration={declaration}
+      fallback={
+        <PagedMigration
+          def={def}
+          consent={consent}
+          agreed={agreed}
+          declaration={declaration}
+        />
+      }
     />
   );
 }
@@ -70,14 +89,21 @@ function PagedMigration({
   def,
   consent,
   agreed,
+  declaration,
 }: {
   def: ConnectorDef;
   consent: ReactNode;
   agreed: boolean;
+  declaration?: ImportConsentDeclaration;
 }) {
   const qc = useQueryClient();
   const run = usePagedRun<MigrationResult>({
-    step: (body, signal) => connectionsService.migrate(def.id, body, signal),
+    step: (body, signal) =>
+      connectionsService.migrate(
+        def.id,
+        declaration ? { ...body, consent: declaration } : body,
+        signal
+      ),
     next: (prev) => nextMigrationBody(def.paging ?? "cursor", prev),
     merge: mergeMigration,
     empty: EMPTY_MIGRATION,

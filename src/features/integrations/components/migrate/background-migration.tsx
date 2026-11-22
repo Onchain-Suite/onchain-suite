@@ -17,6 +17,7 @@ import {
 } from "../../utils/runs";
 import { RunStatusError } from "../connect/run-status-error";
 import { MigrationSummary } from "./migration-summary";
+import type { ImportConsentDeclaration } from "@/features/audience/contracts/consent";
 import { Icon } from "@/shared/components/common/hugeicon";
 
 const VERBS = { start: "Start migration", again: "Run again" };
@@ -33,11 +34,14 @@ export function BackgroundMigration({
   def,
   consent,
   agreed,
+  declaration,
   fallback,
 }: {
   def: ConnectorDef;
   consent: ReactNode;
   agreed: boolean;
+  /** The opt-in declaration sent with the run, once the form is valid. */
+  declaration?: ImportConsentDeclaration;
   fallback: ReactNode;
 }) {
   const qc = useQueryClient();
@@ -78,7 +82,7 @@ export function BackgroundMigration({
       {!live ? (
         <Button
           size="sm"
-          onClick={() => r.start({})}
+          onClick={() => r.start(declaration ? { consent: declaration } : {})}
           disabled={!agreed || r.isStarting}
         >
           <Icon
@@ -94,7 +98,12 @@ export function BackgroundMigration({
           <button
             type="button"
             className="underline underline-offset-2 hover:text-foreground disabled:opacity-50"
-            onClick={() => r.start({ restart: true })}
+            onClick={() =>
+              r.start({
+                restart: true,
+                ...(declaration ? { consent: declaration } : {}),
+              })
+            }
             disabled={!agreed || r.isStarting}
           >
             Start over instead

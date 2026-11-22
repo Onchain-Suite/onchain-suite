@@ -34,6 +34,7 @@ import {
   syncAudienceSettings,
 } from "../../lib/audience-sync";
 import type { List, Segment } from "../../types";
+import { buildTrackingPayload } from "../../utils/tracking-payload";
 import type { CampaignChannel, CampaignFormData } from "../../validations";
 import { type ContactOption } from "./audience-selector";
 import { HoldoutNote } from "./holdout-note";
@@ -50,6 +51,7 @@ import {
   profileReach,
 } from "@/features/audience/utils";
 import { smartSendingService } from "@/features/settings/smart-sending.service";
+import { UnengagedContactsToggle } from "@/shared/components/common/unengaged-contacts";
 import { PRIVATE_ROUTES } from "@/shared/config/app-routes";
 
 interface AudienceStepProps {
@@ -136,11 +138,10 @@ export function AudienceStep({
   const [excludeInternal, setExcludeInternal] = useState(false);
   const hasSeededInternalRef = useRef(false);
 
-  // Inactivity (sunset) filter. Default OFF: a campaign reaches its full
-  // reachable audience unless the sender ticks the "Inactive" chip. Seeded once
-  // from the server's stored value, then owned here (same pattern as internal).
-  const [applySunset, setApplySunset] = useState(false);
-  const hasSeededSunsetRef = useRef(false);
+  // Sunset is ON by default (backend 2026-11-22); the sender can opt this send
+  // in to unengaged contacts. Lives in the form (hydrated from GET tracking)
+  // so the wizard's Continue flush sends the same value as this autosync.
+  const sendToUnengaged = form.watch("sendToUnengaged") === true;
 
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -507,7 +508,6 @@ export function AudienceStep({
     utmParams,
     windowOverride,
     excludeInternal,
-    applySunset,
   });
   syncInputsRef.current = {
     selectedAudiences,
@@ -517,7 +517,6 @@ export function AudienceStep({
     utmParams,
     windowOverride,
     excludeInternal,
-    applySunset,
   };
 
   // Live autosync. The backend rate-limits these endpoints (3 requests/10s),
@@ -564,18 +563,8 @@ export function AudienceStep({
           // `true` in place.
           excludeInternal: inputs.excludeInternal,
         },
-        tracking: {
-          smartSending: Boolean(smartSending),
-          trackingParameters: Boolean(trackingParameters),
-          // Always sent (not omitted when false) for the same reason as
-          // excludeInternal: turning it back off must reach the server.
-          applySunset: inputs.applySunset,
-          // Omitted when blank so the org setting applies.
-          ...(inputs.windowOverride !== undefined
-            ? { smartSendingWindowHours: inputs.windowOverride }
-            : {}),
-          ...(inputs.utmParams ? { utm: inputs.utmParams } : {}),
-        },
+        // Same builder as the Continue flush, so both write identical JSON.
+        tracking: buildTrackingPayload(form.getValues()),
       };
     };
 
@@ -602,12 +591,6 @@ export function AudienceStep({
             hasSeededInternalRef.current = true;
             if (typeof estimate.excludeInternal === "boolean") {
               setExcludeInternal(estimate.excludeInternal);
-            }
-          }
-          if (!hasSeededSunsetRef.current) {
-            hasSeededSunsetRef.current = true;
-            if (typeof estimate.sunsetApplied === "boolean") {
-              setApplySunset(estimate.sunsetApplied);
             }
           }
         }
@@ -649,7 +632,8 @@ export function AudienceStep({
     trackingParameters,
     utmKey,
     excludeInternal,
-    applySunset,
+    sendToUnengaged,
+    form,
   ]);
 
   // Drop the server estimate the instant the selection changes. The autosync
@@ -761,12 +745,9 @@ export function AudienceStep({
   // actually skipped (never "0 of N").
   const missingEmailCount = asCount(estimateBreakdown?.missingEmail);
   const totalRecipientCount = asCount(estimateBreakdown?.totalWallets);
-  // Inactivity (sunset) filter: shown as a toggleable chip only when the org has
-  // a window configured. Default OFF, so the count is informational until ticked.
+  // Unengaged (sunset) contacts the estimate skips. Default ON since 2026-11-22.
   const sunsetExcludedCount = asCount(estimateBreakdown?.sunsetExcluded);
   const sunsetInactiveDays = asCount(estimateBreakdown?.sunsetInactiveDays);
-  const sunsetConfigured =
-    typeof sunsetInactiveDays === "number" && sunsetInactiveDays > 0;
   // One row per reason the backend reports, in the order it applies them. The
   // buckets are disjoint and partition the selection, so "15 selected, 14 will
   // receive it" can always account for the difference - which is what the old
@@ -825,24 +806,18 @@ export function AudienceStep({
         ? `Withheld from this campaign. Click to include internal / team ${isWalletChannel ? "wallets" : "contacts"}.`
         : `Included in this campaign. Click to withhold it from internal / team ${isWalletChannel ? "wallets" : "contacts"}.`,
     },
-    // Inactivity (sunset): opt-in, OFF by default, shown only when the org has a
-    // window set. Ticking it excludes long-dormant contacts (reputation
-    // protection); left off, the campaign reaches them.
-    ...(sunsetConfigured
-      ? [
-          {
-            key: "sunset",
-            label: isPush ? "Inactive wallets" : "Inactive contacts",
-            count: sunsetExcludedCount,
-            applied: applySunset,
-            toggle: true as const,
-            onToggle: () => setApplySunset((v) => !v),
-            hint: applySunset
-              ? `Excluded — no opens or clicks in ${sunsetInactiveDays} days. Click to include them (sending to a dormant list can raise bounces/complaints and hurt deliverability).`
-              : `Included. Click to exclude contacts with no opens or clicks in ${sunsetInactiveDays} days — protects your sender reputation.`,
-          },
-        ]
-      : []),
+    // Unengaged (sunset): skipped by default. Changed with the "Include
+    // unengaged contacts" switch below, which confirms first, so the chip
+    // itself is read-only.
+    {
+      key: "sunset",
+      label: isPush ? "Unengaged wallets" : "Unengaged contacts",
+      count: sunsetExcludedCount,
+      applied: !sendToUnengaged,
+      hint: sendToUnengaged
+        ? `Included in this send. No opens or clicks in ${sunsetInactiveDays ?? 180} days, or 11 sends in a row without one.`
+        : `Skipped - no opens or clicks in ${sunsetInactiveDays ?? 180} days, or 11 sends in a row without one. Use "Include unengaged contacts" below to change this.`,
+    },
     // A locked row with nothing in it says nothing, so it is dropped — the
     // panel stays short on a clean list. The toggle always shows: its whole
     // job is to be available before anyone is tagged.
@@ -1223,6 +1198,16 @@ export function AudienceStep({
           }
         />
       </div>
+
+      {!isWalletChannel ? (
+        <UnengagedContactsToggle
+          checked={sendToUnengaged}
+          excludedCount={sunsetExcludedCount}
+          onChange={(v) =>
+            form.setValue("sendToUnengaged", v, { shouldDirty: true })
+          }
+        />
+      ) : null}
 
       {/* UTM tracking (collapsible) */}
       <div className="rounded-xl border border-border bg-card">

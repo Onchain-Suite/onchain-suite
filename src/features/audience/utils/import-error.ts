@@ -68,6 +68,12 @@ export function importErrorMessage(
     return "Choose a list for these contacts before importing.";
   if (has("IMPORT_CHAIN_REQUIRED"))
     return "Choose the chain these wallets should be enriched on before importing.";
+  // Consent declaration (backend modules/consent, 2026-11-22). Checked before
+  // the generic 400/409 branches below: the code is the specific answer.
+  if (has("IMPORT_CONSENT_REQUIRED"))
+    return "Tell us how these contacts opted in before importing. Fill in the opt-in section and try again.";
+  if (has("IMPORT_CONSENT_DATE_INVALID"))
+    return "The opt-in date isn't a valid date. Pick it again, or leave it blank.";
   if (has("IMPORT_LIST_NOT_FOUND"))
     return "That list no longer exists. Pick another one or create a new list.";
 

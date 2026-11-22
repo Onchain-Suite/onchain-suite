@@ -40,6 +40,7 @@ import {
 } from "../utils";
 import { stageForProfile } from "../utils/lifecycle";
 import { ApplyTagsPopover } from "./apply-tags-popover";
+import { ContactConsentPanel } from "./consent/contact-consent-panel";
 import { ContactActivityPanel } from "./contact-activity-panel";
 import { ContactHealthPanel } from "./contact-health-panel";
 import {
@@ -275,6 +276,8 @@ export function ContactSlideOver({
               </div>
 
               <ContactHealthPanel profileId={profile.id} open={open} />
+
+              <ContactConsentPanel profileId={profile.id} open={open} />
 
               <ContactActivityPanel profileId={profile.id} open={open} />
 

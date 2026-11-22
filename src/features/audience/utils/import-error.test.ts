@@ -18,6 +18,30 @@ const apiError = (opts: {
 };
 
 describe("importErrorMessage", () => {
+  it("asks for the opt-in declaration on IMPORT_CONSENT_REQUIRED", () => {
+    expect(
+      importErrorMessage(
+        apiError({ status: 400, code: "IMPORT_CONSENT_REQUIRED" })
+      )
+    ).toMatch(/how these contacts opted in/i);
+    // The direct-upload path only has the code inside the message text.
+    expect(
+      importErrorMessage(
+        new Error(
+          'Import upload failed [HTTP 400]: {"error":{"code":"IMPORT_CONSENT_REQUIRED"}}'
+        )
+      )
+    ).toMatch(/opted in/i);
+  });
+
+  it("explains an invalid opt-in date", () => {
+    expect(
+      importErrorMessage(
+        apiError({ status: 400, code: "IMPORT_CONSENT_DATE_INVALID" })
+      )
+    ).toMatch(/opt-in date/i);
+  });
+
   it("distinguishes payment (402 / PAYG) from the generic fallback", () => {
     expect(
       importErrorMessage(

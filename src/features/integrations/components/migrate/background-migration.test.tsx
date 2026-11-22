@@ -46,13 +46,18 @@ const run = (over: Partial<ConnectorRunStatus> = {}): ConnectorRunStatus => ({
 const newClient = () =>
   new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-function renderRun(agreed = true, client = newClient()) {
+function renderRun(
+  agreed = true,
+  client = newClient(),
+  declaration?: { source: string; doubleOptIn?: boolean }
+) {
   render(
     <QueryClientProvider client={client}>
       <BackgroundMigration
         def={def}
         consent={<p>I may move these contacts.</p>}
         agreed={agreed}
+        declaration={declaration}
         fallback={<p>In-browser migration</p>}
       />
     </QueryClientProvider>
@@ -80,6 +85,28 @@ describe("BackgroundMigration", () => {
     );
     // It is the server's run now: closing this does not stop it.
     expect(await screen.findByText(/it carries on/)).toBeInTheDocument();
+  });
+
+  it("sends the opt-in declaration with the run", async () => {
+    status.mockResolvedValue(run());
+    start.mockResolvedValue(run({ state: "queued" }));
+    const declaration = {
+      source: "Checkout or account signup",
+      doubleOptIn: true,
+    };
+    renderRun(true, newClient(), declaration);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Start migration/ })
+    );
+
+    await waitFor(() =>
+      expect(start).toHaveBeenCalledWith(
+        "hubspot",
+        { consent: declaration },
+        "org_1"
+      )
+    );
   });
 
   it("will not start without consent", async () => {

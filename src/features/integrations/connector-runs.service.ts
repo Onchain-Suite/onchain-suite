@@ -5,6 +5,7 @@ import type { IterableJobStatus } from "./contracts/connections";
 import type { ConnectorRunStatus, ExportJob } from "./contracts/runs";
 import { toIterableJob, toIterableStatus } from "./utils/normalize-connections";
 import { toRunStatus } from "./utils/runs";
+import type { ImportConsentDeclaration } from "@/features/audience/contracts/consent";
 
 export type { ConnectorRunStatus, ExportJob } from "./contracts/runs";
 
@@ -20,14 +21,20 @@ export const connectorRunsService = {
   /** Start a run, or continue one that stopped or failed part-way. */
   async start(
     connector: string,
-    opts: { restart?: boolean } = {},
+    opts: { restart?: boolean; consent?: ImportConsentDeclaration } = {},
     orgId?: string
   ): Promise<ConnectorRunStatus> {
     const data = await request(
       {
         method: "POST",
         url: run(connector),
-        data: opts.restart ? { restart: true } : {},
+        // `consent`: the opt-in declaration a migration must carry (backend
+        // 2026-11-22). Sent only when given, so sources (Formo, …) and the
+        // older run DTO see the body they always did.
+        data: {
+          ...(opts.restart ? { restart: true } : {}),
+          ...(opts.consent ? { consent: opts.consent } : {}),
+        },
       },
       orgId
     );
@@ -56,9 +63,17 @@ export const connectorRunsService = {
   },
 
   /** Start an export migration (Braze, Customer.io, Iterable). */
-  async startExport(connector: string, orgId?: string): Promise<ExportJob> {
+  async startExport(
+    connector: string,
+    consent?: ImportConsentDeclaration,
+    orgId?: string
+  ): Promise<ExportJob> {
     const data = await request(
-      { method: "POST", url: integration(`${connector}/migrate`) },
+      {
+        method: "POST",
+        url: integration(`${connector}/migrate`),
+        ...(consent ? { data: { consent } } : {}),
+      },
       orgId
     );
     return toIterableJob(data);

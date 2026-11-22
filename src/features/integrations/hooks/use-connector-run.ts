@@ -7,6 +7,7 @@ import { ConnectionsError } from "../connections.service";
 import { connectorRunsService } from "../connector-runs.service";
 import type { ConnectorRunStatus } from "../contracts/runs";
 import { isRunLive } from "../utils/runs";
+import type { ImportConsentDeclaration } from "@/features/audience/contracts/consent";
 import { useAccountOrg } from "@/features/settings/components/account/use-account-org";
 
 /** While a run is live. One cheap read; the server does not throttle it. */
@@ -68,7 +69,9 @@ export function useConnectorRun(connector: string) {
   );
 
   const start = useMutation({
-    mutationFn: (opts: { restart?: boolean } = {}) =>
+    mutationFn: (
+      opts: { restart?: boolean; consent?: ImportConsentDeclaration } = {}
+    ) =>
       connectorRunsService.start(connector, opts, organizationId ?? undefined),
     onMutate: settle,
     onSuccess: write,

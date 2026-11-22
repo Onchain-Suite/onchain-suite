@@ -66,6 +66,7 @@ import {
   InAppPreview,
 } from "@/features/campaigns/components/campaign-form/in-app-message-step";
 import { InlineSchedule } from "@/features/campaigns/components/campaign-form/inline-schedule";
+import { SendPreflightNote } from "@/features/campaigns/components/campaign-form/send-preflight-note";
 import { SmsMessageStep } from "@/features/campaigns/components/campaign-form/sms-message-step";
 import { TelegramMessageStep } from "@/features/campaigns/components/campaign-form/telegram-message-step";
 import { TemplateStep } from "@/features/campaigns/components/campaign-form/template-step";
@@ -107,6 +108,10 @@ import {
 } from "@/features/campaigns/telegram/telegram-content";
 import type { List, Segment } from "@/features/campaigns/types";
 import { placementDeliverable } from "@/features/campaigns/utils/inapp-readiness";
+import {
+  buildTrackingPayload,
+  trackingToFormValues,
+} from "@/features/campaigns/utils/tracking-payload";
 import { xContent } from "@/features/campaigns/x/x-content";
 import { channelSetupHref } from "@/features/channels/data/channels";
 import { useOrgSwitcherContext } from "@/features/common/layout/components/org-switcher-context";
@@ -920,6 +925,10 @@ function CampaignPreviewStep({
             </div>
           </div>
 
+          {normalizedCampaignId && !isWalletChannel ? (
+            <SendPreflightNote campaignId={normalizedCampaignId} />
+          ) : null}
+
           {!canLaunch ? (
             <div className="flex gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
               <ExclamationTriangleIcon
@@ -1377,6 +1386,7 @@ export function CreateCampaignPage() {
       smartSending: true,
       smartSendingWindowHours: "",
       trackingParameters: true,
+      sendToUnengaged: false,
       utmSource: "onchain_suite",
       utmMedium: "email",
       utmCampaign: "",
@@ -1961,36 +1971,7 @@ export function CreateCampaignPage() {
         }
 
         if (trackingRes.status === "fulfilled") {
-          const tObj: Record<string, unknown> = isJsonObject(trackingRes.value)
-            ? trackingRes.value
-            : {};
-          const { smartSending, trackingParameters, utm } = tObj;
-          if (typeof smartSending === "boolean") {
-            nextValues.smartSending = smartSending;
-          }
-          // GET /campaigns/{id}/tracking echoes the per-campaign override.
-          if (typeof tObj.smartSendingWindowHours === "number") {
-            nextValues.smartSendingWindowHours = String(
-              tObj.smartSendingWindowHours
-            );
-          }
-          if (typeof trackingParameters === "boolean") {
-            nextValues.trackingParameters = trackingParameters;
-          }
-          if (isJsonObject(utm)) {
-            const utmStr = (value: unknown) =>
-              typeof value === "string" ? value : undefined;
-            const source = utmStr(utm.source);
-            const medium = utmStr(utm.medium);
-            const campaign = utmStr(utm.campaign);
-            const term = utmStr(utm.term);
-            const content = utmStr(utm.content);
-            if (source !== undefined) nextValues.utmSource = source;
-            if (medium !== undefined) nextValues.utmMedium = medium;
-            if (campaign !== undefined) nextValues.utmCampaign = campaign;
-            if (term !== undefined) nextValues.utmTerm = term;
-            if (content !== undefined) nextValues.utmContent = content;
-          }
+          Object.assign(nextValues, trackingToFormValues(trackingRes.value));
         }
 
         if (scheduleRes.status === "fulfilled") {
@@ -2198,44 +2179,13 @@ export function CreateCampaignPage() {
     const mergedProfileIds = Array.from(
       new Set([...profileIds, ...tagProfileIds])
     );
-    const utm: Record<string, string> = {};
-    if (data.trackingParameters) {
-      const addUtm = (key: string, value?: string) => {
-        const trimmed = (value ?? "").trim();
-        if (trimmed.length > 0) utm[key] = trimmed;
-      };
-      addUtm("source", data.utmSource);
-      addUtm("medium", data.utmMedium);
-      addUtm("campaign", data.utmCampaign);
-      addUtm("term", data.utmTerm);
-      addUtm("content", data.utmContent);
-    }
-    // Parse the per-campaign Smart Sending override the same way the audience
-    // step does (blank/out-of-range → omit), so a last-second edit persists
-    // through the Continue flush and not only via the debounced autosync.
-    const windowRaw = (data.smartSendingWindowHours ?? "").trim();
-    const windowParsed = Number(windowRaw);
-    const smartSendingWindowHours =
-      windowRaw.length > 0 &&
-      Number.isInteger(windowParsed) &&
-      windowParsed >= 1 &&
-      windowParsed <= 168
-        ? windowParsed
-        : undefined;
     return {
       audience: {
         segmentIds,
         profileIds: mergedProfileIds,
         ...(all ? { all: true } : {}),
       },
-      tracking: {
-        smartSending: Boolean(data.smartSending),
-        trackingParameters: Boolean(data.trackingParameters),
-        ...(smartSendingWindowHours !== undefined
-          ? { smartSendingWindowHours }
-          : {}),
-        ...(Object.keys(utm).length > 0 ? { utm } : {}),
-      },
+      tracking: buildTrackingPayload(data),
       skipEstimate: true,
     };
   };

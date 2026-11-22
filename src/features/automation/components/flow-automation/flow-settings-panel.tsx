@@ -7,6 +7,7 @@ import { isJsonObject } from "@/lib/utils";
 import type { PropertySelectOption } from "./property-select";
 import { PanelHead, Toggle } from "./step-panel/panel-ui";
 import { PickField } from "./step-panel/pick-field";
+import { UnengagedSetting } from "./unengaged-setting";
 import {
   reentryConfigToUi,
   reentryUiToConfig,
@@ -73,7 +74,10 @@ export function FlowSettingsPanel({
   onChange,
   className,
   triggerEventType,
+  automationId,
 }: {
+  /** The saved automation's id; undefined for a new, unsaved one. */
+  automationId?: string;
   value: Record<string, unknown>;
   onChange: (next: Record<string, unknown>) => void;
   /**
@@ -140,6 +144,12 @@ export function FlowSettingsPanel({
         label="At most one message per 10 hours"
         checked={freqOn}
         onChange={setFreq}
+      />
+
+      <UnengagedSetting
+        automationId={automationId}
+        settings={value}
+        onSettingsChange={onChange}
       />
 
       <div className="abp-sep" />

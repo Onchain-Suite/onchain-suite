@@ -34,10 +34,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { cn, getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 import { isChainRequired } from "../imports/chain-requirement";
+import { uploadImportFile } from "../imports/upload-import-file";
+import {
+  type ConsentDraft,
+  consentDraftError,
+  EMPTY_CONSENT_DRAFT,
+  toConsentDeclaration,
+} from "../utils/consent";
 import { importErrorMessage } from "../utils/import-error";
+import { ConsentDeclarationFields } from "./consent/consent-declaration-fields";
 import { ImportGateDialog } from "./import-gate-dialog";
 import { ImportReportDialog } from "./import-report-dialog";
 import {
@@ -144,51 +152,6 @@ const safeJsonParse = (raw: string): unknown => {
 };
 
 const toIsoNow = () => new Date().toISOString();
-
-const wait = (ms: number) =>
-  new Promise<void>((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
-const isRateLimitedError = (error: unknown) => {
-  if (!error || typeof error !== "object") return false;
-  const err = error as { cause?: unknown; message?: unknown };
-  const candidate = (err.cause ?? err) as {
-    response?: { status?: unknown };
-    status?: unknown;
-    message?: unknown;
-  };
-  const status =
-    typeof candidate.response?.status === "number"
-      ? candidate.response.status
-      : typeof candidate.status === "number"
-        ? candidate.status
-        : null;
-  if (status === 429) return true;
-  const msg =
-    typeof err.message === "string"
-      ? err.message
-      : typeof candidate.message === "string"
-        ? candidate.message
-        : "";
-  return msg.includes("429") || msg.toLowerCase().includes("rate limit");
-};
-
-// Large imports (100k+ rows) exceed the Next.js/Vercel proxy body cap, so upload
-// straight to the backend when NEXT_PUBLIC_BACKEND_URL is set; fall back to the
-// proxied service call on a network/CORS error.
-const getDirectBackendBaseUrl = () => {
-  const raw = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").trim();
-  if (!raw) return null;
-  return raw.replace(/\/$/, "");
-};
-
-const unwrapBackendEnvelope = (payload: unknown): unknown => {
-  if (isJsonObject(payload) && "data" in payload) {
-    return payload.data ?? payload;
-  }
-  return payload;
-};
 
 const toHumanBytes = (bytes: number) => {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -468,6 +431,9 @@ export default function ImportExportPage() {
   const { role: myOrgRole } = useMyOrgRole();
   const [dragActive, setDragActive] = useState(false);
   const [importStep, setImportStep] = useState<ImportStep>("upload");
+  const [consentDraft, setConsentDraft] =
+    useState<ConsentDraft>(EMPTY_CONSENT_DRAFT);
+  const consentError = consentDraftError(consentDraft);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [csvColumns, setCsvColumns] = useState<CSVColumn[]>([]);
   const [isImporting, setIsImporting] = useState(false);
@@ -956,125 +922,18 @@ export default function ImportExportPage() {
         ...(importTagList.length > 0 ? { tags: importTagList.join(",") } : {}),
       };
 
-      const orgId = getSelectedOrganizationId();
-      const directBase = getDirectBackendBaseUrl();
-
-      const uploadDirect = async (): Promise<unknown> => {
-        if (!directBase) throw new Error("Missing backend URL");
-        if (!orgId) throw new Error("Missing organization id");
-
-        const fd = new FormData();
-        fd.append("file", uploadedFile);
-        if (format === "csv" && Object.keys(mapping).length > 0) {
-          fd.append("mapping", JSON.stringify(mapping));
-        }
-
-        const params = new URLSearchParams();
-        params.set("format", format);
-        if (importPlatform) params.set("platform", importPlatform);
-        for (const [k, v] of Object.entries(query)) {
-          if (v === undefined) continue;
-          params.set(k, String(v));
-        }
-
-        let attempts = 0;
-        for (;;) {
-          const res = await fetch(`${directBase}/audience/imports?${params}`, {
-            method: "POST",
-            body: fd,
-            credentials: "include",
-            headers: {
-              "x-org-id": orgId,
-            },
-          });
-
-          if (res.ok) {
-            const json = await res.json().catch(() => null);
-            return unwrapBackendEnvelope(json);
-          }
-
-          if (res.status === 429 && attempts < 3) {
-            attempts += 1;
-            await wait(2000 + Math.floor(Math.random() * 3000));
-            continue;
-          }
-
-          const bodyText = await res.text().catch(() => "");
-          throw new Error(
-            `Import upload failed [HTTP ${res.status}]: ${
-              bodyText.trim().length > 0 ? bodyText : "Request failed"
-            }`
-          );
-        }
-      };
-
-      // The same-origin API proxy injects the session server-side (from the
-      // onchain.token cookie), so it authenticates reliably - but it runs on a
-      // serverless function with a ~4.5MB request-body cap. The direct-to-
-      // backend upload has no size cap but relies on a cross-origin session
-      // cookie the browser won't send (→ 401). So: route small/medium files
-      // through the authenticated proxy, and only large files direct.
-      const PROXY_BODY_LIMIT = 4 * 1024 * 1024; // headroom under the ~4.5MB cap
-
-      const uploadViaProxy = async (): Promise<unknown> => {
-        let attempts = 0;
-        for (;;) {
-          try {
-            return await audienceService.createImportJob({
-              file: uploadedFile,
-              format,
-              mapping: format === "csv" ? mapping : undefined,
-              platform: importPlatform || undefined,
-              query,
-            });
-          } catch (innerError) {
-            if (!isRateLimitedError(innerError) || attempts >= 3)
-              throw innerError;
-            attempts += 1;
-            await wait(2000 + Math.floor(Math.random() * 3000));
-          }
-        }
-      };
-
-      let res: unknown;
-      if (uploadedFile.size <= PROXY_BODY_LIMIT) {
-        res = await uploadViaProxy();
-      } else {
-        // Large file: must go direct (over the proxy's serverless body cap).
-        try {
-          res = await uploadDirect();
-        } catch (error) {
-          const authRejected =
-            error instanceof Error && /\[HTTP 40[13]\]/.test(error.message);
-          const networkFailed =
-            !directBase ||
-            !orgId ||
-            error instanceof TypeError ||
-            (error instanceof Error &&
-              error.message.toLowerCase().includes("failed to fetch"));
-          if (authRejected || networkFailed) {
-            throw new Error(
-              "This file is larger than the app can proxy (~4.5MB) and the direct upload to the backend was rejected. Split it into files under 4MB to import now, or enable credentialed CORS on the backend imports endpoint so large direct uploads authenticate.",
-              { cause: error }
-            );
-          }
-          throw error;
-        }
-      }
-
-      const jobIdCandidate = (res as { jobId?: unknown }).jobId;
-      const jobId =
-        typeof jobIdCandidate === "string" && jobIdCandidate.length > 0
-          ? jobIdCandidate
-          : typeof (res as unknown as { id?: unknown }).id === "string"
-            ? String((res as unknown as { id?: unknown }).id)
-            : typeof (res as unknown as { jobId?: unknown }).jobId === "string"
-              ? String((res as unknown as { jobId?: unknown }).jobId)
-              : null;
-
-      if (!jobId)
-        throw new Error("Import job started but no jobId was returned");
-      return { jobId };
+      // Backend 2026-11-22: every import declares how its contacts opted in,
+      // inside the multipart `options` JSON (not a field of its own).
+      const draftError = consentDraftError(consentDraft);
+      if (draftError) throw new Error("IMPORT_CONSENT_REQUIRED");
+      return uploadImportFile({
+        file: uploadedFile,
+        format,
+        mapping: format === "csv" ? mapping : undefined,
+        platform: importPlatform || undefined,
+        query,
+        options: { consent: toConsentDeclaration(consentDraft) },
+      });
     },
     onMutate: () => {
       setIsImporting(true);
@@ -1493,6 +1352,7 @@ export default function ImportExportPage() {
 
   const resetImport = () => {
     setImportStep("upload");
+    setConsentDraft(EMPTY_CONSENT_DRAFT);
     setUploadedFile(null);
     setCsvColumns([]);
     setImportResult(null);
@@ -2426,6 +2286,16 @@ export default function ImportExportPage() {
               </div>
             )}
 
+            <div className="mt-8">
+              <ConsentDeclarationFields
+                value={consentDraft}
+                onChange={setConsentDraft}
+                // Nothing picked yet is the starting state, not an error.
+                error={consentDraft.source ? consentError : null}
+                showRowDateNote={selectedImportFormat === "csv"}
+              />
+            </div>
+
             <div className="mt-8 flex flex-col gap-4 border-t border-(--color-border) pt-6 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-(--color-text-muted)">
                 {selectedImportFormat === "csv"
@@ -2454,7 +2324,9 @@ export default function ImportExportPage() {
                       ? "Choose a list on the previous step first"
                       : chainRequired && !selectedChain
                         ? "Choose the chain to enrich these wallets on"
-                        : undefined
+                        : consentError
+                          ? "Say how these contacts opted in first"
+                          : undefined
                   }
                   disabled={
                     isImporting ||
@@ -2467,7 +2339,9 @@ export default function ImportExportPage() {
                     // A chain only when the file actually carries wallets and
                     // no per-row Chain column already answers it. Email-only
                     // imports have no chain to pick. See `chainRequired`.
-                    (chainRequired && !selectedChain)
+                    (chainRequired && !selectedChain) ||
+                    // The backend refuses an import with no opt-in declaration.
+                    consentError !== null
                     // Column mapping is optional: the backend alias-matches
                     // headers (wallet, Wallet Address, address, Public Key, …)
                     // case- and punctuation-insensitively, so an unmapped CSV

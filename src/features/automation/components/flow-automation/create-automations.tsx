@@ -3413,6 +3413,7 @@ const CreateAutomationContent = () => {
                 value={flowSettings}
                 onChange={setFlowSettings}
                 triggerEventType={triggerEventType}
+                automationId={isNew ? undefined : automationId}
               />
             )}
           </aside>

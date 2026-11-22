@@ -10,6 +10,7 @@ import type {
   GoalMeasurement,
 } from "./contracts/goals";
 import type { CampaignLiftResult } from "./contracts/lift";
+import type { SendPreflight } from "./contracts/send-preflight";
 import { withApiErrorFields } from "./lib/launch-errors";
 import type { Campaign, CampaignSendProgress } from "./types/campaign";
 import type { PresendResult } from "@/features/presend/contracts/presend";
@@ -107,7 +108,7 @@ export interface CampaignAudienceEstimate {
    * "Inactive" exclusion chip. Independent of whether it is applied.
    */
   sunsetExcluded?: number;
-  /** Whether this campaign currently applies the inactivity filter (chip checked). */
+  /** Whether this campaign applies the inactivity filter (default true since 2026-11-22). */
   sunsetApplied?: boolean;
   /** The inactivity window in days, for the chip copy. */
   sunsetInactiveDays?: number;
@@ -346,9 +347,17 @@ export interface CampaignTrackingSettings {
    */
   smartSendingWindowHours?: number;
   /**
-   * Apply the inactivity (sunset) filter to this campaign. Opt-in, default
-   * false, so a campaign reaches its full reachable audience unless the sender
-   * ticks the "Inactive" exclusion chip.
+   * Send to unengaged contacts too (backend `modules/sunset`, 2026-11-22).
+   * Sunset is ON by default: contacts with no engagement in 180 days, or 11
+   * delivered sends in a row without one, are skipped. `true` turns that off.
+   * Send it on EVERY save: the backend treats an omitted key as `false`, so a
+   * PUT without it silently switches an opted-out campaign back on.
+   */
+  sendToUnengaged?: boolean;
+  /**
+   * Read-only on `GET /campaigns/:id/tracking`: the effective sunset switch
+   * (`!sendToUnengaged`). The PUT DTO never declared it, so writing it does
+   * nothing.
    */
   applySunset?: boolean;
   /**
@@ -1134,6 +1143,17 @@ export const campaignsService = {
     )
       .then((d) => extractList(d))
       .catch(() => [] as unknown[]);
+  },
+
+  /**
+   * `GET /campaigns/:id/send-preflight` - who will actually be mailed after
+   * suppression and sunset, with the sunset share broken out.
+   */
+  getSendPreflight(id: string, orgId?: string) {
+    return request<SendPreflight>(
+      { method: "GET", url: `/campaigns/${id}/send-preflight` },
+      orgId
+    );
   },
 
   /**

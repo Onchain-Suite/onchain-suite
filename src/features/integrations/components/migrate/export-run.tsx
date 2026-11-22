@@ -13,6 +13,7 @@ import type { RunStatus } from "../../hooks/use-paged-run";
 import type { ConnectorDef } from "../../types/connectors";
 import { EMPTY_MIGRATION } from "../../utils/connections";
 import { MigrationSummary } from "./migration-summary";
+import type { ImportConsentDeclaration } from "@/features/audience/contracts/consent";
 import { Icon } from "@/shared/components/common/hugeicon";
 
 const POLL_MS = 5_000;
@@ -29,10 +30,12 @@ export function ExportRun({
   def,
   consent,
   agreed,
+  declaration,
 }: {
   def: ConnectorDef;
   consent: ReactNode;
   agreed: boolean;
+  declaration?: ImportConsentDeclaration;
 }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<RunStatus>("idle");
@@ -51,7 +54,10 @@ export function ExportRun({
     setError(null);
     setJob(null);
     try {
-      const started = await connectorRunsService.startExport(def.id);
+      const started = await connectorRunsService.startExport(
+        def.id,
+        declaration
+      );
       setListName(started.listName);
       for (let i = 0; i < MAX_POLLS; i++) {
         await new Promise<void>((resolve, reject) => {
@@ -87,7 +93,7 @@ export function ExportRun({
       setStatus("error");
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [qc, def.id, def.label]);
+  }, [qc, def.id, def.label, declaration]);
 
   const result = job?.result;
   const waiting = job ? job.state : "queued";

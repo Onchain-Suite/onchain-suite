@@ -154,18 +154,27 @@ describe("deliverability: table layout, fully inline, no stripped-markup relianc
     expect([...rich.matchAll(/<table\b/g)].length).toBeGreaterThan(3);
   });
 
-  it("never emits a <style> block, class, id, data-* or comment", () => {
-    // Nothing the backend sanitizer strips - so a stripped <style> or dropped
-    // class can never change how this email lays out. There is nothing to drop.
-    expect(rich).not.toMatch(/<style[\s>]/i);
-    expect(rich).not.toMatch(/\sclass=/);
+  it("emits nothing the backend sanitizer strips wholesale", () => {
+    // The backend keeps a single head <style> (through sanitizeEmailCss) and
+    // `class` (body allow-list) - see the enhancement tests below. It still
+    // strips comments, ids and data-*, so none of those appear.
     expect(rich).not.toMatch(/\sid=/);
     expect(rich).not.toMatch(/\sdata-[a-z]/i);
     expect(rich).not.toMatch(/<!--/);
   });
 
+  it("uses classes only as non-layout enhancement hooks", () => {
+    // Every class is an `ocs-*` hook for the head <style>; classes carry no
+    // layout of their own, so dropping them changes nothing structural.
+    const classes = [...rich.matchAll(/ class="([^"]*)"/g)].map((m) => m[1]);
+    expect(classes.length).toBeGreaterThan(0);
+    for (const c of classes) {
+      expect(c, `unexpected class: ${c}`).toMatch(/^ocs-[a-z]+$/);
+    }
+  });
+
   it("carries structure in inline styles, including an explicit body background", () => {
-    expect(rich).toMatch(/<body style="[^"]*background-color:#f4f5f7/);
+    expect(rich).toMatch(/<body[^>]* style="[^"]*background-color:#f4f5f7/);
     // Every visible block is a styled element, not a bare class hook.
     expect([...rich.matchAll(/ style="/g)].length).toBeGreaterThan(10);
   });
@@ -184,14 +193,80 @@ describe("deliverability: Outlook-safe centering without MSO conditionals", () =
   });
 });
 
-describe("deliverability: responsive by fluid width, not a media query", () => {
-  it("has no @media rule yet still degrades safely on narrow screens", () => {
-    // The container is fluid up to a cap: width:100% + max-width:600px. On a
-    // phone it fills the width; on desktop it stops at 600px. No media query is
-    // present (the sanitizer removes <style>, where one would have to live), and
-    // none is needed.
-    expect(rich).not.toMatch(/@media/);
-    expect(rich).toMatch(/width:100%;max-width:600px/);
+/** The text of the single head `<style>` block, or "" if there is none. */
+const styleBlock = (html: string): string =>
+  html.match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? "";
+
+/** The rendered email with its head `<style>` removed, as a client that keeps
+ *  no `<style>` (or an older backend sanitizer) would receive it. */
+const withoutStyle = (html: string): string =>
+  html.replace(/<style>[\s\S]*?<\/style>/, "");
+
+describe("deliverability: responsive and dark mode are non-essential enhancement", () => {
+  it("ships the responsive and dark-mode rules in one head <style>", () => {
+    expect([...rich.matchAll(/<style>/g)]).toHaveLength(1);
+    const css = styleBlock(rich);
+    expect(css).toMatch(/@media \(max-width:600px\)/); // phone column stacking
+    expect(css).toMatch(/@media \(prefers-color-scheme:dark\)/); // dark mode
+    expect(css).toMatch(/\[data-ogsc\]/); // Outlook.com dark mode
+  });
+
+  it("declares color-scheme support so dark-mode clients cooperate", () => {
+    expect(rich).toMatch(/<meta name="color-scheme" content="light dark">/);
+    expect(rich).toMatch(
+      /<meta name="supported-color-schemes" content="light dark">/
+    );
+  });
+
+  it("keeps the inline baseline complete, so the email survives a dropped <style>", () => {
+    // The enhancement is additive. Strip the whole <style> block (and the
+    // classes it targets are inert without it) and the email must still be a
+    // complete, laid-out, readable email from its inline styles alone.
+    const bare = withoutStyle(rich);
+    expect(bare).not.toContain("<style");
+    expect(bare).toMatch(/<body[^>]* style="[^"]*background-color:#f4f5f7/);
+    expect(bare).toMatch(/width:100%;max-width:600px/); // container still fluid
+    expect(bare).toMatch(/color:#3b4252/); // body text colour still inline
+    expect(bare).toContain('{{ name | default: "there" }}'); // tokens intact
+    expect(bare).toContain('href="{{ unsubscribe_url }}"'); // links intact
+  });
+
+  it("puts no layout-bearing declarations in the <style> (overrides only)", () => {
+    // The block only swaps colours and stacks columns; it never positions or
+    // sizes the baseline layout, so it can never be the sole source of a rule
+    // the email needs to render. Inspect rule bodies only (innermost braces),
+    // not the media-feature conditions in the selectors.
+    const css = styleBlock(rich);
+    const allowed = [
+      "background-color",
+      "color",
+      "display",
+      "width",
+      "padding",
+    ];
+    const bodies = [...css.matchAll(/\{([^{}]*)\}/g)].map((m) => m[1]);
+    const decls = bodies
+      .flatMap((b) => b.split(";"))
+      .map((d) => d.trim())
+      .filter(Boolean);
+    expect(decls.length).toBeGreaterThan(0);
+    for (const decl of decls) {
+      const prop = decl.slice(0, decl.indexOf(":")).trim();
+      expect(allowed, `unexpected enhancement declaration: ${decl}`).toContain(
+        prop
+      );
+    }
+  });
+});
+
+describe("deliverability: preview stays on its own dark path, unchanged", () => {
+  it("does not add the send enhancement to preview output", () => {
+    const preview = renderEmailHtml(richDoc, {
+      footer: DEFAULT_FOOTER,
+      mode: "preview",
+    });
+    expect(preview).not.toMatch(/@media \(prefers-color-scheme/);
+    expect(preview).not.toMatch(/ class="ocs-/);
   });
 });
 

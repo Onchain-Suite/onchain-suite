@@ -232,6 +232,13 @@ const nextConfig: NextConfig = {
         destination: "/platform/audience",
         permanent: true,
       },
+      // The early-access page is gone; "Book a walkthrough" is a Cal.com
+      // booking now. Old links (emails, bookmarks, search) land there.
+      {
+        source: "/early-access",
+        destination: "https://cal.com/onchainsuite/15min",
+        permanent: false,
+      },
     ];
   },
   async rewrites() {

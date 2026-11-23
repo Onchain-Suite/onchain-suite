@@ -6,7 +6,7 @@ import { MainstreamCompanies } from "@/onchain-suite-website/components/site/sit
 export const metadata: Metadata = {
   title: "OnchainSuite for mainstream companies",
   description:
-    "OnchainSuite joins what customers do in your product with how they respond to your emails, so your team can find who needs a message. From $6 a month.",
+    "OnchainSuite joins what customers do in your product with how they respond to your emails, so your team can find who needs a message. From $7.98 a month.",
   alternates: { canonical: "/for/mainstream-companies" },
 };
 

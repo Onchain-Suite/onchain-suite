@@ -29,7 +29,7 @@ export function ConflictBox({
       ) : null}
       {conflict.actions.map((action) => (
         <div
-          key={[action.action, action.host, action.newValue]
+          key={[action.action, action.host, action.newHost, action.newValue]
             .filter(Boolean)
             .join("|")}
           className="mt-1.5 flex flex-wrap items-center gap-1.5"
@@ -37,7 +37,25 @@ export function ConflictBox({
           <span className="inline-flex rounded-full border border-border/70 bg-background/70 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase">
             {action.action}
           </span>
-          {action.host && !action.currentValue && !action.newValue ? (
+          {action.host && action.newHost ? (
+            // A rename: the record is right but saved under the wrong name
+            // (typically the zone appended twice). Show where it is now, and
+            // the exact name to type instead.
+            <span className="flex flex-wrap items-center gap-1">
+              <code className="break-all rounded bg-muted px-1.5 py-0.5 text-[11px] line-through opacity-70">
+                {action.host}
+              </code>
+              <span aria-hidden>→</span>
+              <code className="break-all rounded bg-muted px-1.5 py-0.5 text-[11px]">
+                {action.newHost}
+              </code>
+              <CopyButton value={action.newHost} label="Copy" />
+            </span>
+          ) : null}
+          {action.host &&
+          !action.newHost &&
+          !action.currentValue &&
+          !action.newValue ? (
             // A value-less action (e.g. "remove the misplaced record") is about
             // a record NAME, not a value - the value is already on the card.
             // Show the full name to act on, with a copy button to find it.
@@ -63,7 +81,9 @@ export function ConflictBox({
           ) : null}
         </div>
       ))}
-      {conflict.actions.length === 0 && conflict.resolution ? (
+      {conflict.resolution &&
+      (conflict.actions.length === 0 ||
+        conflict.actions.some((a) => a.newHost)) ? (
         <p className="mt-1">{conflict.resolution}</p>
       ) : null}
     </div>

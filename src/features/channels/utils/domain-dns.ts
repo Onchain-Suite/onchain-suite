@@ -31,6 +31,12 @@ export interface DnsConflictAction {
   host?: string;
   currentValue?: string;
   newValue?: string;
+  /**
+   * For a record saved under the wrong NAME (e.g. the provider appended the
+   * zone to a pasted full name): the name to rename it to, as typed in the
+   * zone. `host` is then the wrong name it sits at now.
+   */
+  newHost?: string;
 }
 
 export interface DnsConflict {
@@ -169,6 +175,7 @@ function parseConflict(raw: unknown): DnsConflict | undefined {
             host: str(a.host),
             currentValue: str(a.currentValue),
             newValue: str(a.newValue),
+            newHost: str(a.newHost),
           };
         })
         .filter((a): a is DnsConflictAction => a !== null)

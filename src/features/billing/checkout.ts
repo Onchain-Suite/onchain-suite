@@ -1,4 +1,9 @@
-import { getSelectedOrganizationId, isJsonObject } from "@/lib/utils";
+import { authClient } from "@/lib/auth-client";
+import {
+  getSelectedOrganizationId,
+  isJsonObject,
+  ORG_SELECTION_COOKIE,
+} from "@/lib/utils";
 
 import { billingService, type PlanCheckoutSlug } from "./billing.service";
 import { clampExtraSeats } from "./seat-pricing";
@@ -236,6 +241,40 @@ export function followCheckout(
   }
 }
 
+type ActiveOrgSession = () => Promise<{
+  data?: { session?: { activeOrganizationId?: string | null } | null } | null;
+}>;
+
+/**
+ * The workspace a checkout bills: the explicit id, else the org-switcher
+ * cookie, else the session's active organization.
+ *
+ * Onboarding creates the workspace and makes it active on the SESSION
+ * (`/organization/set-active`) but never writes the org-switcher cookie, so a
+ * brand-new user reaching the plan step had a workspace and still got "No
+ * active organization selected." The session is the source of truth; when it
+ * supplies the id we also write the cookie so the rest of the app agrees.
+ */
+export async function resolveCheckoutOrgId(
+  explicit?: string,
+  readSession: ActiveOrgSession = () =>
+    authClient.getSession() as ReturnType<ActiveOrgSession>
+): Promise<string | null> {
+  const known = explicit ?? getSelectedOrganizationId();
+  if (known) return known;
+  try {
+    const { data } = await readSession();
+    const fromSession = data?.session?.activeOrganizationId?.trim();
+    if (!fromSession) return null;
+    if (typeof document !== "undefined") {
+      document.cookie = `${ORG_SELECTION_COOKIE}=${encodeURIComponent(fromSession)}; path=/; samesite=lax`;
+    }
+    return fromSession;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Start a plan checkout for a display plan name ("Growth", "Pro", …) - crypto
  * (Blockradar, default) or card (Stripe-hosted). Persists the pending
@@ -255,7 +294,7 @@ export async function startPlanCheckout(
   const slug = planCheckoutSlug(planName);
   if (!slug) return null;
 
-  const orgId = organizationId ?? getSelectedOrganizationId() ?? undefined;
+  const orgId = await resolveCheckoutOrgId(organizationId);
   if (!orgId) throw new Error("No active organization selected.");
 
   // Card = a recurring Stripe subscription (POST /billing/subscribe), not the

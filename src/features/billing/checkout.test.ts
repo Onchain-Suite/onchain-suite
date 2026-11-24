@@ -6,6 +6,7 @@ import {
   openCheckoutInNewTab,
   PENDING_CHECKOUT_TTL_MS,
   readPendingCheckout,
+  resolveCheckoutOrgId,
   writePendingCheckout,
 } from "./checkout";
 
@@ -143,5 +144,43 @@ describe("followCheckout", () => {
     // Our own billing tab is not a checkout to pop open beside the app.
     expect(openSpy).not.toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith(url);
+  });
+});
+
+describe("resolveCheckoutOrgId", () => {
+  const COOKIE = "onchain.selectedOrgId";
+  afterEach(() => {
+    document.cookie = `${COOKIE}=; path=/; max-age=0`;
+  });
+
+  it("falls back to the session's active org when onboarding never wrote the switcher cookie", async () => {
+    const readSession = vi.fn().mockResolvedValue({
+      data: { session: { activeOrganizationId: "org_new" } },
+    });
+    await expect(resolveCheckoutOrgId(undefined, readSession)).resolves.toBe(
+      "org_new"
+    );
+    expect(document.cookie).toContain(`${COOKIE}=org_new`);
+  });
+
+  it("prefers the explicit id and the cookie over the session", async () => {
+    const readSession = vi.fn();
+    await expect(
+      resolveCheckoutOrgId("org_explicit", readSession)
+    ).resolves.toBe("org_explicit");
+    document.cookie = `${COOKIE}=org_cookie; path=/`;
+    await expect(resolveCheckoutOrgId(undefined, readSession)).resolves.toBe(
+      "org_cookie"
+    );
+    expect(readSession).not.toHaveBeenCalled();
+  });
+
+  it("returns null (not a throw) when there is no session org or the read fails", async () => {
+    await expect(
+      resolveCheckoutOrgId(undefined, vi.fn().mockResolvedValue({ data: null }))
+    ).resolves.toBeNull();
+    await expect(
+      resolveCheckoutOrgId(undefined, vi.fn().mockRejectedValue(new Error("x")))
+    ).resolves.toBeNull();
   });
 });

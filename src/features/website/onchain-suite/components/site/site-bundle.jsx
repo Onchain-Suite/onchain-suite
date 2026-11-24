@@ -5966,7 +5966,7 @@ var PRICING_FAQ = [
   },
   {
     q: "How is the Send plan priced?",
-    a: "The Send plan is $6 a month plus $3.95 per 1,000 subscribers. That is $15.88 a month at 2,500 subscribers, $45.50 at 10,000 and $104.75 at 25,000.",
+    a: "The Send plan starts at $9.95 a month for your first 1,000 subscribers, then $3.95 for each extra 1,000. That is $7.98 a month at 500 subscribers, $15.88 at 2,500, $45.50 at 10,000 and $104.75 at 25,000.",
   },
   {
     q: "Can I see prices in pounds?",
@@ -6060,8 +6060,9 @@ function PricingPlans() {
               </span>
             </label>
             <p className="formula">
-              ${SEND_BASE} a month plus ${SEND_PER_1K.toFixed(2)} per 1,000
-              subscribers.
+              Starts at ${(SEND_BASE + SEND_PER_1K).toFixed(2)} a month for your
+              first 1,000 subscribers, then ${SEND_PER_1K.toFixed(2)} for each
+              extra 1,000. A list of {fmt(SEND_STOPS[0])} is {usd(Math.round(sendPrice(SEND_STOPS[0]) * 100) / 100)}.
             </p>
           </div>
           <div>
@@ -6424,7 +6425,7 @@ function CompareTable() {
           {send && (
             <div role="columnheader" className="cmp-send">
               <b>Send</b>
-              <span>from ${SEND_BASE} a month</span>
+              <span>from {usd(Math.round(sendPrice(SEND_STOPS[0]) * 100) / 100)} a month</span>
               <Link className="btn" href={CAL_URL}>
                 Book a walkthrough
               </Link>
@@ -6831,14 +6832,14 @@ function OnrampPanel() {
 var metadata = {
   title: "Pricing",
   description:
-    "OnchainSuite pricing. The Suite plan starts at $39 a month, priced by contacts. The Send plan is $6 a month plus $3.95 per 1,000 subscribers.",
+    "OnchainSuite pricing. The Suite plan starts at $39 a month, priced by contacts. The Send plan starts at $9.95 a month for your first 1,000 subscribers, then $3.95 for each extra 1,000.",
   alternates: { canonical: "/pricing" },
   openGraph: {
     title: "Pricing · OnchainSuite",
     url: "/pricing",
     type: "website",
     description:
-      "Suite plan from $39 a month, priced by the contacts you bring in. Send plan from $6 a month plus $3.95 per 1,000 subscribers.",
+      "Suite plan from $39 a month, priced by the contacts you bring in. Send plan $9.95 a month for your first 1,000 subscribers, then $3.95 for each extra 1,000.",
   },
 };
 function PricingPage() {
@@ -10563,7 +10564,7 @@ function BlockchainCompanies() {
             <Link href="/for/mainstream-companies">
               The Send plan is built for mainstream companies
             </Link>
-            , from $6 a month.
+            , from $7.98 a month.
           </>
         ),
       }}
@@ -10593,7 +10594,7 @@ function BlockchainCompanies() {
 var metadata8 = {
   title: "OnchainSuite for mainstream companies",
   description:
-    "OnchainSuite joins what customers do in your product with how they respond to your emails, so your team can find who needs a message. From $6 a month.",
+    "OnchainSuite joins what customers do in your product with how they respond to your emails, so your team can find who needs a message. From $7.98 a month.",
   alternates: { canonical: "/for/mainstream-companies" },
 };
 function MainstreamCompanies() {
@@ -10669,9 +10670,9 @@ function MainstreamCompanies() {
       toPlan="All of this comes with the Send plan, priced on the size of your list."
       plan={{
         name: "Send plan",
-        price: "$6",
-        unit: "a month plus $3.95 per 1,000 subscribers",
-        line: "That is $15.88 a month at 2,500 subscribers, $45.50 at 10,000 and $104.75 at 25,000.",
+        price: "$9.95",
+        unit: "a month for your first 1,000 subscribers, then $3.95 for each extra 1,000",
+        line: "That is $7.98 a month at 500 subscribers, $15.88 at 2,500, $45.50 at 10,000 and $104.75 at 25,000.",
         items: [
           "Your product lane and email results on one record",
           "Email campaigns and Loops",
@@ -10695,7 +10696,7 @@ function MainstreamCompanies() {
         },
         {
           q: "How is the Send plan priced?",
-          a: "The Send plan is $6 a month plus $3.95 per 1,000 subscribers. That is $15.88 a month at 2,500 subscribers, $45.50 at 10,000 and $104.75 at 25,000.",
+          a: "The Send plan starts at $9.95 a month for your first 1,000 subscribers, then $3.95 for each extra 1,000. That is $7.98 a month at 500 subscribers, $15.88 at 2,500, $45.50 at 10,000 and $104.75 at 25,000.",
         },
         {
           q: "Can I send in-app messages on the Send plan?",
@@ -11660,7 +11661,7 @@ var COMPETITORS = [
       },
       {
         q: "Does it cost a lot more?",
-        a: "The Suite plan starts at $39 a month, more than a newsletter tool because we read your contracts as well as your list. Without blockchain data, the Send plan is $6 a month plus $3.95 per 1,000 subscribers.",
+        a: "The Suite plan starts at $39 a month, more than a newsletter tool because we read your contracts as well as your list. Without blockchain data, the Send plan starts at $9.95 a month for your first 1,000 subscribers, then $3.95 for each extra 1,000.",
       },
     ],
     description: "EmailOctopus vs OnchainSuite, compared for blockchain companies. Which reads wallet activity, what switching takes, who should pick which.",

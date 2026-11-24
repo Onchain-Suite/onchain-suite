@@ -1,8 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { parseDomainDns } from "./domain-dns";
 import { ConflictBox } from "./dns-record-parts";
+import { parseDomainDns } from "./domain-dns";
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 

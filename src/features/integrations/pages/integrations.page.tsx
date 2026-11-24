@@ -4,6 +4,7 @@ import {
   ArrowDataTransferHorizontalIcon,
   Database01Icon,
   FlashIcon,
+  Mail01Icon,
   SentIcon,
   SourceCodeIcon,
   WebhookIcon,
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils";
 
 import { ApiTab } from "../components/developer/api-tab";
 import { WebhooksPanel } from "../components/developer/webhooks-panel";
+import { EmailLogTab } from "../components/email-log/email-log-tab";
 import { EventsTab } from "../components/events-tab";
 import { IntegrationsAnswerLine } from "../components/integrations-answer-line";
 import { MigrateList } from "../components/migrate/migrate-list";
@@ -32,13 +34,14 @@ import {
 
 /**
  * Integrations (2.7): every connection to something outside, sources in and
- * channels out, on one screen with six tabs. The header and the tabs stay put
+ * channels out, on one screen with seven tabs. The header and the tabs stay put
  * and each tab moves inside the space under them, so the page fits the window:
- * Sources, Events, Migrate, Webhooks and API lay out their own scrolling
+ * Sources, Events, Migrate, Webhooks, API and Email logs lay out their own scrolling
  * boxes, and Channels scrolls as one. Below md the page scrolls as usual.
  */
 
-type TabId = "sources" | "events" | "migrate" | "channels" | "webhooks" | "api";
+type TabId =
+  "sources" | "events" | "migrate" | "channels" | "webhooks" | "api" | "emails";
 
 const TABS: PillTab<TabId>[] = [
   { key: "sources", label: "Sources", icon: Database01Icon },
@@ -47,6 +50,7 @@ const TABS: PillTab<TabId>[] = [
   { key: "channels", label: "Channels", icon: SentIcon },
   { key: "webhooks", label: "Webhooks", icon: WebhookIcon },
   { key: "api", label: "API", icon: SourceCodeIcon },
+  { key: "emails", label: "Email logs", icon: Mail01Icon },
 ];
 
 const DEFAULT_TAB: TabId = "sources";
@@ -59,6 +63,7 @@ const SELF_SCROLLING = new Set<TabId>([
   "migrate",
   "webhooks",
   "api",
+  "emails",
 ]);
 
 export default function IntegrationsPage() {
@@ -146,6 +151,7 @@ export default function IntegrationsPage() {
         {activeTab === "channels" ? <ChannelsTab /> : null}
         {activeTab === "webhooks" ? <WebhooksPanel /> : null}
         {activeTab === "api" ? <ApiTab /> : null}
+        {activeTab === "emails" ? <EmailLogTab /> : null}
       </div>
     </div>
   );

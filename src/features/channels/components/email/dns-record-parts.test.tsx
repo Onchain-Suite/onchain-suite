@@ -36,7 +36,7 @@ const payload = {
 describe("ConflictBox rename action", () => {
   it("parses newHost and shows the wrong name, the name to type, and the instruction", () => {
     const { records } = parseDomainDns(payload);
-    const conflict = records[0].conflict;
+    const { conflict } = records[0];
     expect(conflict?.actions[0].newHost).toBe("tok._domainkey.partner");
 
     render(<ConflictBox conflict={conflict!} />);

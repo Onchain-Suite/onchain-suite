@@ -70,18 +70,47 @@ const extractData = <T>(payload: unknown): T => {
 export class DeveloperApiError extends Error {
   readonly code?: string;
   readonly status?: number;
+  /** The error's `details` (e.g. `{ reason }` on `SENDING_SUSPENDED`). */
+  readonly details?: Record<string, unknown>;
   constructor(
     message: string,
-    opts?: { code?: string; status?: number; cause?: unknown }
+    opts?: {
+      code?: string;
+      status?: number;
+      details?: Record<string, unknown>;
+      cause?: unknown;
+    }
   ) {
     super(message, opts?.cause ? { cause: opts.cause } : undefined);
     this.name = "DeveloperApiError";
     this.code = opts?.code;
     this.status = opts?.status;
+    this.details = opts?.details;
   }
 }
 
-const request = async <T>(
+/**
+ * The error envelope nests the thrown exception's own body under
+ * `error.details` (`{ code, message, details }`), so the fields a caller wants
+ * sit one level further in. Read whichever level carries them.
+ */
+const readDetails = (
+  nestedError: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined => {
+  const outer = isJsonObject(nestedError?.details)
+    ? nestedError.details
+    : undefined;
+  if (outer && isJsonObject(outer.details)) return outer.details;
+  return outer;
+};
+
+/**
+ * One call to a developer route: adds the workspace header, unwraps the
+ * `{ success, data }` envelope, and turns a failure into a
+ * {@link DeveloperApiError} carrying the backend `code`. Shared with the Email
+ * API log, which is the same family.
+ */
+export const developerRequest = async <T>(
   config: AxiosRequestConfig,
   orgId?: string
 ): Promise<T> => {
@@ -114,9 +143,16 @@ const request = async <T>(
         : isJsonObject(data) && typeof data.code === "string"
           ? data.code
           : undefined;
-    throw new DeveloperApiError(String(message), { code, status, cause: e });
+    throw new DeveloperApiError(String(message), {
+      code,
+      status,
+      details: readDetails(nestedError),
+      cause: e,
+    });
   }
 };
+
+const request = developerRequest;
 
 const asString = (v: unknown): string => (typeof v === "string" ? v : "");
 const asNullableString = (v: unknown): string | null =>

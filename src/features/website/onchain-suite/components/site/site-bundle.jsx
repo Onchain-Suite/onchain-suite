@@ -5831,11 +5831,7 @@ var COMPARE_GROUPS = [
       {
         label: "Team seats included",
         note: "Extra seats are $10 a month each, up to 50.",
-        cells: [
-          "2, or 3 from 10,000 contacts",
-          "4, or 5 from 50,000 contacts",
-          "Custom",
-        ],
+        cells: ["3", "5", "Custom"],
         send: "Ask us",
       },
     ],

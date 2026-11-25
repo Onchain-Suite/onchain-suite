@@ -1,4 +1,10 @@
 import { SITE_CONFIG } from "@/features/website/onchain-suite/config";
+import {
+  COMPANY,
+  NAME,
+  ONE_LINER,
+  SAME_AS,
+} from "@/onchain-suite-website/data/brand-facts";
 
 /**
  * Site-wide JSON-LD, rendered in the root layout, so every fact here goes out
@@ -24,9 +30,12 @@ export function StructuredData() {
           "@type": "ImageObject",
           url: SITE_CONFIG.logo,
         },
-        // "A Datum Labs product" is pending confirmation (SEO Dev Fixes doc).
-        description: `${SITE_CONFIG.description} A Datum Labs product.`,
-        sameAs: [SITE_CONFIG.social.twitter],
+        // OnchainSuite is independent of Datum Labs (brand fact F10). That is
+        // said once, on /about, and never in the site-wide description.
+        legalName: NAME.legal,
+        description: ONE_LINER,
+        foundingDate: COMPANY.incorporatedIso,
+        sameAs: SAME_AS,
       },
       {
         "@type": "WebSite",

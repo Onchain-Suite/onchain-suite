@@ -777,6 +777,14 @@ footer.dark{ padding:72px 0 0; }
 .facts > div{ padding:28px; display:grid; gap:6px; } .facts > div + div{ border-left:1px solid var(--line); }
 .facts small{ font:500 11.5px var(--mono); letter-spacing:.05em; text-transform:uppercase; color:var(--grey); } .facts b{ font-weight:500; }
 @media (max-width:1000px){ .team{ grid-template-columns:1fr; padding:0 16px 64px; } .facts{ grid-template-columns:1fr 1fr; } .facts > div:nth-child(3){ border-left:0; } .facts > div:nth-child(n+3){ border-top:1px solid var(--line); } }
+/* ---------- about ---------- */
+.about-updated{ margin:18px 0 0; font:500 12.5px var(--mono); color:var(--grey); }
+.about-body{ border-top:1px solid var(--line); padding:64px 56px 32px; display:grid; gap:40px; max-width:820px; }
+.about-body h2{ margin:0 0 12px; font-size:22px; font-weight:600; letter-spacing:-.01em; }
+.about-body p, .about-body li{ margin:0 0 10px; color:var(--soft); line-height:1.6; }
+.about-body ul{ margin:0 0 10px; padding-left:20px; }
+.about-body a{ color:var(--ink); text-decoration:underline; text-underline-offset:3px; }
+@media (max-width:1000px){ .about-body{ padding:48px 16px 24px; } }
 /* ---------- book a walkthrough ---------- */
 .book{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:56px; padding:72px 56px 88px; align-items:start; }
 .book .h1{ margin:20px 0 0; text-align:left; font-size:clamp(34px,4.2vw,50px); }

@@ -799,15 +799,11 @@ footer.dark{ padding:72px 0 0; }
 .ab-platform{ margin:48px 0 0; grid-template-columns:repeat(4,minmax(0,1fr)); }
 .ab-cta{ text-align:center; }
 .ab-cta .ab-big{ margin-inline:auto; }
-.ab-company{ margin:0; border-top:1px solid var(--line); padding:24px 56px; font-size:13.5px; line-height:1.6; color:var(--grey); }
-.ab-small{ border-top:1px solid var(--line); padding:20px 56px 32px; font-size:13.5px; color:var(--grey); }
-.ab-small p{ margin:0 0 6px; } .ab-small a{ color:var(--ink); text-decoration:underline; text-underline-offset:3px; }
 @media (max-width:1000px){
   .ab-sec{ padding:64px 16px; }
   .ab-journey li{ grid-template-columns:1fr; gap:10px; padding:0 0 44px 32px; }
   .ab-journey i{ font-size:40px; }
   .ab-platform{ grid-template-columns:1fr; margin:32px 0 0; }
-  .ab-company, .ab-small{ padding-inline:16px; }
 }
 /* ---------- book a walkthrough ---------- */
 .book{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:56px; padding:72px 56px 88px; align-items:start; }

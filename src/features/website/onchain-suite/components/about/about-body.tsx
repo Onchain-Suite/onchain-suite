@@ -13,20 +13,14 @@ import {
   PLATFORM,
   PLATFORM_HEADING,
 } from "@/onchain-suite-website/data/about-copy";
-import { ABOUT_FAQ } from "@/onchain-suite-website/data/about-faq";
 import {
   ABOUT_UPDATED,
-  COMPANY,
-  NAME,
-  OFFICIAL_ACCOUNTS,
   SITE_URL,
 } from "@/onchain-suite-website/data/brand-facts";
 
 const PAGE_URL = `${SITE_URL}/about`;
 
-const COMPANY_LINE = `Founded in ${COMPANY.founded}. ${NAME.legal} was incorporated in 2026, is registered in ${COMPANY.jurisdiction} (company number ${COMPANY.number}) and is headquartered in ${COMPANY.based}.`;
-
-// AboutPage, plus the FAQPage for the three questions shown on the page.
+// AboutPage, linked to the site-wide Organization.
 const JSON_LD = {
   "@context": "https://schema.org",
   "@graph": [
@@ -39,15 +33,6 @@ const JSON_LD = {
       isPartOf: { "@id": `${SITE_URL}/#website` },
       about: { "@id": `${SITE_URL}/#organization` },
       dateModified: ABOUT_UPDATED,
-    },
-    {
-      "@type": "FAQPage",
-      "@id": `${PAGE_URL}#faq`,
-      mainEntity: ABOUT_FAQ.map((f) => ({
-        "@type": "Question",
-        name: f.q,
-        acceptedAnswer: { "@type": "Answer", text: f.a },
-      })),
     },
   ],
 };
@@ -157,41 +142,6 @@ export function AboutBody() {
           </Link>
         </div>
       </section>
-
-      <p className="ab-company">{COMPANY_LINE}</p>
-
-      <section className="faq" id="faq" aria-labelledby="about-faq-h">
-        <div>
-          <h2 className="h2" id="about-faq-h">
-            Questions about OnchainSuite
-          </h2>
-        </div>
-        <div className="faq-list">
-          {ABOUT_FAQ.map((f) => (
-            <details key={f.q}>
-              <summary>
-                {f.q}
-                <span aria-hidden="true">+</span>
-              </summary>
-              <p>{f.a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      <div className="ab-small">
-        <p>{NAME.howToWrite}</p>
-        <p>
-          {OFFICIAL_ACCOUNTS.map((a, i) => (
-            <span key={a.url}>
-              {i > 0 && <span aria-hidden="true"> · </span>}
-              <a href={a.url} rel="me">
-                {a.label}
-              </a>
-            </span>
-          ))}
-        </p>
-      </div>
     </div>
   );
 }

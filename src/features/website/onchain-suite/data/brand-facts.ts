@@ -82,9 +82,7 @@ export const FOUNDERS: ReadonlyArray<{ name: string; role: string }> = [
   { name: "Joel Obafemi", role: "Cofounder and analytics lead" },
 ];
 
-/** F10. OnchainSuite and Datum Labs. Said once, here and on /about, never in the JSON-LD. */
-export const DATUM_LABS =
-  "OnchainSuite is an independent company. It is not a Datum Labs product, and Datum Labs holds no shares in it. Datum Labs helped build the blockchain data warehouse that OnchainSuite reads from.";
+/** F10. No Datum Labs mention anywhere on the site (Olusegun, 25 Nov 2026). */
 
 /** F11. Company record, from the legal pages and Companies House. */
 export const COMPANY = {

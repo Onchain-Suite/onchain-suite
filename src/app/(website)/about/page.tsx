@@ -7,7 +7,7 @@ import { pageMeta } from "@/onchain-suite-website/config/page-meta";
 export const metadata: Metadata = pageMeta("/about", {
   title: "About",
   description:
-    "Company facts for OnchainSuite: what it does, plans and prices, channels, chains, founders, its relationship to Datum Labs and how to refer to it.",
+    "Company facts for OnchainSuite: what it does, plans and prices, channels, chains, founders and how to refer to it.",
 });
 
 export default function Page() {

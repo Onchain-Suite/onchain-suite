@@ -6,7 +6,6 @@ import {
   CHAINS,
   CHANNELS,
   COMPANY,
-  DATUM_LABS,
   DEVELOPERS,
   FOUNDERS,
   NAME,
@@ -122,11 +121,6 @@ export function AboutBody() {
           <p>
             <Link href="/team">Meet the team</Link>.
           </p>
-        </section>
-
-        <section>
-          <h2>OnchainSuite and Datum Labs</h2>
-          <p>{DATUM_LABS}</p>
         </section>
 
         <section>

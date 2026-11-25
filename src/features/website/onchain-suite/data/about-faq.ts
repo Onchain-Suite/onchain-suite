@@ -1,7 +1,6 @@
 import {
   CHAINS,
   CHANNELS,
-  DATUM_LABS,
   FOUNDERS,
   PLANS,
   TOP_TIER,
@@ -12,10 +11,6 @@ import {
  * is a brand question people ask AI tools, answered in the first sentence.
  */
 export const ABOUT_FAQ: ReadonlyArray<{ q: string; a: string }> = [
-  {
-    q: "Is OnchainSuite part of Datum Labs?",
-    a: `No. ${DATUM_LABS}`,
-  },
   {
     q: "How much does OnchainSuite cost?",
     a: `The Suite plan starts at $39 a month and the Send plan at $6 a month. Suite: ${PLANS.suite.summary} Send: ${PLANS.send.summary} Above 75,000 contacts the plan is ${TOP_TIER} ${PLANS.freePlan}`,

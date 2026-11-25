@@ -28,6 +28,10 @@ describe("llms.txt", () => {
     expect(channels).toContain("does not send on Telegram, Discord or X");
   });
 
+  it("never mentions Datum Labs", () => {
+    expect(txt.toLowerCase()).not.toContain("datum");
+  });
+
   it("uses absolute www links and no em-dashes", () => {
     expect(txt).toContain("https://www.onchainsuite.com/pricing");
     expect(txt).not.toContain(String.fromCharCode(0x2014));

@@ -30,8 +30,6 @@ export function StructuredData() {
           "@type": "ImageObject",
           url: SITE_CONFIG.logo,
         },
-        // OnchainSuite is independent of Datum Labs (brand fact F10). That is
-        // said once, on /about, and never in the site-wide description.
         legalName: NAME.legal,
         description: ONE_LINER,
         foundingDate: COMPANY.incorporatedIso,

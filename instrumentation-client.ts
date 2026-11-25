@@ -1,5 +1,10 @@
 import posthog from "posthog-js";
 
+import {
+  getConsent,
+  subscribeConsent,
+} from "@/shared/components/cookie-consent/consent";
+
 const projectToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
 const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 
@@ -12,10 +17,17 @@ if (!projectToken || !host) {
     );
   }
 } else {
+  // PECR: PostHog keeps its id in memory only (nothing stored on the device)
+  // until the visitor accepts "Analytics" in the cookie banner; then it
+  // switches to its normal cookie + localStorage persistence.
+  const persistence = () =>
+    getConsent()?.analytics ? "localStorage+cookie" : "memory";
   posthog.init(projectToken, {
     api_host: host,
+    persistence: persistence(),
     defaults: "2026-01-30",
     capture_exceptions: true,
     debug: process.env.NODE_ENV === "development",
   });
+  subscribeConsent(() => posthog.set_config({ persistence: persistence() }));
 }

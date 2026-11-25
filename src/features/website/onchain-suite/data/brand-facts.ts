@@ -76,10 +76,34 @@ export const DEVELOPERS =
   "An in-app SDK (@onchainsuite/sdk), a REST API and signed webhooks, documented at docs.onchainsuite.com.";
 
 /** F9. Founders, as /team lists them. Confirmed by Olusegun, 25 Nov 2026. */
-export const FOUNDERS: ReadonlyArray<{ name: string; role: string }> = [
-  { name: "Olusegun Isaac Aborode", role: "Founder and CEO" },
-  { name: "Joshua Obafemi", role: "Cofounder and CTO" },
-  { name: "Joel Obafemi", role: "Cofounder and analytics lead" },
+export const FOUNDERS: ReadonlyArray<{
+  name: string;
+  role: string;
+  initials: string;
+  color: string;
+  bio: string;
+}> = [
+  {
+    name: "Olusegun Isaac Aborode",
+    role: "Founder and CEO",
+    initials: "OA",
+    color: "#1727E0",
+    bio: "Leads product, customers, commercial execution and finance. His background combines blockchain data analysis with growth and customer lifecycle work, from data pipelines and wallet analysis to CRM, segmentation and email campaigns.",
+  },
+  {
+    name: "Joshua Obafemi",
+    role: "Cofounder and CTO",
+    initials: "JO",
+    color: "#2F94FF",
+    bio: "Leads architecture, infrastructure, engineering standards, deployment and security, including the indexing, identity and delivery work that makes on-chain activity something a team can message.",
+  },
+  {
+    name: "Joel Obafemi",
+    role: "Cofounder and analytics lead",
+    initials: "JO",
+    color: "#7C5CF6",
+    bio: "Leads how application data is interpreted, its quality, the analytical methods behind it and how customer results are measured.",
+  },
 ];
 
 /** F10. No Datum Labs mention anywhere on the site (Olusegun, 25 Nov 2026). */
@@ -93,5 +117,18 @@ export const COMPANY = {
   based: "Birmingham, United Kingdom",
 } as const;
 
-/** F12. Public numbers on /about. Kept to the company record until others are approved. */
+/**
+ * F12. Public numbers on /about, from the OnchainSuite business plan (section
+ * 1.2 and 1.5, November 2026). Update them here when the plan's figures move.
+ */
+export const ABOUT_STATS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: "7", label: "paying clients" },
+  { value: "4", label: "countries: the UK, the UAE, the US and Canada" },
+  { value: "100,000+", label: "messages sent through the platform" },
+  {
+    value: "26",
+    label: "mainstream pricing plans compared. None reads the blockchain.",
+  },
+];
+
 export const ABOUT_UPDATED = "2026-11-25";

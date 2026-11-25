@@ -29,6 +29,7 @@ export const SubprocessorsPage: FC;
 export const DataTransfersPage: FC;
 // Team + Free tools pages (each brings its own SiteChrome).
 export const TeamPage: FC;
+export const CloseCta: FC<{ mainstream?: boolean }>;
 export const ToolsHub: FC;
 export const CpaPage: FC;
 export const ChurnCalculatorPage: FC;

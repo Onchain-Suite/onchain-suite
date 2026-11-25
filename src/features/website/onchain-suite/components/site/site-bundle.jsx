@@ -18823,6 +18823,7 @@ export {
   SubprocessorsPage,
   DataTransfersPage,
   TeamPage,
+  CloseCta,
   ToolsHub,
   CpaPage,
   ChurnCalculatorPage,

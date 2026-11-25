@@ -18,50 +18,49 @@ const ENGINE: ReadonlyArray<{ k: string; t: string; d: string }> = [
   {
     k: "LCIE",
     t: "Lifecycle Intelligence Engine",
-    d: "Brings social, product and blockchain data into one record per customer, whether they first arrived by email, an app account or a wallet.",
+    d: "One record per customer across email, app account and wallet.",
   },
   {
     k: "CNS + PNS",
     t: "Chain and Protocol Normalisation",
-    d: "CNS turns raw chain data into consistent records on every supported chain. PNS reads those records as business actions: a deposit, a withdrawal, a membership.",
+    d: "Raw chain data turned into business actions: deposits, withdrawals, memberships.",
   },
   {
     k: "MCP + Loops",
     t: "Intelligence MCP and Loops",
-    d: "Growth teams ask questions in plain English, approve the segments it suggests, and run campaigns and automated journeys by email and in-app without waiting on a developer.",
+    d: "Questions in plain English. Campaigns and automated journeys by email and in-app.",
   },
 ];
 
-const STORY: ReadonlyArray<{ y: string; t: string; d: string }> = [
+const MILESTONES: ReadonlyArray<{ y: string; t: string; d: string }> = [
   {
     y: "2022",
-    t: "The problem, up close",
-    d: "Leading growth at Rocket3, a blockchain marketing agency, across more than 14 client portfolios, Olusegun watched teams run retention by hand in tools that could not see the chain. Every campaign began with a developer's export.",
+    t: "Problem found",
+    d: "Our founder leads growth for 14+ blockchain clients at Rocket3. Retention runs by hand.",
   },
   {
     y: "2024",
-    t: "OnchainSuite begins",
-    d: "Research and development started in 2024, and OnchainSuite itself in November, in the final month of Olusegun's MSc at Ulster University's Birmingham campus.",
+    t: "Founded",
+    d: "Research and development begins. OnchainSuite starts in November.",
   },
   {
     y: "2025",
-    t: "Back to the drawing board",
-    d: "A first soft launch told us the product was too complex. We rebuilt it around the growth and CRM people who use it every day, with early feedback from the founders of Superteam Birmingham.",
+    t: "Rebuilt",
+    d: "Soft launch, then a rebuild for simplicity based on user feedback.",
   },
   {
     y: "2026",
-    t: "Paying clients, and a company",
-    d: `Our first clients started paying in July, and ${NAME.legal} was incorporated in Birmingham on ${COMPANY.incorporated}. In October we joined Stripe's startup programme, and by November more than 100,000 messages had gone out through the platform.`,
+    t: "Commercial",
+    d: `First paying clients in July. ${NAME.legal} incorporated on ${COMPANY.incorporated}. Stripe startup programme in October. 100,000+ messages sent by November.`,
   },
   {
     y: "Next",
-    t: "From private beta to every blockchain company",
-    d: "We are in private beta today. Next come a public beta, wider chain and protocol coverage, and a team built here in Birmingham.",
+    t: "Public beta",
+    d: "Wider chain coverage and a UK team in Birmingham.",
   },
 ];
 
-// Paying clients that the site already shows in its logo row, described as
-// the business plan describes them.
+// Paying clients that the site already shows in its logo row.
 const CLIENTS: ReadonlyArray<{
   name: string;
   logo: string;
@@ -72,69 +71,68 @@ const CLIENTS: ReadonlyArray<{
     name: "ADI PredictStreet",
     logo: "/site/logos/predict-street.png",
     href: "https://adipredictstreet.com/",
-    d: "FIFA's Official Prediction Market Partner for the 2026 World Cup.",
+    d: "FIFA's Official Prediction Market Partner, 2026 World Cup",
   },
   {
     name: "TraderComps",
     logo: "/site/logos/tradercomps.svg",
     href: "https://tradercomps.com/",
-    d: "Runs a calendar of exchange trading competitions from Abu Dhabi.",
+    d: "Exchange trading competitions, Abu Dhabi",
   },
   {
     name: "Sovren",
     logo: "/site/logos/sovren.png",
     href: "https://www.sovrentech.io/",
-    d: "A decentralised network that rewards verified work.",
+    d: "Decentralised network for verified work",
   },
   {
     name: "Surgence Labs",
     logo: "/site/logos/surgence.jpg",
     href: "https://surgence.io/",
-    d: "A blockchain marketing agency in Dubai and Australia, and our agency partner.",
+    d: "Blockchain marketing agency and agency partner",
   },
   {
     name: "Yauga",
     logo: "/site/logos/yauga-stamp.svg",
     href: "https://www.yauga.com/",
-    d: "A blockchain wellness company, and one of our first clients.",
+    d: "Blockchain wellness",
   },
   {
     name: "Rehitage Stays",
     logo: "/site/logos/rehitage.svg",
     href: "https://rehitagestays.co.uk/",
-    d: "Serviced accommodation in South Wales, on our Send plan.",
+    d: "Serviced accommodation, South Wales",
   },
 ];
 
 const FOUNDER_CREDITS: Record<string, ReadonlyArray<string>> = {
   "Olusegun Isaac Aborode": [
+    "Product, clients, commercial and finance",
     "20+ public Dune dashboards, forked 40+ times",
-    "Spoke on blockchain data analytics at a UK Parliament session, January 2026",
-    "Lectured 150 postgraduates at the University of Birmingham",
-    "Co-hosts Superteam Birmingham, 120+ blockchain founders",
+    "Speaker, UK Parliament session on blockchain data, 2026",
+    "Co-host, Superteam Birmingham (120+ founders)",
   ],
   "Joshua Obafemi": [
-    "Builds the web application, backend and servers",
-    "Owns deployment, security and documentation",
+    "Technical roadmap and architecture",
+    "Web application, backend and infrastructure",
+    "Deployment, security and documentation",
   ],
   "Joel Obafemi": [
-    "Data engineering, data quality and analytical methods",
-    "Takes every client through onboarding",
+    "Data engineering and data quality",
+    "Analytical methodology",
+    "Client onboarding",
   ],
 };
 
 const NEXT: ReadonlyArray<{ t: string; d: string }> = [
+  { t: "More chains and protocols", d: "Wider CNS and PNS coverage." },
   {
-    t: "Every chain and protocol, read the same way",
-    d: "Wider CNS and PNS coverage, so a deposit means a deposit wherever it happens.",
+    t: "Predictive scoring",
+    d: "Our machine learning data model, released once testing supports it.",
   },
   {
-    t: "Predictions you can act on",
-    d: "Our machine learning data model, tested against today's rules before it scores a single customer.",
-  },
-  {
-    t: "A team built in Birmingham",
-    d: "Engineering, data and client success hires in the UK, serving blockchain companies worldwide.",
+    t: "A UK team",
+    d: "Engineering, data and client success hires in Birmingham.",
   },
 ];
 
@@ -146,7 +144,7 @@ const RECORD: ReadonlyArray<[label: string, value: string]> = [
 ];
 
 const MISSION =
-  "OnchainSuite is building the retention layer for every blockchain company: the software a growth or CRM team uses to see what each customer does in the product and on the chain, and to send the message that keeps them.";
+  "OnchainSuite is retention and lifecycle software for blockchain companies. It reads what each customer does in the app and on-chain, and sends the message that brings them back.";
 
 // AboutPage with a dateModified that matches the "Updated" line in the company
 // record, and the FAQPage for the questions shown at the foot of the page.
@@ -181,8 +179,8 @@ const UPDATED_LABEL = new Date(`${ABOUT_UPDATED}T00:00:00Z`).toLocaleDateString(
 );
 
 /**
- * /about: the company page. Mission, the problem, the engine, our story,
- * numbers, clients, founders and where we are going, then the company record
+ * /about: the company page. Mission, the problem, the platform, milestones,
+ * numbers, clients, leadership and what comes next, then the company record
  * and the FAQ that AI tools quote. Company facts come from data/brand-facts.ts
  * (the same source as /llms.txt and the JSON-LD); the story and proof points
  * come from the OnchainSuite business plan, limited to what is public.
@@ -202,37 +200,23 @@ export function AboutBody() {
           The retention layer for every blockchain company.
         </h1>
         <p className="ab-lede load" style={{ animationDelay: ".16s" }}>
-          Klaviyo, Braze and Customer.io gave mainstream companies a way to keep
-          their customers. Blockchain companies never got one, because their
-          customers live in two places at once: inside the app and on the chain.
-          OnchainSuite reads both, and turns what it sees into the next message.
+          {MISSION}
         </p>
       </section>
 
       <section className="ab-sec ab-problem" aria-labelledby="ab-prob-h">
-        <p className="ab-kicker rv">The problem</p>
         <h2 className="ab-big rv" id="ab-prob-h">
-          A customer deposits into a vault, withdraws five days later and never
-          touches the contract again.{" "}
-          <span>Most growth teams never see it happen.</span>
+          Blockchain companies cannot see who is leaving.{" "}
+          <span>
+            Their customer data is split between the app and the chain, and
+            tools like Klaviyo and Braze read neither.
+          </span>
         </h2>
-        <p className="ab-p rv">
-          That story is written on the blockchain as strings of numbers, far
-          from the CRM, the email tool and the social profiles. So growth teams
-          report what they can measure, open rates, impressions, Discord numbers
-          and total value locked, and every real campaign starts with a
-          developer export and days of analyst work. We started OnchainSuite to
-          end that.
-        </p>
       </section>
 
       <section className="ab-sec" aria-labelledby="ab-eng-h">
-        <p className="ab-kicker rv">What we are building</p>
         <h2 className="h2 rv" id="ab-eng-h">
-          One engine that understands crypto customers.{" "}
-          <span>
-            Built so the person who knows the customers does the work.
-          </span>
+          The platform
         </h2>
         <div className="ab-engine">
           {ENGINE.map((e) => (
@@ -246,18 +230,16 @@ export function AboutBody() {
       </section>
 
       <section className="ab-sec" aria-labelledby="ab-story-h">
-        <p className="ab-kicker rv">Our story</p>
         <h2 className="h2 rv" id="ab-story-h">
-          Built by people who sent the campaigns.{" "}
-          <span>Rebuilt when customers told us to.</span>
+          Milestones
         </h2>
         <ol className="ab-story">
-          {STORY.map((s) => (
-            <li key={s.y} className="rv">
-              <i>{s.y}</i>
+          {MILESTONES.map((m) => (
+            <li key={m.y} className="rv">
+              <i>{m.y}</i>
               <div>
-                <h3>{s.t}</h3>
-                <p>{s.d}</p>
+                <h3>{m.t}</h3>
+                <p>{m.d}</p>
               </div>
             </li>
           ))}
@@ -266,7 +248,7 @@ export function AboutBody() {
 
       <section className="ab-dark" aria-labelledby="ab-num-h">
         <h2 className="ab-dark-h rv" id="ab-num-h">
-          Where we are today
+          By the numbers
         </h2>
         <div className="ab-stats">
           {ABOUT_STATS.map((s) => (
@@ -279,10 +261,8 @@ export function AboutBody() {
       </section>
 
       <section className="ab-sec" aria-labelledby="ab-cl-h">
-        <p className="ab-kicker rv">Clients</p>
         <h2 className="h2 rv" id="ab-cl-h">
-          Seven paying clients in four countries.{" "}
-          <span>From the World Cup to South Wales.</span>
+          Clients <span>7 paying, in 4 countries</span>
         </h2>
         <div className="ab-clients">
           {CLIENTS.map((c) => (
@@ -309,10 +289,8 @@ export function AboutBody() {
       </section>
 
       <section className="ab-sec" aria-labelledby="ab-team-h">
-        <p className="ab-kicker rv">Founders</p>
         <h2 className="h2 rv" id="ab-team-h">
-          Onchain data on one side, growth on the other.{" "}
-          <span>The team that joins them.</span>
+          Leadership
         </h2>
         <div className="team ab-team">
           {FOUNDERS.map((f) => (
@@ -345,11 +323,8 @@ export function AboutBody() {
       </section>
 
       <section className="ab-sec ab-next" aria-labelledby="ab-next-h">
-        <p className="ab-kicker rv">Where we are going</p>
-        <h2 className="ab-big rv" id="ab-next-h">
-          Every blockchain company with a live product should know who is
-          drifting, and win them back.{" "}
-          <span>That is the company we are building.</span>
+        <h2 className="h2 rv" id="ab-next-h">
+          What comes next
         </h2>
         <ol className="steps3n ab-pillars">
           {NEXT.map((n, i) => (

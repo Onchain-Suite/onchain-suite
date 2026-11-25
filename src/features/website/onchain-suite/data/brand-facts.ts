@@ -14,7 +14,7 @@ export const DOCS_URL = "https://docs.onchainsuite.com";
 
 /** F1. The one-line description. Matches the homepage meta description. */
 export const ONE_LINER =
-  "OnchainSuite is retention and lifecycle software for blockchain companies. It reads what customers do in your app and on the chain, puts every wallet and email on one record, and sends email and in-app messages when someone deposits, withdraws or goes quiet.";
+  "OnchainSuite is retention and lifecycle software for blockchain companies. It lets companies message their users by email and in-app based on what those users do, in the app and on the chain.";
 
 /** F2. Name and spelling. */
 export const NAME = {

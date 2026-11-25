@@ -1,7 +1,6 @@
 import {
   CHAINS,
   CHANNELS,
-  FOUNDERS,
   PLANS,
   TOP_TIER,
 } from "@/onchain-suite-website/data/brand-facts";
@@ -22,9 +21,5 @@ export const ABOUT_FAQ: ReadonlyArray<{ q: string; a: string }> = [
   {
     q: "Which chains does OnchainSuite support?",
     a: CHAINS,
-  },
-  {
-    q: "Who founded OnchainSuite?",
-    a: `${FOUNDERS.map((f) => `${f.name} (${f.role})`).join(", ")}.`,
   },
 ];

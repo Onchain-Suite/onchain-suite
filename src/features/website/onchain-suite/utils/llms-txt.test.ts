@@ -28,7 +28,13 @@ describe("llms.txt", () => {
     expect(channels).toContain("does not send on Telegram, Discord or X");
   });
 
-  it("never mentions Datum Labs", () => {
+  it("gives the founding year and the incorporation date", () => {
+    const company = txt.split("\n").find((l) => l.startsWith("- Company:"));
+    expect(company).toContain("founded in 2024, incorporated 30 July 2026");
+  });
+
+  it("never mentions Datum Labs or Atlas", () => {
+    expect(txt.toLowerCase()).not.toContain("atlas");
     expect(txt.toLowerCase()).not.toContain("datum");
   });
 

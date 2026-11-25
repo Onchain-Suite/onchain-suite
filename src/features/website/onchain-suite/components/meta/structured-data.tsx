@@ -32,7 +32,7 @@ export function StructuredData() {
         },
         legalName: NAME.legal,
         description: ONE_LINER,
-        foundingDate: COMPANY.incorporatedIso,
+        foundingDate: COMPANY.founded,
         sameAs: SAME_AS,
       },
       {

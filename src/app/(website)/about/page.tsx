@@ -7,7 +7,7 @@ import { pageMeta } from "@/onchain-suite-website/config/page-meta";
 export const metadata: Metadata = pageMeta("/about", {
   title: "About",
   description:
-    "OnchainSuite is building the retention layer for every blockchain company. Our story, the engine, our clients, the founders and the facts about OnchainSuite Ltd.",
+    "OnchainSuite is the customer relationship layer for the onchain economy. We give blockchain companies customers who stay, come back and grow with them.",
 });
 
 export default function Page() {

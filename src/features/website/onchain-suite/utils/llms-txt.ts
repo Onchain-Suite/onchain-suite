@@ -57,7 +57,7 @@ export function buildLlmsTxt(): string {
     "",
     "## Facts",
     "",
-    `- Company: ${NAME.legal}, registered in ${COMPANY.jurisdiction} (company number ${COMPANY.number}), incorporated ${COMPANY.incorporated}, based in ${COMPANY.based}.`,
+    `- Company: ${NAME.legal}, registered in ${COMPANY.jurisdiction} (company number ${COMPANY.number}), founded in ${COMPANY.founded}, incorporated ${COMPANY.incorporated}, based in ${COMPANY.based}.`,
     `- Suite plan, for ${PLANS.suite.for}: ${PLANS.suite.summary}`,
     `- Send plan, for ${PLANS.send.for}: ${PLANS.send.summary}`,
     `- Top tier: ${TOP_TIER} ${PLANS.freePlan}`,

@@ -777,6 +777,34 @@ footer.dark{ padding:72px 0 0; }
 .facts > div{ padding:28px; display:grid; gap:6px; } .facts > div + div{ border-left:1px solid var(--line); }
 .facts small{ font:500 11.5px var(--mono); letter-spacing:.05em; text-transform:uppercase; color:var(--grey); } .facts b{ font-weight:500; }
 @media (max-width:1000px){ .team{ grid-template-columns:1fr; padding:0 16px 64px; } .facts{ grid-template-columns:1fr 1fr; } .facts > div:nth-child(3){ border-left:0; } .facts > div:nth-child(n+3){ border-top:1px solid var(--line); } }
+/* ---------- about ---------- */
+.ab-hero .h1{ max-width:960px; margin-inline:auto; }
+.ab-hero .sub{ max-width:620px; margin-inline:auto; }
+.ab-split{ margin:48px auto 0; text-align:left; }
+.ab-kicker{ margin:0 0 18px; font:500 12.5px var(--mono); letter-spacing:.06em; text-transform:uppercase; color:var(--accent); }
+.ab-sec{ border-top:1px solid var(--line); padding:96px 56px; }
+.ab-sec > .h2{ max-width:900px; }
+.ab-big{ margin:0; max-width:980px; font-weight:500; font-size:clamp(28px,3.8vw,48px); line-height:1.12; letter-spacing:-.02em; text-wrap:balance; }
+.ab-p{ margin:28px 0 0; max-width:720px; font-size:17px; line-height:1.65; color:var(--soft); }
+/* journey: a simple timeline, the page's largest section */
+.ab-journey{ list-style:none; margin:56px 0 0; padding:0; position:relative; }
+.ab-journey::before{ content:""; position:absolute; left:7px; top:8px; bottom:8px; width:1px; background:var(--line); }
+.ab-journey li{ position:relative; display:grid; grid-template-columns:200px minmax(0,1fr); gap:32px; padding:0 0 56px 40px; }
+.ab-journey li:last-child{ padding-bottom:0; }
+.ab-journey li::before{ content:""; position:absolute; left:0; top:12px; width:15px; height:15px; border-radius:50%; background:#fff; border:2px solid var(--accent); }
+.ab-journey li:last-child::before{ background:var(--accent); }
+.ab-journey i{ font-style:normal; font-weight:500; font-size:clamp(40px,5vw,64px); letter-spacing:-.04em; line-height:1; color:var(--ink); }
+.ab-journey h3{ margin:4px 0 0; font-size:22px; font-weight:600; letter-spacing:-.01em; }
+.ab-journey p{ margin:12px 0 0; max-width:680px; font-size:17px; line-height:1.65; color:var(--soft); }
+.ab-platform{ margin:48px 0 0; grid-template-columns:repeat(4,minmax(0,1fr)); }
+.ab-cta{ text-align:center; }
+.ab-cta .ab-big{ margin-inline:auto; }
+@media (max-width:1000px){
+  .ab-sec{ padding:64px 16px; }
+  .ab-journey li{ grid-template-columns:1fr; gap:10px; padding:0 0 44px 32px; }
+  .ab-journey i{ font-size:40px; }
+  .ab-platform{ grid-template-columns:1fr; margin:32px 0 0; }
+}
 /* ---------- book a walkthrough ---------- */
 .book{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:56px; padding:72px 56px 88px; align-items:start; }
 .book .h1{ margin:20px 0 0; text-align:left; font-size:clamp(34px,4.2vw,50px); }

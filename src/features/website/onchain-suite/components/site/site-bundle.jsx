@@ -5514,8 +5514,8 @@ function HomeBody() {
               history, <span>not an empty table.</span>
             </h2>
             <p className="atlas-def rv">
-              Atlas is the blockchain data warehouse OnchainSuite reads from,
-              built with Datum Labs. It holds decoded records for those
+              Atlas is the blockchain data warehouse OnchainSuite reads from.
+              It holds decoded records for those
               applications across EVM chains, going back to the first block.
             </p>
             <div className="stats">
@@ -5695,8 +5695,10 @@ var EXTRA_SEAT_USD = 10;
 var levelFor = (c) => (c >= 75e3 ? "pro" : c >= 25e3 ? "growth" : "launch");
 var suitePrice = (c) =>
   Math.round(MULT[levelFor(c)] * (CURVE.base + (CURVE.per1k * c) / 1e3));
-var seatsIncluded = (c) =>
-  c >= 75e3 ? 7 : c >= 5e4 ? 5 : c >= 25e3 ? 4 : c >= 1e4 ? 3 : 2;
+// Flat per level, as the backend grants and utils/suite-pricing.ts states:
+// Launch 3, Growth 5, Enterprise 7.
+var SEATS_BY_LEVEL = { launch: 3, growth: 5, pro: 7 };
+var seatsIncluded = (c) => SEATS_BY_LEVEL[levelFor(c)];
 var allowances = (c) => ({
   credits: c * 4,
   ons: c,
@@ -5829,11 +5831,7 @@ var COMPARE_GROUPS = [
       {
         label: "Team seats included",
         note: "Extra seats are $10 a month each, up to 50.",
-        cells: [
-          "2, or 3 from 10,000 contacts",
-          "4, or 5 from 50,000 contacts",
-          "Custom",
-        ],
+        cells: ["3", "5", "Custom"],
         send: "Ask us",
       },
     ],
@@ -10090,7 +10088,7 @@ var NEVER = [
 var FAQS = [
   {
     q: "Where does the on-chain data come from?",
-    a: "From Atlas, the blockchain data warehouse OnchainSuite reads from, which we built with Datum Labs. CNS and PNS then turn those records into actions on your customer records.",
+    a: "From Atlas, the blockchain data warehouse OnchainSuite reads from. CNS and PNS then turn those records into actions on your customer records.",
   },
   {
     q: "Do you support every application and chain?",
@@ -10228,8 +10226,8 @@ function DataPage() {
               <span>Not from an empty table.</span>
             </h2>
             <p className="atlas-def rv">
-              Atlas is the blockchain data warehouse OnchainSuite reads from,
-              built with Datum Labs. It holds backfilled, decoded records for
+              Atlas is the blockchain data warehouse OnchainSuite reads from.
+              It holds backfilled, decoded records for
               lending, perpetuals and real-world-asset applications across EVM
               chains, going back to the first block. If your product is one of
               those, your customers arrive with their history already attached.
@@ -18821,6 +18819,7 @@ export {
   SubprocessorsPage,
   DataTransfersPage,
   TeamPage,
+  LogoRow,
   ToolsHub,
   CpaPage,
   ChurnCalculatorPage,

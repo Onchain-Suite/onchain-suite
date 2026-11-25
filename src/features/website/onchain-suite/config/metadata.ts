@@ -21,15 +21,15 @@ export function generateMetadata(): Metadata {
       address: false,
       telephone: false,
     },
+    // No alternates.canonical or openGraph.url here. This runs in the root
+    // layout and Next passes it down to every page that does not set its own,
+    // so a "/" canonical told Google every page was the homepage. Each page sets
+    // both through pageMeta() in ./page-meta.ts.
     metadataBase: new URL(SITE_CONFIG_META.url),
-    alternates: {
-      canonical: "/",
-    },
     openGraph: {
       title: TITLE,
       description:
         "Win back the customers who stopped using your protocol. OnchainSuite reads wallet activity and sends email and in-app messages when someone goes quiet.",
-      url: SITE_CONFIG_META.url,
       siteName: SITE_CONFIG_META.name,
       images: [
         {

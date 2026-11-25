@@ -10,6 +10,7 @@ import {
   ReachabilityPage,
   WalletChurnRatePage,
 } from "@/onchain-suite-website/components/site/site-bundle";
+import { pageMeta } from "@/onchain-suite-website/config/page-meta";
 
 export const dynamicParams = false;
 
@@ -69,10 +70,10 @@ export async function generateMetadata({
   const { slug } = await params;
   const tool = TOOLS[slug];
   if (!tool) return { title: "Free tools" };
-  return {
-    title: `${tool.name}`,
+  return pageMeta(`/tools/${slug}`, {
+    title: tool.name,
     description: tool.description,
-  };
+  });
 }
 
 export default async function Page({

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { RetentionPlaybookPage } from "@/onchain-suite-website/components/retention-playbook/retention-playbook-page";
 import { SITE_CONFIG_META } from "@/onchain-suite-website/config";
+import { pageMeta } from "@/onchain-suite-website/config/page-meta";
 import { HERO, META } from "@/onchain-suite-website/data/retention-playbook";
 import {
   parseCategory,
@@ -11,11 +12,10 @@ import {
 
 // Sales collateral sent to prospects by link: keep it out of search results,
 // but give the link a proper preview card when it is pasted into a chat.
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta("/retention-playbook", {
   title: META.title,
   description: META.description,
   robots: { index: false, follow: false },
-  alternates: { canonical: "/retention-playbook" },
   openGraph: {
     title: HERO.title,
     description: HERO.subtitle,
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     description: HERO.subtitle,
     images: [SITE_CONFIG_META.twitterImage],
   },
-};
+});
 
 export default async function Page({
   searchParams,

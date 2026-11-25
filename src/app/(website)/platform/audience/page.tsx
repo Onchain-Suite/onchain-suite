@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 
 import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standalone";
 import { AudiencePage } from "@/onchain-suite-website/components/site/site-bundle";
+import { pageMeta } from "@/onchain-suite-website/config/page-meta";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta("/platform/audience", {
   title: "Audience: one CRM record per wallet",
   description:
     "Every wallet, email and app account on one customer record. Audience brings your lists, your product and your contracts together.",
-};
+});
 
 export default function Page() {
   return (

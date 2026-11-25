@@ -1,6 +1,16 @@
-import { FAQS } from "../landing/content";
 import { SITE_CONFIG } from "@/features/website/onchain-suite/config";
 
+/**
+ * Site-wide JSON-LD, rendered in the root layout, so every fact here goes out
+ * on every page. Keep it to what is true site-wide and matches /pricing:
+ * - Prices come from PACKAGES in components/site/site-bundle.jsx (Launch $39,
+ *   Growth $349 a month, USD).
+ * - Channels: email and in-app only. Telegram is not live; X and Discord DMs
+ *   arrive later. Do not list them until they ship.
+ * - No FAQPage here. Google expects FAQ markup to match questions shown on the
+ *   page, so a page that shows an FAQ emits its own (compare pages do, from
+ *   c.faqs in site-bundle.jsx). The homepage shows no FAQ today.
+ */
 export function StructuredData() {
   const structuredData = {
     "@context": "https://schema.org",
@@ -14,13 +24,9 @@ export function StructuredData() {
           "@type": "ImageObject",
           url: SITE_CONFIG.logo,
         },
-        description:
-          "The communication infrastructure layer for Web3. A retention automation that turns on-chain behavior into multi-channel messaging. A Datum Labs product.",
-        sameAs: [
-          "https://twitter.com/0nchainSuite",
-          "https://discord.gg/onchainsuite",
-          "https://t.me/onchainsuite",
-        ],
+        // "A Datum Labs product" is pending confirmation (SEO Dev Fixes doc).
+        description: `${SITE_CONFIG.description} A Datum Labs product.`,
+        sameAs: [SITE_CONFIG.social.twitter],
       },
       {
         "@type": "WebSite",
@@ -28,7 +34,7 @@ export function StructuredData() {
         url: SITE_CONFIG.url,
         name: SITE_CONFIG.name,
         description:
-          "Web3 retention automation and the communication infrastructure layer for blockchain protocols.",
+          "Retention software for blockchain companies: email and in-app messages triggered by what customers do in your app and on the chain.",
         publisher: {
           "@id": `${SITE_CONFIG.url}/#organization`,
         },
@@ -39,40 +45,44 @@ export function StructuredData() {
         name: SITE_CONFIG.name,
         applicationCategory: "BusinessApplication",
         operatingSystem: "Web",
-        offers: {
-          "@type": "Offer",
-          price: "49",
-          priceCurrency: "USD",
-          priceSpecification: {
-            "@type": "UnitPriceSpecification",
-            price: "299",
+        url: SITE_CONFIG.url,
+        offers: [
+          {
+            "@type": "Offer",
+            name: "Launch",
+            price: "39",
             priceCurrency: "USD",
-            unitText: "MONTH",
+            url: `${SITE_CONFIG.url}/pricing`,
+            priceSpecification: {
+              "@type": "UnitPriceSpecification",
+              price: "39",
+              priceCurrency: "USD",
+              unitText: "MONTH",
+            },
           },
-        },
-        description:
-          "Retention automation for Web3: detect on-chain behavior, resolve wallet identity with zero-knowledge privacy, segment audiences, and re-engage across in-app push, email, Telegram, and Discord.",
-        featureList: [
-          "Wallet-first identity resolution",
-          "Multi-channel activation (in-app push, email, Telegram, Discord)",
-          "Protocol Plays automation library",
-          "Sub-10-minute first-mile onboarding",
-          "Protocol Normalization System across chains",
-          "On-chain behavioral analytics and segmentation",
-          "Privacy-by-design zero-knowledge identity bridge",
+          {
+            "@type": "Offer",
+            name: "Growth",
+            price: "349",
+            priceCurrency: "USD",
+            url: `${SITE_CONFIG.url}/pricing`,
+            priceSpecification: {
+              "@type": "UnitPriceSpecification",
+              price: "349",
+              priceCurrency: "USD",
+              unitText: "MONTH",
+            },
+          },
         ],
-      },
-      {
-        "@type": "FAQPage",
-        "@id": `${SITE_CONFIG.url}/#faq`,
-        mainEntity: FAQS.map((f) => ({
-          "@type": "Question",
-          name: f.q,
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: f.a,
-          },
-        })),
+        description: SITE_CONFIG.description,
+        featureList: [
+          "Every wallet and email on one customer record",
+          "Email and in-app messaging",
+          "Loops: automations triggered by in-app and on-chain events",
+          "Segments built from app and wallet activity",
+          "Intelligence MCP: ask your app and contract data questions in plain English",
+          "Works on Ethereum, Base, Arbitrum, Optimism, Polygon and Solana",
+        ],
       },
     ],
   };

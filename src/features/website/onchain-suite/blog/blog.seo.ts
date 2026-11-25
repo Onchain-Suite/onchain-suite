@@ -3,19 +3,14 @@ import type { BlogPost } from "./blog.types";
 import { SITE_CONFIG } from "@/onchain-suite-website/config/site";
 
 /**
- * Canonical site origin, resolved in one place.
+ * Canonical site origin for SEO (canonical tags, JSON-LD, RSS links).
  *
- * Previously sitemap.ts and robots.ts hardcoded "onchain-suite.vercel.app" while
- * SITE_CONFIG.url said "onchainsuite.com" - two different canonical hosts, which
- * is actively harmful for SEO once per-post canonical URLs exist.
+ * Always SITE_CONFIG.url (https://www.onchainsuite.com), the host the site is
+ * served on. It used to read NEXT_PUBLIC_SERVER_URL first, which Vercel sets to
+ * the apex https://onchainsuite.com (Payload may rely on that), so blog
+ * canonicals pointed at a host that 308-redirects to www.
  */
 export function getSiteUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_SERVER_URL;
-
-  if (configured && configured.trim().length > 0) {
-    return configured.replace(/\/$/, "");
-  }
-
   return SITE_CONFIG.url.replace(/\/$/, "");
 }
 

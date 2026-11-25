@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { getSiteUrl } from "@/onchain-suite-website/blog/blog.seo";
 import {
   getCategoryBySlug,
   listCategories,
@@ -9,6 +8,7 @@ import {
   POSTS_PER_PAGE,
 } from "@/onchain-suite-website/blog/blog.service";
 import { BlogIndexView } from "@/onchain-suite-website/blog/components/blog-index-view";
+import { pageMeta } from "@/onchain-suite-website/config/page-meta";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -40,13 +40,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Category not found" };
   }
 
-  return {
+  return pageMeta(`/blog/category/${slug}`, {
     title: `${category.title} · Blog`,
     description:
       category.description ??
       `OnchainSuite blog posts filed under ${category.title}.`,
-    alternates: { canonical: `${getSiteUrl()}/blog/category/${slug}` },
-  };
+  });
 }
 
 export default async function BlogCategoryPage({

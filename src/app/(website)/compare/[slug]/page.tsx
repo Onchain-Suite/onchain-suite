@@ -6,6 +6,7 @@ import {
   COMPARE_SLUGS,
 } from "@/onchain-suite-website/components/site/compare-meta";
 import { NsComparePage } from "@/onchain-suite-website/components/site/ns-compare-page";
+import { pageMeta } from "@/onchain-suite-website/config/page-meta";
 
 // Only the known competitors render; any other slug 404s.
 export const dynamicParams = false;
@@ -25,10 +26,10 @@ export async function generateMetadata({
   // The other tool's name first, because that is what the searcher typed.
   // "absolute" stops the layout's " · OnchainSuite" template being added on top
   // (the live title read "OnchainSuite vs Customer.io · OnchainSuite · OnchainSuite").
-  return {
+  return pageMeta(`/compare/${slug}`, {
     title: { absolute: `${c.name} vs OnchainSuite for blockchain companies` },
     description: c.description,
-  };
+  });
 }
 
 export default async function Page({

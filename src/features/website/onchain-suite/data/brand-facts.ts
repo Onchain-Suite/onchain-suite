@@ -41,7 +41,7 @@ export const PLANS = {
   freePlan: "There is no free plan.",
 } as const;
 
-/** F4. The top tier, as /pricing shows it. */
+/** F4. The top tier, as /pricing shows it. Confirmed by Olusegun, 25 Nov 2026. */
 export const TOP_TIER =
   "Enterprise, a custom annual contract from 75,000 contacts.";
 
@@ -49,14 +49,14 @@ export const TOP_TIER =
 export const CHAINS =
   "Ethereum, Base, Arbitrum, Optimism and Polygon are watched automatically. Solana events come in through the API.";
 
-/** F6. Channels that ship today, and the wording for what comes next. */
+/** F6. Channels that ship today, and the wording for what comes next (no dates yet). Confirmed by Olusegun, 25 Nov 2026. */
 export const CHANNELS = {
   live: "Email and in-app. In-app reaches a wallet as a message inside your app, a web push when the tab is closed, or a mobile push.",
   upcoming:
     "More channels are on the roadmap. Until they ship, OnchainSuite does not send on Telegram, Discord or X.",
 } as const;
 
-/** F7. Official accounts. Only accounts the company owns and runs. */
+/** F7. Official accounts: X and LinkedIn only (Discord and Telegram dropped). Confirmed by Olusegun, 25 Nov 2026. */
 const X_URL = "https://x.com/0nchainSuite";
 const LINKEDIN_URL = "https://www.linkedin.com/company/onchainsuite";
 
@@ -71,11 +71,11 @@ export const OFFICIAL_ACCOUNTS: ReadonlyArray<{ label: string; url: string }> =
     { label: "LinkedIn", url: LINKEDIN_URL },
   ];
 
-/** F8. Developer surface. The SDK is the public package; the GitHub org is not listed until confirmed. */
+/** F8. Developer surface. The SDK is the public package; the GitHub org is intentionally not listed. Confirmed by Olusegun, 25 Nov 2026. */
 export const DEVELOPERS =
   "An in-app SDK (@onchainsuite/sdk), a REST API and signed webhooks, documented at docs.onchainsuite.com.";
 
-/** F9. Founders, as /team lists them. */
+/** F9. Founders, as /team lists them. Confirmed by Olusegun, 25 Nov 2026. */
 export const FOUNDERS: ReadonlyArray<{ name: string; role: string }> = [
   { name: "Olusegun Isaac Aborode", role: "Founder and CEO" },
   { name: "Joshua Obafemi", role: "Cofounder and CTO" },
@@ -84,7 +84,7 @@ export const FOUNDERS: ReadonlyArray<{ name: string; role: string }> = [
 
 /** F10. No Datum Labs mention anywhere on the site (Olusegun, 25 Nov 2026). */
 
-/** F11. Company record, from the legal pages and Companies House. */
+/** F11. Company record, from the legal pages and Companies House. The incorporation date is the founding date. Confirmed by Olusegun, 25 Nov 2026. */
 export const COMPANY = {
   incorporated: "30 July 2026",
   incorporatedIso: "2026-07-30",

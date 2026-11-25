@@ -8,9 +8,9 @@ describe("llms.txt", () => {
   it("opens with the title and the one-line summary", () => {
     const [title, , summary] = txt.split("\n");
     expect(title).toBe("# OnchainSuite");
-    expect(summary.startsWith("> OnchainSuite is retention software")).toBe(
-      true
-    );
+    expect(
+      summary.startsWith("> OnchainSuite is retention and lifecycle software")
+    ).toBe(true);
   });
 
   it("states the /pricing prices, not the old schema prices", () => {

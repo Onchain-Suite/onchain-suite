@@ -8,6 +8,10 @@ import { generateMetadata } from "@/onchain-suite-website/config";
 import { ClarityAnalytics } from "@/shared/components/clarity-analytics";
 import { DatabuddyAnalytics } from "@/shared/components/databuddy-analytics";
 import {
+  GoogleAnalytics,
+  GoogleConsentDefaults,
+} from "@/shared/components/google-analytics";
+import {
   geistMono,
   instrumentSans,
   inter,
@@ -34,6 +38,7 @@ export default function RootLayout({
     >
       <head>
         <StructuredData />
+        <GoogleConsentDefaults />
       </head>
       <body className="antialiased" suppressHydrationWarning>
         <RootProviders>{children}</RootProviders>
@@ -41,6 +46,7 @@ export default function RootLayout({
         <SpeedInsights />
         <ClarityAnalytics />
         <DatabuddyAnalytics />
+        <GoogleAnalytics />
       </body>
     </html>
   );

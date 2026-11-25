@@ -84,16 +84,17 @@ const APP_CSP_REPORT_ONLY = [
   // cdn.databuddy.cc serves the Databuddy tracker + session-replay recorder
   // (databuddy.js / replay.js), mounted app-wide in the root layout.
   // connect.facebook.net: the Facebook JS SDK for WhatsApp Embedded Signup.
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.clarity.ms https://cdn.databuddy.cc https://connect.facebook.net${posthogCspSources.script}`,
+  // www.googletagmanager.com: gtag.js for GA4 (shared/components/google-analytics).
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.clarity.ms https://cdn.databuddy.cc https://connect.facebook.net https://www.googletagmanager.com${posthogCspSources.script}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   // Logo CDNs for the audience on-chain columns: chain/protocol icons from
   // DefiLlama, token icons from Covalent (the latter already loaded via
   // backend-provided logoUrl); vendor favicons for the integrations connector
   // cards from DuckDuckGo. Declared so they survive the flip to enforce.
-  "img-src 'self' data: blob: https://res.cloudinary.com https://*.clarity.ms https://icons.llamao.fi https://logos.covalenthq.com https://icons.duckduckgo.com",
+  "img-src 'self' data: blob: https://res.cloudinary.com https://*.clarity.ms https://icons.llamao.fi https://logos.covalenthq.com https://icons.duckduckgo.com https://*.google-analytics.com https://*.googletagmanager.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   // basket.databuddy.cc is Databuddy's event + session-replay ingest endpoint.
-  `connect-src 'self' https://*.clarity.ms https://challenges.cloudflare.com https://basket.databuddy.cc https://*.facebook.com${posthogCspSources.connect}`,
+  `connect-src 'self' https://*.clarity.ms https://challenges.cloudflare.com https://basket.databuddy.cc https://*.facebook.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com${posthogCspSources.connect}`,
   // *.facebook.com: the SDK's cross-domain frames for the Embedded Signup popup.
   "frame-src 'self' https://challenges.cloudflare.com https://*.facebook.com",
   "worker-src 'self' blob:",

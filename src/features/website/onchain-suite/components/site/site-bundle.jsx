@@ -29,6 +29,7 @@ import {
 } from "react";
 
 import { track } from "@vercel/analytics";
+import { openConsentPreferences } from "@/shared/components/cookie-consent/consent";
 import { COMPARE_BY_SLUG } from "./compare-meta";
 import NextLink from "next/link";
 import { usePathname as __useNextPathname } from "next/navigation";
@@ -1839,6 +1840,13 @@ function SiteChrome({ children }) {
                   {l.label}
                 </Link>
               ))}
+              <button
+                type="button"
+                className="ft-cookie-btn"
+                onClick={openConsentPreferences}
+              >
+                Cookie settings
+              </button>
             </div>
             <div className="ft-badges">
               <span className="trust-b">
@@ -18374,45 +18382,78 @@ function CookiesPage() {
 
       <h2>2. Categories we use</h2>
       <p>
-        Our website currently sets only strictly necessary cookies. We do not
-        use analytics, advertising, or third-party tracking cookies.
+        We group cookies and similar technologies into three categories. Only
+        strictly necessary ones are on by default; the others stay off until you
+        accept them in our cookie banner.
       </p>
       <table>
         <tbody>
           <tr>
             <th>Strictly necessary</th>
             <td>
-              Required for the site to function (security, load balancing, and
-              remembering your cookie choice). Always on; no consent required
-              under PECR.
+              Required for the site and app to work: sign-in and session
+              security, load balancing, and the <code>ocs_consent</code> cookie
+              that remembers your cookie choice for up to 6 months. Always on;
+              no consent required under PECR.
             </td>
           </tr>
           <tr>
-            <th>Analytics, advertising, tracking</th>
+            <th>Analytics</th>
             <td>
-              Not used. If we introduce any non-essential cookies in future, we
-              will update this policy and ask for your consent before setting
-              them.
+              Help us understand which pages are visited and what works, so we
+              can improve the site. Providers: Google Analytics 4 (cookies such
+              as <code>_ga</code>, up to 13 months), Databuddy, and PostHog
+              (product analytics, <code>ph_*</code> cookies). Set only if you
+              accept Analytics. Until then Google Analytics runs in a cookieless
+              mode and PostHog keeps nothing on your device.
             </td>
+          </tr>
+          <tr>
+            <th>Session recordings</th>
+            <td>
+              Replays and heatmaps of how pages are used, with typed text always
+              masked. Providers: Microsoft Clarity (cookies such as{" "}
+              <code>_clck</code> and <code>_clsk</code>, up to 1 year) and
+              Databuddy session replay. Set only if you accept Session
+              recordings.
+            </td>
+          </tr>
+          <tr>
+            <th>Advertising</th>
+            <td>Not used.</td>
           </tr>
         </tbody>
       </table>
+      <p>
+        We also use Vercel Web Analytics and Speed Insights, which measure page
+        views and performance without cookies or storing anything on your
+        device.
+      </p>
 
       <h2>3. Managing your choices</h2>
       <p>
-        Because we currently set only strictly necessary cookies, we do not show
-        a consent banner. If we introduce non-essential cookies, we will ask for
-        your consent first and give you a way to change your choice at any time.
-        You can also block or delete cookies in your browser settings, though
-        some features may not work as intended.
+        When you first visit, a banner asks for your choice. &ldquo;Reject
+        all&rdquo; is as easy as &ldquo;Accept all&rdquo;, and you can pick
+        categories one by one. You can change or withdraw your choice at any
+        time:{" "}
+        <button
+          type="button"
+          className="legal-cookie-btn"
+          onClick={openConsentPreferences}
+        >
+          open cookie settings
+        </button>
+        , or use &ldquo;Cookie settings&rdquo; in the footer of any page. If you
+        withdraw consent we stop the tools straight away and remove their
+        cookies where we can. You can also block or delete cookies in your
+        browser settings, though some features may not work as intended.
       </p>
 
       <h2>4. Third-party cookies</h2>
       <p>
-        We do not currently allow third parties to set cookies through our site.
-        The vendors we use to run the service are listed on our{" "}
-        <a href="/subprocessors">Sub-processors</a> page; if any begins setting
-        cookies via our site, we will update this policy first.
+        The analytics and session-recording providers above set their cookies
+        only with your consent. They are listed with our other vendors on our{" "}
+        <a href="/subprocessors">Sub-processors</a> page.
       </p>
 
       <h2>5. Contact</h2>

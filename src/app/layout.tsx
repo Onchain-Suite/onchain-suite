@@ -6,6 +6,7 @@ import "@/styles/globals.css";
 import { StructuredData } from "@/onchain-suite-website/components";
 import { generateMetadata } from "@/onchain-suite-website/config";
 import { ClarityAnalytics } from "@/shared/components/clarity-analytics";
+import { ConsentBanner } from "@/shared/components/cookie-consent";
 import { DatabuddyAnalytics } from "@/shared/components/databuddy-analytics";
 import {
   GoogleAnalytics,
@@ -47,6 +48,7 @@ export default function RootLayout({
         <ClarityAnalytics />
         <DatabuddyAnalytics />
         <GoogleAnalytics />
+        <ConsentBanner />
       </body>
     </html>
   );

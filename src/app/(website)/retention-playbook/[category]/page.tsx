@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { PlaybookChapterPage } from "@/onchain-suite-website/components/retention-playbook/playbook-chapter-page";
 import { SITE_CONFIG_META } from "@/onchain-suite-website/config";
+import { pageMeta } from "@/onchain-suite-website/config/page-meta";
 import { CLIENT_STRATEGIES } from "@/onchain-suite-website/data/clients";
 import { PLAYBOOK_CHAPTERS } from "@/onchain-suite-website/data/playbooks";
 import type { Chapter } from "@/onchain-suite-website/types/retention-playbook";
@@ -46,11 +47,10 @@ export async function generateMetadata({
   if (!chapter) {
     return { robots: { index: false, follow: false } };
   }
-  return {
+  return pageMeta(strategyPathForSlug(category), {
     title: chapter.title,
     description: chapter.dek,
     robots: { index: false, follow: false },
-    alternates: { canonical: strategyPathForSlug(category) },
     openGraph: {
       title: chapter.title,
       description: chapter.dek,
@@ -64,7 +64,7 @@ export async function generateMetadata({
       description: chapter.dek,
       images: [SITE_CONFIG_META.twitterImage],
     },
-  };
+  });
 }
 
 export default async function Page({

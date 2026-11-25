@@ -706,6 +706,8 @@ footer.dark{ padding:72px 0 0; }
 .vs-hero .ctas{ justify-content:flex-start; }
 .vs-why{ border-top:1px solid var(--line); padding:88px 56px; display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:56px; }
 .vs-why .h2{ margin-top:18px; font-size:clamp(24px,2.6vw,32px); line-height:1.2; }
+.vs-why .vs-why-lede{ margin:12px 0 0; font-weight:500; font-size:clamp(24px,2.6vw,32px); line-height:1.2; color:var(--grey); text-wrap:balance; }
+.vs-hero .vs-updated{ margin:14px 0 0; font-size:14px; color:var(--grey); }
 .vs-hl{ display:grid; gap:0; border-top:1px solid var(--line); align-content:start; }
 .vs-hl > div{ display:grid; grid-template-columns:22px 1fr; gap:14px; padding:18px 0; border-bottom:1px solid var(--line); }
 .vs-hl svg{ width:20px; height:20px; color:var(--accent); margin-top:2px; }

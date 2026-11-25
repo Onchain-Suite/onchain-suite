@@ -5,7 +5,7 @@ import {
   listCategories,
   listPublishedPostRefs,
 } from "@/onchain-suite-website/blog/blog.service";
-import { COMPARE_SLUGS } from "@/onchain-suite-website/components/site/compare-meta";
+import { COMPARE_META } from "@/onchain-suite-website/components/site/compare-meta";
 import { SITE_CONFIG } from "@/onchain-suite-website/config/site";
 
 // Same canonical host the pages' <link rel="canonical"> uses, so the sitemap, the
@@ -15,6 +15,41 @@ import { SITE_CONFIG } from "@/onchain-suite-website/config/site";
 // proper canonical" on every entry, plus a 404 for a /products page that no longer
 // exists.
 const baseUrl = SITE_CONFIG.url;
+
+/**
+ * When each page's content last changed (YYYY-MM-DD). Edit by hand when you
+ * change what a page says; a deploy alone is not a change. Sending the deploy
+ * time for every page teaches Google to ignore lastModified. Seeded on
+ * 2026-11-25 from git history of each page's component. Compare pages use
+ * `updated` in compare-meta.ts instead; blog entries use Payload's updatedAt.
+ */
+const LAST_MODIFIED: Record<string, string> = {
+  "/": "2026-11-22",
+  "/pricing": "2026-11-15",
+  "/platform/audience": "2026-11-05",
+  "/platform/segments": "2026-11-05",
+  "/platform/loops": "2026-11-05",
+  "/platform/data": "2026-11-22",
+  "/platform/intelligence-mcp": "2026-11-05",
+  "/compare": "2026-11-04",
+  "/for/blockchain-companies": "2026-11-05",
+  "/for/mainstream-companies": "2026-11-04",
+  "/tools": "2026-11-22",
+  "/tools/cost-per-acquisition": "2026-11-04",
+  "/security": "2026-08-24",
+  "/team": "2026-11-05",
+  "/hypothesis": "2026-11-04",
+  "/refer": "2026-11-22",
+  "/legal": "2026-11-04",
+  "/privacy": "2026-11-04",
+  "/terms": "2026-11-04",
+  "/cookies": "2026-11-04",
+  "/dpa": "2026-11-05",
+  "/data-transfers": "2026-11-04",
+  "/subprocessors": "2026-11-04",
+};
+/** Free-tool calculators under /tools/[slug] share one date until they diverge. */
+const TOOLS_LAST_MODIFIED = "2026-11-22";
 
 type Freq = NonNullable<MetadataRoute.Sitemap[number]["changeFrequency"]>;
 
@@ -74,22 +109,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const staticEntries: MetadataRoute.Sitemap = PAGES.map((p) => ({
     url: p.path === "/" ? baseUrl : `${baseUrl}${p.path}`,
-    lastModified: now,
+    // /blog has no entry: it changes with each post, so it keeps "now".
+    lastModified: LAST_MODIFIED[p.path] ? new Date(LAST_MODIFIED[p.path]) : now,
     changeFrequency: p.changeFrequency,
     priority: p.priority,
   }));
 
-  // Compare + tools detail pages come from static data (COMPARE_SLUGS / TOOL_SLUGS),
+  // Compare + tools detail pages come from static data (COMPARE_META / TOOL_SLUGS),
   // so they are always available — no DB, no try/catch needed.
-  const compareEntries: MetadataRoute.Sitemap = COMPARE_SLUGS.map((slug) => ({
-    url: `${baseUrl}/compare/${slug}`,
-    lastModified: now,
+  const compareEntries: MetadataRoute.Sitemap = COMPARE_META.map((c) => ({
+    url: `${baseUrl}/compare/${c.slug}`,
+    lastModified: new Date(c.updated),
     changeFrequency: "monthly",
     priority: 0.6,
   }));
   const toolEntries: MetadataRoute.Sitemap = TOOL_SLUGS.map((slug) => ({
     url: `${baseUrl}/tools/${slug}`,
-    lastModified: now,
+    lastModified: new Date(TOOLS_LAST_MODIFIED),
     changeFrequency: "monthly",
     priority: 0.5,
   }));

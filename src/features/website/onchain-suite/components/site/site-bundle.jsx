@@ -28,6 +28,8 @@ import {
   useState as useState11,
 } from "react";
 
+import { track } from "@vercel/analytics";
+import { COMPARE_BY_SLUG } from "./compare-meta";
 import NextLink from "next/link";
 import { usePathname as __useNextPathname } from "next/navigation";
 // Functional UI icons use Heroicons (house convention, CLAUDE.md §5). The
@@ -1752,10 +1754,11 @@ var slug = (s) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "");
-var tagged = (href, label) => {
-  const [path, hash] = href.split("#");
-  return `${path}${path.includes("?") ? "&" : "?"}source=footer_${slug(label)}${hash ? "#" + hash : ""}`;
-};
+// Footer links carry the plain address. The old ?source=footer_<label> query
+// got indexed by Google as separate URLs (e.g. /compare/klaviyo?source=...),
+// so the click is now recorded as a Vercel Analytics event instead.
+var footerClick = (label) => () =>
+  track("footer_click", { label: slug(label) });
 function Logo({ dark = false }) {
   return (
     <Link className="logo" href="/" aria-label="OnchainSuite home">
@@ -1799,7 +1802,8 @@ function SiteChrome({ children }) {
                   return l.href.startsWith("http") ? (
                     <a
                       key={l.label}
-                      href={tagged(l.href, l.label)}
+                      href={l.href}
+                      onClick={footerClick(l.label)}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -1809,7 +1813,11 @@ function SiteChrome({ children }) {
                       </span>
                     </a>
                   ) : (
-                    <Link key={l.label} href={tagged(l.href, l.label)}>
+                    <Link
+                      key={l.label}
+                      href={l.href}
+                      onClick={footerClick(l.label)}
+                    >
                       {inner}
                     </Link>
                   );
@@ -1823,7 +1831,11 @@ function SiteChrome({ children }) {
                 &copy; {new Date().getFullYear()} {COMPANY.legalName}
               </span>
               {LEGAL.map((l) => (
-                <Link key={l.label} href={tagged(l.href, l.label)}>
+                <Link
+                  key={l.label}
+                  href={l.href}
+                  onClick={footerClick(l.label)}
+                >
                   {l.label}
                 </Link>
               ))}
@@ -12198,19 +12210,46 @@ function Val({ v }) {
   return <span className="v">{v}</span>;
 }
 var ICON = { bolt: "#i-layers", send: "#a-phone", wand: "#a-bolt" };
+// "2026-11-15" -> "November 15, 2026". Parsed as UTC so the day never shifts
+// with the reader's time zone.
+var formatUpdated = (iso) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 function ComparePage({ params }) {
   const { slug: slug2 } = params;
   const c = competitorBySlug(slug2);
   if (!c) notFound();
   const others = COMPETITORS.filter((x) => x.slug !== c.slug).slice(0, 3);
+  const updated = COMPARE_BY_SLUG[c.slug]?.updated;
+  const pageUrl = `${SITE_URL}/compare/${c.slug}`;
+  // This page's own structured data: a WebPage whose dateModified matches the
+  // visible "Updated" line, and the FAQPage for the questions shown below.
+  // (The root layout no longer emits a site-wide FAQPage.)
   const faqLd = {
     "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: c.faqs.map((f3) => ({
-      "@type": "Question",
-      name: f3.q,
-      acceptedAnswer: { "@type": "Answer", text: f3.a },
-    })),
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": pageUrl,
+        url: pageUrl,
+        name: `${c.name} vs OnchainSuite`,
+        isPartOf: { "@id": `${SITE_URL}/#website` },
+        ...(updated ? { dateModified: updated } : {}),
+      },
+      {
+        "@type": "FAQPage",
+        "@id": `${pageUrl}#faq`,
+        mainEntity: c.faqs.map((f3) => ({
+          "@type": "Question",
+          name: f3.q,
+          acceptedAnswer: { "@type": "Answer", text: f3.a },
+        })),
+      },
+    ],
   };
   return (
     <>
@@ -12223,8 +12262,13 @@ function ComparePage({ params }) {
             <VsLockup slug={c.slug} name={c.name} size="lg" />
           </div>
           <h1 className="h1 load" style={{ animationDelay: ".1s" }}>
-            OnchainSuite and {c.name}
+            {c.name} vs OnchainSuite
           </h1>
+          {updated && (
+            <p className="vs-updated load" style={{ animationDelay: ".14s" }}>
+              Updated <time dateTime={updated}>{formatUpdated(updated)}</time>
+            </p>
+          )}
           <p className="sub load" style={{ animationDelay: ".18s" }}>
             {c.intro}
           </p>
@@ -12241,9 +12285,9 @@ function ComparePage({ params }) {
         <section className="vs-why">
           <div>
             <h2 className="h2 rv">
-              Why blockchain companies choose OnchainSuite over {c.name}.{" "}
-              <span>{c.whyChoose}</span>
+              Why blockchain companies choose OnchainSuite over {c.name}.
             </h2>
+            <p className="vs-why-lede rv">{c.whyChoose}</p>
           </div>
           <div className="vs-hl">
             {OCS_HIGHLIGHTS.map((h) => (

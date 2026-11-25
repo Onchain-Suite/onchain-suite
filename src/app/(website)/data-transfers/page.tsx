@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 
 import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standalone";
 import { DataTransfersPage } from "@/onchain-suite-website/components/site/site-bundle";
+import { pageMeta } from "@/onchain-suite-website/config/page-meta";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta("/data-transfers", {
   title: "International Data Transfers",
   description:
     "Safeguards for data leaving the UK, including the UK Extension to the EU-US Data Privacy Framework and the UK IDTA.",
-};
+});
 
 export default function Page() {
   return (

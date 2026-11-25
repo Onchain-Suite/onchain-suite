@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
 
-import { getSiteUrl } from "@/onchain-suite-website/blog/blog.seo";
 import {
   listCategories,
   listPosts,
   POSTS_PER_PAGE,
 } from "@/onchain-suite-website/blog/blog.service";
 import { BlogIndexView } from "@/onchain-suite-website/blog/components/blog-index-view";
+import { pageMeta } from "@/onchain-suite-website/config/page-meta";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta("/blog", {
   title: "Blog",
   description:
     "Onchain retention, wallet-first identity and multi-channel messaging - notes from the team building OnchainSuite.",
-  alternates: { canonical: `${getSiteUrl()}/blog` },
-};
+});
 
 export default async function BlogIndexPage({
   searchParams,

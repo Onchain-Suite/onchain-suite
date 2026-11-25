@@ -50,6 +50,7 @@
     "@hugeicons/core-free-icons": "^4.2.3",
     "@hugeicons/react": "^1.1.9",
     "@kmenu/react": "^2.0.3",
+    "@next/third-parties": "16.4.4",
     "@payloadcms/db-postgres": "3.86.0",
     "@payloadcms/live-preview-react": "3.86.0",
     "@payloadcms/next": "3.86.0",

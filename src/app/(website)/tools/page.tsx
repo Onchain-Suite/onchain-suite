@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 
 import { NsStandalone } from "@/onchain-suite-website/components/site/ns-standalone";
 import { ToolsHub } from "@/onchain-suite-website/components/site/site-bundle";
+import { pageMeta } from "@/onchain-suite-website/config/page-meta";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta("/tools", {
   title: "Free tools",
   description:
     "Free calculators for churn, wallet reachability, lifetime value and acquisition cost. No signup, no email gate - every tool runs in your browser.",
-};
+});
 
 export default function Page() {
   return (
